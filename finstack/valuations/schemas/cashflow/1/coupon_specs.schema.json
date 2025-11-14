@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.dev/schemas/cashflow/1/coupon_specs.schema.json",
+  "title": "Coupon Specifications",
+  "description": "Fixed and floating coupon specifications for cashflow generation. Rust types: CouponType, FixedCouponSpec, FloatingRateSpec, FloatingCouponSpec from finstack_valuations::cashflow::builder::specs::coupon",
+  "definitions": {
+    "CouponType": {
+      "description": "Coupon cashflow type for fixed/floating coupons",
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "Cash",
+          "description": "100% paid in cash"
+        },
+        {
+          "type": "string",
+          "const": "PIK",
+          "description": "100% capitalized into principal (payment-in-kind)"
+        },
+        {
+          "type": "object",
+          "required": ["Split"],
+          "additionalProperties": false,
+          "properties": {
+            "Split": {
+              "type": "object",
+              "required": ["cash_pct", "pik_pct"],
+              "additionalProperties": false,
+              "properties": {
+                "cash_pct": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "description": "Cash percentage (must sum with pik_pct to ~1.0)"
+                },
+                "pik_pct": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "description": "PIK percentage (must sum with cash_pct to ~1.0)"
+                }
+              }
+            }
+          },
+          "description": "Split between cash and PIK with percentages"
+        }
+      ]
+    },
+    "Frequency": {
+      "description": "Payment or reset frequency",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["Months"],
+          "additionalProperties": false,
+          "properties": {
+            "Months": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Period in months (e.g., 3 for quarterly, 6 for semi-annual, 12 for annual)"
+            }
+          }
+        }
+      ]
+    },
+    "DayCount": {
+      "type": "string",
+      "enum": ["Act360", "Act365F", "ActAct", "Thirty360"],
+      "description": "Day count convention"
+    },
+    "BusinessDayConvention": {
+      "type": "string",
+      "enum": ["unadjusted", "following", "modified_following", "preceding", "modified_preceding"],
+      "description": "Business day adjustment convention"
+    },
+    "StubKind": {
+      "type": "string",
+      "enum": ["None", "ShortFront", "ShortBack", "LongFront", "LongBack"],
+      "description": "Stub period handling"
+    },
+    "FixedCouponSpec": {
+      "type": "object",
+      "required": ["coupon_type", "rate", "freq", "dc", "bdc", "stub"],
+      "additionalProperties": false,
+      "description": "Fixed coupon specification",
+      "properties": {
+        "coupon_type": {
+          "$ref": "#/definitions/CouponType",
+          "description": "Coupon type (Cash/PIK/Split)"
+        },
+        "rate": {
+          "type": "number",
+          "description": "Annual coupon rate (e.g., 0.0425 for 4.25%)"
+        },
+        "freq": {
+          "$ref": "#/definitions/Frequency",
+          "description": "Payment frequency"
+        },
+        "dc": {
+          "$ref": "#/definitions/DayCount",
+          "description": "Day count convention"
+        },
+        "bdc": {
+          "$ref": "#/definitions/BusinessDayConvention",
+          "description": "Business day convention"
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional calendar identifier"
+        },
+        "stub": {
+          "$ref": "#/definitions/StubKind",
+          "description": "Stub period handling"
+        }
+      }
+    },
+    "FloatingRateSpec": {
+      "type": "object",
+      "required": ["index_id", "spread_bp", "reset_freq", "dc", "bdc"],
+      "additionalProperties": false,
+      "description": "Canonical floating rate specification for all instruments",
+      "properties": {
+        "index_id": {
+          "type": "string",
+          "description": "Forward curve identifier (e.g., 'USD-SOFR-3M', 'EUR-EURIBOR-6M')"
+        },
+        "spread_bp": {
+          "type": "number",
+          "description": "Spread/margin over index in basis points"
+        },
+        "gearing": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Gearing/leverage multiplier applied to the all-in rate (default: 1.0)"
+        },
+        "floor_bp": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Floor on index rate in basis points (applied before adding spread)"
+        },
+        "cap_bp": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Cap on all-in rate in basis points (applied after spread and gearing)"
+        },
+        "reset_freq": {
+          "$ref": "#/definitions/Frequency",
+          "description": "Reset frequency for rate fixings"
+        },
+        "reset_lag_days": {
+          "type": "integer",
+          "default": 2,
+          "description": "Reset lag in business days (e.g., 2 for T-2 SOFR convention)"
+        },
+        "dc": {
+          "$ref": "#/definitions/DayCount",
+          "description": "Day count convention for accrual calculations"
+        },
+        "bdc": {
+          "$ref": "#/definitions/BusinessDayConvention",
+          "description": "Business day convention for date adjustments"
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional calendar for business day adjustments"
+        }
+      }
+    },
+    "FloatingCouponSpec": {
+      "type": "object",
+      "required": ["rate_spec", "coupon_type", "freq", "stub"],
+      "additionalProperties": false,
+      "description": "Floating coupon specification (composes FloatingRateSpec)",
+      "properties": {
+        "rate_spec": {
+          "$ref": "#/definitions/FloatingRateSpec",
+          "description": "Floating rate specification (contains index, spread, floor, cap, etc)"
+        },
+        "coupon_type": {
+          "$ref": "#/definitions/CouponType",
+          "description": "Coupon type (Cash/PIK/Split)"
+        },
+        "freq": {
+          "$ref": "#/definitions/Frequency",
+          "description": "Payment frequency (may differ from reset frequency in rate_spec)"
+        },
+        "stub": {
+          "$ref": "#/definitions/StubKind",
+          "description": "Stub rule for payment schedule generation"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "coupon_type"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "coupon_type": {
+          "$ref": "#/definitions/CouponType"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "fixed_coupon_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "fixed_coupon_spec": {
+          "$ref": "#/definitions/FixedCouponSpec"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "floating_rate_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "floating_rate_spec": {
+          "$ref": "#/definitions/FloatingRateSpec"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "floating_coupon_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "floating_coupon_spec": {
+          "$ref": "#/definitions/FloatingCouponSpec"
+        }
+      }
+    }
+  ]
+}
+

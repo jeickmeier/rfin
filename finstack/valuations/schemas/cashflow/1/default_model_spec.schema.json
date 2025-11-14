@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.dev/schemas/cashflow/1/default_model_spec.schema.json",
+  "title": "Default Model Specification",
+  "description": "Default model specifications for credit instruments. Rust types: DefaultCurve, DefaultModelSpec, DefaultEvent from finstack_valuations::cashflow::builder::specs::default",
+  "definitions": {
+    "Date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date (YYYY-MM-DD)"
+    },
+    "DefaultCurve": {
+      "description": "Default curve shape",
+      "type": "object",
+      "required": ["curve"],
+      "oneOf": [
+        {
+          "properties": {
+            "curve": {
+              "type": "string",
+              "const": "constant"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Constant CDR (no seasoning effect)"
+        },
+        {
+          "properties": {
+            "curve": {
+              "type": "string",
+              "const": "sda"
+            },
+            "speed_multiplier": {
+              "type": "number",
+              "description": "Speed multiplier (1.0 = 100% SDA)"
+            }
+          },
+          "required": ["curve", "speed_multiplier"],
+          "additionalProperties": false,
+          "description": "SDA standard curve: ramps to peak then declines"
+        }
+      ]
+    },
+    "DefaultModelSpec": {
+      "type": "object",
+      "required": ["cdr"],
+      "additionalProperties": false,
+      "description": "Default model specification",
+      "properties": {
+        "cdr": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "CDR: Constant Default Rate (annual, e.g., 0.02 for 2%)"
+        },
+        "curve": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DefaultCurve"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional curve shape (default: constant)"
+        }
+      }
+    },
+    "DefaultEvent": {
+      "type": "object",
+      "required": ["default_date", "defaulted_amount", "recovery_rate", "recovery_lag"],
+      "additionalProperties": false,
+      "description": "Default event specification",
+      "properties": {
+        "default_date": {
+          "$ref": "#/definitions/Date",
+          "description": "Date when default occurs"
+        },
+        "defaulted_amount": {
+          "type": "number",
+          "description": "Amount that defaults"
+        },
+        "recovery_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Recovery rate (0.0 to 1.0)"
+        },
+        "recovery_lag": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Recovery lag in months"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "default_model_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "default_model_spec": {
+          "$ref": "#/definitions/DefaultModelSpec"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "default_event"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "default_event": {
+          "$ref": "#/definitions/DefaultEvent"
+        }
+      }
+    }
+  ]
+}
+

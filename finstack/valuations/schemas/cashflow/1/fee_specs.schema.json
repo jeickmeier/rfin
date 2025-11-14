@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.dev/schemas/cashflow/1/fee_specs.schema.json",
+  "title": "Fee Specifications",
+  "description": "Fee specifications for fixed and periodic fees. Rust types: FeeSpec, FeeBase, FeeTier from finstack_valuations::cashflow::builder::specs::fees",
+  "definitions": {
+    "Date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date (YYYY-MM-DD)"
+    },
+    "Money": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "string",
+          "description": "Decimal amount as string"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code"
+        }
+      }
+    },
+    "Frequency": {
+      "description": "Payment or reset frequency",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["Months"],
+          "additionalProperties": false,
+          "properties": {
+            "Months": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Period in months (e.g., 3 for quarterly, 6 for semi-annual, 12 for annual)"
+            }
+          }
+        }
+      ]
+    },
+    "DayCount": {
+      "type": "string",
+      "enum": ["Act360", "Act365F", "ActAct", "Thirty360"],
+      "description": "Day count convention"
+    },
+    "BusinessDayConvention": {
+      "type": "string",
+      "enum": ["unadjusted", "following", "modified_following", "preceding", "modified_preceding"],
+      "description": "Business day adjustment convention"
+    },
+    "StubKind": {
+      "type": "string",
+      "enum": ["None", "ShortFront", "ShortBack", "LongFront", "LongBack"],
+      "description": "Stub period handling"
+    },
+    "FeeBase": {
+      "description": "Fee base for periodic bps fees",
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "Drawn",
+          "description": "Base on drawn outstanding (post-amortization, post-PIK)"
+        },
+        {
+          "type": "object",
+          "required": ["Undrawn"],
+          "additionalProperties": false,
+          "properties": {
+            "Undrawn": {
+              "type": "object",
+              "required": ["facility_limit"],
+              "additionalProperties": false,
+              "properties": {
+                "facility_limit": {
+                  "$ref": "#/definitions/Money",
+                  "description": "Facility limit for undrawn calculation: max(limit - outstanding, 0)"
+                }
+              }
+            }
+          },
+          "description": "Base on undrawn = max(limit - outstanding, 0)"
+        }
+      ]
+    },
+    "FeeSpec": {
+      "description": "Fee specification",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["Fixed"],
+          "additionalProperties": false,
+          "properties": {
+            "Fixed": {
+              "type": "object",
+              "required": ["date", "amount"],
+              "additionalProperties": false,
+              "properties": {
+                "date": {
+                  "$ref": "#/definitions/Date",
+                  "description": "Fee payment date"
+                },
+                "amount": {
+                  "$ref": "#/definitions/Money",
+                  "description": "Fee amount"
+                }
+              }
+            }
+          },
+          "description": "Fixed fee on a specific date"
+        },
+        {
+          "type": "object",
+          "required": ["PeriodicBps"],
+          "additionalProperties": false,
+          "properties": {
+            "PeriodicBps": {
+              "type": "object",
+              "required": ["base", "bps", "freq", "dc", "bdc", "stub"],
+              "additionalProperties": false,
+              "properties": {
+                "base": {
+                  "$ref": "#/definitions/FeeBase",
+                  "description": "Fee base (Drawn or Undrawn)"
+                },
+                "bps": {
+                  "type": "number",
+                  "description": "Fee rate in basis points"
+                },
+                "freq": {
+                  "$ref": "#/definitions/Frequency",
+                  "description": "Payment frequency"
+                },
+                "dc": {
+                  "$ref": "#/definitions/DayCount",
+                  "description": "Day count convention"
+                },
+                "bdc": {
+                  "$ref": "#/definitions/BusinessDayConvention",
+                  "description": "Business day convention"
+                },
+                "calendar_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional calendar identifier"
+                },
+                "stub": {
+                  "$ref": "#/definitions/StubKind",
+                  "description": "Stub period handling"
+                }
+              }
+            }
+          },
+          "description": "Periodic fee as basis points of a base (drawn/undrawn)"
+        }
+      ]
+    },
+    "FeeTier": {
+      "type": "object",
+      "required": ["threshold", "bps"],
+      "additionalProperties": false,
+      "description": "Fee tier for utilization-based fee structures",
+      "properties": {
+        "threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold."
+        },
+        "bps": {
+          "type": "number",
+          "description": "Fee rate in basis points for this tier"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "fee_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "fee_spec": {
+          "$ref": "#/definitions/FeeSpec"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "fee_tier"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "fee_tier": {
+          "$ref": "#/definitions/FeeTier"
+        }
+      }
+    }
+  ]
+}
+

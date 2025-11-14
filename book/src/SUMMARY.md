@@ -48,6 +48,7 @@
 # Valuations
 
 - [Overview](./valuations/overview.md)
+- [Cashflow Schemas](./valuations/cashflow-schemas.md)
 - [Fixed Income](./valuations/fixed-income.md)
   - [Bonds](./valuations/bonds.md)
   - [Interest Rate Swaps](./valuations/irs.md)

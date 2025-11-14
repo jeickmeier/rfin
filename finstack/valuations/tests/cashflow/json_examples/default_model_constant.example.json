@@ -1,0 +1,8 @@
+{
+  "schema": "finstack.cashflow/1",
+  "default_model_spec": {
+    "cdr": 0.02,
+    "curve": null
+  }
+}
+

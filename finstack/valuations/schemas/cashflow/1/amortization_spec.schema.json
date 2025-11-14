@@ -1,0 +1,192 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.dev/schemas/cashflow/1/amortization_spec.schema.json",
+  "title": "Amortization Specification",
+  "description": "Amortization and notional specifications for cashflow principal schedules. Rust types: AmortizationSpec, Notional from finstack_valuations::cashflow::builder::specs::amortization",
+  "definitions": {
+    "Money": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "string",
+          "description": "Decimal amount as string"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code"
+        }
+      }
+    },
+    "Date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date (YYYY-MM-DD)"
+    },
+    "AmortizationSpec": {
+      "description": "Amortization specification for principal over time",
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "None",
+          "description": "No amortization – principal remains constant until final redemption"
+        },
+        {
+          "type": "object",
+          "required": ["LinearTo"],
+          "additionalProperties": false,
+          "properties": {
+            "LinearTo": {
+              "type": "object",
+              "required": ["final_notional"],
+              "additionalProperties": false,
+              "properties": {
+                "final_notional": {
+                  "$ref": "#/definitions/Money",
+                  "description": "Target remaining principal at the end of the amortization schedule"
+                }
+              }
+            }
+          },
+          "description": "Linear principal paydown towards a target final notional amount over all periods"
+        },
+        {
+          "type": "object",
+          "required": ["StepRemaining"],
+          "additionalProperties": false,
+          "properties": {
+            "StepRemaining": {
+              "type": "object",
+              "required": ["schedule"],
+              "additionalProperties": false,
+              "properties": {
+                "schedule": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "$ref": "#/definitions/Date"
+                      },
+                      {
+                        "$ref": "#/definitions/Money"
+                      }
+                    ]
+                  },
+                  "description": "Ordered list of (date, remaining_principal_after_date)"
+                }
+              }
+            }
+          },
+          "description": "Explicit schedule of remaining principal amounts after given dates"
+        },
+        {
+          "type": "object",
+          "required": ["PercentPerPeriod"],
+          "additionalProperties": false,
+          "properties": {
+            "PercentPerPeriod": {
+              "type": "object",
+              "required": ["pct"],
+              "additionalProperties": false,
+              "properties": {
+                "pct": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "description": "Fraction of original notional paid per period (e.g., 0.05 = 5%)"
+                }
+              }
+            }
+          },
+          "description": "Fixed percentage of original notional paid each period (capped by remaining outstanding)"
+        },
+        {
+          "type": "object",
+          "required": ["CustomPrincipal"],
+          "additionalProperties": false,
+          "properties": {
+            "CustomPrincipal": {
+              "type": "object",
+              "required": ["items"],
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "$ref": "#/definitions/Date"
+                      },
+                      {
+                        "$ref": "#/definitions/Money"
+                      }
+                    ]
+                  },
+                  "description": "List of (date, principal_amount) exchanges; amounts are absolute cashflows"
+                }
+              }
+            }
+          },
+          "description": "Custom principal exchanges on specific dates (absolute cash amounts). Positive amounts reduce outstanding."
+        }
+      ]
+    },
+    "Notional": {
+      "type": "object",
+      "required": ["initial", "amort"],
+      "additionalProperties": false,
+      "description": "Notional amount with an optional amortization rule",
+      "properties": {
+        "initial": {
+          "$ref": "#/definitions/Money",
+          "description": "Initial principal amount outstanding at leg inception"
+        },
+        "amort": {
+          "$ref": "#/definitions/AmortizationSpec",
+          "description": "Amortization rule applied after each period"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "amortization_spec"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "amortization_spec": {
+          "$ref": "#/definitions/AmortizationSpec"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "notional"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "finstack.cashflow/1",
+          "description": "Schema version identifier"
+        },
+        "notional": {
+          "$ref": "#/definitions/Notional"
+        }
+      }
+    }
+  ]
+}
+

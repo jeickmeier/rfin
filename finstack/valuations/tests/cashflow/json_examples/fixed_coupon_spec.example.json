@@ -1,0 +1,15 @@
+{
+  "schema": "finstack.cashflow/1",
+  "fixed_coupon_spec": {
+    "coupon_type": "Cash",
+    "rate": 0.0425,
+    "freq": {
+      "Months": 6
+    },
+    "dc": "Thirty360",
+    "bdc": "modified_following",
+    "calendar_id": null,
+    "stub": "None"
+  }
+}
+

@@ -1,0 +1,18 @@
+{
+  "schema": "finstack.cashflow/1",
+  "floating_rate_spec": {
+    "index_id": "USD-SOFR-3M",
+    "spread_bp": 200.0,
+    "gearing": 1.0,
+    "floor_bp": 0.0,
+    "cap_bp": null,
+    "reset_freq": {
+      "Months": 3
+    },
+    "reset_lag_days": 2,
+    "dc": "Act360",
+    "bdc": "modified_following",
+    "calendar_id": "USD"
+  }
+}
+
