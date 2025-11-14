@@ -2,6 +2,14 @@
 //!
 //! Provides implementations of binomial, trinomial, and multi-factor tree
 //! methods for pricing options with early exercise and complex payoffs.
+//!
+//! ## Serialization Policy
+//!
+//! Tree models and configuration types in this module are runtime-only structures
+//! and do **not** implement `Serialize`/`Deserialize`. They are constructed
+//! on-demand during pricing and not part of any persistent JSON schema.
+//!
+//! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for details and future extension pattern.
 
 pub mod binomial_tree;
 pub mod multi_factor_tree;

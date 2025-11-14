@@ -12,6 +12,21 @@
 //! NOTE: Performance enhancements (parallel Greeks, caching of node values,
 //!       and optional SIMD) are intentionally deferred to keep the initial
 //!       implementation simple and deterministic.
+//!
+//! ## Serialization Policy
+//!
+//! Tree models and their parameter types are **transient runtime structures** and
+//! do not currently implement `Serialize`/`Deserialize`. This is by design:
+//! - Tree configurations are created on-demand during pricing
+//! - Parameters are derived from market data or hardcoded defaults
+//! - No current use case requires persisting tree configurations
+//!
+//! If a future requirement emerges (e.g., scenario storage, calibration persistence),
+//! add serde support **only to configuration structs** (e.g., `TreeParameters`,
+//! `EvolutionParams`) using `#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]`.
+//! Keep runtime engine types (`BinomialTree`, etc.) non-serializable.
+//!
+//! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for audit results and extension pattern.
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
