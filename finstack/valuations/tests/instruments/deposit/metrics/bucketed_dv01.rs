@@ -61,7 +61,7 @@ fn test_bucketed_dv01_different_maturities() {
     let bdv01_3m = compute_metric(&dep_3m, &ctx, base, MetricId::BucketedDv01);
     let bdv01_1y = compute_metric(&dep_1y, &ctx, base, MetricId::BucketedDv01);
 
-    // Validate - both should be finite and positive
-    assert!(bdv01_3m > 0.0);
-    assert!(bdv01_1y > 0.0);
+    // Validate - both should be finite and negative (standard convention for deposits)
+    assert!(bdv01_3m < 0.0);
+    assert!(bdv01_1y < 0.0);
 }

@@ -260,11 +260,13 @@ pub fn compute_parallel_dv01<RevalFn>(
 where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let disc = context
         .curves
         .get_discount_ref(discount_curve_id.as_str())?;
 
+    // Recalculate base PV to ensure consistency with bumped calculation
+    let base_pv = revalue_with_disc(disc)?;
+    
     // Parallel bump the entire curve
     let bumped = disc.try_with_parallel_bump(bump_bp)?;
     let pv_bumped = revalue_with_disc(&bumped)?;
@@ -289,8 +291,10 @@ where
     use finstack_core::market_data::context::BumpSpec;
     use hashbrown::HashMap;
 
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
+    
+    // Recalculate base PV to ensure consistency with bumped calculation
+    let base_pv = revalue_with_context(base_ctx)?;
 
     // Use the MarketContext.bump() method which correctly replaces curves under original IDs
     let mut bumps = HashMap::new();
@@ -322,10 +326,12 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let disc = context
         .curves
         .get_discount_ref(discount_curve_id.as_str())?;
+    
+    // Recalculate base PV to ensure consistency with bumped calculations
+    let base_pv = revalue_with_disc(disc)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -361,9 +367,11 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
     let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
+    
+    // Recalculate base PV to ensure consistency with bumped calculations
+    let base_pv = revalue_with_context(base_ctx)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -414,10 +422,12 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let disc = context
         .curves
         .get_discount_ref(discount_curve_id.as_str())?;
+    
+    // Recalculate base PV to ensure consistency with bumped calculations
+    let base_pv = revalue_with_disc(disc)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -450,9 +460,11 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
     let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
+    
+    // Recalculate base PV to ensure consistency with bumped calculations
+    let base_pv = revalue_with_context(base_ctx)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -491,9 +503,11 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
     let fwd = base_ctx.get_forward_ref(forward_curve_id.as_str())?;
+    
+    // Recalculate base PV to ensure consistency with bumped calculations
+    let base_pv = revalue_with_context(base_ctx)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     let bump_rate = bump_bp / 10_000.0; // Convert bp to fraction
@@ -630,6 +644,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let discount_curve_id = instrument.discount_curve_id().clone();
+        let as_of = context.as_of;
 
         // Standard bucket times (years) - shared across all instruments
         let buckets = standard_ir_dv01_buckets();
@@ -640,14 +655,14 @@ where
         let reval = move |
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
-            // Use precomputed flows (forward projections from original curves)
-            let base = bumped_disc.base_date();
+            // Use as_of for correct theta calculation, not curve base_date
+            // This matches how instruments calculate their NPV
             let dc = bumped_disc.day_count();
 
             // Discount using bumped curve
             crate::instruments::common::discountable::npv_static(
                 bumped_disc,
-                base,
+                as_of,
                 dc,
                 &flows,
             )
@@ -703,7 +718,6 @@ where
         let instrument: &I = context.instrument_as()?;
         let discount_curve_id = instrument.discount_curve_id().clone();
         let as_of = context.as_of;
-        let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
         let inst_arc = Arc::clone(&context.instrument);
 
@@ -756,6 +770,9 @@ where
 
         match self.mode {
             ParallelDv01Mode::Combined => {
+                // Recalculate base PV to ensure consistency
+                let base_pv = inst_arc.value(base_ctx, as_of)?;
+                
                 // Bump all existing curves together
                 let mut bumps = HashMap::new();
                 for curve_id in &existing_curves {
@@ -763,13 +780,17 @@ where
                 }
 
                 let temp_ctx = base_ctx.bump(bumps)?;
-                let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
+                let inst_for_bump = Arc::clone(&inst_arc);
+                let pv_bumped = inst_for_bump.value(&temp_ctx, as_of)?;
 
                 let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
                 Ok(dv01)
             }
             ParallelDv01Mode::PerCurve => {
+                // Recalculate base PV to ensure consistency
+                let base_pv = inst_arc.value(base_ctx, as_of)?;
+                
                 // Bump each curve individually and store series
                 let mut series = Vec::new();
                 let mut total_dv01 = 0.0;
