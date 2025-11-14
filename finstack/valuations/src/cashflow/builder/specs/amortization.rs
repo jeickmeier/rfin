@@ -51,6 +51,7 @@ impl Default for AmortizationSpec {
 /// Combines initial principal with amortization behavior for complete
 /// notional lifecycle management.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Notional {
     /// Initial principal amount outstanding at leg inception.
     pub initial: Money,
