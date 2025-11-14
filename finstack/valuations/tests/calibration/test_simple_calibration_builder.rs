@@ -2,12 +2,12 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationSpec, CalibrationStep, RatesQuote,
 };
-use finstack_core::market_data::term_structures::Seniority;
 
 #[test]
 fn test_calibration_spec_new() {

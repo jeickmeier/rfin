@@ -5,7 +5,10 @@
 
 use super::*;
 use finstack_core::Result;
-use serde::{de::{Deserializer, Error as DeError}, Deserialize, Serialize};
+use serde::{
+    de::{Deserializer, Error as DeError},
+    Deserialize, Serialize,
+};
 use std::io::Read;
 
 /// Versioned envelope for JSON instrument definitions.
@@ -184,17 +187,17 @@ impl<'de> Deserialize<'de> for InstrumentJson {
     {
         // First deserialize to an owned serde_json::Value
         let value = serde_json::Value::deserialize(deserializer)?;
-        
+
         // Convert back to string and re-parse to break lifetime connection
         let json_str = serde_json::to_string(&value).map_err(D::Error::custom)?;
-        
+
         #[derive(Deserialize)]
         struct Tagged {
             #[serde(rename = "type")]
             ty: String,
             spec: serde_json::Value,
         }
-        
+
         let tagged: Tagged = serde_json::from_str(&json_str).map_err(D::Error::custom)?;
         let ty = tagged.ty;
         let spec_str = serde_json::to_string(&tagged.spec).map_err(D::Error::custom)?;
@@ -203,75 +206,176 @@ impl<'de> Deserialize<'de> for InstrumentJson {
         // Using from_str on a fresh string to avoid lifetime issues
         match ty.as_str() {
             // Fixed Income
-            "bond" => serde_json::from_str(&spec_str).map(Self::Bond).map_err(D::Error::custom),
-            "convertible_bond" => serde_json::from_str(&spec_str).map(Self::ConvertibleBond).map_err(D::Error::custom),
-            "inflation_linked_bond" => serde_json::from_str(&spec_str).map(Self::InflationLinkedBond).map_err(D::Error::custom),
-            "term_loan" => serde_json::from_str(&spec_str).map(Self::TermLoan).map_err(D::Error::custom),
+            "bond" => serde_json::from_str(&spec_str)
+                .map(Self::Bond)
+                .map_err(D::Error::custom),
+            "convertible_bond" => serde_json::from_str(&spec_str)
+                .map(Self::ConvertibleBond)
+                .map_err(D::Error::custom),
+            "inflation_linked_bond" => serde_json::from_str(&spec_str)
+                .map(Self::InflationLinkedBond)
+                .map_err(D::Error::custom),
+            "term_loan" => serde_json::from_str(&spec_str)
+                .map(Self::TermLoan)
+                .map_err(D::Error::custom),
 
             // Swaps
-            "interest_rate_swap" => serde_json::from_str(&spec_str).map(Self::InterestRateSwap).map_err(D::Error::custom),
-            "basis_swap" => serde_json::from_str(&spec_str).map(Self::BasisSwap).map_err(D::Error::custom),
-            "inflation_swap" => serde_json::from_str(&spec_str).map(Self::InflationSwap).map_err(D::Error::custom),
-            "fx_swap" => serde_json::from_str(&spec_str).map(Self::FxSwap).map_err(D::Error::custom),
-            "variance_swap" => serde_json::from_str(&spec_str).map(Self::VarianceSwap).map_err(D::Error::custom),
+            "interest_rate_swap" => serde_json::from_str(&spec_str)
+                .map(Self::InterestRateSwap)
+                .map_err(D::Error::custom),
+            "basis_swap" => serde_json::from_str(&spec_str)
+                .map(Self::BasisSwap)
+                .map_err(D::Error::custom),
+            "inflation_swap" => serde_json::from_str(&spec_str)
+                .map(Self::InflationSwap)
+                .map_err(D::Error::custom),
+            "fx_swap" => serde_json::from_str(&spec_str)
+                .map(Self::FxSwap)
+                .map_err(D::Error::custom),
+            "variance_swap" => serde_json::from_str(&spec_str)
+                .map(Self::VarianceSwap)
+                .map_err(D::Error::custom),
 
             // Rates Derivatives
-            "forward_rate_agreement" => serde_json::from_str(&spec_str).map(Self::ForwardRateAgreement).map_err(D::Error::custom),
-            "swaption" => serde_json::from_str(&spec_str).map(Self::Swaption).map_err(D::Error::custom),
-            "interest_rate_future" => serde_json::from_str(&spec_str).map(Self::InterestRateFuture).map_err(D::Error::custom),
-            "cms_option" => serde_json::from_str(&spec_str).map(Self::CmsOption).map_err(D::Error::custom),
+            "forward_rate_agreement" => serde_json::from_str(&spec_str)
+                .map(Self::ForwardRateAgreement)
+                .map_err(D::Error::custom),
+            "swaption" => serde_json::from_str(&spec_str)
+                .map(Self::Swaption)
+                .map_err(D::Error::custom),
+            "interest_rate_future" => serde_json::from_str(&spec_str)
+                .map(Self::InterestRateFuture)
+                .map_err(D::Error::custom),
+            "cms_option" => serde_json::from_str(&spec_str)
+                .map(Self::CmsOption)
+                .map_err(D::Error::custom),
 
             // Credit
-            "credit_default_swap" => serde_json::from_str(&spec_str).map(Self::CreditDefaultSwap).map_err(D::Error::custom),
-            "cds_index" => serde_json::from_str(&spec_str).map(Self::CDSIndex).map_err(D::Error::custom),
-            "cds_tranche" => serde_json::from_str(&spec_str).map(Self::CdsTranche).map_err(D::Error::custom),
-            "cds_option" => serde_json::from_str(&spec_str).map(Self::CdsOption).map_err(D::Error::custom),
+            "credit_default_swap" => serde_json::from_str(&spec_str)
+                .map(Self::CreditDefaultSwap)
+                .map_err(D::Error::custom),
+            "cds_index" => serde_json::from_str(&spec_str)
+                .map(Self::CDSIndex)
+                .map_err(D::Error::custom),
+            "cds_tranche" => serde_json::from_str(&spec_str)
+                .map(Self::CdsTranche)
+                .map_err(D::Error::custom),
+            "cds_option" => serde_json::from_str(&spec_str)
+                .map(Self::CdsOption)
+                .map_err(D::Error::custom),
 
             // Equity
-            "equity" => serde_json::from_str(&spec_str).map(Self::Equity).map_err(D::Error::custom),
-            "equity_option" => serde_json::from_str(&spec_str).map(Self::EquityOption).map_err(D::Error::custom),
-            "asian_option" => serde_json::from_str(&spec_str).map(Self::AsianOption).map_err(D::Error::custom),
-            "barrier_option" => serde_json::from_str(&spec_str).map(Self::BarrierOption).map_err(D::Error::custom),
-            "lookback_option" => serde_json::from_str(&spec_str).map(Self::LookbackOption).map_err(D::Error::custom),
+            "equity" => serde_json::from_str(&spec_str)
+                .map(Self::Equity)
+                .map_err(D::Error::custom),
+            "equity_option" => serde_json::from_str(&spec_str)
+                .map(Self::EquityOption)
+                .map_err(D::Error::custom),
+            "asian_option" => serde_json::from_str(&spec_str)
+                .map(Self::AsianOption)
+                .map_err(D::Error::custom),
+            "barrier_option" => serde_json::from_str(&spec_str)
+                .map(Self::BarrierOption)
+                .map_err(D::Error::custom),
+            "lookback_option" => serde_json::from_str(&spec_str)
+                .map(Self::LookbackOption)
+                .map_err(D::Error::custom),
 
             // FX
-            "fx_spot" => serde_json::from_str(&spec_str).map(Self::FxSpot).map_err(D::Error::custom),
-            "fx_option" => serde_json::from_str(&spec_str).map(Self::FxOption).map_err(D::Error::custom),
-            "fx_barrier_option" => serde_json::from_str(&spec_str).map(Self::FxBarrierOption).map_err(D::Error::custom),
-            "quanto_option" => serde_json::from_str(&spec_str).map(Self::QuantoOption).map_err(D::Error::custom),
+            "fx_spot" => serde_json::from_str(&spec_str)
+                .map(Self::FxSpot)
+                .map_err(D::Error::custom),
+            "fx_option" => serde_json::from_str(&spec_str)
+                .map(Self::FxOption)
+                .map_err(D::Error::custom),
+            "fx_barrier_option" => serde_json::from_str(&spec_str)
+                .map(Self::FxBarrierOption)
+                .map_err(D::Error::custom),
+            "quanto_option" => serde_json::from_str(&spec_str)
+                .map(Self::QuantoOption)
+                .map_err(D::Error::custom),
 
             // Exotic Options
-            "autocallable" => serde_json::from_str(&spec_str).map(Self::Autocallable).map_err(D::Error::custom),
-            "cliquet_option" => serde_json::from_str(&spec_str).map(Self::CliquetOption).map_err(D::Error::custom),
-            "range_accrual" => serde_json::from_str(&spec_str).map(Self::RangeAccrual).map_err(D::Error::custom),
+            "autocallable" => serde_json::from_str(&spec_str)
+                .map(Self::Autocallable)
+                .map_err(D::Error::custom),
+            "cliquet_option" => serde_json::from_str(&spec_str)
+                .map(Self::CliquetOption)
+                .map_err(D::Error::custom),
+            "range_accrual" => serde_json::from_str(&spec_str)
+                .map(Self::RangeAccrual)
+                .map_err(D::Error::custom),
 
             // Total Return Swaps
-            "trs_equity" => serde_json::from_str(&spec_str).map(Self::TrsEquity).map_err(D::Error::custom),
-            "trs_fixed_income_index" => serde_json::from_str(&spec_str).map(Self::TrsFixedIncomeIndex).map_err(D::Error::custom),
+            "trs_equity" => serde_json::from_str(&spec_str)
+                .map(Self::TrsEquity)
+                .map_err(D::Error::custom),
+            "trs_fixed_income_index" => serde_json::from_str(&spec_str)
+                .map(Self::TrsFixedIncomeIndex)
+                .map_err(D::Error::custom),
 
             // Structured Credit
-            "structured_credit" => serde_json::from_str(&spec_str).map(|sc| Self::StructuredCredit(Box::new(sc))).map_err(D::Error::custom),
+            "structured_credit" => serde_json::from_str(&spec_str)
+                .map(|sc| Self::StructuredCredit(Box::new(sc)))
+                .map_err(D::Error::custom),
 
             // Other
-            "basket" => serde_json::from_str(&spec_str).map(Self::Basket).map_err(D::Error::custom),
-            "deposit" => serde_json::from_str(&spec_str).map(Self::Deposit).map_err(D::Error::custom),
-            "repo" => serde_json::from_str(&spec_str).map(Self::Repo).map_err(D::Error::custom),
-            "private_markets_fund" => serde_json::from_str(&spec_str).map(Self::PrivateMarketsFund).map_err(D::Error::custom),
-            "revolving_credit" => serde_json::from_str(&spec_str).map(Self::RevolvingCredit).map_err(D::Error::custom),
+            "basket" => serde_json::from_str(&spec_str)
+                .map(Self::Basket)
+                .map_err(D::Error::custom),
+            "deposit" => serde_json::from_str(&spec_str)
+                .map(Self::Deposit)
+                .map_err(D::Error::custom),
+            "repo" => serde_json::from_str(&spec_str)
+                .map(Self::Repo)
+                .map_err(D::Error::custom),
+            "private_markets_fund" => serde_json::from_str(&spec_str)
+                .map(Self::PrivateMarketsFund)
+                .map_err(D::Error::custom),
+            "revolving_credit" => serde_json::from_str(&spec_str)
+                .map(Self::RevolvingCredit)
+                .map_err(D::Error::custom),
 
             other => Err(D::Error::unknown_variant(
                 other,
                 &[
-                    "bond", "convertible_bond", "inflation_linked_bond", "term_loan",
-                    "interest_rate_swap", "basis_swap", "inflation_swap", "fx_swap", "variance_swap",
-                    "forward_rate_agreement", "swaption", "interest_rate_future", "cms_option",
-                    "credit_default_swap", "cds_index", "cds_tranche", "cds_option",
-                    "equity", "equity_option", "asian_option", "barrier_option", "lookback_option",
-                    "fx_spot", "fx_option", "fx_barrier_option", "quanto_option",
-                    "autocallable", "cliquet_option", "range_accrual",
-                    "trs_equity", "trs_fixed_income_index",
+                    "bond",
+                    "convertible_bond",
+                    "inflation_linked_bond",
+                    "term_loan",
+                    "interest_rate_swap",
+                    "basis_swap",
+                    "inflation_swap",
+                    "fx_swap",
+                    "variance_swap",
+                    "forward_rate_agreement",
+                    "swaption",
+                    "interest_rate_future",
+                    "cms_option",
+                    "credit_default_swap",
+                    "cds_index",
+                    "cds_tranche",
+                    "cds_option",
+                    "equity",
+                    "equity_option",
+                    "asian_option",
+                    "barrier_option",
+                    "lookback_option",
+                    "fx_spot",
+                    "fx_option",
+                    "fx_barrier_option",
+                    "quanto_option",
+                    "autocallable",
+                    "cliquet_option",
+                    "range_accrual",
+                    "trs_equity",
+                    "trs_fixed_income_index",
                     "structured_credit",
-                    "basket", "deposit", "repo", "private_markets_fund", "revolving_credit",
+                    "basket",
+                    "deposit",
+                    "repo",
+                    "private_markets_fund",
+                    "revolving_credit",
                 ],
             )),
         }
@@ -620,7 +724,7 @@ mod tests {
     #[test]
     fn test_basis_swap_roundtrip() {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
-        
+
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
             frequency: Frequency::quarterly(),
@@ -686,4 +790,3 @@ mod tests {
         }
     }
 }
-

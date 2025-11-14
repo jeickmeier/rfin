@@ -3,10 +3,10 @@
 //! Data model for `ConvertibleBond` and related enums used by pricing and
 //! metrics modules. Pricing logic is intentionally kept out of this file.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::currency::Currency;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;

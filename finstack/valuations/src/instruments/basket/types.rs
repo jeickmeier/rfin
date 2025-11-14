@@ -98,15 +98,18 @@ impl<'de> Deserialize<'de> for ConstituentReference {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Helper {
-            Instrument { instrument: Box<InstrumentJson> },
-            MarketData { price_id: PriceId, asset_type: AssetType },
+            Instrument {
+                instrument: Box<InstrumentJson>,
+            },
+            MarketData {
+                price_id: PriceId,
+                asset_type: AssetType,
+            },
         }
 
         let helper = Helper::deserialize(deserializer)?;
         match helper {
-            Helper::Instrument { instrument } => {
-                Ok(ConstituentReference::Instrument(instrument))
-            }
+            Helper::Instrument { instrument } => Ok(ConstituentReference::Instrument(instrument)),
             Helper::MarketData {
                 price_id,
                 asset_type,

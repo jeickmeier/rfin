@@ -29,8 +29,8 @@ use finstack_valuations::calibration::methods::swaption_vol::{
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationReport, CreditQuote, FutureSpecs, InflationQuote, MarketQuote,
-    MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SolverKind,
-    ValidationConfig, ValidationError, VolQuote,
+    MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SolverKind, ValidationConfig,
+    ValidationError, VolQuote,
 };
 use std::collections::BTreeMap;
 use time::Month;
@@ -516,7 +516,6 @@ fn test_swaption_vol_calibrator_serialization() {
     assert_eq!(calibrator.base_date, restored.base_date);
     assert_eq!(calibrator.currency, restored.currency);
 }
-
 
 #[test]
 fn test_convexity_parameters_serialization() {

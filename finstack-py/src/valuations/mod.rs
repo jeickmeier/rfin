@@ -66,10 +66,13 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     reexport_from_submodule(&module, "covenants", &cov_exports)?;
     exports.extend(cov_exports.iter().copied());
 
-    // Register attribution module
+    // Register attribution module (as submodule and re-export to valuations)
     let attr_submod = PyModule::new(py, "attribution")?;
-    attribution::register(&attr_submod)?;
+    let attr_exports = attribution::register(&attr_submod)?;
     module.add_submodule(&attr_submod)?;
+    module.setattr("attribution", &attr_submod)?;
+    reexport_from_submodule(&module, "attribution", &attr_exports)?;
+    exports.extend(attr_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

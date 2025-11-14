@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.io/schemas/attribution/1/attribution_result.schema.json",
+  "title": "Finstack Attribution Result",
+  "description": "Complete result of a P&L attribution run including factor decomposition and metadata",
+  "type": "object",
+  "required": ["schema", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "finstack.attribution/1",
+      "description": "Schema version identifier"
+    },
+    "result": {
+      "type": "object",
+      "required": ["attribution", "results_meta"],
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "type": "object",
+          "description": "P&L attribution with factor decomposition",
+          "required": [
+            "total_pnl", "carry", "rates_curves_pnl", "credit_curves_pnl",
+            "inflation_curves_pnl", "correlations_pnl", "fx_pnl", "vol_pnl",
+            "model_params_pnl", "market_scalars_pnl", "residual", "meta"
+          ],
+          "properties": {
+            "total_pnl": {
+              "type": "object",
+              "description": "Total P&L (val_t1 - val_t0)",
+              "required": ["amount", "currency"],
+              "properties": {
+                "amount": { "type": "string" },
+                "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+              }
+            },
+            "carry": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "rates_curves_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "credit_curves_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "inflation_curves_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "correlations_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "fx_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "vol_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "model_params_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "market_scalars_pnl": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "residual": { "$ref": "#/properties/result/properties/attribution/properties/total_pnl" },
+            "rates_detail": {
+              "type": "object",
+              "description": "Optional detailed rates curves attribution"
+            },
+            "credit_detail": {
+              "type": "object",
+              "description": "Optional detailed credit curves attribution"
+            },
+            "inflation_detail": {
+              "type": "object",
+              "description": "Optional detailed inflation curves attribution"
+            },
+            "correlations_detail": {
+              "type": "object",
+              "description": "Optional detailed correlations attribution"
+            },
+            "fx_detail": {
+              "type": "object",
+              "description": "Optional detailed FX attribution"
+            },
+            "vol_detail": {
+              "type": "object",
+              "description": "Optional detailed volatility attribution"
+            },
+            "model_params_detail": {
+              "type": "object",
+              "description": "Optional detailed model parameters attribution"
+            },
+            "scalars_detail": {
+              "type": "object",
+              "description": "Optional detailed market scalars attribution"
+            },
+            "meta": {
+              "type": "object",
+              "description": "Attribution metadata",
+              "required": [
+                "method", "t0", "t1", "instrument_id", "num_repricings",
+                "tolerance_abs", "tolerance_pct", "residual_pct", "rounding"
+              ],
+              "properties": {
+                "method": {
+                  "description": "Attribution method used"
+                },
+                "t0": { "type": "string", "format": "date" },
+                "t1": { "type": "string", "format": "date" },
+                "instrument_id": { "type": "string" },
+                "num_repricings": { "type": "integer" },
+                "tolerance_abs": { "type": "number" },
+                "tolerance_pct": { "type": "number" },
+                "residual_pct": { "type": "number" },
+                "rounding": { "type": "object" },
+                "fx_policy": { "type": "object" },
+                "notes": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "results_meta": {
+          "type": "object",
+          "description": "Results metadata (timestamp, version, rounding context)"
+        }
+      }
+    }
+  }
+}
+

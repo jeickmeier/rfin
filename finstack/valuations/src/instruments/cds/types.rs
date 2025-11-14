@@ -2,13 +2,13 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::currency::Currency;
 
 use crate::instruments::cds::pricer::CDSPricer;
 

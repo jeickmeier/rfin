@@ -7,9 +7,9 @@
 //! - test_helpers: Shared test utilities and fixtures
 
 pub mod helpers;
-pub mod metrics;
 #[cfg(feature = "mc")]
 pub mod mc;
+pub mod metrics;
 pub mod parameters;
 pub mod test_discountable;
 pub mod test_helpers;

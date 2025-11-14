@@ -5,21 +5,31 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cds::pricer::CDSPricer;
-use finstack_valuations::instruments::CreditParams;
-use finstack_valuations::instruments::cds_index::parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
+use finstack_valuations::instruments::cds_index::parameters::{
+    CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
+};
 use finstack_valuations::instruments::cds_index::CDSIndex;
+use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
 use time::Month;
 
 use crate::common::test_helpers::flat_discount_curve;
 
-fn flat_discount(id: &'static str, base: Date) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+fn flat_discount(
+    id: &'static str,
+    base: Date,
+) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
     // Use a very small rate to create a nearly flat but valid (decreasing) curve
     flat_discount_curve(0.0001, base, id)
 }
 
-fn flat_hazard(id: &'static str, base: Date, rec: f64, hz: f64) -> finstack_core::market_data::term_structures::hazard_curve::HazardCurve {
+fn flat_hazard(
+    id: &'static str,
+    base: Date,
+    rec: f64,
+    hz: f64,
+) -> finstack_core::market_data::term_structures::hazard_curve::HazardCurve {
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     HazardCurve::builder(id)
         .base_date(base)
@@ -50,7 +60,11 @@ fn imm_20th_schedule_for_index_synthetic() {
     let pricer = CDSPricer::new();
     let schedule = pricer.generate_isda_schedule(&cds).unwrap();
     // Internal coupon dates (excluding first and last) should be on the 20th
-    for d in schedule.iter().skip(1).take(schedule.len().saturating_sub(2)) {
+    for d in schedule
+        .iter()
+        .skip(1)
+        .take(schedule.len().saturating_sub(2))
+    {
         assert_eq!(d.day(), 20);
     }
 }
@@ -64,17 +78,30 @@ fn index_factor_scales_pv() {
     let disc = flat_discount("USD-OIS", as_of);
     let rec = finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
     let hz = 0.02;
-    let names = [("N1", "HZ1"), ("N2", "HZ2"), ("N3", "HZ3"), ("N4", "HZ4"), ("N5", "HZ5")];
+    let names = [
+        ("N1", "HZ1"),
+        ("N2", "HZ2"),
+        ("N3", "HZ3"),
+        ("N4", "HZ4"),
+        ("N5", "HZ5"),
+    ];
     let mut ctx = MarketContext::new().insert_discount(disc);
-    for (_, hid) in names.iter() { ctx = ctx.insert_hazard(flat_hazard(hid, as_of, rec, hz)); }
+    for (_, hid) in names.iter() {
+        ctx = ctx.insert_hazard(flat_hazard(hid, as_of, rec, hz));
+    }
 
     let cons: Vec<CDSIndexConstituentParam> = names
         .iter()
-        .map(|(n, hid)| CDSIndexConstituentParam { credit: CreditParams::corporate_standard(*n, *hid), weight: 1.0 / 5.0 })
+        .map(|(n, hid)| CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard(*n, *hid),
+            weight: 1.0 / 5.0,
+        })
         .collect();
 
     let p_base = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(cons.clone());
-    let p_scaled = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(0.8).with_constituents(cons);
+    let p_scaled = CDSIndexParams::cdx_na_ig(42, 1, 100.0)
+        .with_index_factor(0.8)
+        .with_constituents(cons);
 
     let idx_base = CDSIndex::new_standard(
         "CDX-BASE",
@@ -119,13 +146,24 @@ fn hazard_cs01_matches_bump_difference() {
     let disc = flat_discount("USD-OIS", as_of);
     let rec = finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
     let hz = 0.02;
-    let names = [("N1", "HZ1"), ("N2", "HZ2"), ("N3", "HZ3"), ("N4", "HZ4"), ("N5", "HZ5")];
+    let names = [
+        ("N1", "HZ1"),
+        ("N2", "HZ2"),
+        ("N3", "HZ3"),
+        ("N4", "HZ4"),
+        ("N5", "HZ5"),
+    ];
     let mut ctx = MarketContext::new().insert_discount(disc);
-    for (_, hid) in names.iter() { ctx = ctx.insert_hazard(flat_hazard(hid, as_of, rec, hz)); }
+    for (_, hid) in names.iter() {
+        ctx = ctx.insert_hazard(flat_hazard(hid, as_of, rec, hz));
+    }
 
     let cons: Vec<CDSIndexConstituentParam> = names
         .iter()
-        .map(|(n, hid)| CDSIndexConstituentParam { credit: CreditParams::corporate_standard(*n, *hid), weight: 1.0 / 5.0 })
+        .map(|(n, hid)| CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard(*n, *hid),
+            weight: 1.0 / 5.0,
+        })
         .collect();
     let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(cons);
 
@@ -151,7 +189,10 @@ fn hazard_cs01_matches_bump_difference() {
     let mut bumps = hashbrown::HashMap::new();
     for cid in ctx.curve_ids() {
         if ctx.get_hazard_ref(cid.as_str()).is_ok() {
-            bumps.insert(cid.clone(), finstack_core::market_data::bumps::BumpSpec::parallel_bp(1.0));
+            bumps.insert(
+                cid.clone(),
+                finstack_core::market_data::bumps::BumpSpec::parallel_bp(1.0),
+            );
         }
     }
     let bumped = ctx.bump(bumps).unwrap();
@@ -166,5 +207,3 @@ fn hazard_cs01_matches_bump_difference() {
         (cs01 - dv).abs()
     );
 }
-
-

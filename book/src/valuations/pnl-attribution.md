@@ -429,12 +429,91 @@ println!("{}", attribution.explain());
 //   └─ Residual: $0 (0.0%)
 ```
 
+## JSON Serialization
+
+Attribution supports full JSON serialization for external integration via versioned envelopes.
+
+### Request Envelope
+
+```json
+{
+  "schema": "finstack.attribution/1",
+  "attribution": {
+    "instrument": {
+      "type": "bond",
+      "spec": { /* Bond specification */ }
+    },
+    "market_t0": { /* Market snapshot at T₀ */ },
+    "market_t1": { /* Market snapshot at T₁ */ },
+    "as_of_t0": "2025-01-15",
+    "as_of_t1": "2025-01-16",
+    "method": "Parallel",
+    "config": {
+      "tolerance_abs": 0.01,
+      "tolerance_pct": 0.001
+    }
+  }
+}
+```
+
+### Rust API
+
+```rust
+use finstack_valuations::attribution::AttributionEnvelope;
+
+// Load from JSON
+let envelope = AttributionEnvelope::from_json(json_str)?;
+
+// Execute
+let result = envelope.execute()?;
+
+// Serialize result
+let result_json = result.to_string()?;
+```
+
+### Python API
+
+```python
+from finstack.valuations import attribute_pnl_from_json, attribution_result_to_json
+import json
+
+# Load and parse JSON request
+with open("attribution_request.json") as f:
+    spec_json = f.read()
+
+# Execute attribution
+attribution = attribute_pnl_from_json(spec_json)
+
+# Print results
+print(attribution.explain())
+
+# Serialize result
+result_json = attribution_result_to_json(attribution)
+with open("attribution_result.json", "w") as f:
+    f.write(result_json)
+```
+
+### When to Use JSON vs Programmatic API
+
+**Use JSON envelopes when:**
+- Integrating with external systems via REST APIs
+- Storing attribution requests for audit/replay
+- Building attribution pipelines from configuration files
+- Need stable wire formats across language boundaries
+
+**Use programmatic API when:**
+- Working within Rust or Python directly
+- Building interactive applications
+- Performance is critical (avoid JSON parse overhead)
+- Working with in-memory market data
+
 ## Limitations
 
 ### Current Limitations
 
 1. **Per-Tenor Attribution**: Not yet implemented for detailed curve analysis (planned)
 2. **Multi-day Batch**: Single T₀→T₁ attribution only (batch support planned)
+3. **WASM JSON API**: Envelope support not yet implemented for WebAssembly
 
 ### Future Enhancements
 
@@ -442,4 +521,5 @@ println!("{}", attribution.explain());
 - Multi-day batch attribution
 - Parallel execution with Rayon for portfolio attribution
 - Enhanced model parameter extraction for exotic derivatives
+- WASM JSON envelope support
 

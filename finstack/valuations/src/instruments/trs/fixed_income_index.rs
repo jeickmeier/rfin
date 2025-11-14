@@ -41,10 +41,10 @@ pub struct FIIndexTotalReturnSwap {
 impl FIIndexTotalReturnSwap {
     /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
     pub fn example() -> Self {
+        use crate::cashflow::builder::ScheduleParams;
         use crate::instruments::trs::types::{TrsScheduleSpec, TrsSide};
         use finstack_core::currency::Currency;
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        use crate::cashflow::builder::ScheduleParams;
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
             .with_duration("US-CORP-DURATION")

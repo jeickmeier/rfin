@@ -4,15 +4,9 @@
 //! consistently when the `serde` feature is enabled.
 
 use finstack_valuations::instruments::common::mc::process::{
-    bates::BatesParams,
-    brownian::BrownianParams,
-    cir::CirParams,
-    gbm::GbmParams,
-    heston::HestonParams,
-    jump_diffusion::MertonJumpParams,
-    multi_ou::MultiOuParams,
-    ou::HullWhite1FParams,
-    schwartz_smith::SchwartzSmithParams,
+    bates::BatesParams, brownian::BrownianParams, cir::CirParams, gbm::GbmParams,
+    heston::HestonParams, jump_diffusion::MertonJumpParams, multi_ou::MultiOuParams,
+    ou::HullWhite1FParams, schwartz_smith::SchwartzSmithParams,
 };
 
 /// Helper function to perform JSON roundtrip serialization test
@@ -44,13 +38,13 @@ fn test_gbm_params_serialization() {
 #[test]
 fn test_heston_params_serialization() {
     let params = HestonParams::new(
-        0.05,  // r = 5% risk-free rate
-        0.02,  // q = 2% dividend yield
-        2.0,   // κ = mean reversion speed
-        0.04,  // θ = long-term variance (20% long-term vol)
-        0.3,   // σᵥ = vol of vol
-        -0.7,  // ρ = correlation (typically negative for equity)
-        0.04,  // v₀ = initial variance (20% current vol)
+        0.05, // r = 5% risk-free rate
+        0.02, // q = 2% dividend yield
+        2.0,  // κ = mean reversion speed
+        0.04, // θ = long-term variance (20% long-term vol)
+        0.3,  // σᵥ = vol of vol
+        -0.7, // ρ = correlation (typically negative for equity)
+        0.04, // v₀ = initial variance (20% current vol)
     );
 
     let restored = roundtrip_json(&params);
@@ -179,10 +173,10 @@ fn test_hull_white_1f_params_time_dependent_serialization() {
 #[test]
 fn test_multi_ou_params_serialization() {
     let params = MultiOuParams::new(
-        vec![2.0, 1.0],    // kappas
-        vec![1.0, -1.0],   // thetas
-        vec![0.3, 0.4],    // sigmas
-        None,              // no correlation
+        vec![2.0, 1.0],  // kappas
+        vec![1.0, -1.0], // thetas
+        vec![0.3, 0.4],  // sigmas
+        None,            // no correlation
     );
 
     let restored = roundtrip_json(&params);
@@ -198,9 +192,9 @@ fn test_multi_ou_params_serialization() {
 fn test_multi_ou_params_with_correlation_serialization() {
     let corr = vec![1.0, 0.5, 0.5, 1.0];
     let params = MultiOuParams::new(
-        vec![2.0, 1.0],    // kappas
-        vec![1.0, -1.0],   // thetas
-        vec![0.3, 0.4],    // sigmas
+        vec![2.0, 1.0],  // kappas
+        vec![1.0, -1.0], // thetas
+        vec![0.3, 0.4],  // sigmas
         Some(corr.clone()),
     );
 
@@ -299,4 +293,3 @@ fn test_edge_case_extreme_correlations() {
     assert_eq!(params_neg.rho, restored_neg.rho);
     assert_eq!(restored_neg.rho, -1.0);
 }
-

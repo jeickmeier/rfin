@@ -48,7 +48,11 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<D
 }
 
 /// Build a flat inflation curve with constant CPI growth rate
-pub fn flat_inflation_curve(id: &str, base_cpi: f64, annual_inflation_rate: f64) -> finstack_core::Result<InflationCurve> {
+pub fn flat_inflation_curve(
+    id: &str,
+    base_cpi: f64,
+    annual_inflation_rate: f64,
+) -> finstack_core::Result<InflationCurve> {
     let mut knots = vec![
         (0.0, base_cpi),
         (1.0, base_cpi * (1.0 + annual_inflation_rate)),
@@ -56,13 +60,13 @@ pub fn flat_inflation_curve(id: &str, base_cpi: f64, annual_inflation_rate: f64)
         (10.0, base_cpi * (1.0 + annual_inflation_rate).powf(10.0)),
         (30.0, base_cpi * (1.0 + annual_inflation_rate).powf(30.0)),
     ];
-    
+
     // Ensure all CPI values are positive (handle floating point precision issues and extreme deflation)
     knots = knots
         .into_iter()
         .map(|(t, cpi)| (t, cpi.max(1e-10))) // Ensure minimum positive value
         .collect();
-    
+
     InflationCurve::builder(id)
         .base_cpi(base_cpi.max(1e-10)) // Also ensure base_cpi is positive
         .knots(knots)
@@ -116,8 +120,12 @@ pub fn simple_index(
 pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> MarketContext {
     let disc = flat_discount("USD-OIS", as_of, discount_rate)
         .unwrap_or_else(|_| panic!("Failed to build discount curve with rate {}", discount_rate));
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate)
-        .unwrap_or_else(|_| panic!("Failed to build inflation curve with rate {}", inflation_rate));
+    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate).unwrap_or_else(|_| {
+        panic!(
+            "Failed to build inflation curve with rate {}",
+            inflation_rate
+        )
+    });
     let index = simple_index(
         "US-CPI-U",
         as_of,

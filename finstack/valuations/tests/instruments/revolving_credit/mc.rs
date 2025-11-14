@@ -14,7 +14,11 @@ use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
 
-fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+fn build_flat_discount_curve(
+    rate: f64,
+    base_date: Date,
+    curve_id: &str,
+) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
     flat_discount_curve(rate, base_date, curve_id)
 }
 

@@ -657,8 +657,74 @@ pub fn attribute_portfolio_pnl(
     Ok(PyPortfolioAttribution { inner: attribution })
 }
 
+/// Python function to perform P&L attribution from a JSON specification.
+///
+/// # Arguments
+///
+/// * `spec_json` - JSON string containing AttributionEnvelope
+///
+/// # Returns
+///
+/// PnlAttribution with complete factor breakdown
+///
+/// # Examples
+///
+/// ```python
+/// json_spec = '''
+/// {
+///   "schema": "finstack.attribution/1",
+///   "attribution": {
+///     "instrument": { ... },
+///     "market_t0": { ... },
+///     "market_t1": { ... },
+///     "as_of_t0": "2025-01-15",
+///     "as_of_t1": "2025-01-16",
+///     "method": "Parallel"
+///   }
+/// }
+/// '''
+/// attr = finstack.attribute_pnl_from_json(json_spec)
+/// ```
+#[pyfunction]
+pub fn attribute_pnl_from_json(spec_json: &str) -> PyResult<PyPnlAttribution> {
+    use finstack_valuations::attribution::AttributionEnvelope;
+
+    // Parse the JSON envelope
+    let envelope = AttributionEnvelope::from_json(spec_json).map_err(map_error)?;
+
+    // Execute the attribution
+    let result_envelope = envelope.execute().map_err(map_error)?;
+
+    Ok(PyPnlAttribution {
+        inner: result_envelope.result.attribution,
+    })
+}
+
+/// Python function to serialize an attribution result to JSON.
+///
+/// # Arguments
+///
+/// * `attribution` - PnlAttribution result
+///
+/// # Returns
+///
+/// JSON string with AttributionResultEnvelope
+#[pyfunction]
+pub fn attribution_result_to_json(attribution: &PyPnlAttribution) -> PyResult<String> {
+    use finstack_core::config::results_meta;
+    use finstack_valuations::attribution::{AttributionResult, AttributionResultEnvelope};
+
+    let result = AttributionResult {
+        attribution: attribution.inner.clone(),
+        results_meta: results_meta(&finstack_core::config::FinstackConfig::default()),
+    };
+
+    let envelope = AttributionResultEnvelope::new(result);
+    envelope.to_string().map_err(map_error)
+}
+
 /// Register attribution bindings with Python module.
-pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyAttributionMethod>()?;
     module.add_class::<PyAttributionMeta>()?;
     module.add_class::<PyRatesCurvesAttribution>()?;
@@ -668,5 +734,20 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPortfolioAttribution>()?;
     module.add_function(wrap_pyfunction!(attribute_pnl, module)?)?;
     module.add_function(wrap_pyfunction!(attribute_portfolio_pnl, module)?)?;
-    Ok(())
+    module.add_function(wrap_pyfunction!(attribute_pnl_from_json, module)?)?;
+    module.add_function(wrap_pyfunction!(attribution_result_to_json, module)?)?;
+
+    Ok(vec![
+        "AttributionMethod",
+        "AttributionMeta",
+        "RatesCurvesAttribution",
+        "CreditCurvesAttribution",
+        "ModelParamsAttribution",
+        "PnlAttribution",
+        "PortfolioAttribution",
+        "attribute_pnl",
+        "attribute_portfolio_pnl",
+        "attribute_pnl_from_json",
+        "attribution_result_to_json",
+    ])
 }

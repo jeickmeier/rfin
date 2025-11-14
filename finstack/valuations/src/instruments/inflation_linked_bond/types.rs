@@ -3,6 +3,7 @@
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind,
 };
@@ -15,7 +16,6 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
 use finstack_core::Result;
-use finstack_core::currency::Currency;
 use std::sync::Arc;
 use time::Duration;
 

@@ -1402,14 +1402,12 @@ fn test_basket_with_mixed_constituents_serialization() {
 
     // Verify second constituent is Instrument
     match &deserialized.constituents[1].reference {
-        ConstituentReference::Instrument(instr_json) => {
-            match instr_json.as_ref() {
-                InstrumentJson::Bond(b) => {
-                    assert_eq!(b.id.as_str(), "CORP_BOND");
-                }
-                _ => panic!("Expected Bond instrument"),
+        ConstituentReference::Instrument(instr_json) => match instr_json.as_ref() {
+            InstrumentJson::Bond(b) => {
+                assert_eq!(b.id.as_str(), "CORP_BOND");
             }
-        }
+            _ => panic!("Expected Bond instrument"),
+        },
         _ => panic!("Expected Instrument constituent"),
     }
 }
@@ -1458,14 +1456,12 @@ fn test_constituent_reference_instrument_roundtrip() {
 
     // Assert
     match deserialized {
-        ConstituentReference::Instrument(instr_json) => {
-            match instr_json.as_ref() {
-                InstrumentJson::Bond(b) => {
-                    assert_eq!(b.id.as_str(), "TEST_BOND");
-                }
-                _ => panic!("Expected Bond instrument"),
+        ConstituentReference::Instrument(instr_json) => match instr_json.as_ref() {
+            InstrumentJson::Bond(b) => {
+                assert_eq!(b.id.as_str(), "TEST_BOND");
             }
-        }
+            _ => panic!("Expected Bond instrument"),
+        },
         _ => panic!("Expected Instrument variant"),
     }
 }

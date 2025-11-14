@@ -492,3 +492,65 @@ def attribute_portfolio_pnl(
         >>> print(attr.position_detail_to_csv())
     """
     ...
+
+def attribute_pnl_from_json(spec_json: str) -> PnlAttribution:
+    """Perform P&L attribution from a JSON specification.
+    
+    Accepts a JSON string containing a complete attribution request with
+    instrument, market snapshots, dates, and methodology. This enables
+    external systems to trigger attribution runs via stable JSON contracts.
+    
+    Args:
+        spec_json: JSON string conforming to finstack.attribution/1 schema
+    
+    Returns:
+        Complete P&L attribution with factor breakdown
+    
+    Raises:
+        ValueError: If JSON is malformed or schema invalid
+        RuntimeError: If attribution execution fails
+    
+    Example:
+        >>> import json
+        >>> spec = {
+        ...     "schema": "finstack.attribution/1",
+        ...     "attribution": {
+        ...         "instrument": {
+        ...             "type": "bond",
+        ...             "spec": { ... }
+        ...         },
+        ...         "market_t0": { ... },
+        ...         "market_t1": { ... },
+        ...         "as_of_t0": "2025-01-15",
+        ...         "as_of_t1": "2025-01-16",
+        ...         "method": "Parallel"
+        ...     }
+        ... }
+        >>> attr = finstack.attribute_pnl_from_json(json.dumps(spec))
+        >>> print(attr.explain())
+    """
+    ...
+
+def attribution_result_to_json(attribution: PnlAttribution) -> str:
+    """Serialize an attribution result to JSON.
+    
+    Wraps the attribution result in a versioned envelope for stable
+    interchange with external systems.
+    
+    Args:
+        attribution: P&L attribution result to serialize
+    
+    Returns:
+        JSON string conforming to finstack.attribution/1 result schema
+    
+    Raises:
+        RuntimeError: If serialization fails
+    
+    Example:
+        >>> attr = finstack.attribute_pnl(bond, market_t0, market_t1, t0, t1)
+        >>> json_str = finstack.attribution_result_to_json(attr)
+        >>> # Save to file or send to API
+        >>> with open("attribution_result.json", "w") as f:
+        ...     f.write(json_str)
+    """
+    ...

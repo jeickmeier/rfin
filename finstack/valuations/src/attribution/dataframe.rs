@@ -81,7 +81,7 @@ impl PnlAttribution {
             // Per-curve aggregates (sorted by curve_id for determinism)
             let mut curve_entries: Vec<_> = detail.by_curve.iter().collect();
             curve_entries.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
-            
+
             for (curve_id, pnl) in curve_entries {
                 lines.push(format!(
                     "{},{},{},{},{}",
@@ -96,14 +96,14 @@ impl PnlAttribution {
             // Per-tenor details (sorted by curve_id then tenor)
             let mut tenor_entries: Vec<_> = detail.by_tenor.iter().collect();
             tenor_entries.sort_by(|a, b| {
-                let cmp_curve = a.0.0.as_str().cmp(b.0.0.as_str());
+                let cmp_curve = a.0 .0.as_str().cmp(b.0 .0.as_str());
                 if cmp_curve == std::cmp::Ordering::Equal {
-                    a.0.1.cmp(&b.0.1)
+                    a.0 .1.cmp(&b.0 .1)
                 } else {
                     cmp_curve
                 }
             });
-            
+
             for ((curve_id, tenor), pnl) in tenor_entries {
                 lines.push(format!(
                     "{},{},{},{},{}",
@@ -185,13 +185,13 @@ mod tests {
         attribution.compute_residual().unwrap();
 
         let csv = attribution.to_csv();
-        
+
         // Check header includes currency
         assert!(csv.contains("currency"));
-        
+
         // Check data row includes EUR
         assert!(csv.contains("EUR"));
-        
+
         // Check amounts are correct
         assert!(csv.contains("5000"));
         assert!(csv.contains("200"));
@@ -236,14 +236,14 @@ mod tests {
         });
 
         let csv = attribution.rates_detail_to_csv().unwrap();
-        
+
         // Verify header includes currency
         assert!(csv.contains("currency"));
-        
+
         // Parse lines to check ordering
         let lines: Vec<&str> = csv.lines().collect();
         assert!(lines.len() > 1); // Header + data
-        
+
         // Check that EUR-OIS comes before USD-SOFR (alphabetical)
         let eur_pos = csv.find("EUR-OIS").unwrap();
         let usd_pos = csv.find("USD-SOFR").unwrap();

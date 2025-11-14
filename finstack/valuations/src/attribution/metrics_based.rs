@@ -295,7 +295,9 @@ pub fn attribute_pnl_metrics_based(
     if let Some(dividend01) = val_t0.measures.get(MetricId::Dividend01.as_str()) {
         if let Some(scalar_id) = instrument.dividend_schedule_id() {
             // Try to measure dividend shift from market scalars
-            if let Ok(div_shift_pct) = measure_scalar_shift(scalar_id.as_str(), market_t0, market_t1) {
+            if let Ok(div_shift_pct) =
+                measure_scalar_shift(scalar_id.as_str(), market_t0, market_t1)
+            {
                 // Dividend01 is typically per 1% shift in dividend yield or amount
                 let div_amount = dividend01 * div_shift_pct;
                 attribution.market_scalars_pnl = Money::new(div_amount, val_t1.value.currency());

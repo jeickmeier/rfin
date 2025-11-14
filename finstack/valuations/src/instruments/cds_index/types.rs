@@ -10,15 +10,14 @@
 use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
-use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec,
-    ProtectionLegSpec,
+    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
 
 use super::parameters::CDSIndexConstituentParam;

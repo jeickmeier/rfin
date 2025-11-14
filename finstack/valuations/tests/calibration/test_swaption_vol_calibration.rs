@@ -240,7 +240,6 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     assert!(v2.is_finite() && v2 > 0.0 && v2 < 1.0);
 }
 
-
 #[test]
 fn test_normal_vs_lognormal_conventions() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

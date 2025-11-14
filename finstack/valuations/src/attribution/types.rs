@@ -434,7 +434,7 @@ impl PnlAttribution {
     /// Ok(()) if all currencies match, Err otherwise.
     pub fn validate_currencies(&self) -> Result<()> {
         let expected = self.total_pnl.currency();
-        
+
         let factors = [
             ("carry", self.carry.currency()),
             ("rates_curves", self.rates_curves_pnl.currency()),
@@ -473,7 +473,10 @@ impl PnlAttribution {
     pub fn compute_residual(&mut self) -> Result<()> {
         // Validate currencies first
         if let Err(e) = self.validate_currencies() {
-            let note = format!("Currency validation failed during residual computation: {}", e);
+            let note = format!(
+                "Currency validation failed during residual computation: {}",
+                e
+            );
             self.meta.notes.push(note);
             self.residual = Money::new(0.0, self.total_pnl.currency());
             self.meta.residual_pct = 0.0;
@@ -510,20 +513,16 @@ impl PnlAttribution {
                 self.meta.notes.push(note.clone());
                 e
             })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.fx_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add FX P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.vol_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add vol P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
+        attributed_sum = attributed_sum.checked_add(self.fx_pnl).map_err(|e| {
+            let note = format!("Failed to add FX P&L: {}", e);
+            self.meta.notes.push(note.clone());
+            e
+        })?;
+        attributed_sum = attributed_sum.checked_add(self.vol_pnl).map_err(|e| {
+            let note = format!("Failed to add vol P&L: {}", e);
+            self.meta.notes.push(note.clone());
+            e
+        })?;
         attributed_sum = attributed_sum
             .checked_add(self.model_params_pnl)
             .map_err(|e| {
@@ -539,14 +538,11 @@ impl PnlAttribution {
                 e
             })?;
 
-        self.residual = self
-            .total_pnl
-            .checked_sub(attributed_sum)
-            .map_err(|e| {
-                let note = format!("Failed to compute residual: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
+        self.residual = self.total_pnl.checked_sub(attributed_sum).map_err(|e| {
+            let note = format!("Failed to compute residual: {}", e);
+            self.meta.notes.push(note.clone());
+            e
+        })?;
 
         // Compute residual percentage (handle zero total_pnl) via RoundingContext
         let rc = &self.meta.rounding;

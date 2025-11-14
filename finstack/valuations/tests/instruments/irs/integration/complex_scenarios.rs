@@ -378,7 +378,7 @@ fn test_swap_risk_attribution() {
     let expected_dv01 = annuity * 1_000_000.0 * 0.0001;
     let ratio = dv01.abs() / expected_dv01;
     assert!(
-        (ratio - 1.0).abs() < 0.02,  // 2% tolerance for numerical precision
+        (ratio - 1.0).abs() < 0.02, // 2% tolerance for numerical precision
         "DV01 {} should be close to annuity-based estimate {}, ratio: {}",
         dv01,
         expected_dv01,

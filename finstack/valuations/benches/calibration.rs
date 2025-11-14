@@ -159,7 +159,6 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
     quotes
 }
 
-
 /// Create CDS tranche quotes for base correlation calibration
 fn create_tranche_quotes(base_date: Date, detachment_points: &[f64]) -> Vec<CreditQuote> {
     let mut quotes = Vec::with_capacity(detachment_points.len());

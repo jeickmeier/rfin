@@ -221,4 +221,3 @@ fn test_schedule_params_usd_standard() {
     let json = include_str!("cashflow/json_examples/schedule_params_usd_standard.example.json");
     test_roundtrip::<CashflowEnvelope<ScheduleParamsPayload>>(json);
 }
-

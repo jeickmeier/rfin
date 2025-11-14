@@ -226,11 +226,11 @@ mod tests {
     fn test_compute_pnl_with_fx() {
         // Test FX translation isolation
         let pv = Money::new(1000.0, Currency::EUR);
-        
+
         // T0 market: EUR/USD = 1.1
         let fx_t0 = FxMatrix::new(Arc::new(TestFx));
         let market_t0 = MarketContext::new().insert_fx(fx_t0);
-        
+
         // T1 market: EUR/USD = 1.2 (10% appreciation)
         struct TestFxT1;
         impl FxProvider for TestFxT1 {
@@ -254,10 +254,10 @@ mod tests {
         }
         let fx_t1 = FxMatrix::new(Arc::new(TestFxT1));
         let market_t1 = MarketContext::new().insert_fx(fx_t1);
-        
+
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
-        
+
         // PV unchanged in EUR, but FX moved
         let pnl = compute_pnl_with_fx(
             pv,
@@ -267,8 +267,9 @@ mod tests {
             &market_t1,
             as_of_t0,
             as_of_t1,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // FX translation: 1000 EUR @ 1.2 - 1000 EUR @ 1.1 = 1200 - 1100 = 100 USD
         assert_eq!(pnl.amount(), 100.0);
         assert_eq!(pnl.currency(), Currency::USD);

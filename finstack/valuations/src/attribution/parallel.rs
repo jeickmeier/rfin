@@ -198,7 +198,7 @@ pub fn attribute_pnl_parallel(
             market_t1,
             as_of_t1,
         )?;
-        
+
         // Stamp FX policy if conversions were applied
         if attribution.fx_pnl.currency() != val_t1.currency() {
             attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {

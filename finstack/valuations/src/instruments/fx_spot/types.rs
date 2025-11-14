@@ -76,7 +76,9 @@ use finstack_core::types::InstrumentId;
 /// This can be customized via `settlement_lag_days`.
 ///
 /// See module-level documentation for comprehensive FX quoting conventions.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair

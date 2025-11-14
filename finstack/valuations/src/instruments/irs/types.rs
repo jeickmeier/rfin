@@ -7,12 +7,12 @@
 //! Public fields use strong newtype identifiers for safety: `InstrumentId` and
 //! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
 //! serde and lookups.
+use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::currency::Currency;
 use finstack_core::{dates::Date, Result};
 
 use crate::cashflow::builder::{
@@ -117,7 +117,7 @@ impl InterestRateSwap {
     /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
     pub fn example() -> Self {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        
+
         Self::builder()
             .id(InstrumentId::new("IRS-5Y-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))

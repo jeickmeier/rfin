@@ -52,13 +52,15 @@ impl EquityTotalReturnSwap {
         Self::builder()
             .id(InstrumentId::new("TRS-SPX-1Y"))
             .notional(Money::new(5_000_000.0, Currency::USD))
-            .underlying(crate::instruments::common::parameters::EquityUnderlyingParams {
-                ticker: "SPX".to_string(),
-                spot_id: "SPX-SPOT".to_string(),
-                div_yield_id: Some("SPX-DIV".to_string()),
-                contract_size: 1.0,
-                currency: Currency::USD,
-            })
+            .underlying(
+                crate::instruments::common::parameters::EquityUnderlyingParams {
+                    ticker: "SPX".to_string(),
+                    spot_id: "SPX-SPOT".to_string(),
+                    div_yield_id: Some("SPX-DIV".to_string()),
+                    contract_size: 1.0,
+                    currency: Currency::USD,
+                },
+            )
             .financing(crate::instruments::common::parameters::FinancingLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),

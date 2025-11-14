@@ -764,7 +764,7 @@ where
 
                 let temp_ctx = base_ctx.bump(bumps)?;
                 let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
-                
+
                 let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
                 Ok(dv01)

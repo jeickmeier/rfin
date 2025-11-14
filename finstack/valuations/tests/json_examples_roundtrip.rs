@@ -144,5 +144,3 @@ fn all_examples_roundtrip() {
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::PrivateMarketsFund(ex));
 }
-
-

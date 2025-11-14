@@ -1,0 +1,72 @@
+{
+  "schema": "finstack.attribution/1",
+  "attribution": {
+    "instrument": {
+      "type": "bond",
+      "spec": {
+        "id": "CORP-BOND-001",
+        "notional": {
+          "amount": "1000000",
+          "currency": "USD"
+        },
+        "issue": "2024-01-01",
+        "maturity": "2029-01-01",
+        "cashflow_spec": {
+          "Fixed": {
+            "coupon_type": "Cash",
+            "rate": 0.045,
+            "freq": {"Months": 6},
+            "dc": "Thirty360",
+            "bdc": "following",
+            "calendar_id": null,
+            "stub": "None"
+          }
+        },
+        "discount_curve_id": "USD-OIS",
+        "credit_curve_id": null,
+        "pricing_overrides": {
+          "quoted_clean_price": null,
+          "implied_volatility": null,
+          "quoted_spread_bp": null,
+          "upfront_payment": null,
+          "ytm_bump_decimal": null,
+          "theta_period": null,
+          "mc_seed_scenario": null,
+          "adaptive_bumps": false,
+          "spot_bump_pct": null,
+          "vol_bump_pct": null,
+          "rate_bump_bp": null
+        },
+        "call_put": null,
+        "attributes": {
+          "tags": [],
+          "meta": {}
+        },
+        "settlement_days": null,
+        "ex_coupon_days": null
+      }
+    },
+    "market_t0": {
+      "curves": [],
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "credit_indices": [],
+      "collateral": {}
+    },
+    "market_t1": {
+      "curves": [],
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "credit_indices": [],
+      "collateral": {}
+    },
+    "as_of_t0": "2025-01-15",
+    "as_of_t1": "2025-01-16",
+    "method": "Parallel"
+  }
+}
+

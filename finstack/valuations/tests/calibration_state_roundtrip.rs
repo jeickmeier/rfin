@@ -21,12 +21,11 @@ fn test_empty_context_roundtrip() {
     let state: MarketContextState = (&ctx).into();
 
     // Serialize to JSON
-    let json = serde_json::to_string_pretty(&state)
-        .expect("Failed to serialize empty context");
+    let json = serde_json::to_string_pretty(&state).expect("Failed to serialize empty context");
 
     // Deserialize back
-    let parsed_state: MarketContextState = serde_json::from_str(&json)
-        .expect("Failed to deserialize context state");
+    let parsed_state: MarketContextState =
+        serde_json::from_str(&json).expect("Failed to deserialize context state");
 
     // Verify empty
     assert!(parsed_state.curves.is_empty());
@@ -37,7 +36,7 @@ fn test_empty_context_roundtrip() {
 #[test]
 fn test_discount_curve_roundtrip() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
@@ -53,20 +52,22 @@ fn test_discount_curve_roundtrip() {
         .expect("Failed to serialize context with discount curve");
 
     // Deserialize back
-    let parsed_state: MarketContextState = serde_json::from_str(&json)
-        .expect("Failed to deserialize context state");
+    let parsed_state: MarketContextState =
+        serde_json::from_str(&json).expect("Failed to deserialize context state");
 
     // Reconstruct context
-    let reconstructed_ctx: MarketContext = parsed_state.try_into()
+    let reconstructed_ctx: MarketContext = parsed_state
+        .try_into()
         .expect("Failed to reconstruct context from state");
 
     // Verify curve exists and matches
-    let retrieved_curve = reconstructed_ctx.get_discount("USD-OIS")
+    let retrieved_curve = reconstructed_ctx
+        .get_discount("USD-OIS")
         .expect("Discount curve not found in reconstructed context");
 
     assert_eq!(retrieved_curve.id().as_str(), "USD-OIS");
     assert_eq!(retrieved_curve.base_date(), base_date);
-    
+
     // Verify discount factors match
     assert!((retrieved_curve.df(0.0) - 1.0).abs() < 1e-12);
     assert!((retrieved_curve.df(1.0) - 0.98).abs() < 1e-12);
@@ -76,7 +77,7 @@ fn test_discount_curve_roundtrip() {
 #[test]
 fn test_multiple_curves_roundtrip() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
@@ -101,27 +102,30 @@ fn test_multiple_curves_roundtrip() {
         .insert_discount(disc)
         .insert_forward(fwd)
         .insert_hazard(hazard)
-        .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
+        .insert_price(
+            "AAPL",
+            MarketScalar::Price(Money::new(180.0, Currency::USD)),
+        );
 
     let state: MarketContextState = (&ctx).into();
 
     // Serialize
-    let json = serde_json::to_string_pretty(&state)
-        .expect("Failed to serialize complex context");
+    let json = serde_json::to_string_pretty(&state).expect("Failed to serialize complex context");
 
     // Deserialize
-    let parsed_state: MarketContextState = serde_json::from_str(&json)
-        .expect("Failed to deserialize context state");
+    let parsed_state: MarketContextState =
+        serde_json::from_str(&json).expect("Failed to deserialize context state");
 
     // Reconstruct
-    let reconstructed: MarketContext = parsed_state.try_into()
+    let reconstructed: MarketContext = parsed_state
+        .try_into()
         .expect("Failed to reconstruct context");
 
     // Verify all curves present
     assert!(reconstructed.get_discount("USD-OIS").is_ok());
     assert!(reconstructed.get_forward("USD-SOFR-3M-FWD").is_ok());
     assert!(reconstructed.get_hazard("AAPL-Senior").is_ok());
-    
+
     // Verify price
     let aapl_price = reconstructed.price("AAPL").expect("AAPL price not found");
     match aapl_price {
@@ -136,7 +140,7 @@ fn test_multiple_curves_roundtrip() {
 #[test]
 fn test_context_stats_preserved() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (5.0, 0.90)])
@@ -151,12 +155,17 @@ fn test_context_stats_preserved() {
     let json = serde_json::to_string_pretty(&state).unwrap();
     let parsed_state: MarketContextState = serde_json::from_str(&json).unwrap();
     let reconstructed_ctx: MarketContext = parsed_state.try_into().unwrap();
-    
+
     let reconstructed_stats = reconstructed_ctx.stats();
 
     // Verify stats match
-    assert_eq!(reconstructed_stats.total_curves, original_stats.total_curves);
-    assert_eq!(reconstructed_stats.surface_count, original_stats.surface_count);
+    assert_eq!(
+        reconstructed_stats.total_curves,
+        original_stats.total_curves
+    );
+    assert_eq!(
+        reconstructed_stats.surface_count,
+        original_stats.surface_count
+    );
     assert_eq!(reconstructed_stats.price_count, original_stats.price_count);
 }
-

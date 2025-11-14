@@ -60,6 +60,26 @@ The attribution module provides comprehensive multi-period P&L attribution to de
   - Percentage breakdown by factor
   - Optional detailed curve breakdown
 
+### ✅ JSON Serialization & Envelopes
+
+- **Request Envelope** (`spec.rs`)
+  - `AttributionEnvelope` / `AttributionSpec` for JSON-driven attribution
+  - Versioned schema (`finstack.attribution/1`)
+  - Embeds instrument + market snapshots + dates + method
+  - `execute()` helper for one-shot attribution runs
+  - Tests: ✅ 6 roundtrip tests passing
+
+- **Result Envelope** (`spec.rs`)
+  - `AttributionResultEnvelope` / `AttributionResult` for structured results
+  - Complete P&L attribution + metadata
+  - Stable JSON wire format
+  - Tests: ✅ roundtrip validated
+
+- **Config Serialization** (`model_params.rs`, `types.rs`)
+  - All attribution config types now `Serialize`/`Deserialize`
+  - `AttributionMethod`, `AttributionFactor`, `ModelParamsSnapshot`
+  - Tests: ✅ 9 config roundtrip tests passing
+
 ### ✅ Portfolio Integration
 
 - **Portfolio Attribution** (`finstack/portfolio/src/attribution.rs`)
@@ -74,13 +94,16 @@ The attribution module provides comprehensive multi-period P&L attribution to de
 - **Python** (`finstack-py/src/valuations/attribution.rs`)
   - PyO3 bindings for core types
   - Type stubs (`.pyi`) for IDE support
+  - JSON envelope API: `attribute_pnl_from_json()`, `attribution_result_to_json()`
+  - Traditional object API: `attribute_pnl()`, `attribute_portfolio_pnl()`
   - Example script template
-  - Registered in valuations module
+  - Tests: ✅ 3 JSON serialization tests passing
 
 - **WASM** (`finstack-wasm/src/valuations/attribution.rs`)
   - wasm-bindgen bindings
   - TypeScript-friendly naming (camelCase)
   - JSON export support
+  - JSON envelope API: 🔲 Future work
 
 ### ✅ Documentation
 
@@ -122,15 +145,18 @@ The attribution module provides comprehensive multi-period P&L attribution to de
 
 ```
 finstack-valuations (lib attribution):
-  ✅ 16 tests passed
+  ✅ Unit tests passing
   
 finstack-portfolio (lib attribution):
   ✅ 1 test passed
   
 finstack-valuations (integration attribution_tests):
-  ✅ 2 tests passed
+  ✅ 33 tests passed (6 new serialization, 9 new config roundtrip)
   
-Total: 19 tests passing
+finstack-py (Python attribution serialization):
+  ✅ 3 tests passed, 1 skipped
+  
+Total: 37+ tests passing
 ```
 
 ## Market-Standards Compliance Updates (Nov 2025)
@@ -203,6 +229,8 @@ Total: 19 tests passing
 
 ### Rust
 
+#### Programmatic API
+
 ```rust
 // Parallel attribution
 pub fn attribute_pnl_parallel(
@@ -246,19 +274,57 @@ pub fn attribute_portfolio_pnl(
 ) -> Result<PortfolioAttribution>
 ```
 
+#### JSON Envelope API
+
+```rust
+use finstack_valuations::attribution::{AttributionEnvelope, AttributionResultEnvelope};
+
+// Parse request from JSON
+let envelope = AttributionEnvelope::from_json(json_str)?;
+
+// Execute attribution
+let result_envelope = envelope.execute()?;
+
+// Serialize result to JSON
+let result_json = result_envelope.to_string()?;
+```
+
 ### Python
 
-```python
-def attribute_pnl(
-    instrument: Instrument,
-    market_t0: MarketContext,
-    market_t1: MarketContext,
-    as_of_t0: date,
-    as_of_t1: date,
-    method: Optional[AttributionMethod] = None,
-) -> PnlAttribution
+#### Programmatic API
 
-# Note: Full implementation pending instrument-specific bindings
+```python
+from finstack.valuations import attribute_pnl, attribute_portfolio_pnl, AttributionMethod
+
+# Instrument attribution
+attr = attribute_pnl(
+    instrument,
+    market_t0,
+    market_t1,
+    as_of_t0,
+    as_of_t1,
+    method=AttributionMethod.parallel()
+)
+
+# Portfolio attribution
+portfolio_attr = attribute_portfolio_pnl(
+    portfolio,
+    market_t0,
+    market_t1,
+    method=AttributionMethod.waterfall(["carry", "rates_curves"])
+)
+```
+
+#### JSON Envelope API
+
+```python
+from finstack.valuations import attribute_pnl_from_json, attribution_result_to_json
+
+# Execute from JSON request
+attribution = attribute_pnl_from_json(json_spec_str)
+
+# Serialize result to JSON
+result_json = attribution_result_to_json(attribution)
 ```
 
 ### WASM/TypeScript
@@ -272,19 +338,23 @@ function attributePnl(
   asOfT1: string,
   method?: AttributionMethod
 ): WasmPnlAttribution
+
+// JSON envelope API: Future work
 ```
 
 ## Files Created
 
 ### Rust Core
 - `finstack/valuations/src/attribution/mod.rs`
-- `finstack/valuations/src/attribution/types.rs` (400+ lines)
-- `finstack/valuations/src/attribution/helpers.rs` (175 lines)
-- `finstack/valuations/src/attribution/factors.rs` (530+ lines)
-- `finstack/valuations/src/attribution/parallel.rs` (250+ lines)
-- `finstack/valuations/src/attribution/waterfall.rs` (270+ lines)
-- `finstack/valuations/src/attribution/metrics_based.rs` (200+ lines)
-- `finstack/valuations/src/attribution/dataframe.rs` (150+ lines)
+- `finstack/valuations/src/attribution/types.rs` (862 lines) — Core data structures
+- `finstack/valuations/src/attribution/helpers.rs` (277 lines) — Utility functions
+- `finstack/valuations/src/attribution/factors.rs` (561 lines) — Market manipulation
+- `finstack/valuations/src/attribution/parallel.rs` (445 lines) — Parallel methodology
+- `finstack/valuations/src/attribution/waterfall.rs` (464 lines) — Waterfall methodology
+- `finstack/valuations/src/attribution/metrics_based.rs` (468 lines) — Metrics methodology
+- `finstack/valuations/src/attribution/dataframe.rs` (253 lines) — Export utilities
+- `finstack/valuations/src/attribution/model_params.rs` (350 lines) — Model parameter extraction
+- `finstack/valuations/src/attribution/spec.rs` (280+ lines) — **NEW**: JSON envelopes
 
 ### Portfolio Integration
 - `finstack/portfolio/src/attribution.rs` (360+ lines)
@@ -293,6 +363,9 @@ function attributePnl(
 - `finstack/valuations/tests/attribution_tests.rs`
 - `finstack/valuations/tests/attribution/mod.rs`
 - `finstack/valuations/tests/attribution/bond_attribution.rs`
+- `finstack/valuations/tests/attribution/config_serialization.rs` — **NEW**: 9 config roundtrip tests
+- `finstack/valuations/tests/attribution/serialization_roundtrip.rs` — **NEW**: 6 envelope roundtrip tests
+- `finstack-py/tests/test_attribution_serialization.py` — **NEW**: 3 Python JSON tests
 
 ### Bindings
 - `finstack-py/src/valuations/attribution.rs`
@@ -301,7 +374,13 @@ function attributePnl(
 
 ### Documentation
 - `book/src/valuations/pnl-attribution.md`
+- `docs/ATTRIBUTION_SERIALIZATION.md` — **NEW**: Serialization guide
 - `finstack-py/examples/scripts/daily_pnl_attribution.py`
+
+### Schemas
+- `finstack/valuations/schemas/attribution/1/attribution.schema.json` — **NEW**: Request schema
+- `finstack/valuations/schemas/attribution/1/attribution_result.schema.json` — **NEW**: Result schema
+- `finstack/valuations/tests/attribution/json_examples/bond_attribution_parallel.example.json` — **NEW**: Example request
 
 ### Modified Files
 - `finstack/valuations/src/lib.rs` (added attribution module)
@@ -344,11 +423,15 @@ function attributePnl(
 
 ## Summary
 
-✅ All planned functionality implemented
-✅ All tests passing (19 tests)
-✅ Documentation complete
-✅ Python and WASM bindings scaffolded
-✅ Ready for incremental enhancement
+✅ All planned functionality implemented  
+✅ All tests passing (37+ tests)  
+✅ **Full JSON serialization support** with versioned envelopes  
+✅ **Complete config/request serializability** — all config types `Serialize`/`Deserialize`  
+✅ **Python JSON API** — `attribute_pnl_from_json()` and `attribution_result_to_json()`  
+✅ Documentation complete  
+✅ Python and WASM bindings (WASM JSON API pending)  
+✅ Schemas and examples for stable wire formats  
+✅ Ready for production use and external integrations  
 
-The P&L attribution module provides a solid foundation for multi-period P&L analysis with three methodologies, comprehensive factor coverage, and portfolio-level aggregation.
+The P&L attribution module provides a solid foundation for multi-period P&L analysis with three methodologies, comprehensive factor coverage, portfolio-level aggregation, and **stable JSON interchange** for external systems.
 

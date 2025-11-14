@@ -15,10 +15,7 @@ use super::{
     CalibrationConfig, CalibrationReport, Calibrator,
 };
 use finstack_core::{
-    config::ResultsMeta,
-    currency::Currency,
-    dates::Date,
-    market_data::context::MarketContext,
+    config::ResultsMeta, currency::Currency, dates::Date, market_data::context::MarketContext,
     Result,
 };
 use serde::{Deserialize, Serialize};
@@ -51,26 +48,25 @@ impl CalibrationEnvelope {
 
     /// Parse from JSON string.
     pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to parse calibration JSON: {}", e),
-                category: "json_parse".to_string(),
-            }
+        serde_json::from_str(json).map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to parse calibration JSON: {}", e),
+            category: "json_parse".to_string(),
         })
     }
 
     /// Parse from JSON reader.
     pub fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
-        serde_json::from_reader(reader).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to parse calibration JSON: {}", e),
-                category: "json_parse".to_string(),
-            }
+        serde_json::from_reader(reader).map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to parse calibration JSON: {}", e),
+            category: "json_parse".to_string(),
         })
     }
 
     /// Execute the calibration and return the result envelope.
-    pub fn execute(&self, initial_market: Option<MarketContext>) -> Result<CalibrationResultEnvelope> {
+    pub fn execute(
+        &self,
+        initial_market: Option<MarketContext>,
+    ) -> Result<CalibrationResultEnvelope> {
         let result = self.calibration.execute(initial_market)?;
         Ok(CalibrationResultEnvelope::new(result))
     }
@@ -127,12 +123,12 @@ impl CalibrationSpec {
         }
 
         // Create merged report
-        let merged_report = CalibrationReport::for_type("pipeline", all_residuals, total_iterations);
+        let merged_report =
+            CalibrationReport::for_type("pipeline", all_residuals, total_iterations);
 
         // Create results metadata
-        let results_meta = finstack_core::config::results_meta(
-            &finstack_core::config::FinstackConfig::default(),
-        );
+        let results_meta =
+            finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
 
         Ok(CalibrationResult {
             final_market: (&context).into(),
@@ -282,21 +278,17 @@ impl CalibrationResultEnvelope {
 
     /// Serialize to JSON string.
     pub fn to_string(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to serialize calibration result: {}", e),
-                category: "json_serialize".to_string(),
-            }
+        serde_json::to_string_pretty(self).map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to serialize calibration result: {}", e),
+            category: "json_serialize".to_string(),
         })
     }
 
     /// Parse from JSON string.
     pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to parse calibration result JSON: {}", e),
-                category: "json_parse".to_string(),
-            }
+        serde_json::from_str(json).map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to parse calibration result JSON: {}", e),
+            category: "json_parse".to_string(),
         })
     }
 }
@@ -341,4 +333,3 @@ mod tests {
         // Test will be expanded when full pipeline execution is tested
     }
 }
-

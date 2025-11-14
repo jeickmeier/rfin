@@ -49,10 +49,10 @@ impl PrivateMarketsFund {
 
     /// Create a canonical example private markets fund with a simple waterfall and events.
     pub fn example() -> Self {
+        use super::waterfall::{WaterfallSpec, WaterfallStyle};
         use finstack_core::currency::Currency;
         use finstack_core::dates::Date;
         use time::Month;
-        use super::waterfall::{WaterfallSpec, WaterfallStyle};
         // Build a simple European-style waterfall: Return of capital -> 8% pref -> 50% catchup -> 80/20 promote
         let spec = WaterfallSpec::builder()
             .style(WaterfallStyle::European)
