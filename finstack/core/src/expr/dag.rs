@@ -6,7 +6,8 @@
 //! of interdependent formulas.
 
 use super::ast::*;
-use std::collections::{HashMap, HashSet};
+use rustc_hash::FxHashMap;
+use std::collections::HashSet;
 use std::vec::Vec;
 
 /// A node in the execution DAG.
@@ -114,9 +115,9 @@ pub struct CacheStrategy {
 #[derive(Default)]
 pub struct DagBuilder {
     /// Expression cache for deduplication.
-    expr_cache: HashMap<Expr, u64>,
+    expr_cache: FxHashMap<Expr, u64>,
     /// Node storage.
-    nodes: HashMap<u64, DagNode>,
+    nodes: FxHashMap<u64, DagNode>,
     /// Next available node ID.
     next_id: u64,
 }
@@ -222,13 +223,13 @@ impl DagBuilder {
 
     /// Calculate reference counts for all nodes.
     fn calculate_ref_counts(&mut self, root_ids: &[u64]) {
-        let mut ref_counts: HashMap<u64, usize> = HashMap::new();
+        let mut ref_counts: FxHashMap<u64, usize> = FxHashMap::default();
         let mut visited = HashSet::new();
 
         fn count_refs(
             node_id: u64,
-            nodes: &HashMap<u64, DagNode>,
-            ref_counts: &mut HashMap<u64, usize>,
+            nodes: &FxHashMap<u64, DagNode>,
+            ref_counts: &mut FxHashMap<u64, usize>,
             visited: &mut HashSet<u64>,
         ) {
             if visited.contains(&node_id) {
@@ -304,7 +305,7 @@ impl DagBuilder {
 
         fn visit(
             node_id: u64,
-            nodes: &HashMap<u64, DagNode>,
+            nodes: &FxHashMap<u64, DagNode>,
             visited: &mut HashSet<u64>,
             visiting: &mut HashSet<u64>,
             result: &mut Vec<DagNode>,

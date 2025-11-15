@@ -42,6 +42,8 @@ repository = "https://github.com/rustfin/rfin"
 # Synchronized enum and macro crates to prevent version mismatches
 strum = "0.25"
 strum_macros = "0.25"
+# Fast hash for integer keys in hot paths
+rustc-hash = "2.0"
 
 # Build profiles
 [profile.dev]
@@ -58,15 +60,25 @@ opt-level = 0
 debug = 1
 
 [profile.release]
-# Optimized release profile for WASM bundle size
-# Use with wasm-pack build for production deployments
-opt-level = "z"     # Optimize for size
-lto = true          # Link-time optimization
-codegen-units = 1   # Better optimization (slower compile, smaller output)
-strip = true        # Strip symbols from binary
+# Performance-optimized release profile (default)
+# Optimizes for speed with good compile times
+opt-level = 3           # Optimize for speed
+lto = "thin"            # Link-time optimization (faster than full LTO)
+codegen-units = 16      # Balance compile time vs optimization
+strip = "symbols"       # Strip symbols but keep debug info for profiling
+
+[profile.release-size]
+# Size-optimized profile for WASM bundle size
+# Use: cargo build --profile release-size
+# Or: wasm-pack build --profile release-size
+inherits = "release"
+opt-level = "z"         # Optimize for size
+lto = true              # Full link-time optimization
+codegen-units = 1       # Maximum optimization (slower compile, smaller output)
+strip = true            # Strip all symbols
 
 [profile.release-perf]
-# Performance-optimized profile for CPU-intensive workloads
+# Legacy performance profile (use default release instead)
 # Use: cargo build --profile release-perf
 inherits = "release"
 opt-level = 3       # Optimize for speed instead of size

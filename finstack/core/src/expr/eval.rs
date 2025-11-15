@@ -17,6 +17,7 @@ use super::{
     context::ExpressionContext,
     dag::{DagBuilder, ExecutionPlan},
 };
+use rustc_hash::FxHashMap;
 use std::sync::Mutex;
 use std::vec::Vec;
 
@@ -190,39 +191,60 @@ impl CompiledExpr {
 
         // Compute values using the chosen strategy
         let values: Vec<f64> = if let Some(ref plan) = plan_to_use {
-            // Execute nodes in topological order, honoring cache strategy
-            let mut results: std::collections::HashMap<u64, Vec<f64>> =
-                std::collections::HashMap::new();
+            // Execute nodes in topological order using arena allocation
+            let len = cols.first().map(|c| c.len()).unwrap_or(0);
+            
+            // Pre-allocate arena for all node results to avoid per-node Vec allocations
+            let mut arena = vec![0.0; len * plan.nodes.len()];
+            let mut offsets: FxHashMap<u64, (usize, usize)> = FxHashMap::default();
+            let mut cursor = 0;
 
             for node in &plan.nodes {
                 // Cache lookup
                 if let Some(ref cache) = eval_cache {
                     if let Some(cached) = cache.get(node.id) {
                         if let Ok(scalar_result) = cached.as_scalar() {
-                            results.insert(node.id, scalar_result);
+                            // Copy cached result into arena
+                            let start = cursor;
+                            let end = cursor + len.min(scalar_result.len());
+                            arena[start..end].copy_from_slice(&scalar_result[..end - start]);
+                            offsets.insert(node.id, (start, end));
+                            cursor = end;
                             continue;
                         }
                     }
                 }
 
-                // Evaluate node
-                let result = self.eval_node(ctx, cols, node, &results);
-
+                // Allocate space in arena for this node's result
+                let start = cursor;
+                let end = cursor + len;
+                
+                // Evaluate node directly into arena slice
+                // Split the arena to avoid borrow conflicts
+                let (arena_deps, arena_out) = arena.split_at_mut(start);
+                let out_slice = &mut arena_out[..len];
+                self.eval_node_into(ctx, cols, node, arena_deps, &offsets, out_slice);
+                
                 // Cache store
                 if let Some(ref cache) = eval_cache {
                     if plan.cache_strategy.cache_nodes.contains(&node.id) {
                         let arc: std::sync::Arc<[f64]> =
-                            std::sync::Arc::from(result.clone().into_boxed_slice());
+                            std::sync::Arc::from(arena[start..end].to_vec().into_boxed_slice());
                         cache.put(node.id, CachedResult::Scalar(arc));
                     }
                 }
 
-                results.insert(node.id, result);
+                offsets.insert(node.id, (start, end));
+                cursor = end;
             }
 
-            // Root result
+            // Extract root result
             if let Some(&root_id) = plan.roots.first() {
-                results.remove(&root_id).unwrap_or_default()
+                if let Some(&(start, end)) = offsets.get(&root_id) {
+                    arena[start..end].to_vec()
+                } else {
+                    Vec::new()
+                }
             } else {
                 Vec::new()
             }
@@ -240,13 +262,90 @@ impl CompiledExpr {
         }
     }
 
-    /// Evaluate a single DAG node using scalar implementation.
+    /// Evaluate a single DAG node directly into a provided output slice (arena-based).
+    fn eval_node_into<C: ExpressionContext>(
+        &self,
+        ctx: &C,
+        cols: &[&[f64]],
+        node: &super::dag::DagNode,
+        arena: &[f64],
+        offsets: &FxHashMap<u64, (usize, usize)>,
+        out: &mut [f64],
+    ) {
+        match &node.expr.node {
+            ExprNode::Column(name) => {
+                let idx = ctx.resolve_index(name).expect("unknown column");
+                let len = out.len().min(cols[idx].len());
+                out[..len].copy_from_slice(&cols[idx][..len]);
+            }
+            ExprNode::Literal(val) => {
+                out.fill(*val);
+            }
+            ExprNode::Call(func, _args) => {
+                // Get argument results from dependencies (slices from arena)
+                let arg_slices: Vec<&[f64]> = node
+                    .dependencies
+                    .iter()
+                    .filter_map(|&dep_id| {
+                        offsets.get(&dep_id).map(|&(start, end)| &arena[start..end])
+                    })
+                    .collect();
+
+                self.eval_function_into(*func, &arg_slices, ctx, cols, out);
+            }
+            ExprNode::BinOp { op, .. } => {
+                // Binary operations should have exactly 2 dependencies
+                if node.dependencies.len() >= 2 {
+                    let left = offsets
+                        .get(&node.dependencies[0])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    let right = offsets
+                        .get(&node.dependencies[1])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    Self::eval_bin_op_into(*op, left, right, out);
+                }
+            }
+            ExprNode::UnaryOp { op, .. } => {
+                // Unary operations should have exactly 1 dependency
+                if !node.dependencies.is_empty() {
+                    let operand = offsets
+                        .get(&node.dependencies[0])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    Self::eval_unary_op_into(*op, operand, out);
+                }
+            }
+            ExprNode::IfThenElse { .. } => {
+                // If-then-else should have exactly 3 dependencies
+                if node.dependencies.len() >= 3 {
+                    let condition = offsets
+                        .get(&node.dependencies[0])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    let then_vals = offsets
+                        .get(&node.dependencies[1])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    let else_vals = offsets
+                        .get(&node.dependencies[2])
+                        .map(|&(start, end)| &arena[start..end])
+                        .unwrap_or(&[]);
+                    Self::eval_if_then_else_into(condition, then_vals, else_vals, out);
+                }
+            }
+        }
+    }
+
+    /// Evaluate a single DAG node using scalar implementation (legacy, kept for compatibility).
+    #[allow(dead_code)]
     fn eval_node<C: ExpressionContext>(
         &self,
         ctx: &C,
         cols: &[&[f64]],
         node: &super::dag::DagNode,
-        results: &std::collections::HashMap<u64, Vec<f64>>,
+        results: &FxHashMap<u64, Vec<f64>>,
     ) -> Vec<f64> {
         match &node.expr.node {
             ExprNode::Column(name) => {
@@ -642,9 +741,9 @@ impl CompiledExpr {
                 .lock()
                 .expect("Mutex should not be poisoned");
             let tmp = &mut guard.tmp;
-            tmp.clear();
+            tmp.truncate(0);
             tmp.extend_from_slice(data);
-            tmp.sort_by(|a, b| {
+            tmp.sort_unstable_by(|a, b| {
                 a.partial_cmp(b)
                     .expect("f64 comparison should always be comparable")
             });
@@ -729,9 +828,9 @@ impl CompiledExpr {
             } else {
                 let start = i + 1 - win;
                 let slice = &base[start..=i];
-                wbuf.clear();
+                wbuf.truncate(0);
                 wbuf.extend_from_slice(slice);
-                wbuf.sort_by(|a, b| {
+                wbuf.sort_unstable_by(|a, b| {
                     a.partial_cmp(b)
                         .expect("f64 comparison should always be comparable")
                 });
@@ -773,7 +872,7 @@ impl CompiledExpr {
             let base = &arg_results[0];
             let mut indexed: Vec<(f64, usize)> =
                 base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-            indexed.sort_by(|a, b| {
+            indexed.sort_unstable_by(|a, b| {
                 a.0.partial_cmp(&b.0)
                     .expect("f64 comparison should always be comparable")
             });
@@ -807,7 +906,7 @@ impl CompiledExpr {
                 .collect();
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
-                valid_values.sort_by(|a, b| {
+                valid_values.sort_unstable_by(|a, b| {
                     a.partial_cmp(b)
                         .expect("f64 comparison should always be comparable")
                 });
@@ -969,6 +1068,45 @@ impl CompiledExpr {
         out
     }
 
+    /// Evaluate a binary operation element-wise into a provided output slice.
+    #[inline]
+    fn eval_bin_op_into(op: super::ast::BinOp, left: &[f64], right: &[f64], out: &mut [f64]) {
+        use super::ast::BinOp;
+        let len = out.len();
+
+        for (i, out_val) in out.iter_mut().enumerate().take(len) {
+            let l = *left.get(i).unwrap_or(&0.0);
+            let r = *right.get(i).unwrap_or(&0.0);
+
+            *out_val = match op {
+                // Arithmetic
+                BinOp::Add => l + r,
+                BinOp::Sub => l - r,
+                BinOp::Mul => l * r,
+                BinOp::Div => {
+                    if r == 0.0 {
+                        f64::NAN
+                    } else {
+                        l / r
+                    }
+                }
+                BinOp::Mod => l % r,
+
+                // Comparison (return 1.0 for true, 0.0 for false)
+                BinOp::Eq => if l == r { 1.0 } else { 0.0 },
+                BinOp::Ne => if l != r { 1.0 } else { 0.0 },
+                BinOp::Lt => if l < r { 1.0 } else { 0.0 },
+                BinOp::Le => if l <= r { 1.0 } else { 0.0 },
+                BinOp::Gt => if l > r { 1.0 } else { 0.0 },
+                BinOp::Ge => if l >= r { 1.0 } else { 0.0 },
+
+                // Logical (treat non-zero as true)
+                BinOp::And => if l != 0.0 && r != 0.0 { 1.0 } else { 0.0 },
+                BinOp::Or => if l != 0.0 || r != 0.0 { 1.0 } else { 0.0 },
+            };
+        }
+    }
+
     /// Evaluate a binary operation element-wise.
     fn eval_bin_op(op: super::ast::BinOp, left: &[f64], right: &[f64]) -> Vec<f64> {
         use super::ast::BinOp;
@@ -1058,6 +1196,19 @@ impl CompiledExpr {
         out
     }
 
+    /// Evaluate a unary operation element-wise into a provided output slice.
+    #[inline]
+    fn eval_unary_op_into(op: super::ast::UnaryOp, operand: &[f64], out: &mut [f64]) {
+        use super::ast::UnaryOp;
+        let len = out.len().min(operand.len());
+        for i in 0..len {
+            out[i] = match op {
+                UnaryOp::Neg => -operand[i],
+                UnaryOp::Not => if operand[i] == 0.0 { 1.0 } else { 0.0 },
+            };
+        }
+    }
+
     /// Evaluate a unary operation element-wise.
     fn eval_unary_op(op: super::ast::UnaryOp, operand: &[f64]) -> Vec<f64> {
         use super::ast::UnaryOp;
@@ -1076,6 +1227,23 @@ impl CompiledExpr {
             .collect()
     }
 
+    /// Evaluate if-then-else element-wise into a provided output slice.
+    #[inline]
+    fn eval_if_then_else_into(
+        condition: &[f64],
+        then_vals: &[f64],
+        else_vals: &[f64],
+        out: &mut [f64],
+    ) {
+        let len = out.len();
+        for (i, out_val) in out.iter_mut().enumerate().take(len) {
+            let cond = *condition.get(i).unwrap_or(&0.0);
+            let then_val = *then_vals.get(i).unwrap_or(&0.0);
+            let else_val = *else_vals.get(i).unwrap_or(&0.0);
+            *out_val = if cond != 0.0 { then_val } else { else_val };
+        }
+    }
+
     /// Evaluate if-then-else element-wise.
     fn eval_if_then_else(condition: &[f64], then_vals: &[f64], else_vals: &[f64]) -> Vec<f64> {
         let len = condition.len().max(then_vals.len()).max(else_vals.len());
@@ -1089,6 +1257,50 @@ impl CompiledExpr {
             out.push(if cond != 0.0 { then_val } else { else_val });
         }
         out
+    }
+
+    /// Evaluate a function with given argument results (slices from arena).
+    fn eval_function_into<C: ExpressionContext>(
+        &self,
+        fun: Function,
+        arg_slices: &[&[f64]],
+        _ctx: &C,
+        _cols: &[&[f64]],
+        out: &mut [f64],
+    ) {
+        // Convert slices to Vec for existing function implementations
+        // TODO: optimize individual functions to work with slices
+        let arg_results: Vec<Vec<f64>> = arg_slices.iter().map(|&s| s.to_vec()).collect();
+        let result = match fun {
+            Function::Lag => self.eval_lag(&arg_results),
+            Function::Lead => self.eval_lead(&arg_results),
+            Function::Diff => self.eval_diff(&arg_results),
+            Function::PctChange => self.eval_pct_change(&arg_results),
+            Function::CumSum => self.eval_cum_sum(&arg_results),
+            Function::CumProd => self.eval_cum_prod(&arg_results),
+            Function::CumMin => self.eval_cum_min(&arg_results),
+            Function::CumMax => self.eval_cum_max(&arg_results),
+            Function::RollingMean => self.eval_rolling_mean(&arg_results),
+            Function::RollingSum => self.eval_rolling_sum(&arg_results),
+            Function::EwmMean => self.eval_ewm_mean(&arg_results),
+            Function::Std => self.eval_std(&arg_results),
+            Function::Var => self.eval_var(&arg_results),
+            Function::Median => self.eval_median(&arg_results),
+            Function::RollingStd => self.eval_rolling_std(&arg_results),
+            Function::RollingVar => self.eval_rolling_var(&arg_results),
+            Function::RollingMedian => self.eval_rolling_median(&arg_results),
+            Function::Shift => self.eval_shift(&arg_results),
+            Function::Rank => self.eval_rank(&arg_results),
+            Function::Quantile => self.eval_quantile(&arg_results),
+            Function::RollingMin => self.eval_rolling_min(&arg_results),
+            Function::RollingMax => self.eval_rolling_max(&arg_results),
+            Function::RollingCount => self.eval_rolling_count(&arg_results),
+            Function::EwmStd => self.eval_ewm_std(&arg_results),
+            Function::EwmVar => self.eval_ewm_var(&arg_results),
+            _ => panic!("Custom financial functions should be evaluated in the statements layer, not in core"),
+        };
+        let copy_len = out.len().min(result.len());
+        out[..copy_len].copy_from_slice(&result[..copy_len]);
     }
 
     /// Evaluate a function with given argument results.

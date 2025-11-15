@@ -1,0 +1,127 @@
+//! Benchmarks for DAG-based expression evaluation.
+//!
+//! Tests performance of complex expression graphs with shared sub-expressions
+//! and arena-based allocation.
+
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_core::expr::{BinOp, CompiledExpr, Expr, EvalOpts, Function, SimpleContext};
+
+/// Build a complex DAG with `n` interdependent nodes.
+/// Creates expressions like: x + y, x * 2, (x + y) * x, etc.
+fn build_complex_dag(n: usize) -> Expr {
+    let mut exprs: Vec<Expr> = vec![Expr::column("x"), Expr::column("y")];
+    
+    for i in 0..n {
+        let left_idx = i % exprs.len();
+        let right_idx = (i + 1) % exprs.len();
+        
+        let new_expr = if i % 3 == 0 {
+            Expr::bin_op(BinOp::Add, exprs[left_idx].clone(), exprs[right_idx].clone())
+        } else if i % 3 == 1 {
+            Expr::bin_op(BinOp::Mul, exprs[left_idx].clone(), Expr::literal(2.0))
+        } else {
+            Expr::call(
+                Function::RollingSum,
+                vec![exprs[left_idx].clone(), Expr::literal(3.0)],
+            )
+        };
+        
+        exprs.push(new_expr);
+    }
+    
+    // Return complex expression combining many sub-expressions
+    let mid = exprs.len() / 2;
+    Expr::bin_op(BinOp::Add, exprs[mid].clone(), exprs[mid + 1].clone())
+}
+
+fn bench_dag_evaluation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dag_evaluation");
+    
+    // Set up test data
+    let ctx = SimpleContext::new(["x", "y"]);
+    let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
+    let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
+    let cols: Vec<&[f64]> = vec![&x, &y];
+    
+    for size in [10, 50, 100] {
+        group.bench_with_input(
+            BenchmarkId::new("complex_dag", size),
+            &size,
+            |b, &size| {
+                let expr = build_complex_dag(size);
+                let compiled = CompiledExpr::new(expr);
+                b.iter(|| {
+                    let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
+                    black_box(result);
+                })
+            },
+        );
+    }
+    
+    group.finish();
+}
+
+fn bench_dag_with_planning(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dag_with_planning");
+    
+    // Set up test data
+    let ctx = SimpleContext::new(["x", "y"]);
+    let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
+    let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
+    let cols: Vec<&[f64]> = vec![&x, &y];
+    
+    for size in [10, 50, 100] {
+        group.bench_with_input(
+            BenchmarkId::new("with_plan", size),
+            &size,
+            |b, &size| {
+                let expr = build_complex_dag(size);
+                let meta = finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
+                let compiled = CompiledExpr::with_planning(expr, meta);
+                b.iter(|| {
+                    let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
+                    black_box(result);
+                })
+            },
+        );
+    }
+    
+    group.finish();
+}
+
+fn bench_dag_cache_enabled(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dag_cache_enabled");
+    
+    // Set up test data
+    let ctx = SimpleContext::new(["x", "y"]);
+    let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
+    let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
+    let cols: Vec<&[f64]> = vec![&x, &y];
+    
+    for size in [50, 100] {
+        group.bench_with_input(
+            BenchmarkId::new("with_cache", size),
+            &size,
+            |b, &size| {
+                let expr = build_complex_dag(size);
+                let meta = finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
+                let compiled = CompiledExpr::with_planning(expr, meta).with_cache(10);
+                b.iter(|| {
+                    let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
+                    black_box(result);
+                })
+            },
+        );
+    }
+    
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_dag_evaluation,
+    bench_dag_with_planning,
+    bench_dag_cache_enabled,
+);
+criterion_main!(benches);
+

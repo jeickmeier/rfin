@@ -193,11 +193,14 @@ impl DiscountCurve {
             use rayon::prelude::*;
             // Parallel iteration is required to be order-stable; results must be bit-identical
             // to the sequential path. We therefore only parallelize the map, preserving order.
+            // ParallelIterator::collect already pre-allocates, so this is efficient.
             times.par_iter().map(|&t| self.df(t)).collect()
         }
         #[cfg(not(feature = "parallel"))]
         {
-            times.iter().map(|&t| self.df(t)).collect()
+            let mut result = Vec::with_capacity(times.len());
+            result.extend(times.iter().map(|&t| self.df(t)));
+            result
         }
     }
 

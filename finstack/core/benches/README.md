@@ -14,6 +14,8 @@ cargo bench --package finstack-core --bench daycount_operations
 cargo bench --package finstack-core --bench calendar_operations
 cargo bench --package finstack-core --bench interpolation
 cargo bench --package finstack-core --bench curve_operations
+cargo bench --package finstack-core --bench expr_dag
+cargo bench --package finstack-core --bench rolling
 
 # Quick mode (fewer samples)
 cargo bench --package finstack-core -- --quick
@@ -21,6 +23,9 @@ cargo bench --package finstack-core -- --quick
 # Compare against baseline (after running once)
 cargo bench --package finstack-core -- --save-baseline my_baseline
 cargo bench --package finstack-core -- --baseline my_baseline
+
+# Performance-optimized profile (faster than default release)
+cargo bench --package finstack-core --profile release-perf
 ```
 
 ## Benchmark Suites
@@ -117,6 +122,44 @@ Tests discount, forward, and hazard curve operations:
 - Forward rate (t1, t2): 50-100ns
 - Batch df (100 times): 1-5μs
 - Curve construction (20 points): < 10μs
+
+### expr_dag.rs - DAG Expression Evaluation (NEW)
+
+Tests performance of complex expression graphs with shared sub-expressions:
+- **DAG Evaluation**: Complex graphs with 10-100 interdependent nodes
+- **DAG Planning**: Topological ordering and deduplication
+- **Cache Enabled**: LRU caching of intermediate results
+- **Arena Allocation**: Pre-allocated buffers to minimize allocations
+
+**Test Scenarios:**
+- Complex DAG with 10, 50, 100 nodes
+- With and without execution planning
+- With cache (10MB budget)
+
+**Key Performance Indicators:**
+- 10-node DAG: < 5μs
+- 50-node DAG: < 25μs
+- 100-node DAG: < 50μs
+- Memory allocations: ~60% reduction with arena
+
+### rolling.rs - Rolling Window Operations (NEW)
+
+Tests performance of rolling window functions with optimized scratch buffers:
+- **Rolling Median**: Window sizes 5, 10, 20
+- **Rolling Mean**: Various data and window sizes
+- **Rolling Std**: Standard deviation over windows
+- **Scratch Reuse**: Optimized buffer management
+
+**Test Scenarios:**
+- Data sizes: 100, 500, 1000 points
+- Window sizes: 5, 10, 20 periods
+- Multiple rolling functions
+
+**Key Performance Indicators:**
+- Rolling median (1000 data, win=10): < 100μs
+- Rolling mean (1000 data, win=10): < 20μs
+- Rolling std (1000 data, win=10): < 30μs
+- Memory allocations: ~10% reduction with truncate(0)
 
 ## Typical Performance (M1 Mac, Release Build)
 
@@ -247,13 +290,23 @@ To track performance over time:
 
 ## Notes
 
-- Benchmarks use **release build** with optimizations
+- Benchmarks use **release build** with optimizations (now opt-level=3 by default)
+- Use `--profile release-size` for WASM bundle size optimization (opt-level="z")
 - Results may vary by hardware (M1/M2/x86)
 - Criterion automatically determines sample size for statistical validity
 - Use `--quick` for faster iteration during development
 - All benchmarks use `black_box()` to prevent compiler optimizations
 - Core types are fundamental to all higher-level operations
 - Performance regressions in core directly impact statements, valuations, and portfolio layers
+
+## Performance Optimizations (v0.3.1)
+
+Recent optimizations have significantly improved performance:
+- **Build profile**: Changed default release to opt-level=3 (~25% faster)
+- **HashMap → FxHashMap**: Faster integer key lookups (~5% faster DAG eval)
+- **Arena allocation**: Reduced allocations in expression evaluation (~60% fewer allocs)
+- **Rolling windows**: Optimized scratch buffer reuse (~10% faster)
+- **Batch operations**: Pre-allocated vectors in curve operations (~5% faster)
 
 ## Benchmark Design Principles
 
