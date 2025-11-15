@@ -908,7 +908,9 @@ mod tests {
         let forward = 100.0;
         let time_to_expiry = 1.0;
 
-        let atm_vol = model.atm_volatility(forward, time_to_expiry).unwrap();
+        let atm_vol = model
+            .atm_volatility(forward, time_to_expiry)
+            .expect("ATM volatility calculation should succeed in test");
 
         // ATM vol should be positive
         assert!(atm_vol > 0.0);
@@ -916,13 +918,14 @@ mod tests {
         // For ATM, implied vol should match ATM vol
         let implied_vol = model
             .implied_volatility(forward, forward, time_to_expiry)
-            .unwrap();
+            .expect("Volatility calculation should succeed in test");
         assert!((implied_vol - atm_vol).abs() < 1e-10);
     }
 
     #[test]
     fn test_sabr_smile_shape() {
-        let params = SABRParameters::new(0.2, 0.7, 0.4, -0.3).unwrap();
+        let params = SABRParameters::new(0.2, 0.7, 0.4, -0.3)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 100.0;
@@ -935,7 +938,7 @@ mod tests {
         for strike in &strikes {
             let vol = model
                 .implied_volatility(forward, *strike, time_to_expiry)
-                .unwrap();
+                .expect("Volatility calculation should succeed in test");
             vols.push(vol);
         }
 
@@ -943,15 +946,22 @@ mod tests {
         // Lower strikes should have higher vols
         // But the actual shape depends on all parameters
         // Just check that we get different vols (smile exists)
-        let vol_range = vols.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
-            - vols.iter().min_by(|a, b| a.total_cmp(b)).unwrap();
+        let vol_range = vols
+            .iter()
+            .max_by(|a, b| a.total_cmp(b))
+            .expect("Vols should not be empty")
+            - vols
+                .iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .expect("Vols should not be empty");
         assert!(vol_range > 0.001); // There is a smile
     }
 
     #[test]
     fn test_sabr_normal_model() {
         // Beta = 0 gives normal SABR
-        let params = SABRParameters::normal(20.0, 0.3, 0.0).unwrap();
+        let params = SABRParameters::normal(20.0, 0.3, 0.0)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 0.05; // 5% rate
@@ -960,7 +970,7 @@ mod tests {
 
         let vol = model
             .implied_volatility(forward, strike, time_to_expiry)
-            .unwrap();
+            .expect("Volatility calculation should succeed in test");
 
         // Should produce reasonable normal vol
         assert!(vol > 0.0);
@@ -970,7 +980,8 @@ mod tests {
     #[test]
     fn test_sabr_lognormal_model() {
         // Beta = 1 gives lognormal SABR (like Black-Scholes)
-        let params = SABRParameters::lognormal(0.3, 0.4, 0.2).unwrap();
+        let params = SABRParameters::lognormal(0.3, 0.4, 0.2)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 100.0;
@@ -979,7 +990,7 @@ mod tests {
 
         let vol = model
             .implied_volatility(forward, strike, time_to_expiry)
-            .unwrap();
+            .expect("Volatility calculation should succeed in test");
 
         // Should produce reasonable lognormal vol
         assert!(vol > 0.0);
@@ -998,7 +1009,7 @@ mod tests {
         let calibrator = SABRCalibrator::new();
         let params = calibrator
             .calibrate(forward, &strikes, &market_vols, time_to_expiry, beta)
-            .unwrap();
+            .expect("Volatility calculation should succeed in test");
 
         // Check calibrated parameters are reasonable
         assert!(params.alpha > 0.0);
@@ -1010,7 +1021,7 @@ mod tests {
         for (i, &strike) in strikes.iter().enumerate() {
             let model_vol = model
                 .implied_volatility(forward, strike, time_to_expiry)
-                .unwrap();
+                .expect("Volatility calculation should succeed in test");
             let error = (model_vol - market_vols[i]).abs();
             assert!(error < 0.05); // Within 5% vol (calibration is approximate)
         }
@@ -1018,12 +1029,15 @@ mod tests {
 
     #[test]
     fn test_sabr_smile_generator() {
-        let params = SABRParameters::new(0.25, 0.6, 0.35, -0.25).unwrap();
+        let params = SABRParameters::new(0.25, 0.6, 0.35, -0.25)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
         let smile = SABRSmile::new(model, 100.0, 1.0);
 
         let strikes = vec![85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0];
-        let vols = smile.generate_smile(&strikes).unwrap();
+        let vols = smile
+            .generate_smile(&strikes)
+            .expect("Smile generation should succeed in test");
 
         // Check all vols are positive
         for vol in &vols {
@@ -1042,14 +1056,15 @@ mod tests {
         let strikes = vec![-0.01, -0.005, 0.0, 0.005, 0.01];
         let shift = 0.02; // 200bps shift
 
-        let params = SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, shift).unwrap(); // Higher alpha for more reasonable vols
+        let params = SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, shift)
+            .expect("SABR parameters should be valid in test"); // Higher alpha for more reasonable vols
         let model = SABRModel::new(params);
 
         // Should handle negative rates correctly
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, 1.0);
             assert!(vol.is_ok(), "Failed for strike {}: {:?}", strike, vol);
-            let vol_val = vol.unwrap();
+            let vol_val = vol.expect("Volatility should be Some in test");
             assert!(
                 vol_val > 0.0,
                 "Non-positive volatility {} for strike {}",
@@ -1084,13 +1099,21 @@ mod tests {
         // All should give very similar results (ATM case)
         let mut vols = Vec::new();
         for &strike in &strikes {
-            let vol = model.implied_volatility(forward, strike, 1.0).unwrap();
+            let vol = model
+                .implied_volatility(forward, strike, 1.0)
+                .expect("Implied volatility calculation should succeed in test");
             vols.push(vol);
         }
 
         // Check all ATM-like volatilities are similar with practical tolerance
-        let vol_range = vols.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
-            - vols.iter().min_by(|a, b| a.total_cmp(b)).unwrap();
+        let vol_range = vols
+            .iter()
+            .max_by(|a, b| a.total_cmp(b))
+            .expect("Vols should not be empty")
+            - vols
+                .iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .expect("Vols should not be empty");
         assert!(vol_range < 1e-2); // Practical tolerance for numerical precision in ATM case
     }
 
@@ -1106,18 +1129,18 @@ mod tests {
         let calibrator = SABRCalibrator::new().with_tolerance(1e-4); // Relaxed tolerance for difficult calibration
         let params = calibrator
             .calibrate_auto_shift(forward, &strikes, &market_vols, time_to_expiry, beta)
-            .unwrap();
+            .expect("Volatility calculation should succeed in test");
 
         // Should have detected need for shift
         assert!(params.is_shifted());
-        assert!(params.shift().unwrap() > 0.0);
+        assert!(params.shift().expect("Shift should be Some") > 0.0);
 
         // Check model works with negative rates
         let model = SABRModel::new(params);
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, time_to_expiry);
             assert!(vol.is_ok(), "Failed for strike {}: {:?}", strike, vol);
-            let vol_val = vol.unwrap();
+            let vol_val = vol.expect("Volatility should be Some in test");
             assert!(
                 vol_val > 0.0,
                 "Non-positive volatility {} for strike {}",
@@ -1130,7 +1153,8 @@ mod tests {
     #[test]
     fn test_sabr_numerical_stability_extreme_parameters() {
         // Test with extreme but valid parameters
-        let params = SABRParameters::new(0.01, 0.1, 0.1, 0.9).unwrap();
+        let params = SABRParameters::new(0.01, 0.1, 0.1, 0.9)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 0.001; // Very low rate
@@ -1139,7 +1163,7 @@ mod tests {
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, 5.0); // Long maturity
             assert!(vol.is_ok());
-            let vol_val = vol.unwrap();
+            let vol_val = vol.expect("Volatility should be Some in test");
             assert!(vol_val > 0.0);
             assert!(vol_val.is_finite());
         }
@@ -1148,7 +1172,8 @@ mod tests {
     #[test]
     fn test_sabr_chi_function_stability() {
         // Test chi function with various extreme cases
-        let params = SABRParameters::new(0.2, 0.5, 0.3, 0.95).unwrap(); // High rho
+        let params = SABRParameters::new(0.2, 0.5, 0.3, 0.95)
+            .expect("SABR parameters should be valid in test"); // High rho
         let model = SABRModel::new(params);
 
         // Test small z values
@@ -1156,17 +1181,19 @@ mod tests {
         for z in small_z_values {
             let chi = model.calculate_chi_robust(z);
             assert!(chi.is_ok());
-            assert!(chi.unwrap().is_finite());
+            assert!(chi.expect("Chi should be Some").is_finite());
         }
 
         // Test rho ≈ 1 case
-        let params_rho_one = SABRParameters::new(0.2, 0.5, 0.3, 0.999).unwrap();
+        let params_rho_one = SABRParameters::new(0.2, 0.5, 0.3, 0.999)
+            .expect("SABR parameters should be valid in test");
         let model_rho_one = SABRModel::new(params_rho_one);
         let chi_rho_one = model_rho_one.calculate_chi_robust(0.1);
         assert!(chi_rho_one.is_ok());
 
         // Test rho ≈ -1 case
-        let params_rho_minus_one = SABRParameters::new(0.2, 0.5, 0.3, -0.999).unwrap();
+        let params_rho_minus_one = SABRParameters::new(0.2, 0.5, 0.3, -0.999)
+            .expect("SABR parameters should be valid in test");
         let model_rho_minus_one = SABRModel::new(params_rho_minus_one);
         let chi_rho_minus_one = model_rho_minus_one.calculate_chi_robust(0.1);
         assert!(chi_rho_minus_one.is_ok());
@@ -1181,7 +1208,7 @@ mod tests {
         let result = SABRParameters::new(-0.1, 0.5, 0.3, 0.1);
         assert!(result.is_err(), "Negative alpha should be rejected");
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("should fail");
         assert!(
             matches!(err, Error::Validation(_)),
             "Should return Validation error"
@@ -1197,7 +1224,7 @@ mod tests {
         let result = SABRParameters::new(0.0, 0.5, 0.3, 0.1);
         assert!(result.is_err(), "Zero alpha should be rejected");
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("should fail");
         assert!(matches!(err, Error::Validation(_)));
     }
 
@@ -1206,12 +1233,12 @@ mod tests {
         // Rho > 1
         let result1 = SABRParameters::new(0.2, 0.5, 0.3, 1.5);
         assert!(result1.is_err(), "Rho > 1 should be rejected");
-        assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
+        assert!(matches!(result1.expect_err("should fail"), Error::Validation(_)));
 
         // Rho < -1
         let result2 = SABRParameters::new(0.2, 0.5, 0.3, -1.5);
         assert!(result2.is_err(), "Rho < -1 should be rejected");
-        assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
+        assert!(matches!(result2.expect_err("should fail"), Error::Validation(_)));
 
         // Rho = exactly 1.0 should be OK
         let result3 = SABRParameters::new(0.2, 0.5, 0.3, 1.0);
@@ -1227,7 +1254,7 @@ mod tests {
         let result = SABRParameters::new(0.2, 0.5, -0.1, 0.1);
         assert!(result.is_err(), "Negative nu should be rejected");
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("should fail");
         assert!(matches!(err, Error::Validation(_)));
 
         // Verify error message mentions nu
@@ -1240,12 +1267,12 @@ mod tests {
         // Beta > 1
         let result1 = SABRParameters::new(0.2, 1.5, 0.3, 0.1);
         assert!(result1.is_err(), "Beta > 1 should be rejected");
-        assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
+        assert!(matches!(result1.expect_err("should fail"), Error::Validation(_)));
 
         // Beta < 0
         let result2 = SABRParameters::new(0.2, -0.1, 0.3, 0.1);
         assert!(result2.is_err(), "Beta < 0 should be rejected");
-        assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
+        assert!(matches!(result2.expect_err("should fail"), Error::Validation(_)));
 
         // Beta = 0 should be OK (normal SABR)
         let result3 = SABRParameters::new(0.2, 0.0, 0.3, 0.1);

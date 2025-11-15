@@ -125,8 +125,8 @@ mod tests {
             _curves: &MarketContext,
             _as_of: Date,
         ) -> finstack_core::Result<DatedFlows> {
-            let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-            let d2 = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+            let d1 = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+            let d2 = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
             Ok(vec![
                 (d1, Money::new(100.0, Currency::USD)),
                 (d2, Money::new(250.0, Currency::USD)),
@@ -137,9 +137,9 @@ mod tests {
     #[test]
     fn full_schedule_default_max_amount_ok() {
         let curves = MarketContext::new();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let dummy = Dummy;
-        let sched = dummy.build_full_schedule(&curves, as_of).unwrap();
+        let sched = dummy.build_full_schedule(&curves, as_of).expect("should build schedule");
         assert_eq!(sched.notional.initial.amount(), 250.0);
         assert_eq!(sched.notional.initial.currency(), Currency::USD);
         assert_eq!(sched.day_count, finstack_core::dates::DayCount::Act365F);

@@ -591,7 +591,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 252, &asian, Currency::USD, 1.0)
-            .unwrap();
+            .expect("should succeed");
 
         // Should get reasonable Asian option value
         assert!(result.mean.amount() > 0.0);
@@ -610,7 +610,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 252, &lookback, Currency::USD, 1.0)
-            .unwrap();
+            .expect("should succeed");
 
         // Lookback should have positive value
         assert!(result.mean.amount() > 0.0);

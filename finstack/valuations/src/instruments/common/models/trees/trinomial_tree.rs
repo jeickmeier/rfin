@@ -287,7 +287,7 @@ mod tests {
 
         let price = tree.price(initial_vars, 1.0, &market_context, &valuator);
         assert!(price.is_ok());
-        let price = price.unwrap();
+        let price = price.expect("should succeed");
 
         // Should be positive for ATM call
         assert!(price > 0.0);
@@ -308,10 +308,10 @@ mod tests {
 
         let bin_price = binomial
             .price(initial_vars.clone(), 1.0, &market_context, &valuator)
-            .unwrap();
+            .expect("should succeed");
         let tri_price = trinomial
             .price(initial_vars, 1.0, &market_context, &valuator)
-            .unwrap();
+            .expect("should succeed");
 
         // Should converge to similar values
         assert!((bin_price - tri_price).abs() < 0.5);

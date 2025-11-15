@@ -89,7 +89,7 @@ mod tests {
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-001",
-            Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date"),
             Money::new(1_042_315.67, Currency::USD),
             results_meta(&FinstackConfig::default()),
         )
@@ -110,13 +110,13 @@ mod tests {
     fn test_results_to_rows_batch() {
         let result1 = ValuationResult::stamped(
             "BOND-001",
-            Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date"),
             Money::new(1_000_000.0, Currency::USD),
         );
 
         let result2 = ValuationResult::stamped(
             "BOND-002",
-            Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date"),
             Money::new(500_000.0, Currency::EUR),
         );
 
@@ -131,7 +131,7 @@ mod tests {
     fn test_row_serialization() {
         let result = ValuationResult::stamped(
             "BOND-001",
-            Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date"),
             Money::new(1_000_000.0, Currency::USD),
         );
 

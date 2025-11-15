@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn test_calibration_envelope_roundtrip() {
         let spec = CalibrationSpec {
-            base_date: create_date(2025, Month::January, 1).unwrap(),
+            base_date: create_date(2025, Month::January, 1).expect("valid date"),
             base_currency: Currency::USD,
             config: CalibrationConfig::default(),
             steps: vec![],
@@ -310,8 +310,8 @@ mod tests {
         };
 
         let envelope = CalibrationEnvelope::new(spec);
-        let json = serde_json::to_string_pretty(&envelope).unwrap();
-        let parsed: CalibrationEnvelope = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string_pretty(&envelope).expect("should serialize");
+        let parsed: CalibrationEnvelope = serde_json::from_str(&json).expect("should deserialize");
 
         assert_eq!(parsed.schema, CALIBRATION_SCHEMA_V1);
     }
@@ -323,7 +323,7 @@ mod tests {
         let _step = CalibrationStep::Discount {
             calibrator: DiscountCurveCalibrator::new(
                 "USD-OIS",
-                create_date(2025, Month::January, 1).unwrap(),
+                create_date(2025, Month::January, 1).expect("valid date"),
                 Currency::USD,
             ),
             quotes: vec![],

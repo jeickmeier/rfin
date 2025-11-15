@@ -540,7 +540,7 @@ mod tests {
         let result = apply_draw_repay_event(balance, &event, commitment);
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should fail")
             .to_string()
             .contains("exceed commitment"));
     }

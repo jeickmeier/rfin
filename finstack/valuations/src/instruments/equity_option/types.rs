@@ -524,7 +524,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     fn approx_eq(actual: f64, expected: f64, tol: f64) {
@@ -635,8 +635,8 @@ mod tests {
         let option = base_option(expiry);
         let curves = build_market_context(as_of, 100.0, 0.30, 0.02, 0.01);
 
-        let npv = option.npv(&curves, as_of).unwrap();
-        let implied = option.implied_vol(&curves, as_of, npv.amount()).unwrap();
+        let npv = option.npv(&curves, as_of).expect("should succeed");
+        let implied = option.implied_vol(&curves, as_of, npv.amount()).expect("should succeed");
         approx_eq(implied, 0.30, 1e-5);
 
         let mut override_option = base_option(expiry);
@@ -645,8 +645,8 @@ mod tests {
             ..Default::default()
         };
         override_option.pricing_overrides = overrides;
-        let override_price = override_option.npv(&curves, as_of).unwrap();
-        let (spot, r, q, _, t) = pricer::collect_inputs(&override_option, &curves, as_of).unwrap();
+        let override_price = override_option.npv(&curves, as_of).expect("should succeed");
+        let (spot, r, q, _, t) = pricer::collect_inputs(&override_option, &curves, as_of).expect("should succeed");
         let expected = pricer::price_bs_unit(
             spot,
             override_option.strike.amount(),
@@ -668,17 +668,17 @@ mod tests {
         option.contract_size = 50.0;
         let curves = build_market_context(as_of, 120.0, 0.25, 0.01, 0.0);
 
-        let pv = option.npv(&curves, as_of).unwrap();
+        let pv = option.npv(&curves, as_of).expect("should succeed");
         assert_eq!(pv.amount(), (120.0 - 100.0) * 50.0);
 
-        let greeks = option.greeks(&curves, as_of).unwrap();
+        let greeks = option.greeks(&curves, as_of).expect("should succeed");
         assert_eq!(greeks.delta, 50.0);
         assert_eq!(greeks.gamma, 0.0);
         assert_eq!(greeks.vega, 0.0);
         assert_eq!(greeks.theta, 0.0);
         assert_eq!(greeks.rho, 0.0);
 
-        let implied = option.implied_vol(&curves, as_of, pv.amount()).unwrap();
+        let implied = option.implied_vol(&curves, as_of, pv.amount()).expect("should succeed");
         assert_eq!(implied, 0.0);
     }
 }

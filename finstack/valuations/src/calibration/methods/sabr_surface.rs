@@ -526,7 +526,8 @@ mod tests {
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<VolQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let expiry_1m = base_date + time::Duration::days(30);
         let expiry_3m = base_date + time::Duration::days(90);
 
@@ -580,7 +581,8 @@ mod tests {
 
     #[test]
     fn test_vol_surface_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-VOL",
             1.0,                          // Lognormal beta for equity
@@ -601,13 +603,14 @@ mod tests {
                     .knots([(0.0, 1.0), (5.0, 0.78)])
                     .set_interp(InterpStyle::Linear)
                     .build()
-                    .unwrap()
+                    .expect("DiscountCurve builder should succeed in test")
             );
 
         let result = calibrator.calibrate(&quotes, &context);
 
         assert!(result.is_ok());
-        let (surface, report) = result.unwrap();
+        let (surface, report) = result
+            .expect("Calibration should succeed in test");
         assert!(report.success);
         assert_eq!(surface.id().as_str(), "TEST-VOL");
         assert_eq!(surface.expiries().len(), 2);
@@ -616,7 +619,8 @@ mod tests {
 
     #[test]
     fn test_sabr_parameter_interpolation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new("TEST", 0.5, vec![1.0, 2.0, 3.0], vec![100.0])
             .with_base_date(base_date);
 
@@ -624,14 +628,19 @@ mod tests {
         let mut params_map = BTreeMap::new();
         params_map.insert(
             1.0.into(),
-            SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap(),
+            SABRParameters::new(0.2, 0.5, 0.3, -0.1)
+                .expect("SABR parameters should be valid in test"),
         );
-        params_map.insert(3.0.into(), SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap());
+        params_map.insert(
+            3.0.into(),
+            SABRParameters::new(0.3, 0.5, 0.4, 0.1)
+                .expect("SABR parameters should be valid in test"),
+        );
 
         // Test interpolation at t=2.0 (midpoint)
         let interp_params = calibrator
             .interpolate_sabr_params(&params_map, 2.0)
-            .unwrap();
+            .expect("SABR parameter interpolation should succeed in test");
 
         // Should be average of endpoints
         assert!((interp_params.alpha - 0.25).abs() < 1e-10);
@@ -641,19 +650,20 @@ mod tests {
         // Test extrapolation below range
         let extrap_low = calibrator
             .interpolate_sabr_params(&params_map, 0.5)
-            .unwrap();
+            .expect("SABR parameter interpolation should succeed in test");
         assert!((extrap_low.alpha - 0.2).abs() < 1e-10);
 
         // Test extrapolation above range
         let extrap_high = calibrator
             .interpolate_sabr_params(&params_map, 4.0)
-            .unwrap();
+            .expect("SABR parameter interpolation should succeed in test");
         assert!((extrap_high.alpha - 0.3).abs() < 1e-10);
     }
 
     #[test]
     fn test_vol_grid_construction() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new(
             "TEST",
             1.0,
@@ -666,16 +676,20 @@ mod tests {
         let mut params_map = BTreeMap::new();
         params_map.insert(
             0.25.into(),
-            SABRParameters::new(0.2, 1.0, 0.3, -0.2).unwrap(),
+            SABRParameters::new(0.2, 1.0, 0.3, -0.2)
+                .expect("SABR parameters should be valid in test"),
         );
         params_map.insert(
             0.5.into(),
-            SABRParameters::new(0.25, 1.0, 0.35, -0.1).unwrap(),
+            SABRParameters::new(0.25, 1.0, 0.35, -0.1)
+                .expect("SABR parameters should be valid in test"),
         );
 
         let forward_fn = |_t: f64| 100.0; // Flat forward
 
-        let vol_grid = calibrator.build_vol_grid(&params_map, &forward_fn).unwrap();
+        let vol_grid = calibrator
+            .build_vol_grid(&params_map, &forward_fn)
+            .expect("Vol grid construction should succeed in test");
 
         // Should have 2 expiries × 3 strikes = 6 values
         assert_eq!(vol_grid.len(), 6);
@@ -689,18 +703,19 @@ mod tests {
 
     #[test]
     fn error_when_discount_ambiguous_without_id() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         // Two discount curves in context
         let disc_usd = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (5.0, 0.80)])
             .build()
-            .unwrap();
+            .expect("SABR parameter interpolation should succeed in test");
         let disc_eur = DiscountCurve::builder("EUR-OIS")
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (5.0, 0.85)])
             .build()
-            .unwrap();
+            .expect("SABR parameter interpolation should succeed in test");
         let market = MarketContext::new()
             .insert_discount(disc_usd)
             .insert_discount(disc_eur)
@@ -744,7 +759,10 @@ mod tests {
 
         let result = calibrator.calibrate(&quotes, &market);
         assert!(result.is_err());
-        let err = format!("{}", result.err().unwrap());
+        let err = match result {
+            Err(e) => format!("{}", e),
+            Ok(_) => panic!("Should fail with ambiguous discount curves"),
+        };
         assert!(err.contains("discount_id (ambiguous)"));
     }
 }

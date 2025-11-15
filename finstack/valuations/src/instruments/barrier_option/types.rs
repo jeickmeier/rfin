@@ -91,7 +91,7 @@ impl BarrierOption {
             .barrier(Money::new(5000.0, Currency::USD))
             .option_type(crate::instruments::OptionType::Call)
             .barrier_type(BarrierType::UpAndOut)
-            .expiry(Date::from_calendar_date(2024, Month::December, 20).unwrap())
+            .expiry(Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"))
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .use_gobet_miri(false)

@@ -67,7 +67,7 @@
 //! ];
 //!
 //! // Aggregate using explicit target currency
-//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?.unwrap();
+//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?.expect("should succeed");
 //! assert_eq!(aggregated.amount(), Money::new(100_000.0, Currency::USD).amount());
 //! # Ok(())
 //! # }

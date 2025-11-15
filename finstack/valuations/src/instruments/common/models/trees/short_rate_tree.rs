@@ -512,12 +512,12 @@ mod tests {
     fn create_test_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(
-                finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1).expect("should succeed"),
             )
             .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     #[test]
@@ -546,13 +546,13 @@ mod tests {
     fn test_rate_access() {
         let mut tree = ShortRateTree::ho_lee(5, 0.01);
         let curve = create_test_curve();
-        tree.calibrate(&curve, 1.0).unwrap();
+        tree.calibrate(&curve, 1.0).expect("should succeed");
 
         // Should be able to access rates at valid nodes
-        let r0 = tree.rate_at_node(0, 0).unwrap();
+        let r0 = tree.rate_at_node(0, 0).expect("should succeed");
         assert!(r0 > 0.0);
 
-        let r_final = tree.rate_at_node(5, 2).unwrap();
+        let r_final = tree.rate_at_node(5, 2).expect("should succeed");
         assert!(r_final.is_finite());
 
         // Invalid access should error

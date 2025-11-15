@@ -655,9 +655,9 @@ mod tests {
         let tree_100 = BinomialTree::crr(100);
         let tree_200 = BinomialTree::crr(200);
 
-        let price_50 = tree_50.price_european(&market_params).unwrap();
-        let price_100 = tree_100.price_european(&market_params).unwrap();
-        let price_200 = tree_200.price_european(&market_params).unwrap();
+        let price_50 = tree_50.price_european(&market_params).expect("should succeed");
+        let price_100 = tree_100.price_european(&market_params).expect("should succeed");
+        let price_200 = tree_200.price_european(&market_params).expect("should succeed");
 
         // Should converge
         assert!((price_100 - price_50).abs() > (price_200 - price_100).abs());
@@ -674,8 +674,8 @@ mod tests {
         let crr = BinomialTree::crr(401);
         let lr = BinomialTree::leisen_reimer(401);
 
-        let crr_price = crr.price_european(&market_params).unwrap();
-        let lr_price = lr.price_european(&market_params).unwrap();
+        let crr_price = crr.price_european(&market_params).expect("should succeed");
+        let lr_price = lr.price_european(&market_params).expect("should succeed");
 
         // Both should be close to Black-Scholes value
         let bs_value = 10.4506; // Known Black-Scholes value
@@ -708,7 +708,7 @@ mod tests {
         let market_params = OptionMarketParams::put(100.0, 100.0, 0.05, 0.20, 1.0);
 
         let lr = BinomialTree::leisen_reimer(201);
-        let lr_put = lr.price_european(&market_params).unwrap();
+        let lr_put = lr.price_european(&market_params).expect("should succeed");
 
         // BS call value known; derive put via parity: P = C - S e^{-qT} + K e^{-rT}
         let bs_call = 10.4506;
@@ -755,8 +755,8 @@ mod tests {
 
         let tree = BinomialTree::crr(100); // Use CRR since LR has issues
 
-        let american = tree.price_american(&market_params).unwrap();
-        let european = tree.price_european(&market_params).unwrap();
+        let american = tree.price_american(&market_params).expect("should succeed");
+        let european = tree.price_european(&market_params).expect("should succeed");
 
         println!(
             "American put: {}, European put: {}, Premium: {}",
@@ -784,11 +784,11 @@ mod tests {
         // Exercise allowed quarterly
         let exercise_dates = vec![0.25, 0.5, 0.75, 1.0];
 
-        let american = tree.price_american(&market_params).unwrap();
+        let american = tree.price_american(&market_params).expect("should succeed");
         let bermudan = tree
             .price_bermudan(&market_params, &exercise_dates)
-            .unwrap();
-        let european = tree.price_european(&market_params).unwrap();
+            .expect("should succeed");
+        let european = tree.price_european(&market_params).expect("should succeed");
 
         // Bermudan should be between European and American
         assert!(bermudan >= european);

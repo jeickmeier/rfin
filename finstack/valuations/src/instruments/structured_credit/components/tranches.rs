@@ -625,7 +625,7 @@ mod tests {
     use time::Month;
 
     fn test_date() -> Date {
-        Date::from_calendar_date(2024, Month::January, 1).unwrap()
+        Date::from_calendar_date(2024, Month::January, 1).expect("valid date")
     }
 
     #[test]
@@ -639,7 +639,7 @@ mod tests {
             TrancheCoupon::Fixed { rate: 0.12 },
             test_date(),
         )
-        .unwrap();
+        .expect("should succeed");
 
         assert_eq!(tranche.attachment_point, 0.0);
         assert_eq!(tranche.detachment_point, 10.0);
@@ -658,7 +658,7 @@ mod tests {
             TrancheCoupon::Fixed { rate: 0.08 },
             test_date(),
         )
-        .unwrap();
+        .expect("should succeed");
 
         let pool_balance = Money::new(1_000_000_000.0, Currency::USD);
 
@@ -686,7 +686,7 @@ mod tests {
             .coupon(TrancheCoupon::Fixed { rate: 0.12 })
             .legal_maturity(test_date())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let senior = TrancheBuilder::new()
             .id("SENIOR")
@@ -709,9 +709,9 @@ mod tests {
             ))
             .legal_maturity(test_date())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
-        let structure = TrancheStructure::new(vec![equity, senior]).unwrap();
+        let structure = TrancheStructure::new(vec![equity, senior]).expect("should succeed");
         assert_eq!(structure.tranches.len(), 2);
         assert_eq!(structure.total_size.amount(), 1_000_000_000.0);
     }

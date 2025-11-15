@@ -143,7 +143,10 @@ impl LookbackOptionMcPricer {
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Call) => {
                 let payoff = LookbackCall::new(
-                    inst.strike.as_ref().unwrap().amount(),
+                    inst.strike
+                        .as_ref()
+                        .expect("Strike should be Some for FixedStrike lookback")
+                        .amount(),
                     inst.notional.amount(),
                     maturity_step,
                 );
@@ -159,7 +162,10 @@ impl LookbackOptionMcPricer {
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Put) => {
                 let payoff = LookbackPut::new(
-                    inst.strike.as_ref().unwrap().amount(),
+                    inst.strike
+                        .as_ref()
+                        .expect("Strike should be Some for FixedStrike lookback")
+                        .amount(),
                     inst.notional.amount(),
                     maturity_step,
                 );
@@ -330,7 +336,11 @@ impl Pricer for LookbackOptionAnalyticalPricer {
 
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {
-                let strike = lookback.strike.as_ref().unwrap().amount();
+                let strike = lookback
+                    .strike
+                    .as_ref()
+                    .expect("Strike should be Some for FixedStrike lookback")
+                    .amount();
                 match lookback.option_type {
                     crate::instruments::OptionType::Call => {
                         fixed_strike_lookback_call(spot, strike, t, r, q, sigma, spot_extremum)

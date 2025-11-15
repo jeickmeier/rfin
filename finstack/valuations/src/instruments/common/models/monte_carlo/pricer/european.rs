@@ -160,7 +160,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 10, &call, Currency::USD, 0.95)
-            .unwrap();
+            .expect("should succeed");
 
         // Should get a reasonable option value
         assert!(result.mean.amount() > 0.0);
@@ -181,7 +181,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 252, &call, Currency::USD, 1.0)
-            .unwrap();
+            .expect("should succeed");
 
         // ATM call with σ=20%, T=1y should have positive value
         assert!(result.mean.amount() > 5.0);
@@ -200,7 +200,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 100, &call, Currency::USD, 1.0)
-            .unwrap();
+            .expect("should succeed");
 
         // Should be close to intrinsic value of 50
         assert!((result.mean.amount() - 50.0).abs() < 5.0);

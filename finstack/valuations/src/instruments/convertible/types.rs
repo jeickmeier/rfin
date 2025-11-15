@@ -139,8 +139,8 @@ impl ConvertibleBond {
         ConvertibleBondBuilder::new()
             .id(InstrumentId::new("CB-TECH-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(Date::from_calendar_date(2024, time::Month::January, 15).unwrap())
-            .maturity(Date::from_calendar_date(2029, time::Month::January, 15).unwrap())
+            .issue(Date::from_calendar_date(2024, time::Month::January, 15).expect("Valid example date"))
+            .maturity(Date::from_calendar_date(2029, time::Month::January, 15).expect("Valid example date"))
             .discount_curve_id(CurveId::new("USD-IG"))
             .conversion(ConversionSpec {
                 ratio: Some(25.0),

@@ -110,8 +110,8 @@
 //!
 //! // Note: Requires populated market context with "USD-OIS" discount curve
 //! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
-//! // println!("YTM: {:.2}%", result.measures.get("ytm").unwrap() * 100.0);
-//! // println!("DV01: ${:.2}", result.measures.get("dv01").unwrap());
+//! // println!("YTM: {:.2}%", result.measures.get("ytm").expect("should succeed") * 100.0);
+//! // println!("DV01: ${:.2}", result.measures.get("dv01").expect("should succeed"));
 //! # Ok(())
 //! # }
 //! ```

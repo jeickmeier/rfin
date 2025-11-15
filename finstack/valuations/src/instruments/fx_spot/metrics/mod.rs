@@ -65,18 +65,18 @@ mod tests {
     use time::Month;
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day).expect("should succeed")
     }
 
     fn sample_fx() -> FxSpot {
         FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
             .try_with_notional(Money::new(5_000_000.0, Currency::EUR))
-            .unwrap()
+            .expect("should succeed")
             .with_rate(1.24)
     }
 
     fn context_for(inst: FxSpot, as_of: Date) -> MetricContext {
-        let base_value = inst.npv(&MarketContext::new(), as_of).unwrap();
+        let base_value = inst.npv(&MarketContext::new(), as_of).expect("should succeed");
         let instrument_arc: Arc<dyn Instrument> = Arc::new(inst);
         MetricContext::new(
             instrument_arc,
@@ -91,7 +91,7 @@ mod tests {
         let fx = sample_fx();
         let mut ctx = context_for(fx, d(2025, 1, 15));
         let calc = BaseAmountCalculator;
-        let value = calc.calculate(&mut ctx).unwrap();
+        let value = calc.calculate(&mut ctx).expect("should succeed");
         assert!((value - 5_000_000.0).abs() < 1e-6);
     }
 
@@ -99,10 +99,10 @@ mod tests {
     fn quote_amount_is_result_value() {
         let fx = sample_fx();
         let as_of = d(2025, 1, 15);
-        let base_value = fx.npv(&MarketContext::new(), as_of).unwrap();
+        let base_value = fx.npv(&MarketContext::new(), as_of).expect("should succeed");
         let result = fx
             .price_with_metrics(&MarketContext::new(), as_of, &[])
-            .unwrap();
+            .expect("should succeed");
         // Quote amount is just the result.value (PV in quote currency)
         assert!((result.value.amount() - base_value.amount()).abs() < 1e-6);
     }
@@ -115,7 +115,7 @@ mod tests {
         let calc = crate::metrics::UnifiedDv01Calculator::<crate::instruments::FxSpot>::new(
             crate::metrics::Dv01CalculatorConfig::parallel_combined(),
         );
-        let value = calc.calculate(&mut ctx).unwrap();
+        let value = calc.calculate(&mut ctx).expect("should succeed");
         assert_eq!(value, 0.0, "FxSpot DV01 should be exactly 0.0");
     }
 }

@@ -68,8 +68,8 @@ impl EquityTotalReturnSwap {
                 day_count: finstack_core::dates::DayCount::Act360,
             })
             .schedule(super::types::TrsScheduleSpec::from_params(
-                Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-                Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid example date"),
                 ScheduleParams {
                     freq: finstack_core::dates::Frequency::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,

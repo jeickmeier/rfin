@@ -19,7 +19,12 @@ pub fn build_annual_schedule(as_of: Date, maturity: Date) -> Vec<Date> {
             break;
         }
     }
-    if !dates.is_empty() && *dates.last().unwrap() < maturity {
+    if !dates.is_empty()
+        && *dates
+            .last()
+            .expect("dates should not be empty when checked")
+            < maturity
+    {
         dates.push(maturity);
     }
     dates

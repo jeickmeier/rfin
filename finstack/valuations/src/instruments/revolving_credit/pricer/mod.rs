@@ -59,8 +59,8 @@ mod tests {
 
     #[test]
     fn test_unified_pricer_deterministic() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
 
         let facility = RevolvingCredit::builder()
             .id("RC-UNIFIED-DET".into())
@@ -76,7 +76,7 @@ mod tests {
             .discount_curve_id("USD-OIS".into())
             .recovery_rate(0.0)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(start)
@@ -87,12 +87,12 @@ mod tests {
                 (5.0, (-0.03f64 * 5.0).exp()),
             ])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Test unified pricing
-        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).unwrap();
+        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
 
         // Verify we got a valid result
         assert!(pv_unified.currency() == Currency::USD);
@@ -106,8 +106,8 @@ mod tests {
     fn test_unified_pricer_stochastic() {
         use super::super::types::{CreditSpreadProcessSpec, McConfig};
 
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
 
         let mc_config = McConfig {
             recovery_rate: 0.4,
@@ -144,7 +144,7 @@ mod tests {
             .discount_curve_id("USD-OIS".into())
             .recovery_rate(0.4)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(start)
@@ -155,12 +155,12 @@ mod tests {
                 (5.0, (-0.03f64 * 5.0).exp()),
             ])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Test unified pricing
-        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).unwrap();
+        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
 
         // Verify we got a valid result
         assert!(pv_unified.currency() == Currency::USD);

@@ -531,7 +531,7 @@ mod precision_tests {
                 Money::new(200.0, Currency::EUR),
             ),
         ];
-        let err = aggregate_cashflows_precise_checked(&flows, Currency::USD).unwrap_err();
+        let err = aggregate_cashflows_precise_checked(&flows, Currency::USD).expect_err("should fail with currency mismatch");
         match err {
             finstack_core::error::Error::CurrencyMismatch { .. } => {}
             _ => panic!("expected CurrencyMismatch"),

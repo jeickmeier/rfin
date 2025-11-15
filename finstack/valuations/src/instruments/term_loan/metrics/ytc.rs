@@ -28,7 +28,8 @@ impl MetricCalculator for YtcCalculator {
             // use YTM calculator already registered
             return crate::instruments::term_loan::metrics::ytm::YtmCalculator.calculate(context);
         }
-        let call = first_call.unwrap();
+        let call = first_call
+            .expect("First call should exist when YTC calculation is requested");
 
         // Build full schedule and compute outstanding at call
         let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(

@@ -139,7 +139,7 @@ mod tests {
         ];
         let y = vec![5.0, 8.0, 11.0]; // y = 2 + 3x
 
-        let solution = solve_least_squares(&design, &y, 3, 2).unwrap();
+        let solution = solve_least_squares(&design, &y, 3, 2).expect("should succeed");
 
         // Should recover β₀=2, β₁=3
         assert!((solution[0] - 2.0).abs() < 1e-10);
@@ -155,7 +155,7 @@ mod tests {
         ];
         let y = vec![1.0, 2.0, 3.0];
 
-        let solution = solve_least_squares(&design, &y, 3, 3).unwrap();
+        let solution = solve_least_squares(&design, &y, 3, 3).expect("should succeed");
 
         // Should return fallback zero vector or a valid solution
         assert!(solution.len() == 3);
@@ -182,7 +182,7 @@ mod tests {
 
         // SVD should handle ill-conditioning gracefully
         assert!(solution.is_ok());
-        let beta = solution.unwrap();
+        let beta = solution.expect("should succeed");
         assert_eq!(beta.len(), 4);
         assert!(beta.iter().all(|&x| x.is_finite()));
     }
@@ -196,7 +196,7 @@ mod tests {
 
         let basis = PolynomialBasis::new(1); // Linear: {1, x}
 
-        let predictions = regression_with_basis(&x, &y, &basis).unwrap();
+        let predictions = regression_with_basis(&x, &y, &basis).expect("should succeed");
 
         // Check predictions match observed values (perfect fit for linear data)
         for (i, &pred) in predictions.iter().enumerate() {
@@ -220,7 +220,7 @@ mod tests {
 
         let basis = PolynomialBasis::new(2); // {1, x, x²}
 
-        let predictions = regression_with_basis(&x, &y, &basis).unwrap();
+        let predictions = regression_with_basis(&x, &y, &basis).expect("should succeed");
 
         // Check predictions match observed values (perfect fit for quadratic data)
         for (i, &pred) in predictions.iter().enumerate() {
@@ -247,7 +247,7 @@ mod tests {
 
         // Should succeed despite potentially ill-conditioned matrix
         assert!(result.is_ok());
-        let predictions = result.unwrap();
+        let predictions = result.expect("should succeed");
         assert_eq!(predictions.len(), x.len());
         assert!(predictions.iter().all(|&p| p.is_finite()));
     }

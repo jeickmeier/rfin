@@ -81,12 +81,12 @@ impl AsianOption {
         use finstack_core::dates::DayCount;
         use time::Month;
         let fixing_dates = vec![
-            Date::from_calendar_date(2024, Month::January, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::February, 29).unwrap(),
-            Date::from_calendar_date(2024, Month::March, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::April, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::May, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::June, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::February, 29).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::March, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::April, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::May, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::June, 30).expect("Valid example date"),
         ];
         AsianOptionBuilder::new()
             .id(InstrumentId::new("ASIAN-SPX-ARITH-6M"))
@@ -94,7 +94,7 @@ impl AsianOption {
             .strike(Money::new(4500.0, Currency::USD))
             .option_type(crate::instruments::OptionType::Call)
             .averaging_method(AveragingMethod::Arithmetic)
-            .expiry(Date::from_calendar_date(2024, Month::June, 30).unwrap())
+            .expiry(Date::from_calendar_date(2024, Month::June, 30).expect("Valid example date"))
             .fixing_dates(fixing_dates)
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)

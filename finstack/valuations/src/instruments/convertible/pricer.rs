@@ -687,8 +687,8 @@ mod tests {
     use time::Month;
 
     fn create_test_bond() -> ConvertibleBond {
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
 
         let conversion_spec = ConversionSpec {
             ratio: Some(10.0), // 10 shares per bond
@@ -725,13 +725,13 @@ mod tests {
 
     fn create_test_market_context() -> MarketContext {
         // Create a simple discount curve that covers beyond the bond maturity
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (10.0, 0.90)]) // Extended to 10 years
             .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         MarketContext::new()
             .insert_discount(discount_curve)
@@ -760,7 +760,7 @@ mod tests {
             price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
 
         assert!(price.is_ok());
-        let price = price.unwrap();
+        let price = price.expect("should succeed");
 
         // Should be worth at least the conversion value
         let conversion_value = 150.0 * 10.0; // $1,500
@@ -783,7 +783,7 @@ mod tests {
         );
 
         assert!(greeks.is_ok());
-        let greeks = greeks.unwrap();
+        let greeks = greeks.expect("should succeed");
 
         // Delta should be positive for convertible bonds (increases with stock price)
         assert!(greeks.delta > 0.0);

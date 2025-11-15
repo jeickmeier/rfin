@@ -35,7 +35,7 @@ use super::super::specs::DefaultEvent;
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+/// let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
 /// let event = DefaultEvent {
 ///     default_date: d,
 ///     defaulted_amount: 100_000.0,
@@ -43,7 +43,7 @@ use super::super::specs::DefaultEvent;
 ///     recovery_lag: 12,
 /// };
 /// let mut outstanding = 1_000_000.0;
-/// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+/// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
 ///
 /// // Outstanding should be reduced by net loss (60% of defaulted amount)
 /// assert_eq!(outstanding, 1_000_000.0 - 100_000.0 + 40_000.0); // 940K
@@ -118,7 +118,7 @@ pub fn emit_default_on(
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+/// let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
 /// let mut outstanding = 1_000_000.0;
 /// let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
 ///

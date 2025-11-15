@@ -83,8 +83,10 @@ impl RevolvingCredit {
         use time::Month;
         let commitment = Money::new(50_000_000.0, Currency::USD);
         let initial_draw = Money::new(10_000_000.0, Currency::USD);
-        let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2024, Month::January, 1)
+            .expect("Valid example date");
+        let end = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid example date");
         let base_rate = BaseRateSpec::Floating(FloatingRateSpec {
             index_id: CurveId::new("USD-SOFR-3M"),
             spread_bp: 250.0,
@@ -100,12 +102,14 @@ impl RevolvingCredit {
         let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
         let draw_repay = DrawRepaySpec::Deterministic(vec![
             DrawRepayEvent {
-                date: Date::from_calendar_date(2024, Month::March, 1).unwrap(),
+                date: Date::from_calendar_date(2024, Month::March, 1)
+                    .expect("Valid example date"),
                 amount: Money::new(5_000_000.0, Currency::USD),
                 is_draw: true,
             },
             DrawRepayEvent {
-                date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+                date: Date::from_calendar_date(2025, Month::June, 1)
+                    .expect("Valid example date"),
                 amount: Money::new(3_000_000.0, Currency::USD),
                 is_draw: false,
             },

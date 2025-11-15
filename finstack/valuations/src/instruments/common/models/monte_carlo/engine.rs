@@ -1537,7 +1537,7 @@ mod tests {
                 Currency::USD,
                 1.0,
             )
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(result.mean.amount(), 100.0);
         assert_eq!(result.num_paths, 100);
@@ -1628,7 +1628,7 @@ mod tests {
                 Currency::USD,
                 1.0,
             )
-            .unwrap();
+            .expect("should succeed");
 
         #[cfg(feature = "parallel")]
         let parallel_result = engine_parallel
@@ -1641,7 +1641,7 @@ mod tests {
                 Currency::USD,
                 1.0,
             )
-            .unwrap();
+            .expect("should succeed");
 
         // Both should succeed and produce same results (deterministic RNG)
         assert_eq!(serial_result.num_paths, 1000);

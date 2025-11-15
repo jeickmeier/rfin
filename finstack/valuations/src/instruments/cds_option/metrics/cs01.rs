@@ -173,7 +173,7 @@ mod tests {
         let result = calculator.calculate(&mut context);
 
         assert!(result.is_ok());
-        let cs01 = result.unwrap();
+        let cs01 = result.expect("should succeed");
 
         // Should be positive and reasonable
         assert!(cs01 > 0.0, "CS01 should be positive for a long call");

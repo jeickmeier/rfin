@@ -283,7 +283,7 @@ mod tests {
     }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("should succeed")
     }
 
     #[test]
@@ -300,7 +300,7 @@ mod tests {
             ), // Distribution
         ];
 
-        let irr = calculate_irr(&flows, DayCount::Act365F).unwrap();
+        let irr = calculate_irr(&flows, DayCount::Act365F).expect("should succeed");
 
         // 2x over 5 years = (2.0)^(1/5) - 1 ≈ 0.1487 or ~14.87%
         assert!(
@@ -315,7 +315,7 @@ mod tests {
         let spec = WaterfallSpec::builder()
             .return_of_capital()
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let events = vec![
             FundEvent::contribution(
@@ -339,7 +339,7 @@ mod tests {
             base_value,
         );
 
-        let moic = MoicLpCalculator.calculate(&mut context).unwrap();
+        let moic = MoicLpCalculator.calculate(&mut context).expect("should succeed");
         assert!((moic - 2.0).abs() < 1e-6); // 2x multiple
     }
 }

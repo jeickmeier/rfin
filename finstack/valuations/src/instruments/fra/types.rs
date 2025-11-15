@@ -55,9 +55,9 @@ impl ForwardRateAgreement {
         Self::builder()
             .id(InstrumentId::new("FRA-3X6-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .fixing_date(Date::from_calendar_date(2024, time::Month::April, 1).unwrap())
-            .start_date(Date::from_calendar_date(2024, time::Month::April, 3).unwrap())
-            .end_date(Date::from_calendar_date(2024, time::Month::July, 3).unwrap())
+            .fixing_date(Date::from_calendar_date(2024, time::Month::April, 1).expect("Valid example date"))
+            .start_date(Date::from_calendar_date(2024, time::Month::April, 3).expect("Valid example date"))
+            .end_date(Date::from_calendar_date(2024, time::Month::July, 3).expect("Valid example date"))
             .fixed_rate(0.045)
             .day_count(DayCount::Act360)
             .reset_lag(2)
@@ -275,20 +275,21 @@ mod tests {
     #[cfg(feature = "slow")]
     fn fra_par_pv_near_zero_with_settlement_adjustment() {
         // Build simple flat curves: 5% forward, discount with reasonable decay
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let disc = DiscountCurve::builder("DISC")
             .base_date(base)
             .knots([(0.0, 1.0), (5.0, 0.78)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("FRA builder should succeed in test");
 
         let fwd = ForwardCurve::builder("FWD-3M", 0.25)
             .base_date(base)
             .knots([(0.0, 0.05), (5.0, 0.05)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("FRA builder should succeed in test");
 
         let ctx = MarketContext::new()
             .insert_discount(disc)
@@ -311,9 +312,11 @@ mod tests {
             .forward_id("FWD-3M".into())
             .pay_fixed(false) // Receive fixed, pay floating
             .build()
-            .unwrap();
+            .expect("FRA builder should succeed in test");
 
-        let pv = fra.value(&ctx, base).unwrap();
+        let pv = fra
+            .value(&ctx, base)
+            .expect("FRA valuation should succeed in test");
         // With settlement adjustment PV should be very close to zero at par
         assert!(
             pv.amount().abs() < 0.01,

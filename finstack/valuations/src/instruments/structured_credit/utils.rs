@@ -239,7 +239,7 @@ mod tests {
         use super::super::components::{AssetType, DealType};
 
         let mgr = ReinvestmentManager::new(
-            Date::from_calendar_date(2026, time::Month::January, 1).unwrap(),
+            Date::from_calendar_date(2026, time::Month::January, 1).expect("valid date"),
         );
         let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
@@ -250,7 +250,7 @@ mod tests {
             rate: 0.0,
             spread_bps: None,
             index_id: None,
-            maturity: Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
+            maturity: Date::from_calendar_date(2030, time::Month::January, 1).expect("valid date"),
             credit_quality: None,
             industry: None,
             obligor_id: None,
@@ -275,16 +275,16 @@ mod tests {
             vec![b.clone(), a.clone(), c.clone()],
             &pool,
             &MarketContext::default(),
-            Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date"),
         );
 
         // Expect picks at 95 and 98 first (total 193) and skips 102 due to budget
         assert_eq!(selected.len(), 2);
         assert!(selected
             .iter()
-            .any(|x| x.purchase_price.unwrap().amount() == 95.0));
+            .any(|x| x.purchase_price.expect("should succeed").amount() == 95.0));
         assert!(selected
             .iter()
-            .any(|x| x.purchase_price.unwrap().amount() == 98.0));
+            .any(|x| x.purchase_price.expect("should succeed").amount() == 98.0));
     }
 }

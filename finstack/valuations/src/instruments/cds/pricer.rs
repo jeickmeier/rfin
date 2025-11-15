@@ -851,13 +851,13 @@ mod tests {
 
     fn create_test_curves() -> (DiscountCurve, HazardCurve) {
         let disc = DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date"))
             .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.65)])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let credit = HazardCurve::builder("TEST-CREDIT")
-            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date"))
             .recovery_rate(0.40)
             .knots(vec![(1.0, 0.02), (3.0, 0.03), (5.0, 0.04), (10.0, 0.05)])
             .par_spreads(vec![
@@ -867,7 +867,7 @@ mod tests {
                 (10.0, 250.0),
             ])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         (disc, credit)
     }
@@ -875,19 +875,19 @@ mod tests {
     #[test]
     fn test_enhanced_protection_leg() {
         let (disc, credit) = create_test_curves();
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 100.0, 0.40);
         let pricer = CDSPricer::new();
         let protection_pv = pricer
             .pv_protection_leg(&cds, &disc, &credit, as_of)
-            .unwrap();
+            .expect("should succeed");
         assert!(protection_pv.amount() > 0.0);
     }
 
     #[test]
     fn test_accrual_on_default() {
         let (disc, credit) = create_test_curves();
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 100.0, 0.40);
         let pricer_with = CDSPricer::new();
         let pricer_without = CDSPricer::with_config(CDSPricerConfig {
@@ -897,31 +897,31 @@ mod tests {
         });
         let pv_with = pricer_with
             .pv_premium_leg(&cds, &disc, &credit, as_of)
-            .unwrap();
+            .expect("should succeed");
         let pv_without = pricer_without
             .pv_premium_leg(&cds, &disc, &credit, as_of)
-            .unwrap();
+            .expect("should succeed");
         assert!(pv_with.amount() > pv_without.amount());
     }
 
     #[test]
     fn test_par_spread_calculation() {
         let (disc, credit) = create_test_curves();
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 0.0, 0.40);
         let pricer = CDSPricer::new();
-        let par_spread = pricer.par_spread(&cds, &disc, &credit, as_of).unwrap();
+        let par_spread = pricer.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
         assert!(par_spread > 0.0 && par_spread < 2000.0);
         let mut cds_at_par = cds.clone();
         cds_at_par.premium.spread_bp = par_spread;
-        let npv = pricer.npv(&cds_at_par, &disc, &credit, as_of).unwrap();
+        let npv = pricer.npv(&cds_at_par, &disc, &credit, as_of).expect("should succeed");
         assert!(npv.amount().abs() < 15000.0);
     }
 
     #[test]
     fn test_settlement_delay_reduces_protection_pv() {
         let (disc, credit) = create_test_curves();
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let mut cds0 = create_test_cds("CDS-0D", as_of, add_months(as_of, 60), 100.0, 0.40);
         let mut cds20 = cds0.clone();
         cds0.protection.settlement_delay = 0;
@@ -932,11 +932,11 @@ mod tests {
         });
         let pv0 = pricer
             .pv_protection_leg(&cds0, &disc, &credit, as_of)
-            .unwrap()
+            .expect("should succeed")
             .amount();
         let pv20 = pricer
             .pv_protection_leg(&cds20, &disc, &credit, as_of)
-            .unwrap()
+            .expect("should succeed")
             .amount();
         assert!(pv20 < pv0);
     }
@@ -944,15 +944,15 @@ mod tests {
     #[test]
     fn test_par_spread_full_premium_option_runs() {
         let (disc, credit) = create_test_curves();
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("CDS-PAR", as_of, add_months(as_of, 60), 0.0, 0.40);
         let pricer_ra = CDSPricer::new();
         let pricer_full = CDSPricer::with_config(CDSPricerConfig {
             par_spread_uses_full_premium: true,
             ..Default::default()
         });
-        let s1 = pricer_ra.par_spread(&cds, &disc, &credit, as_of).unwrap();
-        let s2 = pricer_full.par_spread(&cds, &disc, &credit, as_of).unwrap();
+        let s1 = pricer_ra.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
+        let s2 = pricer_full.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
         assert!(s1.is_finite() && s2.is_finite());
     }
 }

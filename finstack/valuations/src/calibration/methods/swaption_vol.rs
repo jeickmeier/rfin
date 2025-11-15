@@ -796,7 +796,7 @@ mod tests {
             "TEST",
             SwaptionVolConvention::Normal,
             AtmStrikeConvention::SwapRate,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
             "USD-OIS",
             Currency::USD,
         );
@@ -833,13 +833,13 @@ mod tests {
             "TEST",
             SwaptionVolConvention::Lognormal,
             AtmStrikeConvention::SwapRate,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
             "USD-OIS",
             Currency::USD,
         );
 
         let forward_rate = 0.035; // 3.5%
-        let expiry = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let expiry = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
 
         // Create a dummy context
         let context = MarketContext::new();
@@ -847,7 +847,7 @@ mod tests {
         // ATM = forward for swap rate convention
         let atm = calibrator
             .determine_atm_strike(forward_rate, expiry, 5.0, &context)
-            .unwrap();
+            .expect("should determine ATM strike");
 
         assert!((atm - forward_rate).abs() < 1e-10);
     }

@@ -33,13 +33,13 @@ mod tests {
     use time::Month;
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day).expect("should succeed")
     }
 
     fn sample_fx() -> FxSpot {
         FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
             .try_with_notional(Money::new(1_250_000.0, Currency::EUR))
-            .unwrap()
+            .expect("should succeed")
             .with_rate(1.18)
     }
 
@@ -53,7 +53,7 @@ mod tests {
     fn calculator_matches_helper() {
         let fx = sample_fx();
         let as_of = d(2025, 2, 10);
-        let base_value = fx.npv(&MarketContext::new(), as_of).unwrap();
+        let base_value = fx.npv(&MarketContext::new(), as_of).expect("should succeed");
         let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(fx);
         let mut ctx = MetricContext::new(
             instrument,
@@ -62,7 +62,7 @@ mod tests {
             base_value,
         );
         let calc = BaseAmountCalculator;
-        let amount = calc.calculate(&mut ctx).unwrap();
+        let amount = calc.calculate(&mut ctx).expect("should succeed");
         assert!((amount - 1_250_000.0).abs() < 1e-6);
     }
 }

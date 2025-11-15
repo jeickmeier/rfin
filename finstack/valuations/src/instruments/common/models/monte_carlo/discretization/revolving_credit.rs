@@ -242,14 +242,14 @@ mod tests {
 
     #[test]
     fn test_discretization_creation() {
-        let disc = RevolvingCreditDiscretization::new(None).unwrap();
+        let disc = RevolvingCreditDiscretization::new(None).expect("should succeed");
         assert!(disc.cholesky_factor.is_none());
     }
 
     #[test]
     fn test_discretization_with_correlation() {
         let correlation = [[1.0, 0.2, 0.1], [0.2, 1.0, 0.3], [0.1, 0.3, 1.0]];
-        let disc = RevolvingCreditDiscretization::new(Some(&correlation)).unwrap();
+        let disc = RevolvingCreditDiscretization::new(Some(&correlation)).expect("should succeed");
         assert!(disc.cholesky_factor.is_some());
     }
 
@@ -261,7 +261,7 @@ mod tests {
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);
-        let disc = RevolvingCreditDiscretization::from_process(&process).unwrap();
+        let disc = RevolvingCreditDiscretization::from_process(&process).expect("should succeed");
 
         let mut x = [0.5, 0.05, 0.015];
         let z = [0.0, 0.0, 0.0]; // No shocks
@@ -291,7 +291,7 @@ mod tests {
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);
-        let disc = RevolvingCreditDiscretization::from_process(&process).unwrap();
+        let disc = RevolvingCreditDiscretization::from_process(&process).expect("should succeed");
 
         let mut x = [0.5, 0.04, 0.015];
         let z = [0.0, 0.0, 0.0]; // No shocks

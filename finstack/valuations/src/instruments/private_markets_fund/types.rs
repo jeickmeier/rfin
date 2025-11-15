@@ -65,20 +65,20 @@ impl PrivateMarketsFund {
         // Define a few cashflow events: contributions in year 1, proceeds in year 3, distribution in year 4
         let events = vec![
             super::waterfall::FundEvent::contribution(
-                Date::from_calendar_date(2024, Month::January, 15).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"),
                 Money::new(5_000_000.0, Currency::USD),
             ),
             super::waterfall::FundEvent::contribution(
-                Date::from_calendar_date(2024, Month::June, 15).unwrap(),
+                Date::from_calendar_date(2024, Month::June, 15).expect("Valid example date"),
                 Money::new(2_000_000.0, Currency::USD),
             ),
             super::waterfall::FundEvent::proceeds(
-                Date::from_calendar_date(2026, Month::March, 1).unwrap(),
+                Date::from_calendar_date(2026, Month::March, 1).expect("Valid example date"),
                 Money::new(4_000_000.0, Currency::USD),
                 "DEAL-1",
             ),
             super::waterfall::FundEvent::distribution(
-                Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2027, Month::January, 1).expect("Valid example date"),
                 Money::new(4_000_000.0, Currency::USD),
             ),
         ];

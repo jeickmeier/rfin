@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn validate_rejects_negative_values() {
         let po = PricingOverrides::default().with_vol_bump(-0.01);
-        let err = po.validate().unwrap_err();
+        let err = po.validate().expect_err("should fail");
         match err {
             finstack_core::error::Error::Input(finstack_core::error::InputError::NegativeValue) => {
             }

@@ -317,11 +317,11 @@ mod tests {
             interest_flows: vec![],
             principal_flows: vec![
                 (
-                    Date::from_calendar_date(2024, time::Month::June, 30).unwrap(),
+                    Date::from_calendar_date(2024, time::Month::June, 30).expect("valid date"),
                     Money::new(100_000.0, Currency::USD),
                 ),
                 (
-                    Date::from_calendar_date(2025, time::Month::June, 30).unwrap(),
+                    Date::from_calendar_date(2025, time::Month::June, 30).expect("valid date"),
                     Money::new(100_000.0, Currency::USD),
                 ),
             ],
@@ -332,8 +332,8 @@ mod tests {
             total_pik: Money::new(0.0, Currency::USD),
         };
 
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-        let wal = calculate_tranche_wal(&cashflows, as_of).unwrap();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let wal = calculate_tranche_wal(&cashflows, as_of).expect("should succeed");
 
         // Should be approximately 1.0 year (average of 0.5 and 1.5 years)
         assert!((wal - 1.0).abs() < 0.1);

@@ -253,8 +253,8 @@ mod tests {
         assert!(result1.is_ok());
         assert!(result2.is_ok());
 
-        let valuation1 = result1.unwrap();
-        let valuation2 = result2.unwrap();
+        let valuation1 = result1.expect("should succeed");
+        let valuation2 = result2.expect("should succeed");
 
         assert_eq!(valuation1.value, valuation2.value);
         assert_eq!(valuation1.as_of, valuation2.as_of);
@@ -280,8 +280,8 @@ mod tests {
         assert!(result_small.is_ok());
         assert!(result_large.is_ok());
 
-        let valuation_small = result_small.unwrap();
-        let valuation_large = result_large.unwrap();
+        let valuation_small = result_small.expect("should succeed");
+        let valuation_large = result_large.expect("should succeed");
 
         assert!(valuation_small.value.amount() >= 0.0);
         assert!(valuation_large.value.amount() > 0.0);

@@ -12,8 +12,8 @@
 //! use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, FixedCouponSpec, CouponType};
 //! use time::Month;
 //!
-//! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-//! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+//! let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+//! let maturity = Date::from_calendar_date(2026, Month::January, 15).expect("valid date");
 //!
 //! let fixed_spec = FixedCouponSpec {
 //!     coupon_type: CouponType::Cash,
@@ -29,7 +29,7 @@
 //!     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
 //!     .fixed_cf(fixed_spec)
 //!     .build()
-//!     .unwrap();
+//!     .expect("should succeed");
 //!
 //! assert!(schedule.flows.len() > 0);
 //! ```

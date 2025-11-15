@@ -270,7 +270,7 @@ impl StructuredCredit {
             TrancheSeniority::Senior,
             Money::new(100_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.06 },
-            Date::from_calendar_date(2034, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date"),
         )
         .expect("Tranche build should not fail");
         let tranches = TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build");
@@ -286,8 +286,10 @@ impl StructuredCredit {
                     .allocation_mode(AllocationMode::Sequential)
                     .add_recipient(Recipient::tranche_principal("A-PRIN", "CLONOTES-A", None)),
             );
-        let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-        let legal = Date::from_calendar_date(2034, Month::January, 1).unwrap();
+        let closing = Date::from_calendar_date(2024, Month::January, 1)
+            .expect("Valid example date");
+        let legal = Date::from_calendar_date(2034, Month::January, 1)
+            .expect("Valid example date");
         StructuredCredit::new_clo(
             "CLO-EXAMPLE",
             pool,
@@ -355,7 +357,7 @@ impl StructuredCredit {
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .unwrap(),
+                    .expect("Valid example date"),
                 payment_frequency: Frequency::monthly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(0.18), // Auto ABS standard
                 default_spec: DefaultModelSpec::constant_cdr(0.015),      // Consumer standard
@@ -392,7 +394,8 @@ impl StructuredCredit {
                 discount_curve_id: &disc_id_str,
             },
             DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
+                first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1)
+                    .expect("Valid example date"),
                 payment_frequency: Frequency::quarterly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(0.15),
                 default_spec: DefaultModelSpec::constant_cdr(0.025), // Corporate standard
@@ -430,7 +433,7 @@ impl StructuredCredit {
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .unwrap(),
+                    .expect("Valid example date"),
                 payment_frequency: Frequency::monthly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(0.10), // CMBS standard
                 default_spec: DefaultModelSpec::constant_cdr(0.01),       // Commercial real estate
@@ -468,7 +471,7 @@ impl StructuredCredit {
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .unwrap(),
+                    .expect("Valid example date"),
                 payment_frequency: Frequency::monthly(),
                 prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
                 default_spec: DefaultModelSpec::constant_cdr(0.005), // RMBS standard
@@ -1014,11 +1017,12 @@ mod serde_tests {
             TrancheSeniority::Equity,
             Money::new(1_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.12 },
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid example date"),
         )
-        .unwrap();
+        .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+        let tranches = TrancheStructure::new(vec![tranche])
+            .expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let original = StructuredCredit::new_clo(
@@ -1026,8 +1030,8 @@ mod serde_tests {
             pool,
             tranches,
             waterfall,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid example date"),
             "USD-OIS",
         );
 
@@ -1057,11 +1061,12 @@ mod serde_tests {
             TrancheSeniority::Senior,
             Money::new(10_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
-            Date::from_calendar_date(2035, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2035, Month::January, 1).expect("Valid example date"),
         )
-        .unwrap();
+        .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+        let tranches = TrancheStructure::new(vec![tranche])
+            .expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let mut rmbs = StructuredCredit::new_rmbs(
@@ -1069,8 +1074,8 @@ mod serde_tests {
             pool,
             tranches,
             waterfall,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
-            Date::from_calendar_date(2035, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
+            Date::from_calendar_date(2035, Month::January, 1).expect("Valid example date"),
             "USD-OIS",
         );
 
@@ -1104,11 +1109,12 @@ mod serde_tests {
             TrancheSeniority::Senior,
             Money::new(10_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid example date"),
         )
-        .unwrap();
+        .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+        let tranches = TrancheStructure::new(vec![tranche])
+            .expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let mut clo = StructuredCredit::new_clo(
@@ -1116,8 +1122,8 @@ mod serde_tests {
             pool,
             tranches,
             waterfall,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid example date"),
             "USD-OIS",
         );
 

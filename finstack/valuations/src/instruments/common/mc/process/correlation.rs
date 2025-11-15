@@ -18,7 +18,7 @@ mod tests {
     fn test_re_exports_work() {
         // Quick smoke test to ensure re-exports are accessible
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let chol = cholesky_decomposition(&corr, 2).unwrap();
+        let chol = cholesky_decomposition(&corr, 2).expect("should succeed");
         assert_eq!(chol.len(), 4);
 
         let z = vec![1.0, 0.0];

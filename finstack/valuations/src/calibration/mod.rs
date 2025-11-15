@@ -201,7 +201,7 @@ mod tests {
         let scan = [-1.0, 0.0, 0.25, 0.75, 1.0];
         let root = bracket_solve_1d(&f, 0.0, &scan, 1e-12, 100).expect("solver error");
         assert!(root.is_some());
-        let r = root.unwrap();
+        let r = root.expect("root should be Some");
         assert!((r - 0.5).abs() < 1e-9, "root inaccurate: {}", r);
     }
 }

@@ -213,7 +213,7 @@ mod tests {
         vars.insert(state_keys::INTEREST_RATE, 0.03);
         vars.insert(state_keys::HAZARD_RATE, 0.01);
         let val = DummyValuator;
-        let price = tree.price(vars, 1.0, &ctx, &val).unwrap();
+        let price = tree.price(vars, 1.0, &ctx, &val).expect("should succeed");
         assert!(price.is_finite() && price > 0.0);
     }
 }

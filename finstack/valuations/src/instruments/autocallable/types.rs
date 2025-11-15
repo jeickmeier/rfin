@@ -91,10 +91,10 @@ impl Autocallable {
         use finstack_core::dates::DayCount;
         use time::Month;
         let observation_dates = vec![
-            Date::from_calendar_date(2024, Month::March, 29).unwrap(),
-            Date::from_calendar_date(2024, Month::June, 28).unwrap(),
-            Date::from_calendar_date(2024, Month::September, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::December, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::March, 29).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::June, 28).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::September, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::December, 31).expect("Valid example date"),
         ];
         let autocall_barriers = vec![1.0, 1.0, 1.0, 1.0]; // 100% of initial
         let coupons = vec![0.02, 0.02, 0.02, 0.02]; // 2% per observation if called

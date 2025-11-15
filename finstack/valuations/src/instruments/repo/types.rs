@@ -181,8 +181,10 @@ impl Repo {
     /// Returns a 7-day general collateral USD repo.
     pub fn example() -> Self {
         let collateral = CollateralSpec::new("UST-10Y", 10_000.0, "UST_10Y_PRICE");
-        let start = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
-        let maturity = Date::from_calendar_date(2024, time::Month::January, 9).unwrap();
+        let start = Date::from_calendar_date(2024, time::Month::January, 2)
+            .expect("Valid example date");
+        let maturity = Date::from_calendar_date(2024, time::Month::January, 9)
+            .expect("Valid example date");
         Self::term(
             "REPO-GC-7D",
             Money::new(10_000_000.0, finstack_core::currency::Currency::USD),
@@ -487,7 +489,12 @@ mod tests {
     use time::Month;
 
     fn date(y: i32, m: u8, d: u8) -> Date {
-        Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
+        Date::from_calendar_date(
+            y,
+            Month::try_from(m).expect("Valid month (1-12)"),
+            d,
+        )
+        .expect("Valid test date")
     }
 
     #[test]
@@ -518,7 +525,9 @@ mod tests {
             date(2025, 4, 1), // ~0.25 years Act/360 ≈ 0.25
             "USD-OIS",
         );
-        let interest = repo.interest_amount().unwrap();
+        let interest = repo
+            .interest_amount()
+            .expect("Interest amount calculation should succeed in test");
         // Rough check near 1_000_000 * 0.12 * 0.25 = 30_000
         assert!((interest.amount() - 30_000.0).abs() < 100.0);
     }

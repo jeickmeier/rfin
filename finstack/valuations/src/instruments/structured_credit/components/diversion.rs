@@ -223,7 +223,10 @@ impl DiversionEngine {
                         }
                         Some(Color::Gray) => {
                             // Found a back edge - cycle detected
-                            let cycle_start = path.iter().position(|&n| n == neighbor).unwrap();
+                            let cycle_start = path
+                                .iter()
+                                .position(|&n| n == neighbor)
+                                .expect("Neighbor should exist in path when cycle detected");
                             let cycle: Vec<_> = path[cycle_start..]
                                 .iter()
                                 .chain(std::iter::once(&neighbor))
@@ -368,7 +371,7 @@ mod tests {
 
         let result = engine.validate();
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err_msg = result.expect_err("should fail validation").to_string();
         assert!(err_msg.contains("Circular diversion"));
     }
 
@@ -407,7 +410,7 @@ mod tests {
 
         let result = engine.validate();
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err_msg = result.expect_err("should fail validation").to_string();
         assert!(err_msg.contains("Circular diversion"));
     }
 
@@ -424,7 +427,7 @@ mod tests {
 
         let result = engine.validate();
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err_msg = result.expect_err("should fail validation").to_string();
         assert!(err_msg.contains("self-reference"));
     }
 
@@ -448,7 +451,7 @@ mod tests {
 
         let result = engine.validate();
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err_msg = result.expect_err("should fail validation").to_string();
         assert!(err_msg.contains("Duplicate diversion rule ID"));
     }
 

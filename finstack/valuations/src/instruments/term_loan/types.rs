@@ -106,8 +106,8 @@ impl TermLoan {
             .id(InstrumentId::new("TERM-LOAN-USD-5Y"))
             .currency(Currency::USD)
             .notional_limit(Money::new(10_000_000.0, Currency::USD))
-            .issue(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-            .maturity(Date::from_calendar_date(2029, Month::January, 1).unwrap())
+            .issue(Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"))
+            .maturity(Date::from_calendar_date(2029, Month::January, 1).expect("Valid example date"))
             .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
             .pay_freq(Frequency::quarterly())
             .day_count(DayCount::Act360)

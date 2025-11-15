@@ -80,7 +80,7 @@ impl LookbackOption {
             .strike_opt(Some(Money::new(4500.0, Currency::USD)))
             .option_type(crate::instruments::OptionType::Call)
             .lookback_type(LookbackType::FixedStrike)
-            .expiry(Date::from_calendar_date(2024, Month::December, 20).unwrap())
+            .expiry(Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"))
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))

@@ -23,8 +23,8 @@
 //! use time::Month;
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
-//! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-//! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+//! let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+//! let maturity = Date::from_calendar_date(2026, Month::January, 15).expect("valid date");
 //! let mut b = CashFlowSchedule::builder();
 //! b.principal(Money::new(1_000.0, Currency::USD), issue, maturity)
 //!  .fixed_cf(FixedCouponSpec{

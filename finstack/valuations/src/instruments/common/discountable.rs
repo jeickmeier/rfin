@@ -45,7 +45,7 @@ mod tests {
 
     impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
         }
         fn df(&self, _t: f64) -> f64 {
             1.0
@@ -53,8 +53,8 @@ mod tests {
     }
 
     fn simple_schedule() -> CashFlowSchedule {
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
         let params = ScheduleParams {
             freq: Frequency::quarterly(),
             dc: DayCount::Act365F,
@@ -75,7 +75,7 @@ mod tests {
             .principal(Money::new(1_000.0, Currency::USD), issue, maturity)
             .fixed_cf(fixed)
             .build()
-            .unwrap()
+            .expect("should build schedule")
     }
 
     #[test]
@@ -85,7 +85,7 @@ mod tests {
         };
         let base = curve.base_date();
         let schedule = simple_schedule();
-        let pv = schedule.npv(&curve, base, DayCount::Act365F).unwrap();
+        let pv = schedule.npv(&curve, base, DayCount::Act365F).expect("should calculate NPV");
         assert!(pv.amount().is_finite());
     }
 }

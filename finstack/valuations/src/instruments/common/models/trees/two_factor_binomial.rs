@@ -228,7 +228,7 @@ mod tests {
         let ctx = MarketContext::new();
         let initial = single_factor_equity_state(100.0, 0.05, 0.0, 0.2);
         let val = TestCallValuator { strike: 100.0 };
-        let price = tree.price(initial, 1.0, &ctx, &val).unwrap();
+        let price = tree.price(initial, 1.0, &ctx, &val).expect("should succeed");
         assert!(price.is_finite() && price > 0.0);
     }
 
@@ -242,11 +242,11 @@ mod tests {
 
         let one_factor = BinomialTree::crr(steps)
             .price(initial.clone(), t, &ctx, &val)
-            .unwrap();
+            .expect("should succeed");
 
         let two_factor = TwoFactorBinomialTree::equity_and_rates(steps, 0.2, 0.0, 0.0, 0.05, 0.0)
             .price(initial, t, &ctx, &val)
-            .unwrap();
+            .expect("should succeed");
 
         // Should be close when rate volatility is zero and correlation is zero
         assert!((one_factor - two_factor).abs() < 0.1);

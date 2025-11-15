@@ -94,8 +94,8 @@ pub(super) fn build_fee_schedules(
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
     //!
-    //! let issue = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-    //! let maturity = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    //! let issue = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
+    //! let maturity = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     //! let fees = vec![
     //!     FeeSpec::PeriodicBps {
     //!         base: FeeBase::Drawn,
@@ -320,8 +320,8 @@ pub(super) fn compute_coupon_schedules(
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
     //!
-    //! let issue = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-    //! let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    //! let issue = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
+    //! let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
     //! // Note: CashflowBuilder would be created here
     //! let fixed_spec = FixedCouponSpec {
     //!     coupon_type: CouponType::Cash,

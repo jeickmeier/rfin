@@ -285,12 +285,12 @@ mod tests {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
 
-        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
         assert_eq!(disc.dim, 2);
         assert_eq!(disc.cholesky_factor.len(), 4);
 
         // Test from_process convenience method
-        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).unwrap();
+        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
         assert!(disc_from_process.is_some());
     }
 
@@ -304,7 +304,7 @@ mod tests {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
 
-        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let mut x = vec![100.0, 200.0];
         let z = vec![0.0, 0.0]; // No shock - should get drift-only evolution
@@ -331,7 +331,7 @@ mod tests {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
 
-        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let mut x = vec![100.0, 200.0];
         let z = vec![1.0, 0.0]; // +1 std dev shock for first asset
@@ -354,7 +354,7 @@ mod tests {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
 
-        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
         assert_eq!(disc.work_size(&multi_gbm), 6); // 3 * 2 = 6 (drift + diffusion + z_corr)
     }
 
@@ -366,7 +366,7 @@ mod tests {
         ];
         let multi_gbm = MultiGbmProcess::new(params, None); // No correlation
 
-        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).unwrap();
+        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
         assert!(disc_from_process.is_none()); // Should return None for uncorrelated process
     }
 }

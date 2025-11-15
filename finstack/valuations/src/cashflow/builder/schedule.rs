@@ -227,7 +227,9 @@ impl CashFlowSchedule {
                             .expect("Outstanding balance calculation should succeed");
                     }
                     CFKind::PIK => {
-                        outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
+                        outstanding = outstanding
+                            .checked_add(self.flows[j].amount)
+                            .expect("Outstanding balance calculation should succeed");
                     }
                     _ => {}
                 }
@@ -266,7 +268,9 @@ impl CashFlowSchedule {
                             .expect("Outstanding balance calculation should succeed");
                     }
                     CFKind::PIK => {
-                        outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
+                        outstanding = outstanding
+                            .checked_add(self.flows[j].amount)
+                            .expect("Outstanding balance calculation should succeed");
                     }
                     CFKind::Notional => {
                         // Draws negative, repays positive -> subtract to apply sign

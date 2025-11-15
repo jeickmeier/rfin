@@ -445,8 +445,8 @@ mod tests {
 
     #[allow(dead_code)]
     fn create_test_facility() -> RevolvingCredit {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
 
         RevolvingCredit::builder()
             .id("RC-TEST".into())
@@ -463,7 +463,7 @@ mod tests {
             .hazard_curve_id(CurveId::from("TEST-HZD"))
             .recovery_rate(0.4)
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     #[test]
@@ -471,12 +471,12 @@ mod tests {
         let spreads = vec![0.01, 0.02, 0.015, 0.018];
         let times = vec![0.0, 0.25, 0.5, 0.75];
         let recovery = 0.4;
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let payment_dates = vec![
             start,
-            Date::from_calendar_date(2025, Month::April, 1).unwrap(),
-            Date::from_calendar_date(2025, Month::July, 1).unwrap(),
-            Date::from_calendar_date(2025, Month::October, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::April, 1).expect("valid date"),
+            Date::from_calendar_date(2025, Month::July, 1).expect("valid date"),
+            Date::from_calendar_date(2025, Month::October, 1).expect("valid date"),
         ];
         let cashflow_dates = payment_dates.clone();
 
@@ -488,7 +488,7 @@ mod tests {
             recovery,
             start,
         )
-        .unwrap();
+        .expect("should succeed");
 
         assert_eq!(survivals.len(), 4);
         // Survival at t=0 should be 1.0

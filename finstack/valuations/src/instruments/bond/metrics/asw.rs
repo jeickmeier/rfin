@@ -239,7 +239,11 @@ impl MetricCalculator for AssetSwapParCalculator {
             return Ok(0.0);
         }
         let p0 = disc.df_on_date_curve(sched[0]);
-        let pn = disc.df_on_date_curve(*sched.last().unwrap());
+        let pn = disc.df_on_date_curve(
+            *sched
+                .last()
+                .expect("Schedule should not be empty")
+        );
         let num = p0 - pn;
         let ann = fixed_leg_annuity(disc, dc, &sched);
         if ann == 0.0 {
@@ -417,7 +421,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             return Ok(0.0);
         }
         let p0 = disc.df_on_date_curve(sched[0]);
-        let pn = disc.df_on_date_curve(*sched.last().unwrap());
+        let pn = disc.df_on_date_curve(
+            *sched
+                .last()
+                .expect("Schedule should not be empty")
+        );
         let par_rate = (p0 - pn) / ann;
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon
         let eq_coupon = if let Some(custom) = &context.instrument_as::<Bond>()?.custom_cashflows {

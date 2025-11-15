@@ -80,7 +80,7 @@ impl FxOption {
             .strike(1.12)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
-            .expiry(Date::from_calendar_date(2024, time::Month::June, 21).unwrap())
+            .expiry(Date::from_calendar_date(2024, time::Month::June, 21).expect("Valid example date"))
             .day_count(DayCount::Act365F)
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .settlement(SettlementType::Cash)

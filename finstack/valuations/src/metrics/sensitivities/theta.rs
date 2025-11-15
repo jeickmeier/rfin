@@ -225,11 +225,11 @@ use std::marker::PhantomData;
 /// # Examples
 /// ```
 /// # use finstack_valuations::metrics::parse_period_days;
-/// assert_eq!(parse_period_days("1D").unwrap(), 1);
-/// assert_eq!(parse_period_days("1W").unwrap(), 7);
-/// assert_eq!(parse_period_days("1M").unwrap(), 30);
-/// assert_eq!(parse_period_days("3M").unwrap(), 90);
-/// assert_eq!(parse_period_days("1Y").unwrap(), 365);
+/// assert_eq!(parse_period_days("1D").expect("should succeed"), 1);
+/// assert_eq!(parse_period_days("1W").expect("should succeed"), 7);
+/// assert_eq!(parse_period_days("1M").expect("should succeed"), 30);
+/// assert_eq!(parse_period_days("3M").expect("should succeed"), 90);
+/// assert_eq!(parse_period_days("1Y").expect("should succeed"), 365);
 /// ```
 pub fn parse_period_days(period: &str) -> Result<i64> {
     let period = period.trim().to_uppercase();

@@ -103,7 +103,7 @@ impl CdsTranche {
             "CDX.NA.IG",
             42,
             Money::new(10_000_000.0, Currency::USD),
-            Date::from_calendar_date(2029, Month::December, 20).unwrap(),
+            Date::from_calendar_date(2029, Month::December, 20).expect("Valid example date"),
             100.0,
         );
         let sched = ScheduleParams {

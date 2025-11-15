@@ -15,8 +15,8 @@ mod accrual_context_tests {
     #[test]
     fn fixed_accrual_with_actact_isma_full_period() {
         // Test that Act/Act ISMA with frequency context gives accrual = 1.0 for full coupon
-        let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let end = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::July, 15).expect("valid date");
 
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -44,7 +44,7 @@ mod accrual_context_tests {
             outstanding_fallback,
             Currency::USD,
         )
-        .unwrap();
+        .expect("should emit fixed coupons");
 
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
@@ -63,8 +63,8 @@ mod accrual_context_tests {
     #[test]
     fn float_accrual_with_actact_isma_quarterly() {
         // Test quarterly floating with Act/Act ISMA
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
 
         let spec = FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
@@ -100,7 +100,7 @@ mod accrual_context_tests {
             Currency::USD,
             None, // No curves: use spread only
         )
-        .unwrap();
+        .expect("should emit float coupons");
 
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
@@ -117,8 +117,8 @@ mod accrual_context_tests {
     fn bus252_accrual_requires_calendar() {
         // Bus/252 with calendar should calculate business days
 
-        let start = Date::from_calendar_date(2025, Month::January, 6).unwrap(); // Monday
-        let end = Date::from_calendar_date(2025, Month::January, 13).unwrap(); // Next Monday (5 biz days)
+        let start = Date::from_calendar_date(2025, Month::January, 6).expect("valid date"); // Monday
+        let end = Date::from_calendar_date(2025, Month::January, 13).expect("valid date"); // Next Monday (5 biz days)
 
         // This test verifies that the calendar lookup happens in coupons.rs
         // The actual year fraction calculation is tested in core's day-count tests
@@ -153,7 +153,7 @@ mod accrual_context_tests {
 
         // Should succeed with calendar available
         assert!(result.is_ok());
-        let (pik, flows) = result.unwrap();
+        let (pik, flows) = result.expect("should succeed with calendar");
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
 
@@ -179,7 +179,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_default_and_recovery_mechanics() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let event = DefaultEvent {
             default_date: d,
             defaulted_amount: 400_000.0,
@@ -188,7 +188,7 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
 
         // Net loss: 400K × (1 - 0.40) = 240K
         // Outstanding: 1M - 400K + 160K = 760K
@@ -214,10 +214,10 @@ mod credit_emission_tests {
         use super::super::coupons::emit_fixed_coupons_on;
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let mat = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-        let default_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-        let coupon_date = Date::from_calendar_date(2025, Month::October, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let mat = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+        let default_date = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
+        let coupon_date = Date::from_calendar_date(2025, Month::October, 1).expect("valid date");
 
         // Setup: 1M notional, 5% coupon, quarterly payments
         let spec = FixedCouponSpec {
@@ -258,7 +258,7 @@ mod credit_emission_tests {
             &mut outstanding,
             Currency::USD,
         )
-        .unwrap();
+        .expect("should emit default");
 
         // Outstanding now 760K (1M - 400K + 160K recovery)
         outstanding_after.insert(default_date, outstanding);
@@ -278,7 +278,7 @@ mod credit_emission_tests {
             1_000_000.0,
             Currency::USD,
         )
-        .unwrap();
+        .expect("should emit fixed coupons");
 
         assert_eq!(pik, 0.0);
         assert_eq!(coupons.len(), 1);
@@ -298,7 +298,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_prepayment_reduces_outstanding() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let mut outstanding = 1_000_000.0;
 
         let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
@@ -311,7 +311,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_prepayment_capped_by_outstanding() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let mut outstanding = 30_000.0;
 
         let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
@@ -323,7 +323,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_zero_recovery_rate() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let event = DefaultEvent {
             default_date: d,
             defaulted_amount: 100_000.0,
@@ -332,7 +332,7 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
 
         // Net loss is 100% of defaulted amount
         assert_eq!(outstanding, 900_000.0);
@@ -341,7 +341,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_full_recovery_rate() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let event = DefaultEvent {
             default_date: d,
             defaulted_amount: 100_000.0,
@@ -350,7 +350,7 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
 
         // Net loss is zero
         assert_eq!(outstanding, 1_000_000.0);
@@ -359,7 +359,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_multiple_defaults_same_date() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let events = vec![
             DefaultEvent {
                 default_date: d,
@@ -376,7 +376,7 @@ mod credit_emission_tests {
         ];
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD).expect("should emit multiple defaults");
 
         // Net loss: 50K × 0.6 + 30K × 0.5 = 30K + 15K = 45K
         assert_eq!(
@@ -388,8 +388,8 @@ mod credit_emission_tests {
 
     #[test]
     fn test_non_matching_dates_return_empty() {
-        let d = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-        let other_date = Date::from_calendar_date(2025, Month::April, 1).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let other_date = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
 
         let event = DefaultEvent {
             default_date: other_date,
@@ -399,7 +399,7 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
 
         assert_eq!(outstanding, 1_000_000.0); // Unchanged
         assert_eq!(flows.len(), 0);
@@ -407,7 +407,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_recovery_lag_calculation() {
-        let d = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let d = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let event = DefaultEvent {
             default_date: d,
             defaulted_amount: 100_000.0,
@@ -416,7 +416,7 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).unwrap();
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
 
         let expected_recovery_date = finstack_core::dates::utils::add_months(d, 6);
         assert_eq!(flows[1].date, expected_recovery_date);

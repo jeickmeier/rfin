@@ -97,7 +97,7 @@ mod tests {
     use time::Month;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("valid date")
     }
 
     fn create_test_repo() -> Repo {
@@ -124,7 +124,7 @@ mod tests {
             .base_date(as_of)
             .knots(vec![(0.0, 1.0), (10.0, 0.999)])
             .build()
-            .unwrap();
+            .expect("should succeed");
         MarketContext::new().insert_discount(disc).insert_price(
             "BOND_ABC_PRICE",
             MarketScalar::Price(Money::new(1.02, Currency::USD)),
@@ -143,7 +143,7 @@ mod tests {
         );
 
         let calculator = collateral_value::CollateralValueCalculator;
-        let value = calculator.calculate(&mut context).unwrap();
+        let value = calculator.calculate(&mut context).expect("should succeed");
         assert!((value - 1020.0).abs() < 1e-6);
     }
 
@@ -159,7 +159,7 @@ mod tests {
         );
 
         let calculator = required_collateral::RequiredCollateralCalculator;
-        let value = calculator.calculate(&mut context).unwrap();
+        let value = calculator.calculate(&mut context).expect("should succeed");
         assert!((value - 1_020_000.0).abs() < 1e-6);
     }
 
@@ -175,7 +175,7 @@ mod tests {
         );
 
         let calculator = effective_rate::EffectiveRateCalculator;
-        let rate = calculator.calculate(&mut context).unwrap();
+        let rate = calculator.calculate(&mut context).expect("should succeed");
         assert!((rate - 0.05).abs() < 1e-9);
     }
 
@@ -187,10 +187,10 @@ mod tests {
             .base_date(as_of)
             .knots(vec![(0.0, 1.0), (5.0, 0.80)])
             .build()
-            .unwrap();
+            .expect("should succeed");
         let repo = create_test_repo();
         let ctx = create_test_context().insert_discount(disc);
-        let pv = repo.value(&ctx, as_of).unwrap();
+        let pv = repo.value(&ctx, as_of).expect("should succeed");
         let reg = standard_registry();
         let mut mctx = crate::metrics::MetricContext::new(
             std::sync::Arc::new(repo),
@@ -199,8 +199,8 @@ mod tests {
             pv,
         );
         // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 should be negative
-        let res = reg.compute(&[MetricId::Dv01], &mut mctx).unwrap();
-        let dv01 = *res.get(&MetricId::Dv01).unwrap();
+        let res = reg.compute(&[MetricId::Dv01], &mut mctx).expect("should succeed");
+        let dv01 = *res.get(&MetricId::Dv01).expect("should succeed");
         assert!(dv01 <= 0.0);
     }
 
@@ -210,7 +210,7 @@ mod tests {
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
-        let pv = repo.value(&ctx, as_of).unwrap();
+        let pv = repo.value(&ctx, as_of).expect("should succeed");
         let mut mctx = crate::metrics::MetricContext::new(
             std::sync::Arc::new(repo.clone()),
             std::sync::Arc::new(ctx),
@@ -218,9 +218,9 @@ mod tests {
             pv,
         );
         let reg = standard_registry();
-        let res = reg.compute(&[MetricId::RepoInterest], &mut mctx).unwrap();
-        let m_interest = *res.get(&MetricId::RepoInterest).unwrap();
-        let direct = repo.interest_amount().unwrap().amount();
+        let res = reg.compute(&[MetricId::RepoInterest], &mut mctx).expect("should succeed");
+        let m_interest = *res.get(&MetricId::RepoInterest).expect("should succeed");
+        let direct = repo.interest_amount().expect("should succeed").amount();
         assert!((m_interest - direct).abs() < 1e-9);
     }
 
@@ -230,7 +230,7 @@ mod tests {
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
-        let pv = repo.value(&ctx, as_of).unwrap();
+        let pv = repo.value(&ctx, as_of).expect("should succeed");
         let mut mctx = crate::metrics::MetricContext::new(
             std::sync::Arc::new(repo),
             std::sync::Arc::new(ctx),
@@ -240,8 +240,8 @@ mod tests {
         let reg = standard_registry();
         let res = reg
             .compute(&[MetricId::CollateralCoverage], &mut mctx)
-            .unwrap();
-        let cov = *res.get(&MetricId::CollateralCoverage).unwrap();
+            .expect("should succeed");
+        let cov = *res.get(&MetricId::CollateralCoverage).expect("should succeed");
         // 1020 / 1,020,000 = 0.001
         assert!((cov - 0.001).abs() < 1e-6);
     }
@@ -252,7 +252,7 @@ mod tests {
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
-        let pv = repo.value(&ctx, as_of).unwrap();
+        let pv = repo.value(&ctx, as_of).expect("should succeed");
         let mut mctx = crate::metrics::MetricContext::new(
             std::sync::Arc::new(repo.clone()),
             std::sync::Arc::new(ctx),
@@ -270,12 +270,12 @@ mod tests {
                 ],
                 &mut mctx,
             )
-            .unwrap();
-        let ttm = *res.get(&MetricId::TimeToMaturity).unwrap();
+            .expect("should succeed");
+        let ttm = *res.get(&MetricId::TimeToMaturity).expect("should succeed");
         assert!(ttm > 0.0);
-        let cv = *res.get(&MetricId::CollateralValue).unwrap();
-        let req = *res.get(&MetricId::RequiredCollateral).unwrap();
-        let implied = *res.get(&MetricId::ImpliedCollateralReturn).unwrap();
+        let cv = *res.get(&MetricId::CollateralValue).expect("should succeed");
+        let req = *res.get(&MetricId::RequiredCollateral).expect("should succeed");
+        let implied = *res.get(&MetricId::ImpliedCollateralReturn).expect("should succeed");
         let expected = if req == 0.0 || ttm <= 0.0 {
             0.0
         } else {
@@ -290,7 +290,7 @@ mod tests {
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
-        let pv = repo.value(&ctx, as_of).unwrap();
+        let pv = repo.value(&ctx, as_of).expect("should succeed");
         let mut mctx = crate::metrics::MetricContext::new(
             std::sync::Arc::new(repo),
             std::sync::Arc::new(ctx),
@@ -298,8 +298,8 @@ mod tests {
             pv,
         );
         let reg = standard_registry();
-        let res = reg.compute(&[MetricId::FundingRisk], &mut mctx).unwrap();
-        let fr = *res.get(&MetricId::FundingRisk).unwrap();
+        let res = reg.compute(&[MetricId::FundingRisk], &mut mctx).expect("should succeed");
+        let fr = *res.get(&MetricId::FundingRisk).expect("should succeed");
         // Increasing repo rate typically increases PV (more interest), so base - bumped <= 0
         assert!(fr <= 0.0);
     }

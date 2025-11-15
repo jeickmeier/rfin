@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_finite_diff_delta_atm() {
-        let time_grid = TimeGrid::uniform(1.0, 50).unwrap();
+        let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
             seed: 42,
@@ -189,7 +189,7 @@ mod tests {
             1.0,
             0.01,
         )
-        .unwrap();
+        .expect("should succeed");
 
         // ATM call delta should be around 0.5
         assert!(delta > 0.3 && delta < 0.7);
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_finite_diff_gamma_positive() {
-        let time_grid = TimeGrid::uniform(1.0, 50).unwrap();
+        let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
             seed: 42,
@@ -227,7 +227,7 @@ mod tests {
             1.0,
             0.01,
         )
-        .unwrap();
+        .expect("should succeed");
 
         // Gamma should be positive for ATM options
         assert!(gamma > 0.0);

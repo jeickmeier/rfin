@@ -49,8 +49,8 @@ mod tests {
     #[test]
     fn test_prepayment_spec_json() {
         let spec = PrepaymentModelSpec::psa(1.5);
-        let json = serde_json::to_string(&spec).unwrap();
-        let recovered: PrepaymentModelSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec).expect("should succeed");
+        let recovered: PrepaymentModelSpec = serde_json::from_str(&json).expect("should succeed");
 
         match recovered.curve {
             Some(PrepaymentCurve::Psa { speed_multiplier }) => {

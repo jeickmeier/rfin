@@ -461,7 +461,7 @@ impl ValuationResult {
     ///         details: None,
     ///     });
     ///
-    /// assert_eq!(result.covenants.as_ref().unwrap().len(), 2);
+    /// assert_eq!(result.covenants.as_ref().expect("should succeed").len(), 2);
     /// # Ok(())
     /// # }
     /// ```

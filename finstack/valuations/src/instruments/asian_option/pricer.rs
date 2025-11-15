@@ -135,7 +135,12 @@ impl AsianOptionMcPricer {
             }
         }
         // Ensure we have at least the final step for averaging
-        if fixing_steps.is_empty() || *fixing_steps.last().unwrap() != num_steps.saturating_sub(1) {
+        if fixing_steps.is_empty()
+            || *fixing_steps
+                .last()
+                .expect("fixing_steps should not be empty when checked")
+                != num_steps.saturating_sub(1)
+        {
             fixing_steps.push(num_steps.saturating_sub(1));
         }
         fixing_steps.sort();
@@ -489,7 +494,12 @@ impl AsianOptionMcPricer {
                 fixing_steps.push(clamped);
             }
         }
-        if fixing_steps.is_empty() || *fixing_steps.last().unwrap() != num_steps.saturating_sub(1) {
+        if fixing_steps.is_empty()
+            || *fixing_steps
+                .last()
+                .expect("fixing_steps should not be empty when checked")
+                != num_steps.saturating_sub(1)
+        {
             fixing_steps.push(num_steps.saturating_sub(1));
         }
         fixing_steps.sort();

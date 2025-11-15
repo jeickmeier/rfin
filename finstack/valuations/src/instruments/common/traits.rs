@@ -751,7 +751,7 @@ pub trait Instrument: Send + Sync {
     ///
     /// // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
     /// // println!("NPV: {}", result.value);
-    /// // println!("DV01: {}", result.measures.get("dv01").unwrap());
+    /// // println!("DV01: {}", result.measures.get("dv01").expect("should succeed"));
     /// # Ok(())
     /// # }
     /// ```

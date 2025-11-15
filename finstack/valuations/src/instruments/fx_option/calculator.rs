@@ -429,7 +429,7 @@ mod tests {
     }
 
     fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day).expect("valid date")
     }
 
     fn flat_discount(id: &str, as_of: Date, rate: f64) -> DiscountCurve {
@@ -437,7 +437,7 @@ mod tests {
             .base_date(as_of)
             .knots([(0.0, 1.0), (1.0, (-rate).exp())])
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     fn vol_surface(vol: f64) -> VolSurface {
@@ -449,7 +449,7 @@ mod tests {
             .row(&[vol; 5])
             .row(&[vol; 5])
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     fn market_context(
@@ -487,7 +487,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap()
+            .expect("should succeed")
     }
 
     fn approx_eq(actual: f64, expected: f64, tol: f64) {
@@ -506,8 +506,8 @@ mod tests {
         let ctx = market_context(as_of, 1.18, 0.22, 0.03, 0.01);
         let calc = FxOptionCalculator::new();
 
-        let pv = calc.npv(&option, &ctx, as_of).unwrap();
-        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).unwrap();
+        let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
+        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).expect("should succeed");
         let expected_unit =
             super::price_gk_core(spot, option.strike, r_d, r_f, sigma, t, option.option_type);
         approx_eq(pv.amount(), expected_unit * option.notional.amount(), 5e-3);
@@ -522,7 +522,7 @@ mod tests {
         let ctx = market_context(as_of, 1.2, 0.35, 0.025, 0.015);
         let calc = FxOptionCalculator::new();
 
-        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).unwrap();
+        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).expect("should succeed");
         approx_eq(spot, 1.2, 1e-12);
         approx_eq(r_d, 0.025, 2e-4);
         approx_eq(r_f, 0.015, 2e-4);
@@ -530,10 +530,10 @@ mod tests {
         assert!(t > 0.4);
 
         option.pricing_overrides.implied_volatility = Some(0.5);
-        let (_, _, _, override_sigma, _) = calc.collect_inputs(&option, &ctx, as_of).unwrap();
+        let (_, _, _, override_sigma, _) = calc.collect_inputs(&option, &ctx, as_of).expect("should succeed");
         approx_eq(override_sigma, 0.5, 1e-12);
 
-        let (_, _, _, t_only) = calc.collect_inputs_no_vol(&option, &ctx, as_of).unwrap();
+        let (_, _, _, t_only) = calc.collect_inputs_no_vol(&option, &ctx, as_of).expect("should succeed");
         assert!((t_only - t).abs() < 1e-12);
     }
 
@@ -545,10 +545,10 @@ mod tests {
         let ctx = market_context(as_of, 1.17, 0.25, 0.02, 0.012);
         let calc = FxOptionCalculator::new();
 
-        let pv = calc.npv(&option, &ctx, as_of).unwrap();
+        let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
         let sigma = calc
             .implied_vol(&option, &ctx, as_of, pv.amount(), Some(0.15))
-            .unwrap();
+            .expect("should succeed");
         approx_eq(sigma, 0.25, 1e-6);
     }
 
@@ -563,8 +563,8 @@ mod tests {
             iv_initial_guess: 0.2,
         });
 
-        let greeks = calc.compute_greeks(&option, &ctx, as_of).unwrap();
-        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).unwrap();
+        let greeks = calc.compute_greeks(&option, &ctx, as_of).expect("should succeed");
+        let (spot, r_d, r_f, sigma, t) = calc.collect_inputs(&option, &ctx, as_of).expect("should succeed");
         let d1 = crate::instruments::common::models::d1(spot, option.strike, r_d, sigma, t, r_f);
         let d2 = crate::instruments::common::models::d2(spot, option.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
@@ -630,11 +630,11 @@ mod tests {
         let ctx = market_context(expiry, 1.05, 0.2, 0.02, 0.01);
         let calc = FxOptionCalculator::new();
 
-        let pv = calc.npv(&option, &ctx, as_of).unwrap();
+        let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
         let intrinsic = (option.strike - 1.05).max(0.0) * option.notional.amount();
         approx_eq(pv.amount(), intrinsic, 1e-6);
 
-        let greeks = calc.compute_greeks(&option, &ctx, as_of).unwrap();
+        let greeks = calc.compute_greeks(&option, &ctx, as_of).expect("should succeed");
         assert_eq!(greeks.gamma, 0.0);
         assert_eq!(greeks.vega, 0.0);
         assert_eq!(greeks.theta, 0.0);

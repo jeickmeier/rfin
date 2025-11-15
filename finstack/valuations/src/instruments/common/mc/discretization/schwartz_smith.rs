@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn test_exact_schwartz_smith_creation() {
         let _params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
-        let disc = ExactSchwartzSmith::new(-0.5).unwrap();
+        let disc = ExactSchwartzSmith::new(-0.5).expect("should succeed");
 
         assert_eq!(disc.cholesky_factor.len(), 4);
     }
@@ -122,7 +122,7 @@ mod tests {
     fn test_exact_schwartz_smith_step() {
         let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
-        let disc = ExactSchwartzSmith::from_process(&process).unwrap();
+        let disc = ExactSchwartzSmith::from_process(&process).expect("should succeed");
 
         let mut x = [0.0, 4.5];
         let z = [0.0, 0.0]; // No shock
@@ -140,7 +140,7 @@ mod tests {
     fn test_exact_schwartz_smith_spot_computation() {
         let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
-        let disc = ExactSchwartzSmith::from_process(&process).unwrap();
+        let disc = ExactSchwartzSmith::from_process(&process).expect("should succeed");
 
         let mut x = [0.0, 4.5];
         let z = [0.0, 0.0];

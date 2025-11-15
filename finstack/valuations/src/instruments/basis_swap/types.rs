@@ -48,8 +48,8 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 /// let swap = BasisSwap::new(
 ///     "BASIS_SWAP_001",
 ///     Money::new(1_000_000.0, Currency::USD),
-///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+///     Date::from_calendar_date(2024, Month::January, 3).expect("valid date"),
+///     Date::from_calendar_date(2025, Month::January, 3).expect("valid date"),
 ///     primary_leg,
 ///     reference_leg,
 ///     CurveId::new("OIS"),
@@ -409,7 +409,7 @@ mod tests {
 
     // Helper function for tests
     fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("should succeed")
     }
 
     #[test]
@@ -423,19 +423,19 @@ mod tests {
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let forward_3m = ForwardCurve::builder("3M-SOFR", 0.25)
             .base_date(base_date)
             .knots(vec![(0.0, 0.03), (1.0, 0.03), (2.0, 0.03)])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let forward_6m = ForwardCurve::builder("6M-SOFR", 0.5)
             .base_date(base_date)
             .knots(vec![(0.0, 0.0305), (1.0, 0.0305), (2.0, 0.0305)])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         // Create context
         let context = MarketContext::new()
@@ -471,7 +471,7 @@ mod tests {
         );
 
         // Price the swap
-        let pv = swap.value(&context, base_date).unwrap();
+        let pv = swap.value(&context, base_date).expect("should succeed");
 
         // The PV should be close to zero if the spread correctly prices the basis
         assert!(

@@ -46,10 +46,10 @@ impl CmsOption {
         use time::Month;
 
         let fixing_dates = vec![
-            Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-            Date::from_calendar_date(2025, Month::June, 20).unwrap(),
-            Date::from_calendar_date(2025, Month::September, 22).unwrap(),
-            Date::from_calendar_date(2025, Month::December, 22).unwrap(),
+            Date::from_calendar_date(2025, Month::March, 20).expect("Valid example date"),
+            Date::from_calendar_date(2025, Month::June, 20).expect("Valid example date"),
+            Date::from_calendar_date(2025, Month::September, 22).expect("Valid example date"),
+            Date::from_calendar_date(2025, Month::December, 22).expect("Valid example date"),
         ];
         let accrual_fractions = vec![0.25, 0.25, 0.25, 0.25];
 

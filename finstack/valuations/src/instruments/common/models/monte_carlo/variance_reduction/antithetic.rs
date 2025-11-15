@@ -199,7 +199,7 @@ mod tests {
         let disc = ExactGbm::new();
         let initial_state = vec![100.0];
         let payoff = EuropeanCall::new(100.0, 1.0, 10);
-        let time_grid = TimeGrid::uniform(1.0, 10).unwrap();
+        let time_grid = TimeGrid::uniform(1.0, 10).expect("should succeed");
 
         let config = AntitheticConfig {
             num_pairs: 100,
@@ -227,7 +227,7 @@ mod tests {
         let disc = ExactGbm::new();
         let initial_state = vec![100.0];
         let payoff = EuropeanCall::new(100.0, 1.0, 50);
-        let time_grid = TimeGrid::uniform(1.0, 50).unwrap();
+        let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
 
         // Antithetic: 100 pairs = 200 effective paths
         let config = AntitheticConfig {

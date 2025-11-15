@@ -235,8 +235,8 @@ impl Basket {
             "CORP-BOND-001",
             Money::new(1000.0, Currency::USD),
             0.05,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
-            Date::from_calendar_date(2034, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date"),
             "USD-OIS",
         );
 

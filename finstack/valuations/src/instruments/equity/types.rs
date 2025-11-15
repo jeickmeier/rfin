@@ -440,10 +440,10 @@ mod tests {
             .with_price(150.0);
 
         let curves = MarketContext::new();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         use crate::instruments::common::traits::Instrument;
-        let value = equity.value(&curves, as_of).unwrap();
+        let value = equity.value(&curves, as_of).expect("should succeed");
         assert_eq!(value.amount(), 15_000.0);
         assert_eq!(value.currency(), Currency::USD);
     }
@@ -452,9 +452,9 @@ mod tests {
     fn test_equity_no_cashflows() {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD);
         let curves = MarketContext::new();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-        let flows = equity.build_schedule(&curves, as_of).unwrap();
+        let flows = equity.build_schedule(&curves, as_of).expect("should succeed");
         assert!(flows.is_empty());
     }
 
@@ -465,7 +465,7 @@ mod tests {
             .with_price(200.0);
 
         let curves = MarketContext::new();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         use crate::instruments::common::traits::Instrument;
         let result = equity
@@ -477,7 +477,7 @@ mod tests {
                     crate::metrics::MetricId::EquityShares,
                 ],
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(result.value.amount(), 10_000.0); // This is the market value (PV)
         assert_eq!(result.measures.get("equity_price_per_share"), Some(&200.0));
         assert_eq!(result.measures.get("equity_shares"), Some(&50.0));

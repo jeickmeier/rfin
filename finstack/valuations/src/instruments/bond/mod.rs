@@ -93,7 +93,7 @@ mod tests {
             .build();
 
         assert!(bond.is_ok());
-        let bond = bond.unwrap();
+        let bond = bond.expect("should succeed");
         assert_eq!(bond.id.as_str(), "BOND_MIN");
         assert_eq!(bond.notional.amount(), 1000.0);
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
@@ -181,7 +181,7 @@ mod tests {
             .pricing_overrides(overrides)
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
         assert_eq!(bond.pricing_overrides.ytm_bump_decimal, Some(1e-4));
@@ -205,7 +205,7 @@ mod tests {
             .ex_coupon_days_opt(Some(7))
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(bond.settlement_days, Some(2));
         assert_eq!(bond.ex_coupon_days, Some(7));
@@ -233,7 +233,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(attrs)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(
             bond.attributes.meta.get("sector"),
@@ -258,7 +258,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         // Zero coupon bond
         if let CashflowSpec::Fixed(spec) = &bond.cashflow_spec {
@@ -284,7 +284,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(bond.cashflow_spec.frequency(), Frequency::monthly());
     }
@@ -313,7 +313,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         if let CashflowSpec::Fixed(s) = &bond.cashflow_spec {
             assert_eq!(s.calendar_id, Some("USGS".to_string()));
@@ -348,7 +348,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         if let CashflowSpec::Fixed(s) = &bond_short_front.cashflow_spec {
             assert_eq!(s.stub, StubKind::ShortFront);
@@ -375,7 +375,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         if let CashflowSpec::Fixed(s) = &bond_long_back.cashflow_spec {
             assert_eq!(s.stub, StubKind::LongBack);
@@ -407,7 +407,7 @@ mod tests {
                 .pricing_overrides(PricingOverrides::default())
                 .attributes(Attributes::new())
                 .build()
-                .unwrap();
+                .expect("should succeed");
 
             assert_eq!(bond.notional.currency(), ccy);
         }
@@ -502,7 +502,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default().with_clean_price(105.0))
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(premium.pricing_overrides.quoted_clean_price, Some(105.0));
 
@@ -521,7 +521,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default().with_clean_price(95.0))
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(discount.pricing_overrides.quoted_clean_price, Some(95.0));
 
@@ -540,7 +540,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default().with_clean_price(100.0))
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(par.pricing_overrides.quoted_clean_price, Some(100.0));
     }

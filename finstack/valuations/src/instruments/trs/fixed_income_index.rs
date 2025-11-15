@@ -57,8 +57,8 @@ impl FIIndexTotalReturnSwap {
             day_count: DayCount::Act360,
         };
         let sched = TrsScheduleSpec::from_params(
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid example date"),
             ScheduleParams {
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,

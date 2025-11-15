@@ -229,13 +229,13 @@ mod tests {
     use time::Month;
     #[test]
     fn test_ytm_solver_par_bond() {
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let _maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let _maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
         let notional = Money::new(1000.0, Currency::USD);
         let coupon_rate = 0.05;
         let mut cashflows = vec![];
         for year in 1..=5 {
-            let date = Date::from_calendar_date(2025 + year, Month::January, 1).unwrap();
+            let date = Date::from_calendar_date(2025 + year, Month::January, 1).expect("valid date");
             if year < 5 {
                 cashflows.push((date, Money::new(50.0, Currency::USD)));
             } else {
@@ -256,7 +256,7 @@ mod tests {
                     frequency: Frequency::annual(),
                 },
             )
-            .unwrap();
+            .expect("should succeed");
         assert!((ytm - coupon_rate).abs() < 1e-4);
     }
 }

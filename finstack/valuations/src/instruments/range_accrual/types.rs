@@ -48,18 +48,18 @@ impl RangeAccrual {
         use finstack_core::dates::DayCount;
         use time::Month;
         let observation_dates = vec![
-            Date::from_calendar_date(2024, Month::January, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::February, 29).unwrap(),
-            Date::from_calendar_date(2024, Month::March, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::April, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::May, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::June, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::July, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::August, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::September, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::October, 31).unwrap(),
-            Date::from_calendar_date(2024, Month::November, 30).unwrap(),
-            Date::from_calendar_date(2024, Month::December, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::February, 29).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::March, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::April, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::May, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::June, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::July, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::August, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::September, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::October, 31).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::November, 30).expect("Valid example date"),
+            Date::from_calendar_date(2024, Month::December, 31).expect("Valid example date"),
         ];
         RangeAccrualBuilder::new()
             .id(InstrumentId::new("RANGE-SPX-1Y"))

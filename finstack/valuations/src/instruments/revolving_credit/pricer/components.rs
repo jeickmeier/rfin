@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_discount_factors_from_curve() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let as_of = base_date;
 
         let curve = DiscountCurve::builder("TEST")
@@ -423,7 +423,7 @@ mod tests {
             .day_count(DayCount::Act365F)
             .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         let dates = vec![
             base_date,
@@ -432,7 +432,7 @@ mod tests {
         ];
 
         let factors =
-            DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of).unwrap();
+            DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of).expect("should succeed");
 
         assert_eq!(factors.len(), 3);
         assert!((factors.get(0) - 1.0).abs() < 1e-10);
@@ -444,7 +444,7 @@ mod tests {
     fn test_fixed_rate_projector() {
         let projector = FixedRateProjector::new(0.05);
 
-        let rate = projector.project_rate(0.0, 0.25, 0).unwrap();
+        let rate = projector.project_rate(0.0, 0.25, 0).expect("should succeed");
         assert!((rate - 0.05).abs() < 1e-10);
     }
 

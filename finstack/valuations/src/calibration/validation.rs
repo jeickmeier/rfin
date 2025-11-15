@@ -731,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_discount_curve_validation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Valid curve - monotonically decreasing DFs
         let valid_curve = DiscountCurve::builder("TEST-VALID")
@@ -746,7 +746,7 @@ mod tests {
             ])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("should build valid curve");
 
         assert!(valid_curve.validate().is_ok());
 
@@ -763,7 +763,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .allow_non_monotonic() // Allow construction of invalid curve for testing validation
             .build()
-            .unwrap();
+            .expect("should build invalid curve for testing");
 
         assert!(invalid_curve.validate_monotonicity().is_err());
     }
@@ -772,7 +772,7 @@ mod tests {
     fn test_hazard_curve_validation() {
         use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Valid hazard curve
         let valid_curve = HazardCurve::builder("TEST-HAZARD")
@@ -781,7 +781,7 @@ mod tests {
             .seniority(Seniority::Senior)
             .knots(vec![(1.0, 0.01), (2.0, 0.015), (5.0, 0.02)])
             .build()
-            .unwrap();
+            .expect("should build valid hazard curve");
 
         assert!(valid_curve.validate().is_ok());
 
@@ -791,7 +791,7 @@ mod tests {
 
     #[test]
     fn test_forward_curve_validation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Valid forward curve
         let valid_curve = ForwardCurve::builder("TEST-FWD", 0.25)
@@ -803,7 +803,7 @@ mod tests {
                 (2.0, 0.048),
             ])
             .build()
-            .unwrap();
+            .expect("should build valid forward curve");
 
         assert!(valid_curve.validate().is_ok());
 
@@ -843,7 +843,7 @@ mod tests {
                 (30.0, 0.80),
             ])
             .build()
-            .unwrap();
+            .expect("should build valid base correlation curve");
 
         assert!(valid_curve.validate().is_ok());
 
@@ -855,7 +855,7 @@ mod tests {
                 (10.0, 0.50),
             ])
             .build()
-            .unwrap();
+            .expect("should build invalid curve for testing");
 
         assert!(invalid_curve.validate_no_arbitrage().is_err());
     }
