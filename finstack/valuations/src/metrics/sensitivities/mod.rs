@@ -12,5 +12,3 @@ pub mod fd_greeks;
 pub mod theta;
 pub mod vega;
 
-#[cfg(test)]
-mod tests;

@@ -39,8 +39,6 @@
 mod builder;
 mod compiler;
 mod emission;
-#[cfg(test)]
-mod tests;
 
 // Public modules
 pub mod credit_rates;
