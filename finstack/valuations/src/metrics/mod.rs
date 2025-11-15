@@ -226,7 +226,7 @@ mod core;
 mod sensitivities;
 
 // Re-export all public items at the root level for backward compatibility
-pub use core::finite_difference::bump_sizes;
+pub use core::finite_difference::{bump_sizes, BumpOverrides};
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};

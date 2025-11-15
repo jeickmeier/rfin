@@ -241,16 +241,15 @@ mod finite_difference_properties {
     #[test]
     fn test_adaptive_spot_bump_bounds() {
         proptest!(|(
-            spot in 0.01..10000.0f64,
             vol in 0.01..2.0f64,
             time in 0.01..30.0f64,
         )| {
-            let bump = adaptive_spot_bump(spot, vol, time, None);
+            let bump = adaptive_spot_bump(vol, time, None);
 
             // Should be between 0.001 (0.1%) and 0.05 (5%)
             prop_assert!((0.001..=0.05).contains(&bump),
-                "Adaptive spot bump out of bounds: bump={}, spot={}, vol={}, time={}",
-                bump, spot, vol, time);
+                "Adaptive spot bump out of bounds: bump={}, vol={}, time={}",
+                bump, vol, time);
         });
     }
 
@@ -258,12 +257,11 @@ mod finite_difference_properties {
     #[test]
     fn test_adaptive_spot_bump_override() {
         proptest!(|(
-            spot in 0.01..10000.0f64,
             vol in 0.01..2.0f64,
             time in 0.01..30.0f64,
             override_pct in 0.001..0.10f64,
         )| {
-            let bump = adaptive_spot_bump(spot, vol, time, Some(override_pct));
+            let bump = adaptive_spot_bump(vol, time, Some(override_pct));
 
             prop_assert!((bump - override_pct).abs() < 1e-12,
                 "Override should be respected exactly: bump={}, override={}",
@@ -275,15 +273,14 @@ mod finite_difference_properties {
     #[test]
     fn test_adaptive_spot_bump_vol_monotonicity() {
         proptest!(|(
-            spot in 1.0..100.0f64,
             vol1 in 0.05..0.5f64,
             vol2_delta in 0.1..1.0f64,
             time in 1.0..10.0f64,
         )| {
             let vol2 = vol1 + vol2_delta;
 
-            let bump1 = adaptive_spot_bump(spot, vol1, time, None);
-            let bump2 = adaptive_spot_bump(spot, vol2, time, None);
+            let bump1 = adaptive_spot_bump(vol1, time, None);
+            let bump2 = adaptive_spot_bump(vol2, time, None);
 
             // Higher vol should give higher or equal bump (capped at 5%)
             prop_assert!(bump2 >= bump1 || (bump2 - 0.05).abs() < 1e-10,
@@ -296,15 +293,14 @@ mod finite_difference_properties {
     #[test]
     fn test_adaptive_spot_bump_time_monotonicity() {
         proptest!(|(
-            spot in 1.0..100.0f64,
             vol in 0.2..0.8f64,
             time1 in 0.1..5.0f64,
             time2_delta in 0.5..5.0f64,
         )| {
             let time2 = time1 + time2_delta;
 
-            let bump1 = adaptive_spot_bump(spot, vol, time1, None);
-            let bump2 = adaptive_spot_bump(spot, vol, time2, None);
+            let bump1 = adaptive_spot_bump(vol, time1, None);
+            let bump2 = adaptive_spot_bump(vol, time2, None);
 
             // Longer time should give higher or equal bump (capped at 5%)
             prop_assert!(bump2 >= bump1 || (bump2 - 0.05).abs() < 1e-10,
@@ -456,7 +452,7 @@ mod finite_difference_properties {
     #[test]
     fn test_adaptive_bumps_extreme_time() {
         // Very short time
-        let bump_short = adaptive_spot_bump(100.0, 0.3, 0.001, None);
+        let bump_short = adaptive_spot_bump(0.3, 0.001, None);
         assert!(
             (0.001..=0.05).contains(&bump_short),
             "Short time bump: {}",
@@ -464,7 +460,7 @@ mod finite_difference_properties {
         );
 
         // Very long time
-        let bump_long = adaptive_spot_bump(100.0, 0.3, 100.0, None);
+        let bump_long = adaptive_spot_bump(0.3, 100.0, None);
         assert!(
             (0.001..=0.05).contains(&bump_long),
             "Long time bump: {}",
@@ -763,7 +759,7 @@ mod edge_cases {
     /// Test: Zero time to expiry should still give valid bump.
     #[test]
     fn test_zero_time_to_expiry() {
-        let bump = adaptive_spot_bump(100.0, 0.3, 0.0, None);
+        let bump = adaptive_spot_bump(0.3, 0.0, None);
         assert!((0.001..=0.05).contains(&bump), "Zero time bump: {}", bump);
     }
 
@@ -801,11 +797,11 @@ mod edge_cases {
     #[test]
     fn test_extreme_prices() {
         // Very small price
-        let bump_small = adaptive_spot_bump(0.0001, 0.3, 1.0, None);
+        let bump_small = adaptive_spot_bump(0.3, 1.0, None);
         assert!(bump_small.is_finite() && bump_small > 0.0);
 
         // Very large price
-        let bump_large = adaptive_spot_bump(1e10, 0.3, 1.0, None);
+        let bump_large = adaptive_spot_bump(0.3, 1.0, None);
         assert!(bump_large.is_finite() && bump_large > 0.0);
     }
 }

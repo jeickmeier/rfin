@@ -27,18 +27,6 @@ pub mod bump_sizes {
     pub const CORRELATION: f64 = 0.01;
 }
 
-/// Convenience alias: bump a discount curve in parallel basis points.
-///
-/// Wrapper around `bump_discount_curve_parallel` to standardize naming.
-pub fn bump_discount(
-    context: &finstack_core::market_data::MarketContext,
-    curve_id: &finstack_core::types::CurveId,
-    bump_decimal: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    // 1bp == 0.0001 (decimal)
-    bump_discount_curve_parallel(context, curve_id, bump_decimal)
-}
-
 /// Helper to bump a scalar price in MarketContext.
 ///
 /// Creates a new MarketContext with the bumped price, leaving other data unchanged.
@@ -99,59 +87,9 @@ pub fn bump_discount_curve_parallel(
     context.bump(bumps)
 }
 
-/// Helper to bump a forward curve with a parallel shift (in basis points).
-///
-/// Creates a new `MarketContext` with the specified forward curve bumped and
-/// replaced under the same ID.
-pub fn bump_forward(
-    context: &finstack_core::market_data::MarketContext,
-    curve_id: &finstack_core::types::CurveId,
-    bump_decimal: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    use finstack_core::market_data::bumps::BumpSpec;
-    use hashbrown::HashMap;
-
-    let mut bumps = HashMap::new();
-    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_decimal));
-    context.bump(bumps)
-}
-
-/// Helper to bump a volatility surface by a percentage.
-///
-/// Creates a new surface with all volatilities scaled by (1 + bump_pct).
-/// This is useful for computing parallel vega (sensitivity to overall vol level).
-/// For point-wise bumps (bucketed vega), use `VolSurface::bump_point()` directly.
-///
-/// # Arguments
-/// * `context` - Original market context  
-/// * `vol_surface_id` - ID of the volatility surface
-/// * `bump_pct` - Relative bump size (e.g., 0.01 for 1% increase)
-///
-/// # Returns
-/// New MarketContext with bumped volatility surface (all vols scaled)
-///
-/// # Errors
-/// Returns error if the volatility surface is not found in the context
-///
-/// # Examples
-/// ```rust,ignore
-/// use finstack_valuations::instruments::common::metrics::finite_difference::bump_vol_surface_parallel;
-///
-/// // Bump all volatilities by 1%
-/// let bumped_context = bump_vol_surface_parallel(&context, "EQ-VOL", 0.01)?;
-/// ```
-pub fn bump_vol_surface_parallel(
-    context: &finstack_core::market_data::MarketContext,
-    vol_surface_id: &str,
-    bump_pct: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    scale_surface(context, vol_surface_id, 1.0 + bump_pct)
-}
-
 /// Helper to scale a volatility surface by a constant multiplicative factor.
 ///
-/// This is the core utility used by `bump_vol_surface_parallel` and can also be
-/// applied directly when the caller already computed the desired scale.
+/// Used for parallel volatility bumps (e.g., vega calculations).
 pub fn scale_surface(
     context: &finstack_core::market_data::MarketContext,
     vol_surface_id: &str,
@@ -169,16 +107,15 @@ pub fn scale_surface(
 /// Calculate adaptive spot bump size based on volatility and time to expiry.
 ///
 /// Adaptive bumps scale based on:
-/// - Base bump size (1% of spot)
-/// - Volatility-adjusted component: 0.1% * spot * σ * √T
+/// - Base bump size (1%)
+/// - Volatility-adjusted component: 0.1% * σ * √T
 /// - Minimum: base bump (1%)
-/// - Maximum: 5% of spot
+/// - Maximum: 5%
 ///
 /// This improves numerical stability for high-vol or long-dated options
 /// where standard 1% bumps may be too small relative to price uncertainty.
 ///
 /// # Arguments
-/// * `spot` - Current spot price
 /// * `atm_vol` - At-the-money volatility (annualized)
 /// * `time_to_expiry` - Time to expiry in years
 /// * `override_pct` - Optional override from PricingOverrides (takes precedence)
@@ -186,7 +123,6 @@ pub fn scale_surface(
 /// # Returns
 /// Adaptive bump size as percentage (e.g., 0.01 for 1%)
 pub fn adaptive_spot_bump(
-    _spot: f64,
     atm_vol: f64,
     time_to_expiry: f64,
     override_pct: Option<f64>,
@@ -311,22 +247,41 @@ pub fn adaptive_rate_bump(override_decimal: Option<f64>) -> f64 {
 
 // tests moved to end of file to satisfy clippy::items_after_test_module
 
+/// Bump size overrides extracted from PricingOverrides.
+///
+/// Used to override default bump sizes for finite difference calculations.
+/// Each field represents an optional override for a specific bump type.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BumpOverrides {
+    /// Spot/underlying price bump override as percentage (e.g., 0.01 for 1%)
+    pub spot_pct: Option<f64>,
+    /// Volatility bump override as percentage (e.g., 0.01 for 1%)
+    pub vol_pct: Option<f64>,
+    /// Rate bump override as decimal (e.g., 0.0001 for 1bp)
+    pub rate_decimal: Option<f64>,
+}
+
 /// Get bump sizes from PricingOverrides if adaptive bumps are enabled.
 ///
-/// Returns (spot_bump_pct, vol_bump_pct, rate_bump_bp) as Options.
-/// If adaptive is disabled or override is None, returns None for that component.
-pub fn get_bump_overrides(
-    overrides: &crate::instruments::PricingOverrides,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
+/// Returns a `BumpOverrides` struct with optional overrides for spot, volatility,
+/// and rate bumps. If adaptive bumps are disabled, returns all None values.
+///
+/// # Arguments
+/// * `overrides` - Pricing overrides configuration
+///
+/// # Returns
+/// `BumpOverrides` struct with optional bump size overrides
+pub fn get_bump_overrides(overrides: &crate::instruments::PricingOverrides) -> BumpOverrides {
     if !overrides.adaptive_bumps {
-        return (None, None, None);
+        return BumpOverrides::default();
     }
 
-    (
-        overrides.spot_bump_pct,
-        overrides.vol_bump_pct,
-        overrides.rate_bump_bp,
-    )
+    BumpOverrides {
+        spot_pct: overrides.spot_bump_pct,
+        vol_pct: overrides.vol_bump_pct,
+        // Convert from basis points to decimal (1bp = 0.0001)
+        rate_decimal: overrides.rate_bump_bp.map(|bp| bp * 0.0001),
+    }
 }
 
 #[cfg(test)]

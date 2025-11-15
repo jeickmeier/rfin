@@ -95,7 +95,7 @@ where
 
         // Calculate adaptive or fixed bump size
         let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            let (spot_override, _, _) = get_bump_overrides(overrides);
+            let bump_overrides = get_bump_overrides(overrides);
             if overrides.adaptive_bumps {
                 // Use traits to get instrument properties for adaptive calculation
                 let time_to_expiry = instrument
@@ -113,9 +113,9 @@ where
                     bump_sizes::VOLATILITY
                 };
 
-                adaptive_spot_bump(current_spot, atm_vol, time_to_expiry, spot_override)
+                adaptive_spot_bump(atm_vol, time_to_expiry, bump_overrides.spot_pct)
             } else {
-                spot_override.unwrap_or(bump_sizes::SPOT)
+                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT)
             }
         } else {
             bump_sizes::SPOT
@@ -191,7 +191,7 @@ where
 
         // Calculate adaptive or fixed bump size (same logic as Delta)
         let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            let (spot_override, _, _) = get_bump_overrides(overrides);
+            let bump_overrides = get_bump_overrides(overrides);
             if overrides.adaptive_bumps {
                 // Use traits to get instrument properties for adaptive calculation
                 let time_to_expiry = instrument
@@ -209,9 +209,9 @@ where
                     bump_sizes::VOLATILITY
                 };
 
-                adaptive_spot_bump(current_spot, atm_vol, time_to_expiry, spot_override)
+                adaptive_spot_bump(atm_vol, time_to_expiry, bump_overrides.spot_pct)
             } else {
-                spot_override.unwrap_or(bump_sizes::SPOT)
+                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT)
             }
         } else {
             bump_sizes::SPOT
@@ -451,10 +451,10 @@ where
 
         // Bump sizes
         let (spot_bump_pct, vol_bump_pct) = if let Some(ref overrides) = context.pricing_overrides {
-            let (s_override, v_override, _) = get_bump_overrides(overrides);
+            let bump_overrides = get_bump_overrides(overrides);
             (
-                s_override.unwrap_or(bump_sizes::SPOT),
-                v_override.unwrap_or(bump_sizes::VOLATILITY),
+                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT),
+                bump_overrides.vol_pct.unwrap_or(bump_sizes::VOLATILITY),
             )
         } else {
             (bump_sizes::SPOT, bump_sizes::VOLATILITY)
