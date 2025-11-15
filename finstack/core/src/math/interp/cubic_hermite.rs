@@ -64,7 +64,6 @@ impl CubicHermite {
     /// When `enable` is true, this checks that `dfs` are strictly decreasing
     /// and logs a warning if not. This is a no-op in release builds and always
     /// returns `self` for chaining.
-    #[allow(unused_variables)]
     pub fn with_monotone_validation(self, enable: bool) -> Self {
         #[cfg(debug_assertions)]
         {

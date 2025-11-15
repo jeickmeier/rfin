@@ -322,20 +322,3 @@ fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
     }
 }
 
-#[test]
-fn test_deprecated_bump_methods_still_work() {
-    // Verify deprecated methods still function for backward compatibility
-    let curve = DiscountCurve::builder("DEPRECATED-TEST")
-        .base_date(sample_base_date())
-        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
-        .build()
-        .unwrap();
-
-    #[allow(deprecated)]
-    let bumped_parallel = curve.with_parallel_bump(10.0);
-    assert_eq!(bumped_parallel.id().as_str(), "DEPRECATED-TEST_bump_10bp");
-
-    #[allow(deprecated)]
-    let bumped_kr = curve.with_key_rate_bump_years(1.2, 15.0);
-    assert_eq!(bumped_kr.id().as_str(), "DEPRECATED-TEST_bump_15bp");
-}

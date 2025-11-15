@@ -161,9 +161,7 @@ impl FxProvider for SimpleFxProvider {
             return Ok(rate);
         }
         if let Some(rate) = self.get_direct(to, from) {
-            if rate != 0.0 {
-                return Ok(1.0 / rate);
-            }
+            return super::reciprocal_rate_or_err(rate, to, from);
         }
         Err(InputError::NotFound {
             id: format!("FX:{from}->{to}"),

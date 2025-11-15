@@ -45,6 +45,22 @@ use serde::{Deserialize, Serialize};
 /// Provider FX rate type alias - always f64.
 pub type FxRate = f64;
 
+/// Helper to compute reciprocal rate safely, checking for zero division.
+///
+/// Returns `1.0 / rate` if `rate != 0.0`, otherwise returns an error.
+/// This consolidates the reciprocal logic used across FX providers and matrix lookups.
+#[inline]
+pub(crate) fn reciprocal_rate_or_err(rate: f64, from: Currency, to: Currency) -> crate::Result<f64> {
+    if rate != 0.0 {
+        Ok(1.0 / rate)
+    } else {
+        Err(crate::error::InputError::NotFound {
+            id: format!("FX:{from}->{to} (zero reciprocal)"),
+        }
+        .into())
+    }
+}
+
 /// Standard FX conversion strategies used to hint FX providers.
 ///
 /// The policy tells a provider *how* the rate will be applied so it can decide
@@ -400,12 +416,10 @@ impl FxMatrix {
             });
         }
         if let Some(r_rev) = reciprocal_opt {
-            if r_rev != 0.0 {
-                return Ok(FxRateResult {
-                    rate: 1.0 / r_rev,
-                    triangulated: false,
-                });
-            }
+            return Ok(FxRateResult {
+                rate: reciprocal_rate_or_err(r_rev, to, from)?,
+                triangulated: false,
+            });
         }
 
         // Try provider first
@@ -710,10 +724,7 @@ impl FxMatrix {
         }
         // 3) Reciprocal fallback if available
         if let Some(r_rev) = reciprocal_opt {
-            if r_rev != 0.0 {
-                let r = 1.0 / r_rev;
-                return Ok(r);
-            }
+            return reciprocal_rate_or_err(r_rev, to, from);
         }
         // 4) As last resort, propagate provider error
         let r = self.provider.rate(from, to, on, policy)?;
