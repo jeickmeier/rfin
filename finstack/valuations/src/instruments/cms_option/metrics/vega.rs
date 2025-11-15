@@ -6,6 +6,7 @@
 
 use crate::instruments::cms_option::CmsOption;
 use crate::metrics::bump_sizes;
+use crate::metrics::scale_surface;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -41,18 +42,8 @@ impl MetricCalculator for VegaCalculator {
             }
         };
 
-        let vol_surface = context.curves.surface_ref(vol_surface_id.as_str())?;
-
-        // Bump volatility surface by scaling all values (no grid rebuild)
-        let mut curves_bumped = context.curves.as_ref().clone();
-        let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        use finstack_core::types::CurveId;
-        use std::sync::Arc;
-        let bumped_surface = vol_surface.scaled(scale_factor);
-        curves_bumped.surfaces.insert(
-            CurveId::from(vol_surface_id.as_str()),
-            Arc::new(bumped_surface),
-        );
+        // Bump volatility surface by scaling all values
+        let curves_bumped = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_sizes::VOLATILITY)?;
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

@@ -4,6 +4,7 @@
 //! Vanna measures how delta changes with volatility.
 
 use crate::instruments::asian_option::AsianOption;
+use crate::metrics::scale_surface;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -36,22 +37,8 @@ impl MetricCalculator for VannaCalculator {
         let spot_bump = current_spot * bump_sizes::SPOT;
         let vol_bump = bump_sizes::VOLATILITY;
 
-        // Get volatility surface
-        let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
-
         // Compute delta at vol_up
-        let curves_vol_up = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 + vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(option.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_up = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 + vol_bump)?;
 
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
         let curves_up_vol_up =
@@ -63,18 +50,7 @@ impl MetricCalculator for VannaCalculator {
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
         // Compute delta at vol_down
-        let curves_vol_down = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 - vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(option.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_down = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 - vol_bump)?;
 
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
         let curves_up_vol_down =

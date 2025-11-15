@@ -9,6 +9,7 @@
 
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::bump_sizes;
+use crate::metrics::scale_surface;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -33,37 +34,12 @@ impl MetricCalculator for VolgaCalculator {
 
         let vol_bump = bump_sizes::VOLATILITY;
 
-        // Get current volatility
-        let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
-
         // Bump vol up
-        let curves_vol_up = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 + vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(option.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_up = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 + vol_bump)?;
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
 
         // Bump vol down
-        let curves_vol_down = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 - vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(option.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_down = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 - vol_bump)?;
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
 
         // Volga = (PV(σ+h) - 2*PV(σ) + PV(σ-h)) / h²

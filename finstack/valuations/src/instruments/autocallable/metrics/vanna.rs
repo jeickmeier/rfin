@@ -3,6 +3,7 @@
 //! Computes vanna (∂²V/∂S∂σ) using finite differences.
 
 use crate::instruments::autocallable::Autocallable;
+use crate::metrics::scale_surface;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -37,23 +38,9 @@ impl MetricCalculator for VannaCalculator {
 
         let spot_bump = current_spot * bump_sizes::SPOT;
         let vol_bump = bump_sizes::VOLATILITY;
-        let vol_surface = context
-            .curves
-            .surface_ref(instrument.vol_surface_id.as_str())?;
 
         // Delta at vol_up
-        let curves_vol_up = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 + vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(instrument.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_up = scale_surface(&context.curves, instrument.vol_surface_id.as_str(), 1.0 + vol_bump)?;
         let curves_up_vol_up =
             bump_scalar_price(&curves_vol_up, &instrument.spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_up = instrument.npv(&curves_up_vol_up, as_of)?.amount();
@@ -63,18 +50,7 @@ impl MetricCalculator for VannaCalculator {
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
         // Delta at vol_down
-        let curves_vol_down = {
-            let mut curves = context.curves.as_ref().clone();
-            let scale_factor = 1.0 - vol_bump;
-            use finstack_core::types::CurveId;
-            use std::sync::Arc;
-            let bumped_surface = vol_surface.scaled(scale_factor);
-            curves.surfaces.insert(
-                CurveId::from(instrument.vol_surface_id.as_str()),
-                Arc::new(bumped_surface),
-            );
-            curves
-        };
+        let curves_vol_down = scale_surface(&context.curves, instrument.vol_surface_id.as_str(), 1.0 - vol_bump)?;
         let curves_up_vol_down =
             bump_scalar_price(&curves_vol_down, &instrument.spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_down = instrument.npv(&curves_up_vol_down, as_of)?.amount();
