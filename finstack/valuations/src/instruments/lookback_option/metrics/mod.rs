@@ -4,14 +4,12 @@
 //! Delta and Gamma use generic FD calculators.
 
 // mod dv01; // removed - using GenericParallelDv01
+// mod vanna; // removed - using GenericFdVanna
+// mod volga; // removed - using GenericFdVolga
 #[cfg(feature = "mc")]
 mod rho;
 #[cfg(feature = "mc")]
-mod vanna;
-#[cfg(feature = "mc")]
 mod vega;
-#[cfg(feature = "mc")]
-mod volga;
 
 #[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
@@ -21,9 +19,9 @@ use std::sync::Arc;
 /// Register lookback option metrics with the registry.
 #[cfg(feature = "mc")]
 pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::{GenericFdDelta, GenericFdGamma};
+    use crate::metrics::{GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVolga};
 
-    // Use generic FD calculators for Delta and Gamma
+    // Use generic FD calculators for Delta, Gamma, Vanna, and Volga
     registry.register_metric(
         MetricId::Delta,
         Arc::new(GenericFdDelta::<crate::instruments::LookbackOption>::default()),
@@ -33,6 +31,18 @@ pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Gamma,
         Arc::new(GenericFdGamma::<crate::instruments::LookbackOption>::default()),
+        &["LookbackOption"],
+    );
+
+    registry.register_metric(
+        MetricId::Vanna,
+        Arc::new(GenericFdVanna::<crate::instruments::LookbackOption>::default()),
+        &["LookbackOption"],
+    );
+
+    registry.register_metric(
+        MetricId::Volga,
+        Arc::new(GenericFdVolga::<crate::instruments::LookbackOption>::default()),
         &["LookbackOption"],
     );
 
@@ -51,8 +61,6 @@ pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
                 (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::lookback_option::LookbackOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
-                (Vanna, vanna::VannaCalculator),
-                (Volga, volga::VolgaCalculator::default()),
                 // Theta is now registered universally in metrics::standard_registry()
             ]
         }
