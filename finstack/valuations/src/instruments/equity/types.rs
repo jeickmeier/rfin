@@ -390,6 +390,14 @@ impl HasDiscountCurve for Equity {
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for Equity {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl CashflowProvider for Equity {
     fn build_schedule(
         &self,

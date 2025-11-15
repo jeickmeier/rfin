@@ -310,6 +310,16 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateFutur
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for InterestRateFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.forward_id.clone())
+            .build()
+    }
+}
+
 impl crate::instruments::common::pricing::HasForwardCurves for InterestRateFuture {
     fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
         vec![self.forward_id.clone()]

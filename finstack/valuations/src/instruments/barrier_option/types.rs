@@ -53,6 +53,15 @@ impl crate::metrics::HasDiscountCurve for BarrierOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for BarrierOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl BarrierOption {
     /// Create a canonical example barrier option (up-and-out call).
     pub fn example() -> Self {

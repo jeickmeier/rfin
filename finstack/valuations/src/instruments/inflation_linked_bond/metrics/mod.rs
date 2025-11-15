@@ -49,13 +49,13 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
             (IndexRatio, IndexRatioCalculator),
             (RealDuration, RealDurationCalculator),
             (BreakevenInflation, BreakevenInflationCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationLinkedBond,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
-            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationLinkedBond,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     };
 }

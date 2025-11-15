@@ -579,3 +579,11 @@ impl CashflowProvider for InflationLinkedBond {
         self.build_schedule(curves, as_of)
     }
 }
+
+impl crate::instruments::common::traits::CurveDependencies for InflationLinkedBond {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}

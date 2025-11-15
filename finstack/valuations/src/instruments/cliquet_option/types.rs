@@ -33,6 +33,15 @@ impl crate::metrics::HasDiscountCurve for CliquetOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for CliquetOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl CliquetOption {
     /// Create a canonical example cliquet option (quarterly resets with local/global caps).
     pub fn example() -> Self {

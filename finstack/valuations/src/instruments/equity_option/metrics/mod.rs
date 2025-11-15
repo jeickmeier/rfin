@@ -38,12 +38,12 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::EquityOption,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::EquityOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

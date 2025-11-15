@@ -44,6 +44,15 @@ impl crate::metrics::HasDiscountCurve for FxOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for FxOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.domestic_discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl FxOption {
     /// Create a canonical example FX option for testing and documentation.
     ///

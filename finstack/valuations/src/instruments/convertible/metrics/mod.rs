@@ -56,13 +56,13 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
             (Vega, greeks::VegaCalculator),
             (Rho, greeks::RhoCalculator),
             (Cs01, cs01::Cs01Calculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ConvertibleBond,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ConvertibleBond,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

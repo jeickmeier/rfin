@@ -43,6 +43,15 @@ impl crate::metrics::HasDiscountCurve for QuantoOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for QuantoOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl QuantoOption {
     /// Create a canonical example quanto equity option (Nikkei in USD).
     pub fn example() -> Self {

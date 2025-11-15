@@ -1326,9 +1326,11 @@ mod tests {
             pv,
         );
 
-        // Calculate DV01 using generic parallel DV01 calculator
-        use crate::metrics::GenericParallelDv01;
-        let dv01_calc = GenericParallelDv01::<crate::instruments::InterestRateSwap>::default();
+        // Calculate DV01 using unified DV01 calculator
+        use crate::metrics::{UnifiedDv01Calculator, Dv01CalculatorConfig};
+        let dv01_calc = UnifiedDv01Calculator::<crate::instruments::InterestRateSwap>::new(
+            Dv01CalculatorConfig::parallel_combined()
+        );
         let dv01 = dv01_calc.calculate(&mut metric_ctx).unwrap();
 
         // Tolerance: 0.1bp * |DV01|, minimum $1

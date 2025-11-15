@@ -26,6 +26,21 @@ pub enum BumpMode {
     Multiplicative,
 }
 
+/// Type of bump to apply.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum BumpType {
+    /// Parallel shift across all maturities.
+    #[default]
+    Parallel,
+    /// Key-rate bump at specific maturity.
+    KeyRate { 
+        /// Time in years at which to apply the key-rate bump.
+        time_years: f64 
+    },
+}
+
 /// Units for the bump magnitude. These control normalization to fraction or factor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -46,9 +61,9 @@ pub enum BumpUnits {
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::market_data::bumps::{BumpSpec, BumpMode, BumpUnits};
+/// use finstack_core::market_data::bumps::{BumpSpec, BumpMode, BumpUnits, BumpType};
 ///
-/// let additive = BumpSpec { mode: BumpMode::Additive, units: BumpUnits::RateBp, value: 15.0 };
+/// let additive = BumpSpec { mode: BumpMode::Additive, units: BumpUnits::RateBp, value: 15.0, bump_type: BumpType::Parallel };
 /// assert_eq!(additive.mode, BumpMode::Additive);
 /// assert_eq!(additive.units, BumpUnits::RateBp);
 ///
@@ -65,6 +80,9 @@ pub struct BumpSpec {
     pub units: BumpUnits,
     /// Raw magnitude provided by the caller (interpreted using `units`).
     pub value: f64,
+    /// Type of bump (parallel or key-rate).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub bump_type: BumpType,
 }
 
 impl BumpSpec {
@@ -74,6 +92,21 @@ impl BumpSpec {
             mode: BumpMode::Additive,
             units: BumpUnits::RateBp,
             value: bump_bp,
+            bump_type: BumpType::Parallel,
+        }
+    }
+
+    /// Create a key-rate bump at a specific time in years, specified in basis points.
+    /// 
+    /// # Arguments
+    /// * `time_years` - The time in years at which to apply the key-rate bump
+    /// * `bump_bp` - The bump size in basis points (e.g., 100.0 = 100bp = 1%)
+    pub fn key_rate_bp(time_years: f64, bump_bp: f64) -> Self {
+        Self {
+            mode: BumpMode::Additive,
+            units: BumpUnits::RateBp,
+            value: bump_bp,
+            bump_type: BumpType::KeyRate { time_years },
         }
     }
 
@@ -83,6 +116,7 @@ impl BumpSpec {
             mode: BumpMode::Multiplicative,
             units: BumpUnits::Factor,
             value: factor,
+            bump_type: BumpType::Parallel,
         }
     }
 
@@ -92,6 +126,7 @@ impl BumpSpec {
             mode: BumpMode::Additive,
             units: BumpUnits::Percent,
             value: bump_pct,
+            bump_type: BumpType::Parallel,
         }
     }
 
@@ -101,6 +136,7 @@ impl BumpSpec {
             mode: BumpMode::Additive,
             units: BumpUnits::Percent,
             value: bump_pct,
+            bump_type: BumpType::Parallel,
         }
     }
 
@@ -155,7 +191,12 @@ pub trait Bumpable: Sized {
 impl Bumpable for DiscountCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-            self.try_with_parallel_bump(spec.value).ok()
+            match spec.bump_type {
+                BumpType::Parallel => self.try_with_parallel_bump(spec.value).ok(),
+                BumpType::KeyRate { time_years } => {
+                    self.try_with_key_rate_bump_years(time_years, spec.value).ok()
+                }
+            }
         } else {
             None
         }
@@ -164,48 +205,65 @@ impl Bumpable for DiscountCurve {
 
 impl Bumpable for ForwardCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
-        // Simple pattern matching without boxed closures
-        let (bump_amount, is_multiplicative) = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
-                (spec.additive_fraction()?, false)
-            }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => (spec.value, true),
-            _ => return None,
-        };
-
-        let bumped_id = match spec.units {
-            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
-        };
-
-        let bumped_rates: Vec<(f64, f64)> = self
-            .knots()
-            .iter()
-            .copied()
-            .zip(self.forwards().iter().copied())
-            .map(|(t, r)| {
-                let new_rate = if is_multiplicative {
-                    r * bump_amount
-                } else {
-                    r + bump_amount
+        match spec.bump_type {
+            BumpType::Parallel => {
+                // Simple pattern matching without boxed closures
+                let (bump_amount, is_multiplicative) = match (spec.mode, spec.units) {
+                    (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
+                        (spec.additive_fraction()?, false)
+                    }
+                    (BumpMode::Multiplicative, BumpUnits::Factor) => (spec.value, true),
+                    _ => return None,
                 };
-                (t, new_rate)
-            })
-            .collect();
 
-        ForwardCurve::builder(bumped_id, self.tenor())
-            .base_date(self.base_date())
-            .reset_lag(self.reset_lag())
-            .day_count(self.day_count())
-            .knots(bumped_rates)
-            .build()
-            .ok()
+                let bumped_id = match spec.units {
+                    BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
+                    BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
+                    _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
+                };
+
+                let bumped_rates: Vec<(f64, f64)> = self
+                    .knots()
+                    .iter()
+                    .copied()
+                    .zip(self.forwards().iter().copied())
+                    .map(|(t, r)| {
+                        let new_rate = if is_multiplicative {
+                            r * bump_amount
+                        } else {
+                            r + bump_amount
+                        };
+                        (t, new_rate)
+                    })
+                    .collect();
+
+                ForwardCurve::builder(bumped_id, self.tenor())
+                    .base_date(self.base_date())
+                    .reset_lag(self.reset_lag())
+                    .day_count(self.day_count())
+                    .knots(bumped_rates)
+                    .build()
+                    .ok()
+            }
+            BumpType::KeyRate { time_years } => {
+                // For key-rate bumps, only support additive rate bumps
+                if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
+                    self.try_with_key_rate_bump_years(time_years, spec.value).ok()
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
 impl Bumpable for HazardCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        // HazardCurve currently only supports parallel bumps
+        if !matches!(spec.bump_type, BumpType::Parallel) {
+            return None;
+        }
+        
         let shift = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
                 spec.additive_fraction()?
@@ -241,6 +299,11 @@ impl Bumpable for HazardCurve {
 
 impl Bumpable for InflationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        // InflationCurve currently only supports parallel bumps
+        if !matches!(spec.bump_type, BumpType::Parallel) {
+            return None;
+        }
+        
         let factor = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
                 1.0 + spec.additive_fraction()?
@@ -273,6 +336,11 @@ impl Bumpable for InflationCurve {
 
 impl Bumpable for BaseCorrelationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        // BaseCorrelationCurve currently only supports parallel bumps
+        if !matches!(spec.bump_type, BumpType::Parallel) {
+            return None;
+        }
+        
         let (add, mul) = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
                 (spec.additive_fraction()?, 1.0)

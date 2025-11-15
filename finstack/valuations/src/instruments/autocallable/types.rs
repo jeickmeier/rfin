@@ -49,6 +49,15 @@ impl crate::metrics::HasDiscountCurve for Autocallable {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for Autocallable {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl Autocallable {
     /// Create a canonical example autocallable (quarterly observations, simple barriers/coupons).
     pub fn example() -> Self {

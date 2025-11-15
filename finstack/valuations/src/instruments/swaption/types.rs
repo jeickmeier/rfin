@@ -393,3 +393,13 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Swaption {
         &self.discount_curve_id
     }
 }
+
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for Swaption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.forward_id.clone())
+            .build()
+    }
+}

@@ -30,12 +30,12 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Rho, rho::RhoCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
             (Theta, crate::metrics::GenericTheta::<
@@ -52,12 +52,12 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "FxBarrierOption",
         metrics: [
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxBarrierOption,
             >::default()),

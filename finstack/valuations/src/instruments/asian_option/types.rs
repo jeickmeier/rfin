@@ -50,6 +50,15 @@ impl crate::metrics::HasDiscountCurve for AsianOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for AsianOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl AsianOption {
     /// Create a canonical example Asian option (arithmetic average).
     pub fn example() -> Self {

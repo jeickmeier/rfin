@@ -39,12 +39,12 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (BaseAmount, base_amount::BaseAmountCalculator),
             // QuoteAmount removed - it's just result.value which is always available
             (InverseRate, inverse_rate::InverseRateCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSpot,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSpot,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSpot,
             >::default()),
@@ -112,7 +112,7 @@ mod tests {
         // FX Spot has no discount or forward curves, so generic DV01 returns 0
         let fx = sample_fx();
         let mut ctx = context_for(fx, d(2025, 1, 15));
-        let calc = crate::metrics::GenericParallelDv01::<crate::instruments::FxSpot>::default();
+        let calc = crate::metrics::UnifiedDv01Calculator::<crate::instruments::FxSpot>::new(crate::metrics::Dv01CalculatorConfig::parallel_combined());
         let value = calc.calculate(&mut ctx).unwrap();
         assert_eq!(value, 0.0, "FxSpot DV01 should be exactly 0.0");
     }

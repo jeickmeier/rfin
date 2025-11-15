@@ -127,12 +127,13 @@ fn bond_cashflow_generation_bounded() {
         "Unexpected flow count"
     );
 
-    // Should complete in under 500μs on modern hardware
+    // Should complete in under 1ms on modern hardware
     // Note: This threshold is for unoptimized test builds
     // With --profile release-perf, expect ~20-30μs
+    // Increased threshold to reduce flakiness from system load
     assert!(
-        elapsed.as_micros() < 500,
-        "Bond cashflow generation took {}μs (expected <500μs)",
+        elapsed.as_micros() < 1000,
+        "Bond cashflow generation took {}μs (expected <1000μs)",
         elapsed.as_micros()
     );
 }

@@ -946,3 +946,12 @@ impl crate::instruments::common::pricing::HasForwardCurves for InterestRateSwap 
         vec![self.float.forward_curve_id.clone()]
     }
 }
+
+impl crate::instruments::common::traits::CurveDependencies for InterestRateSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.fixed.discount_curve_id.clone())
+            .forward(self.float.forward_curve_id.clone())
+            .build()
+    }
+}

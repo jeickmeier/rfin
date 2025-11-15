@@ -45,6 +45,15 @@ impl crate::metrics::HasDiscountCurve for LookbackOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for LookbackOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl LookbackOption {
     /// Create a canonical example lookback option (fixed strike call).
     pub fn example() -> Self {

@@ -123,3 +123,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for CmsOption {
         &self.discount_curve_id
     }
 }
+
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for CmsOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}

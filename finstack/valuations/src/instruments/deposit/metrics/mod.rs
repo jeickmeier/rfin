@@ -41,15 +41,15 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             (DepositParRate, DepositParRateCalculator),
             (DfEndFromQuote, DfEndFromQuoteCalculator),
             (QuoteRate, QuoteRateCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Deposit,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Deposit,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Deposit,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     };
 }

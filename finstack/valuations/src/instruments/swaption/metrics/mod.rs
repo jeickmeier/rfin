@@ -27,15 +27,15 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             (Delta, DeltaCalculator),
             (Gamma, GammaCalculator),
             (Vega, VegaCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Swaption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
             (Rho, RhoCalculator),
             (ImpliedVol, ImpliedVolCalculator),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Swaption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

@@ -346,6 +346,15 @@ impl InterestRateOption {
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for InterestRateOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.forward_id.clone())
+            .build()
+    }
+}
+
 impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id

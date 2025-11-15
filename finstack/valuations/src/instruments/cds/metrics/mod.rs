@@ -55,15 +55,15 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CreditDefaultSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CreditDefaultSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

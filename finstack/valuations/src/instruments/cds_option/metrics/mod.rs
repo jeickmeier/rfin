@@ -40,15 +40,15 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Cs01, cs01::Cs01Calculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CdsOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CdsOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

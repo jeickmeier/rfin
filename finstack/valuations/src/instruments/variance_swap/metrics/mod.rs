@@ -28,12 +28,12 @@ pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "VarianceSwap",
         metrics: [
             (Vega, VegaCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::VarianceSwap,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::VarianceSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (VarianceVega, VarianceVegaCalculator),
             (ExpectedVariance, ExpectedVarianceCalculator),
             (RealizedVariance, RealizedVarianceCalculator),

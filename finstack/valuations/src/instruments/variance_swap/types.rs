@@ -550,6 +550,15 @@ impl crate::instruments::common::pricing::HasDiscountCurve for VarianceSwap {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for VarianceSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl CashflowProvider for VarianceSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // Variance swaps have a single payment at maturity

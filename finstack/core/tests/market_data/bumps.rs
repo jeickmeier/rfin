@@ -2,7 +2,7 @@ use super::common::{
     sample_base_correlation_curve, sample_discount_curve, sample_forward_curve,
     sample_hazard_curve, sample_inflation_curve,
 };
-use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpUnits, Bumpable};
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
 
 #[test]
 fn bump_spec_constructors_normalize_values() {
@@ -53,6 +53,7 @@ fn forward_curve_supports_additive_and_multiplicative_bumps() {
             mode: BumpMode::Additive,
             units: BumpUnits::Percent,
             value: 1.5,
+            bump_type: BumpType::Parallel,
         })
         .expect("percent bumps supported");
     assert_eq!(additive.id().as_str(), "USD-LIBOR_bump_2pct"); // percent formatted with rounding

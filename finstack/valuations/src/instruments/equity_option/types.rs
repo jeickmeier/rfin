@@ -42,6 +42,15 @@ impl crate::metrics::HasDiscountCurve for EquityOption {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for EquityOption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl EquityOption {
     /// Create a canonical example equity option for testing and documentation.
     ///

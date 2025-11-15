@@ -66,9 +66,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (RequiredCollateral, required_collateral::RequiredCollateralCalculator),
             (CollateralCoverage, collateral_coverage::CollateralCoverageCalculator),
             (RepoInterest, repo_interest::RepoInterestCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Repo,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (FundingRisk, funding_risk::FundingRiskCalculator),
             (EffectiveRate, effective_rate::EffectiveRateCalculator),
             (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
@@ -76,9 +76,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Repo,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Repo,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     };
 }

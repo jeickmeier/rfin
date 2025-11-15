@@ -866,3 +866,123 @@ pub trait Instrument: Send + Sync {
 }
 
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.
+
+// -----------------------------------------------------------------------------
+// Curve Dependencies
+// -----------------------------------------------------------------------------
+
+/// Trait for instruments to declare all their curve dependencies.
+///
+/// This trait enables type-safe discovery of all curves used by an instrument,
+/// eliminating the need for runtime downcasting. It's primarily used by risk
+/// calculators (e.g., DV01) to identify which curves should be bumped.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::common::traits::{CurveDependencies, InstrumentCurves};
+/// use finstack_core::types::CurveId;
+///
+/// struct Bond {
+///     discount_curve_id: CurveId,
+/// }
+///
+/// impl CurveDependencies for Bond {
+///     fn curve_dependencies(&self) -> InstrumentCurves {
+///         InstrumentCurves::builder()
+///             .discount(self.discount_curve_id.clone())
+///             .build()
+///     }
+/// }
+/// ```
+pub trait CurveDependencies {
+    /// Return all curves used by this instrument, categorized by type.
+    fn curve_dependencies(&self) -> InstrumentCurves;
+}
+
+/// Collection of curves used by an instrument, categorized by type.
+///
+/// This struct provides a type-safe way to declare curve dependencies
+/// for risk calculations.
+#[derive(Default, Clone, Debug)]
+pub struct InstrumentCurves {
+    /// Discount curves used by the instrument (including primary and foreign).
+    pub discount_curves: Vec<CurveId>,
+    /// Forward/projection curves used by the instrument.
+    pub forward_curves: Vec<CurveId>,
+    /// Credit/hazard curves used by the instrument.
+    pub credit_curves: Vec<CurveId>,
+}
+
+impl InstrumentCurves {
+    /// Create a new empty curve collection.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Start building a curve collection.
+    pub fn builder() -> InstrumentCurvesBuilder {
+        InstrumentCurvesBuilder::default()
+    }
+    
+    /// Iterator over all curves with their kind.
+    pub fn all_with_kind(&self) -> impl Iterator<Item = (CurveId, RatesCurveKind)> + '_ {
+        self.discount_curves.iter().map(|c| (c.clone(), RatesCurveKind::Discount))
+            .chain(self.forward_curves.iter().map(|c| (c.clone(), RatesCurveKind::Forward)))
+            .chain(self.credit_curves.iter().map(|c| (c.clone(), RatesCurveKind::Credit)))
+    }
+    
+    /// Check if any curves are defined.
+    pub fn is_empty(&self) -> bool {
+        self.discount_curves.is_empty() 
+            && self.forward_curves.is_empty() 
+            && self.credit_curves.is_empty()
+    }
+    
+    /// Total number of curves.
+    pub fn len(&self) -> usize {
+        self.discount_curves.len() + self.forward_curves.len() + self.credit_curves.len()
+    }
+}
+
+/// Builder for [`InstrumentCurves`].
+#[derive(Default)]
+pub struct InstrumentCurvesBuilder {
+    curves: InstrumentCurves,
+}
+
+impl InstrumentCurvesBuilder {
+    /// Add a discount curve.
+    pub fn discount(mut self, curve_id: CurveId) -> Self {
+        self.curves.discount_curves.push(curve_id);
+        self
+    }
+    
+    /// Add a forward curve.
+    pub fn forward(mut self, curve_id: CurveId) -> Self {
+        self.curves.forward_curves.push(curve_id);
+        self
+    }
+    
+    /// Add a credit/hazard curve.
+    pub fn credit(mut self, curve_id: CurveId) -> Self {
+        self.curves.credit_curves.push(curve_id);
+        self
+    }
+    
+    /// Build the final curve collection.
+    pub fn build(self) -> InstrumentCurves {
+        self.curves
+    }
+}
+
+/// Identifies the type of rate curve for risk calculations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RatesCurveKind {
+    /// Discount curve (used for present value discounting).
+    Discount,
+    /// Forward curve (used for floating rate projection).
+    Forward,
+    /// Credit/hazard curve (used for credit risk calculations).
+    Credit,
+}

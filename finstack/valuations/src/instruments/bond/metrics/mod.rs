@@ -54,16 +54,16 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
             (Cs01, Cs01Calculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
-            >::default()),
-            (Pv01, crate::metrics::GenericParallelDv01::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Pv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
-            >::default()), // Alias for DV01 (credit convention)
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())), // Alias for DV01 (credit convention)
             // Theta is now registered universally in metrics::standard_registry()
-            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     };
 }

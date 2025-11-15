@@ -11,7 +11,7 @@ pub use annuity::AnnuityCalculator;
 pub use par_spread::ParSpreadCalculator;
 pub use pv::PvCalculator;
 
-use crate::metrics::{MetricId, MetricRegistry, ParallelDv01Mode};
+use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
 
 /// Registers all basis swap metrics in the standard metric registry.
@@ -52,12 +52,12 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "BasisSwap",
         metrics: [
-            (Dv01, crate::metrics::GenericParallelDv01::<crate::instruments::BasisSwap>::with_mode(ParallelDv01Mode::PerCurve)),
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<crate::instruments::BasisSwap>::new(crate::metrics::Dv01CalculatorConfig::parallel_per_curve())),
             (BasisParSpread, ParSpreadCalculator),
             // Theta is now registered universally in metrics::standard_registry()
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::BasisSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

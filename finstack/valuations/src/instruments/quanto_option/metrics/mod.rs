@@ -42,12 +42,12 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
                 (Gamma, gamma::GammaCalculator),
                 (Vega, vega::VegaCalculator),
                 (Rho, rho::RhoCalculator),
-                (Dv01, crate::metrics::GenericParallelDv01::<
+                (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
-                >::default()),
-                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+                (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
-                >::default()),
+                >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator),
                 // Theta is now registered universally in metrics::standard_registry()

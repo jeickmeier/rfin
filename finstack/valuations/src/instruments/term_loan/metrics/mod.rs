@@ -26,16 +26,16 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         registry: registry,
     instrument: "TermLoan",
         metrics: [
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::TermLoan,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Cs01, Cs01Calculator),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::TermLoan,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::TermLoan,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             // Bucketed CS01 via discount curve bumps
             (BucketedCs01, BucketedCs01Calculator),
             (Ytw, YtwCalculator),

@@ -1,13 +1,12 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-use crate::metrics::bucketed_dv01::GenericBucketedDv01WithContext;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{UnifiedDv01Calculator, MetricCalculator, MetricContext};
 use finstack_core::{error::InputError, Error, Result};
 
 /// Bucketed DV01 calculator that dispatches to the appropriate TRS variant.
 ///
 /// The generic helper requires the concrete instrument type at compile time,
 /// so we delegate based on the runtime instrument we receive and reuse the
-/// existing generic implementations for each TRS variant.
+/// unified DV01 calculator for each TRS variant.
 #[derive(Default)]
 pub struct TrsBucketedDv01Calculator;
 
@@ -19,7 +18,7 @@ impl MetricCalculator for TrsBucketedDv01Calculator {
             .downcast_ref::<EquityTotalReturnSwap>()
             .is_some()
         {
-            let calc = GenericBucketedDv01WithContext::<EquityTotalReturnSwap>::default();
+            let calc = UnifiedDv01Calculator::<EquityTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::key_rate());
             return calc.calculate(context);
         }
 
@@ -29,7 +28,7 @@ impl MetricCalculator for TrsBucketedDv01Calculator {
             .downcast_ref::<FIIndexTotalReturnSwap>()
             .is_some()
         {
-            let calc = GenericBucketedDv01WithContext::<FIIndexTotalReturnSwap>::default();
+            let calc = UnifiedDv01Calculator::<FIIndexTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::key_rate());
             return calc.calculate(context);
         }
 

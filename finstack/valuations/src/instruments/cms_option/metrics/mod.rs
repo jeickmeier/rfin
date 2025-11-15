@@ -23,17 +23,17 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Vega, vega::VegaCalculator),
             (Rho, rho::RhoCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CmsOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::CmsOption,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CmsOption,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 

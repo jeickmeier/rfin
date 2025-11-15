@@ -386,6 +386,16 @@ impl crate::instruments::common::pricing::HasForwardCurves for BasisSwap {
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for BasisSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.primary_leg.forward_curve_id.clone())
+            .forward(self.reference_leg.forward_curve_id.clone())
+            .build()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

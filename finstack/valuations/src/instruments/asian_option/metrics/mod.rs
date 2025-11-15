@@ -45,12 +45,12 @@ pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator),
-                (Dv01, crate::metrics::GenericParallelDv01::<
+                (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::AsianOption,
-                >::default()),
-                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+                (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::AsianOption,
-                >::default()),
+                >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 // Theta is now registered universally in metrics::standard_registry()

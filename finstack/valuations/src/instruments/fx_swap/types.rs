@@ -288,3 +288,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for FxSwap {
         &self.domestic_discount_curve_id
     }
 }
+
+impl crate::instruments::common::traits::CurveDependencies for FxSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.domestic_discount_curve_id.clone())
+            .discount(self.foreign_discount_curve_id.clone())
+            .build()
+    }
+}

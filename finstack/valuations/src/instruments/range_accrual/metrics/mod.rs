@@ -46,15 +46,15 @@ pub fn register_range_accrual_metrics(registry: &mut MetricRegistry) {
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator),
-                (Dv01, crate::metrics::GenericParallelDv01::<
+                (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::range_accrual::RangeAccrual,
-                >::default()),
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 // Theta is now registered universally in metrics::standard_registry()
-                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::RangeAccrual,
-                >::default()),
+                >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             ]
         }
     }

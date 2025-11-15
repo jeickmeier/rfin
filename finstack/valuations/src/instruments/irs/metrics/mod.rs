@@ -18,16 +18,16 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
         metrics: [
             (Annuity, annuity::AnnuityCalculator),
             (ParRate, par_rate::ParRateCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (IrConvexity, convexity::ConvexityCalculator),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::InterestRateSwap,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
         ]

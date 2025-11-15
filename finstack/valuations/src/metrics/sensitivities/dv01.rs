@@ -1,8 +1,38 @@
-//! Reusable helpers for bucketed risk metrics (DV01/CS01) using key-rate bumps.
+//! DV01 (Dollar Value of a Basis Point) risk metric calculations.
 //!
-//! Provides a generic function to compute bucketed DV01 for instruments that
+//! # Migration Notice
+//!
+//! **New users should use [`crate::metrics::UnifiedDv01Calculator`]** which provides
+//! a cleaner, more flexible API with type-safe curve discovery via the 
+//! [`crate::instruments::common::traits::CurveDependencies`] trait.
+//!
+//! This module contains legacy implementations maintained for backward compatibility.
+//! The old implementation will be deprecated in a future release.
+//!
+//! ## Quick Migration Guide
+//!
+//! ```ignore
+//! // Old approach:
+//! let calculator = GenericBucketedDv01::<Bond>::default();
+//! 
+//! // New approach:
+//! let calculator = UnifiedDv01Calculator::<Bond>::new(
+//!     Dv01CalculatorConfig::key_rate()
+//! );
+//! ```
+//!
+//! # Legacy Documentation
+//!
+//! Provides generic functions to compute bucketed DV01 for instruments that
 //! can be valued with discount and/or forward curves. Results are stored into
 //! `MetricContext` via structured series using stable composite keys.
+//!
+//! # Important Implementation Note
+//!
+//! All DV01 calculation functions recalculate the base PV rather than using 
+//! `context.base_value`. This is necessary to ensure consistency with bumped 
+//! calculations and avoid potential inconsistencies that can arise from cached 
+//! base values. This recalculation ensures accurate bucketed DV01 values.
 //!
 //! # Quick Start
 //!
@@ -302,9 +332,7 @@ where
         .curves
         .get_discount_ref(discount_curve_id.as_str())?;
 
-    // Recalculate base PV to ensure consistency with bumped calculation
-    // Note: This is necessary to get correct bucketed values due to potential
-    // inconsistencies in the base value stored in context.
+    // Recalculate base PV (see module docs for rationale)
     let base_pv = revalue_with_disc(disc)?;
     
     // Parallel bump the entire curve
@@ -332,9 +360,7 @@ where
 
     let base_ctx = context.curves.as_ref();
     
-    // Recalculate base PV to ensure consistency with bumped calculation
-    // Note: This is necessary to get correct bucketed values due to potential
-    // inconsistencies in the base value stored in context.
+    // Recalculate base PV (see module docs for rationale)
     let base_pv = revalue_with_context(base_ctx)?;
 
     // Use the MarketContext.bump() method which correctly replaces curves under original IDs
@@ -420,9 +446,7 @@ where
         .curves
         .get_discount_ref(discount_curve_id.as_str())?;
     
-    // Recalculate base PV to ensure consistency with bumped calculations
-    // Note: This is necessary to get correct bucketed values due to potential
-    // inconsistencies in the base value stored in context.
+    // Recalculate base PV (see module docs for rationale)
     let base_pv = revalue_with_disc(disc)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
@@ -455,9 +479,7 @@ where
     let base_ctx = context.curves.as_ref();
     let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
     
-    // Recalculate base PV to ensure consistency with bumped calculations
-    // Note: This is necessary to get correct bucketed values due to potential
-    // inconsistencies in the base value stored in context.
+    // Recalculate base PV (see module docs for rationale)
     let base_pv = revalue_with_context(base_ctx)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
@@ -495,9 +517,7 @@ where
     let base_ctx = context.curves.as_ref();
     let fwd = base_ctx.get_forward_ref(forward_curve_id.as_str())?;
     
-    // Recalculate base PV to ensure consistency with bumped calculations
-    // Note: This is necessary to get correct bucketed values due to potential
-    // inconsistencies in the base value stored in context.
+    // Recalculate base PV (see module docs for rationale)
     let base_pv = revalue_with_context(base_ctx)?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
@@ -569,101 +589,6 @@ where
     Ok(total)
 }
 
-// ===== Generic Calculators =====
-
-use crate::instruments::common::traits::Instrument;
-use crate::metrics::traits::MetricCalculator;
-use std::marker::PhantomData;
-
-// Re-export traits from pricing for convenience
-pub use crate::instruments::common::pricing::{HasDiscountCurve, HasForwardCurves};
-
-// ===== Curve Collection and Bumping Helpers =====
-
-/// Apply parallel bumps to multiple curves and return a new MarketContext.
-fn apply_parallel_bumps(
-    base_ctx: &MarketContext,
-    curves: &[CurveId],
-    bump_bp: f64,
-) -> finstack_core::Result<MarketContext> {
-    use finstack_core::market_data::context::BumpSpec;
-    use hashbrown::HashMap;
-    
-    let mut bumps = HashMap::new();
-    for curve_id in curves {
-        bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
-    }
-    base_ctx.bump(bumps)
-}
-
-/// Unified curve collection for instruments.
-/// 
-/// Collects all curves (discount and optionally forward) that are relevant
-/// to an instrument and exist in the market context.
-fn collect_instrument_curves<I: 'static>(
-    instrument: &I,
-    primary_discount: &CurveId,
-    market_ctx: &MarketContext,
-    include_forward: bool,
-) -> Vec<(CurveId, RatesCurveKind)> {
-    let mut curves = Vec::new();
-    
-    // Primary discount
-    if market_ctx.get_discount_ref(primary_discount.as_str()).is_ok() {
-        curves.push((primary_discount.clone(), RatesCurveKind::Discount));
-    }
-    
-    // Additional discount curves (FX instruments)
-    let extra_discount = get_additional_discount_curves_if_available(instrument);
-    for curve_id in extra_discount {
-        if market_ctx.get_discount_ref(curve_id.as_str()).is_ok() {
-            curves.push((curve_id, RatesCurveKind::Discount));
-        }
-    }
-    
-    // Forward curves
-    if include_forward {
-        if let Some(fwd_curves) = get_forward_curves_if_available(instrument) {
-            for curve_id in fwd_curves {
-                if market_ctx.get_forward_ref(curve_id.as_str()).is_ok() {
-                    curves.push((curve_id, RatesCurveKind::Forward));
-                }
-            }
-        }
-    }
-    
-    curves
-}
-
-// ===== DV01 Calculator Selection Guide =====
-
-/// # Choosing Between DV01 Calculators
-/// 
-/// The DV01 module provides several generic calculators for different use cases:
-/// 
-/// ## `GenericBucketedDv01`
-/// Use when:
-/// - Instrument implements `CashflowProvider`
-/// - Cashflows are fixed and don't depend on bumped market data
-/// - Maximum performance is needed (e.g., portfolio aggregation)
-/// - Example instruments: Bond, Deposit, TermLoan
-/// 
-/// ## `GenericBucketedDv01WithContext`
-/// Use when:
-/// - Instrument has complex pricing requiring full market context
-/// - Multiple curves need coordinated bumping (e.g., IRS with discount + forward)
-/// - Cashflows depend on market data (e.g., floating rate instruments)
-/// - Example instruments: InterestRateSwap, FRA, BasisSwap
-/// 
-/// ## `GenericParallelDv01`
-///
-/// Use when:
-/// - Need a scalar DV01 value (not bucketed)
-/// - Want parallel shift of all relevant curves
-/// - Can choose Combined (default) or PerCurve mode
-/// - Faster than bucketed DV01 (single bump vs. N bumps)
-
-/// Mode for parallel DV01 calculation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParallelDv01Mode {
     /// Combined: bump all relevant curves (discount + forward + extra discount for FX) together; return scalar.
@@ -677,336 +602,5 @@ pub enum ParallelDv01Mode {
 impl Default for ParallelDv01Mode {
     fn default() -> Self {
         Self::Combined
-    }
-}
-
-/// Generic BucketedDv01 calculator that works for any instrument implementing
-/// the required traits.
-///
-/// Requires the instrument to implement `HasDiscountCurve`.
-pub struct GenericBucketedDv01<I> {
-    _phantom: PhantomData<I>,
-}
-
-impl<I> Default for GenericBucketedDv01<I> {
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> MetricCalculator for GenericBucketedDv01<I>
-where
-    I: Instrument + crate::cashflow::traits::CashflowProvider + HasDiscountCurve + 'static,
-{
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let instrument: &I = context.instrument_as()?;
-        let discount_curve_id = instrument.discount_curve_id().clone();
-        let as_of = context.as_of;
-
-        // Standard bucket times (years) - shared across all instruments
-        let buckets = standard_ir_dv01_buckets();
-
-        // Build cashflows once upfront (doesn't depend on bumped curve)
-        let flows = instrument.build_schedule(&context.curves, context.as_of)?;
-
-        let reval = move |
-            bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
-         {
-            // Use as_of for correct theta calculation, not curve base_date
-            // This matches how instruments calculate their NPV
-            let dc = bumped_disc.day_count();
-
-            // Discount using bumped curve
-            crate::instruments::common::discountable::npv_static(
-                bumped_disc,
-                as_of,
-                dc,
-                &flows,
-            )
-        };
-
-        let total = compute_key_rate_dv01_series(context, &discount_curve_id, buckets, 1.0, reval)?;
-
-        Ok(total)
-    }
-}
-
-/// Alternative generic calculator for instruments that need full MarketContext revaluation.
-///
-/// Use this for instruments whose pricing requires access to multiple curves or
-/// complex pricing models that can't be reduced to simple cashflow discounting.
-pub struct GenericBucketedDv01WithContext<I> {
-    _phantom: PhantomData<I>,
-}
-
-/// Generic parallel DV01 calculator that returns a scalar (not bucketed).
-///
-/// Computes DV01 by applying a parallel bump to the entire discount curve.
-/// Supports Combined (default) and Per-curve modes.
-pub struct GenericParallelDv01<I> {
-    mode: ParallelDv01Mode,
-    _phantom: PhantomData<I>,
-}
-
-impl<I> Default for GenericParallelDv01<I> {
-    fn default() -> Self {
-        Self {
-            mode: ParallelDv01Mode::Combined,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> GenericParallelDv01<I> {
-    /// Create with specified mode.
-    pub fn with_mode(mode: ParallelDv01Mode) -> Self {
-        Self {
-            mode,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> MetricCalculator for GenericParallelDv01<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let instrument: &I = context.instrument_as()?;
-        let discount_curve_id = instrument.discount_curve_id().clone();
-        let as_of = context.as_of;
-        let base_ctx = context.curves.as_ref();
-
-        // Get bump size from pricing overrides or default to 1.0 bp
-        let bump_bp = context
-            .pricing_overrides
-            .as_ref()
-            .and_then(|po| po.rate_bump_bp)
-            .unwrap_or(1.0);
-
-        // Collect all curves to bump using unified helper
-        let existing_curves: Vec<CurveId> = collect_instrument_curves(
-            instrument,
-            &discount_curve_id,
-            base_ctx,
-            true, // include forward curves
-        )
-        .into_iter()
-        .map(|(id, _kind)| id)
-        .collect();
-
-        // If no curves exist, return DV01 = 0
-        if existing_curves.is_empty() {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                "GenericParallelDv01: No rate curves found in market context for instrument, returning 0.0"
-            );
-            return Ok(0.0);
-        }
-
-        match self.mode {
-            ParallelDv01Mode::Combined => {
-                // Recalculate base PV to ensure consistency
-                // Note: This is necessary to get correct bucketed values due to potential
-                // inconsistencies in the base value stored in context.
-                let base_pv = context.instrument.value(base_ctx, as_of)?;
-                
-                // Bump all existing curves together using helper
-                let temp_ctx = apply_parallel_bumps(base_ctx, &existing_curves, bump_bp)?;
-                let pv_bumped = context.instrument.value(&temp_ctx, as_of)?;
-
-                let dv01 = calculate_dv01(base_pv, pv_bumped, bump_bp);
-
-                Ok(dv01)
-            }
-            ParallelDv01Mode::PerCurve => {
-                // Recalculate base PV to ensure consistency
-                // Note: This is necessary to get correct bucketed values due to potential
-                // inconsistencies in the base value stored in context.
-                let base_pv = context.instrument.value(base_ctx, as_of)?;
-                
-                // Bump each curve individually and store series
-                let mut series = Vec::new();
-                let mut total_dv01 = 0.0;
-
-                for curve_id in &existing_curves {
-                    let temp_ctx = apply_parallel_bumps(base_ctx, std::slice::from_ref(curve_id), bump_bp)?;
-                    let pv_bumped = context.instrument.value(&temp_ctx, as_of)?;
-                    let dv01 = calculate_dv01(base_pv, pv_bumped, bump_bp);
-
-                    series.push((curve_id.as_str().to_string(), dv01));
-                    total_dv01 += dv01;
-                }
-
-                // Store per-curve series under BucketedDv01
-                context.store_bucketed_series(MetricId::BucketedDv01, series);
-
-                Ok(total_dv01)
-            }
-        }
-    }
-}
-
-/// Helper function to extract forward curves if the instrument implements HasForwardCurves.
-/// Returns None if the instrument doesn't implement the trait.
-/// 
-/// TODO: This uses hardcoded downcasting for each instrument type. Future API improvements
-/// could use a trait-based registry pattern to avoid this explicit enumeration.
-fn get_forward_curves_if_available<I: 'static>(instrument: &I) -> Option<Vec<CurveId>> {
-    // This is a bit of a workaround - we try to downcast to &dyn HasForwardCurves
-    // If it succeeds, the instrument implements the trait
-    let any_inst = instrument as &dyn std::any::Any;
-
-    // We need to check each concrete type that implements both HasDiscountCurve and HasForwardCurves
-    // This is not ideal but necessary without specialization
-
-    // Try FRA
-    if let Some(fra) = any_inst.downcast_ref::<crate::instruments::ForwardRateAgreement>() {
-        return Some(fra.forward_curve_ids());
-    }
-
-    // Try IRS
-    if let Some(irs) = any_inst.downcast_ref::<crate::instruments::InterestRateSwap>() {
-        return Some(irs.forward_curve_ids());
-    }
-
-    // Try IR Future
-    if let Some(irf) = any_inst.downcast_ref::<crate::instruments::InterestRateFuture>() {
-        return Some(irf.forward_curve_ids());
-    }
-
-    // Try TRS variants
-    if let Some(trs) = any_inst.downcast_ref::<crate::instruments::trs::EquityTotalReturnSwap>() {
-        return Some(trs.forward_curve_ids());
-    }
-    if let Some(trs) = any_inst.downcast_ref::<crate::instruments::trs::FIIndexTotalReturnSwap>() {
-        return Some(trs.forward_curve_ids());
-    }
-
-    // Try BasisSwap
-    if let Some(bs) = any_inst.downcast_ref::<crate::instruments::BasisSwap>() {
-        return Some(bs.forward_curve_ids());
-    }
-
-    // No forward curves
-    None
-}
-
-/// Helper function to extract additional discount curves for multi-curve instruments (FX).
-/// Returns empty vec if the instrument doesn't have extra discount curves.
-/// 
-/// TODO: This uses hardcoded downcasting for each instrument type. Future API improvements
-/// could use a trait-based registry pattern to avoid this explicit enumeration.
-fn get_additional_discount_curves_if_available<I: 'static>(instrument: &I) -> Vec<CurveId> {
-    let any_inst = instrument as &dyn std::any::Any;
-
-    // FxSwap has foreign discount curve in addition to domestic (primary)
-    if let Some(fx_swap) = any_inst.downcast_ref::<crate::instruments::FxSwap>() {
-        return vec![fx_swap.foreign_discount_curve_id.clone()];
-    }
-
-    // FxOption has foreign discount curve in addition to domestic (primary)
-    if let Some(fx_option) = any_inst.downcast_ref::<crate::instruments::FxOption>() {
-        return vec![fx_option.foreign_discount_curve_id.clone()];
-    }
-
-    // FxBarrierOption only has one discount curve (already the primary)
-    // No additional curves for most instruments
-    vec![]
-}
-
-impl<I> Default for GenericBucketedDv01WithContext<I> {
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> MetricCalculator for GenericBucketedDv01WithContext<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let instrument: &I = context.instrument_as()?;
-        let discount_curve_id = instrument.discount_curve_id().clone();
-        let as_of = context.as_of;
-
-        // Get bump size from pricing overrides or default to 1.0 bp
-        let bump_bp = context
-            .pricing_overrides
-            .as_ref()
-            .and_then(|po| po.rate_bump_bp)
-            .unwrap_or(1.0);
-
-        // Standard bucket times
-        let buckets = standard_ir_dv01_buckets();
-
-        // Collect all curves relevant to this instrument using unified helper
-        let curves_to_bump = collect_instrument_curves(
-            instrument,
-            &discount_curve_id,
-            context.curves.as_ref(),
-            true, // include forward curves
-        );
-
-        // If no curves exist, return DV01 = 0
-        if curves_to_bump.is_empty() {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                discount_curve = %discount_curve_id,
-                "GenericBucketedDv01WithContext: No rate curves found in market context for instrument, returning 0.0"
-            );
-            return Ok(0.0);
-        }
-
-        let mut total_dv01 = 0.0;
-
-        // Compute bucketed DV01 per curve
-        for (curve_id, curve_kind) in curves_to_bump {
-            // Clone Arc to allow capture in closure while avoiding borrow checker issues
-            // This is a cheap operation (cloning the Arc pointer, not the instrument itself)
-            use std::sync::Arc;
-            let inst_arc = Arc::clone(&context.instrument);
-            let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
-                inst_arc.value(temp_ctx, as_of)
-            };
-
-            // Create custom metric ID for this curve's series
-            let curve_metric_id = MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
-
-            let curve_total = match curve_kind {
-                RatesCurveKind::Discount => compute_key_rate_series_with_context_for_id(
-                    context,
-                    curve_metric_id.clone(),
-                    &curve_id,
-                    buckets.clone(),
-                    bump_bp,
-                    reval,
-                )?,
-                RatesCurveKind::Forward => compute_key_rate_forward_series_with_context_for_id(
-                    context,
-                    curve_metric_id.clone(),
-                    &curve_id,
-                    buckets.clone(),
-                    bump_bp,
-                    reval,
-                )?,
-            };
-
-            total_dv01 += curve_total;
-
-            // Also store primary discount curve under standard BucketedDv01 key for BC
-            if curve_id == discount_curve_id && curve_kind == RatesCurveKind::Discount {
-                // Retrieve the series we just stored and re-store under standard key
-                if let Some(series) = context.get_series(&curve_metric_id) {
-                    context.store_bucketed_series(MetricId::BucketedDv01, series.clone());
-                }
-            }
-        }
-
-        Ok(total_dv01)
     }
 }

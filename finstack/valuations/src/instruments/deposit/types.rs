@@ -136,6 +136,14 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Deposit {
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for Deposit {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl CashflowProvider for Deposit {
     fn build_schedule(
         &self,

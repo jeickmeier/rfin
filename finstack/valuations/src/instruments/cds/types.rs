@@ -479,6 +479,15 @@ impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for CreditDefaultSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.premium.discount_curve_id.clone())
+            .credit(self.protection.credit_curve_id.clone())
+            .build()
+    }
+}
+
 impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
     fn build_schedule(
         &self,

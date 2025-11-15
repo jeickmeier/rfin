@@ -93,10 +93,18 @@ fn test_bucketed_dv01_reasonable_magnitude() {
         dv01_raw
     );
 
-    // Bucketed DV01 is expected to be 0 for inflation swaps (known limitation)
-    assert_eq!(
-        bucketed_dv01, 0.0,
-        "Bucketed DV01 is currently 0 for inflation swaps (known limitation)"
+    // Bucketed DV01 should now work for inflation swaps with unified calculator
+    assert!(
+        bucketed_dv01.abs() > 0.0,
+        "Bucketed DV01 should be non-zero for inflation swaps with unified calculator, got {}",
+        bucketed_dv01
+    );
+    
+    // Bucketed DV01 should be reasonable in magnitude
+    assert!(
+        bucketed_dv01.abs() < 10.0,
+        "Bucketed DV01 magnitude should be reasonable, got {}",
+        bucketed_dv01
     );
 }
 

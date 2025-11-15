@@ -27,12 +27,12 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (EquityShares, shares::SharesCalculator),
             (EquityDividendYield, dividend_yield::DividendYieldCalculator),
             (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Equity,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Equity,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Equity,
             >::default()),

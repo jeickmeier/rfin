@@ -58,15 +58,15 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "FxSwap",
         metrics: [
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSwap,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

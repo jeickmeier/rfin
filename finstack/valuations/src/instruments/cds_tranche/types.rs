@@ -264,3 +264,13 @@ impl crate::instruments::common::pricing::HasDiscountCurve for CdsTranche {
         &self.discount_curve_id
     }
 }
+
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for CdsTranche {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .credit(self.credit_index_id.clone())
+            .build()
+    }
+}

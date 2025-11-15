@@ -8,7 +8,7 @@ use finstack_core::types::InstrumentId;
 use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
 use finstack_valuations::{
     instruments::{common::traits::Instrument, fx_spot::FxSpot},
-    metrics::{traits::MetricCalculator, GenericParallelDv01, MetricContext},
+    metrics::{traits::MetricCalculator, UnifiedDv01Calculator, Dv01CalculatorConfig, MetricContext},
 };
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
 fn test_dv01_basic() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17)); // T+2
     let mut ctx = create_context(fx, test_date()); // 2025-01-15
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
 
@@ -35,7 +35,7 @@ fn test_dv01_basic() {
 fn test_dv01_zero_after_settlement() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 10)); // Past date
     let mut ctx = create_context(fx, test_date());
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");
@@ -46,7 +46,7 @@ fn test_dv01_on_settlement_date() {
     let settlement = test_date();
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
     let mut ctx = create_context(fx, settlement);
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");
@@ -55,7 +55,7 @@ fn test_dv01_on_settlement_date() {
 #[test]
 fn test_dv01_always_zero() {
     // FX Spot DV01 is always zero regardless of notional, settlement, or rate
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
     let settlement = d(2025, 1, 17);
 
     let fx1 = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
@@ -74,7 +74,7 @@ fn test_dv01_always_zero() {
 #[test]
 fn test_dv01_independent_of_time() {
     // DV01 is always zero regardless of settlement time
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
     let as_of = test_date(); // 2025-01-15
 
     let fx1 = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17)); // T+2
@@ -93,7 +93,7 @@ fn test_dv01_independent_of_time() {
 #[test]
 fn test_dv01_independent_of_rate() {
     // DV01 is zero regardless of rate
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
     let settlement = d(2025, 1, 17);
 
     let fx1 = eurusd_with_notional(1_000_000.0, 1.10).with_settlement(settlement);
@@ -114,7 +114,7 @@ fn test_dv01_default_settlement_lag() {
     // DV01 is zero even with default settlement lag
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let mut ctx = create_context(fx, test_date());
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");
@@ -123,7 +123,7 @@ fn test_dv01_default_settlement_lag() {
 #[test]
 fn test_dv01_custom_settlement_lag() {
     // DV01 is zero regardless of settlement lag
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let fx1 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
         .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
@@ -150,7 +150,7 @@ fn test_dv01_custom_settlement_lag() {
 #[test]
 fn test_dv01_various_currencies() {
     // DV01 is zero for all currency pairs
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
     let settlement = d(2025, 1, 17);
 
     // All with same notional and settlement
@@ -179,7 +179,7 @@ fn test_dv01_zero_notional() {
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 17));
     let mut ctx = create_context(fx, test_date());
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");
@@ -189,7 +189,7 @@ fn test_dv01_zero_notional() {
 fn test_dv01_large_notional() {
     let fx = eurusd_with_notional(1_000_000_000.0, 1.20).with_settlement(d(2025, 1, 17));
     let mut ctx = create_context(fx, test_date());
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");
@@ -199,7 +199,7 @@ fn test_dv01_large_notional() {
 fn test_dv01_one_year_maturity() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2026, 1, 15)); // 1 year
     let mut ctx = create_context(fx, test_date());
-    let calc = GenericParallelDv01::<FxSpot>::default();
+    let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let dv01 = calc.calculate(&mut ctx).unwrap();
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");

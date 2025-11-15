@@ -55,9 +55,9 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::Npv01,
-            Arc::new(crate::metrics::GenericParallelDv01::<
+            Arc::new(crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             &["InflationSwap"],
         );
 
@@ -67,15 +67,15 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "InflationSwap",
         metrics: [
             (ParRate, par_rate::ParRateCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::InflationSwap,
             >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
 }

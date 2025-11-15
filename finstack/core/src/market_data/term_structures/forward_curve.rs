@@ -240,6 +240,89 @@ impl ForwardCurve {
             .set_interp(state.interp.interp_style)
             .build()
     }
+
+    /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
+    ///
+    /// This approximates a classic key-rate DV01 bump by applying an additive rate
+    /// shift only to the forward segment that contains `t`. The effect is localized
+    /// to the bracketed interval [t_i, t_{i+1}] that contains `t` by shifting forward
+    /// rates at and beyond `t_{i+1}` by the bump amount.
+    ///
+    /// If the curve has fewer than 2 knots, falls back to a parallel bump.
+    ///
+    /// Returns an error if the bumped curve violates validation constraints.
+    pub fn try_with_key_rate_bump_years(&self, t: f64, bp: f64) -> crate::Result<Self> {
+        if self.knots.len() < 2 {
+            // Fallback to parallel bump for degenerate curves
+            return self.try_with_parallel_bump(bp);
+        }
+
+        // Find segment i such that knots[i] < t <= knots[i+1]
+        let times = &self.knots;
+        let mut i = 0usize;
+        if t <= times[0] {
+            i = 0;
+        } else if t >= times[times.len() - 1] {
+            i = times.len() - 2;
+        } else {
+            for idx in 0..times.len() - 1 {
+                if t > times[idx] && t <= times[idx + 1] {
+                    i = idx;
+                    break;
+                }
+            }
+        }
+
+        let bump_rate = bp / 10_000.0;
+
+        let mut bumped_rates: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
+        for (idx, (&tt, &rate)) in self.knots.iter().zip(self.forwards.iter()).enumerate() {
+            let new_rate = if idx > i { 
+                rate + bump_rate 
+            } else { 
+                rate 
+            };
+            bumped_rates.push((tt, new_rate));
+        }
+
+        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
+        ForwardCurve::builder(new_id, self.tenor)
+            .base_date(self.base)
+            .reset_lag(self.reset_lag)
+            .day_count(self.day_count)
+            .knots(bumped_rates)
+            .set_interp(self.interp.style())
+            .extrapolation(self.interp.extrapolation())
+            .build()
+    }
+
+    /// Create a new curve with a parallel rate bump applied in basis points (fallible).
+    ///
+    /// Adds the bump amount (converted from bp) to all forward rates uniformly.
+    ///
+    /// Returns an error if the bumped curve violates validation constraints.
+    pub fn try_with_parallel_bump(&self, bp: f64) -> crate::Result<Self> {
+        let bump_rate = bp / 10_000.0;
+        let bumped_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.forwards.iter())
+            .map(|(&t, &rate)| (t, rate + bump_rate))
+            .collect();
+
+        // Derive new ID with suffix
+        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
+
+        // Rebuild preserving base date, interpolation, and extrapolation policies
+        ForwardCurve::builder(new_id, self.tenor)
+            .base_date(self.base)
+            .reset_lag(self.reset_lag)
+            .day_count(self.day_count)
+            .knots(bumped_points)
+            .set_interp(self.interp.style())
+            .extrapolation(self.interp.extrapolation())
+            .build()
+    }
 }
 
 /// Fluent builder for [`ForwardCurve`].

@@ -285,6 +285,15 @@ impl crate::instruments::common::pricing::HasDiscountCurve for FxSpot {
     }
 }
 
+// Implement CurveDependencies for DV01 calculator
+impl crate::instruments::common::traits::CurveDependencies for FxSpot {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        // FxSpot has no curve dependencies
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .build()
+    }
+}
+
 impl CashflowProvider for FxSpot {
     fn build_schedule(
         &self,

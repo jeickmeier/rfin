@@ -65,12 +65,12 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             (WAM, pool::WamCalculator),
             (CPR, pool::CprCalculator),
             (CDR, pool::CdrCalculator),
-            (Dv01, crate::metrics::GenericParallelDv01::<
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::structured_credit::StructuredCredit,
-            >::default()),
-            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::structured_credit::StructuredCredit,
-            >::default()),
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             // Theta is now registered universally in metrics::standard_registry()
         ]
     }

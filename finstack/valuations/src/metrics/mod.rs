@@ -247,8 +247,11 @@ pub use sensitivities::dv01::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     compute_parallel_dv01, compute_parallel_dv01_with_context, standard_ir_dv01_buckets,
-    GenericBucketedDv01, GenericBucketedDv01WithContext, GenericParallelDv01, HasDiscountCurve,
-    HasForwardCurves, ParallelDv01Mode,
+    ParallelDv01Mode,
+};
+pub use crate::instruments::common::pricing::HasDiscountCurve;
+pub use sensitivities::dv01_unified::{
+    UnifiedDv01Calculator, Dv01CalculatorConfig, Dv01ComputationMode, CurveSelection,
 };
 pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
