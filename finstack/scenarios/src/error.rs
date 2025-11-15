@@ -52,19 +52,35 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// Market data element not found.
     #[error("Market data not found: {id}")]
-    MarketDataNotFound { id: String },
+    MarketDataNotFound {
+        /// Identifier of the missing market data element.
+        id: String
+    },
 
     /// Statement node not found.
     #[error("Statement node not found: {node_id}")]
-    NodeNotFound { node_id: String },
+    NodeNotFound {
+        /// Identifier of the missing statement node.
+        node_id: String
+    },
 
     /// Curve type mismatch.
     #[error("Curve type mismatch: expected {expected}, got {actual}")]
-    CurveTypeMismatch { expected: String, actual: String },
+    CurveTypeMismatch {
+        /// Expected curve type.
+        expected: String,
+        /// Actual curve type encountered.
+        actual: String
+    },
 
     /// Unsupported operation for target.
     #[error("Unsupported operation {operation} for target {target}")]
-    UnsupportedOperation { operation: String, target: String },
+    UnsupportedOperation {
+        /// Operation being attempted.
+        operation: String,
+        /// Target on which the operation is unsupported.
+        target: String
+    },
 
     /// Core library error.
     #[error(transparent)]
@@ -88,7 +104,12 @@ pub enum Error {
 
     /// Tenor not found in curve.
     #[error("Tenor not found in curve: {tenor} in {curve_id}")]
-    TenorNotFound { tenor: String, curve_id: String },
+    TenorNotFound {
+        /// Tenor string that was not found.
+        tenor: String,
+        /// Identifier of the curve.
+        curve_id: String
+    },
 
     /// Invalid time period.
     #[error("Invalid time period: {0}")]

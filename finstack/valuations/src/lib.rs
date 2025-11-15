@@ -248,6 +248,7 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
 
 pub mod calibration;
 pub mod cashflow;

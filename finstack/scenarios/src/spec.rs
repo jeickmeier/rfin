@@ -84,8 +84,11 @@ pub enum OperationSpec {
     /// };
     /// ```
     MarketFxPct {
+        /// Base currency in the FX pair.
         base: finstack_core::currency::Currency,
+        /// Quote currency in the FX pair.
         quote: finstack_core::currency::Currency,
+        /// Percentage change (positive means base strengthens).
         pct: f64,
     },
 
@@ -100,7 +103,12 @@ pub enum OperationSpec {
     ///     pct: -10.0, // -10% price drop
     /// };
     /// ```
-    EquityPricePct { ids: Vec<String>, pct: f64 },
+    EquityPricePct {
+        /// Equity identifiers to shock.
+        ids: Vec<String>,
+        /// Percentage price change.
+        pct: f64
+    },
 
     /// Instrument price shock by exact attribute match.
     ///
@@ -119,7 +127,9 @@ pub enum OperationSpec {
     /// };
     /// ```
     InstrumentPricePctByAttr {
+        /// Attributes to match (all must match exactly).
         attrs: IndexMap<String, String>,
+        /// Percentage price change.
         pct: f64,
     },
 
@@ -136,8 +146,11 @@ pub enum OperationSpec {
     /// };
     /// ```
     CurveParallelBp {
+        /// Type of curve (Discount, Forward, Hazard, etc.).
         curve_kind: CurveKind,
+        /// Curve identifier.
         curve_id: String,
+        /// Basis point shift (additive).
         bp: f64,
     },
 
@@ -158,9 +171,13 @@ pub enum OperationSpec {
     /// };
     /// ```
     CurveNodeBp {
+        /// Type of curve (Discount, Forward, Hazard, etc.).
         curve_kind: CurveKind,
+        /// Curve identifier.
         curve_id: String,
+        /// Vector of (tenor, basis_point_shift) pairs.
         nodes: Vec<(String, f64)>,
+        /// How to handle tenors not in the curve.
         #[serde(default)]
         match_mode: TenorMatchMode,
     },
@@ -176,7 +193,12 @@ pub enum OperationSpec {
     ///     points: 0.05, // +5 percentage points
     /// };
     /// ```
-    BaseCorrParallelPts { surface_id: String, points: f64 },
+    BaseCorrParallelPts {
+        /// Surface identifier.
+        surface_id: String,
+        /// Absolute shift in correlation points.
+        points: f64
+    },
 
     /// Bucket-specific base correlation shifts.
     ///
@@ -192,9 +214,13 @@ pub enum OperationSpec {
     /// };
     /// ```
     BaseCorrBucketPts {
+        /// Surface identifier.
         surface_id: String,
+        /// Optional detachment points in basis points (e.g., 300 for 3%).
         detachment_bps: Option<Vec<i32>>,
+        /// Optional maturity strings (e.g., "5Y").
         maturities: Option<Vec<String>>,
+        /// Absolute shift in correlation points.
         points: f64,
     },
 
@@ -211,8 +237,11 @@ pub enum OperationSpec {
     /// };
     /// ```
     VolSurfaceParallelPct {
+        /// Type of volatility surface (Equity, FX, IR, etc.).
         surface_kind: VolSurfaceKind,
+        /// Surface identifier.
         surface_id: String,
+        /// Percentage change in volatility.
         pct: f64,
     },
 
@@ -231,10 +260,15 @@ pub enum OperationSpec {
     /// };
     /// ```
     VolSurfaceBucketPct {
+        /// Type of volatility surface (Equity, FX, IR, etc.).
         surface_kind: VolSurfaceKind,
+        /// Surface identifier.
         surface_id: String,
+        /// Optional tenor strings (e.g., "1M", "3M").
         tenors: Option<Vec<String>>,
+        /// Optional strike levels.
         strikes: Option<Vec<f64>>,
+        /// Percentage change in volatility.
         pct: f64,
     },
 
@@ -249,7 +283,12 @@ pub enum OperationSpec {
     ///     pct: -5.0, // -5% revenue decrease
     /// };
     /// ```
-    StmtForecastPercent { node_id: String, pct: f64 },
+    StmtForecastPercent {
+        /// Statement node identifier.
+        node_id: String,
+        /// Percentage change to apply.
+        pct: f64
+    },
 
     /// Statement forecast value assignment.
     ///
@@ -262,7 +301,12 @@ pub enum OperationSpec {
     ///     value: 1_000_000.0,
     /// };
     /// ```
-    StmtForecastAssign { node_id: String, value: f64 },
+    StmtForecastAssign {
+        /// Statement node identifier.
+        node_id: String,
+        /// Absolute value to assign.
+        value: f64
+    },
 
     /// Instrument spread shock by exact attribute match (FI only).
     ///
@@ -280,7 +324,9 @@ pub enum OperationSpec {
     /// };
     /// ```
     InstrumentSpreadBpByAttr {
+        /// Attributes to match (all must match exactly).
         attrs: IndexMap<String, String>,
+        /// Basis point shift to apply.
         bp: f64,
     },
 
@@ -296,7 +342,9 @@ pub enum OperationSpec {
     /// };
     /// ```
     InstrumentPricePctByType {
+        /// Instrument types to shock.
         instrument_types: Vec<InstrumentType>,
+        /// Percentage price change.
         pct: f64,
     },
 
@@ -312,7 +360,9 @@ pub enum OperationSpec {
     /// };
     /// ```
     InstrumentSpreadBpByType {
+        /// Instrument types to shock.
         instrument_types: Vec<InstrumentType>,
+        /// Basis point shift to apply.
         bp: f64,
     },
 

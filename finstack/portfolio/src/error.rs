@@ -18,7 +18,9 @@ pub enum PortfolioError {
     /// Position references an unknown entity
     #[error("Position '{position_id}' references unknown entity '{entity_id}'")]
     UnknownEntity {
+        /// Position identifier.
         position_id: PositionId,
+        /// Entity identifier that was not found.
         entity_id: EntityId,
     },
 
@@ -28,12 +30,19 @@ pub enum PortfolioError {
 
     /// FX conversion failed
     #[error("FX conversion failed: {from} to {to}")]
-    FxConversionFailed { from: Currency, to: Currency },
+    FxConversionFailed {
+        /// Source currency.
+        from: Currency,
+        /// Target currency.
+        to: Currency
+    },
 
     /// Valuation error
     #[error("Valuation error for position '{position_id}': {message}")]
     ValuationError {
+        /// Position identifier.
         position_id: PositionId,
+        /// Error message describing the valuation failure.
         message: String,
     },
 

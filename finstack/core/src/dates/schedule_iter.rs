@@ -161,6 +161,9 @@ pub enum Frequency {
 }
 
 impl Frequency {
+    /// Returns the number of months if this frequency is month-based.
+    ///
+    /// Returns `None` if the frequency is day-based.
     #[inline]
     pub const fn months(self) -> Option<u8> {
         match self {
@@ -169,6 +172,9 @@ impl Frequency {
         }
     }
 
+    /// Returns the number of days if this frequency is day-based.
+    ///
+    /// Returns `None` if the frequency is month-based.
     #[inline]
     pub const fn days(self) -> Option<u16> {
         match self {
@@ -185,30 +191,43 @@ impl Frequency {
     }
 
     // Convenience constructors for common frequencies
+    
+    /// Returns a frequency of 12 months (annual).
     pub const fn annual() -> Self {
         Self::Months(12)
     }
+    
+    /// Returns a frequency of 6 months (semi-annual).
     pub const fn semi_annual() -> Self {
         Self::Months(6)
     }
+    
     /// Every two months.
     pub const fn bimonthly() -> Self {
         Self::Months(2)
     }
 
+    /// Returns a frequency of 3 months (quarterly).
     pub const fn quarterly() -> Self {
         Self::Months(3)
     }
+    
+    /// Returns a frequency of 1 month (monthly).
     pub const fn monthly() -> Self {
         Self::Months(1)
     }
+    
+    /// Returns a frequency of 14 days (biweekly).
     pub const fn biweekly() -> Self {
         Self::Days(14)
     }
 
+    /// Returns a frequency of 7 days (weekly).
     pub const fn weekly() -> Self {
         Self::Days(7)
     }
+    
+    /// Returns a frequency of 1 day (daily).
     pub const fn daily() -> Self {
         Self::Days(1)
     }
@@ -768,15 +787,29 @@ impl<'a> ScheduleBuilder<'a> {
 
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// Serializable specification for building a schedule.
+///
+/// This struct captures all parameters needed to generate a schedule of dates
+/// for cashflows, coupons, or other periodic events. It can be deserialized
+/// from configuration files and converted to a runtime [`ScheduleBuilder`].
 pub struct ScheduleSpec {
+    /// Start date of the schedule.
     pub start: Date,
+    /// End date (maturity) of the schedule.
     pub end: Date,
+    /// Payment frequency (e.g., quarterly, monthly).
     pub frequency: Frequency,
+    /// Stub convention (short/long front/back).
     pub stub: StubKind,
+    /// Business day convention for adjusting dates.
     pub business_day_convention: Option<BusinessDayConvention>,
+    /// Optional calendar identifier for holiday adjustments.
     pub calendar_id: Option<String>,
+    /// If true, always roll to end of month when applicable.
     pub end_of_month: bool,
+    /// If true, use CDS IMM date logic.
     pub cds_imm_mode: bool,
+    /// If true, allow graceful handling of edge cases.
     pub graceful: bool,
 }
 

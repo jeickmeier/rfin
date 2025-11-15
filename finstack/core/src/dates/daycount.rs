@@ -122,6 +122,10 @@ pub struct DayCountCtx<'a> {
 
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// Serializable snapshot of [`DayCountCtx`] state for persistence and interchange.
+///
+/// This struct captures the optional context parameters (calendar, frequency, business-day basis)
+/// needed to reconstruct a [`DayCountCtx`] at runtime using a [`CalendarRegistry`].
 pub struct DayCountCtxState {
     /// Optional calendar code (e.g. "target2").
     pub calendar_id: Option<String>,
