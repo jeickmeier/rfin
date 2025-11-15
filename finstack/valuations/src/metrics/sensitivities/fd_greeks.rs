@@ -8,13 +8,11 @@
 
 use std::marker::PhantomData;
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::traits::{EquityDependencies, Instrument};
 use crate::metrics::finite_difference::{
     adaptive_spot_bump, bump_scalar_price, bump_sizes, central_mixed, get_bump_overrides,
     scale_surface,
 };
-use crate::metrics::has_equity_underlying::HasEquityUnderlying;
-use crate::metrics::has_pricing_overrides::HasPricingOverrides;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
@@ -39,13 +37,23 @@ pub trait HasDayCount {
     fn day_count(&self) -> DayCount;
 }
 
+/// Trait for instruments that have pricing overrides.
+///
+/// This trait allows generic metric calculators to set MC seed scenarios
+/// and other pricing overrides for deterministic greek calculations.
+/// Only implemented by instruments that use Monte Carlo pricing.
+pub trait HasPricingOverrides {
+    /// Returns mutable access to pricing overrides.
+    fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides;
+}
+
 // ================================================================================================
 // Generic FD Greeks Calculators
 // ================================================================================================
 
 /// Generic delta calculator using finite differences.
 ///
-/// Works with any instrument that implements `HasEquityUnderlying` and `Instrument`.
+/// Works with any instrument that implements `EquityDependencies` and `Instrument`.
 /// Computes delta by bumping spot price up and down and using central differences.
 pub struct GenericFdDelta<I> {
     _phantom: PhantomData<I>,
@@ -62,7 +70,7 @@ impl<I> Default for GenericFdDelta<I> {
 impl<I> MetricCalculator for GenericFdDelta<I>
 where
     I: Instrument 
-        + HasEquityUnderlying 
+        + EquityDependencies 
         + HasExpiry 
         + HasDayCount 
         + HasPricingOverrides 
@@ -73,8 +81,13 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
 
+        // Get equity dependencies
+        let eq_deps = instrument.equity_dependencies();
+        let spot_id = eq_deps.spot_id.as_ref()
+            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for delta calculation".to_string()))?;
+
         // Get current spot for bump size calculation
-        let spot_scalar = context.curves.price(instrument.spot_id())?;
+        let spot_scalar = context.curves.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -92,8 +105,7 @@ where
                     .unwrap_or(0.0);
 
                 let atm_vol = if time_to_expiry > 0.0 {
-                    instrument
-                        .vol_surface_id()
+                    eq_deps.vol_surface_id.as_ref()
                         .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                         .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
                         .unwrap_or(bump_sizes::VOLATILITY)
@@ -121,11 +133,11 @@ where
         instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("delta_down".to_string());
 
         // Bump spot up
-        let curves_up = bump_scalar_price(&context.curves, instrument.spot_id(), bump_pct)?;
+        let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
         let pv_up = instrument_up.value(&curves_up, as_of)?.amount();
 
         // Bump spot down
-        let curves_down = bump_scalar_price(&context.curves, instrument.spot_id(), -bump_pct)?;
+        let curves_down = bump_scalar_price(&context.curves, spot_id, -bump_pct)?;
         let pv_down = instrument_down.value(&curves_down, as_of)?.amount();
 
         // Central difference: delta = (PV_up - PV_down) / (2 * bump_size)
@@ -154,7 +166,7 @@ impl<I> Default for GenericFdGamma<I> {
 impl<I> MetricCalculator for GenericFdGamma<I>
 where
     I: Instrument 
-        + HasEquityUnderlying 
+        + EquityDependencies 
         + HasExpiry 
         + HasDayCount 
         + HasPricingOverrides 
@@ -165,8 +177,13 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
 
+        // Get equity dependencies
+        let eq_deps = instrument.equity_dependencies();
+        let spot_id = eq_deps.spot_id.as_ref()
+            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for gamma calculation".to_string()))?;
+
         // Get current spot for bump size calculation
-        let spot_scalar = context.curves.price(instrument.spot_id())?;
+        let spot_scalar = context.curves.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -184,8 +201,7 @@ where
                     .unwrap_or(0.0);
 
                 let atm_vol = if time_to_expiry > 0.0 {
-                    instrument
-                        .vol_surface_id()
+                    eq_deps.vol_surface_id.as_ref()
                         .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                         .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
                         .unwrap_or(bump_sizes::VOLATILITY)
@@ -206,7 +222,7 @@ where
         // Compute delta at spot + bump
         let mut instrument_up = instrument.clone();
         instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_up".to_string());
-        let curves_up = bump_scalar_price(&context.curves, instrument.spot_id(), bump_pct)?;
+        let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
 
         // Delta at spot_up: need two more bumps
         let mut instrument_up_up = instrument_up.clone();
@@ -217,13 +233,13 @@ where
 
         let pv_up_up = instrument_up_up
             .value(
-                &bump_scalar_price(&curves_up, instrument.spot_id(), bump_pct)?,
+                &bump_scalar_price(&curves_up, spot_id, bump_pct)?,
                 as_of,
             )?
             .amount();
         let pv_up_down = instrument_up_down
             .value(
-                &bump_scalar_price(&curves_up, instrument.spot_id(), -bump_pct)?,
+                &bump_scalar_price(&curves_up, spot_id, -bump_pct)?,
                 as_of,
             )?
             .amount();
@@ -233,7 +249,7 @@ where
         let mut instrument_down = instrument.clone();
         instrument_down.pricing_overrides_mut().mc_seed_scenario =
             Some("gamma_down_base".to_string());
-        let curves_down = bump_scalar_price(&context.curves, instrument.spot_id(), -bump_pct)?;
+        let curves_down = bump_scalar_price(&context.curves, spot_id, -bump_pct)?;
 
         let mut instrument_down_up = instrument_down.clone();
         instrument_down_up.pricing_overrides_mut().mc_seed_scenario =
@@ -245,13 +261,13 @@ where
 
         let pv_down_up = instrument_down_up
             .value(
-                &bump_scalar_price(&curves_down, instrument.spot_id(), bump_pct)?,
+                &bump_scalar_price(&curves_down, spot_id, bump_pct)?,
                 as_of,
             )?
             .amount();
         let pv_down_down = instrument_down_down
             .value(
-                &bump_scalar_price(&curves_down, instrument.spot_id(), -bump_pct)?,
+                &bump_scalar_price(&curves_down, spot_id, -bump_pct)?,
                 as_of,
             )?
             .amount();
@@ -281,15 +297,18 @@ impl<I> Default for GenericFdVega<I> {
 
 impl<I> MetricCalculator for GenericFdVega<I>
 where
-    I: Instrument + HasPricingOverrides + Clone + 'static,
+    I: Instrument + EquityDependencies + HasPricingOverrides + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
+        // Get equity dependencies
+        let eq_deps = instrument.equity_dependencies();
+        
         // Get vol surface id from instrument
-        let Some(vol_surface_id) = instrument.vol_surface_id() else {
+        let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "GenericFdVega: No vol surface ID found for instrument, returning 0.0"
@@ -331,15 +350,18 @@ impl<I> Default for GenericFdVolga<I> {
 
 impl<I> MetricCalculator for GenericFdVolga<I>
 where
-    I: Instrument + HasPricingOverrides + Clone + 'static,
+    I: Instrument + EquityDependencies + HasPricingOverrides + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
+        // Get equity dependencies
+        let eq_deps = instrument.equity_dependencies();
+        
         // Get vol surface id from instrument
-        let Some(vol_surface_id) = instrument.vol_surface_id() else {
+        let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "GenericFdVolga: No vol surface ID found for instrument, returning 0.0"
@@ -384,7 +406,7 @@ impl<I> Default for GenericFdVanna<I> {
 impl<I> MetricCalculator for GenericFdVanna<I>
 where
     I: Instrument 
-        + HasEquityUnderlying 
+        + EquityDependencies 
         + HasExpiry 
         + HasDayCount 
         + HasPricingOverrides 
@@ -395,20 +417,18 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
 
+        // Get equity dependencies
+        let eq_deps = instrument.equity_dependencies();
+        let spot_id = eq_deps.spot_id.as_ref()
+            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for vanna calculation".to_string()))?;
+        let vol_surface_id = eq_deps.vol_surface_id.as_ref()
+            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing vol_surface_id for vanna calculation".to_string()))?;
+
         // Spot level for bump sizing
-        let spot_scalar = context.curves.price(instrument.spot_id())?;
+        let spot_scalar = context.curves.price(spot_id)?;
         let current_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
-
-        // Get vol surface id from instrument
-        let Some(vol_surface_id) = instrument.vol_surface_id() else {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                "GenericFdVanna: No vol surface ID found for instrument, returning 0.0"
-            );
-            return Ok(0.0);
         };
 
         // Time to expiry and ATM vol for absolute denominators
@@ -448,7 +468,7 @@ where
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vu".to_string());
             let curves = scale_surface(
-                &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
+                &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
@@ -459,7 +479,7 @@ where
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vd".to_string());
             let curves = scale_surface(
-                &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
+                &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;
@@ -470,7 +490,7 @@ where
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vu".to_string());
             let curves = scale_surface(
-                &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
+                &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
@@ -481,7 +501,7 @@ where
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vd".to_string());
             let curves = scale_surface(
-                &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
+                &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;

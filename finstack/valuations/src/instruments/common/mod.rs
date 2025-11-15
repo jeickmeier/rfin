@@ -52,4 +52,4 @@ pub use parameters::{
 };
 pub use period_pv::PeriodizedPvExt;
 pub use pricing::{GenericDiscountingPricer, GenericInstrumentPricer};
-pub use traits::{Attributes, Instrument};
+pub use traits::{Attributes, EquityDependencies, EquityInstrumentDeps, Instrument};

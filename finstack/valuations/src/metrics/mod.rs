@@ -227,8 +227,6 @@ mod sensitivities;
 
 // Re-export all public items at the root level for backward compatibility
 pub use core::finite_difference::bump_sizes;
-pub use core::has_equity_underlying::HasEquityUnderlying;
-pub use core::has_pricing_overrides::HasPricingOverrides;
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
@@ -244,7 +242,7 @@ pub use sensitivities::dv01::{
 };
 pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
-    HasDayCount, HasExpiry,
+    HasDayCount, HasExpiry, HasPricingOverrides,
 };
 pub use sensitivities::theta::{
     calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny,
@@ -280,16 +278,6 @@ pub mod fd_greeks {
 /// Legacy module for finite difference utilities. Use `core::finite_difference` internally.
 pub mod finite_difference {
     pub use super::core::finite_difference::*;
-}
-
-/// Legacy module for equity underlying trait. Use `core::has_equity_underlying` internally.
-pub mod has_equity_underlying {
-    pub use super::core::has_equity_underlying::*;
-}
-
-/// Legacy module for pricing overrides trait. Use `core::has_pricing_overrides` internally.
-pub mod has_pricing_overrides {
-    pub use super::core::has_pricing_overrides::*;
 }
 
 /// Legacy module for theta utilities. Use `sensitivities::theta` internally.

@@ -1,13 +1,15 @@
 //! Trait implementations for CliquetOption
 
 use crate::instruments::cliquet_option::CliquetOption;
-use crate::metrics::has_equity_underlying::HasEquityUnderlying;
-use crate::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::metrics::fd_greeks::{HasDayCount, HasExpiry};
+use crate::instruments::common::traits::EquityDependencies;
+use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
 
-impl HasEquityUnderlying for CliquetOption {
-    fn spot_id(&self) -> &str {
-        &self.spot_id
+impl EquityDependencies for CliquetOption {
+    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
+        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+            .spot(self.spot_id.as_str())
+            .vol_surface(self.vol_surface_id.as_str())
+            .build()
     }
 }
 
