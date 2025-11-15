@@ -98,6 +98,18 @@ macro_rules! define_metrics {
 
 define_metrics! {
 
+    /// Common Risk metrics
+    /// Time decay (theta) - 1D Day Time decay P&L
+    Theta => "theta",    
+    /// Dollar value of 01 (DV01)
+    Dv01 => "dv01",
+    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread (quote spreads only)
+    Cs01 => "cs01",
+    /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
+    BucketedDv01 => "bucketed_dv01",
+    /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
+    BucketedCs01 => "bucketed_cs01",
+
     // FX spot metrics
     /// Spot rate
     SpotRate => "spot_rate",
@@ -165,8 +177,6 @@ define_metrics! {
     Annuity => "annuity",
     /// Par swap rate
     ParRate => "par_rate",
-    /// Dollar value of 01 (DV01)
-    Dv01 => "dv01",
     /// Present value of 01 (PV01) - Alias for DV01 (credit market convention)
     Pv01 => "pv01",
     /// Present value of fixed leg
@@ -252,15 +262,7 @@ define_metrics! {
     /// Time to maturity as used in the variance swap conventions
     VarianceTimeToMaturity => "variance_time_to_maturity",
 
-    // Risk metrics
-    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread (quote spreads only)
-    Cs01 => "cs01",
-    /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
-    BucketedDv01 => "bucketed_dv01",
-    /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
-    BucketedCs01 => "bucketed_cs01",
-    /// Time decay (theta) - 1D Day Time decay P&L
-    Theta => "theta",
+    // Other Risk metrics
     /// Dividend yield sensitivity per basis point
     Dividend01 => "dividend01",
     /// Inflation curve sensitivity per basis point
