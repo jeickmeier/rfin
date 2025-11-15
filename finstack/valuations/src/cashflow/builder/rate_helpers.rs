@@ -166,14 +166,16 @@ mod tests {
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         MarketContext::new().insert_forward(fwd_curve)
     }
 
     #[test]
     fn test_project_floating_rate_no_floor_no_cap() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
         let market = create_test_market(reset);
 
         let rate = project_floating_rate(
@@ -186,7 +188,7 @@ mod tests {
             None,
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Should be ~3% index + 2% spread = ~5%
         assert!(rate > 0.04 && rate < 0.06, "Rate should be ~5%: {}", rate);
@@ -194,8 +196,10 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_with_floor() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
 
         // Create market with very low rates (below floor)
         let fwd_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
@@ -203,7 +207,7 @@ mod tests {
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.001), (1.0, 0.001), (5.0, 0.001)]) // 0.1% < 1% floor
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let rate = project_floating_rate(
@@ -216,7 +220,7 @@ mod tests {
             None,
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Floor lifts index to 1%, plus 1% spread = 2%
         assert!(
@@ -228,8 +232,10 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_with_cap() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
 
         // Create market with high rates
         let fwd_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
@@ -237,7 +243,7 @@ mod tests {
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.08), (1.0, 0.08), (5.0, 0.08)]) // 8% index
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let rate = project_floating_rate(
@@ -250,7 +256,7 @@ mod tests {
             Some(500.0), // 5% cap on all-in
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // 8% index + 2% spread = 10%, capped at 5%
         assert!(
@@ -262,8 +268,10 @@ mod tests {
 
     #[test]
     fn test_floor_applied_before_spread() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
 
         // Use very low rate (0.01% = 1 bp) which is below the floor
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
@@ -271,7 +279,7 @@ mod tests {
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.0001), (1.0, 0.0001)]) // 0.01% index (below 1% floor)
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let rate = project_floating_rate(
@@ -284,7 +292,7 @@ mod tests {
             None,
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Floor lifts index from 0.01% to 1%, then add 1% spread = 2%
         assert!(
@@ -296,15 +304,17 @@ mod tests {
 
     #[test]
     fn test_cap_applied_after_gearing() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
 
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
             .base_date(reset)
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.03), (1.0, 0.03)]) // 3% index
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let rate = project_floating_rate(
@@ -317,7 +327,7 @@ mod tests {
             Some(600.0), // 6% cap
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // (3% index + 1% spread) * 2 = 8%, capped at 6%
         assert!(
@@ -329,15 +339,17 @@ mod tests {
 
     #[test]
     fn test_gearing_multiplies_all_in_rate() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let period_end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
 
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
             .base_date(reset)
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.02), (1.0, 0.02)]) // 2% index
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let rate = project_floating_rate(
@@ -350,7 +362,7 @@ mod tests {
             None,
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // (2% + 1%) * 1.5 = 4.5%
         assert!(
@@ -362,7 +374,8 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_simple() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let market = create_test_market(reset);
 
         let rate = project_floating_rate_simple(
@@ -375,7 +388,7 @@ mod tests {
             None,
             &market,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Should project forward rate + spread
         assert!(

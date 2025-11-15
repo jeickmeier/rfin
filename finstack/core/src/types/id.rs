@@ -419,8 +419,10 @@ mod tests {
     #[test]
     fn serde_round_trip() {
         let id = Id::<User>::new("user123");
-        let json = serde_json::to_string(&id).unwrap();
-        let deserialized: Id<User> = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&id)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: Id<User> = serde_json::from_str(&json)
+            .expect("JSON deserialization should succeed in test");
 
         assert_eq!(id, deserialized);
     }

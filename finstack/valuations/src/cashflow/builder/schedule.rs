@@ -143,7 +143,7 @@ impl CashFlowSchedule {
     /// use finstack_valuations::cashflow::builder::Notional;
     /// use time::Month;
     ///
-    /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let notional = Notional { initial: Money::new(100.0, Currency::USD), amort: Default::default() };
     /// let flows = vec![
     ///   CashFlow { date: base, reset_date: None, amount: Money::new(10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0, rate: None },
@@ -163,10 +163,14 @@ impl CashFlowSchedule {
                 CFKind::Amortization => {
                     // Amortization amounts are stored as positive in the builder
                     // but economically represent principal reductions
-                    outstanding = outstanding.checked_sub(cf.amount).unwrap();
+                    outstanding = outstanding
+                        .checked_sub(cf.amount)
+                        .expect("Outstanding balance calculation should succeed");
                 }
                 CFKind::PIK => {
-                    outstanding = outstanding.checked_add(cf.amount).unwrap();
+                    outstanding = outstanding
+                        .checked_add(cf.amount)
+                        .expect("Outstanding balance calculation should succeed");
                 }
                 _ => {}
             }
@@ -218,7 +222,9 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
+                        outstanding = outstanding
+                            .checked_sub(self.flows[j].amount)
+                            .expect("Outstanding balance calculation should succeed");
                     }
                     CFKind::PIK => {
                         outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
@@ -255,14 +261,18 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
+                        outstanding = outstanding
+                            .checked_sub(self.flows[j].amount)
+                            .expect("Outstanding balance calculation should succeed");
                     }
                     CFKind::PIK => {
                         outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
                     }
                     CFKind::Notional => {
                         // Draws negative, repays positive -> subtract to apply sign
-                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
+                        outstanding = outstanding
+                            .checked_sub(self.flows[j].amount)
+                            .expect("Outstanding balance calculation should succeed");
                     }
                     _ => {}
                 }

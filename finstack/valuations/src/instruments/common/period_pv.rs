@@ -234,8 +234,10 @@ mod tests {
     use time::Month;
 
     fn create_test_bond() -> Bond {
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         Bond::fixed(
             "TEST-BOND",
@@ -253,7 +255,7 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         MarketContext::new().insert_discount(disc_curve)
     }
@@ -262,32 +264,42 @@ mod tests {
         vec![
             Period {
                 id: PeriodId::quarter(2025, 1),
-                start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-                end: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+                start: Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::April, 1)
+                    .expect("Valid test date"),
                 is_actual: true,
             },
             Period {
                 id: PeriodId::quarter(2025, 2),
-                start: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
-                end: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
+                start: Date::from_calendar_date(2025, Month::April, 1)
+                    .expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::July, 1)
+                    .expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2025, 3),
-                start: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
-                end: Date::from_calendar_date(2025, Month::October, 1).unwrap(),
+                start: Date::from_calendar_date(2025, Month::July, 1)
+                    .expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::October, 1)
+                    .expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2025, 4),
-                start: Date::from_calendar_date(2025, Month::October, 1).unwrap(),
-                end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                start: Date::from_calendar_date(2025, Month::October, 1)
+                    .expect("Valid test date"),
+                end: Date::from_calendar_date(2026, Month::January, 1)
+                    .expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2026, 1),
-                start: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
-                end: Date::from_calendar_date(2026, Month::April, 1).unwrap(),
+                start: Date::from_calendar_date(2026, Month::January, 1)
+                    .expect("Valid test date"),
+                end: Date::from_calendar_date(2026, Month::April, 1)
+                    .expect("Valid test date"),
                 is_actual: false,
             },
         ]
@@ -296,14 +308,15 @@ mod tests {
     #[test]
     fn test_periodized_pv_bond_fixed_matches_sum_npv() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let market = create_test_market(base);
         let periods = create_quarters_2025();
 
         // Compute periodized PV
         let pv_by_period = bond
             .periodized_pv(&periods, &market, base, DayCount::Act365F)
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         // Sum all period PVs
         let mut total_pv = 0.0;
@@ -323,7 +336,7 @@ mod tests {
             bond.discount_curve_id(),
             DayCount::Act365F,
         )
-        .unwrap();
+        .expect("Schedule PV calculation should succeed in test");
 
         // Sum of periodized PVs should match straight NPV (within rounding tolerance)
         let diff = (total_pv - straight_npv.amount()).abs();
@@ -341,8 +354,10 @@ mod tests {
         use finstack_core::dates::Frequency;
         use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         // Create FRN using the new floating constructor
         let frn = Bond::floating(
@@ -363,14 +378,14 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let fwd_curve = ForwardCurve::builder("USD-SOFR", 0.25) // 3M tenor
             .base_date(issue)
             .day_count(DayCount::Act365F)
             .knots([(0.0, 0.03), (1.0, 0.035)]) // 3-3.5% forward rates
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let market = MarketContext::new()
             .insert_discount(disc_curve)
@@ -381,7 +396,7 @@ mod tests {
         // Compute periodized PV
         let pv_by_period = frn
             .periodized_pv(&periods, &market, issue, DayCount::Act365F)
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         // Verify we got PVs for expected periods
         assert!(!pv_by_period.is_empty());
@@ -407,7 +422,7 @@ mod tests {
             frn.discount_curve_id(),
             DayCount::Act365F,
         )
-        .unwrap();
+        .expect("Schedule PV calculation should succeed in test");
 
         let diff = (total_pv - straight_npv.amount()).abs();
         assert!(
@@ -422,7 +437,8 @@ mod tests {
     #[test]
     fn test_periodized_pv_credit_adjusted_applies_hazard() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
 
         // Create market with discount and hazard curves
         let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -430,14 +446,14 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let hazard_curve = HazardCurve::builder("CORP-HAZARD")
             .base_date(base)
             .recovery_rate(0.40)
             .knots([(0.0, 0.0), (1.0, 0.01)]) // 1% hazard rate at 1 year
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let market = MarketContext::new()
             .insert_discount(disc_curve)
@@ -455,12 +471,12 @@ mod tests {
                 base,
                 DayCount::Act365F,
             )
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         // Compute without credit adjustment
         let pv_no_credit = bond
             .periodized_pv(&periods, &market, base, DayCount::Act365F)
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         // Sum both
         let mut total_with_credit = 0.0;
@@ -500,8 +516,10 @@ mod tests {
         use crate::instruments::InterestRateSwap;
         use finstack_core::types::InstrumentId;
 
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         // Create a simple IRS using constructor
         let irs = InterestRateSwap::new(
@@ -536,12 +554,13 @@ mod tests {
     #[test]
     fn test_periodized_pv_empty_periods_returns_empty() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let market = create_test_market(base);
 
         let pv_by_period = bond
             .periodized_pv(&[], &market, base, DayCount::Act365F)
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         assert!(pv_by_period.is_empty());
     }
@@ -551,13 +570,14 @@ mod tests {
         // This test would require a multi-currency instrument
         // For now, we verify that the USD bond only produces USD PVs
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let market = create_test_market(base);
         let periods = create_quarters_2025();
 
         let pv_by_period = bond
             .periodized_pv(&periods, &market, base, DayCount::Act365F)
-            .unwrap();
+            .expect("Periodized PV calculation should succeed in test");
 
         // All entries should be USD only
         for period_map in pv_by_period.values() {

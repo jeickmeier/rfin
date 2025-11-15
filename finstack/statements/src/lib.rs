@@ -1,3 +1,7 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+
 //! # Finstack Statements — Financial Statement Modeling Engine
 //!
 //! The `finstack-statements` crate enables users to build financial statement models
@@ -95,9 +99,6 @@
 //! - ✅ Corkscrew extension (balance sheet roll-forward validation)
 //! - ✅ Credit scorecard extension (rating assignment)
 //! - ✅ Results export to Polars DataFrames
-
-#![deny(unsafe_code)]
-#![warn(missing_docs)]
 
 pub mod analysis;
 pub mod builder;

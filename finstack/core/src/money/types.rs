@@ -250,7 +250,7 @@ impl Money {
     ///
     /// let lhs = Money::new(50.0, Currency::USD);
     /// let rhs = Money::new(25.0, Currency::USD);
-    /// let sum = lhs.checked_add(rhs).unwrap();
+    /// let sum = lhs.checked_add(rhs).expect("Currency match should succeed");
     /// assert_eq!(sum.amount(), 75.0);
     /// ```
     #[must_use = "returns new Money if currencies match"]
@@ -272,7 +272,7 @@ impl Money {
     ///
     /// let lhs = Money::new(50.0, Currency::USD);
     /// let rhs = Money::new(25.0, Currency::USD);
-    /// let diff = lhs.checked_sub(rhs).unwrap();
+    /// let diff = lhs.checked_sub(rhs).expect("Currency match should succeed");
     /// assert_eq!(diff.amount(), 25.0);
     /// ```
     #[must_use = "returns new Money if currencies match"]
@@ -315,13 +315,13 @@ impl Money {
     /// }
     ///
     /// let eur = Money::new(100.0, Currency::EUR);
-    /// let trade_date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+    /// let trade_date = Date::from_calendar_date(2024, Month::January, 2).expect("Valid date");
     /// let usd = eur.convert(
     ///     Currency::USD,
     ///     trade_date,
     ///     &StaticFx,
     ///     FxConversionPolicy::CashflowDate,
-    /// ).unwrap();
+    /// ).expect("Currency conversion should succeed");
     /// assert_eq!(usd.amount(), 120.0);
     /// assert_eq!(usd.currency(), Currency::USD);
     /// ```
@@ -474,14 +474,16 @@ macro_rules! money {
 
 impl AddAssign for Money {
     fn add_assign(&mut self, rhs: Self) {
-        ensure_same_currency(self, &rhs).unwrap();
+        ensure_same_currency(self, &rhs)
+            .expect("Currency mismatch in AddAssign - currencies must match");
         self.amount = repr_add(self.amount, rhs.amount);
     }
 }
 
 impl SubAssign for Money {
     fn sub_assign(&mut self, rhs: Self) {
-        ensure_same_currency(self, &rhs).unwrap();
+        ensure_same_currency(self, &rhs)
+            .expect("Currency mismatch in SubAssign - currencies must match");
         self.amount = repr_sub(self.amount, rhs.amount);
     }
 }
@@ -528,7 +530,7 @@ mod tests {
     fn checked_ops() {
         let a = Money::new(50.0, Currency::USD);
         let b = Money::new(25.0, Currency::USD);
-        let c = (a + b).unwrap();
+        let c = (a + b).expect("Currency match should succeed in test");
         assert_eq!(c.amount(), 75.0);
     }
 

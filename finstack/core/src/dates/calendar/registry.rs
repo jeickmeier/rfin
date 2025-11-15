@@ -57,7 +57,7 @@ impl CalendarRegistry<'_> {
     /// let regs = CalendarRegistry::global();
     /// let mut buf = Vec::new();
     /// let composite = regs.resolve_many(&ids, CompositeMode::Union, &mut buf);
-    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date"));
     /// ```
     #[inline]
     pub fn resolve_many<'s>(
@@ -93,7 +93,7 @@ impl CalendarRegistry<'_> {
     /// let regs = CalendarRegistry::global();
     /// let v = regs.resolve_many_vec(&ids);
     /// let composite = CompositeCalendar::with_mode(&v[..], CompositeMode::Union);
-    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date"));
     /// ```
     #[inline]
     pub fn resolve_many_vec(&self, ids: &[CalendarId]) -> Vec<&'static dyn HolidayCalendar> {
@@ -132,11 +132,13 @@ mod tests {
         let composite = CompositeCalendar::with_mode(&v[..], CompositeMode::Union);
 
         // Jan 1 is a holiday for both; union should be holiday.
-        let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let d1 = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         assert!(composite.is_holiday(d1));
 
         // Date that is holiday in GBLO but not necessarily in Target2 (e.g., 26-May-2025)
-        let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
+        let d2 = Date::from_calendar_date(2025, Month::May, 26)
+            .expect("Valid test date");
         assert!(GBLO.is_holiday(d2));
         assert!(composite.is_holiday(d2));
     }

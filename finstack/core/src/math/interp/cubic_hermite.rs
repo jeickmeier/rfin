@@ -109,27 +109,35 @@ impl InterpFn for CubicHermite {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            return match self.extrapolation_policy {
-                ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
-                ExtrapolationPolicy::FlatForward => {
-                    // Flat-forward: extend using the slope from the last knot
-                    let n = self.knots.len();
-                    let x_last = self.knots[n - 1];
-                    let slope = self.ms[n - 1];
-                    let dx = x - x_last;
-                    self.dfs[n - 1] + slope * dx
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                return match self.extrapolation_policy {
+                    ExtrapolationPolicy::FlatZero => {
+                        *self.dfs.last().expect("dfs should not be empty")
+                    }
+                    ExtrapolationPolicy::FlatForward => {
+                        // Flat-forward: extend using the slope from the last knot
+                        let n = self.knots.len();
+                        let x_last = self.knots[n - 1];
+                        let slope = self.ms[n - 1];
+                        let dx = x - x_last;
+                        self.dfs[n - 1] + slope * dx
+                    }
+                };
+            }
         }
 
         // Fast-path: exact knot value → short-circuit.
-        if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        if let Ok(idx) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        }) {
             return self.dfs[idx];
         }
 
         // Interior interpolation using cubic Hermite
-        let i = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let i = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[i];
         let x1 = self.knots[i + 1];
         let h = x1 - x0;
@@ -162,19 +170,25 @@ impl InterpFn for CubicHermite {
                 ExtrapolationPolicy::FlatForward => self.ms[0],
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            return match self.extrapolation_policy {
-                ExtrapolationPolicy::FlatZero => 0.0,
-                ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                return match self.extrapolation_policy {
+                    ExtrapolationPolicy::FlatZero => 0.0,
+                    ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
+                };
+            }
         }
 
         // For exact knot values, return the precomputed slope
-        if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        if let Ok(idx) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        }) {
             return self.ms[idx];
         }
 
-        let i = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let i = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[i];
         let x1 = self.knots[i + 1];
         let h = x1 - x0;

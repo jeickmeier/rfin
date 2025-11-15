@@ -64,11 +64,11 @@ use time::{Date, Duration, Month};
 ///
 /// // Easter Monday 2025 falls on April 21
 /// let em_2025 = easter_monday(2025);
-/// # assert_eq!(em_2025, Date::from_calendar_date(2025, Month::April, 21).unwrap());
+/// # assert_eq!(em_2025, Date::from_calendar_date(2025, Month::April, 21).expect("Valid date"));
 ///
 /// // Easter Monday 2024 fell on April 1
 /// let em_2024 = easter_monday(2024);
-/// # assert_eq!(em_2024, Date::from_calendar_date(2024, Month::April, 1).unwrap());
+/// # assert_eq!(em_2024, Date::from_calendar_date(2024, Month::April, 1).expect("Valid date"));
 /// ```
 #[inline]
 pub(crate) fn easter_monday(year: i32) -> Date {
@@ -130,11 +130,11 @@ include!("../../generated/cny_generated.rs");
 /// use time::{Date, Month};
 ///
 /// // Chinese New Year 2025 is January 29
-/// let cny_2025 = Date::from_calendar_date(2025, Month::January, 29).unwrap();
+/// let cny_2025 = Date::from_calendar_date(2025, Month::January, 29).expect("Valid date");
 /// # assert!(is_cny(cny_2025));
 ///
 /// // January 28, 2025 is not CNY
-/// let not_cny = Date::from_calendar_date(2025, Month::January, 28).unwrap();
+/// let not_cny = Date::from_calendar_date(2025, Month::January, 28).expect("Valid date");
 /// # assert!(!is_cny(not_cny));
 /// ```
 ///
@@ -172,12 +172,12 @@ pub(crate) fn is_cny(date: Date) -> bool {
 /// use time::{Date, Month};
 ///
 /// // Chinese New Year 2025
-/// let cny_2025 = cny_date(2025).unwrap();
-/// # assert_eq!(cny_2025, Date::from_calendar_date(2025, Month::January, 29).unwrap());
+/// let cny_2025 = cny_date(2025).expect("CNY date should exist for 2025");
+/// # assert_eq!(cny_2025, Date::from_calendar_date(2025, Month::January, 29).expect("Valid date"));
 ///
 /// // Chinese New Year 2026
-/// let cny_2026 = cny_date(2026).unwrap();
-/// # assert_eq!(cny_2026, Date::from_calendar_date(2026, Month::February, 17).unwrap());
+/// let cny_2026 = cny_date(2026).expect("CNY date should exist for 2026");
+/// # assert_eq!(cny_2026, Date::from_calendar_date(2026, Month::February, 17).expect("Valid date"));
 ///
 /// // Outside supported range returns None
 /// let cny_1900 = cny_date(1900);

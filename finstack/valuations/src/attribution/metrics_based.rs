@@ -417,14 +417,20 @@ mod tests {
 
         // Verify values
         assert_eq!(
-            *val.measures.get(MetricId::Convexity.as_str()).unwrap(),
+            *val.measures.get(MetricId::Convexity.as_str())
+                .expect("Convexity metric should exist"),
             200.0
         );
         assert_eq!(
-            *val.measures.get(MetricId::IrConvexity.as_str()).unwrap(),
+            *val.measures.get(MetricId::IrConvexity.as_str())
+                .expect("IR Convexity metric should exist"),
             180.0
         );
-        assert_eq!(*val.measures.get(MetricId::CsGamma.as_str()).unwrap(), 5.0);
+        assert_eq!(
+            *val.measures.get(MetricId::CsGamma.as_str())
+                .expect("CS Gamma metric should exist"),
+            5.0
+        );
     }
 
     #[test]

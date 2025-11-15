@@ -131,12 +131,14 @@ mod tests {
         let cal_inter = CompositeCalendar::with_mode(&calendars, CompositeMode::Intersection);
 
         // Date that is holiday in both calendars (New Year's Day)
-        let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let d1 = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         assert!(cal_union.is_holiday(d1));
         assert!(cal_inter.is_holiday(d1));
 
         // Date that is holiday only in GBLO (Spring bank holiday 26-May-2025)
-        let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
+        let d2 = Date::from_calendar_date(2025, Month::May, 26)
+            .expect("Valid test date");
         assert!(GBLO.is_holiday(d2));
         assert!(!TARGET2.is_holiday(d2));
 
@@ -153,8 +155,10 @@ mod tests {
         let modes = vec![CompositeMode::Union, CompositeMode::Intersection];
 
         for mode in modes {
-            let json = serde_json::to_string(&mode).unwrap();
-            let deserialized: CompositeMode = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&mode)
+                .expect("JSON serialization should succeed in test");
+            let deserialized: CompositeMode = serde_json::from_str(&json)
+                .expect("JSON deserialization should succeed in test");
             assert_eq!(mode, deserialized);
         }
     }

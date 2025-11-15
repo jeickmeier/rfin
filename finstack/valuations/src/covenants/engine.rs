@@ -799,7 +799,12 @@ mod tests {
     }
 
     fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn metric_context(instrument: &TestInstrument, as_of: Date) -> MetricContext {
@@ -850,7 +855,9 @@ mod tests {
         ctx.computed
             .insert(MetricId::custom("interest_coverage"), 1.0);
 
-        let reports = engine.evaluate(&mut ctx, test_date).unwrap();
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("Covenant evaluation should succeed in test");
 
         let leverage = reports
             .get("Total Leverage <= 5.00x")
@@ -1032,7 +1039,7 @@ mod tests {
                 &[actionable_breach, cured_breach, in_cure_breach],
                 as_of,
             )
-            .unwrap();
+            .expect("Consequence application should succeed in test");
 
         assert_eq!(applications.len(), 6);
         assert!(instrument.defaulted);

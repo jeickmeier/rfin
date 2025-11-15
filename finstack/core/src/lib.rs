@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
 
 //! Financial primitives & date utilities for the **Finstack** ecosystem.
 //!

@@ -47,10 +47,10 @@
 //!
 //! // Private equity investment example
 //! let cashflows = vec![
-//!     (Date::from_calendar_date(2023, Month::January, 15).unwrap(), -100_000.0), // Initial
-//!     (Date::from_calendar_date(2023, Month::June, 30).unwrap(), -50_000.0),     // Follow-on
-//!     (Date::from_calendar_date(2024, Month::March, 15).unwrap(), 75_000.0),     // Partial exit
-//!     (Date::from_calendar_date(2024, Month::December, 31).unwrap(), 95_000.0),  // Final exit
+//!     (Date::from_calendar_date(2023, Month::January, 15).expect("Valid date"), -100_000.0), // Initial
+//!     (Date::from_calendar_date(2023, Month::June, 30).expect("Valid date"), -50_000.0),     // Follow-on
+//!     (Date::from_calendar_date(2024, Month::March, 15).expect("Valid date"), 75_000.0),     // Partial exit
+//!     (Date::from_calendar_date(2024, Month::December, 31).expect("Valid date"), 95_000.0),  // Final exit
 //! ];
 //!
 //! let return_rate = xirr(&cashflows, None)?;
@@ -114,10 +114,10 @@ use crate::math::solver::{HybridSolver, Solver};
 /// use time::Month;
 ///
 /// let cashflows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -10_000.0),
-///     (Date::from_calendar_date(2024, Month::April, 15).unwrap(), -5_000.0),
-///     (Date::from_calendar_date(2024, Month::October, 1).unwrap(), -3_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 19_500.0),
+///     (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), -10_000.0),
+///     (Date::from_calendar_date(2024, Month::April, 15).expect("Valid date"), -5_000.0),
+///     (Date::from_calendar_date(2024, Month::October, 1).expect("Valid date"), -3_000.0),
+///     (Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"), 19_500.0),
 /// ];
 ///
 /// let annual_return = xirr(&cashflows, None)?;
@@ -134,10 +134,10 @@ use crate::math::solver::{HybridSolver, Solver};
 ///
 /// // Capital calls and distributions
 /// let pe_cashflows = vec![
-///     (Date::from_calendar_date(2020, Month::March, 1).unwrap(), -1_000_000.0),  // Call 1
-///     (Date::from_calendar_date(2020, Month::September, 1).unwrap(), -500_000.0), // Call 2
-///     (Date::from_calendar_date(2022, Month::June, 15).unwrap(), 750_000.0),      // Dist 1
-///     (Date::from_calendar_date(2024, Month::December, 31).unwrap(), 1_200_000.0), // Exit
+///     (Date::from_calendar_date(2020, Month::March, 1).expect("Valid date"), -1_000_000.0),  // Call 1
+///     (Date::from_calendar_date(2020, Month::September, 1).expect("Valid date"), -500_000.0), // Call 2
+///     (Date::from_calendar_date(2022, Month::June, 15).expect("Valid date"), 750_000.0),      // Dist 1
+///     (Date::from_calendar_date(2024, Month::December, 31).expect("Valid date"), 1_200_000.0), // Exit
 /// ];
 ///
 /// let fund_irr = xirr(&pe_cashflows, None)?;
@@ -262,16 +262,19 @@ mod tests {
     fn test_xirr_basic() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 1)
+                    .expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).unwrap();
+        let result = xirr(&flows, None)
+            .expect("XIRR calculation should succeed in test");
         assert!((result - 0.1).abs() < 0.001); // Should be approximately 10%
     }
 
@@ -279,20 +282,24 @@ mod tests {
     fn test_xirr_multiple_flows() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 1)
+                    .expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::July, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::July, 1)
+                    .expect("Valid test date"),
                 5_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).unwrap();
+        let result = xirr(&flows, None)
+            .expect("XIRR calculation should succeed in test");
         assert!(result > 0.1 && result < 0.2); // Should be between 10% and 20%
     }
 
@@ -301,19 +308,23 @@ mod tests {
         // Same cashflows, different order; result should be equivalent
         let sorted = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 1)
+                    .expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 110_000.0,
             ),
         ];
         let mut unsorted = sorted.clone();
         unsorted.reverse();
 
-        let r1 = xirr(&sorted, None).unwrap();
-        let r2 = xirr(&unsorted, None).unwrap();
+        let r1 = xirr(&sorted, None)
+            .expect("XIRR calculation should succeed in test");
+        let r2 = xirr(&unsorted, None)
+            .expect("XIRR calculation should succeed in test");
         assert!((r1 - r2).abs() < 1e-8);
     }
 
@@ -321,16 +332,19 @@ mod tests {
     fn test_xirr_negative_return() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 1)
+                    .expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 90_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).unwrap();
+        let result = xirr(&flows, None)
+            .expect("XIRR calculation should succeed in test");
         assert!((result + 0.1).abs() < 0.001); // Should be approximately -10%
     }
 
@@ -338,11 +352,13 @@ mod tests {
     fn test_xirr_no_sign_change() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2024, Month::January, 1)
+                    .expect("Valid test date"),
                 100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 110_000.0,
             ),
         ];
@@ -354,7 +370,8 @@ mod tests {
     #[test]
     fn test_xirr_too_few_flows() {
         let flows = vec![(
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2024, Month::January, 1)
+                .expect("Valid test date"),
             -100_000.0,
         )];
 
@@ -367,34 +384,40 @@ mod tests {
         // More realistic example with irregular payments
         let flows = vec![
             (
-                Date::from_calendar_date(2023, Month::January, 15).unwrap(),
+                Date::from_calendar_date(2023, Month::January, 15)
+                    .expect("Valid test date"),
                 -50_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::March, 31).unwrap(),
+                Date::from_calendar_date(2023, Month::March, 31)
+                    .expect("Valid test date"),
                 -30_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::June, 15).unwrap(),
+                Date::from_calendar_date(2023, Month::June, 15)
+                    .expect("Valid test date"),
                 10_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::September, 30).unwrap(),
+                Date::from_calendar_date(2023, Month::September, 30)
+                    .expect("Valid test date"),
                 15_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::December, 31).unwrap(),
+                Date::from_calendar_date(2023, Month::December, 31)
+                    .expect("Valid test date"),
                 20_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::June, 15).unwrap(),
+                Date::from_calendar_date(2024, Month::June, 15)
+                    .expect("Valid test date"),
                 45_000.0,
             ),
         ];
 
         let result = xirr(&flows, None);
         assert!(result.is_ok());
-        let irr = result.unwrap();
+        let irr = result.expect("XIRR calculation should succeed in test");
 
         // Verify NPV is approximately zero at the calculated rate
         let npv = compute_npv(&flows, irr);

@@ -500,8 +500,18 @@ mod tests {
         path.add_point(point2);
 
         assert_eq!(path.num_steps(), 2);
-        assert_eq!(path.initial_point().unwrap().spot(), Some(100.0));
-        assert_eq!(path.terminal_point().unwrap().spot(), Some(102.0));
+        assert_eq!(
+            path.initial_point()
+                .expect("Path should have initial point")
+                .spot(),
+            Some(100.0)
+        );
+        assert_eq!(
+            path.terminal_point()
+                .expect("Path should have terminal point")
+                .spot(),
+            Some(102.0)
+        );
 
         path.set_final_value(5.0);
         assert_eq!(path.final_value, 5.0);

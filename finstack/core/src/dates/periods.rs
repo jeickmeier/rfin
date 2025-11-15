@@ -164,11 +164,11 @@ impl PeriodId {
     /// use finstack_core::dates::PeriodId;
     ///
     /// let q1 = PeriodId::quarter(2025, 1);
-    /// let q2 = q1.next().unwrap();
+    /// let q2 = q1.next().expect("Next period should exist");
     /// assert_eq!(q2, PeriodId::quarter(2025, 2));
     ///
     /// let q4 = PeriodId::quarter(2025, 4);
-    /// let next_q1 = q4.next().unwrap();
+    /// let next_q1 = q4.next().expect("Next period should exist");
     /// assert_eq!(next_q1, PeriodId::quarter(2026, 1));
     /// ```
     pub fn next(self) -> crate::Result<Self> {
@@ -182,11 +182,11 @@ impl PeriodId {
     /// use finstack_core::dates::PeriodId;
     ///
     /// let q2 = PeriodId::quarter(2025, 2);
-    /// let q1 = q2.prev().unwrap();
+    /// let q1 = q2.prev().expect("Previous period should exist");
     /// assert_eq!(q1, PeriodId::quarter(2025, 1));
     ///
     /// let q1 = PeriodId::quarter(2025, 1);
-    /// let prev_q4 = q1.prev().unwrap();
+    /// let prev_q4 = q1.prev().expect("Previous period should exist");
     /// assert_eq!(prev_q4, PeriodId::quarter(2024, 4));
     /// ```
     pub fn prev(self) -> crate::Result<Self> {
@@ -414,9 +414,11 @@ fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
         3 => (Month::July, Month::October),
         _ => (Month::October, Month::January),
     };
-    let start = Date::from_calendar_date(year, sm, 1).unwrap();
+    let start = Date::from_calendar_date(year, sm, 1)
+        .expect("Quarter start date should be valid");
     let end_year = if q == 4 { year + 1 } else { year };
-    let end = Date::from_calendar_date(end_year, em, 1).unwrap();
+    let end = Date::from_calendar_date(end_year, em, 1)
+        .expect("Quarter end date should be valid");
     (start, end)
 }
 
@@ -444,7 +446,8 @@ fn month_bounds(year: i32, m: u8) -> (Date, Date) {
 /// which day of the week that falls on.
 fn week_bounds(year: i32, w: u8) -> (Date, Date) {
     use time::Duration;
-    let start_of_year = Date::from_calendar_date(year, Month::January, 1).unwrap();
+    let start_of_year = Date::from_calendar_date(year, Month::January, 1)
+        .expect("January 1 should always be valid");
     let start = start_of_year + Duration::days(((w - 1) as i64) * 7);
     let end = start + Duration::days(7);
     (start, end)
@@ -453,20 +456,26 @@ fn week_bounds(year: i32, w: u8) -> (Date, Date) {
 fn half_bounds(year: i32, h: u8) -> (Date, Date) {
     match h {
         1 => (
-            Date::from_calendar_date(year, Month::January, 1).unwrap(),
-            Date::from_calendar_date(year, Month::July, 1).unwrap(),
+            Date::from_calendar_date(year, Month::January, 1)
+                .expect("January 1 should always be valid"),
+            Date::from_calendar_date(year, Month::July, 1)
+                .expect("July 1 should always be valid"),
         ),
         _ => (
-            Date::from_calendar_date(year, Month::July, 1).unwrap(),
-            Date::from_calendar_date(year + 1, Month::January, 1).unwrap(),
+            Date::from_calendar_date(year, Month::July, 1)
+                .expect("July 1 should always be valid"),
+            Date::from_calendar_date(year + 1, Month::January, 1)
+                .expect("January 1 should always be valid"),
         ),
     }
 }
 
 fn annual_bounds(year: i32) -> (Date, Date) {
     (
-        Date::from_calendar_date(year, Month::January, 1).unwrap(),
-        Date::from_calendar_date(year + 1, Month::January, 1).unwrap(),
+        Date::from_calendar_date(year, Month::January, 1)
+            .expect("January 1 should always be valid"),
+        Date::from_calendar_date(year + 1, Month::January, 1)
+            .expect("January 1 should always be valid"),
     )
 }
 
@@ -552,7 +561,8 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     Date::from_calendar_date(calendar_year, month, config.start_day).unwrap_or_else(|_| {
         // If the day doesn't exist (e.g., Feb 30), use the last day of the month
         let last_day = days_in_month(calendar_year, config.start_month);
-        Date::from_calendar_date(calendar_year, month, last_day).unwrap()
+        Date::from_calendar_date(calendar_year, month, last_day)
+            .expect("Last day of month should be valid")
     })
 }
 
@@ -896,60 +906,72 @@ mod tests {
     use super::*;
     #[test]
     fn parse_and_enumerate_quarters() {
-        let plan = build_periods("2025Q1..Q3", Some("2025Q2")).unwrap();
+        let plan = build_periods("2025Q1..Q3", Some("2025Q2"))
+            .expect("Period parsing should succeed in test");
         assert_eq!(plan.periods.len(), 3);
         assert!(plan.periods[0].is_actual);
         assert!(plan.periods[1].is_actual);
         assert!(!plan.periods[2].is_actual);
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[2].end,
-            Date::from_calendar_date(2025, Month::October, 1).unwrap()
+            Date::from_calendar_date(2025, Month::October, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn parse_and_enumerate_months_across_year() {
-        let plan = build_periods("2024M11..2025M02", None).unwrap();
+        let plan = build_periods("2024M11..2025M02", None)
+            .expect("Period parsing should succeed in test");
         assert_eq!(plan.periods.len(), 4);
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2024, Month::November, 1).unwrap()
+            Date::from_calendar_date(2024, Month::November, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[3].end,
-            Date::from_calendar_date(2025, Month::March, 1).unwrap()
+            Date::from_calendar_date(2025, Month::March, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn parse_and_enumerate_weekly() {
-        let plan = build_periods("2025W01..W04", None).unwrap();
+        let plan = build_periods("2025W01..W04", None)
+            .expect("Period parsing should succeed in test");
         assert_eq!(plan.periods.len(), 4);
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn parse_and_enumerate_half_and_annual() {
-        let h = build_periods("2025H1..H2", Some("2025H1")).unwrap();
+        let h = build_periods("2025H1..H2", Some("2025H1"))
+            .expect("Period parsing should succeed in test");
         assert_eq!(h.periods.len(), 2);
         assert!(h.periods[0].is_actual);
         assert!(!h.periods[1].is_actual);
-        let y = build_periods("2024..2026", None).unwrap();
+        let y = build_periods("2024..2026", None)
+            .expect("Period parsing should succeed in test");
         assert_eq!(y.periods.len(), 3);
         assert_eq!(
             y.periods[0].start,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap()
+            Date::from_calendar_date(2024, Month::January, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             y.periods[2].end,
-            Date::from_calendar_date(2027, Month::January, 1).unwrap()
+            Date::from_calendar_date(2027, Month::January, 1)
+                .expect("Valid test date")
         );
     }
 
@@ -957,7 +979,8 @@ mod tests {
     fn test_fiscal_quarters_us_federal() {
         // US Federal fiscal year starts October 1
         let config = FiscalConfig::us_federal();
-        let plan = build_fiscal_periods("2025Q1..Q4", config, Some("2025Q2")).unwrap();
+        let plan = build_fiscal_periods("2025Q1..Q4", config, Some("2025Q2"))
+            .expect("Fiscal period parsing should succeed in test");
 
         assert_eq!(plan.periods.len(), 4);
         assert!(plan.periods[0].is_actual);
@@ -968,27 +991,32 @@ mod tests {
         // FY2025Q1 starts October 1, 2024
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2024, Month::October, 1).unwrap()
+            Date::from_calendar_date(2024, Month::October, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[0].end,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
 
         // FY2025Q2 is January-March 2025
         assert_eq!(
             plan.periods[1].start,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[1].end,
-            Date::from_calendar_date(2025, Month::April, 1).unwrap()
+            Date::from_calendar_date(2025, Month::April, 1)
+                .expect("Valid test date")
         );
 
         // FY2025Q4 ends September 30, 2025 (October 1, 2025)
         assert_eq!(
             plan.periods[3].end,
-            Date::from_calendar_date(2025, Month::October, 1).unwrap()
+            Date::from_calendar_date(2025, Month::October, 1)
+                .expect("Valid test date")
         );
     }
 
@@ -996,71 +1024,84 @@ mod tests {
     fn test_fiscal_annual_japan() {
         // Japanese fiscal year starts April 1
         let config = FiscalConfig::japan();
-        let plan = build_fiscal_periods("2025..2026", config, None).unwrap();
+        let plan = build_fiscal_periods("2025..2026", config, None)
+            .expect("Fiscal period parsing should succeed in test");
 
         assert_eq!(plan.periods.len(), 2);
 
         // FY2025 starts April 1, 2024
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2024, Month::April, 1).unwrap()
+            Date::from_calendar_date(2024, Month::April, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[0].end,
-            Date::from_calendar_date(2025, Month::April, 1).unwrap()
+            Date::from_calendar_date(2025, Month::April, 1)
+                .expect("Valid test date")
         );
 
         // FY2026 starts April 1, 2025
         assert_eq!(
             plan.periods[1].start,
-            Date::from_calendar_date(2025, Month::April, 1).unwrap()
+            Date::from_calendar_date(2025, Month::April, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[1].end,
-            Date::from_calendar_date(2026, Month::April, 1).unwrap()
+            Date::from_calendar_date(2026, Month::April, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn test_fiscal_config_custom() {
         // Custom fiscal year starting July 1
-        let config = FiscalConfig::new(7, 1).unwrap();
-        let plan = build_fiscal_periods("2025H1..H2", config, None).unwrap();
+        let config = FiscalConfig::new(7, 1)
+            .expect("FiscalConfig creation should succeed in test");
+        let plan = build_fiscal_periods("2025H1..H2", config, None)
+            .expect("Fiscal period parsing should succeed in test");
 
         assert_eq!(plan.periods.len(), 2);
 
         // FY2025H1 is July-December 2024
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2024, Month::July, 1).unwrap()
+            Date::from_calendar_date(2024, Month::July, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[0].end,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
 
         // FY2025H2 is January-June 2025
         assert_eq!(
             plan.periods[1].start,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[1].end,
-            Date::from_calendar_date(2025, Month::July, 1).unwrap()
+            Date::from_calendar_date(2025, Month::July, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn test_fiscal_months() {
         let config = FiscalConfig::uk(); // April 6
-        let plan = build_fiscal_periods("2025M01..M03", config, None).unwrap();
+        let plan = build_fiscal_periods("2025M01..M03", config, None)
+            .expect("Fiscal period parsing should succeed in test");
 
         assert_eq!(plan.periods.len(), 3);
 
         // FY2025M01 starts April 6, 2024
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2024, Month::April, 6).unwrap()
+            Date::from_calendar_date(2024, Month::April, 6)
+                .expect("Valid test date")
         );
 
         // Months should be consecutive
@@ -1070,7 +1111,8 @@ mod tests {
 
     #[test]
     fn inverted_range_errors() {
-        let err = build_periods("2025Q3..Q2", None).unwrap_err();
+        let err = build_periods("2025Q3..Q2", None)
+            .expect_err("Inverted range should produce an error");
         match err {
             crate::error::Error::Input(crate::error::InputError::InvalidDateRange) => {}
             other => panic!("expected InvalidDateRange, got {:?}", other),
@@ -1079,21 +1121,25 @@ mod tests {
 
     #[test]
     fn parse_lowercase_relative_quarters() {
-        let plan = build_periods("2025q1..q2", None).unwrap();
+        let plan = build_periods("2025q1..q2", None)
+            .expect("Period parsing should succeed in test");
         assert_eq!(plan.periods.len(), 2);
         assert_eq!(
             plan.periods[0].start,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         );
         assert_eq!(
             plan.periods[1].end,
-            Date::from_calendar_date(2025, Month::July, 1).unwrap()
+            Date::from_calendar_date(2025, Month::July, 1)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn invalid_relative_index_is_error() {
-        let err = build_periods("2025Q1..Q5", None).unwrap_err();
+        let err = build_periods("2025Q1..Q5", None)
+            .expect_err("Invalid relative index should produce an error");
         match err {
             crate::error::Error::Input(crate::error::InputError::Invalid) => {}
             other => panic!("expected Invalid, got {:?}", other),
@@ -1104,13 +1150,15 @@ mod tests {
     fn period_id_roundtrip_display_parse() {
         let id = PeriodId::month(2025, 3);
         let s = id.to_string();
-        let parsed: PeriodId = s.parse().unwrap();
+        let parsed: PeriodId = s.parse()
+            .expect("PeriodId parsing should succeed in test");
         assert_eq!(parsed, id);
     }
 
     #[test]
     fn contiguity_quarters() {
-        let plan = build_periods("2025Q1..Q4", None).unwrap();
+        let plan = build_periods("2025Q1..Q4", None)
+            .expect("Period parsing should succeed in test");
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1118,7 +1166,8 @@ mod tests {
 
     #[test]
     fn contiguity_months() {
-        let plan = build_periods("2025M01..M06", None).unwrap();
+        let plan = build_periods("2025M01..M06", None)
+            .expect("Period parsing should succeed in test");
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1126,7 +1175,8 @@ mod tests {
 
     #[test]
     fn contiguity_weeks() {
-        let plan = build_periods("2025W01..W10", None).unwrap();
+        let plan = build_periods("2025W01..W10", None)
+            .expect("Period parsing should succeed in test");
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1134,11 +1184,13 @@ mod tests {
 
     #[test]
     fn contiguity_halves_and_annual() {
-        let halves = build_periods("2025H1..H2", None).unwrap();
+        let halves = build_periods("2025H1..H2", None)
+            .expect("Period parsing should succeed in test");
         for w in halves.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
-        let annual = build_periods("2024..2026", None).unwrap();
+        let annual = build_periods("2024..2026", None)
+            .expect("Period parsing should succeed in test");
         for w in annual.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1146,7 +1198,8 @@ mod tests {
 
     #[test]
     fn contiguity_fiscal_quarters_us_federal() {
-        let plan = build_fiscal_periods("2025Q1..Q4", FiscalConfig::us_federal(), None).unwrap();
+        let plan = build_fiscal_periods("2025Q1..Q4", FiscalConfig::us_federal(), None)
+            .expect("Fiscal period parsing should succeed in test");
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1154,7 +1207,8 @@ mod tests {
 
     #[test]
     fn contiguity_fiscal_months_uk() {
-        let plan = build_fiscal_periods("2025M01..M06", FiscalConfig::uk(), None).unwrap();
+        let plan = build_fiscal_periods("2025M01..M06", FiscalConfig::uk(), None)
+            .expect("Fiscal period parsing should succeed in test");
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
@@ -1165,31 +1219,36 @@ mod tests {
         // Quarters
         for q in 1..=4u8 {
             let id = PeriodId::quarter(2025, q);
-            let parsed: PeriodId = id.to_string().parse().unwrap();
+            let parsed: PeriodId = id.to_string().parse()
+                .expect("PeriodId parsing should succeed in test");
             assert_eq!(parsed, id);
         }
         // Months
         for m in 1..=12u8 {
             let id = PeriodId::month(2025, m);
-            let parsed: PeriodId = id.to_string().parse().unwrap();
+            let parsed: PeriodId = id.to_string().parse()
+                .expect("PeriodId parsing should succeed in test");
             assert_eq!(parsed, id);
         }
         // Weeks
         for w in 1..=3u8 {
             // keep small to avoid long runs
             let id = PeriodId::week(2025, w);
-            let parsed: PeriodId = id.to_string().parse().unwrap();
+            let parsed: PeriodId = id.to_string().parse()
+                .expect("PeriodId parsing should succeed in test");
             assert_eq!(parsed, id);
         }
         // Halves
         for h in 1..=2u8 {
             let id = PeriodId::half(2025, h);
-            let parsed: PeriodId = id.to_string().parse().unwrap();
+            let parsed: PeriodId = id.to_string().parse()
+                .expect("PeriodId parsing should succeed in test");
             assert_eq!(parsed, id);
         }
         // Annual
         let id = PeriodId::annual(2025);
-        let parsed: PeriodId = id.to_string().parse().unwrap();
+        let parsed: PeriodId = id.to_string().parse()
+            .expect("PeriodId parsing should succeed in test");
         assert_eq!(parsed, id);
     }
 
@@ -1200,32 +1259,43 @@ mod tests {
 
         // Test PeriodId serialization
         let period_id = PeriodId::quarter(2025, 2);
-        let json = serde_json::to_string(&period_id).unwrap();
-        let deserialized: PeriodId = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&period_id)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: PeriodId = serde_json::from_str(&json)
+            .expect("JSON deserialization should succeed in test");
         assert_eq!(period_id, deserialized);
 
         // Test FiscalConfig serialization
         let fiscal_config = FiscalConfig::us_federal();
-        let json = serde_json::to_string(&fiscal_config).unwrap();
-        let deserialized: FiscalConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&fiscal_config)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: FiscalConfig = serde_json::from_str(&json)
+            .expect("JSON deserialization should succeed in test");
         assert_eq!(fiscal_config.start_month, deserialized.start_month);
         assert_eq!(fiscal_config.start_day, deserialized.start_day);
 
         // Test Period serialization
         let period = Period {
             id: PeriodId::month(2025, 3),
-            start: Date::from_calendar_date(2025, Month::March, 1).unwrap(),
-            end: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+            start: Date::from_calendar_date(2025, Month::March, 1)
+                .expect("Valid test date"),
+            end: Date::from_calendar_date(2025, Month::April, 1)
+                .expect("Valid test date"),
             is_actual: true,
         };
-        let json = serde_json::to_string(&period).unwrap();
-        let deserialized: Period = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&period)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: Period = serde_json::from_str(&json)
+            .expect("JSON deserialization should succeed in test");
         assert_eq!(period, deserialized);
 
         // Test PeriodPlan serialization
-        let plan = build_periods("2025Q1..Q2", Some("2025Q1")).unwrap();
-        let json = serde_json::to_string(&plan).unwrap();
-        let deserialized: PeriodPlan = serde_json::from_str(&json).unwrap();
+        let plan = build_periods("2025Q1..Q2", Some("2025Q1"))
+            .expect("Period parsing should succeed in test");
+        let json = serde_json::to_string(&plan)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: PeriodPlan = serde_json::from_str(&json)
+            .expect("JSON deserialization should succeed in test");
         assert_eq!(plan.periods.len(), deserialized.periods.len());
         for (original, deserialized) in plan.periods.iter().zip(deserialized.periods.iter()) {
             assert_eq!(original, deserialized);

@@ -214,7 +214,9 @@ impl BaseCorrelationCalibrator {
                 INITIAL_CORRELATION_GUESS // Reasonable starting point for equity tranches
             } else {
                 // Start slightly above the last solved correlation (monotonic assumption)
-                let last_pair = solved_correlations.last().unwrap();
+                let last_pair = solved_correlations
+                    .last()
+                    .expect("solved_correlations should not be empty in else branch");
                 let last_correlation = last_pair.1;
                 (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
             };
@@ -422,7 +424,7 @@ impl BaseCorrelationSurfaceCalibrator {
                     (a - maturity_years)
                         .abs()
                         .partial_cmp(&(b - maturity_years).abs())
-                        .unwrap()
+                        .expect("f64 comparison should always be comparable")
                 }) {
                     quotes_by_maturity
                         .entry(target_mat.into())
@@ -498,14 +500,15 @@ mod tests {
     use time::Month;
 
     fn create_test_market_context() -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
 
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
             .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         // Create index hazard curve
         use finstack_core::market_data::term_structures::HazardCurve;
@@ -515,13 +518,13 @@ mod tests {
             .knots(vec![(1.0, 0.01), (3.0, 0.015), (5.0, 0.02), (10.0, 0.025)])
             .par_spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (10.0, 140.0)])
             .build()
-            .unwrap();
+            .expect("HazardCurve builder should succeed with valid test data");
 
         // Create placeholder base correlation curve
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
             .points(vec![(3.0, 0.30), (10.0, 0.50)])
             .build()
-            .unwrap();
+            .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
         // Create credit index data
         let index_data = CreditIndexData::builder()
@@ -530,7 +533,7 @@ mod tests {
             .index_credit_curve(Arc::new(index_curve))
             .base_correlation_curve(Arc::new(base_corr_curve))
             .build()
-            .unwrap();
+            .expect("CreditIndexData builder should succeed with valid test data");
 
         MarketContext::new()
             .insert_discount(discount_curve)
@@ -539,7 +542,8 @@ mod tests {
 
     #[test]
     fn test_base_correlation_calibrator_creation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         assert_eq!(calibrator.index_id, "CDX.NA.IG.42");
@@ -553,12 +557,13 @@ mod tests {
 
     #[test]
     fn test_synthetic_tranche_creation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         let tranche = calibrator
             .create_synthetic_tranche(0.0, 3.0, 500.0)
-            .unwrap();
+            .expect("Synthetic tranche creation should succeed with valid test data");
 
         assert_eq!(tranche.attach_pct, 0.0);
         assert_eq!(tranche.detach_pct, 3.0);
@@ -573,7 +578,7 @@ mod tests {
         let curve = BaseCorrelationCurve::builder("TEST_CORR")
             .points(correlation_knots)
             .build()
-            .unwrap();
+            .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
         assert_eq!(curve.detachment_points().len(), 3);
         assert_eq!(curve.correlations().len(), 3);
@@ -584,7 +589,8 @@ mod tests {
 
     #[test]
     fn test_base_correlation_surface_calibrator() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let surface_calibrator = BaseCorrelationSurfaceCalibrator::new(
             "CDX.NA.IG.42",
             42,
@@ -603,8 +609,10 @@ mod tests {
     fn test_base_correlation_calibration_round_trip() {
         use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1)
+            .expect("Valid test date");
 
         // Create test market context
         let market_ctx = create_test_market_context();
@@ -614,17 +622,19 @@ mod tests {
         let known_curve = BaseCorrelationCurve::builder("KNOWN_CORR")
             .points(known_correlations.clone())
             .build()
-            .unwrap();
+            .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
         // Create market context with known correlation curve
-        let original_index = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
+        let original_index = market_ctx
+            .credit_index("CDX.NA.IG.42")
+            .expect("Credit index should exist in test market context");
         let test_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
             .index_credit_curve(std::sync::Arc::clone(&original_index.index_credit_curve))
             .base_correlation_curve(std::sync::Arc::new(known_curve))
             .build()
-            .unwrap();
+            .expect("CreditIndexData builder should succeed with valid test data");
 
         let test_market_ctx = market_ctx
             .clone()
@@ -658,7 +668,7 @@ mod tests {
             // Price with known correlation to get "market" upfront
             let market_pv = pricing_model
                 .price_tranche(&tranche, &test_market_ctx, base_date)
-                .unwrap();
+                .expect("Tranche pricing should succeed in test");
             let market_upfront_pct = market_pv.amount() / tranche.notional.amount() * 100.0;
 
             synthetic_quotes.push(CreditQuote::CDSTranche {
@@ -675,13 +685,15 @@ mod tests {
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         // Create clean market context for calibration (with dummy base correlation curve)
-        let original_index = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
+        let original_index = market_ctx
+            .credit_index("CDX.NA.IG.42")
+            .expect("Credit index should exist in test market context");
 
         // Create a dummy base correlation curve for initial calibration
         let dummy_base_corr_curve = BaseCorrelationCurve::builder("DUMMY_CALIB_CORR")
             .points(vec![(1.0, 0.01), (100.0, 0.01)]) // Minimal curve for building requirements
             .build()
-            .unwrap();
+            .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
         let clean_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
@@ -689,7 +701,7 @@ mod tests {
             .index_credit_curve(std::sync::Arc::clone(&original_index.index_credit_curve))
             .base_correlation_curve(std::sync::Arc::new(dummy_base_corr_curve))
             .build()
-            .unwrap();
+            .expect("CreditIndexData builder should succeed with valid test data");
 
         let clean_market_ctx = market_ctx
             .clone()
@@ -698,7 +710,8 @@ mod tests {
         let calibration_result = calibrator.calibrate(&synthetic_quotes, &clean_market_ctx);
 
         assert!(calibration_result.is_ok());
-        let (calibrated_curve, report) = calibration_result.unwrap();
+        let (calibrated_curve, report) = calibration_result
+            .expect("Calibration should succeed with synthetic quotes");
 
         // Verify calibration was successful
         assert!(report.success);

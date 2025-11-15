@@ -24,7 +24,7 @@
 //!
 //! // 2x2 correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
 //! let corr = vec![1.0, 0.5, 0.5, 1.0];
-//! let chol = cholesky_decomposition(&corr, 2).unwrap();
+//! let chol = cholesky_decomposition(&corr, 2).expect("Cholesky decomposition should succeed");
 //!
 //! // Transform independent standard normals to correlated
 //! let z = vec![1.0, 0.0]; // Independent N(0,1) shocks
@@ -114,7 +114,7 @@ pub enum CholeskyError {
 ///
 /// // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
 /// let corr = vec![1.0, 0.5, 0.5, 1.0];
-/// let chol = cholesky_decomposition(&corr, 2).unwrap();
+/// let chol = cholesky_decomposition(&corr, 2).expect("Cholesky decomposition should succeed");
 /// // chol = [[1.0, 0.0], [0.5, 0.866...]]
 /// ```
 pub fn cholesky_decomposition(
@@ -186,7 +186,7 @@ pub fn cholesky_decomposition(
 /// use finstack_core::math::linalg::{cholesky_decomposition, apply_correlation};
 ///
 /// let corr = vec![1.0, 0.5, 0.5, 1.0];
-/// let chol = cholesky_decomposition(&corr, 2).unwrap();
+/// let chol = cholesky_decomposition(&corr, 2).expect("Cholesky decomposition should succeed");
 ///
 /// let z = vec![1.0, 0.0]; // Independent shocks
 /// let mut z_corr = vec![0.0; 2];
@@ -313,7 +313,8 @@ mod tests {
     fn test_cholesky_2x2() {
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let chol = cholesky_decomposition(&corr, 2).unwrap();
+        let chol = cholesky_decomposition(&corr, 2)
+            .expect("Cholesky decomposition should succeed in test");
 
         // Expected: [[1.0, 0.0], [0.5, 0.866...]]
         assert!((chol[0] - 1.0).abs() < 1e-10);
@@ -325,7 +326,8 @@ mod tests {
     #[test]
     fn test_cholesky_identity() {
         let identity = vec![1.0, 0.0, 0.0, 1.0];
-        let chol = cholesky_decomposition(&identity, 2).unwrap();
+        let chol = cholesky_decomposition(&identity, 2)
+            .expect("Cholesky decomposition should succeed in test");
 
         // Should equal identity
         assert_eq!(chol, identity);
@@ -334,7 +336,8 @@ mod tests {
     #[test]
     fn test_apply_correlation() {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let chol = cholesky_decomposition(&corr, 2).unwrap();
+        let chol = cholesky_decomposition(&corr, 2)
+            .expect("Cholesky decomposition should succeed in test");
 
         let z = vec![1.0, 0.0];
         let mut z_corr = vec![0.0; 2];
@@ -386,7 +389,7 @@ mod tests {
         let result = cholesky_decomposition(&non_pd, 2);
         assert!(result.is_err());
         // Verify we get descriptive error
-        match result.unwrap_err() {
+        match result.expect_err("Should fail for non-positive-definite matrix") {
             CholeskyError::NotPositiveDefinite { diag, row } => {
                 assert!(diag < 0.0);
                 assert!(row < 2);

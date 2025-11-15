@@ -89,8 +89,10 @@ impl Bond {
             "US912828XG33",
             Money::new(1_000_000.0, Currency::USD),
             0.0425,
-            Date::from_calendar_date(2024, time::Month::January, 15).unwrap(),
-            Date::from_calendar_date(2034, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2024, time::Month::January, 15)
+                .expect("Valid example date"),
+            Date::from_calendar_date(2034, time::Month::January, 15)
+                .expect("Valid example date"),
             "USD-TREASURY",
         )
     }
@@ -577,8 +579,10 @@ mod tests {
     #[test]
     fn test_bond_with_custom_cashflows() {
         // Setup dates
-        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15)
+            .expect("Valid test date");
 
         // Build a custom cashflow schedule with step-up coupons
         let schedule_params = ScheduleParams {
@@ -589,7 +593,8 @@ mod tests {
             stub: StubKind::None,
         };
 
-        let step1_date = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+        let step1_date = Date::from_calendar_date(2026, Month::January, 15)
+            .expect("Valid test date");
 
         let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
@@ -599,7 +604,7 @@ mod tests {
                 CouponType::Cash,
             )
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Create bond from custom cashflows
         let bond = Bond::from_cashflows(
@@ -608,7 +613,7 @@ mod tests {
             "USD-OIS",
             Some(98.5),
         )
-        .unwrap();
+        .expect("Bond::from_cashflows should succeed with valid test data");
 
         // Verify bond properties
         assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
@@ -624,11 +629,13 @@ mod tests {
             .knots([(0.0, 1.0), (3.0, 0.95)])
             .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
         let curves = MarketContext::new().insert_discount(disc_curve);
 
         // Build schedule and verify it uses custom cashflows
-        let flows = bond.build_schedule(&curves, issue).unwrap();
+        let flows = bond
+            .build_schedule(&curves, issue)
+            .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty());
 
         // The flows should match what we put in the custom schedule
@@ -649,8 +656,10 @@ mod tests {
 
     #[test]
     fn test_bond_builder_with_custom_cashflows() {
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         // Build custom cashflow with PIK toggle
         let custom_schedule = CashFlowSchedule::builder()
@@ -668,7 +677,7 @@ mod tests {
                 stub: StubKind::None,
             })
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Use builder pattern (default cashflow_spec since custom_cashflows overrides)
         let bond = Bond::builder()
@@ -682,7 +691,7 @@ mod tests {
             .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         assert_eq!(bond.id.as_str(), "PIK_TOGGLE_BOND");
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
@@ -693,8 +702,10 @@ mod tests {
 
     #[test]
     fn test_bond_with_cashflows_method() {
-        let issue = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::March, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::March, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::March, 1)
+            .expect("Valid test date");
 
         // Create a traditional bond first (builder)
         let mut bond = Bond::builder()
@@ -716,7 +727,7 @@ mod tests {
             .settlement_days_opt(None)
             .ex_coupon_days_opt(None)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Build a custom schedule separately
         let custom_schedule = CashFlowSchedule::builder()
@@ -731,7 +742,7 @@ mod tests {
                 stub: StubKind::None,
             })
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Apply custom cashflows
         bond = bond.with_cashflows(custom_schedule);
@@ -742,8 +753,10 @@ mod tests {
 
     #[test]
     fn test_custom_cashflows_override_regular_generation() {
-        let issue = Date::from_calendar_date(2025, Month::June, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::June, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::June, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::June, 1)
+            .expect("Valid test date");
 
         // Create bond with regular specs (builder)
         let regular_bond = Bond::builder()
@@ -765,7 +778,7 @@ mod tests {
             .settlement_days_opt(None)
             .ex_coupon_days_opt(None)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Same bond with custom cashflows
         let custom_schedule = CashFlowSchedule::builder()
@@ -780,7 +793,7 @@ mod tests {
                 stub: StubKind::None,
             })
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let custom_bond = regular_bond.clone().with_cashflows(custom_schedule);
 
@@ -790,12 +803,16 @@ mod tests {
             .knots([(0.0, 1.0), (2.0, 0.98)])
             .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
         let curves = MarketContext::new().insert_discount(disc_curve);
 
         // Build schedules
-        let regular_flows = regular_bond.build_schedule(&curves, issue).unwrap();
-        let custom_flows = custom_bond.build_schedule(&curves, issue).unwrap();
+        let regular_flows = regular_bond
+            .build_schedule(&curves, issue)
+            .expect("Schedule building should succeed in test");
+        let custom_flows = custom_bond
+            .build_schedule(&curves, issue)
+            .expect("Schedule building should succeed in test");
 
         // Should have different number of flows due to different frequency
         assert_ne!(regular_flows.len(), custom_flows.len());
@@ -806,8 +823,10 @@ mod tests {
 
     #[test]
     fn test_bond_floating_value() {
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Curves
@@ -816,13 +835,13 @@ mod tests {
             .knots([(0.0, 1.0), (2.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
         let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(issue)
             .knots([(0.0, 0.05), (2.0, 0.055)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
         let ctx = MarketContext::new()
             .insert_discount(disc)
             .insert_forward(fwd);
@@ -840,7 +859,9 @@ mod tests {
         );
 
         // Price should be finite and positive under positive forwards
-        let pv = bond.value(&ctx, issue).unwrap();
+        let pv = bond
+            .value(&ctx, issue)
+            .expect("Bond valuation should succeed in test");
         assert!(pv.amount().is_finite());
     }
 
@@ -849,8 +870,10 @@ mod tests {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         // Create FRN
         let frn = Bond::floating(
@@ -871,21 +894,23 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let fwd_curve = ForwardCurve::builder("USD-SOFR", 0.25)
             .base_date(issue)
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.03), (1.0, 0.035)])
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let market = MarketContext::new()
             .insert_discount(disc_curve)
             .insert_forward(fwd_curve);
 
         // Get full schedule to verify it includes FloatReset CFKind
-        let full_schedule = frn.get_full_schedule(&market).unwrap();
+        let full_schedule = frn
+            .get_full_schedule(&market)
+            .expect("Full schedule retrieval should succeed in test");
         let has_floating = full_schedule
             .flows
             .iter()
@@ -896,7 +921,9 @@ mod tests {
         );
 
         // Get simplified schedule via build_schedule
-        let flows = frn.build_schedule(&market, issue).unwrap();
+        let flows = frn
+            .build_schedule(&market, issue)
+            .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty(), "FRN should have cashflows");
 
         // Verify flows include floating coupons (should be > just redemption)
@@ -913,11 +940,14 @@ mod tests {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
 
         // Create amortizing bond using CashflowSpec::Amortizing
-        let step1 = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let step1 = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
         let amort_spec = AmortizationSpec::StepRemaining {
             schedule: vec![
                 (step1, Money::new(500_000.0, Currency::USD)),
@@ -937,18 +967,20 @@ mod tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Get full schedule to check internal representation
-        let full_schedule = bond.get_full_schedule(&market).unwrap();
+        let full_schedule = bond
+            .get_full_schedule(&market)
+            .expect("Full schedule retrieval should succeed in test");
 
         // Find initial notional (should be negative - issuer receives)
         let initial_notional = full_schedule
@@ -960,7 +992,11 @@ mod tests {
             "Full schedule should have initial notional"
         );
         assert!(
-            initial_notional.unwrap().amount.amount() < 0.0,
+            initial_notional
+                .expect("Initial notional should exist")
+                .amount
+                .amount()
+                < 0.0,
             "Initial notional should be negative (issuer receives)"
         );
 
@@ -979,7 +1015,9 @@ mod tests {
         }
 
         // Get simplified schedule via build_schedule
-        let flows = bond.build_schedule(&market, issue).unwrap();
+        let flows = bond
+            .build_schedule(&market, issue)
+            .expect("Schedule building should succeed in test");
 
         // Initial draw should be excluded (negative notional)
         let has_negative_initial = flows.iter().any(|(d, m)| *d == issue && m.amount() < 0.0);
@@ -1018,8 +1056,10 @@ mod tests {
     fn test_bond_build_schedule_includes_floating_cfkind() {
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2026, Month::July, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::July, 1)
+            .expect("Valid test date");
 
         let frn = Bond::floating(
             "FRN-CFKIND-TEST",
@@ -1038,21 +1078,23 @@ mod tests {
             .knots([(0.0, 1.0), (2.0, 0.90)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let fwd = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
             .base_date(issue)
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.04), (2.0, 0.045)])
             .build()
-            .unwrap();
+            .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let market = MarketContext::new()
             .insert_discount(disc)
             .insert_forward(fwd);
 
         // Build simplified schedule
-        let flows = frn.build_schedule(&market, issue).unwrap();
+        let flows = frn
+            .build_schedule(&market, issue)
+            .expect("Schedule building should succeed in test");
 
         // Should have multiple flows (quarterly coupons + redemption)
         // Approximately 6 quarters over 18 months

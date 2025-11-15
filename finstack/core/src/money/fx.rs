@@ -23,8 +23,8 @@
 //! provider.set_quote(Currency::EUR, Currency::USD, 1.1);
 //!
 //! let matrix = FxMatrix::new(provider.clone());
-//! let date = Date::from_calendar_date(2024, Month::January, 5).unwrap();
-//! let res = matrix.rate(FxQuery::new(Currency::EUR, Currency::USD, date)).unwrap();
+//! let date = Date::from_calendar_date(2024, Month::January, 5).expect("Valid date");
+//! let res = matrix.rate(FxQuery::new(Currency::EUR, Currency::USD, date)).expect("FX rate lookup should succeed");
 //! assert_eq!(res.rate, 1.1);
 //! ```
 
@@ -207,13 +207,13 @@ pub struct FxRateResult {
 ///     }
 /// }
 ///
-/// let trade_date = Date::from_calendar_date(2024, Month::January, 10).unwrap();
+/// let trade_date = Date::from_calendar_date(2024, Month::January, 10).expect("Valid date");
 /// let quote = StaticFx.rate(
 ///     Currency::EUR,
 ///     Currency::USD,
 ///     trade_date,
 ///     FxConversionPolicy::CashflowDate,
-/// ).unwrap();
+/// ).expect("FX rate lookup should succeed");
 /// assert_eq!(quote, 1.25);
 /// ```
 pub trait FxProvider: Send + Sync {
@@ -371,9 +371,9 @@ impl FxMatrix {
     /// let query = FxQuery::new(
     ///     Currency::EUR,
     ///     Currency::USD,
-    ///     Date::from_calendar_date(2024, Month::March, 1).unwrap(),
+    ///     Date::from_calendar_date(2024, Month::March, 1).expect("Valid date"),
     /// );
-    /// let result = matrix.rate(query).unwrap();
+    /// let result = matrix.rate(query).expect("FX rate lookup should succeed");
     /// assert!(result.rate > 1.0);
     /// ```
     pub fn rate(&self, query: FxQuery) -> crate::Result<FxRateResult> {
@@ -465,8 +465,8 @@ impl FxMatrix {
     /// let res = matrix.rate(FxQuery::new(
     ///     Currency::GBP,
     ///     Currency::USD,
-    ///     Date::from_calendar_date(2024, Month::April, 1).unwrap(),
-    /// )).unwrap();
+    ///     Date::from_calendar_date(2024, Month::April, 1).expect("Valid date"),
+    /// )).expect("FX rate lookup should succeed");
     /// assert_eq!(res.rate, 1.3);
     /// ```
     pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
@@ -798,7 +798,8 @@ mod tests {
 
     fn test_date() -> Date {
         use time::Month;
-        Date::from_calendar_date(2023, Month::December, 15).unwrap()
+        Date::from_calendar_date(2023, Month::December, 15)
+            .expect("Valid test date")
     }
 
     #[test]
@@ -809,7 +810,7 @@ mod tests {
         // Test basic rate retrieval
         let rate = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         let expected = 0.85;
@@ -829,7 +830,7 @@ mod tests {
 
         let rate = matrix
             .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         let expected = 1.0;
@@ -848,7 +849,7 @@ mod tests {
 
         let result = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         // Should get a direct rate
         assert!(result.rate > 0.0);
@@ -864,7 +865,7 @@ mod tests {
         // Get rate to populate cache
         let _rate1 = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         // Clear implied entries
         matrix.clear_expired();
@@ -881,7 +882,7 @@ mod tests {
         // Populate cache
         let _rate = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         let (quotes, implied) = matrix.cache_stats();
         assert!(quotes >= 1);
@@ -927,7 +928,7 @@ mod tests {
         // Test EUR→GBP triangulation via USD: EUR→USD × USD→GBP
         let rate = matrix
             .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         // Expected: 1.18 * 0.75 = 0.885
@@ -965,13 +966,13 @@ mod tests {
         // First call should triangulate and cache
         let rate1 = matrix
             .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         // Second call should hit cache
         let rate2 = matrix
             .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         assert_eq!(rate1, rate2);
@@ -995,7 +996,7 @@ mod tests {
         // USD→EUR should use direct rate, not triangulation
         let rate = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
 
         // Should get the direct rate
@@ -1042,7 +1043,7 @@ mod tests {
         // Test direct rate
         let result = matrix
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         assert!(!result.triangulated);
 
@@ -1053,7 +1054,7 @@ mod tests {
         // Test triangulated rate
         let result = matrix
             .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         assert!(result.triangulated);
 
@@ -1065,7 +1066,7 @@ mod tests {
         // Test identity rate
         let result = matrix
             .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
-            .unwrap();
+            .expect("FX rate query should succeed in test");
 
         assert!(!result.triangulated);
 
@@ -1081,14 +1082,14 @@ mod tests {
         matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
         let usd_chf = matrix
             .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
         assert_eq!(usd_chf, 0.90);
 
         // Opposite direction should use reciprocal on demand
         let chf_usd = matrix
             .rate(FxQuery::new(Currency::CHF, Currency::USD, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
         assert!((chf_usd - (1.0 / 0.90)).abs() < 1e-12);
 
@@ -1100,7 +1101,7 @@ mod tests {
 
         let eur_chf = matrix
             .rate(FxQuery::new(Currency::EUR, Currency::CHF, test_date()))
-            .unwrap()
+            .expect("FX rate query should succeed in test")
             .rate;
         assert_eq!(eur_chf, 0.95);
     }

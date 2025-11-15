@@ -29,15 +29,15 @@ use time::Duration as TimeDuration;
 /// let series = ScalarTimeSeries::new(
 ///     "TS",
 ///     vec![
-///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 100.0),
-///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 105.0),
+///         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 100.0),
+///         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 105.0),
 ///     ],
 ///     None,
 /// )
-/// .unwrap();
+/// .expect("Series creation should succeed");
 /// let stepped = series.clone().with_interpolation(SeriesInterpolation::Step);
-/// let mid_date = Date::from_calendar_date(2024, Month::January, 15).unwrap();
-/// assert_eq!(stepped.value_on(mid_date).unwrap(), 100.0);
+/// let mid_date = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
+/// assert_eq!(stepped.value_on(mid_date).expect("Value lookup should succeed"), 100.0);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -132,16 +132,16 @@ pub enum MarketScalar {
 /// let series = ScalarTimeSeries::new(
 ///     "US-UNEMPLOYMENT",
 ///     vec![
-///         (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 3.7),
-///         (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 3.9),
+///         (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 3.7),
+///         (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 3.9),
 ///     ],
 ///     None,
 /// )
-/// .unwrap()
+/// .expect("Series creation should succeed")
 /// .with_interpolation(SeriesInterpolation::Linear);
 ///
-/// let mid = Date::from_calendar_date(2024, Month::February, 14).unwrap();
-/// let interpolated = series.value_on(mid).unwrap();
+/// let mid = Date::from_calendar_date(2024, Month::February, 14).expect("Valid date");
+/// let interpolated = series.value_on(mid).expect("Value lookup should succeed");
 /// assert!(interpolated > 3.7 && interpolated < 3.9);
 /// ```
 #[derive(Clone, Debug)]
@@ -170,12 +170,12 @@ impl ScalarTimeSeries {
     /// let series = ScalarTimeSeries::new(
     ///     "TREASURY",
     ///     vec![
-    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 4.5),
-    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 4.7),
+    ///         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 4.5),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 4.7),
     ///     ],
     ///     None,
     /// )
-    /// .unwrap();
+    /// .expect("Series creation should succeed");
     /// assert_eq!(series.id().as_str(), "TREASURY");
     /// ```
     pub fn new(
@@ -215,8 +215,8 @@ impl ScalarTimeSeries {
     /// let series = ScalarTimeSeries::new(
     ///     "TS",
     ///     vec![
-    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 10.0),
-    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 20.0),
+    ///         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 10.0),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 20.0),
     ///     ],
     ///     None,
     /// )
@@ -255,17 +255,17 @@ impl ScalarTimeSeries {
     /// let series = ScalarTimeSeries::new(
     ///     "TS",
     ///     vec![
-    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 10.0),
-    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 20.0),
+    ///         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 10.0),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 20.0),
     ///     ],
     ///     None,
     /// )
-    /// .unwrap();
-    /// let jan = Date::from_calendar_date(2024, Month::January, 15).unwrap();
-    /// assert_eq!(series.value_on(jan).unwrap(), 10.0);
-    ///
+    /// .expect("Series creation should succeed");
+    /// let jan = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
+    /// assert_eq!(series.value_on(jan).expect("Value lookup should succeed"), 10.0);
+///
     /// let linear = series.clone().with_interpolation(SeriesInterpolation::Linear);
-    /// assert!(linear.value_on(jan).unwrap() > 10.0);
+    /// assert!(linear.value_on(jan).expect("Value lookup should succeed") > 10.0);
     /// ```
     pub fn value_on(&self, date: Date) -> Result<f64> {
         let days = crate::dates::utils::date_to_days_since_epoch(date);
@@ -431,11 +431,15 @@ mod tests {
 
     #[test]
     fn series_step_and_linear() {
-        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        let d1 = time::Date::from_calendar_date(2025, time::Month::February, 1).unwrap();
-        let d2 = time::Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
+        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
+        let d1 = time::Date::from_calendar_date(2025, time::Month::February, 1)
+            .expect("Valid test date");
+        let d2 = time::Date::from_calendar_date(2025, time::Month::March, 1)
+            .expect("Valid test date");
         let s =
-            ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)], None).unwrap();
+            ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)], None)
+                .expect("ScalarTimeSeries creation should succeed in test");
 
         // Midpoint between d0 and d1
         let mid = d0 + TimeDuration::days(15);
@@ -443,14 +447,14 @@ mod tests {
             .clone()
             .with_interpolation(SeriesInterpolation::Step)
             .value_on(mid)
-            .unwrap();
+            .expect("Value lookup should succeed in test");
         assert!((step_v - 3.0).abs() < 1e-12);
 
         let lin_v = s
             .clone()
             .with_interpolation(SeriesInterpolation::Linear)
             .value_on(mid)
-            .unwrap();
+            .expect("Value lookup should succeed in test");
         assert!(lin_v > 3.0 && lin_v < 4.0);
     }
 
@@ -460,7 +464,7 @@ mod tests {
         let result = ScalarTimeSeries::new("TEST", vec![], None);
         assert!(result.is_err());
 
-        match result.unwrap_err() {
+        match result.expect_err("Should fail with too few points") {
             crate::Error::Input(crate::error::InputError::TooFewPoints) => {
                 // Expected error type
             }
@@ -472,7 +476,8 @@ mod tests {
     fn test_scalar_time_series_single_point_error() {
         // Test that single-point series returns proper error
         let single_obs = vec![(
-            time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+            time::Date::from_calendar_date(2025, time::Month::January, 1)
+                .expect("Valid test date"),
             100.0,
         )];
 
@@ -504,15 +509,18 @@ mod tests {
         // Test valid series creation
         let observations = vec![
             (
-                time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+                time::Date::from_calendar_date(2025, time::Month::January, 1)
+                    .expect("Valid test date"),
                 100.0,
             ),
             (
-                time::Date::from_calendar_date(2025, time::Month::February, 1).unwrap(),
+                time::Date::from_calendar_date(2025, time::Month::February, 1)
+                    .expect("Valid test date"),
                 200.0,
             ),
             (
-                time::Date::from_calendar_date(2025, time::Month::March, 1).unwrap(),
+                time::Date::from_calendar_date(2025, time::Month::March, 1)
+                    .expect("Valid test date"),
                 300.0,
             ),
         ];
@@ -520,7 +528,7 @@ mod tests {
         let result = ScalarTimeSeries::new("TEST", observations, None);
         assert!(result.is_ok());
 
-        let series = result.unwrap();
+        let series = result.expect("ScalarTimeSeries creation should succeed in test");
         assert_eq!(series.observations().len(), 3);
         assert_eq!(series.id.as_str(), "TEST");
     }
@@ -530,7 +538,7 @@ mod tests {
         let result = ScalarTimeSeries::new("TEST", vec![], None);
         assert!(result.is_err());
 
-        let error_msg = format!("{}", result.unwrap_err());
+        let error_msg = format!("{}", result.expect_err("Should fail with invalid data"));
         assert!(!error_msg.is_empty());
         assert!(error_msg.len() > 10);
     }
@@ -545,7 +553,8 @@ mod tests {
             let day = 1 + i as u8;
             if day <= 31 {
                 // Make sure we don't exceed January 31
-                let date = time::Date::from_calendar_date(2025, time::Month::January, day).unwrap();
+                let date = time::Date::from_calendar_date(2025, time::Month::January, day)
+                    .expect("Valid test date");
                 observations.push((date, i as f64));
             }
         }
@@ -553,7 +562,7 @@ mod tests {
         let result = ScalarTimeSeries::new("TEST", observations, None);
         assert!(result.is_ok());
 
-        let series = result.unwrap();
+        let series = result.expect("ScalarTimeSeries creation should succeed in test");
         assert!(series.observations().len() >= 25); // At least 25 valid days
     }
 }

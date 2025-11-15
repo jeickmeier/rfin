@@ -416,8 +416,10 @@ mod tests {
     fn create_test_bond() -> Bond {
         use crate::instruments::bond::CashflowSpec;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1)
+            .expect("Valid test date");
 
         Bond::builder()
             .id("TEST_BOND".into())
@@ -438,11 +440,12 @@ mod tests {
             .settlement_days_opt(Some(2))
             .ex_coupon_days_opt(Some(0))
             .build()
-            .unwrap()
+            .expect("Bond builder should succeed with valid test data")
     }
     fn create_callable_bond() -> Bond {
         let mut bond = create_test_bond();
-        let call_date = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let call_date = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
         let mut call_put = CallPutSchedule::default();
         call_put.calls.push(CallPut {
             date: call_date,
@@ -452,7 +455,8 @@ mod tests {
         bond
     }
     fn create_test_market_context() -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let discount_curve =
             finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
                 "USD-OIS",
@@ -461,7 +465,7 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
         MarketContext::new().insert_discount(discount_curve)
     }
     #[test]
@@ -470,7 +474,7 @@ mod tests {
         let market_context = create_test_market_context();
         let valuator = BondValuator::new(bond, &market_context, 5.0, 50);
         assert!(valuator.is_ok());
-        let valuator = valuator.unwrap();
+        let valuator = valuator.expect("BondValuator creation should succeed in test");
         assert!(!valuator.coupon_map.is_empty());
         assert!(market_context.get_discount("USD-OIS").is_ok());
     }
@@ -479,11 +483,12 @@ mod tests {
     fn test_oas_calculator_plain_bond() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
-        let oas_bp = oas.unwrap();
+        let oas_bp = oas.expect("OAS calculation should succeed in test");
         assert!(oas_bp > 0.0);
         assert!(oas_bp < 5000.0);
     }
@@ -492,18 +497,20 @@ mod tests {
     fn test_oas_calculator_callable_bond() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
-        let oas_bp = oas.unwrap();
+        let oas_bp = oas.expect("OAS calculation should succeed in test");
         assert!(oas_bp > 0.0);
     }
     #[test]
     fn test_bond_valuator_with_calls() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
-        let valuator = BondValuator::new(bond, &market_context, 5.0, 50).unwrap();
+        let valuator = BondValuator::new(bond, &market_context, 5.0, 50)
+            .expect("BondValuator creation should succeed in test");
         assert!(!valuator.call_map.is_empty());
         assert!(valuator.put_map.is_empty());
     }
@@ -518,7 +525,8 @@ mod tests {
         use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
         let bond = create_test_bond();
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
 
         // Curves: discount + two hazard scenarios
         let discount_curve =
@@ -529,20 +537,20 @@ mod tests {
             .knots([(0.0, 1.0), (5.0, 0.85)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Curve builder should succeed with valid test data");
 
         let low_hazard = HazardCurve::builder("HAZ-LOW")
             .base_date(base_date)
             .recovery_rate(0.4)
             .knots([(0.0, 0.01), (5.0, 0.01)])
             .build()
-            .unwrap();
+            .expect("Curve builder should succeed with valid test data");
         let _high_hazard = HazardCurve::builder("HAZ-HIGH")
             .base_date(base_date)
             .recovery_rate(0.4)
             .knots([(0.0, 0.05), (5.0, 0.05)])
             .build()
-            .unwrap();
+            .expect("Curve builder should succeed with valid test data");
 
         let ctx_low = MarketContext::new()
             .insert_discount(discount_curve)
@@ -556,7 +564,7 @@ mod tests {
             .knots([(0.0, 1.0), (5.0, 0.85)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Curve builder should succeed with valid test data");
         let high_hazard2 =
             finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder(
                 "HAZ-HIGH",
@@ -565,7 +573,7 @@ mod tests {
             .recovery_rate(0.4)
             .knots([(0.0, 0.05), (5.0, 0.05)])
             .build()
-            .unwrap();
+            .expect("Curve builder should succeed with valid test data");
         let ctx_high = MarketContext::new()
             .insert_discount(discount_curve2)
             .insert_hazard(high_hazard2);
@@ -595,13 +603,17 @@ mod tests {
             ..Default::default()
         });
         // Align to the hazard curve stored in the context
-        let low_hc_ref = ctx_low.get_hazard_ref("HAZ-LOW").unwrap();
+        let low_hc_ref = ctx_low
+            .get_hazard_ref("HAZ-LOW")
+            .expect("Hazard curve should exist in test context");
         tree_low.align_hazard_from_curve(low_hc_ref);
         let mut tree_high = RatesCreditTree::new(RatesCreditConfig {
             steps,
             ..Default::default()
         });
-        let high_hc_ref = ctx_high.get_hazard_ref("HAZ-HIGH").unwrap();
+        let high_hc_ref = ctx_high
+            .get_hazard_ref("HAZ-HIGH")
+            .expect("Hazard curve should exist in test context");
         tree_high.align_hazard_from_curve(high_hc_ref);
 
         // Initial state
@@ -628,15 +640,17 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
         let calculator = TreePricer::new();
-        let coupon_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+        let coupon_date = Date::from_calendar_date(2025, Month::July, 1)
+            .expect("Valid test date");
         let accrued = calculator
             .calculate_accrued_interest(&bond, &market_context, coupon_date)
-            .unwrap();
+            .expect("Accrued interest calculation should succeed in test");
         assert!(accrued.abs() < 1e-6);
-        let mid_period = Date::from_calendar_date(2025, Month::April, 1).unwrap();
+        let mid_period = Date::from_calendar_date(2025, Month::April, 1)
+            .expect("Valid test date");
         let accrued_mid = calculator
             .calculate_accrued_interest(&bond, &market_context, mid_period)
-            .unwrap();
+            .expect("Accrued interest calculation should succeed in test");
         assert!(accrued_mid > 0.0);
     }
 }

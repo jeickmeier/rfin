@@ -192,7 +192,8 @@ mod tests {
         let market = MarketContext::new();
         let as_of = date!(2025 - 01 - 15);
 
-        let result = convert_currency(money, Currency::USD, &market, as_of).unwrap();
+        let result = convert_currency(money, Currency::USD, &market, as_of)
+            .expect("Currency conversion should succeed in test");
         assert_eq!(result, money);
     }
 
@@ -203,7 +204,8 @@ mod tests {
         let market = MarketContext::new().insert_fx(fx);
         let as_of = date!(2025 - 01 - 15);
 
-        let result = convert_currency(money, Currency::USD, &market, as_of).unwrap();
+        let result = convert_currency(money, Currency::USD, &market, as_of)
+            .expect("Currency conversion should succeed in test");
         assert_eq!(result.amount(), 1100.0);
         assert_eq!(result.currency(), Currency::USD);
     }
@@ -216,7 +218,8 @@ mod tests {
         let market = MarketContext::new().insert_fx(fx);
         let as_of = date!(2025 - 01 - 15);
 
-        let pnl = compute_pnl(val_t0, val_t1, Currency::USD, &market, as_of).unwrap();
+        let pnl = compute_pnl(val_t0, val_t1, Currency::USD, &market, as_of)
+            .expect("PNL computation should succeed in test");
         // (1100 - 1000) EUR * 1.1 = 110 USD
         assert_eq!(pnl.amount(), 110.0);
         assert_eq!(pnl.currency(), Currency::USD);
@@ -268,7 +271,7 @@ mod tests {
             as_of_t0,
             as_of_t1,
         )
-        .unwrap();
+        .expect("PNL computation with FX should succeed in test");
 
         // FX translation: 1000 EUR @ 1.2 - 1000 EUR @ 1.1 = 1200 - 1100 = 100 USD
         assert_eq!(pnl.amount(), 100.0);

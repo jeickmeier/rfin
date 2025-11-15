@@ -37,7 +37,7 @@
 //!
 //! let solver = NewtonSolver::new().with_tolerance(1e-10);
 //! let f = |x: f64| x * x - 2.0;
-//! let root = solver.solve(f, 1.0).unwrap();
+//! let root = solver.solve(f, 1.0).expect("Root finding should succeed");
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
 //!
@@ -48,7 +48,7 @@
 //!
 //! let solver = BrentSolver::new();
 //! let f = |x: f64| x * x - 2.0;
-//! let root = solver.solve(f, 1.5).unwrap();
+//! let root = solver.solve(f, 1.5).expect("Root finding should succeed");
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
 //!
@@ -121,7 +121,7 @@ pub trait Solver: Send + Sync {
 ///     price - target_price
 /// };
 ///
-/// let implied_vol = solver.solve(price_error, 0.2).unwrap();
+/// let implied_vol = solver.solve(price_error, 0.2).expect("Root finding should succeed");
 /// assert!((price_error(implied_vol)).abs() < 1e-6);
 /// ```
 ///
@@ -277,7 +277,7 @@ impl NewtonSolver {
 ///
 /// // Solve x^3 - 2x - 5 = 0
 /// let f = |x: f64| x.powi(3) - 2.0 * x - 5.0;
-/// let root = solver.solve(f, 2.0).unwrap();
+/// let root = solver.solve(f, 2.0).expect("Root finding should succeed");
 ///
 /// assert!((f(root)).abs() < 1e-10);
 /// assert!((root - 2.0946).abs() < 1e-4);
@@ -549,7 +549,9 @@ mod tests {
 
         // Solve x^2 - 2 = 0 (root should be sqrt(2))
         let f = |x: f64| x * x - 2.0;
-        let root = solver.solve(f, 1.0).unwrap();
+        let root = solver
+            .solve(f, 1.0)
+            .expect("Root finding should succeed in test");
 
         assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
     }
@@ -560,7 +562,9 @@ mod tests {
 
         // Solve x^3 - x - 1 = 0 (has root around 1.32)
         let f = |x: f64| x * x * x - x - 1.0;
-        let root = solver.solve(f, 1.0).unwrap();
+        let root = solver
+            .solve(f, 1.0)
+            .expect("Root finding should succeed in test");
 
         assert!(f(root).abs() < 1e-10);
         assert!((root - 1.3247179572447).abs() < 1e-6);
@@ -572,7 +576,9 @@ mod tests {
 
         // Function with discontinuous derivative (Newton may fail)
         let f = |x: f64| if x > 0.0 { x - 1.0 } else { -x - 1.0 };
-        let root = solver.solve(f, 0.5).unwrap();
+        let root = solver
+            .solve(f, 0.5)
+            .expect("Root finding should succeed in test");
 
         assert!(f(root).abs() < 1e-10);
     }
@@ -584,14 +590,18 @@ mod tests {
 
         // Solve x - 100 = 0 (root at x = 100)
         let f = |x: f64| x - 100.0;
-        let root = solver.solve(f, 95.0).unwrap(); // Start near the root
+        let root = solver
+            .solve(f, 95.0)
+            .expect("Root finding should succeed in test"); // Start near the root
 
         assert!(f(root).abs() < 1e-10);
         assert!((root - 100.0).abs() < 1e-6);
 
         // Test with configurable bracket size
         let solver_custom = BrentSolver::new().with_initial_bracket_size(Some(5.0));
-        let root2 = solver_custom.solve(f, 95.0).unwrap();
+        let root2 = solver_custom
+            .solve(f, 95.0)
+            .expect("Root finding should succeed in test");
         assert!(f(root2).abs() < 1e-10);
     }
 }

@@ -258,7 +258,8 @@ pub fn build_periods_from_payment_dates(
             PeriodKind::Weekly => {
                 // For weekly, use a simple week number based on days since start of year
                 let year = start.year();
-                let year_start = Date::from_calendar_date(year, time::Month::January, 1).unwrap();
+                let year_start = Date::from_calendar_date(year, time::Month::January, 1)
+                    .expect("January 1 should always be valid");
                 let days = (start - year_start).whole_days();
                 let week = ((days / 7) + 1).min(52) as u8;
                 PeriodId::week(year, week)
@@ -282,7 +283,12 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            y,
+            Month::try_from(m).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     #[test]

@@ -32,7 +32,7 @@
 //! use time::Month;
 //!
 //! // Build a flat discount curve
-//! let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+//! let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(base_date)
 //!     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
@@ -40,7 +40,7 @@
 //!
 //! // Cashflows to discount
 //! let cf1 = (
-//!     Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+//!     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
 //!     Money::new(100.0, Currency::USD)
 //! );
 //! let flows = vec![cf1];
@@ -147,7 +147,8 @@ mod tests {
 
     impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
-            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date")
         }
         fn df(&self, _t: f64) -> f64 {
             1.0
@@ -164,7 +165,8 @@ mod tests {
             (base, Money::new(10.0, crate::currency::Currency::USD)),
             (base, Money::new(5.0, crate::currency::Currency::USD)),
         ];
-        let pv = flows.npv(&curve, base, DayCount::Act365F).unwrap();
+        let pv = flows.npv(&curve, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
         assert!((pv.amount() - 15.0).abs() < 1e-12);
     }
 
@@ -175,7 +177,8 @@ mod tests {
         };
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
-        let err = super::npv(&curve, base, DayCount::Act365F, &flows).unwrap_err();
+        let err = super::npv(&curve, base, DayCount::Act365F, &flows)
+            .expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 }

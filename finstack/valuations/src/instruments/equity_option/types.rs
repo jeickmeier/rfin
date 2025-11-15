@@ -75,7 +75,8 @@ impl EquityOption {
             "SPX-CALL-4500",
             "SPX",
             4500.0,
-            Date::from_calendar_date(2024, time::Month::June, 21).unwrap(),
+            Date::from_calendar_date(2024, time::Month::June, 21)
+                .expect("Valid example date"),
             Money::new(100_000.0, Currency::USD),
             100.0,
         )
@@ -459,7 +460,12 @@ mod tests {
     const DIV_ID: &str = "SPX-DIV";
 
     fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn build_discount_curve(as_of: Date, flat_rate: f64) -> DiscountCurve {
@@ -468,7 +474,7 @@ mod tests {
             .base_date(as_of)
             .knots([(0.0, 1.0), (5.0, df_5y)])
             .build()
-            .unwrap()
+            .expect("DiscountCurve builder should succeed with valid test data")
     }
 
     fn build_surface(base_vol: f64) -> VolSurface {
@@ -481,7 +487,9 @@ mod tests {
         for _ in expiries {
             builder = builder.row(&row);
         }
-        builder.build().unwrap()
+        builder
+            .build()
+            .expect("VolSurface builder should succeed with valid test data")
     }
 
     fn build_market_context(
@@ -555,8 +563,11 @@ mod tests {
         let option = base_option(expiry);
         let curves = build_market_context(as_of, 105.0, 0.22, 0.03, 0.01);
 
-        let price = option.npv(&curves, as_of).unwrap();
-        let (spot, r, q, sigma, t) = pricer::collect_inputs(&option, &curves, as_of).unwrap();
+        let price = option
+            .npv(&curves, as_of)
+            .expect("NPV calculation should succeed in test");
+        let (spot, r, q, sigma, t) = pricer::collect_inputs(&option, &curves, as_of)
+            .expect("Input collection should succeed in test");
         let expected_unit = pricer::price_bs_unit(
             spot,
             option.strike.amount(),
@@ -569,19 +580,52 @@ mod tests {
         // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
         approx_eq(price.amount(), expected_unit * option.contract_size, 5e-3);
 
-        let greeks = option.greeks(&curves, as_of).unwrap();
-        let expected = pricer::compute_greeks(&option, &curves, as_of).unwrap();
+        let greeks = option
+            .greeks(&curves, as_of)
+            .expect("Greeks calculation should succeed in test");
+        let expected = pricer::compute_greeks(&option, &curves, as_of)
+            .expect("Greeks computation should succeed in test");
         approx_eq(greeks.delta, expected.delta, 1e-6);
         approx_eq(greeks.gamma, expected.gamma, 1e-10);
         approx_eq(greeks.vega, expected.vega, 1e-6);
         approx_eq(greeks.theta, expected.theta, 1e-8);
         approx_eq(greeks.rho, expected.rho, 1e-6);
 
-        approx_eq(option.delta(&curves, as_of).unwrap(), greeks.delta, 1e-12);
-        approx_eq(option.gamma(&curves, as_of).unwrap(), greeks.gamma, 1e-12);
-        approx_eq(option.vega(&curves, as_of).unwrap(), greeks.vega, 1e-12);
-        approx_eq(option.theta(&curves, as_of).unwrap(), greeks.theta, 1e-12);
-        approx_eq(option.rho(&curves, as_of).unwrap(), greeks.rho, 1e-12);
+        approx_eq(
+            option
+                .delta(&curves, as_of)
+                .expect("Delta calculation should succeed in test"),
+            greeks.delta,
+            1e-12,
+        );
+        approx_eq(
+            option
+                .gamma(&curves, as_of)
+                .expect("Gamma calculation should succeed in test"),
+            greeks.gamma,
+            1e-12,
+        );
+        approx_eq(
+            option
+                .vega(&curves, as_of)
+                .expect("Vega calculation should succeed in test"),
+            greeks.vega,
+            1e-12,
+        );
+        approx_eq(
+            option
+                .theta(&curves, as_of)
+                .expect("Theta calculation should succeed in test"),
+            greeks.theta,
+            1e-12,
+        );
+        approx_eq(
+            option
+                .rho(&curves, as_of)
+                .expect("Rho calculation should succeed in test"),
+            greeks.rho,
+            1e-12,
+        );
     }
 
     #[test]

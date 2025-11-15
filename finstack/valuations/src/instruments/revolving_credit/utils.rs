@@ -296,8 +296,10 @@ mod tests {
 
     #[test]
     fn test_build_payment_dates_no_sentinel() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -306,16 +308,19 @@ mod tests {
             None,
         );
 
-        let dates = build_payment_dates(&facility, false).unwrap();
+        let dates = build_payment_dates(&facility, false)
+            .expect("Payment dates building should succeed in test");
         assert!(dates.len() >= 2);
         // Verify no sentinel: last date should be at or before maturity
-        assert!(*dates.last().unwrap() <= end);
+        assert!(*dates.last().expect("Dates should not be empty") <= end);
     }
 
     #[test]
     fn test_build_payment_dates_with_sentinel() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -324,22 +329,30 @@ mod tests {
             None,
         );
 
-        let dates_no_sentinel = build_payment_dates(&facility, false).unwrap();
-        let dates_with_sentinel = build_payment_dates(&facility, true).unwrap();
+        let dates_no_sentinel = build_payment_dates(&facility, false)
+            .expect("Payment dates building should succeed in test");
+        let dates_with_sentinel = build_payment_dates(&facility, true)
+            .expect("Payment dates building should succeed in test");
 
         // With sentinel should have one more date
         assert_eq!(dates_with_sentinel.len(), dates_no_sentinel.len() + 1);
 
         // Sentinel should be one day after the last payment date
-        let last_payment = dates_no_sentinel.last().unwrap();
-        let sentinel = dates_with_sentinel.last().unwrap();
+        let last_payment = dates_no_sentinel
+            .last()
+            .expect("Dates should not be empty");
+        let sentinel = dates_with_sentinel
+            .last()
+            .expect("Dates should not be empty");
         assert_eq!(*sentinel, *last_payment + time::Duration::days(1));
     }
 
     #[test]
     fn test_build_reset_dates_fixed_returns_none() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -348,14 +361,17 @@ mod tests {
             None,
         );
 
-        let reset_dates = build_reset_dates(&facility).unwrap();
+        let reset_dates = build_reset_dates(&facility)
+            .expect("Reset dates building should succeed in test");
         assert!(reset_dates.is_none());
     }
 
     #[test]
     fn test_build_reset_dates_floating_returns_some() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -375,16 +391,19 @@ mod tests {
             None,
         );
 
-        let reset_dates = build_reset_dates(&facility).unwrap();
+        let reset_dates = build_reset_dates(&facility)
+            .expect("Reset dates building should succeed in test");
         assert!(reset_dates.is_some());
-        let dates = reset_dates.unwrap();
+        let dates = reset_dates.expect("Reset dates should exist for floating rate");
         assert!(dates.len() >= 2);
     }
 
     #[test]
     fn test_calendar_adjustment_applied() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
 
         // Without calendar
         let facility_no_cal = create_test_facility(
@@ -394,7 +413,8 @@ mod tests {
             BaseRateSpec::Fixed { rate: 0.05 },
             None,
         );
-        let dates_no_cal = build_payment_dates(&facility_no_cal, false).unwrap();
+        let dates_no_cal = build_payment_dates(&facility_no_cal, false)
+            .expect("Payment dates building should succeed in test");
 
         // With NYC calendar
         let facility_with_cal = create_test_facility(
@@ -404,7 +424,8 @@ mod tests {
             BaseRateSpec::Fixed { rate: 0.05 },
             Some("NYC"),
         );
-        let dates_with_cal = build_payment_dates(&facility_with_cal, false).unwrap();
+        let dates_with_cal = build_payment_dates(&facility_with_cal, false)
+            .expect("Payment dates building should succeed in test");
 
         // Both should have same length (quarterly over 1 year)
         assert_eq!(dates_no_cal.len(), dates_with_cal.len());
@@ -412,23 +433,28 @@ mod tests {
 
     #[test]
     fn test_compute_reset_period_end_monthly() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let attrs = Attributes::new();
 
         let reset_end =
-            compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs).unwrap();
+            compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs)
+                .expect("Reset period end calculation should succeed");
 
         // 3 months from Jan 15 should be Apr 15
-        let expected = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let expected = Date::from_calendar_date(2025, Month::April, 15)
+            .expect("Valid test date");
         assert_eq!(reset_end, expected);
     }
 
     #[test]
     fn test_compute_reset_period_end_daily() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let attrs = Attributes::new();
 
-        let reset_end = compute_reset_period_end(reset_date, &Frequency::Days(90), &attrs).unwrap();
+        let reset_end = compute_reset_period_end(reset_date, &Frequency::Days(90), &attrs)
+            .expect("Reset period end calculation should succeed");
 
         // 90 days from Jan 15
         let expected = reset_date + time::Duration::days(90);
@@ -437,16 +463,19 @@ mod tests {
 
     #[test]
     fn test_compute_reset_period_end_with_calendar() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         // Test mechanism - calendar adjustment is calendar-dependent
         let attrs_no_cal = Attributes::new();
         let attrs_with_cal = Attributes::new().with_meta("calendar_id", "WMR");
 
         let end_no_cal =
-            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal).unwrap();
+            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal)
+                .expect("Reset period end calculation should succeed");
 
         let end_with_cal =
-            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_with_cal).unwrap();
+            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_with_cal)
+                .expect("Reset period end calculation should succeed");
 
         // Both should succeed (calendar adjustment may or may not change date)
         assert!(end_no_cal.year() == 2025);
@@ -459,7 +488,8 @@ mod tests {
 
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let draw_date = Date::from_calendar_date(2025, Month::March, 1)
+            .expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: draw_date,
@@ -467,7 +497,8 @@ mod tests {
             is_draw: true,
         };
 
-        let new_balance = apply_draw_repay_event(balance, &event, commitment).unwrap();
+        let new_balance = apply_draw_repay_event(balance, &event, commitment)
+            .expect("Draw/repay event application should succeed");
         assert_eq!(new_balance.amount(), 7_000_000.0);
     }
 
@@ -477,7 +508,8 @@ mod tests {
 
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let repay_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let repay_date = Date::from_calendar_date(2025, Month::March, 1)
+            .expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: repay_date,
@@ -485,7 +517,8 @@ mod tests {
             is_draw: false,
         };
 
-        let new_balance = apply_draw_repay_event(balance, &event, commitment).unwrap();
+        let new_balance = apply_draw_repay_event(balance, &event, commitment)
+            .expect("Draw/repay event application should succeed");
         assert_eq!(new_balance.amount(), 4_000_000.0);
     }
 
@@ -495,7 +528,8 @@ mod tests {
 
         let balance = Money::new(8_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let draw_date = Date::from_calendar_date(2025, Month::March, 1)
+            .expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: draw_date,
@@ -516,7 +550,8 @@ mod tests {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
 
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let attrs = Attributes::new();
 
         // Create a simple forward curve
@@ -529,7 +564,7 @@ mod tests {
                 (5.0, 0.04),  // 4%
             ])
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
 
         let market = MarketContext::new().insert_forward(fwd_curve);
 
@@ -543,7 +578,7 @@ mod tests {
             &market,
             &attrs,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Rate should be forward rate + margin
         // Forward rate should be ~3% (from curve), plus 200bps = ~5%
@@ -559,7 +594,8 @@ mod tests {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
 
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let attrs = Attributes::new();
 
         // Create a low forward curve (below floor)
@@ -572,7 +608,7 @@ mod tests {
                 (5.0, 0.001),
             ])
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
 
         let market = MarketContext::new().insert_forward(fwd_curve);
 
@@ -586,7 +622,7 @@ mod tests {
             &market,
             &attrs,
         )
-        .unwrap();
+        .expect("Rate projection should succeed in test");
 
         // Floor should lift index to 1%, plus 100bps margin = 2%
         assert!(

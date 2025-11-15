@@ -140,7 +140,8 @@ mod tests {
 
         attribution.carry = Money::new(100.0, Currency::USD);
         attribution.rates_curves_pnl = Money::new(500.0, Currency::USD);
-        attribution.compute_residual().unwrap();
+        attribution.compute_residual()
+            .expect("Residual computation should succeed in test");
 
         let csv = attribution.to_csv();
         assert!(csv.contains("instrument_id"));
@@ -163,7 +164,8 @@ mod tests {
             AttributionMethod::Parallel,
         );
 
-        let json = attribution.to_json().unwrap();
+        let json = attribution.to_json()
+            .expect("JSON serialization should succeed in test");
         assert!(json.contains("BOND-001"));
         assert!(json.contains("total_pnl"));
     }
@@ -182,7 +184,8 @@ mod tests {
 
         attribution.carry = Money::new(200.0, Currency::EUR);
         attribution.rates_curves_pnl = Money::new(300.0, Currency::EUR);
-        attribution.compute_residual().unwrap();
+        attribution.compute_residual()
+            .expect("Residual computation should succeed in test");
 
         let csv = attribution.to_csv();
 
@@ -235,7 +238,8 @@ mod tests {
             forward_total: Money::new(75.0, Currency::USD),
         });
 
-        let csv = attribution.rates_detail_to_csv().unwrap();
+        let csv = attribution.rates_detail_to_csv()
+            .expect("CSV generation should succeed in test");
 
         // Verify header includes currency
         assert!(csv.contains("currency"));
@@ -245,8 +249,10 @@ mod tests {
         assert!(lines.len() > 1); // Header + data
 
         // Check that EUR-OIS comes before USD-SOFR (alphabetical)
-        let eur_pos = csv.find("EUR-OIS").unwrap();
-        let usd_pos = csv.find("USD-SOFR").unwrap();
+        let eur_pos = csv.find("EUR-OIS")
+            .expect("EUR-OIS should be found in CSV");
+        let usd_pos = csv.find("USD-SOFR")
+            .expect("USD-SOFR should be found in CSV");
         assert!(eur_pos < usd_pos, "Curves should be alphabetically ordered");
     }
 }

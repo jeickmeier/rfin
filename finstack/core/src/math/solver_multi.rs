@@ -29,7 +29,7 @@
 //! };
 //!
 //! let initial = vec![0.0, 0.0];
-//! let result = solver.minimize(objective, &initial, None).unwrap();
+//! let result = solver.minimize(objective, &initial, None).expect("Minimization should succeed");
 //! assert!((result[0] - 2.0).abs() < 1e-6);
 //! assert!((result[1] - 3.0).abs() < 1e-6);
 //! ```
@@ -997,7 +997,9 @@ mod tests {
             |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
 
         let initial = vec![0.0, 0.0];
-        let result = solver.minimize(objective, &initial, None).unwrap();
+        let result = solver
+            .minimize(objective, &initial, None)
+            .expect("Minimization should succeed in test");
 
         assert!((result[0] - 2.0).abs() < 1e-6);
         assert!((result[1] - 3.0).abs() < 1e-6);
@@ -1013,7 +1015,9 @@ mod tests {
 
         let initial = vec![0.0, 0.0];
         let bounds = vec![(0.0, 3.0), (0.0, 3.0)]; // Constrain solution
-        let result = solver.minimize(objective, &initial, Some(&bounds)).unwrap();
+        let result = solver
+            .minimize(objective, &initial, Some(&bounds))
+            .expect("Minimization should succeed in test");
 
         // Solution should be at boundary (3, 3)
         assert!((result[0] - 3.0).abs() < 1e-6);
@@ -1031,7 +1035,9 @@ mod tests {
         };
 
         let initial = vec![0.0, 0.0];
-        let result = solver.solve_system(residuals, &initial).unwrap();
+        let result = solver
+            .solve_system(residuals, &initial)
+            .expect("System solving should succeed in test");
 
         assert!((result[0] - 3.0).abs() < 1e-6);
         assert!((result[1] - 2.0).abs() < 1e-6);
@@ -1065,7 +1071,9 @@ mod tests {
         };
 
         let initial = vec![0.5, 0.5, 0.5];
-        let result = solver.minimize(objective, &initial, None).unwrap();
+        let result = solver
+            .minimize(objective, &initial, None)
+            .expect("Minimization should succeed in test");
 
         // Should recover the true parameters (within reasonable tolerance)
         assert!(
@@ -1098,7 +1106,9 @@ mod tests {
             |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
 
         let initial = vec![0.0, 0.0];
-        let result = solver.minimize(objective, &initial, None).unwrap();
+        let result = solver
+            .minimize(objective, &initial, None)
+            .expect("Minimization should succeed in test");
 
         assert!(
             (result[0] - 2.0).abs() < 0.01,
@@ -1134,7 +1144,9 @@ mod tests {
 
         let initial = vec![2.5, 2.5];
         let bounds = vec![(-5.12, 5.12), (-5.12, 5.12)];
-        let result = solver.minimize(objective, &initial, Some(&bounds)).unwrap();
+        let result = solver
+            .minimize(objective, &initial, Some(&bounds))
+            .expect("Minimization should succeed in test");
 
         // Global minimum is at (0, 0) with value 0
         // DE should get reasonably close
@@ -1158,8 +1170,12 @@ mod tests {
         let objective = |params: &[f64]| -> f64 { params.iter().map(|x| x * x).sum() };
 
         let initial = vec![1.0, 2.0, 3.0];
-        let result1 = solver1.minimize(objective, &initial, None).unwrap();
-        let result2 = solver2.minimize(objective, &initial, None).unwrap();
+        let result1 = solver1
+            .minimize(objective, &initial, None)
+            .expect("Minimization should succeed in test");
+        let result2 = solver2
+            .minimize(objective, &initial, None)
+            .expect("Minimization should succeed in test");
 
         // Results should be identical with same seed
         for i in 0..3 {
@@ -1190,7 +1206,7 @@ mod tests {
 
         let result = solver
             .minimize_with_derivatives(objective, &derivatives, &initial, None)
-            .unwrap();
+            .expect("Minimization should succeed in test");
 
         assert!((result[0] - 2.0).abs() < 1e-8);
         assert!((result[1] - 3.0).abs() < 1e-8);
@@ -1239,7 +1255,7 @@ mod tests {
 
         let result = solver
             .solve_system_with_jacobian(residuals, &derivatives, &initial)
-            .unwrap();
+            .expect("Minimization should succeed in test");
 
         let expected = 2.0_f64.sqrt();
         assert!((result[0] - expected).abs() < 1e-8);

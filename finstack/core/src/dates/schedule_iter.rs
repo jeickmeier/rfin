@@ -241,9 +241,9 @@ impl Frequency {
     /// use finstack_core::dates::Frequency;
     ///
     /// // Valid frequencies
-    /// assert_eq!(Frequency::from_payments_per_year(4).unwrap(), Frequency::quarterly());
-    /// assert_eq!(Frequency::from_payments_per_year(2).unwrap(), Frequency::semi_annual());
-    /// assert_eq!(Frequency::from_payments_per_year(12).unwrap(), Frequency::monthly());
+    /// assert_eq!(Frequency::from_payments_per_year(4).expect("Frequency creation should succeed"), Frequency::quarterly());
+    /// assert_eq!(Frequency::from_payments_per_year(2).expect("Frequency creation should succeed"), Frequency::semi_annual());
+    /// assert_eq!(Frequency::from_payments_per_year(12).expect("Frequency creation should succeed"), Frequency::monthly());
     ///
     /// // Error handling for invalid inputs
     /// assert!(Frequency::from_payments_per_year(0).is_err());
@@ -661,8 +661,8 @@ impl<'a> ScheduleBuilder<'a> {
     /// use finstack_core::dates::{ScheduleBuilder, Frequency};
     /// use time::{Date, Month};
     ///
-    /// let start = Date::from_calendar_date(2025, Month::December, 31).unwrap();
-    /// let end = Date::from_calendar_date(2025, Month::January, 1).unwrap(); // Invalid: end before start
+    /// let start = Date::from_calendar_date(2025, Month::December, 31).expect("Valid date");
+    /// let end = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"); // Invalid: end before start
     ///
     /// // Without graceful mode: returns error
     /// let result = ScheduleBuilder::new(start, end)
@@ -675,7 +675,7 @@ impl<'a> ScheduleBuilder<'a> {
     ///     .frequency(Frequency::monthly())
     ///     .graceful_fallback(true)
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("Schedule builder should succeed");
     /// assert_eq!(schedule.dates.len(), 0);
     /// ```
     #[must_use]
@@ -702,14 +702,14 @@ impl<'a> ScheduleBuilder<'a> {
     /// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
     /// use time::{Date, Month};
     ///
-    /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    /// let end = Date::from_calendar_date(2025, Month::December, 15).unwrap();
+    /// let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid date");
+    /// let end = Date::from_calendar_date(2025, Month::December, 15).expect("Valid date");
     ///
     /// let schedule = ScheduleBuilder::new(start, end)
     ///     .frequency(Frequency::monthly())
     ///     .adjust_with_id(BusinessDayConvention::Following, "nyse")
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("Schedule builder should succeed");
     /// # assert!(schedule.dates.len() > 0);
     /// ```
     #[must_use]
@@ -966,7 +966,12 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            y,
+            Month::try_from(m).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     #[test]
@@ -986,7 +991,7 @@ mod tests {
             .frequency(Frequency::monthly())
             .graceful_fallback(true)
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
         assert_eq!(schedule.dates.len(), 0);
     }
 
@@ -1000,7 +1005,7 @@ mod tests {
             .frequency(Frequency::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "target2")
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
         // Should have generated a schedule
         assert!(schedule.dates.len() >= 2);
@@ -1017,7 +1022,7 @@ mod tests {
             .frequency(Frequency::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
         // Should still generate schedule (unadjusted)
         assert!(schedule.dates.len() >= 2);
@@ -1035,7 +1040,7 @@ mod tests {
             .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
             .graceful_fallback(true)
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
         // Should generate schedule (unadjusted)
         assert!(schedule.dates.len() >= 2);
@@ -1051,7 +1056,7 @@ mod tests {
             .frequency(Frequency::monthly())
             .graceful_fallback(true)
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
         assert_eq!(schedule.dates.len(), 4);
         assert_eq!(schedule.dates[0], start);
@@ -1069,7 +1074,7 @@ mod tests {
             .end_of_month(true)
             .adjust_with_id(BusinessDayConvention::Following, "target2")
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
         // Should generate a valid schedule
         assert!(schedule.dates.len() >= 2);
@@ -1097,8 +1102,10 @@ mod serde_tests {
         ];
 
         for freq in frequencies {
-            let json = serde_json::to_string(&freq).unwrap();
-            let deserialized: Frequency = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&freq)
+                .expect("JSON serialization should succeed in test");
+            let deserialized: Frequency = serde_json::from_str(&json)
+                .expect("JSON deserialization should succeed in test");
             assert_eq!(freq, deserialized);
         }
     }
@@ -1117,8 +1124,10 @@ mod serde_tests {
         ];
 
         for stub in stub_kinds {
-            let json = serde_json::to_string(&stub).unwrap();
-            let deserialized: StubKind = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&stub)
+                .expect("JSON serialization should succeed in test");
+            let deserialized: StubKind = serde_json::from_str(&json)
+                .expect("JSON deserialization should succeed in test");
             assert_eq!(stub, deserialized);
         }
     }
@@ -1128,15 +1137,15 @@ mod serde_tests {
         use serde_json;
 
         // Create a schedule
-        let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
         let sched = ScheduleBuilder::new(start, end)
             .frequency(Frequency::monthly())
             .build()
-            .unwrap();
+            .expect("Schedule builder should succeed with valid test data");
 
-        let json = serde_json::to_string(&sched).unwrap();
-        let deserialized: Schedule = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&sched).expect("JSON serialization should succeed in test");
+        let deserialized: Schedule = serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
 
         assert_eq!(sched.dates.len(), deserialized.dates.len());
         for (original, deserialized) in sched.dates.iter().zip(deserialized.dates.iter()) {

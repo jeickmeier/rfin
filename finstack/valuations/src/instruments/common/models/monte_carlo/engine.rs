@@ -1001,7 +1001,10 @@ impl McEngine {
 
                 // Store paths from this chunk
                 if !chunk_paths.is_empty() {
-                    captured_paths.lock().unwrap().extend(chunk_paths);
+                    captured_paths
+                        .lock()
+                        .expect("Mutex should not be poisoned")
+                        .extend(chunk_paths);
                 }
 
                 Ok(stats)
@@ -1029,7 +1032,9 @@ impl McEngine {
         let paths = if capture_enabled {
             let mut dataset =
                 PathDataset::new(self.config.num_paths, sampling_method, process_params);
-            let collected_paths = captured_paths.into_inner().unwrap();
+            let collected_paths = captured_paths
+                .into_inner()
+                .expect("Mutex should not be poisoned");
             for path in collected_paths {
                 dataset.add_path(path);
             }
@@ -1501,7 +1506,7 @@ mod tests {
             .seed(42)
             .uniform_grid(1.0, 100)
             .build()
-            .unwrap();
+            .expect("McEngine builder should succeed with valid test data");
 
         assert_eq!(engine.config.num_paths, 1000);
         assert_eq!(engine.config.seed, 42);
@@ -1514,7 +1519,7 @@ mod tests {
             .uniform_grid(1.0, 10)
             .parallel(false)
             .build()
-            .unwrap();
+            .expect("McEngine builder should succeed with valid test data");
 
         let rng = DummyRng;
         let process = DummyProcess;
@@ -1556,7 +1561,7 @@ mod tests {
             .parallel(true)
             .chunk_size(50)
             .build()
-            .unwrap();
+            .expect("McEngine builder should succeed with valid test data");
 
         let rng = DummyRng;
         let process = DummyProcess;
@@ -1576,7 +1581,7 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        let estimate = result.unwrap();
+        let estimate = result.expect("MC pricing should succeed in test");
         assert_eq!(estimate.num_paths, 100);
 
         // Note: Testing actual error scenarios would require extensive mocking
@@ -1593,7 +1598,7 @@ mod tests {
             .seed(42)
             .parallel(false)
             .build()
-            .unwrap();
+            .expect("McEngine builder should succeed with valid test data");
 
         #[cfg(feature = "parallel")]
         let engine_parallel = McEngine::builder()
@@ -1603,7 +1608,7 @@ mod tests {
             .parallel(true)
             .chunk_size(200)
             .build()
-            .unwrap();
+            .expect("McEngine builder should succeed with valid test data");
 
         let rng_serial = DummyRng;
         #[cfg(feature = "parallel")]

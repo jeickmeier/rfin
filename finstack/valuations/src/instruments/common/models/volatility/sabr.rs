@@ -399,7 +399,10 @@ impl SABRModel {
             }
         } else {
             // Shifted SABR allows negative rates but shifted values must be positive
-            let shift = self.params.shift.unwrap();
+            let shift = self
+                .params
+                .shift
+                .expect("Shift should be Some when using shifted SABR");
             if forward + shift <= 0.0 || strike + shift <= 0.0 {
                 return Err(Error::Internal); // Shifted rates must result in positive values
             }
@@ -457,7 +460,12 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(*strikes.iter().min_by(|a, b| a.total_cmp(b)).unwrap());
+        let min_rate = forward.min(
+            *strikes
+                .iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .expect("Strikes should not be empty")
+        );
 
         if min_rate < 0.0 {
             // Use shifted SABR
@@ -479,7 +487,12 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(*strikes.iter().min_by(|a, b| a.total_cmp(b)).unwrap());
+        let min_rate = forward.min(
+            *strikes
+                .iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .expect("Strikes should not be empty")
+        );
 
         if min_rate < 0.0 {
             // Use shifted SABR with derivatives
@@ -888,7 +901,8 @@ mod tests {
 
     #[test]
     fn test_sabr_atm_volatility() {
-        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap();
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 100.0;
@@ -1054,7 +1068,8 @@ mod tests {
     #[test]
     fn test_sabr_atm_stability() {
         // Test enhanced ATM stability with very close strikes
-        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap();
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1)
+            .expect("SABR parameters should be valid in test");
         let model = SABRModel::new(params);
 
         let forward = 0.025;

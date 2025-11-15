@@ -1,3 +1,6 @@
 target/*
 .venv/*
 Cargo.lock
+.vscode/*
+.windsurf/*
+.benchmarks/*

@@ -530,7 +530,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap()
+            .expect("DiscountCurve builder should succeed with valid test data")
     }
 
     #[test]

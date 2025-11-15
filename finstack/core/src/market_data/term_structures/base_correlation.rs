@@ -46,7 +46,7 @@
 //! let curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
 //!     .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
 //!     .build()
-//!     .unwrap();
+//!     .expect("BaseCorrelationCurve builder should succeed");
 //! assert!(curve.correlation(5.0) > 0.25);
 //! ```
 //!
@@ -129,8 +129,12 @@ impl BaseCorrelationCurve {
         if detachment_pct <= self.detachment_points[0] {
             return self.correlations[0];
         }
-        if detachment_pct >= *self.detachment_points.last().unwrap() {
-            return *self.correlations.last().unwrap();
+        if let (Some(&last_detachment), Some(&last_correlation)) =
+            (self.detachment_points.last(), self.correlations.last())
+        {
+            if detachment_pct >= last_detachment {
+                return last_correlation;
+            }
         }
 
         // Find bracketing points
@@ -154,7 +158,9 @@ impl BaseCorrelationCurve {
                 if detachment_pct < self.detachment_points[0] {
                     self.correlations[0]
                 } else {
-                    *self.correlations.last().unwrap()
+                    *self.correlations
+                        .last()
+                        .expect("correlations should not be empty")
                 }
             }
         }
@@ -220,7 +226,7 @@ impl BaseCorrelationCurve {
 /// let curve = BaseCorrelationCurve::builder("CDX")
 ///     .points([(3.0, 0.25), (7.0, 0.45)])
 ///     .build()
-///     .unwrap();
+///     .expect("BaseCorrelationCurve builder should succeed");
 /// assert!(curve.correlation(5.0) > 0.25);
 /// ```
 pub struct BaseCorrelationCurveBuilder {
@@ -269,7 +275,10 @@ impl BaseCorrelationCurveBuilder {
 
         // Sort by detachment point
         let mut sorted_points = self.points;
-        sorted_points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        sorted_points.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("f64 comparison should always be comparable")
+        });
 
         // Validate points
         for (detachment, corr) in &sorted_points {
@@ -307,7 +316,7 @@ mod tests {
                 (15.0, 0.75), // 0-15% tranche has 75% base correlation
             ])
             .build()
-            .unwrap()
+            .expect("BaseCorrelationCurve builder should succeed with valid test data")
     }
 
     #[test]
@@ -363,7 +372,7 @@ mod tests {
         let curve = BaseCorrelationCurve::builder("TEST")
             .points(vec![(10.0, 0.60), (3.0, 0.25), (7.0, 0.45)]) // Unsorted input
             .build()
-            .unwrap();
+            .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
         assert_eq!(curve.detachment_points, vec![3.0, 7.0, 10.0]);
         assert_eq!(curve.correlations, vec![0.25, 0.45, 0.60]);

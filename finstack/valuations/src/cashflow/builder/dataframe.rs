@@ -171,8 +171,16 @@ impl CashFlowSchedule {
         }
 
         // Create single period spanning all flows
-        let first = self.flows.first().unwrap().date;
-        let last = self.flows.last().unwrap().date;
+        let first = self
+            .flows
+            .first()
+            .expect("Flows should not be empty")
+            .date;
+        let last = self
+            .flows
+            .last()
+            .expect("Flows should not be empty")
+            .date;
         let period = Period {
             id: finstack_core::dates::PeriodId::annual(first.year()),
             start: first,
@@ -279,10 +287,9 @@ impl CashFlowSchedule {
             let period_opt = periods
                 .iter()
                 .find(|p| cf.date >= p.start && cf.date <= p.end);
-            if period_opt.is_none() {
+            let Some(period) = period_opt else {
                 continue;
-            }
-            let period = period_opt.unwrap();
+            };
 
             // Outstanding before this cashflow
             let outstanding_pre = outstanding;
@@ -477,7 +484,12 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            y,
+            Month::try_from(m).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn quarters_2025() -> Vec<Period> {
@@ -532,7 +544,7 @@ mod tests {
             .knots([(0.0, 1.0), (30.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_discount(curve);
 
         let periods = quarters_2025();
@@ -548,7 +560,7 @@ mod tests {
 
         let df = schedule
             .to_period_dataframe(&periods, &market, "USD-OIS", options)
-            .unwrap();
+            .expect("PeriodDataFrame creation should succeed in test");
         // Find PVs aligned with input cashflows
         // Historical row should be 0.0 PV; future row should be amount * DF
         assert_eq!(df.pvs.len(), 2);

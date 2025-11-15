@@ -106,8 +106,10 @@ impl CDSIndex {
             side: PayReceive::PayFixed,
             convention,
             premium: PremiumLegSpec {
-                start: Date::from_calendar_date(2024, time::Month::March, 20).unwrap(),
-                end: Date::from_calendar_date(2029, time::Month::December, 20).unwrap(),
+                start: Date::from_calendar_date(2024, time::Month::March, 20)
+                    .expect("Valid example date"),
+                end: Date::from_calendar_date(2029, time::Month::December, 20)
+                    .expect("Valid example date"),
                 freq,
                 stub,
                 bdc,

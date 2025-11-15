@@ -90,7 +90,10 @@ impl ProgressReporter {
     /// * `message` - Status message
     pub fn report(&self, current: usize, total: usize, message: &str) {
         if let Some(ref cb) = self.callback {
-            let mut last = self.last_reported.lock().unwrap();
+            let mut last = self
+                .last_reported
+                .lock()
+                .expect("Mutex should not be poisoned");
 
             // Report if:
             // 1. We've advanced by batch_size steps, OR
@@ -113,7 +116,10 @@ impl ProgressReporter {
     pub fn report_force(&self, current: usize, total: usize, message: &str) {
         if let Some(ref cb) = self.callback {
             cb(current, total, message);
-            *self.last_reported.lock().unwrap() = current;
+            *self
+                .last_reported
+                .lock()
+                .expect("Mutex should not be poisoned") = current;
         }
     }
 

@@ -51,9 +51,9 @@ pub trait DateExt: Sized {
     /// use finstack_core::dates::calendar::TARGET2;
     /// use time::Month;
     /// let cal = TARGET2;
-    /// let start = Date::from_calendar_date(2025, Month::June, 27).unwrap(); // Friday
-    /// let next = start.add_business_days(3, &cal).unwrap();
-    /// assert_eq!(next, Date::from_calendar_date(2025, Month::July, 2).unwrap());
+    /// let start = Date::from_calendar_date(2025, Month::June, 27).expect("Valid date"); // Friday
+    /// let next = start.add_business_days(3, &cal).expect("Business days calculation should succeed");
+    /// assert_eq!(next, Date::from_calendar_date(2025, Month::July, 2).expect("Valid date"));
     /// ```
     fn add_business_days<C: crate::dates::HolidayCalendar>(
         self,
@@ -101,7 +101,8 @@ impl DateExt for Date {
                 |_| {
                     // If the day doesn't exist (e.g., Feb 30), use the last day of the month
                     let last_day = days_in_month(calendar_year, config.start_month);
-                    Date::from_calendar_date(calendar_year, start_month, last_day).unwrap()
+                    Date::from_calendar_date(calendar_year, start_month, last_day)
+                        .expect("Date should be valid")
                 },
             );
 
@@ -283,7 +284,12 @@ mod tests {
     use time::Date;
 
     fn make_date(y: i32, m: u8, d: u8) -> Date {
-        Date::from_calendar_date(y, time::Month::try_from(m).unwrap(), d).unwrap()
+        Date::from_calendar_date(
+            y,
+            time::Month::try_from(m).expect("Valid month (1-12)"),
+            d,
+        )
+        .expect("Valid test date")
     }
 
     #[test]
@@ -365,7 +371,9 @@ mod tests {
 
         // Start on Friday, add 3 business days should land on Wednesday (skip weekend)
         let friday = make_date(2025, 6, 27);
-        let result = friday.add_business_days(3, &cal).unwrap();
+        let result = friday
+            .add_business_days(3, &cal)
+            .expect("Business days calculation should succeed in test");
         assert_eq!(result, make_date(2025, 7, 2)); // Wednesday
     }
 
@@ -377,7 +385,9 @@ mod tests {
 
         // Start on Monday, subtract 3 business days should land on Wednesday previous week
         let monday = make_date(2025, 6, 30);
-        let result = monday.add_business_days(-3, &cal).unwrap();
+        let result = monday
+            .add_business_days(-3, &cal)
+            .expect("Business days calculation should succeed in test");
         assert_eq!(result, make_date(2025, 6, 25)); // Wednesday
     }
 
@@ -387,7 +397,9 @@ mod tests {
 
         let cal = TARGET2;
         let date = make_date(2025, 6, 27);
-        let result = date.add_business_days(0, &cal).unwrap();
+        let result = date
+            .add_business_days(0, &cal)
+            .expect("Business days calculation should succeed in test");
         assert_eq!(result, date);
     }
 
@@ -401,7 +413,9 @@ mod tests {
         // Test around a known holiday period (Christmas/New Year)
         // December 24, 2024 is Tuesday
         let christmas_eve = make_date(2024, 12, 24);
-        let result = christmas_eve.add_business_days(1, &cal).unwrap();
+        let result = christmas_eve
+            .add_business_days(1, &cal)
+            .expect("Business days calculation should succeed in test");
 
         // Should skip Christmas Day (Dec 25), Boxing Day (Dec 26), and weekends
         // Landing on the next available business day
@@ -418,10 +432,12 @@ mod tests {
         // Create OffsetDateTime
         let dt = make_date(2025, 6, 27)
             .with_hms(10, 30, 0)
-            .unwrap()
+            .expect("Time should be valid")
             .assume_utc();
 
-        let result = dt.add_business_days(3, &cal).unwrap();
+        let result = dt
+            .add_business_days(3, &cal)
+            .expect("Business days calculation should succeed in test");
         assert_eq!(result.date(), make_date(2025, 7, 2));
         assert_eq!(result.time(), dt.time()); // Time should be preserved
     }
@@ -438,7 +454,9 @@ mod tests {
 
         let cal = AllHolidaysCal;
         let start = make_date(2025, 1, 1);
-        let err = start.add_business_days(1, &cal).unwrap_err();
+        let err = start
+            .add_business_days(1, &cal)
+            .expect_err("Should fail with AllHolidaysCal");
         match err {
             crate::Error::Input(crate::error::InputError::AdjustmentFailed {
                 max_days, ..

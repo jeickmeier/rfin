@@ -569,7 +569,8 @@ pub fn measure_fx_shift(
         })?;
 
     // Use a reference date (today) for the query
-    let ref_date = crate::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let ref_date = crate::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+        .expect("Valid reference date");
 
     // Get rates using FxQuery
     let query = FxQuery::new(base_ccy, quote_ccy, ref_date);
@@ -636,7 +637,8 @@ mod tests {
     use time::Month;
 
     fn sample_date() -> Date {
-        Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date")
     }
 
     #[test]
@@ -649,7 +651,7 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         // Create curve with higher rates (~4.5%, which is ~50bp higher)
         // DF(t) = exp(-r*t), so for +50bp: DF_new = DF_old * exp(-0.005*t)
@@ -663,7 +665,7 @@ mod tests {
             ])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         let market_t0 = MarketContext::new().insert_discount(curve_t0);
         let market_t1 = MarketContext::new().insert_discount(curve_t1);
@@ -674,7 +676,7 @@ mod tests {
             &market_t1,
             TenorSamplingMethod::Standard,
         )
-        .unwrap();
+        .expect("Market diff calculation should succeed in test");
 
         // Should detect approximately 50bp shift (within tolerance for sampling/interpolation)
         assert!((shift - 50.0).abs() < 5.0, "Expected ~50bp, got {}", shift);
@@ -689,7 +691,7 @@ mod tests {
             .recovery_rate(0.4)
             .knots(vec![(1.0, 0.01), (5.0, 0.02), (10.0, 0.025)])
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         // Create a shifted curve (+25bp = 0.0025)
         let curve_t1 = HazardCurve::builder("CORP-01")
@@ -697,7 +699,7 @@ mod tests {
             .recovery_rate(0.4)
             .knots(vec![(1.0, 0.0125), (5.0, 0.0225), (10.0, 0.0275)])
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         let market_t0 = MarketContext::new().insert_hazard(curve_t0);
         let market_t1 = MarketContext::new().insert_hazard(curve_t1);
@@ -708,7 +710,7 @@ mod tests {
             &market_t1,
             TenorSamplingMethod::Standard,
         )
-        .unwrap();
+        .expect("Market diff calculation should succeed in test");
 
         assert!((shift - 25.0).abs() < 1.0, "Expected ~25bp, got {}", shift);
     }
@@ -738,7 +740,7 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         // Create curve with higher rates (+50bp)
         let curve_t1 = DiscountCurve::builder("USD-OIS")
@@ -751,14 +753,14 @@ mod tests {
             ])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         let market_t0 = MarketContext::new().insert_discount(curve_t0);
         let market_t1 = MarketContext::new().insert_discount(curve_t1);
 
         let tenors = vec![1.0, 5.0, 10.0];
-        let shifts =
-            measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors).unwrap();
+        let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors)
+            .expect("Bucketed discount shift calculation should succeed in test");
 
         assert_eq!(shifts.len(), 3);
 
@@ -777,7 +779,7 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("Market diff calculation should succeed in test");
 
         let market = MarketContext::new().insert_discount(curve);
 
@@ -788,13 +790,13 @@ mod tests {
             &market,
             TenorSamplingMethod::Standard,
         )
-        .unwrap();
+        .expect("Market diff calculation should succeed in test");
         assert_eq!(shift_std, 0.0); // Same market → zero shift
 
         // Dynamic
         let shift_dyn =
             measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Dynamic)
-                .unwrap();
+                .expect("Market diff calculation should succeed in test");
         assert_eq!(shift_dyn, 0.0);
 
         // Custom
@@ -804,7 +806,7 @@ mod tests {
             &market,
             TenorSamplingMethod::Custom(vec![1.0, 2.0, 3.0]),
         )
-        .unwrap();
+        .expect("Market diff calculation should succeed in test");
         assert_eq!(shift_custom, 0.0);
     }
 }

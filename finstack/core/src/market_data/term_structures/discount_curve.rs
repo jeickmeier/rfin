@@ -45,11 +45,11 @@
 //! # use finstack_core::math::interp::InterpStyle;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")
-//!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+//!     .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
 //!     .knots([(0.0, 1.0), (5.0, 0.9)])
 //!     .set_interp(InterpStyle::MonotoneConvex)
 //!     .build()
-//!     .unwrap();
+//!     .expect("DiscountCurve builder should succeed");
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
 //!
@@ -400,7 +400,8 @@ impl DiscountCurve {
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         DiscountCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            base: Date::from_calendar_date(1970, time::Month::January, 1)
+                .expect("January 1, 1970 should always be valid"),
             day_count: DayCount::Act365F,
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,
@@ -624,13 +625,13 @@ impl DiscountCurve {
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 /// let curve = DiscountCurve::builder("USD-OIS")
 ///     .base_date(base)
 ///     .knots([(0.0, 1.0), (5.0, 0.9)])
 ///     .set_interp(InterpStyle::Linear)
 ///     .build()
-///     .unwrap();
+///     .expect("DiscountCurve builder should succeed");
 /// assert!(curve.df(2.0) < 1.0);
 /// ```
 pub struct DiscountCurveBuilder {
@@ -699,13 +700,13 @@ impl DiscountCurveBuilder {
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
-    /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(base)
     ///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
     ///     .enforce_no_arbitrage()
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("DiscountCurve builder should succeed");
     /// ```
     pub fn enforce_no_arbitrage(mut self) -> Self {
         self.require_monotonic = true;
@@ -725,13 +726,13 @@ impl DiscountCurveBuilder {
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
-    /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(base)
     ///     .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
     ///     .with_min_forward_rate(-0.01)  // Floor at -100bp
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("DiscountCurve builder should succeed");
     /// ```
     pub fn with_min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
@@ -898,20 +899,26 @@ mod tests {
 
     fn sample_curve_linear() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, time::Month::June, 30).unwrap())
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::June, 30)
+                    .expect("Valid test date"),
+            )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap()
+            .expect("DiscountCurve builder should succeed with valid test data")
     }
 
     fn sample_curve_log() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, time::Month::June, 30).unwrap())
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::June, 30)
+                    .expect("Valid test date"),
+            )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
             .set_interp(InterpStyle::LogLinear)
             .build()
-            .unwrap()
+            .expect("DiscountCurve builder should succeed with valid test data")
     }
 
     #[test]
@@ -940,7 +947,8 @@ mod tests {
     #[test]
     fn tail_continuity_with_flatforward_extrapolation() {
         // Test that FlatForward extrapolation maintains continuous forward rates beyond last pillar
-        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([
@@ -953,7 +961,7 @@ mod tests {
             .set_interp(InterpStyle::MonotoneConvex)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         // Check that tail extrapolation maintains reasonable forward behavior
         let df_at_10 = curve.df(10.0);
@@ -990,12 +998,13 @@ mod tests {
     #[test]
     fn default_uses_monotone_convex_and_flatforward() {
         // Verify new market-standard defaults are in place
-        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
         let curve = DiscountCurve::builder("TEST")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         // Defaults should be MonotoneConvex + FlatForward (verified by checking tail DF behavior)
         // With FlatForward, the tail should extrapolate using the forward rate at the last segment
@@ -1023,7 +1032,8 @@ mod tests {
     fn df_to_fwd_preserves_low_forwards_no_clamp() {
         // Test that DF→FWD conversion works with very small forwards
         // (The old code would clamp to [0, 0.5])
-        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
 
         // Build a nearly-flat curve implying very low forwards
         // All DFs very close to 1.0 implies near-zero interest rates
@@ -1036,14 +1046,14 @@ mod tests {
             ])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         // Convert to forward curve - should succeed
         let fwd_curve = curve.to_forward_curve("EUR-FWD", 0.25);
 
         // Should succeed
         assert!(fwd_curve.is_ok(), "DF→FWD should work with low forwards");
-        let fwd = fwd_curve.unwrap();
+        let fwd = fwd_curve.expect("Forward curve conversion should succeed in test");
 
         // All forwards should be very small (< 1%)
         let rates: Vec<f64> = fwd.knots().iter().map(|&t| fwd.rate(t)).collect();

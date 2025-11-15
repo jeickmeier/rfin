@@ -103,7 +103,7 @@ impl CashFlow {
     /// use finstack_core::money::Money;
     /// use time::Month;
     ///
-    /// let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    /// let date = Date::from_calendar_date(2025, Month::January, 15).expect("Valid date");
     /// let amount = Money::new(100.0, Currency::USD);
     /// let cf = CashFlow {
     ///     date,
@@ -158,7 +158,8 @@ mod tests {
 
     #[test]
     fn cashflow_validation_works() {
-        let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let date = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
         let amount = Money::new(100.0, Currency::USD);
 
         let cf = CashFlow {
@@ -179,7 +180,8 @@ mod tests {
 
     #[test]
     fn cashflow_kinds_construct_correctly() {
-        let date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let date = Date::from_calendar_date(2025, Month::March, 1)
+            .expect("Valid test date");
         let amt = Money::new(1_000.0, Currency::EUR);
 
         let princ = CashFlow {

@@ -49,16 +49,16 @@
 //! use time::Month;
 //!
 //! let observations = vec![
-//!     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 300.0),
-//!     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 302.0),
+//!     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 300.0),
+//!     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 302.0),
 //! ];
 //! let index = InflationIndex::new("US-CPI", observations, Currency::USD)
-//!     .unwrap()
+//!     .expect("Index creation should succeed")
 //!     .with_interpolation(InflationInterpolation::Linear)
 //!     .with_lag(InflationLag::Months(3));
-//! let settle = Date::from_calendar_date(2024, Month::June, 30).unwrap();
-//! let base = Date::from_calendar_date(2024, Month::March, 31).unwrap();
-//! let ratio = index.ratio(base, settle).unwrap();
+//! let settle = Date::from_calendar_date(2024, Month::June, 30).expect("Valid date");
+//! let base = Date::from_calendar_date(2024, Month::March, 31).expect("Valid date");
+//! let ratio = index.ratio(base, settle).expect("Ratio calculation should succeed");
 //! assert!(ratio > 1.0);
 //! ```
 
@@ -229,20 +229,20 @@ impl Default for InflationLag {
 ///
 /// // US CPI-U observations
 /// let observations = vec![
-///     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 300.5),
-///     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 302.1),
-///     (Date::from_calendar_date(2024, Month::March, 31).unwrap(), 303.8),
+///     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 300.5),
+///     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 302.1),
+///     (Date::from_calendar_date(2024, Month::March, 31).expect("Valid date"), 303.8),
 /// ];
 ///
 /// let index = InflationIndex::new("US-CPI-U", observations, Currency::USD)
-///     .unwrap()
+///     .expect("Index creation should succeed")
 ///     .with_interpolation(InflationInterpolation::Linear)
 ///     .with_lag(InflationLag::Months(3)); // TIPS standard
 ///
 /// // Calculate inflation ratio for TIPS coupon indexation
-/// let base_date = Date::from_calendar_date(2024, Month::January, 15).unwrap();
-/// let settle_date = Date::from_calendar_date(2024, Month::June, 15).unwrap();
-/// let ratio = index.ratio(base_date, settle_date).unwrap();
+/// let base_date = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
+/// let settle_date = Date::from_calendar_date(2024, Month::June, 15).expect("Valid date");
+/// let ratio = index.ratio(base_date, settle_date).expect("Ratio calculation should succeed");
 /// assert!(ratio >= 1.0); // Inflation adjustment factor
 /// ```
 ///
@@ -547,7 +547,12 @@ mod tests {
     use time::Month;
 
     fn make_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn sample_cpi() -> InflationIndex {
@@ -559,7 +564,8 @@ mod tests {
             (make_date(2023, 5, 31), 103.0),
         ];
 
-        InflationIndex::new("US-CPI", observations, Currency::USD).unwrap()
+        InflationIndex::new("US-CPI", observations, Currency::USD)
+            .expect("InflationIndex creation should succeed in test")
     }
 
     #[test]
@@ -568,7 +574,9 @@ mod tests {
         assert_eq!(index.id, "US-CPI");
         assert_eq!(index.currency, Currency::USD);
 
-        let (start, end) = index.date_range().unwrap();
+        let (start, end) = index
+            .date_range()
+            .expect("Date range should exist for non-empty index");
         assert_eq!(start, make_date(2023, 1, 31));
         assert_eq!(end, make_date(2023, 5, 31));
     }
@@ -578,11 +586,15 @@ mod tests {
         let index = sample_cpi();
 
         // Exact date match
-        let value = index.value_on(make_date(2023, 2, 28)).unwrap();
+        let value = index
+            .value_on(make_date(2023, 2, 28))
+            .expect("Value lookup should succeed in test");
         assert_eq!(value, 101.0);
 
         // Between dates - should use previous value
-        let value = index.value_on(make_date(2023, 3, 15)).unwrap();
+        let value = index
+            .value_on(make_date(2023, 3, 15))
+            .expect("Value lookup should succeed in test");
         assert_eq!(value, 101.0);
     }
 
@@ -591,11 +603,15 @@ mod tests {
         let index = sample_cpi().with_interpolation(InflationInterpolation::Linear);
 
         // Exact date
-        let value = index.value_on(make_date(2023, 2, 28)).unwrap();
+        let value = index
+            .value_on(make_date(2023, 2, 28))
+            .expect("Value lookup should succeed in test");
         assert_eq!(value, 101.0);
 
         // Interpolated value
-        let value = index.value_on(make_date(2023, 3, 15)).unwrap();
+        let value = index
+            .value_on(make_date(2023, 3, 15))
+            .expect("Value lookup should succeed in test");
         assert!(value > 101.0 && value < 102.0);
     }
 
@@ -605,7 +621,7 @@ mod tests {
 
         let ratio = index
             .ratio(make_date(2023, 1, 31), make_date(2023, 5, 31))
-            .unwrap();
+            .expect("Ratio calculation should succeed in test");
         assert_eq!(ratio, 103.0 / 100.0);
     }
 
@@ -616,7 +632,9 @@ mod tests {
         // Value on Apr 30 with 1-month lag should give Mar 31 value (102.0)
         // However, with step interpolation (default), we get the previous value (101.0)
         // since March 30 (Apr 30 - 1 month) is between Feb 28 and Mar 31
-        let value = index.value_on(make_date(2023, 4, 30)).unwrap();
+        let value = index
+            .value_on(make_date(2023, 4, 30))
+            .expect("Value lookup should succeed in test");
         assert_eq!(value, 101.0); // Feb value due to step interpolation
     }
 
@@ -628,7 +646,7 @@ mod tests {
             .with_interpolation(InflationInterpolation::Linear)
             .with_lag(InflationLag::Days(90))
             .build()
-            .unwrap();
+            .expect("Ratio calculation should succeed in test");
 
         assert_eq!(index.id, "UK-RPI");
         assert_eq!(index.currency, Currency::GBP);

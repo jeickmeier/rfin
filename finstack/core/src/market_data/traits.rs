@@ -130,7 +130,8 @@ mod tests {
 
     impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
-            Date::from_calendar_date(2025, time::Month::January, 1).unwrap()
+            Date::from_calendar_date(2025, time::Month::January, 1)
+                .expect("Valid test date")
         }
         fn df(&self, _t: f64) -> f64 {
             self.df_const

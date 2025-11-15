@@ -189,30 +189,38 @@ impl InterpFn for MonotoneConvex {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
-                ExtrapolationPolicy::FlatForward => {
-                    // For MonotoneConvex, use linear extrapolation based on cubic slope at boundary
-                    let n = self.coeffs.len();
-                    let (a, b, c, d) = self.coeffs[n - 1];
-                    let h = self.knots[n] - self.knots[n - 1];
-                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                    let s_extra = 1.0 + (x - self.knots[n]) / h;
-                    let y_end = a + b + c + d;
-                    let y = y_end + dy_ds_at_end * (s_extra - 1.0);
-                    (-y).exp()
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => {
+                        *self.dfs.last().expect("dfs should not be empty")
+                    }
+                    ExtrapolationPolicy::FlatForward => {
+                        // For MonotoneConvex, use linear extrapolation based on cubic slope at boundary
+                        let n = self.coeffs.len();
+                        let (a, b, c, d) = self.coeffs[n - 1];
+                        let h = self.knots[n] - self.knots[n - 1];
+                        let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                        let s_extra = 1.0 + (x - self.knots[n]) / h;
+                        let y_end = a + b + c + d;
+                        let y = y_end + dy_ds_at_end * (s_extra - 1.0);
+                        (-y).exp()
+                    }
+                };
+            }
         }
 
         // Exact knot match
-        if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        if let Ok(idx_exact) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        }) {
             return self.dfs[idx_exact];
         }
 
         // Interior interpolation using monotone-convex cubic
-        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let (a, b, c, d) = self.coeffs[idx];
         let h = self.knots[idx + 1] - self.knots[idx];
         let s = (x - self.knots[idx]) / h;
@@ -233,22 +241,27 @@ impl InterpFn for MonotoneConvex {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => 0.0,
-                ExtrapolationPolicy::FlatForward => {
-                    let n = self.coeffs.len();
-                    let (_a, b, c, d) = self.coeffs[n - 1];
-                    let h = self.knots[n] - self.knots[n - 1];
-                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                    let f_val = self.interp(x);
-                    -f_val * dy_ds_at_end / h
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => 0.0,
+                    ExtrapolationPolicy::FlatForward => {
+                        let n = self.coeffs.len();
+                        let (_a, b, c, d) = self.coeffs[n - 1];
+                        let h = self.knots[n] - self.knots[n - 1];
+                        let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                        let f_val = self.interp(x);
+                        -f_val * dy_ds_at_end / h
+                    }
+                };
+            }
         }
 
         // Find segment and compute derivative
-        let idx = if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap())
+        let idx = if let Ok(idx_exact) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        })
         {
             // Exact knot: use right derivative for consistency (except at last knot)
             if idx_exact == self.knots.len() - 1 {
@@ -257,7 +270,8 @@ impl InterpFn for MonotoneConvex {
                 idx_exact
             }
         } else {
-            crate::math::interp::utils::locate_segment(&self.knots, x).unwrap()
+            crate::math::interp::utils::locate_segment(&self.knots, x)
+                .expect("Segment location should succeed for valid x")
         };
 
         let (a, b, c, d) = self.coeffs[idx];

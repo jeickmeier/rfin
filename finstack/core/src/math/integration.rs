@@ -659,7 +659,8 @@ mod tests {
         // Test Simpson's rule on a simple polynomial x² on [0, 1]
         // Exact integral = 1/3
         let f = |x: f64| x * x;
-        let integral = simpson_rule(f, 0.0, 1.0, 100).unwrap();
+        let integral = simpson_rule(f, 0.0, 1.0, 100)
+            .expect("Simpson rule integration should succeed in test");
         assert!((integral - 1.0 / 3.0).abs() < 1e-6);
     }
 
@@ -667,7 +668,8 @@ mod tests {
     fn test_adaptive_quadrature() {
         // Test adaptive integration on oscillatory function
         let f = |x: f64| (10.0 * x).sin();
-        let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000).unwrap();
+        let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000)
+            .expect("Adaptive quadrature should succeed in test");
         // Exact integral = (1 - cos(10π))/10 = 0
         assert!(result.abs() < 1e-2);
     }

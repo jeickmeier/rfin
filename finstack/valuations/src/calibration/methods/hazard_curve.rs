@@ -342,7 +342,10 @@ mod tests {
 
     fn test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+            .base_date(
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
+            )
             .knots([
                 (0.0, 1.0),
                 (1.0, 0.95),
@@ -351,11 +354,12 @@ mod tests {
                 (10.0, 0.75),
             ])
             .build()
-            .unwrap()
+            .expect("DiscountCurve builder should succeed with valid test data")
     }
 
     fn test_cds_quotes() -> Vec<CreditQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         vec![
             CreditQuote::CDS {
                 entity: "AAPL".to_string(),
@@ -383,7 +387,8 @@ mod tests {
 
     #[test]
     fn hazard_calibration_reprices_cds_within_one_dollar_per_million() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
@@ -442,7 +447,8 @@ mod tests {
 
     #[test]
     fn hazard_calibration_basic_properties_and_metadata() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
@@ -483,21 +489,21 @@ mod tests {
                 base_date + time::Duration::days(365),
                 finstack_core::dates::DayCountCtx::default(),
             )
-            .unwrap();
+            .expect("Year fraction calculation should succeed");
         let t3 = dc
             .year_fraction(
                 base_date,
                 base_date + time::Duration::days(365 * 3),
                 finstack_core::dates::DayCountCtx::default(),
             )
-            .unwrap();
+            .expect("Year fraction calculation should succeed");
         let t5 = dc
             .year_fraction(
                 base_date,
                 base_date + time::Duration::days(365 * 5),
                 finstack_core::dates::DayCountCtx::default(),
             )
-            .unwrap();
+            .expect("Year fraction calculation should succeed");
         assert!((hazard.quoted_spread_bp(t1, ParInterp::Linear) - 50.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t3, ParInterp::Linear) - 75.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t5, ParInterp::Linear) - 100.0).abs() < 1e-6);
@@ -513,7 +519,8 @@ mod tests {
 
     #[test]
     fn hazard_calibration_errors_on_empty_quotes() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let disc = test_discount_curve();
         let calibrator = HazardCurveCalibrator::new(
             "AAPL",
@@ -531,7 +538,8 @@ mod tests {
 
     #[test]
     fn test_upfront_cds_quote_support() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let disc = test_discount_curve();
 
         // Test with upfront quote
@@ -557,7 +565,8 @@ mod tests {
 
         // Should succeed and handle upfront quote properly
         assert!(result.is_ok());
-        let (_curve, report) = result.unwrap();
+        let (_curve, report) = result
+            .expect("Hazard curve calibration should succeed in test");
         assert!(report.success);
 
         // Check that residual key indicates upfront quote
@@ -586,7 +595,8 @@ mod tests {
             "TEST",
             Seniority::Senior,
             0.40,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date"),
             Currency::JPY,
         );
         assert_eq!(calibrator.discount_curve_id, CurveId::new("JPY-OIS"));

@@ -71,8 +71,10 @@ impl CdsOption {
         use time::Month;
         let option_params = CdsOptionParams::call(
             100.0,
-            Date::from_calendar_date(2025, Month::June, 20).unwrap(),
-            Date::from_calendar_date(2030, Month::June, 20).unwrap(),
+            Date::from_calendar_date(2025, Month::June, 20)
+                .expect("Valid example date"),
+            Date::from_calendar_date(2030, Month::June, 20)
+                .expect("Valid example date"),
             Money::new(10_000_000.0, Currency::USD),
         );
         let credit_params =

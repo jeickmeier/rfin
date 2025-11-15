@@ -75,25 +75,33 @@ impl InterpFn for LogLinearDf {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            let n = self.knots.len();
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => (*self.log_dfs.last().unwrap()).exp(),
-                ExtrapolationPolicy::FlatForward => {
-                    let slope = self.segment_slope(n - 2, n - 1);
-                    let extrapolated_log_df = self.log_dfs[n - 1] + slope * (x - self.knots[n - 1]);
-                    extrapolated_log_df.exp()
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                let n = self.knots.len();
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => {
+                        (*self.log_dfs.last().expect("log_dfs should not be empty")).exp()
+                    }
+                    ExtrapolationPolicy::FlatForward => {
+                        let slope = self.segment_slope(n - 2, n - 1);
+                        let extrapolated_log_df = self.log_dfs[n - 1] + slope * (x - self.knots[n - 1]);
+                        extrapolated_log_df.exp()
+                    }
+                };
+            }
         }
 
         // Exact knot match
-        if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        if let Ok(idx_exact) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        }) {
             return (self.log_dfs[idx_exact]).exp();
         }
 
         // Interior interpolation
-        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let y0 = self.log_dfs[idx];
@@ -117,21 +125,24 @@ impl InterpFn for LogLinearDf {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            let n = self.knots.len();
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => 0.0,
-                ExtrapolationPolicy::FlatForward => {
-                    let slope = self.segment_slope(n - 2, n - 1);
-                    let f_val = self.interp(x);
-                    f_val * slope
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                let n = self.knots.len();
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => 0.0,
+                    ExtrapolationPolicy::FlatForward => {
+                        let slope = self.segment_slope(n - 2, n - 1);
+                        let f_val = self.interp(x);
+                        f_val * slope
+                    }
+                };
+            }
         }
 
         // Get the interpolated value and log-linear slope
         let f_val = self.interp(x);
-        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let y0 = self.log_dfs[idx];

@@ -91,7 +91,12 @@ mod tests {
     use time::Month;
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn quarters_2025() -> Vec<Period> {
@@ -142,12 +147,16 @@ mod tests {
         let keys: Vec<_> = aggregated.keys().cloned().collect();
         assert_eq!(keys, expected_keys);
 
-        let q1 = aggregated.get(&PeriodId::quarter(2025, 1)).unwrap();
+        let q1 = aggregated
+            .get(&PeriodId::quarter(2025, 1))
+            .expect("Q1 should exist");
         assert_eq!(q1.len(), 2);
         assert!((q1[&Currency::USD].amount() - 100.0).abs() < 1e-12);
         assert!((q1[&Currency::EUR].amount() - 200.0).abs() < 1e-12);
 
-        let q2 = aggregated.get(&PeriodId::quarter(2025, 2)).unwrap();
+        let q2 = aggregated
+            .get(&PeriodId::quarter(2025, 2))
+            .expect("Q2 should exist");
         assert_eq!(q2.len(), 1);
         assert!((q2[&Currency::USD].amount() - 60.0).abs() < 1e-12);
 
@@ -472,8 +481,8 @@ mod precision_tests {
     #[test]
     fn checked_empty_returns_zero_target() {
         let total = aggregate_cashflows_precise_checked(&[], Currency::USD)
-            .unwrap()
-            .unwrap();
+            .expect("Aggregation should succeed")
+            .expect("Result should be Some");
         assert_eq!(total.amount(), 0.0);
         assert_eq!(total.currency(), Currency::USD);
     }
@@ -490,18 +499,19 @@ mod precision_tests {
                 (
                     Date::from_calendar_date(
                         2025 + years,
-                        Month::try_from((remaining_months + 1) as u8).unwrap(),
+                        Month::try_from((remaining_months + 1) as u8)
+                            .expect("Valid month (1-12)"),
                         1,
                     )
-                    .unwrap(),
+                    .expect("Valid test date"),
                     Money::new(25_000.0, Currency::USD), // $25k coupon
                 )
             })
             .collect();
 
         let total = aggregate_cashflows_precise_checked(&flows, Currency::USD)
-            .unwrap()
-            .unwrap();
+            .expect("Aggregation should succeed")
+            .expect("Result should be Some");
 
         // Should sum to 60 * $25k = $1.5M
         assert!((total.amount() - 1_500_000.0).abs() < 0.01);
@@ -511,11 +521,13 @@ mod precision_tests {
     fn checked_currency_mismatch_errors() {
         let flows = vec![
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 Money::new(100.0, Currency::USD),
             ),
             (
-                Date::from_calendar_date(2025, Month::February, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::February, 1)
+                    .expect("Valid test date"),
                 Money::new(200.0, Currency::EUR),
             ),
         ];
@@ -530,17 +542,19 @@ mod precision_tests {
     fn checked_sum_matches() {
         let flows = vec![
             (
-                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("Valid test date"),
                 Money::new(100.0, Currency::USD),
             ),
             (
-                Date::from_calendar_date(2025, Month::February, 1).unwrap(),
+                Date::from_calendar_date(2025, Month::February, 1)
+                    .expect("Valid test date"),
                 Money::new(200.0, Currency::USD),
             ),
         ];
         let total = aggregate_cashflows_precise_checked(&flows, Currency::USD)
-            .unwrap()
-            .unwrap();
+            .expect("Aggregation should succeed")
+            .expect("Result should be Some");
         assert_eq!(total.currency(), Currency::USD);
         assert!((total.amount() - 300.0).abs() < 1e-12);
     }
@@ -577,7 +591,12 @@ mod pv_ctx_tests {
     }
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn quarters_2025() -> Vec<Period> {
@@ -620,9 +639,8 @@ mod pv_ctx_tests {
             bus_basis: None,
         };
 
-        let pv_map =
-            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-                .unwrap();
+        let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+            .expect("PV by period calculation should succeed in test");
 
         // Sum of period PVs
         let sum_pv: f64 = pv_map
@@ -632,7 +650,8 @@ mod pv_ctx_tests {
             .sum();
 
         // Standalone NPV using default context (Act365F doesn't require special ctx)
-        let total_npv = npv_static(&curve, base, DayCount::Act365F, &flows).unwrap();
+        let total_npv = npv_static(&curve, base, DayCount::Act365F, &flows)
+            .expect("NPV calculation should succeed in test");
 
         // Should match within tolerance
         assert!(
@@ -693,18 +712,21 @@ mod pv_ctx_tests {
             bus_basis: None,
         };
 
-        let pv_map =
-            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-                .unwrap();
+        let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+            .expect("PV by period calculation should succeed in test");
 
         // Q1 should have both USD and EUR
-        let q1 = pv_map.get(&PeriodId::quarter(2025, 1)).unwrap();
+        let q1 = pv_map
+            .get(&PeriodId::quarter(2025, 1))
+            .expect("Q1 should exist");
         assert_eq!(q1.len(), 2);
         assert!(q1.contains_key(&Currency::USD));
         assert!(q1.contains_key(&Currency::EUR));
 
         // Q2 should have only USD
-        let q2 = pv_map.get(&PeriodId::quarter(2025, 2)).unwrap();
+        let q2 = pv_map
+            .get(&PeriodId::quarter(2025, 2))
+            .expect("Q2 should exist");
         assert_eq!(q2.len(), 1);
         assert!(q2.contains_key(&Currency::USD));
     }
@@ -758,7 +780,12 @@ mod pv_tests {
     }
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(
+            year,
+            Month::try_from(month).expect("Valid month (1-12)"),
+            day,
+        )
+        .expect("Valid test date")
     }
 
     fn quarters_2025() -> Vec<Period> {
@@ -813,7 +840,8 @@ mod pv_tests {
 
         // Sum should equal total NPV
         use finstack_core::cashflow::discounting::npv_static;
-        let total_npv = npv_static(&curve, base, DayCount::Act365F, &flows).unwrap();
+        let total_npv = npv_static(&curve, base, DayCount::Act365F, &flows)
+            .expect("NPV calculation should succeed in test");
         let sum_pv = q1_pv + q2_pv;
         assert!((sum_pv - total_npv.amount()).abs() < 1e-10);
     }
@@ -860,7 +888,9 @@ mod pv_tests {
 
         let pv_map = pv_by_period(&flows, &periods, &curve, base, DayCount::Act365F);
 
-        let q1 = pv_map.get(&PeriodId::quarter(2025, 1)).unwrap();
+        let q1 = pv_map
+            .get(&PeriodId::quarter(2025, 1))
+            .expect("Q1 should exist");
         assert_eq!(q1.len(), 2); // Both currencies present
         assert!((q1[&Currency::USD].amount() - 95.0).abs() < 1e-10);
         assert!((q1[&Currency::EUR].amount() - 190.0).abs() < 1e-10);

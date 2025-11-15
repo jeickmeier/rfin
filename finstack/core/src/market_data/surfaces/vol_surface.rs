@@ -30,9 +30,9 @@
 //!     .row(&[0.2, 0.21, 0.22])
 //!     .row(&[0.19, 0.2, 0.21])
 //!     .build()
-//!     .unwrap();
+//!     .expect("VolSurface builder should succeed");
 //! assert_eq!(surface.id(), &CurveId::from("EQ-FLAT"));
-//! let v = surface.value_checked(1.5, 100.0).unwrap();
+//! let v = surface.value_checked(1.5, 100.0).expect("Value lookup should succeed");
 //! assert!(v > 0.2);
 //! ```
 
@@ -82,7 +82,7 @@ impl VolSurface {
     ///     .row(&[0.25, 0.24])
     ///     .row(&[0.23, 0.22])
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("VolSurface builder should succeed");
     /// assert!(surface.value(1.5, 0.015) > 0.22);
     /// ```
     pub fn builder(id: impl Into<CurveId>) -> VolSurfaceBuilder {
@@ -245,7 +245,7 @@ impl VolSurface {
     ///     .row(&[0.2, 0.21, 0.22])
     ///     .row(&[0.19, 0.2, 0.21])
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("VolSurface builder should succeed");
     ///
     /// // Bump vol at (1.5 years, 100.0 strike) by 1%
     /// let bumped = surface.bump_point(1.5, 100.0, 0.01)?;
@@ -406,8 +406,8 @@ impl VolSurfaceBuilder {
             }
         }
         let flat: Vec<f64> = self.vols.into_iter().flatten().collect();
-        let array =
-            Array2::from_shape_vec((self.expiries.len(), self.strikes.len()), flat).unwrap();
+        let array = Array2::from_shape_vec((self.expiries.len(), self.strikes.len()), flat)
+            .expect("Array shape should match expiries and strikes dimensions");
         Ok(VolSurface {
             id: self.id,
             expiries: self.expiries.into_boxed_slice(),
@@ -468,7 +468,7 @@ mod tests {
             .row(&[0.2, 0.2, 0.2])
             .row(&[0.2, 0.2, 0.2])
             .build()
-            .unwrap()
+            .expect("VolSurface builder should succeed in test")
     }
 
     #[test]
@@ -476,7 +476,11 @@ mod tests {
         let vs = flat_surface();
         assert!((vs.value(1.5, 95.0) - 0.2).abs() < 1e-12);
         // checked path
-        assert!((vs.value_checked(1.5, 95.0).unwrap() - 0.2).abs() < 1e-12);
+        assert!((vs.value_checked(1.5, 95.0)
+            .expect("Value lookup should succeed in test")
+            - 0.2)
+            .abs()
+            < 1e-12);
         // clamped path (below min strike/expiry)
         assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
     }

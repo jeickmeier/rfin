@@ -356,7 +356,12 @@ mod tests {
         fn period_end_date(&self, period: &PeriodId) -> Date {
             // simple quarterly end approximation
             let m = [3u8, 6, 9, 12][(period.index as usize - 1).min(3)];
-            Date::from_calendar_date(period.year, Month::try_from(m).unwrap(), 30).unwrap()
+            Date::from_calendar_date(
+                period.year,
+                Month::try_from(m).expect("Valid month (1-12)"),
+                30,
+            )
+            .expect("Valid test date")
         }
     }
 
@@ -383,7 +388,8 @@ mod tests {
         );
 
         let cfg = CovenantForecastConfig::default();
-        let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg).unwrap();
+        let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg)
+            .expect("Forecast covenant should succeed in test");
 
         assert!(fc.headroom.iter().all(|&h| h > 0.0));
         assert!(fc
@@ -418,7 +424,8 @@ mod tests {
                 antithetic: true,
             }),
         };
-        let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg).unwrap();
+        let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg)
+            .expect("Forecast covenant should succeed in test");
         let p = fc.breach_probability[0];
         assert!(p > 0.2 && p < 0.8, "unexpected breach probability: {p}");
     }

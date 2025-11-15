@@ -41,11 +41,11 @@
 //! use std::str::FromStr;
 //!
 //! // Parse from uppercase
-//! let currency = Currency::from_str("USD").unwrap();
+//! let currency = Currency::from_str("USD").expect("Currency parsing should succeed");
 //! assert_eq!(currency, Currency::USD);
 //!
 //! // Parse case-insensitive
-//! let currency = "eur".parse::<Currency>().unwrap();
+//! let currency = "eur".parse::<Currency>().expect("Currency parsing should succeed");
 //! assert_eq!(currency, Currency::EUR);
 //!
 //! // Invalid codes return error
@@ -58,7 +58,7 @@
 //! use finstack_core::prelude::Currency;
 //!
 //! // From numeric code
-//! let currency = Currency::try_from(840u16).unwrap();
+//! let currency = Currency::try_from(840u16).expect("Currency conversion should succeed");
 //! assert_eq!(currency, Currency::USD);
 //!
 //! // To numeric code
@@ -126,15 +126,43 @@ mod tests {
 
     #[test]
     fn test_currency_from_str() {
-        assert_eq!("USD".parse::<Currency>().unwrap(), Currency::USD);
-        assert_eq!("EUR".parse::<Currency>().unwrap(), Currency::EUR);
-        assert_eq!("GBP".parse::<Currency>().unwrap(), Currency::GBP);
-        assert_eq!("JPY".parse::<Currency>().unwrap(), Currency::JPY);
+        assert_eq!(
+            "USD".parse::<Currency>()
+                .expect("USD should parse successfully"),
+            Currency::USD
+        );
+        assert_eq!(
+            "EUR".parse::<Currency>()
+                .expect("EUR should parse successfully"),
+            Currency::EUR
+        );
+        assert_eq!(
+            "GBP".parse::<Currency>()
+                .expect("GBP should parse successfully"),
+            Currency::GBP
+        );
+        assert_eq!(
+            "JPY".parse::<Currency>()
+                .expect("JPY should parse successfully"),
+            Currency::JPY
+        );
 
         // Test case insensitive
-        assert_eq!("usd".parse::<Currency>().unwrap(), Currency::USD);
-        assert_eq!("eur".parse::<Currency>().unwrap(), Currency::EUR);
-        assert_eq!("gbp".parse::<Currency>().unwrap(), Currency::GBP);
+        assert_eq!(
+            "usd".parse::<Currency>()
+                .expect("usd should parse successfully"),
+            Currency::USD
+        );
+        assert_eq!(
+            "eur".parse::<Currency>()
+                .expect("eur should parse successfully"),
+            Currency::EUR
+        );
+        assert_eq!(
+            "gbp".parse::<Currency>()
+                .expect("gbp should parse successfully"),
+            Currency::GBP
+        );
     }
 
     #[test]
@@ -163,7 +191,9 @@ mod tests {
 
         for currency in &currencies {
             let formatted = format!("{}", currency);
-            let parsed: Currency = formatted.parse().unwrap();
+            let parsed: Currency = formatted
+                .parse()
+                .expect("Currency parsing should succeed in test");
             assert_eq!(*currency, parsed);
         }
     }
@@ -207,8 +237,10 @@ mod tests {
     #[test]
     fn test_currency_serde() {
         let currency = Currency::USD;
-        let serialized = serde_json::to_string(&currency).unwrap();
-        let deserialized: Currency = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&currency)
+            .expect("JSON serialization should succeed in test");
+        let deserialized: Currency = serde_json::from_str(&serialized)
+            .expect("JSON deserialization should succeed in test");
         assert_eq!(currency, deserialized);
     }
 
@@ -217,7 +249,8 @@ mod tests {
         let codes = [840u16, 978, 826, 392, 756, 36, 124];
 
         for &code in &codes {
-            let currency = Currency::try_from(code).unwrap();
+            let currency = Currency::try_from(code)
+                .expect("Currency conversion should succeed in test");
             let back: u16 = currency.into();
             assert_eq!(code, back);
             assert_eq!(currency.numeric(), code);

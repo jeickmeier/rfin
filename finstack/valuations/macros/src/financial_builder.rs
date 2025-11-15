@@ -54,7 +54,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     // By default, treat Option<T> as optional; #[builder(optional)] is honored only when field type is Option<...>
     if let Fields::Named(named) = fields {
         for f in named.named {
-            let ident = f.ident.unwrap();
+            let ident = f.ident.expect("Named field should have an identifier");
             let ty = f.ty.clone();
 
             let mut has_optional_attr = false;

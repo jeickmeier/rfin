@@ -105,7 +105,11 @@ impl DiscountCurveCalibrator {
         ];
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by(|a, b| a.maturity_date().partial_cmp(&b.maturity_date()).unwrap());
+        sorted_quotes.sort_by(|a, b| {
+            a.maturity_date()
+                .partial_cmp(&b.maturity_date())
+                .expect("Date comparison should always be comparable")
+        });
 
         // Validate quotes
         self.validate_quotes(&sorted_quotes)?;
@@ -631,7 +635,7 @@ impl DiscountCurveCalibrator {
                     .discount_curve_id(finstack_core::types::CurveId::from("CALIB_CURVE"))
                     .forward_id(finstack_core::types::CurveId::from("CALIB_FWD"))
                     .build()
-                    .unwrap();
+                    .expect("IRFuture builder should succeed with valid calibration data");
 
                 // Set contract specs from the quote with calculated convexity
                 future = future.with_contract_specs(
@@ -897,7 +901,8 @@ mod tests {
     fn test_multi_curve_instrument_validation() {
         // Test that RatesQuote correctly identifies forward-dependent instruments
         let deposit = RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2024, Month::February, 1).unwrap(),
+            maturity: Date::from_calendar_date(2024, Month::February, 1)
+                .expect("Valid test date"),
             rate: 0.015,
             day_count: DayCount::Act360,
         };
@@ -911,8 +916,10 @@ mod tests {
         );
 
         let fra = RatesQuote::FRA {
-            start: Date::from_calendar_date(2024, Month::April, 1).unwrap(),
-            end: Date::from_calendar_date(2024, Month::July, 1).unwrap(),
+            start: Date::from_calendar_date(2024, Month::April, 1)
+                .expect("Valid test date"),
+            end: Date::from_calendar_date(2024, Month::July, 1)
+                .expect("Valid test date"),
             rate: 0.018,
             day_count: DayCount::Act360,
         };
@@ -926,7 +933,8 @@ mod tests {
         );
 
         let ois_swap = RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            maturity: Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date"),
             rate: 0.02,
             fixed_freq: Frequency::annual(),
             float_freq: Frequency::daily(),
@@ -944,7 +952,8 @@ mod tests {
         );
 
         let libor_swap = RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            maturity: Date::from_calendar_date(2025, Month::January, 1)
+                .expect("Valid test date"),
             rate: 0.02,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
@@ -971,7 +980,8 @@ mod tests {
     }
 
     fn create_test_quotes() -> Vec<RatesQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
 
         vec![
             RatesQuote::Deposit {
@@ -1007,7 +1017,8 @@ mod tests {
 
     #[test]
     fn test_quote_validation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD);
 
         let empty_quotes = vec![];
@@ -1028,7 +1039,11 @@ mod tests {
         let maturities_before: Vec<_> = quotes.iter().map(|q| q.maturity_date()).collect();
 
         // Sort
-        quotes.sort_by(|a, b| a.maturity_date().partial_cmp(&b.maturity_date()).unwrap());
+        quotes.sort_by(|a, b| {
+            a.maturity_date()
+                .partial_cmp(&b.maturity_date())
+                .expect("Date comparison should always be comparable")
+        });
 
         // Get maturities after sorting
         let maturities_after: Vec<_> = quotes.iter().map(|q| q.maturity_date()).collect();
@@ -1044,7 +1059,8 @@ mod tests {
 
     #[test]
     fn test_deposit_repricing_under_bootstrap() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
 
         // Use just deposits for initial test
@@ -1110,7 +1126,8 @@ mod tests {
                     discount_curve_id: "USD-OIS".into(),
                     attributes: Default::default(),
                 };
-                let pv = dep.value(&ctx, base_date).unwrap();
+                let pv = dep.value(&ctx, base_date)
+                    .expect("Deposit valuation should succeed in test");
                 // For deposits, $1 per $1M notional is approximately 0.1bp tolerance
                 assert!(
                     pv.amount().abs() <= 1.0,
@@ -1126,7 +1143,8 @@ mod tests {
         use crate::instruments::fra::ForwardRateAgreement;
         // (no additional imports)
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let config = CalibrationConfig::conservative();
         let calibrator =
             DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
@@ -1167,7 +1185,9 @@ mod tests {
 
         // Derive forward curve from the calibrated discount curve
         // This matches single-curve framework where forward = discount-derived
-        let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
+        let fwd = curve
+            .to_forward_curve("USD-SOFR", 0.25)
+            .expect("Forward curve derivation should succeed in test");
         let ctx = base_context.insert_discount(curve).insert_forward(fwd);
 
         // Construct FRA matching the quote, notional $1,000,000
@@ -1184,27 +1204,31 @@ mod tests {
             .forward_id("USD-SOFR".into())
             .pay_fixed(false)
             .build()
-            .unwrap();
+            .expect("FRA builder should succeed with valid test data");
 
-        let pv = fra.value(&ctx, base_date).unwrap();
+        let pv = fra.value(&ctx, base_date)
+            .expect("FRA valuation should succeed in test");
 
         // Debug: check if curves are consistent
-        let fwd_rate = ctx.get_forward_ref("USD-SOFR").unwrap().rate_period(
-            fra.day_count
-                .year_fraction(
-                    base_date,
-                    fra.start_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap(),
-            fra.day_count
-                .year_fraction(
-                    base_date,
-                    fra.end_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap(),
-        );
+        let fwd_rate = ctx
+            .get_forward_ref("USD-SOFR")
+            .expect("Forward curve should exist in test context")
+            .rate_period(
+                fra.day_count
+                    .year_fraction(
+                        base_date,
+                        fra.start_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .expect("Year fraction calculation should succeed"),
+                fra.day_count
+                    .year_fraction(
+                        base_date,
+                        fra.end_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .expect("Year fraction calculation should succeed"),
+            );
 
         // Note: FRA calibration in single-curve framework with sequential bootstrap has limitations.
         // The forward rate depends on both start and end discount factors, but the start factor
@@ -1228,7 +1252,8 @@ mod tests {
         use crate::instruments::irs::{InterestRateSwap, PayReceive};
         use crate::metrics::{MetricCalculator, MetricContext};
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
 
         // Use conservative config for tighter convergence (1e-12 tolerance, 200 iterations)
         let mut config = CalibrationConfig::conservative();
@@ -1314,9 +1339,10 @@ mod tests {
                 end,
             })
             .build()
-            .unwrap();
+            .expect("IRS builder should succeed with valid test data");
 
-        let pv = irs.value(&ctx, base_date).unwrap();
+        let pv = irs.value(&ctx, base_date)
+            .expect("IRS valuation should succeed in test");
 
         // Calculate DV01 and check repricing within 0.1bp tolerance
         let mut metric_ctx = MetricContext::new(
@@ -1331,7 +1357,8 @@ mod tests {
         let dv01_calc = UnifiedDv01Calculator::<crate::instruments::InterestRateSwap>::new(
             Dv01CalculatorConfig::parallel_combined(),
         );
-        let dv01 = dv01_calc.calculate(&mut metric_ctx).unwrap();
+        let dv01 = dv01_calc.calculate(&mut metric_ctx)
+            .expect("DV01 calculation should succeed in test");
 
         // Tolerance: 0.1bp * |DV01|, minimum $1
         let tolerance = (0.1 * dv01.abs()).max(1.0);
@@ -1349,7 +1376,8 @@ mod tests {
     fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         use finstack_core::dates::Frequency;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
 
         // Deposits + OIS swaps (float leg frequency set to daily; index contains "USD-OIS")
@@ -1398,7 +1426,8 @@ mod tests {
     fn test_configured_interpolation_used() {
         use finstack_core::dates::add_months;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 31).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 31)
+            .expect("Valid test date");
 
         // Test 1: Verify configured interpolation is used
         let linear_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
@@ -1442,7 +1471,8 @@ mod tests {
 
         // The proper result should handle month-end correctly
         // Jan 31 + 3 months = Apr 30 (no Apr 31)
-        let expected = Date::from_calendar_date(2025, Month::April, 30).unwrap();
+        let expected = Date::from_calendar_date(2025, Month::April, 30)
+            .expect("Valid test date");
         assert_eq!(
             proper_result, expected,
             "Expected proper month-end handling"

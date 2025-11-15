@@ -62,13 +62,15 @@ pub fn last_day_of_month(date: Date) -> Date {
 /// Convert a `Date` to the number of days since the Unix epoch (1970-01-01).
 #[inline]
 pub fn date_to_days_since_epoch(date: Date) -> i32 {
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap();
+    let epoch = Date::from_calendar_date(1970, Month::January, 1)
+        .expect("January 1, 1970 should always be valid");
     (date - epoch).whole_days() as i32
 }
 
 /// Convert days since Unix epoch (1970-01-01) back to a `Date`.
 #[inline]
 pub fn days_since_epoch_to_date(days: i32) -> Date {
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap();
+    let epoch = Date::from_calendar_date(1970, Month::January, 1)
+        .expect("January 1, 1970 should always be valid");
     epoch + time::Duration::days(days as i64)
 }

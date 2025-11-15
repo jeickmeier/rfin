@@ -501,7 +501,7 @@ mod tests {
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 100, &put, &basis, Currency::USD, 0.05)
-            .unwrap();
+            .expect("LSMC pricing should succeed in test");
 
         // American put should have positive value
         assert!(result.mean.amount() > 0.0);
@@ -526,7 +526,7 @@ mod tests {
 
         // Should not panic or produce NaN
         assert!(result.is_ok());
-        let price = result.unwrap();
+        let price = result.expect("LSMC pricing should succeed in test");
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() > 0.0);
 
@@ -550,7 +550,7 @@ mod tests {
 
         // Should remain stable even with extreme paths
         assert!(result.is_ok());
-        let price = result.unwrap();
+        let price = result.expect("LSMC pricing should succeed in test");
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() >= 0.0);
 
@@ -575,7 +575,7 @@ mod tests {
 
         // Should handle gracefully (very small value expected)
         assert!(result.is_ok());
-        let price = result.unwrap();
+        let price = result.expect("LSMC pricing should succeed in test");
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() >= 0.0);
         assert!(price.mean.amount() < 0.1); // Should be near zero

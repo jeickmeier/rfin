@@ -102,19 +102,19 @@ impl CreditIndexData {
 /// use std::sync::Arc;
 /// use time::Month;
 ///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 /// let hazard = Arc::new(
 ///     HazardCurve::builder("CDX")
 ///         .base_date(base)
 ///         .knots([(0.0, 0.01), (5.0, 0.015)])
 ///         .build()
-///         .unwrap(),
+///         .expect("HazardCurve builder should succeed"),
 /// );
 /// let base_corr = Arc::new(
 ///     BaseCorrelationCurve::builder("CDX")
 ///         .points([(3.0, 0.25), (10.0, 0.55)])
 ///         .build()
-///         .unwrap(),
+///         .expect("BaseCorrelationCurve builder should succeed"),
 /// );
 /// let index = CreditIndexData::builder()
 ///     .num_constituents(125)
@@ -122,7 +122,7 @@ impl CreditIndexData {
 ///     .index_credit_curve(hazard)
 ///     .base_correlation_curve(base_corr)
 ///     .build()
-///     .unwrap();
+///     .expect("CreditIndexData builder should succeed");
 /// assert_eq!(index.num_constituents, 125);
 /// ```
 #[derive(Default)]

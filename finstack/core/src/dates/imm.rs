@@ -45,16 +45,16 @@
 //!
 //! // IMM date for a specific month
 //! let imm_march = third_wednesday(Month::March, 2025);
-//! assert_eq!(imm_march, Date::from_calendar_date(2025, Month::March, 19).unwrap());
+//! assert_eq!(imm_march, Date::from_calendar_date(2025, Month::March, 19).expect("Valid date"));
 //!
 //! // Find next IMM date after a given date
-//! let date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+//! let date = Date::from_calendar_date(2025, Month::March, 20).expect("Valid date");
 //! let next = next_imm(date);
-//! assert_eq!(next, Date::from_calendar_date(2025, Month::June, 18).unwrap());
+//! assert_eq!(next, Date::from_calendar_date(2025, Month::June, 18).expect("Valid date"));
 //!
 //! // CDS settlement date
-//! let cds = next_cds_date(Date::from_calendar_date(2025, Month::March, 10).unwrap());
-//! assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).unwrap());
+//! let cds = next_cds_date(Date::from_calendar_date(2025, Month::March, 10).expect("Valid date"));
+//! assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"));
 //! ```
 //!
 //! # Standards Reference
@@ -122,7 +122,8 @@ pub fn next_imm(date: Date) -> Date {
 pub fn next_cds_date(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
         // Safe unwrap: 20th exists in every month.
-        Date::from_calendar_date(year, m, 20).unwrap()
+        Date::from_calendar_date(year, m, 20)
+            .expect("Day 20 should exist in every month")
     })
 }
 
@@ -196,26 +197,34 @@ mod tests {
     #[test]
     fn third_wed_march_2025() {
         let d = third_wednesday(Month::March, 2025);
-        assert_eq!(d, Date::from_calendar_date(2025, Month::March, 19).unwrap());
+        assert_eq!(
+            d,
+            Date::from_calendar_date(2025, Month::March, 19)
+                .expect("Valid test date")
+        );
     }
 
     #[test]
     fn next_imm_after_mar20_2025() {
-        let start = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+        let start = Date::from_calendar_date(2025, Month::March, 20)
+            .expect("Valid test date");
         let imm = next_imm(start);
         assert_eq!(
             imm,
-            Date::from_calendar_date(2025, Month::June, 18).unwrap()
+            Date::from_calendar_date(2025, Month::June, 18)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_cds_before_mar20() {
-        let d = Date::from_calendar_date(2025, Month::March, 10).unwrap();
+        let d = Date::from_calendar_date(2025, Month::March, 10)
+            .expect("Valid test date");
         let cds = next_cds_date(d);
         assert_eq!(
             cds,
-            Date::from_calendar_date(2025, Month::March, 20).unwrap()
+            Date::from_calendar_date(2025, Month::March, 20)
+                .expect("Valid test date")
         );
     }
 
@@ -225,7 +234,8 @@ mod tests {
         let expiry = imm_option_expiry(Month::March, 2025);
         assert_eq!(
             expiry,
-            Date::from_calendar_date(2025, Month::March, 14).unwrap()
+            Date::from_calendar_date(2025, Month::March, 14)
+                .expect("Valid test date")
         );
     }
 
@@ -235,7 +245,8 @@ mod tests {
         let expiry = imm_option_expiry(Month::June, 2025);
         assert_eq!(
             expiry,
-            Date::from_calendar_date(2025, Month::June, 13).unwrap()
+            Date::from_calendar_date(2025, Month::June, 13)
+                .expect("Valid test date")
         );
     }
 
@@ -245,7 +256,8 @@ mod tests {
         let friday = third_friday(Month::March, 2025);
         assert_eq!(
             friday,
-            Date::from_calendar_date(2025, Month::March, 21).unwrap()
+            Date::from_calendar_date(2025, Month::March, 21)
+                .expect("Valid test date")
         );
     }
 
@@ -255,62 +267,73 @@ mod tests {
         let friday = third_friday(Month::February, 2025);
         assert_eq!(
             friday,
-            Date::from_calendar_date(2025, Month::February, 21).unwrap()
+            Date::from_calendar_date(2025, Month::February, 21)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_imm_option_expiry_after_march() {
         // Starting after March 2025 IMM option expiry, should get June 2025
-        let start = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+        let start = Date::from_calendar_date(2025, Month::March, 15)
+            .expect("Valid test date");
         let next_expiry = next_imm_option_expiry(start);
         assert_eq!(
             next_expiry,
-            Date::from_calendar_date(2025, Month::June, 13).unwrap()
+            Date::from_calendar_date(2025, Month::June, 13)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_imm_option_expiry_before_march() {
         // Starting before March 2025 IMM option expiry, should get March 2025
-        let start = Date::from_calendar_date(2025, Month::March, 10).unwrap();
+        let start = Date::from_calendar_date(2025, Month::March, 10)
+            .expect("Valid test date");
         let next_expiry = next_imm_option_expiry(start);
         assert_eq!(
             next_expiry,
-            Date::from_calendar_date(2025, Month::March, 14).unwrap()
+            Date::from_calendar_date(2025, Month::March, 14)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_equity_option_expiry_mid_march() {
         // Starting mid-March 2025, should get March third Friday (21st)
-        let start = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+        let start = Date::from_calendar_date(2025, Month::March, 15)
+            .expect("Valid test date");
         let next_expiry = next_equity_option_expiry(start);
         assert_eq!(
             next_expiry,
-            Date::from_calendar_date(2025, Month::March, 21).unwrap()
+            Date::from_calendar_date(2025, Month::March, 21)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_equity_option_expiry_after_march_friday() {
         // Starting after March third Friday, should get April third Friday
-        let start = Date::from_calendar_date(2025, Month::March, 22).unwrap();
+        let start = Date::from_calendar_date(2025, Month::March, 22)
+            .expect("Valid test date");
         let next_expiry = next_equity_option_expiry(start);
         assert_eq!(
             next_expiry,
-            Date::from_calendar_date(2025, Month::April, 18).unwrap()
+            Date::from_calendar_date(2025, Month::April, 18)
+                .expect("Valid test date")
         );
     }
 
     #[test]
     fn next_equity_option_expiry_year_rollover() {
         // Starting in December, should roll to January of next year
-        let start = Date::from_calendar_date(2025, Month::December, 25).unwrap();
+        let start = Date::from_calendar_date(2025, Month::December, 25)
+            .expect("Valid test date");
         let next_expiry = next_equity_option_expiry(start);
         assert_eq!(
             next_expiry,
-            Date::from_calendar_date(2026, Month::January, 16).unwrap()
+            Date::from_calendar_date(2026, Month::January, 16)
+                .expect("Valid test date")
         );
     }
 }

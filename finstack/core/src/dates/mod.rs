@@ -133,7 +133,7 @@ mod tests {
         // Test invalid February dates
         let result = create_date(2023, Month::February, 29);
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match result.expect_err("Should fail for invalid date") {
             crate::Error::Input(crate::error::InputError::InvalidDate { year, month, day }) => {
                 assert_eq!(year, 2023);
                 assert_eq!(month, 2); // February
@@ -161,7 +161,7 @@ mod tests {
         let result = create_date(2023, Month::February, 30);
         assert!(result.is_err());
 
-        let error_msg = format!("{}", result.unwrap_err());
+        let error_msg = format!("{}", result.expect_err("Should fail for invalid date"));
         assert!(error_msg.contains("Invalid calendar date"));
         assert!(error_msg.contains("2023-02-30"));
     }
@@ -208,7 +208,10 @@ mod tests {
 
             assert!(direct_result.is_ok());
             assert!(helper_result.is_ok());
-            assert_eq!(direct_result.unwrap(), helper_result.unwrap());
+            assert_eq!(
+                direct_result.expect("Direct result should succeed in test"),
+                helper_result.expect("Helper result should succeed in test")
+            );
         }
     }
 }

@@ -1,3 +1,7 @@
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+
 //! Comprehensive financial instrument pricing, risk, and cashflow analysis.
 //!
 //! This crate provides a deterministic, production-ready valuation engine for fixed income,
@@ -245,10 +249,6 @@
 //! - [`finstack_statements`]: Financial statement modeling
 //! - [`finstack_portfolio`]: Multi-instrument portfolio aggregation
 //! - [`finstack_scenarios`]: Scenario analysis and stress testing
-
-#![forbid(unsafe_code)]
-#![warn(missing_docs)]
-#![deny(clippy::unwrap_used)]
 
 pub mod calibration;
 pub mod cashflow;

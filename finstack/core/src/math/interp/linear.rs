@@ -74,25 +74,33 @@ impl InterpFn for LinearDf {
                 }
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            let n = self.knots.len();
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
-                ExtrapolationPolicy::FlatForward => {
-                    let slope = self.segment_slope(n - 2, n - 1);
-                    let x1 = self.knots[n - 1];
-                    self.dfs[n - 1] + slope * (x - x1)
-                }
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                let n = self.knots.len();
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => {
+                        *self.dfs.last().expect("dfs should not be empty")
+                    }
+                    ExtrapolationPolicy::FlatForward => {
+                        let slope = self.segment_slope(n - 2, n - 1);
+                        let x1 = self.knots[n - 1];
+                        self.dfs[n - 1] + slope * (x - x1)
+                    }
+                };
+            }
         }
 
         // Exact knot match
-        if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        if let Ok(idx_exact) = self.knots.binary_search_by(|k| {
+            k.partial_cmp(&x)
+                .expect("f64 comparison should always be comparable")
+        }) {
             return self.dfs[idx_exact];
         }
 
         // Interior linear interpolation
-        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let df0 = self.dfs[idx];
@@ -109,16 +117,19 @@ impl InterpFn for LinearDf {
                 ExtrapolationPolicy::FlatForward => self.segment_slope(0, 1),
             };
         }
-        if x >= *self.knots.last().unwrap() {
-            let n = self.knots.len();
-            return match self.extrapolation {
-                ExtrapolationPolicy::FlatZero => 0.0,
-                ExtrapolationPolicy::FlatForward => self.segment_slope(n - 2, n - 1),
-            };
+        if let Some(&last_knot) = self.knots.last() {
+            if x >= last_knot {
+                let n = self.knots.len();
+                return match self.extrapolation {
+                    ExtrapolationPolicy::FlatZero => 0.0,
+                    ExtrapolationPolicy::FlatForward => self.segment_slope(n - 2, n - 1),
+                };
+            }
         }
 
         // Interior linear interpolation derivative
-        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x)
+            .expect("Segment location should succeed for valid x");
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let df0 = self.dfs[idx];

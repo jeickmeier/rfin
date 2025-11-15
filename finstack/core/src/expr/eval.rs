@@ -638,11 +638,16 @@ impl CompiledExpr {
         let len = out.len();
         let data = &arg_results[0];
         if !data.is_empty() {
-            let mut guard = self.scratch.lock().unwrap();
+            let mut guard = self.scratch
+                .lock()
+                .expect("Mutex should not be poisoned");
             let tmp = &mut guard.tmp;
             tmp.clear();
             tmp.extend_from_slice(data);
-            tmp.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            tmp.sort_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("f64 comparison should always be comparable")
+            });
             let n = tmp.len();
             let median = if n % 2 == 1 {
                 tmp[n / 2]
@@ -714,7 +719,9 @@ impl CompiledExpr {
         let win = arg_results[1][0] as usize;
         let mut out = vec![0.0; len];
         // Use scratch arena to avoid per-window allocations.
-        let mut guard = self.scratch.lock().unwrap();
+        let mut guard = self.scratch
+            .lock()
+            .expect("Mutex should not be poisoned");
         let wbuf = &mut guard.window;
         for i in 0..len {
             if i + 1 < win {
@@ -724,7 +731,10 @@ impl CompiledExpr {
                 let slice = &base[start..=i];
                 wbuf.clear();
                 wbuf.extend_from_slice(slice);
-                wbuf.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                wbuf.sort_by(|a, b| {
+                    a.partial_cmp(b)
+                        .expect("f64 comparison should always be comparable")
+                });
                 let k = wbuf.len();
                 out[i] = if k % 2 == 1 {
                     wbuf[k / 2]
@@ -763,7 +773,10 @@ impl CompiledExpr {
             let base = &arg_results[0];
             let mut indexed: Vec<(f64, usize)> =
                 base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-            indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            indexed.sort_by(|a, b| {
+                a.0.partial_cmp(&b.0)
+                    .expect("f64 comparison should always be comparable")
+            });
             let mut out: Vec<f64> = vec![0.0; len];
             let mut current_rank: f64 = 1.0;
             let mut last_value: f64 = f64::NAN;
@@ -794,7 +807,10 @@ impl CompiledExpr {
                 .collect();
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
-                valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                valid_values.sort_by(|a, b| {
+                    a.partial_cmp(b)
+                        .expect("f64 comparison should always be comparable")
+                });
                 let index = q * (valid_values.len() - 1) as f64;
                 let lower = index.floor() as usize;
                 let upper = index.ceil() as usize;
@@ -829,7 +845,10 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| {
+                    a.partial_cmp(b)
+                        .expect("f64 comparison should always be comparable")
+                })
                 .unwrap_or(f64::NAN)
         });
         out
@@ -847,7 +866,10 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .max_by(|a, b| {
+                    a.partial_cmp(b)
+                        .expect("f64 comparison should always be comparable")
+                })
                 .unwrap_or(f64::NAN)
         });
         out

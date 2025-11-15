@@ -86,7 +86,10 @@ impl ExpressionCache {
         // Default to a reasonable number of entries - can be tuned based on usage
         let default_capacity = 1024;
         Self {
-            cache: LruCache::new(NonZeroUsize::new(default_capacity).unwrap()),
+            cache: LruCache::new(
+                NonZeroUsize::new(default_capacity)
+                    .expect("default_capacity (1024) should always be non-zero"),
+            ),
             max_memory: max_memory_mb * 1024 * 1024, // Convert MB to bytes
             current_memory: 0,
             stats: CacheStats::default(),
@@ -97,7 +100,8 @@ impl ExpressionCache {
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         // Use the estimated entries from the plan as the initial capacity
         let estimated_entries = plan.cache_strategy.cache_nodes.len().max(64);
-        let capacity = NonZeroUsize::new(estimated_entries).unwrap();
+        let capacity = NonZeroUsize::new(estimated_entries)
+            .expect("estimated_entries should be at least 64, which is non-zero");
         Self {
             cache: LruCache::new(capacity),
             max_memory: budget_mb * 1024 * 1024, // Convert MB to bytes
@@ -279,8 +283,11 @@ mod tests {
 
         // Store and retrieve
         assert!(cache.put(1, result));
-        let retrieved = cache.get(1).unwrap();
-        assert_eq!(retrieved.as_scalar().unwrap(), data);
+        let retrieved = cache.get(1).expect("Value should exist after put");
+        assert_eq!(
+            retrieved.as_scalar().expect("Value should be scalar"),
+            data
+        );
 
         // Check stats
         let stats = cache.stats();
@@ -294,7 +301,9 @@ mod tests {
         // Create cache with very small budget (64KB = 0.0625MB)
         // Each large_data item is ~80KB (10000 * 8 bytes), so only one will fit
         let mut cache = ExpressionCache {
-            cache: LruCache::new(NonZeroUsize::new(10).unwrap()), // Small capacity for testing
+            cache: LruCache::new(
+                NonZeroUsize::new(10).expect("10 should be non-zero")
+            ), // Small capacity for testing
             max_memory: 65536,                                    // 64KB in bytes
             current_memory: 0,
             stats: CacheStats {

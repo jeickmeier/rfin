@@ -44,12 +44,12 @@
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
-//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+//! let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let hc = HazardCurve::builder("USD-CREDIT")
 //!     .base_date(base)
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()
-//!     .unwrap();
+//!     .expect("HazardCurve builder should succeed");
 //! assert!(hc.sp(5.0) < 1.0); // Survival probability < 1
 //! ```
 //!
@@ -159,7 +159,8 @@ impl HazardCurve {
     pub fn builder(id: impl Into<CurveId>) -> HazardCurveBuilder {
         HazardCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            base: Date::from_calendar_date(1970, time::Month::January, 1)
+                .expect("January 1, 1970 should always be valid"),
             points: Vec::new(),
             recovery_rate: 0.4,
             issuer: None,
@@ -187,8 +188,12 @@ impl HazardCurve {
             }
         }
         // If t beyond last knot, extend with last lambda
-        if t > *self.knots.last().unwrap() {
-            accum += self.lambdas.last().copied().unwrap() * (t - *self.knots.last().unwrap());
+        if let Some(&last_knot) = self.knots.last() {
+            if t > last_knot {
+                if let Some(&last_lambda) = self.lambdas.last() {
+                    accum += last_lambda * (t - last_knot);
+                }
+            }
         }
         (-accum).exp()
     }
@@ -485,7 +490,10 @@ impl HazardCurveBuilder {
     /// Validate input and build the [`HazardCurve`].
     pub fn build(self) -> crate::Result<HazardCurve> {
         // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
-        if self.base == Date::from_calendar_date(1970, time::Month::January, 1).unwrap() {
+        if self.base
+            == Date::from_calendar_date(1970, time::Month::January, 1)
+                .expect("January 1, 1970 should always be valid")
+        {
             return Err(InputError::Invalid.into());
         }
         if self.points.is_empty() {
@@ -496,13 +504,19 @@ impl HazardCurveBuilder {
             return Err(InputError::NegativeValue.into());
         }
         let mut points = self.points;
-        points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        points.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("f64 comparison should always be comparable")
+        });
         let (kvec, lvec): (Vec<f64>, Vec<f64>) = points.into_iter().unzip();
         if kvec.len() > 1 {
             crate::math::interp::utils::validate_knots(&kvec)?;
         }
         let mut par_pts = self.par_points;
-        par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        par_pts.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("f64 comparison should always be comparable")
+        });
         let (p_ten, p_spd): (Vec<f64>, Vec<f64>) = par_pts.into_iter().unzip();
         Ok(HazardCurve {
             id: self.id,
@@ -529,37 +543,40 @@ mod tests {
     use time::Month;
     #[test]
     fn survival_monotone_decreasing() {
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let hc = HazardCurve::builder("USD-CREDIT")
             .base_date(base)
             .knots([(0.0, 0.01), (5.0, 0.02)])
             .build()
-            .unwrap();
+            .expect("HazardCurve builder should succeed with valid test data");
         assert!(hc.sp(1.0) < 1.0);
         assert!(hc.sp(6.0) < hc.sp(1.0));
     }
 
     #[test]
     fn default_prob_positive() {
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let hc = HazardCurve::builder("USD")
             .base_date(base)
             .knots([(0.0, 0.01), (10.0, 0.015)])
             .build()
-            .unwrap();
+            .expect("HazardCurve builder should succeed with valid test data");
         let dp = hc.default_prob(2.0, 4.0);
         assert!(dp >= 0.0);
     }
 
     #[test]
     fn quoted_spread_interpolation_linear() {
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
         let hc = HazardCurve::builder("TEST")
             .base_date(base)
             .knots([(1.0, 0.02)])
             .par_spreads([(1.0, 100.0), (3.0, 200.0)])
             .build()
-            .unwrap();
+            .expect("HazardCurve builder should succeed with valid test data");
         assert!((hc.quoted_spread_bp(2.0, ParInterp::Linear) - 150.0).abs() < 1e-9);
     }
 }

@@ -27,8 +27,8 @@
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
-//! let d1 = Date::from_calendar_date(2025, Month::March, 15).unwrap();
-//! let d2 = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+//! let d1 = Date::from_calendar_date(2025, Month::March, 15).expect("Valid date");
+//! let d2 = Date::from_calendar_date(2025, Month::June, 15).expect("Valid date");
 //!
 //! let schedule = DividendScheduleBuilder::new("AAPL-DIVS")
 //!     .underlying("AAPL")
@@ -36,7 +36,7 @@
 //!     .cash(d1, Money::new(0.24, Currency::USD))
 //!     .cash(d2, Money::new(0.25, Currency::USD))
 //!     .build()
-//!     .unwrap();
+//!     .expect("DividendScheduleBuilder should succeed");
 //!
 //! assert_eq!(schedule.events.len(), 2);
 //! ```
@@ -121,7 +121,7 @@ pub struct DividendEvent {
 ///     .with_underlying("AAPL")
 ///     .with_currency(Currency::USD)
 ///     .add_cash(
-///         Date::from_calendar_date(2025, Month::March, 15).unwrap(),
+///         Date::from_calendar_date(2025, Month::March, 15).expect("Valid date"),
 ///         Money::new(0.24, Currency::USD)
 ///     );
 ///
@@ -316,9 +316,12 @@ mod tests {
 
     #[test]
     fn build_and_filter_schedule() {
-        let d1 = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let d2 = Date::from_calendar_date(2025, Month::March, 15).unwrap();
-        let d3 = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+        let d1 = Date::from_calendar_date(2025, Month::January, 15)
+            .expect("Valid test date");
+        let d2 = Date::from_calendar_date(2025, Month::March, 15)
+            .expect("Valid test date");
+        let d3 = Date::from_calendar_date(2025, Month::June, 15)
+            .expect("Valid test date");
 
         let sched = DividendScheduleBuilder::new("AAPL-DIVS")
             .underlying("AAPL")
@@ -326,7 +329,7 @@ mod tests {
             .cash(d2, Money::new(0.24, Currency::USD))
             .stock(d3, 0.02)
             .build()
-            .unwrap();
+            .expect("DividendScheduleBuilder should succeed in test");
 
         assert_eq!(sched.events.len(), 3);
         let between = sched.events_between(d1, d2);

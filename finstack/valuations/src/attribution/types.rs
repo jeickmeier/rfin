@@ -799,7 +799,8 @@ mod tests {
         attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
         attr.fx_pnl = Money::new(390.0, Currency::USD);
 
-        attr.compute_residual().unwrap();
+        attr.compute_residual()
+            .expect("Residual computation should succeed in test");
 
         assert_eq!(attr.residual.amount(), 10.0); // 1000 - 100 - 500 - 390
         assert!((attr.meta.residual_pct - 1.0).abs() < 1e-10); // 10/1000 * 100
@@ -817,7 +818,8 @@ mod tests {
         );
 
         attr.carry = Money::new(9990.0, Currency::USD);
-        attr.compute_residual().unwrap();
+        attr.compute_residual()
+            .expect("Residual computation should succeed in test");
 
         // Residual is 10.0
         // 0.1% of 10000 = 10, so should pass

@@ -1,3 +1,7 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+
 //! Portfolio management and aggregation for finstack.
 //!
 //! This crate provides portfolio-level operations including:
@@ -49,9 +53,6 @@
 //!     .build()
 //!     .unwrap();
 //! ```
-
-#![deny(unsafe_code)]
-#![warn(missing_docs)]
 
 pub mod attribution;
 pub mod builder;

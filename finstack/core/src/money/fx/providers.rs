@@ -29,12 +29,12 @@ use std::sync::Arc;
 /// let provider = SimpleFxProvider::new();
 /// provider.set_quote(Currency::EUR, Currency::USD, 1.1);
 ///
-/// let date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
-/// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).unwrap();
+/// let date = Date::from_calendar_date(2024, Month::January, 2).expect("Valid date");
+/// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
 /// assert_eq!(rate, 1.1);
 ///
 /// // Reciprocal works automatically
-/// let rate_inv = provider.rate(Currency::USD, Currency::EUR, date, FxConversionPolicy::CashflowDate).unwrap();
+/// let rate_inv = provider.rate(Currency::USD, Currency::EUR, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
 /// assert!((rate_inv - 1.0/1.1).abs() < 1e-12);
 /// ```
 #[derive(Default)]
@@ -139,12 +139,12 @@ impl FxProvider for SimpleFxProvider {
     /// let provider = SimpleFxProvider::new();
     /// provider.set_quote(Currency::EUR, Currency::USD, 1.1);
     ///
-    /// let date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
-    /// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).unwrap();
+    /// let date = Date::from_calendar_date(2024, Month::January, 2).expect("Valid date");
+    /// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
     /// assert_eq!(rate, 1.1);
     ///
     /// // Reciprocal works automatically
-    /// let rate_inv = provider.rate(Currency::USD, Currency::EUR, date, FxConversionPolicy::CashflowDate).unwrap();
+    /// let rate_inv = provider.rate(Currency::USD, Currency::EUR, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
     /// assert!((rate_inv - 1.0/1.1).abs() < 1e-12);
     /// ```
     fn rate(
@@ -238,7 +238,8 @@ mod tests {
     use time::Month;
 
     fn test_date() -> Date {
-        Date::from_calendar_date(2024, Month::January, 2).unwrap()
+        Date::from_calendar_date(2024, Month::January, 2)
+            .expect("Valid test date")
     }
 
     #[test]
@@ -253,7 +254,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(rate, 1.1);
     }
 
@@ -269,7 +270,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert!((rate - 1.0 / 1.1).abs() < 1e-12);
     }
 
@@ -284,7 +285,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(rate, 1.0);
     }
 
@@ -316,7 +317,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(eur_usd, 1.1);
 
         let gbp_usd = provider
@@ -326,7 +327,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(gbp_usd, 1.25);
     }
 
@@ -347,7 +348,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(eur_usd, 1.2);
 
         // Other rates should delegate to original
@@ -358,7 +359,7 @@ mod tests {
                 test_date(),
                 FxConversionPolicy::CashflowDate,
             )
-            .unwrap();
+            .expect("FX rate query should succeed in test");
         assert_eq!(gbp_usd, 1.25);
     }
 }

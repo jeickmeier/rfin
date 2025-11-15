@@ -50,7 +50,7 @@
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])
 //!     .set_interp(InterpStyle::LogLinear)
 //!     .build()
-//!     .unwrap();
+//!     .expect("InflationCurve builder should succeed");
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
 //! ```
 //!
@@ -134,7 +134,7 @@ impl InflationCurve {
     ///     .knots([(0.0, 300.0), (5.0, 325.0)])
     ///     .set_interp(InterpStyle::LogLinear)
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("InflationCurve builder should succeed");
     /// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
     /// ```
     pub fn builder(id: impl Into<CurveId>) -> InflationCurveBuilder {
@@ -328,7 +328,7 @@ mod tests {
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (1.0, 306.0), (2.0, 312.0)])
             .build()
-            .unwrap()
+            .expect("InflationCurve builder should succeed in test")
     }
 
     #[test]

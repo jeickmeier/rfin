@@ -47,13 +47,13 @@
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
-//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+//! let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .base_date(base)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
 //!     .set_interp(InterpStyle::Linear)
 //!     .build()
-//!     .unwrap();
+//!     .expect("ForwardCurve builder should succeed");
 //! assert!(fc.rate(1.0) > 0.0);
 //! ```
 //!
@@ -138,7 +138,8 @@ impl ForwardCurve {
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
         ForwardCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            base: Date::from_calendar_date(1970, time::Month::January, 1)
+                .expect("January 1, 1970 should always be valid"),
             reset_lag: 2,
             day_count: DayCount::Act360,
             tenor: tenor_years,
@@ -473,7 +474,7 @@ mod tests {
         ForwardCurve::builder("USD-LIB3M", 0.25)
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
-            .unwrap()
+            .expect("ForwardCurve builder should succeed with valid test data")
     }
 
     #[test]
@@ -485,14 +486,15 @@ mod tests {
     #[test]
     fn tail_continuity_with_flatforward_extrapolation() {
         // Test that FlatForward extrapolation maintains stable tail forwards
-        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
         let fc = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
             .set_interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
 
         // Rate at last knot and beyond should be continuous
         let rate_at_last = fc.rate(5.0);
@@ -511,12 +513,13 @@ mod tests {
     #[test]
     fn default_uses_flatforward_extrapolation() {
         // Verify new market-standard default extrapolation
-        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let base = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid test date");
         let fc = ForwardCurve::builder("TEST", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
-            .unwrap();
+            .expect("ForwardCurve builder should succeed with valid test data");
 
         // With FlatForward, tail rate should be stable (not zero)
         let rate_tail = fc.rate(5.0);

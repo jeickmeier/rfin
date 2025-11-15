@@ -39,7 +39,7 @@
 //! use finstack_core::dates::calendar::TARGET2;
 //! use time::Month;
 //!
-//! let date = Date::from_calendar_date(2025, Month::January, 1).unwrap(); // New Year (holiday)
+//! let date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"); // New Year (holiday)
 //! let adjusted = adjust(date, BusinessDayConvention::Following, &TARGET2)?;
 //! assert!(adjusted > date); // Moved to next business day
 //! # Ok::<(), finstack_core::Error>(())
@@ -103,7 +103,7 @@ pub(crate) fn seek_business_day<C: HolidayCalendar + ?Sized>(
 /// }
 ///
 /// let cal = CustomCalendar;
-/// let new_year = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+/// let new_year = Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date");
 /// assert!(cal.is_holiday(new_year));
 /// assert!(!cal.is_business_day(new_year)); // Holiday = not business day
 /// ```
@@ -166,7 +166,7 @@ pub struct CalendarMetadata {
 /// use time::Month;
 ///
 /// // Saturday, January 4, 2025
-/// let weekend = Date::from_calendar_date(2025, Month::January, 4).unwrap();
+/// let weekend = Date::from_calendar_date(2025, Month::January, 4).expect("Valid date");
 ///
 /// // Following: moves to next Monday (Jan 6)
 /// let adj = adjust(weekend, BusinessDayConvention::Following, &TARGET2)?;
@@ -244,9 +244,9 @@ impl core::fmt::Display for BusinessDayConvention {
 /// use finstack_core::dates::calendar::TARGET2;
 /// use time::Month;
 /// let cal = TARGET2;
-/// let sat = Date::from_calendar_date(2025, Month::January, 4).unwrap();
-/// let adj = adjust(sat, BusinessDayConvention::Following, &cal).unwrap();
-/// assert_eq!(adj, Date::from_calendar_date(2025, Month::January, 6).unwrap());
+/// let sat = Date::from_calendar_date(2025, Month::January, 4).expect("Valid date");
+/// let adj = adjust(sat, BusinessDayConvention::Following, &cal).expect("Adjustment should succeed");
+/// assert_eq!(adj, Date::from_calendar_date(2025, Month::January, 6).expect("Valid date"));
 /// ```
 pub fn adjust<C: HolidayCalendar + ?Sized>(
     date: Date,
@@ -381,8 +381,10 @@ mod serde_tests {
         ];
 
         for conv in conventions {
-            let json = serde_json::to_string(&conv).unwrap();
-            let deserialized: BusinessDayConvention = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&conv)
+                .expect("JSON serialization should succeed in test");
+            let deserialized: BusinessDayConvention = serde_json::from_str(&json)
+                .expect("JSON deserialization should succeed in test");
             assert_eq!(conv, deserialized);
         }
     }
@@ -393,11 +395,13 @@ mod serde_tests {
 
         // Test that the snake_case renaming works
         let conv = BusinessDayConvention::ModifiedFollowing;
-        let json = serde_json::to_string(&conv).unwrap();
+        let json = serde_json::to_string(&conv)
+            .expect("JSON serialization should succeed in test");
         assert_eq!(json, "\"modified_following\"");
 
         let conv = BusinessDayConvention::ModifiedPreceding;
-        let json = serde_json::to_string(&conv).unwrap();
+        let json = serde_json::to_string(&conv)
+            .expect("JSON serialization should succeed in test");
         assert_eq!(json, "\"modified_preceding\"");
     }
 }

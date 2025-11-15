@@ -1,3 +1,7 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+
 //! Finstack Scenarios — Lightweight deterministic scenario capability.
 //!
 //! This crate provides a minimal, deterministic API for applying shocks to market data
@@ -45,9 +49,6 @@
 //! # Ok(())
 //! # }
 //! ```
-
-#![deny(unsafe_code)]
-#![warn(missing_docs)]
 
 pub mod adapters;
 pub mod engine;

@@ -398,7 +398,8 @@ mod tests {
 
         // For this test, we'll manually construct the attribution since our test
         // instrument returns fixed values
-        let total_pnl = val_t1.checked_sub(val_t0).unwrap();
+        let total_pnl = val_t1.checked_sub(val_t0)
+            .expect("PNL calculation should succeed in test");
         let attribution = PnlAttribution::new(
             total_pnl,
             "TEST-001",
@@ -422,14 +423,14 @@ mod tests {
             .knots(vec![(0.0, 1.0), (1.0, 0.98)])
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let curve_t1 = DiscountCurve::builder("USD-OIS")
             .base_date(as_of_t1)
             .knots(vec![(0.0, 1.0), (1.0, 0.97)]) // Rates increased (curve lower)
             .set_interp(InterpStyle::Linear)
             .build()
-            .unwrap();
+            .expect("DiscountCurve builder should succeed with valid test data");
 
         let market_t0 = MarketContext::new().insert_discount(curve_t0);
         let market_t1 = MarketContext::new().insert_discount(curve_t1);

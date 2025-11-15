@@ -2,6 +2,7 @@
 /target/
 Cargo.lock
 *.pdb
+.benchmarks
 
 # Python
 __pycache__/
@@ -76,3 +77,6 @@ concatenated_code.txt
 
 # Script Outputs
 finstack-py/examples/outputs/
+
+# LLM
+.windsurf/

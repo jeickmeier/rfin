@@ -20,16 +20,16 @@
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
-//! let base_date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+//! let base_date = Date::from_calendar_date(2024, Month::January, 1).expect("Valid date");
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(base_date)
 //!     .knots([(0.0, 1.0), (1.0, 0.98)])
 //!     .set_interp(InterpStyle::Linear)
 //!     .build()
-//!     .unwrap();
+//!     .expect("DiscountCurve builder should succeed");
 //!
 //! let ctx = MarketContext::new().insert_discount(curve);
-//! let retrieved = ctx.get_discount("USD-OIS").unwrap();
+//! let retrieved = ctx.get_discount("USD-OIS").expect("Discount curve should exist");
 //! assert_eq!(retrieved.id(), &CurveId::from("USD-OIS"));
 //! ```
 
@@ -523,10 +523,10 @@ impl MarketContext {
     /// use time::Month;
     ///
     /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("... builder should succeed");
     /// let ctx = MarketContext::new().insert_discount(curve);
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
@@ -671,7 +671,7 @@ impl MarketContext {
     /// #     .row(&[0.2, 0.2])
     /// #     .row(&[0.2, 0.2])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// let ctx = MarketContext::new().insert_surface(surface);
     /// assert_eq!(ctx.stats().surface_count, 1);
     /// ```
@@ -769,11 +769,11 @@ impl MarketContext {
     /// use time::Month;
     ///
     /// let observations = vec![
-    ///     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-    ///     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+    ///     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 100.0),
+    ///     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 101.0),
     /// ];
     /// let index = InflationIndex::new("US-CPI", observations, Currency::USD)
-    ///     .unwrap()
+    ///     .expect("InflationIndex creation should succeed")
     ///     .with_interpolation(InflationInterpolation::Linear);
     /// let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
     /// assert!(ctx.inflation_index("US-CPI").is_some());
@@ -802,21 +802,21 @@ impl MarketContext {
     /// use time::Month;
     ///
     /// let hazard = Arc::new(HazardCurve::builder("CDX")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     ///     .knots([(0.0, 0.01), (5.0, 0.015)])
     ///     .build()
-    ///     .unwrap());
+    ///     .expect("HazardCurve builder should succeed"));
     /// let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
     ///     .points([(3.0, 0.25), (10.0, 0.55)])
     ///     .build()
-    ///     .unwrap());
+    ///     .expect("BaseCorrelationCurve builder should succeed"));
     /// let data = CreditIndexData::builder()
     ///     .num_constituents(125)
     ///     .recovery_rate(0.4)
     ///     .index_credit_curve(Arc::clone(&hazard))
     ///     .base_correlation_curve(base_corr)
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("CreditIndexData builder should succeed");
     /// let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
     /// assert!(ctx.credit_index("CDX-IG").is_ok());
     /// ```
@@ -920,7 +920,7 @@ impl MarketContext {
     /// # }
     /// # let fx = FxMatrix::new(Arc::new(StaticFx));
     /// # let ctx = MarketContext::new().insert_fx(fx);
-    /// # let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+    /// # let date = Date::from_calendar_date(2024, Month::January, 1).expect("Valid date");
     /// let bumped_ctx = ctx.bump_fx_spot(Currency::EUR, Currency::USD, 0.01, date)?;
     /// // EUR/USD rate is now 1.1 * 1.01 = 1.111
     /// # Ok(())
@@ -966,10 +966,10 @@ impl MarketContext {
     /// use time::Month;
     ///
     /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("... builder should succeed");
     /// let ctx = MarketContext::new()
     ///     .insert_discount(curve)
     ///     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
@@ -1152,9 +1152,9 @@ impl MarketContext {
     /// #     .row(&[0.2, 0.2])
     /// #     .row(&[0.2, 0.2])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_surface(surface);
-    /// let surface = ctx.surface("IR-Swaption").unwrap();
+    /// let surface = ctx.surface("IR-Swaption").expect("Surface should exist");
     /// assert!((surface.value(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
     pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
@@ -1179,9 +1179,9 @@ impl MarketContext {
     /// #     .row(&[0.2, 0.2])
     /// #     .row(&[0.2, 0.2])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_surface(surface);
-    /// let surface = ctx.surface_ref("IR-Swaption").unwrap();
+    /// let surface = ctx.surface_ref("IR-Swaption").expect("Surface should exist");
     /// assert!((surface.value(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
     pub fn surface_ref(&self, id: impl AsRef<str>) -> Result<&VolSurface> {
@@ -1207,7 +1207,7 @@ impl MarketContext {
     ///
     /// let ctx = MarketContext::new()
     ///     .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
-    /// if let MarketScalar::Price(price) = ctx.price("AAPL").unwrap() {
+    /// if let MarketScalar::Price(price) = ctx.price("AAPL").expect("Price should exist") {
     ///     assert_eq!(price.currency(), Currency::USD);
     /// }
     /// ```
@@ -1232,13 +1232,13 @@ impl MarketContext {
     /// # let series = ScalarTimeSeries::new(
     /// #     "VOL-TS",
     /// #     vec![
-    /// #         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 0.2),
-    /// #         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 0.25),
+    /// #         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 0.2),
+    /// #         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 0.25),
     /// #     ],
     /// #     None,
-    /// # ).unwrap();
+    /// # ).expect("... creation should succeed");
     /// # let ctx = MarketContext::new().insert_series(series);
-    /// let series = ctx.series("VOL-TS").unwrap();
+    /// let series = ctx.series("VOL-TS").expect("Series should exist");
     /// assert_eq!(series.id().as_str(), "VOL-TS");
     /// ```
     pub fn series(&self, id: impl AsRef<str>) -> Result<&ScalarTimeSeries> {
@@ -1261,14 +1261,14 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let observations = vec![
-    /// #     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-    /// #     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+    /// #     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 100.0),
+    /// #     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 101.0),
     /// # ];
     /// # let index = InflationIndex::new("US-CPI", observations, Currency::USD)
-    /// #     .unwrap()
+    /// #     .expect("... creation should succeed")
     /// #     .with_interpolation(InflationInterpolation::Linear);
     /// # let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
-    /// let idx = ctx.inflation_index("US-CPI").unwrap();
+    /// let idx = ctx.inflation_index("US-CPI").expect("Inflation index should exist");
     /// assert_eq!(idx.id, "US-CPI");
     /// ```
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
@@ -1285,14 +1285,14 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let observations = vec![
-    /// #     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-    /// #     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+    /// #     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 100.0),
+    /// #     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 101.0),
     /// # ];
     /// # let index = InflationIndex::new("US-CPI", observations, Currency::USD)
-    /// #     .unwrap()
+    /// #     .expect("... creation should succeed")
     /// #     .with_interpolation(InflationInterpolation::Linear);
     /// # let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
-    /// let idx = ctx.inflation_index_ref("US-CPI").unwrap();
+    /// let idx = ctx.inflation_index_ref("US-CPI").expect("Inflation index should exist");
     /// assert_eq!(idx.id, "US-CPI");
     /// ```
     pub fn inflation_index_ref(&self, id: impl AsRef<str>) -> Option<&InflationIndex> {
@@ -1324,23 +1324,23 @@ impl MarketContext {
     /// # use std::sync::Arc;
     /// # use time::Month;
     /// # let hazard = Arc::new(HazardCurve::builder("CDX")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
     /// #     .build()
-    /// #     .unwrap());
+    /// #     .expect("... creation should succeed"));
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
     /// #     .points([(3.0, 0.25), (10.0, 0.55)])
     /// #     .build()
-    /// #     .unwrap());
+    /// #     .expect("... creation should succeed"));
     /// # let data = CreditIndexData::builder()
     /// #     .num_constituents(125)
     /// #     .recovery_rate(0.4)
     /// #     .index_credit_curve(Arc::clone(&hazard))
     /// #     .base_correlation_curve(base_corr)
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
-    /// let idx = ctx.credit_index("CDX-IG").unwrap();
+    /// let idx = ctx.credit_index("CDX-IG").expect("Credit index should exist");
     /// assert_eq!(idx.num_constituents, 125);
     /// ```
     pub fn credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
@@ -1366,23 +1366,23 @@ impl MarketContext {
     /// # use std::sync::Arc;
     /// # use time::Month;
     /// # let hazard = Arc::new(HazardCurve::builder("CDX")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
     /// #     .build()
-    /// #     .unwrap());
+    /// #     .expect("... creation should succeed"));
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
     /// #     .points([(3.0, 0.25), (10.0, 0.55)])
     /// #     .build()
-    /// #     .unwrap());
+    /// #     .expect("... creation should succeed"));
     /// # let data = CreditIndexData::builder()
     /// #     .num_constituents(125)
     /// #     .recovery_rate(0.4)
     /// #     .index_credit_curve(Arc::clone(&hazard))
     /// #     .base_correlation_curve(base_corr)
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
-    /// let idx = ctx.credit_index_ref("CDX-IG").unwrap();
+    /// let idx = ctx.credit_index_ref("CDX-IG").expect("Credit index should exist");
     /// assert_eq!(idx.recovery_rate, 0.4);
     /// ```
     pub fn credit_index_ref(&self, id: impl AsRef<str>) -> Result<&CreditIndexData> {
@@ -1409,14 +1409,14 @@ impl MarketContext {
     /// use time::Month;
     ///
     /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
     ///     .build()
-    ///     .unwrap();
+    ///     .expect("... builder should succeed");
     /// let ctx = MarketContext::new()
     ///     .insert_discount(curve)
     ///     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
-    /// let discount = ctx.collateral("USD-CSA").unwrap();
+    /// let discount = ctx.collateral("USD-CSA").expect("Collateral curve should exist");
     /// assert!(discount.df(0.5) <= 1.0);
     /// ```
     pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discounting + Send + Sync>> {
@@ -1441,14 +1441,14 @@ impl MarketContext {
     /// # use finstack_core::types::CurveId;
     /// # use time::Month;
     /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new()
     /// #     .insert_discount(curve)
     /// #     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
-    /// let discount = ctx.collateral_ref("USD-CSA").unwrap();
+    /// let discount = ctx.collateral_ref("USD-CSA").expect("Collateral curve should exist");
     /// assert!(discount.df(0.5) <= 1.0);
     /// ```
     pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discounting> {
@@ -1524,10 +1524,10 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_discount(curve);
     /// let mut iter = ctx.curves_of_type("Discount");
     /// assert!(iter.next().is_some());
@@ -1551,10 +1551,10 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
     /// #     .build()
-    /// #     .unwrap();
+    /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_discount(curve);
     /// let counts = ctx.count_by_type();
     /// assert_eq!(counts.get("Discount"), Some(&1));
@@ -1743,13 +1743,13 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use finstack_core::types::CurveId;
     /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+    /// #     .base_date(Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date"))
     /// #     .knots([(0.0, 1.0), (5.0, 0.9)])
-    /// #     .build().unwrap();
+    /// #     .build().expect("DiscountCurve builder should succeed");
     /// # let context = MarketContext::new().insert_discount(curve);
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
-    /// let bumped = context.bump(bumps).unwrap();
+    /// let bumped = context.bump(bumps).expect("Bump operation should succeed");
     /// // The bumped curve replaces the original under the same ID
     /// assert!(bumped.get_discount("USD-OIS").is_ok());
     /// ```
