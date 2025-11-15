@@ -282,10 +282,81 @@ cargo bench --package finstack-portfolio
 
 See `finstack/portfolio/benches/README.md` for portfolio benchmark documentation.
 
+## Profiling & Allocation Tracking
+
+### Memory Profiling with dhat
+
+To profile allocations and identify memory hotspots, use the `dhat-heap` feature:
+
+```bash
+# Enable dhat profiling feature
+cargo bench --package finstack-valuations --features dhat-heap --bench bond_pricing
+```
+
+The dhat profiler will generate `dhat-heap.json` containing:
+- Total allocation counts and bytes
+- Peak memory usage (RSS)
+- Top allocation sites by count and size
+- Call stacks for each allocation
+
+View the report:
+```bash
+# Use dhat viewer (install: cargo install dhat-viewer)
+dhat-viewer dhat-heap.json
+
+# Or upload to https://nnethercote.github.io/dh_view/dh_view.html
+```
+
+### CPU Profiling with Flamegraphs
+
+For CPU profiling on Linux/macOS:
+
+```bash
+# Install flamegraph tool
+cargo install flamegraph
+
+# Profile a specific benchmark
+cargo flamegraph --bench bond_pricing --package finstack-valuations
+
+# Open flamegraph.svg to identify hot code paths
+```
+
+### Before/After Comparison Workflow
+
+1. **Establish pre-optimization baseline:**
+   ```bash
+   cargo bench --package finstack-valuations -- --save-baseline pre-opt
+   ```
+
+2. **Make performance changes**
+
+3. **Compare against baseline:**
+   ```bash
+   cargo bench --package finstack-valuations -- --baseline pre-opt
+   ```
+
+4. **Look for improvements:**
+   - Green percentages: faster (good!)
+   - Red percentages: slower (regression)
+   - Statistical significance shown in output
+
+### Micro-benchmark for Market Context Reuse
+
+The optimization to reuse MarketContext in DV01/CS01 calculations can be verified with:
+
+```bash
+# Run specific risk benchmarks
+cargo bench --package finstack-valuations --bench bucketed_risk
+
+# Compare bond bucketed DV01 (11 key-rate bumps)
+# Expected: ~20-25% faster after MarketContext reuse optimization
+```
+
 ## Notes
 
 - Benchmarks use **release build** (optimized)
 - Results may vary by hardware
 - Criterion automatically determines sample size for statistical significance
 - Use `--quick` for faster iteration during development
+- For production builds, consider PGO (Profile-Guided Optimization) with release-perf profile
 

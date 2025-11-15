@@ -193,8 +193,8 @@ impl MetricRegistry {
         let instrument_type = context.instrument.key().as_str();
         let order = self.resolve_dependencies(metric_ids, instrument_type)?;
 
-        // Compute metrics in dependency order
-        for metric_id in order {
+        // Compute metrics in dependency order (consume order to avoid cloning MetricId)
+        for metric_id in order.into_iter() {
             // Skip if already computed
             if context.computed.contains_key(&metric_id) {
                 continue;
@@ -203,7 +203,7 @@ impl MetricRegistry {
             let Some(entry) = self.entries.get(&metric_id) else {
                 // Metric not registered - insert 0.0 as fallback
                 if metric_ids.contains(&metric_id) {
-                    context.computed.insert(metric_id.clone(), 0.0);
+                    context.computed.insert(metric_id, 0.0);
                 }
                 continue;
             };
@@ -211,7 +211,7 @@ impl MetricRegistry {
             let Some(calc) = entry.get_for(instrument_type) else {
                 // Calculator not available for this instrument type - insert 0.0 as fallback
                 if metric_ids.contains(&metric_id) {
-                    context.computed.insert(metric_id.clone(), 0.0);
+                    context.computed.insert(metric_id, 0.0);
                 }
                 continue;
             };
@@ -219,11 +219,11 @@ impl MetricRegistry {
             // Compute metric - if it fails, insert 0.0 as fallback and continue
             match calc.calculate(context) {
                 Ok(value) => {
-                    context.computed.insert(metric_id.clone(), value);
+                    context.computed.insert(metric_id, value);
                 }
                 Err(_) => {
                     // Calculation failed - insert 0.0 as fallback
-                    context.computed.insert(metric_id.clone(), 0.0);
+                    context.computed.insert(metric_id, 0.0);
                 }
             }
         }
@@ -327,7 +327,7 @@ impl MetricRegistry {
         if let Some(entry) = self.entries.get(&id) {
             if let Some(calc) = entry.get_for(instrument_type) {
                 let deps = calc.dependencies();
-                for dep_id in deps {
+                for dep_id in deps.iter() {
                     // Ignore errors from missing dependencies
                     let _ = self.visit_metric(
                         dep_id.clone(),
@@ -342,6 +342,7 @@ impl MetricRegistry {
 
         temp_mark.remove(&id);
         visited.insert(id.clone());
+        // Move id into order (last use)
         order.push(id);
 
         Ok(())

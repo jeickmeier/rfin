@@ -645,11 +645,11 @@ impl ForwardCurveCalibrator {
 
         // Tokenize on non-alphanumerics to avoid substring traps ("13M" contains "3M")
         let normalized = index.to_uppercase();
-        let tokens: Vec<&str> = normalized
+        let tokens_match = normalized
             .split(|c: char| !c.is_ascii_alphanumeric())
-            .collect();
+            .any(|token| token == tenor_str);
 
-        tokens.contains(&tenor_str) || self.frequency_matches_tenor(freq)
+        tokens_match || self.frequency_matches_tenor(freq)
     }
 
     /// Check if frequency matches tenor.

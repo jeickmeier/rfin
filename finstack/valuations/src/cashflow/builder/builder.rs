@@ -197,17 +197,22 @@ fn derive_amortization_setup(
     })
 }
 
-fn initialize_build_state(issue: Date, notional: &Notional) -> BuildState {
-    let flows: Vec<CashFlow> = vec![CashFlow {
+fn initialize_build_state(issue: Date, notional: &Notional, estimated_dates: usize) -> BuildState {
+    // Pre-allocate flows: estimate 2-3 flows per date (coupon + potential amort + fee)
+    let estimated_flows = estimated_dates * 3;
+    let mut flows: Vec<CashFlow> = Vec::with_capacity(estimated_flows);
+    flows.push(CashFlow {
         date: issue,
         reset_date: None,
         amount: notional.initial * -1.0,
         kind: CFKind::Notional,
         accrual_factor: 0.0,
         rate: None,
-    }];
+    });
 
-    let mut outstanding_after: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
+    // Pre-allocate outstanding_after based on number of dates
+    let mut outstanding_after: hashbrown::HashMap<Date, f64> = 
+        hashbrown::HashMap::with_capacity(estimated_dates);
     outstanding_after.insert(issue, notional.initial.amount());
 
     BuildState {
@@ -985,7 +990,7 @@ impl CashflowBuilder {
         let amort_setup = derive_amortization_setup(&notional, &fixed_schedules, &float_schedules)?;
 
         // 5) Initialize fold state and build context
-        let mut state = initialize_build_state(issue, &notional);
+        let mut state = initialize_build_state(issue, &notional, dates.len());
         let ccy = notional.initial.currency();
         let ctx = BuildContext {
             ccy,

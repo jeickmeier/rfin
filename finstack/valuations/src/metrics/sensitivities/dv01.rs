@@ -497,9 +497,24 @@ where
 
 // Helper functions
 
+/// Standard IR bucket labels matching standard_ir_dv01_buckets() order.
+const IR_BUCKET_LABELS: [&str; 11] = [
+    "3m", "6m", "1y", "2y", "3y", "5y", "7y", "10y", "15y", "20y", "30y",
+];
+
 /// Generate bucket label from years.
+/// Uses static labels for standard buckets, falls back to dynamic formatting for custom buckets.
 #[inline]
 fn format_bucket_label(years: f64) -> String {
+    // Check if this matches a standard bucket (with small tolerance for floating point comparison)
+    let standard_buckets = standard_ir_dv01_buckets();
+    for (i, &bucket_time) in standard_buckets.iter().enumerate() {
+        if (years - bucket_time).abs() < 0.01 {
+            return IR_BUCKET_LABELS[i].to_string();
+        }
+    }
+    
+    // Fall back to dynamic formatting for non-standard buckets
     if years < 1.0 {
         format!("{:.0}m", (years * 12.0).round())
     } else {
@@ -512,3 +527,4 @@ fn format_bucket_label(years: f64) -> String {
 fn calculate_dv01(base_pv: Money, bumped_pv: Money, bump_bp: f64) -> f64 {
     (bumped_pv.amount() - base_pv.amount()) / bump_bp
 }
+

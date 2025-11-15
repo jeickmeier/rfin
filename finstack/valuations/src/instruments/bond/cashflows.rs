@@ -19,24 +19,32 @@ impl CashflowProvider for Bond {
             self.get_full_schedule(curves)?
         };
 
+        // Pre-allocate flows vector with capacity based on schedule size
+        // Most cashflows will be included (coupons + amortization + final notional)
+        let mut flows: Vec<(Date, Money)> = Vec::with_capacity(schedule.flows.len());
+        
         // Map CashFlowSchedule to holder view (Date, Money) pairs
-        let mut flows: Vec<(Date, Money)> = schedule
-            .flows
-            .iter()
-            .filter_map(|cf| match cf.kind {
+        for cf in &schedule.flows {
+            match cf.kind {
                 // Include coupons and interest flows as-is (holder receives them)
-                CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => Some((cf.date, cf.amount)),
+                CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => {
+                    flows.push((cf.date, cf.amount));
+                }
                 // Amortization: flip sign (holder receives principal back, stored as positive in schedule)
-                CFKind::Amortization => Some((
-                    cf.date,
-                    Money::new(-cf.amount.amount(), cf.amount.currency()),
-                )),
+                CFKind::Amortization => {
+                    flows.push((
+                        cf.date,
+                        Money::new(-cf.amount.amount(), cf.amount.currency()),
+                    ));
+                }
                 // Notional: only redemption (positive), exclude initial draw (negative)
-                CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
+                CFKind::Notional if cf.amount.amount() > 0.0 => {
+                    flows.push((cf.date, cf.amount));
+                }
                 // Exclude other kinds (initial draw, PIK capitalization, etc.)
-                _ => None,
-            })
-            .collect();
+                _ => {}
+            }
+        }
 
         // Sort by date for deterministic ordering
         flows.sort_by_key(|(d, _)| *d);

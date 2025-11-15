@@ -143,11 +143,7 @@ where
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
-        let label = if t < 1.0 {
-            format!("{:.0}m", (t * 12.0).round())
-        } else {
-            format!("{:.0}y", t)
-        };
+        let label = format_credit_bucket_label(t);
 
         // Bump hazard rate at the specific tenor
         // For key-rate bumping, we bump the segment containing the target time
@@ -182,11 +178,7 @@ where
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
-        let label = if t < 1.0 {
-            format!("{:.0}m", (t * 12.0).round())
-        } else {
-            format!("{:.0}y", t)
-        };
+        let label = format_credit_bucket_label(t);
 
         // Bump hazard at key rate
         let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
@@ -201,6 +193,31 @@ where
     context.store_bucketed_series(MetricId::BucketedCs01, series.clone());
     let total: f64 = series.iter().map(|(_, v)| *v).sum();
     Ok(total)
+}
+
+/// Standard credit bucket labels matching standard_credit_cs01_buckets() order.
+const CREDIT_BUCKET_LABELS: [&str; 11] = [
+    "3m", "6m", "1y", "2y", "3y", "5y", "7y", "10y", "15y", "20y", "30y",
+];
+
+/// Generate bucket label from years.
+/// Uses static labels for standard buckets, falls back to dynamic formatting for custom buckets.
+#[inline]
+fn format_credit_bucket_label(years: f64) -> String {
+    // Check if this matches a standard bucket (with small tolerance for floating point comparison)
+    let standard_buckets = standard_credit_cs01_buckets();
+    for (i, &bucket_time) in standard_buckets.iter().enumerate() {
+        if (years - bucket_time).abs() < 0.01 {
+            return CREDIT_BUCKET_LABELS[i].to_string();
+        }
+    }
+    
+    // Fall back to dynamic formatting for non-standard buckets
+    if years < 1.0 {
+        format!("{:.0}m", (years * 12.0).round())
+    } else {
+        format!("{:.0}y", years)
+    }
 }
 
 /// Helper to apply a key-rate bump to a hazard curve at a specific tenor.
@@ -242,7 +259,7 @@ fn with_key_rate_hazard_bump(
 
     // Bump the hazard rate in the target segment
     // For piecewise constant curves, we bump the constant rate in that segment
-    let mut bumped_rates = hazard_rates.clone();
+    let mut bumped_rates = hazard_rates;
     bumped_rates[target_segment] = (bumped_rates[target_segment] + bump_decimal).max(0.0);
 
     // Rebuild hazard curve with bumped rates
