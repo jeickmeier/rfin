@@ -1,7 +1,7 @@
 //! Generic finite difference greek calculators for equity instruments.
 //!
 //! Provides reusable implementations of Delta, Gamma, and Vega calculators
-//! that work with any instrument implementing `HasEquityUnderlying` and `Instrument`.
+//! that work with any instrument implementing the required traits.
 //!
 //! This eliminates code duplication across exotic options (AsianOption, Autocallable,
 //! BarrierOption, LookbackOption, etc.) that all use the same finite difference pattern.
@@ -15,11 +15,33 @@ use crate::metrics::finite_difference::{
 };
 use crate::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::metrics::vol_expiry_helpers::{
-    get_instrument_day_count, get_instrument_expiry_for_adaptive, get_instrument_vol_id,
-};
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
+
+// ================================================================================================
+// Traits for Instruments with Expiry and DayCount Information
+// ================================================================================================
+
+/// Trait for instruments that have an expiry date.
+///
+/// Used for adaptive bump size calculations based on time to expiry.
+pub trait HasExpiry {
+    /// Returns the expiry date for this instrument.
+    fn expiry(&self) -> Date;
+}
+
+/// Trait for instruments that have a day count convention.
+///
+/// Used for computing time fractions in adaptive bump calculations.
+pub trait HasDayCount {
+    /// Returns the day count convention for this instrument.
+    fn day_count(&self) -> DayCount;
+}
+
+// ================================================================================================
+// Generic FD Greeks Calculators
+// ================================================================================================
 
 /// Generic delta calculator using finite differences.
 ///
@@ -39,7 +61,13 @@ impl<I> Default for GenericFdDelta<I> {
 
 impl<I> MetricCalculator for GenericFdDelta<I>
 where
-    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+    I: Instrument 
+        + HasEquityUnderlying 
+        + HasExpiry 
+        + HasDayCount 
+        + HasPricingOverrides 
+        + Clone 
+        + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -56,31 +84,22 @@ where
         let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
             let (spot_override, _, _) = get_bump_overrides(overrides);
             if overrides.adaptive_bumps {
-                // Try to get vol, expiry, and day_count for adaptive calculation
-                let day_count = get_instrument_day_count(instrument.as_any());
-                let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
-                let vol_surface_id = get_instrument_vol_id(instrument.as_any());
+                // Use traits to get instrument properties for adaptive calculation
+                let time_to_expiry = instrument
+                    .day_count()
+                    .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+                    .ok()
+                    .unwrap_or(0.0);
 
-                let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
-                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
-                        .ok()
-                        .unwrap_or(0.0)
+                let atm_vol = if time_to_expiry > 0.0 {
+                    instrument
+                        .vol_surface_id()
+                        .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
+                        .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
+                        .unwrap_or(bump_sizes::VOLATILITY)
                 } else {
-                    0.0
+                    bump_sizes::VOLATILITY
                 };
-
-                let atm_vol = vol_surface_id
-                    .and_then(|vol_surface_id| {
-                        context.curves.surface_ref(vol_surface_id.as_str()).ok()
-                    })
-                    .and_then(|vol_surface| {
-                        if time_to_expiry > 0.0 {
-                            Some(vol_surface.value_clamped(time_to_expiry, current_spot))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or(bump_sizes::VOLATILITY); // Fallback to default vol
 
                 adaptive_spot_bump(current_spot, atm_vol, time_to_expiry, spot_override)
             } else {
@@ -134,7 +153,13 @@ impl<I> Default for GenericFdGamma<I> {
 
 impl<I> MetricCalculator for GenericFdGamma<I>
 where
-    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+    I: Instrument 
+        + HasEquityUnderlying 
+        + HasExpiry 
+        + HasDayCount 
+        + HasPricingOverrides 
+        + Clone 
+        + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -151,31 +176,22 @@ where
         let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
             let (spot_override, _, _) = get_bump_overrides(overrides);
             if overrides.adaptive_bumps {
-                // Try to get vol, expiry, and day_count for adaptive calculation
-                let day_count = get_instrument_day_count(instrument.as_any());
-                let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
-                let vol_surface_id = get_instrument_vol_id(instrument.as_any());
+                // Use traits to get instrument properties for adaptive calculation
+                let time_to_expiry = instrument
+                    .day_count()
+                    .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+                    .ok()
+                    .unwrap_or(0.0);
 
-                let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
-                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
-                        .ok()
-                        .unwrap_or(0.0)
+                let atm_vol = if time_to_expiry > 0.0 {
+                    instrument
+                        .vol_surface_id()
+                        .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
+                        .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
+                        .unwrap_or(bump_sizes::VOLATILITY)
                 } else {
-                    0.0
+                    bump_sizes::VOLATILITY
                 };
-
-                let atm_vol = vol_surface_id
-                    .and_then(|vol_surface_id| {
-                        context.curves.surface_ref(vol_surface_id.as_str()).ok()
-                    })
-                    .and_then(|vol_surface| {
-                        if time_to_expiry > 0.0 {
-                            Some(vol_surface.value_clamped(time_to_expiry, current_spot))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or(bump_sizes::VOLATILITY); // Fallback to default vol
 
                 adaptive_spot_bump(current_spot, atm_vol, time_to_expiry, spot_override)
             } else {
@@ -265,15 +281,15 @@ impl<I> Default for GenericFdVega<I> {
 
 impl<I> MetricCalculator for GenericFdVega<I>
 where
-    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+    I: Instrument + HasPricingOverrides + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
-        // Resolve vol surface id
-        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+        // Get vol surface id from instrument
+        let Some(vol_surface_id) = instrument.vol_surface_id() else {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "GenericFdVega: No vol surface ID found for instrument, returning 0.0"
@@ -315,14 +331,15 @@ impl<I> Default for GenericFdVolga<I> {
 
 impl<I> MetricCalculator for GenericFdVolga<I>
 where
-    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+    I: Instrument + HasPricingOverrides + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
-        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+        // Get vol surface id from instrument
+        let Some(vol_surface_id) = instrument.vol_surface_id() else {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "GenericFdVolga: No vol surface ID found for instrument, returning 0.0"
@@ -366,7 +383,13 @@ impl<I> Default for GenericFdVanna<I> {
 
 impl<I> MetricCalculator for GenericFdVanna<I>
 where
-    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+    I: Instrument 
+        + HasEquityUnderlying 
+        + HasExpiry 
+        + HasDayCount 
+        + HasPricingOverrides 
+        + Clone 
+        + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -379,7 +402,8 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+        // Get vol surface id from instrument
+        let Some(vol_surface_id) = instrument.vol_surface_id() else {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "GenericFdVanna: No vol surface ID found for instrument, returning 0.0"
@@ -388,15 +412,12 @@ where
         };
 
         // Time to expiry and ATM vol for absolute denominators
-        let day_count = get_instrument_day_count(instrument.as_any());
-        let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
-        let t = if let (Some(dc), Some(exp)) = (day_count, expiry) {
-            dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
-                .ok()
-                .unwrap_or(0.0)
-        } else {
-            0.0
-        };
+        let t = instrument
+            .day_count()
+            .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+            .ok()
+            .unwrap_or(0.0);
+            
         let atm_vol = if t > 0.0 {
             context
                 .curves

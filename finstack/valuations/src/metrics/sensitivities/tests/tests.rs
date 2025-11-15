@@ -323,7 +323,7 @@ mod dv01_interp_preservation_tests {
 
 #[cfg(test)]
 mod theta_utils_tests {
-    use super::super::theta_utils::*;
+    use crate::metrics::sensitivities::theta::*;
 
     #[test]
     fn test_parse_period_days() {

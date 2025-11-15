@@ -8,13 +8,9 @@
 
 pub mod cs01;
 pub mod dv01;
-pub mod dv01_unified;
 pub mod fd_greeks;
-pub mod shock_mode;
 pub mod theta;
-pub mod utils;
 pub mod vega;
-pub mod vol;
 
 #[cfg(test)]
 mod tests;

@@ -1,6 +1,13 @@
 //! Tests for sensitivity metrics.
 
 #[cfg(test)]
-mod dv01_unified_tests;
+mod dv01;
+
 #[cfg(test)]
-mod dv01_parity_test;
+mod helpers;
+
+#[cfg(test)]
+mod property_tests;
+
+#[cfg(test)]
+mod tests;

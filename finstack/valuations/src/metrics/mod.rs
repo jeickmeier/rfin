@@ -225,12 +225,6 @@
 mod core;
 mod sensitivities;
 
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod property_tests;
-
 // Re-export all public items at the root level for backward compatibility
 pub use core::finite_difference::bump_sizes;
 pub use core::has_equity_underlying::HasEquityUnderlying;
@@ -243,30 +237,21 @@ pub use sensitivities::cs01::{
     compute_parallel_cs01_with_context, standard_credit_cs01_buckets, GenericBucketedCs01,
     GenericParallelCs01, HasCreditCurve,
 };
-pub use sensitivities::dv01::{
-    compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
-    compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
-    compute_parallel_dv01, compute_parallel_dv01_with_context, standard_ir_dv01_buckets,
-    ParallelDv01Mode,
-};
 pub use crate::instruments::common::pricing::HasDiscountCurve;
-pub use sensitivities::dv01_unified::{
+pub use sensitivities::dv01::{
     UnifiedDv01Calculator, Dv01CalculatorConfig, Dv01ComputationMode, CurveSelection,
+    standard_ir_dv01_buckets,
 };
 pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
+    HasDayCount, HasExpiry,
 };
-pub use sensitivities::shock_mode::{BucketSelector, ShockMode};
 pub use sensitivities::theta::{
     calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny,
 };
-pub use sensitivities::utils::dv01_from_modified_duration;
 pub use sensitivities::vega::{
-    compute_bucketed_vega_matrix, compute_parallel_vega, standard_equity_expiry_buckets,
-    standard_strike_ratios, GenericVega, VOL_BUMP_PCT,
-};
-pub use sensitivities::vol::{
-    get_instrument_day_count, get_instrument_expiry_for_adaptive, get_instrument_vol_id,
+    standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
+    ParallelVega, VOL_BUMP_PCT,
 };
 
 // Compatibility shims for legacy module paths
@@ -274,7 +259,7 @@ pub use sensitivities::vol::{
 
 /// Legacy module for bucketed DV01. Use `sensitivities::dv01` internally.
 pub mod bucketed_dv01 {
-    pub use super::sensitivities::dv01::*;
+    pub use super::sensitivities::dv01::standard_ir_dv01_buckets;
 }
 
 /// Legacy module for bucketed CS01. Use `sensitivities::cs01` internally.
@@ -297,11 +282,6 @@ pub mod finite_difference {
     pub use super::core::finite_difference::*;
 }
 
-/// Legacy module for volatility helpers. Use `sensitivities::vol` internally.
-pub mod vol_expiry_helpers {
-    pub use super::sensitivities::vol::*;
-}
-
 /// Legacy module for equity underlying trait. Use `core::has_equity_underlying` internally.
 pub mod has_equity_underlying {
     pub use super::core::has_equity_underlying::*;
@@ -315,16 +295,6 @@ pub mod has_pricing_overrides {
 /// Legacy module for theta utilities. Use `sensitivities::theta` internally.
 pub mod theta_utils {
     pub use super::sensitivities::theta::*;
-}
-
-/// Legacy module for helper utilities. Use `sensitivities::utils` internally.
-pub mod helpers {
-    pub use super::sensitivities::utils::*;
-}
-
-/// Legacy module for shock mode. Use `sensitivities::shock_mode` internally.
-pub mod shock_mode {
-    pub use super::sensitivities::shock_mode::*;
 }
 
 /// Legacy module for metric IDs. Use `core::ids` internally.
