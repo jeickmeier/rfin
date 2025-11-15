@@ -68,7 +68,7 @@ fn test_equity_option_greek(
     // Compute analytical greek directly
     let mut analytical_value = analytical_fn(option, market, as_of).unwrap();
     // Registry exposes Rho per 1bp; direct equity option rho is per 1%.
-    if matches!(metric_id, MetricId::Rho) {
+    if metric_id == MetricId::Rho {
         analytical_value /= 100.0;
     }
 

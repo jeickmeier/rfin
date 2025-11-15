@@ -10,4 +10,4 @@ mod helpers;
 mod property_tests;
 
 #[cfg(test)]
-mod tests;
+mod test_cases;

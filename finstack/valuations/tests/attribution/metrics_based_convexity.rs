@@ -84,15 +84,22 @@ fn test_second_order_metrics_available() {
         assert!(!metric_id.as_str().is_empty());
 
         // Verify they're distinct
-        match metric_id {
-            MetricId::Convexity => assert_eq!(metric_id.as_str(), "convexity"),
-            MetricId::IrConvexity => assert_eq!(metric_id.as_str(), "ir_convexity"),
-            MetricId::CsGamma => assert_eq!(metric_id.as_str(), "cs_gamma"),
-            MetricId::Gamma => assert_eq!(metric_id.as_str(), "gamma"),
-            MetricId::Volga => assert_eq!(metric_id.as_str(), "volga"),
-            MetricId::Vanna => assert_eq!(metric_id.as_str(), "vanna"),
-            MetricId::InflationConvexity => assert_eq!(metric_id.as_str(), "inflation_convexity"),
-            _ => panic!("Unexpected metric ID"),
+        if metric_id == MetricId::Convexity {
+            assert_eq!(metric_id.as_str(), "convexity");
+        } else if metric_id == MetricId::IrConvexity {
+            assert_eq!(metric_id.as_str(), "ir_convexity");
+        } else if metric_id == MetricId::CsGamma {
+            assert_eq!(metric_id.as_str(), "cs_gamma");
+        } else if metric_id == MetricId::Gamma {
+            assert_eq!(metric_id.as_str(), "gamma");
+        } else if metric_id == MetricId::Volga {
+            assert_eq!(metric_id.as_str(), "volga");
+        } else if metric_id == MetricId::Vanna {
+            assert_eq!(metric_id.as_str(), "vanna");
+        } else if metric_id == MetricId::InflationConvexity {
+            assert_eq!(metric_id.as_str(), "inflation_convexity");
+        } else {
+            panic!("Unexpected metric ID");
         }
     }
 }
