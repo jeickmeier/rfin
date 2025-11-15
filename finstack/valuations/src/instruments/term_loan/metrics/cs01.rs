@@ -5,6 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 
 #[derive(Debug, Default, Clone, Copy)]
+/// Credit spread DV01 (CS01) calculator for term loans
 pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {

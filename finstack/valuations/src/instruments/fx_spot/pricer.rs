@@ -8,6 +8,7 @@ use finstack_core::market_data::MarketContext;
 pub struct SimpleFxSpotDiscountingPricer;
 
 impl SimpleFxSpotDiscountingPricer {
+    /// Create a new FX spot pricer
     pub fn new() -> Self {
         Self
     }

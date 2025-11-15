@@ -247,7 +247,7 @@
 //! - [`finstack_scenarios`]: Scenario analysis and stress testing
 
 #![forbid(unsafe_code)]
-// Note: #![warn(missing_docs)] will be added after comprehensive documentation is complete
+#![warn(missing_docs)]
 
 pub mod calibration;
 pub mod cashflow;

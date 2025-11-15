@@ -8,16 +8,26 @@ use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 
 /// Inputs for Black caplet/floorlet pricing
+/// Inputs for pricing a single caplet or floorlet using Black (1976) model.
 #[derive(Clone, Copy, Debug)]
 pub struct CapletFloorletInputs {
+    /// True for caplet, false for floorlet
     pub is_cap: bool,
+    /// Notional amount
     pub notional: f64,
+    /// Strike rate (as decimal)
     pub strike: f64,
+    /// Forward rate (as decimal)
     pub forward: f64,
+    /// Discount factor to payment date
     pub discount_factor: f64,
+    /// Black volatility (annualized)
     pub volatility: f64,
+    /// Time to fixing date in years
     pub time_to_fixing: f64,
+    /// Accrual year fraction for the period
     pub accrual_year_fraction: f64,
+    /// Currency for the cashflow
     pub currency: Currency,
 }
 

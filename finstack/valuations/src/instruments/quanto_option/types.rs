@@ -16,23 +16,41 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct QuantoOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Underlying equity ticker symbol
     pub underlying_ticker: String,
+    /// Strike price for equity option
     pub equity_strike: Money,
+    /// Option type (call or put)
     pub option_type: OptionType,
+    /// Option expiry date
     pub expiry: Date,
+    /// Notional amount (in domestic currency)
     pub notional: Money,
+    /// Domestic currency (payment currency)
     pub domestic_currency: Currency,
+    /// Foreign currency (equity denomination)
     pub foreign_currency: Currency,
+    /// Correlation between equity price and FX rate
     pub correlation: f64, // Correlation between equity and FX
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID (domestic currency)
     pub discount_curve_id: CurveId,
+    /// Equity spot price identifier
     pub spot_id: String,
+    /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID
     pub div_yield_id: Option<String>,
+    /// Optional FX rate identifier
     pub fx_rate_id: Option<String>,
+    /// Optional FX volatility surface ID
     pub fx_vol_id: Option<CurveId>,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

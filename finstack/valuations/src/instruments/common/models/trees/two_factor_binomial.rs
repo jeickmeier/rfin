@@ -50,10 +50,12 @@ impl Default for TwoFactorBinomialConfig {
 /// Two-factor correlated binomial tree (equity + short rate).
 #[derive(Clone, Debug)]
 pub struct TwoFactorBinomialTree {
+    /// Two-factor binomial tree configuration
     pub config: TwoFactorBinomialConfig,
 }
 
 impl TwoFactorBinomialTree {
+    /// Create a new two-factor binomial tree with the given configuration
     pub fn new(config: TwoFactorBinomialConfig) -> Self {
         Self { config }
     }

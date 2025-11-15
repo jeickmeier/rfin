@@ -27,11 +27,16 @@ use std::collections::HashMap;
 #[cfg(test)]
 use finstack_core::money::Money;
 
+/// Configuration for tree-based bond pricing (callable/putable bonds, OAS).
 #[derive(Clone, Debug)]
 pub struct TreePricerConfig {
+    /// Number of time steps in the interest rate tree
     pub tree_steps: usize,
+    /// Short rate volatility (annualized)
     pub volatility: f64,
+    /// Convergence tolerance for iterative solvers (OAS, YTM)
     pub tolerance: f64,
+    /// Maximum iterations for root finding algorithms
     pub max_iterations: usize,
     /// Optional initial bracket size (in basis points) for the root solver.
     /// Defaults to 1000 bps when `None`.
@@ -50,17 +55,27 @@ impl Default for TreePricerConfig {
     }
 }
 
+/// Bond valuator for tree-based pricing of callable/putable bonds.
+///
+/// Implements TreeValuator trait for backward induction pricing with embedded options.
 pub struct BondValuator {
     bond: Bond,
+    /// Coupon amounts indexed by time step
     coupon_map: HashMap<usize, f64>,
+    /// Call prices indexed by time step (if callable)
     call_map: HashMap<usize, f64>,
+    /// Put prices indexed by time step (if putable)
     put_map: HashMap<usize, f64>,
+    /// Time steps for tree pricing
     time_steps: Vec<f64>,
     /// Optional recovery rate sourced from a hazard curve in MarketContext
     recovery_rate: Option<f64>,
 }
 
 impl BondValuator {
+    /// Create a new bond valuator for tree pricing.
+    ///
+    /// Builds maps of coupons, call prices, and put prices indexed by tree step.
     pub fn new(
         bond: Bond,
         market_context: &MarketContext,
@@ -218,20 +233,28 @@ impl TreeValuator for BondValuator {
     }
 }
 
+/// Tree-based pricer for bonds with embedded options and OAS calculations.
 pub struct TreePricer {
+    /// Pricer configuration (tree steps, volatility, convergence settings)
     config: TreePricerConfig,
 }
 
 impl TreePricer {
+    /// Create a new tree pricer with default configuration.
     pub fn new() -> Self {
         Self {
             config: TreePricerConfig::default(),
         }
     }
+    
+    /// Create a tree pricer with custom configuration.
     pub fn with_config(config: TreePricerConfig) -> Self {
         Self { config }
     }
 
+    /// Calculate option-adjusted spread (OAS) for a bond.
+    ///
+    /// Solves for the constant spread that equates the tree price to the market price.
     pub fn calculate_oas(
         &self,
         bond: &Bond,
@@ -371,6 +394,9 @@ impl Default for TreePricer {
     }
 }
 
+/// Calculate option-adjusted spread for a bond given market price.
+///
+/// Convenience function using default tree configuration.
 pub fn calculate_oas(
     bond: &Bond,
     market_context: &MarketContext,

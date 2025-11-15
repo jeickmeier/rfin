@@ -9,6 +9,7 @@ use finstack_core::dates::Date;
 pub struct ThresholdSchedule(pub Vec<(Date, f64)>);
 
 impl ThresholdSchedule {
+    /// Check if the threshold schedule is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

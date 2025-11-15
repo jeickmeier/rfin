@@ -14,22 +14,39 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxBarrierOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Strike exchange rate
     pub strike: Money,
+    /// Barrier level (exchange rate that triggers knock-in/out)
     pub barrier: Money,
+    /// Option type (call or put on foreign currency)
     pub option_type: OptionType,
+    /// Barrier type (up/down, in/out)
     pub barrier_type: BarrierType,
+    /// Option expiry date
     pub expiry: Date,
+    /// Notional amount in foreign currency
     pub notional: Money,
+    /// Domestic currency (quote currency)
     pub domestic_currency: Currency,
+    /// Foreign currency (base currency)
     pub foreign_currency: Currency,
+    /// Correlation between FX rate and domestic/foreign rates
     pub correlation: f64, // Correlation between FX and domestic/foreign rates
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Whether to use Gobet-Miri continuous barrier adjustment
     pub use_gobet_miri: bool,
+    /// Discount curve ID
     pub discount_curve_id: CurveId,
+    /// FX spot price identifier
     pub fx_spot_id: String,
+    /// FX volatility surface ID
     pub fx_vol_id: CurveId,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

@@ -70,6 +70,7 @@
 //! - Variance calculation functions in [`finstack_core::math::stats`]
 
 pub mod metrics;
+/// Variance swap pricer implementation
 pub mod pricer;
 pub mod types;
 

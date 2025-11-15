@@ -18,20 +18,35 @@ use super::parameters::EquityOptionParams;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Underlying equity ticker symbol
     pub underlying_ticker: String,
+    /// Strike price
     pub strike: Money,
+    /// Option type (call or put)
     pub option_type: OptionType,
+    /// Exercise style (European or American)
     pub exercise_style: ExerciseStyle,
+    /// Option expiry date
     pub expiry: Date,
+    /// Contract size (number of shares per contract)
     pub contract_size: f64,
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Settlement type (physical or cash)
     pub settlement: SettlementType,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Equity spot price identifier
     pub spot_id: String,
+    /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID
     pub div_yield_id: Option<String>,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

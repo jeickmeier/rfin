@@ -35,6 +35,7 @@ impl Default for FxOptionCalculatorConfig {
 /// FX option calculator implementing Garman–Kohlhagen pricing.
 #[derive(Debug, Clone, Default)]
 pub struct FxOptionCalculator {
+    /// Calculator configuration (volatility model, smile handling)
     pub config: FxOptionCalculatorConfig,
 }
 
@@ -335,11 +336,17 @@ impl FxOptionCalculator {
 /// Cash greeks for an FX option (scaled by notional amount).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FxOptionGreeks {
+    /// Delta: sensitivity to spot FX rate
     pub delta: f64,
+    /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
+    /// Vega: sensitivity to 1% change in volatility
     pub vega: f64,
+    /// Theta: time decay per day
     pub theta: f64,
+    /// Rho domestic: sensitivity to 1% change in domestic interest rate
     pub rho_domestic: f64,
+    /// Rho foreign: sensitivity to 1% change in foreign interest rate
     pub rho_foreign: f64,
 }
 

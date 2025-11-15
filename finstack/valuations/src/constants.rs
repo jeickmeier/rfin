@@ -65,18 +65,21 @@ pub fn one_basis_point_dec() -> rust_decimal::Decimal {
     rust_decimal::Decimal::new(1, 4)
 }
 
+/// Basis points per unit (10,000) as Decimal
 #[inline]
 pub fn basis_points_per_unit_dec() -> rust_decimal::Decimal {
     // 10,000
     rust_decimal::Decimal::new(10_000, 0)
 }
 
+/// Conversion factor from percentage to decimal (0.01) as Decimal
 #[inline]
 pub fn percent_to_decimal_dec() -> rust_decimal::Decimal {
     // 0.01
     rust_decimal::Decimal::new(1, 2)
 }
 
+/// Conversion factor from decimal to percentage (100) as Decimal
 #[inline]
 pub fn decimal_to_percent_dec() -> rust_decimal::Decimal {
     // 100

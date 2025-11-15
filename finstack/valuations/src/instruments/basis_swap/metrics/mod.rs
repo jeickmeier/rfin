@@ -3,8 +3,11 @@
 //! Provides calculators for leg present values, discounted accrual sums (annuities),
 //! DV01s, and par spread calculations for basis swap instruments.
 
+/// Annuity (discounted accrual sum) calculators for basis swap legs
 pub mod annuity;
+/// Par spread calculator for basis swaps
 pub mod par_spread;
+/// Present value calculators for basis swap legs
 pub mod pv;
 
 pub use annuity::AnnuityCalculator;

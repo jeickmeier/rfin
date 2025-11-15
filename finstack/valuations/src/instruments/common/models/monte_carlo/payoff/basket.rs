@@ -48,6 +48,7 @@ pub struct BasketCall {
     pub currency: Currency,
 
     // State tracking (public for testing)
+    /// Terminal basket value at maturity (public for testing)
     pub terminal_basket_value: f64,
 }
 
@@ -152,6 +153,7 @@ pub struct BasketPut {
     pub currency: Currency,
 
     // State tracking (public for testing)
+    /// Terminal basket value at maturity (public for testing)
     pub terminal_basket_value: f64,
 }
 

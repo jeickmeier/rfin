@@ -246,6 +246,7 @@ fn collect_fx_barrier_inputs(
 pub struct FxBarrierOptionAnalyticalPricer;
 
 impl FxBarrierOptionAnalyticalPricer {
+    /// Create a new analytical FX barrier option pricer
     pub fn new() -> Self {
         Self
     }

@@ -320,6 +320,10 @@ fn process_one_date(
 // Segmented coupon program primitives (references from compile.rs)
 // -------------------------------------------------------------------------
 
+/// Builder for constructing cashflow schedules with validation.
+///
+/// Provides a fluent API for building complex cashflow schedules with
+/// proper validation and business day adjustments.
 #[derive(Debug, Default, Clone)]
 pub struct CashflowBuilder {
     notional: Option<Notional>,

@@ -16,10 +16,15 @@ use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
 /// Factor type to guide specialized handling.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FactorType {
+    /// Equity factor with ticker symbol
     Equity(String),
+    /// Interest rate factor
     InterestRate,
+    /// Credit spread factor
     CreditSpread,
+    /// Commodity factor with identifier
     Commodity(String),
+    /// FX pair factor with currency pair identifier
     FxPair(String),
 }
 
@@ -51,10 +56,12 @@ impl Default for MultiFactorConfig {
 /// correlated shocks via user-supplied `TreeValuator` logic.
 #[derive(Clone, Debug)]
 pub struct MultiFactorTree {
+    /// Multi-factor tree configuration
     pub config: MultiFactorConfig,
 }
 
 impl MultiFactorTree {
+    /// Create a new multi-factor tree with the given configuration
     pub fn new(config: MultiFactorConfig) -> Self {
         Self { config }
     }

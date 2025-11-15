@@ -273,6 +273,7 @@ fn collect_lookback_inputs(
 pub struct LookbackOptionAnalyticalPricer;
 
 impl LookbackOptionAnalyticalPricer {
+    /// Create a new analytical lookback option pricer
     pub fn new() -> Self {
         Self
     }

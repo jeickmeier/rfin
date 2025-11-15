@@ -400,6 +400,7 @@ fn collect_barrier_inputs(
 pub struct BarrierOptionAnalyticalPricer;
 
 impl BarrierOptionAnalyticalPricer {
+    /// Create a new analytical barrier option pricer
     pub fn new() -> Self {
         Self
     }

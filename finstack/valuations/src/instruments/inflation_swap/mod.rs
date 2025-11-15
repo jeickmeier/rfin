@@ -56,6 +56,7 @@
 //! - [`calibration::methods::inflation_curve`](crate::calibration::methods::inflation_curve)
 
 pub mod metrics;
+/// Inflation swap pricer implementation
 pub mod pricer;
 mod types;
 

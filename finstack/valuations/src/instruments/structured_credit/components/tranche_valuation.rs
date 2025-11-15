@@ -285,7 +285,9 @@ pub fn calculate_tranche_cs01(
 
 /// Tranche-specific metric calculator wrapper
 pub struct TrancheMetricCalculator {
+    /// Base metric calculator to wrap
     pub base_calculator: Box<dyn MetricCalculator>,
+    /// Tranche identifier for context-specific calculations
     pub tranche_id: String,
 }
 

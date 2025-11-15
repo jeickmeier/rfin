@@ -300,6 +300,7 @@ impl BinomialTree {
         self.price_barrier_out(market_params, Some(barrier), None, rebate)
     }
 
+    /// Price a down-and-out barrier option using binomial tree.
     pub fn price_down_and_out(
         &self,
         market_params: &OptionMarketParams,
@@ -309,6 +310,7 @@ impl BinomialTree {
         self.price_barrier_out(market_params, None, Some(barrier), rebate)
     }
 
+    /// Price an up-and-in barrier option using binomial tree.
     pub fn price_up_and_in(
         &self,
         market_params: &OptionMarketParams,
@@ -318,6 +320,7 @@ impl BinomialTree {
         self.price_barrier_in(market_params, Some(barrier), None, rebate)
     }
 
+    /// Price a down-and-in barrier option using binomial tree.
     pub fn price_down_and_in(
         &self,
         market_params: &OptionMarketParams,

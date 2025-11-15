@@ -4,6 +4,7 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
+/// Yield-to-maturity calculator for term loans
 pub struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {

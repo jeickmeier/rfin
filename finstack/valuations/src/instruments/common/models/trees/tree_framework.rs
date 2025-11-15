@@ -490,6 +490,10 @@ pub enum BarrierStyle {
     KnockIn,
 }
 
+/// Barrier specification for discrete barrier monitoring in tree pricing.
+///
+/// Defines barrier levels, rebate, and style for incorporating barrier
+/// conditions into recombining tree valuation.
 #[derive(Clone, Debug)]
 pub struct BarrierSpec {
     /// Up barrier level (S >= up triggers a touch)
@@ -506,23 +510,50 @@ pub struct BarrierSpec {
 /// per-step evolution parameters and a branching policy.
 #[derive(Clone)]
 pub struct RecombiningInputs<'a, V: TreeValuator> {
+    /// Branching structure (binomial or trinomial)
     pub branching: TreeBranching,
+    /// Number of time steps in the tree
     pub steps: usize,
+    /// Initial state variable values at root node
     pub initial_vars: StateVariables,
+    /// Time to maturity in years
     pub time_to_maturity: f64,
+    /// Market data context for curve lookups
     pub market_context: &'a MarketContext,
+    /// Payoff valuator implementing TreeValuator trait
     pub valuator: &'a V,
+    /// Multiplicative factor for up move (e.g., exp(σ√dt))
     pub up_factor: f64,
+    /// Multiplicative factor for down move (e.g., exp(-σ√dt))
     pub down_factor: f64,
+    /// Multiplicative factor for middle move (trinomial only)
     pub middle_factor: Option<f64>,
+    /// Risk-neutral probability of up move
     pub prob_up: f64,
+    /// Risk-neutral probability of down move
     pub prob_down: f64,
+    /// Risk-neutral probability of middle move (trinomial only)
     pub prob_middle: Option<f64>,
+    /// Risk-free interest rate per annum
     pub interest_rate: f64,
     /// Optional barrier configuration (discrete monitoring per step)
     pub barrier: Option<BarrierSpec>,
 }
 
+/// Price an option using a recombining tree with backward induction.
+///
+/// Supports binomial and trinomial trees with optional barrier monitoring.
+/// The tree is built forward, payoffs are evaluated at maturity, and expected
+/// values are discounted backward to the root.
+///
+/// # Arguments
+///
+/// * `inputs` - Complete tree configuration including evolution parameters,
+///   valuator, and optional barrier specification
+///
+/// # Returns
+///
+/// Present value of the option at time 0
 pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<f64> {
     let dt = inputs.time_to_maturity / inputs.steps as f64;
     let df = (-inputs.interest_rate * dt).exp();

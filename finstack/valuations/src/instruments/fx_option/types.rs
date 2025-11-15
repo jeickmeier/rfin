@@ -19,20 +19,35 @@ use super::parameters::FxOptionParams;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Base currency (foreign currency)
     pub base_currency: Currency,
+    /// Quote currency (domestic currency)
     pub quote_currency: Currency,
+    /// Strike exchange rate
     pub strike: f64,
+    /// Option type (call or put on base currency)
     pub option_type: OptionType,
+    /// Exercise style (European or American)
     pub exercise_style: ExerciseStyle,
+    /// Option expiry date
     pub expiry: Date,
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Notional amount in base currency
     pub notional: Money,
+    /// Settlement type (physical or cash)
     pub settlement: SettlementType,
+    /// Domestic currency discount curve ID
     pub domestic_discount_curve_id: CurveId,
+    /// Foreign currency discount curve ID
     pub foreign_discount_curve_id: CurveId,
+    /// FX volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

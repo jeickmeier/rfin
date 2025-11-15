@@ -121,9 +121,13 @@ impl Payoff for AsianCall {
 /// Payoff: max(K - Avg, 0) × N
 #[derive(Clone, Debug)]
 pub struct AsianPut {
+    /// Strike price
     pub strike: f64,
+    /// Notional amount
     pub notional: f64,
+    /// Averaging method (arithmetic or geometric)
     pub averaging: AveragingMethod,
+    /// Time step indices for averaging observations
     pub fixing_steps: Vec<usize>,
 
     sum_spots: f64,

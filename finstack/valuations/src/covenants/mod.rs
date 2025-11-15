@@ -2,7 +2,9 @@
 
 pub mod engine;
 pub mod forward;
+/// Covenant report types and structures
 pub mod mod_types;
+/// Covenant threshold schedules and interpolation
 pub mod schedule;
 
 pub use engine::{

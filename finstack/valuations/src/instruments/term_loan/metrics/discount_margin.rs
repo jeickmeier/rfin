@@ -9,6 +9,7 @@ use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 
+/// Discount margin calculator for floating rate term loans
 pub struct DiscountMarginCalculator;
 
 impl DiscountMarginCalculator {

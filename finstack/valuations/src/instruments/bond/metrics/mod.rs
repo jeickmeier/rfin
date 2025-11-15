@@ -1,17 +1,30 @@
 //! Bond-specific metric calculators split into per-metric modules.
 
+/// Accrued interest calculator
 pub mod accrued;
+/// Asset swap spread calculators (par, market, forward)
 pub mod asw;
+/// Convexity calculator
 pub mod convexity;
+/// Credit spread DV01 (CS01) calculator
 pub mod cs01;
+/// Discount margin calculator
 pub mod dm;
+/// Macaulay duration calculator
 pub mod duration_macaulay;
+/// Modified duration calculator
 pub mod duration_modified;
+/// I-spread (interpolated spread) calculator
 pub mod i_spread;
+/// Option-adjusted spread (OAS) calculator
 pub mod oas;
+/// Price calculators (clean and dirty)
 pub mod prices;
+/// Yield-to-maturity (YTM) calculator
 pub mod ytm;
+/// Yield-to-worst (YTW) calculator
 pub mod ytw;
+/// Z-spread (zero-volatility spread) calculator
 pub mod z_spread;
 
 pub use accrued::AccruedInterestCalculator;

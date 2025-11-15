@@ -680,6 +680,7 @@ fn collect_asian_inputs(
 pub struct AsianOptionAnalyticalGeometricPricer;
 
 impl AsianOptionAnalyticalGeometricPricer {
+    /// Create a new analytical geometric Asian option pricer
     pub fn new() -> Self {
         Self
     }
@@ -738,6 +739,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
 pub struct AsianOptionSemiAnalyticalTwPricer;
 
 impl AsianOptionSemiAnalyticalTwPricer {
+    /// Create a new Turnbull-Wakeman approximation Asian option pricer
     pub fn new() -> Self {
         Self
     }

@@ -18,7 +18,10 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RateSpec {
     /// Fixed annual rate in basis points
-    Fixed { rate_bp: i32 },
+    Fixed {
+        /// Fixed rate in basis points
+        rate_bp: i32
+    },
 
     /// Floating rate using canonical FloatingRateSpec.
     ///

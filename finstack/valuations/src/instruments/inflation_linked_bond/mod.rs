@@ -79,6 +79,7 @@
 
 pub mod metrics;
 pub mod parameters;
+/// Inflation-linked bond pricer implementation
 pub mod pricer;
 mod types;
 

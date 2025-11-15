@@ -141,41 +141,49 @@ impl SwaptionMarketConvention {
         self
     }
 
+    /// Set standard tenors for swaption matrix
     pub fn with_tenors(mut self, tenors: Vec<f64>) -> Self {
         self.standard_tenors = tenors;
         self
     }
 
+    /// Set day count convention
     pub fn with_day_count(mut self, day_count: DayCount) -> Self {
         self.day_count = day_count;
         self
     }
 
+    /// Set fixed leg frequency
     pub fn with_fixed_freq(mut self, freq: Frequency) -> Self {
         self.fixed_freq = freq;
         self
     }
 
+    /// Set floating leg frequency
     pub fn with_float_freq(mut self, freq: Frequency) -> Self {
         self.float_freq = freq;
         self
     }
 
+    /// Set default volatility for missing points
     pub fn with_default_vol(mut self, vol: f64) -> Self {
         self.default_vol = vol;
         self
     }
 
+    /// Set threshold below which volatilities are treated as zero
     pub fn with_zero_threshold(mut self, threshold: f64) -> Self {
         self.zero_threshold = threshold;
         self
     }
 
+    /// Set minimum number of points required for SABR calibration
     pub fn with_min_sabr_points(mut self, min_points: usize) -> Self {
         self.min_sabr_points = min_points;
         self
     }
 
+    /// Set payment estimation method for swaption pricing
     pub fn with_payment_estimation(mut self, method: PaymentEstimation) -> Self {
         self.payment_estimation = method;
         self

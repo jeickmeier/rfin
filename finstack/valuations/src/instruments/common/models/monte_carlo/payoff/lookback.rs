@@ -62,8 +62,11 @@ impl Payoff for LookbackCall {
 /// where S_min is the minimum spot observed over the path.
 #[derive(Clone, Debug)]
 pub struct LookbackPut {
+    /// Strike price (fixed strike lookback)
     pub strike: f64,
+    /// Notional amount
     pub notional: f64,
+    /// Time step index for maturity
     pub maturity_step: usize,
 
     min_spot: f64,
@@ -105,7 +108,9 @@ impl Payoff for LookbackPut {
 /// The strike "floats" to the minimum observed price.
 #[derive(Clone, Debug)]
 pub struct FloatingStrikeLookbackCall {
+    /// Notional amount
     pub notional: f64,
+    /// Time step index for maturity
     pub maturity_step: usize,
 
     terminal_spot: f64,

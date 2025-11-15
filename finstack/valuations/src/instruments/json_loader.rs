@@ -51,59 +51,96 @@ pub struct InstrumentEnvelope {
 #[serde(tag = "type", content = "spec", rename_all = "snake_case")]
 pub enum InstrumentJson {
     // Fixed Income
+    /// Fixed or floating rate bond
     Bond(Bond),
+    /// Convertible bond (hybrid debt-equity)
     ConvertibleBond(ConvertibleBond),
+    /// Inflation-linked bond
     InflationLinkedBond(InflationLinkedBond),
+    /// Term loan
     TermLoan(TermLoan),
+    /// Revolving credit facility
     RevolvingCredit(RevolvingCredit),
 
     // Rates
+    /// Interest rate swap
     InterestRateSwap(InterestRateSwap),
+    /// Basis swap
     BasisSwap(BasisSwap),
+    /// Inflation swap
     InflationSwap(InflationSwap),
+    /// Forward rate agreement (FRA)
     ForwardRateAgreement(ForwardRateAgreement),
+    /// Swaption (option on swap)
     Swaption(Swaption),
+    /// Interest rate future
     InterestRateFuture(InterestRateFuture),
+    /// Constant maturity swap (CMS) option
     CmsOption(CmsOption),
+    /// Money market deposit
     Deposit(Deposit),
+    /// Repurchase agreement
     Repo(Repo),
 
     // Credit
+    /// Credit default swap (single-name CDS)
     CreditDefaultSwap(CreditDefaultSwap),
+    /// CDS index (CDX, iTraxx)
     #[serde(rename = "cds_index")]
     CDSIndex(CDSIndex),
+    /// CDS tranche (synthetic CDO)
     CdsTranche(CdsTranche),
+    /// CDS option
     CdsOption(CdsOption),
 
     // Equity
+    /// Equity spot position
     Equity(Equity),
+    /// Vanilla equity option
     EquityOption(EquityOption),
+    /// Asian option (path-dependent average)
     AsianOption(AsianOption),
+    /// Barrier option (knock-in/out)
     BarrierOption(BarrierOption),
+    /// Lookback option
     LookbackOption(LookbackOption),
+    /// Variance swap
     VarianceSwap(VarianceSwap),
 
     // FX
+    /// FX spot position
     FxSpot(FxSpot),
+    /// FX swap (forward)
     FxSwap(FxSwap),
+    /// Vanilla FX option
     FxOption(FxOption),
+    /// FX barrier option
     FxBarrierOption(FxBarrierOption),
+    /// Quanto option (cross-currency)
     QuantoOption(QuantoOption),
 
     // Exotic Options
+    /// Autocallable note
     Autocallable(Autocallable),
+    /// Cliquet/ratchet option
     CliquetOption(CliquetOption),
+    /// Range accrual note
     RangeAccrual(RangeAccrual),
 
     // Total Return Swaps
+    /// Equity total return swap
     TrsEquity(EquityTotalReturnSwap),
+    /// Fixed income index total return swap
     TrsFixedIncomeIndex(FIIndexTotalReturnSwap),
 
     // Structured Credit
+    /// Structured credit (ABS, RMBS, CMBS, CLO)
     StructuredCredit(Box<StructuredCredit>),
 
     // Other
+    /// Multi-asset basket
     Basket(Basket),
+    /// Private markets fund
     PrivateMarketsFund(PrivateMarketsFund),
 }
 

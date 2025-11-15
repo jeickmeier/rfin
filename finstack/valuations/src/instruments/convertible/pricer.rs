@@ -615,6 +615,7 @@ pub fn calculate_conversion_premium(
 pub struct SimpleConvertibleDiscountingPricer;
 
 impl SimpleConvertibleDiscountingPricer {
+    /// Create a new convertible bond discounting pricer
     pub fn new() -> Self {
         Self
     }

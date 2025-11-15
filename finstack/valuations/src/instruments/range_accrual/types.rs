@@ -11,19 +11,33 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct RangeAccrual {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Underlying asset ticker symbol
     pub underlying_ticker: String,
+    /// Observation dates for range checking
     pub observation_dates: Vec<Date>,
+    /// Lower bound of accrual range
     pub lower_bound: f64,
+    /// Upper bound of accrual range
     pub upper_bound: f64,
+    /// Coupon rate earned when in range
     pub coupon_rate: f64,
+    /// Notional amount
     pub notional: Money,
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Spot price identifier
     pub spot_id: String,
+    /// Volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID
     pub div_yield_id: Option<String>,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

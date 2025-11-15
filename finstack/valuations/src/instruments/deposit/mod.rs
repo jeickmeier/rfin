@@ -44,6 +44,7 @@
 //! - [`calibration::methods::discount`](crate::calibration::methods::discount) for curve bootstrap
 
 pub mod metrics;
+/// Deposit pricer implementation
 pub mod pricer;
 mod types;
 

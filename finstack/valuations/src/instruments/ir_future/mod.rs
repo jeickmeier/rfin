@@ -61,6 +61,7 @@
 //! - [`calibration::methods::forward_curve`](crate::calibration::methods::forward_curve)
 
 pub mod metrics;
+/// Interest rate future pricer implementation
 pub mod pricer;
 mod types;
 

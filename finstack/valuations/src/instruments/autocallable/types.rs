@@ -11,11 +11,20 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FinalPayoffType {
     /// Capital protection: max(floor, participation * min(S_T/S_0, cap))
-    CapitalProtection { floor: f64 },
+    CapitalProtection {
+        /// Minimum return floor (e.g., 1.0 for 100% protection)
+        floor: f64
+    },
     /// Participation: 1 + participation_rate * max(0, S_T/S_0 - 1)
-    Participation { rate: f64 },
+    Participation {
+        /// Participation rate in upside (e.g., 1.0 for 100% participation)
+        rate: f64
+    },
     /// Knock-in put: Put option if barrier breached, otherwise return principal
-    KnockInPut { strike: f64 },
+    KnockInPut {
+        /// Strike price for knock-in put option
+        strike: f64
+    },
 }
 
 /// Autocallable structured product instrument.
@@ -23,22 +32,39 @@ pub enum FinalPayoffType {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Autocallable {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Underlying asset ticker symbol
     pub underlying_ticker: String,
+    /// Observation dates for autocall and coupon checks
     pub observation_dates: Vec<Date>,
+    /// Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%)
     pub autocall_barriers: Vec<f64>, // Ratios relative to initial spot
+    /// Coupon amounts paid if observation barrier is met
     pub coupons: Vec<f64>,
+    /// Final barrier level for final payoff determination
     pub final_barrier: f64,
+    /// Type of final payoff (capital protection, participation, knock-in put)
     pub final_payoff_type: FinalPayoffType,
+    /// Participation rate in underlying performance
     pub participation_rate: f64,
+    /// Cap level for final payoff (maximum return)
     pub cap_level: f64,
+    /// Notional amount
     pub notional: Money,
+    /// Day count convention for interest calculations
     pub day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Spot price identifier for underlying asset
     pub spot_id: String,
+    /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID
     pub div_yield_id: Option<String>,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

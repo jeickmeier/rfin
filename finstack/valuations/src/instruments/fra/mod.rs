@@ -56,6 +56,7 @@
 //! - [`calibration::methods::forward_curve`](crate::calibration::methods::forward_curve) for curve construction
 
 pub mod metrics;
+/// FRA pricer implementation
 pub mod pricer;
 mod types;
 

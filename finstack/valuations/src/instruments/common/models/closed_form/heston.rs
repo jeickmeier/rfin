@@ -15,18 +15,32 @@ use std::f64::consts::PI;
 // Standalone Heston parameters for when mc feature is not enabled
 #[cfg(not(feature = "mc"))]
 #[derive(Clone, Copy, Debug)]
+/// Heston stochastic volatility model parameters.
+///
+/// # References
+///
+/// - Heston, S. L. (1993). "A Closed-Form Solution for Options with Stochastic Volatility
+///   with Applications to Bond and Currency Options." *Review of Financial Studies*, 6(2), 327-343.
 pub struct HestonParams {
+    /// Risk-free interest rate
     pub r: f64,
+    /// Continuous dividend yield
     pub q: f64,
+    /// Mean reversion speed of variance
     pub kappa: f64,
+    /// Long-run variance level
     pub theta: f64,
+    /// Volatility of variance (vol-of-vol)
     pub sigma_v: f64,
+    /// Correlation between asset price and variance
     pub rho: f64,
+    /// Initial variance level
     pub v0: f64,
 }
 
 #[cfg(not(feature = "mc"))]
 impl HestonParams {
+    /// Create new Heston model parameters
     pub fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
         Self {
             r,

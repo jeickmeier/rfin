@@ -439,19 +439,29 @@ pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
 
 /// Convenience wrapper for all call Greeks.
 pub struct CallGreeks {
+    /// Delta: sensitivity to underlying price (∂C/∂S)
     pub delta: f64,
+    /// Gamma: rate of change of delta (∂²C/∂S²)
     pub gamma: f64,
+    /// Vega: sensitivity to volatility (∂C/∂σ), per 1% vol
     pub vega: f64,
+    /// Theta: time decay (∂C/∂t), per day
     pub theta: f64,
+    /// Rho: sensitivity to interest rate (∂C/∂r), per 1% rate
     pub rho: f64,
 }
 
 /// Convenience wrapper for all put Greeks.
 pub struct PutGreeks {
+    /// Delta: sensitivity to underlying price (∂P/∂S)
     pub delta: f64,
+    /// Gamma: rate of change of delta (∂²P/∂S²)
     pub gamma: f64,
+    /// Vega: sensitivity to volatility (∂P/∂σ), per 1% vol
     pub vega: f64,
+    /// Theta: time decay (∂P/∂t), per day
     pub theta: f64,
+    /// Rho: sensitivity to interest rate (∂P/∂r), per 1% rate
     pub rho: f64,
 }
 

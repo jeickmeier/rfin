@@ -124,10 +124,15 @@ pub fn price_bs_unit(
 /// Cash greeks for an equity option (scaled by contract size; vega per 1% vol).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EquityOptionGreeks {
+    /// Delta: sensitivity to underlying price (scaled by contract size)
     pub delta: f64,
+    /// Gamma: rate of change of delta with respect to underlying price
     pub gamma: f64,
+    /// Vega: sensitivity to 1% change in volatility
     pub vega: f64,
+    /// Theta: time decay per day
     pub theta: f64,
+    /// Rho: sensitivity to 1% change in risk-free rate
     pub rho: f64,
 }
 
@@ -217,10 +222,15 @@ pub fn compute_greeks(
 /// Unit greeks (per share, not scaled by contract size).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UnitGreeks {
+    /// Delta per share (rate of change of option value with respect to underlying)
     pub delta: f64,
+    /// Gamma per share (rate of change of delta with respect to underlying)
     pub gamma: f64,
+    /// Vega per share per 1% volatility change
     pub vega: f64,  // per 1% vol
+    /// Theta per share per day (time decay)
     pub theta: f64, // per day
+    /// Rho per share per 1% interest rate change
     pub rho: f64,   // per 1% rate
 }
 
@@ -315,12 +325,14 @@ pub struct SimpleEquityOptionBlackPricer {
 }
 
 impl SimpleEquityOptionBlackPricer {
+    /// Create new Black-Scholes pricer with default model
     pub fn new() -> Self {
         Self {
             model: crate::pricer::ModelKey::Black76,
         }
     }
 
+    /// Create pricer with specified model key
     pub fn with_model(model: crate::pricer::ModelKey) -> Self {
         Self { model }
     }
@@ -385,6 +397,7 @@ pub struct EquityOptionHestonFourierPricer;
 
 #[cfg(feature = "mc")]
 impl EquityOptionHestonFourierPricer {
+    /// Create a new Heston Fourier transform pricer
     pub fn new() -> Self {
         Self
     }

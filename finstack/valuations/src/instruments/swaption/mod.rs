@@ -98,8 +98,11 @@
 //! - [`metrics`] for swaption risk metrics
 //! - [`SimpleSwaptionBlackPricer`] for Black model pricer
 
+/// Swaption risk metrics (delta, vega, theta, rho)
 pub mod metrics;
+/// Swaption parameters and market data extraction
 pub mod parameters;
+/// Swaption pricer implementation using Black (1976) model
 pub mod pricer;
 mod types;
 

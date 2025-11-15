@@ -155,12 +155,18 @@ pub struct AsianPriceResult {
 }
 
 /// Greeks for Asian options.
+/// Greeks for Asian options
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AsianGreeks {
+    /// Delta: sensitivity to underlying price
     pub delta: f64,
+    /// Gamma: rate of change of delta
     pub gamma: f64,
+    /// Vega: sensitivity to volatility
     pub vega: f64,
+    /// Theta: time decay
     pub theta: f64,
+    /// Rho: sensitivity to interest rate
     pub rho: f64,
 }
 

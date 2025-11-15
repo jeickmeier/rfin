@@ -12,12 +12,14 @@ pub struct SimpleSwaptionBlackPricer {
 }
 
 impl SimpleSwaptionBlackPricer {
+    /// Create a new swaption pricer with default Black76 model
     pub fn new() -> Self {
         Self {
             model: ModelKey::Black76,
         }
     }
 
+    /// Create a swaption pricer with specified model key
     pub fn with_model(model: ModelKey) -> Self {
         Self { model }
     }

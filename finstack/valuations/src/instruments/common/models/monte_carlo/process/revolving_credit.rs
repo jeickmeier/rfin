@@ -79,7 +79,10 @@ impl CreditSpreadParams {
 #[derive(Clone, Debug)]
 pub enum InterestRateSpec {
     /// Fixed rate (constant, no dynamics)
-    Fixed { rate: f64 },
+    Fixed {
+        /// Fixed interest rate
+        rate: f64
+    },
     /// Floating rate (Hull-White 1F)
     Floating {
         /// Hull-White parameters

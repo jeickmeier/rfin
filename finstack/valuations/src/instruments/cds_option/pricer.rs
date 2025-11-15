@@ -24,12 +24,18 @@ use finstack_core::Result;
 ///
 /// Stateless wrapper that sources required market inputs and delegates
 /// to the instrument's pricing math for the Black-on-spreads formula.
+/// Configuration for CDS option pricing
 #[derive(Clone, Debug)]
 pub struct CdsOptionPricerConfig {
+    /// Whether to use ISDA standard RPV01 schedule
     pub use_isda_schedule_rpv01: bool,
+    /// Basis points per unit for spread conversion
     pub bp_per_unit: f64,
+    /// Days per year for theta calculation
     pub theta_days_per_year: f64,
+    /// Initial guess for implied volatility solver
     pub iv_initial_guess: f64,
+    /// Forward rate interpolation method
     pub forward_interp: ParInterp,
 }
 
@@ -45,6 +51,7 @@ impl Default for CdsOptionPricerConfig {
     }
 }
 
+/// CDS option pricer implementing Black76 model on CDS spreads.
 #[derive(Default)]
 pub struct CdsOptionPricer {
     config: CdsOptionPricerConfig,
@@ -433,10 +440,12 @@ pub struct SimpleCdsOptionBlackPricer {
 }
 
 impl SimpleCdsOptionBlackPricer {
+    /// Create a new CDS option pricer with default Black76 model
     pub fn new() -> Self {
         Self::with_model(crate::pricer::ModelKey::Black76)
     }
 
+    /// Create a CDS option pricer with specified model key
     pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }

@@ -38,7 +38,10 @@ pub enum SwaptionVolConvention {
     /// Lognormal (Black) volatility as percentage
     Lognormal,
     /// Shifted lognormal for negative rates
-    ShiftedLognormal { shift: f64 },
+    ShiftedLognormal {
+        /// Shift amount for negative rate handling
+        shift: f64
+    },
 }
 
 /// ATM strike convention for swaptions.

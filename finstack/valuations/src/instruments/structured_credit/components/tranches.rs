@@ -107,7 +107,10 @@ impl Default for CreditEnhancement {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
     /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
-    Fixed { rate: f64 },
+    Fixed {
+        /// Fixed interest rate as decimal (e.g., 0.05 for 5%)
+        rate: f64
+    },
 
     /// Floating rate coupon using canonical FloatingRateSpec.
     ///
@@ -173,6 +176,7 @@ pub struct Tranche {
 
     /// Structural boundaries (as % of total capital structure)
     pub attachment_point: f64, // Lower bound (e.g., 0.0% for equity, 10% for mezz)
+    /// Detachment point as percentage (upper loss bound for this tranche)
     pub detachment_point: f64, // Upper bound (e.g., 10% for equity, 15% for mezz)
 
     /// Behavioral classification for specialized handling
@@ -181,11 +185,14 @@ pub struct Tranche {
 
     /// Tranche characteristics
     pub seniority: TrancheSeniority,
+    /// Credit rating (if rated by agencies)
     pub rating: Option<CreditRating>,
 
     /// Size and balances
     pub original_balance: Money,
+    /// Current outstanding balance (after amortization and losses)
     pub current_balance: Money,
+    /// Target balance for revolving period (optional, for revolving structures)
     pub target_balance: Option<Money>, // For revolving structures
 
     /// Interest specification
@@ -193,6 +200,7 @@ pub struct Tranche {
 
     /// Coverage test triggers
     pub oc_trigger: Option<CoverageTrigger>,
+    /// Interest coverage trigger specification
     pub ic_trigger: Option<CoverageTrigger>,
 
     /// Credit enhancement details
@@ -200,13 +208,18 @@ pub struct Tranche {
 
     /// Payment characteristics
     pub payment_frequency: Frequency,
+    /// Day count convention for interest accrual
     pub day_count: DayCount,
+    /// Accumulated deferred interest (if payment has been deferred)
     pub deferred_interest: Money,
 
     /// Structural features
     pub is_revolving: bool,
+    /// Whether reinvestment of principal is permitted
     pub can_reinvest: bool,
+    /// Legal final maturity date
     pub legal_maturity: Date,
+    /// Expected maturity date (may be earlier than legal maturity for CLOs)
     pub expected_maturity: Option<Date>,
 
     /// Payment priority (1 = highest)
@@ -316,22 +329,26 @@ impl Tranche {
         self
     }
 
+    /// Add overcollateralization coverage trigger
     pub fn with_oc_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.oc_trigger = Some(trigger);
         self
     }
 
+    /// Add interest coverage trigger
     pub fn with_ic_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.ic_trigger = Some(trigger);
         self
     }
 
+    /// Mark tranche as revolving (enables reinvestment)
     pub fn revolving(mut self) -> Self {
         self.is_revolving = true;
         self.can_reinvest = true;
         self
     }
 
+    /// Set expected maturity date (typically earlier than legal maturity)
     pub fn with_expected_maturity(mut self, date: Date) -> Self {
         self.expected_maturity = Some(date);
         self
@@ -369,52 +386,62 @@ impl TrancheBuilder {
         }
     }
 
+    /// Set tranche ID
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
+    /// Set attachment and detachment points (as percentages)
     pub fn attachment_detachment(mut self, attachment: f64, detachment: f64) -> Self {
         self.attachment_point = Some(attachment);
         self.detachment_point = Some(detachment);
         self
     }
 
+    /// Set tranche seniority level
     pub fn seniority(mut self, seniority: TrancheSeniority) -> Self {
         self.seniority = Some(seniority);
         self
     }
 
+    /// Set original tranche balance
     pub fn balance(mut self, balance: Money) -> Self {
         self.original_balance = Some(balance);
         self
     }
 
+    /// Set coupon specification (fixed or floating)
     pub fn coupon(mut self, coupon: TrancheCoupon) -> Self {
         self.coupon = Some(coupon);
         self
     }
 
+    /// Set legal maturity date
     pub fn legal_maturity(mut self, date: Date) -> Self {
         self.legal_maturity = Some(date);
         self
     }
 
+    /// Set credit rating
     pub fn rating(mut self, rating: CreditRating) -> Self {
         self.rating = Some(rating);
         self
     }
 
+    /// Set payment frequency
     pub fn payment_frequency(mut self, freq: Frequency) -> Self {
         self.payment_frequency = freq;
         self
     }
 
+    /// Set day count convention
     pub fn day_count(mut self, dc: DayCount) -> Self {
         self.day_count = dc;
         self
     }
 
+    /// Build the tranche with validation
     pub fn build(self) -> finstack_core::Result<Tranche> {
         let id = self.id.ok_or(finstack_core::error::InputError::Invalid)?;
         let attachment_point = self
@@ -467,7 +494,9 @@ impl Default for TrancheBuilder {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TrancheStructure {
+    /// Ordered tranches (typically sorted by payment priority)
     pub tranches: Vec<Tranche>,
+    /// Total size of all tranches combined
     pub total_size: Money,
 }
 

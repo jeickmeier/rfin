@@ -155,16 +155,21 @@ impl Default for CDSTranchePricerConfig {
 }
 
 /// Units for CS01 bumping in tranche pricer
+/// Units for CS01 credit spread bumping
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cs01BumpUnits {
+    /// Bump hazard rate in basis points
     HazardRateBp,
+    /// Bump spread additively in basis points
     SpreadBpAdditive,
 }
 
 /// Heterogeneous expected loss evaluation method
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeteroMethod {
+    /// Saddle-point approximation (SPA) method
     Spa,
+    /// Exact convolution method (slower but more accurate)
     ExactConvolution,
 }
 
@@ -1236,12 +1241,14 @@ pub struct SimpleCdsTrancheHazardPricer {
 }
 
 impl SimpleCdsTrancheHazardPricer {
+    /// Create new CDS tranche pricer with default hazard rate model
     pub fn new() -> Self {
         Self {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
 
+    /// Create CDS tranche pricer with specified model key
     pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }

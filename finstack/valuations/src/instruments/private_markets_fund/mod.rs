@@ -41,6 +41,7 @@
 //! - [`metrics`] for private markets metrics
 
 pub mod metrics;
+/// Private markets fund pricer implementation
 pub mod pricer;
 mod types;
 pub mod waterfall;

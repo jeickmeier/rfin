@@ -288,16 +288,23 @@ pub struct AssetPool {
     pub assets: Vec<PoolAsset>,
 
     /// Performance tracking
+    /// Cumulative defaults to date
     pub cumulative_defaults: Money,
+    /// Cumulative recoveries on defaulted assets
     pub cumulative_recoveries: Money,
+    /// Cumulative prepayments (voluntary early repayment)
     pub cumulative_prepayments: Money,
 
     /// Reinvestment management
+    /// Reinvestment period configuration (if applicable)
     pub reinvestment_period: Option<ReinvestmentPeriod>,
 
     /// Pool-level accounts
+    /// Collection account balance (collected but not yet distributed)
     pub collection_account: Money,
+    /// Reserve account balance (for credit enhancement)
     pub reserve_account: Money,
+    /// Excess spread account (accumulated excess interest)
     pub excess_spread_account: Money,
 }
 
@@ -535,8 +542,10 @@ pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
 }
 
 /// Result of concentration limit checking
+/// Result of concentration limit check
 #[derive(Debug, Clone)]
 pub struct ConcentrationCheckResult {
+    /// List of concentration limit violations found
     pub violations: Vec<ConcentrationViolation>,
 }
 
@@ -550,9 +559,13 @@ impl ConcentrationCheckResult {
 /// Individual concentration limit violation
 #[derive(Debug, Clone)]
 pub struct ConcentrationViolation {
+    /// Type of violation (e.g., "Issuer", "Industry", "Rating")
     pub violation_type: String,
+    /// Identifier of violating entity (e.g., issuer name)
     pub identifier: String,
+    /// Current concentration level as percentage
     pub current_level: f64,
+    /// Maximum allowed concentration level
     pub limit: f64,
 }
 

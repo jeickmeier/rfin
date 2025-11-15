@@ -8,16 +8,23 @@
 
 use crate::covenants::CovenantReport;
 // Covenant type definitions were previously under loan; re-introduce minimal versions locally
+/// Financial covenant specification with test frequency and consequences.
 #[derive(Clone, Debug)]
 pub struct Covenant {
+    /// Type of covenant (leverage, coverage, etc.)
     pub covenant_type: CovenantType,
+    /// How frequently the covenant is tested
     pub test_frequency: finstack_core::dates::Frequency,
+    /// Optional cure period in days before default
     pub cure_period_days: Option<i32>,
+    /// Actions taken if covenant is breached
     pub consequences: Vec<CovenantConsequence>,
+    /// Whether the covenant is currently active
     pub is_active: bool,
 }
 
 impl Covenant {
+    /// Create a new covenant with default cure period
     pub fn new(
         covenant_type: CovenantType,
         test_frequency: finstack_core::dates::Frequency,
@@ -30,14 +37,20 @@ impl Covenant {
             is_active: true,
         }
     }
+    
+    /// Set cure period (days before breach becomes default)
     pub fn with_cure_period(mut self, days: Option<i32>) -> Self {
         self.cure_period_days = days;
         self
     }
+    
+    /// Add a consequence for covenant breach
     pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self {
         self.consequences.push(consequence);
         self
     }
+    
+    /// Get human-readable description of the covenant
     pub fn description(&self) -> String {
         match &self.covenant_type {
             CovenantType::MaxDebtToEBITDA { threshold } => {
@@ -68,33 +81,94 @@ impl Covenant {
     }
 }
 
+/// Type of financial or operational covenant
 #[derive(Clone, Debug)]
 pub enum CovenantType {
-    MaxDebtToEBITDA { threshold: f64 },
-    MinInterestCoverage { threshold: f64 },
-    MinFixedChargeCoverage { threshold: f64 },
-    MaxTotalLeverage { threshold: f64 },
-    MaxSeniorLeverage { threshold: f64 },
-    MinAssetCoverage { threshold: f64 },
-    Negative { restriction: String },
-    Affirmative { requirement: String },
-    Custom { metric: String, test: ThresholdTest },
+    /// Maximum debt-to-EBITDA ratio
+    MaxDebtToEBITDA {
+        /// Maximum allowed ratio
+        threshold: f64
+    },
+    /// Minimum interest coverage ratio (EBIT/Interest)
+    MinInterestCoverage {
+        /// Minimum required ratio
+        threshold: f64
+    },
+    /// Minimum fixed charge coverage ratio
+    MinFixedChargeCoverage {
+        /// Minimum required coverage
+        threshold: f64
+    },
+    /// Maximum total leverage ratio
+    MaxTotalLeverage {
+        /// Maximum allowed leverage
+        threshold: f64
+    },
+    /// Maximum senior leverage ratio
+    MaxSeniorLeverage {
+        /// Maximum allowed senior leverage
+        threshold: f64
+    },
+    /// Minimum asset coverage ratio
+    MinAssetCoverage {
+        /// Minimum required coverage
+        threshold: f64
+    },
+    /// Negative covenant (prohibition)
+    Negative {
+        /// Description of restriction
+        restriction: String
+    },
+    /// Affirmative covenant (requirement)
+    Affirmative {
+        /// Description of requirement
+        requirement: String
+    },
+    /// Custom covenant with metric and threshold test
+    Custom {
+        /// Name of metric to test
+        metric: String,
+        /// Threshold test (min or max)
+        test: ThresholdTest
+    },
 }
 
+/// Threshold test type (maximum or minimum bound)
 #[derive(Clone, Copy, Debug)]
 pub enum ThresholdTest {
+    /// Maximum allowed value
     Maximum(f64),
+    /// Minimum required value
     Minimum(f64),
 }
 
+/// Consequence of covenant breach
 #[derive(Clone, Debug)]
 pub enum CovenantConsequence {
+    /// Event of default
     Default,
-    RateIncrease { bp_increase: f64 },
-    CashSweep { sweep_percentage: f64 },
+    /// Interest rate margin increase
+    RateIncrease {
+        /// Increase in basis points
+        bp_increase: f64
+    },
+    /// Mandatory cash sweep of excess cash flow
+    CashSweep {
+        /// Percentage of cash flow to sweep
+        sweep_percentage: f64
+    },
+    /// Block distributions to equity holders
     BlockDistributions,
-    RequireCollateral { description: String },
-    AccelerateMaturity { new_maturity: Date },
+    /// Require additional collateral
+    RequireCollateral {
+        /// Description of collateral requirement
+        description: String
+    },
+    /// Accelerate loan maturity date
+    AccelerateMaturity {
+        /// New accelerated maturity date
+        new_maturity: Date
+    },
 }
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::prelude::*;

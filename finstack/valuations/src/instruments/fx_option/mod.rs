@@ -105,9 +105,13 @@
 //! - [`FxOptionGreeks`] for Greeks computation
 //! - [`metrics`] for FX option risk metrics
 
+/// Garman-Kohlhagen FX option calculator and Greeks computation
 pub mod calculator;
+/// FX option risk metrics (delta, gamma, vega, theta, rho)
 pub mod metrics;
+/// FX option parameters and market data extraction
 pub mod parameters;
+/// FX option pricer implementation using Black-Scholes FX model
 pub mod pricer;
 mod types;
 

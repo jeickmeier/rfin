@@ -71,6 +71,7 @@
 //! - [`metrics`] for swap-specific risk metrics
 
 pub mod metrics;
+/// Interest rate swap pricer implementation
 pub mod pricer;
 mod types;
 

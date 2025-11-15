@@ -6,6 +6,7 @@
 
 /// ISDA-style recovery rate presets (named constants; do not hard-code literals).
 pub const RECOVERY_SENIOR_UNSECURED: f64 = 0.40;
+/// Default recovery rate for subordinated CDS (20%)
 pub const RECOVERY_SUBORDINATED: f64 = 0.20;
 /// Convenience non-ISDA preset for high-yield style assumptions (common heuristic).
 pub const RECOVERY_HIGH_YIELD_DEFAULT: f64 = 0.30;

@@ -21,9 +21,12 @@ use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 
 /// Par spread denominator method for indices in constituents mode.
+/// Method for computing par spread of a CDS index
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParSpreadMethod {
+    /// Par spread computed using risky annuity (RPV01) method
     RiskyAnnuity,
+    /// Par spread with full premium and accrual-on-default
     FullPremiumAoD,
 }
 
@@ -289,12 +292,14 @@ pub struct SimpleCdsIndexHazardPricer {
 }
 
 impl SimpleCdsIndexHazardPricer {
+    /// Create a new CDS index pricer with default hazard rate model
     pub fn new() -> Self {
         Self {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
 
+    /// Create a CDS index pricer with specified model key
     pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }

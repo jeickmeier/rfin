@@ -22,10 +22,13 @@ use finstack_core::{Error, Result};
 use super::parameters::SwaptionParams;
 
 /// Swaption settlement type
+/// Swaption settlement method
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SwaptionSettlement {
+    /// Physical settlement (enter into underlying swap)
     Physical,
+    /// Cash settlement (receive NPV of swap)
     Cash,
 }
 
@@ -54,8 +57,11 @@ impl std::str::FromStr for SwaptionSettlement {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SwaptionExercise {
+    /// European exercise (only at expiry)
     European,
+    /// Bermudan exercise (at discrete dates)
     Bermudan,
+    /// American exercise (any time before expiry)
     American,
 }
 
@@ -87,23 +93,41 @@ impl std::str::FromStr for SwaptionExercise {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Swaption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Option type (payer or receiver swaption)
     pub option_type: OptionType,
+    /// Notional amount of underlying swap
     pub notional: Money,
+    /// Strike rate (fixed rate on underlying swap)
     pub strike_rate: f64,
+    /// Option expiry date
     pub expiry: Date,
+    /// Underlying swap start date
     pub swap_start: Date,
+    /// Underlying swap end date
     pub swap_end: Date,
+    /// Fixed leg payment frequency
     pub fixed_freq: Frequency,
+    /// Floating leg payment frequency
     pub float_freq: Frequency,
+    /// Day count convention
     pub day_count: DayCount,
+    /// Exercise style (European, Bermudan, American)
     pub exercise: SwaptionExercise,
+    /// Settlement method (physical or cash)
     pub settlement: SwaptionSettlement,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Forward curve ID for floating rate projections
     pub forward_id: CurveId,
+    /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Optional SABR volatility model parameters
     pub sabr_params: Option<SABRParameters>,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

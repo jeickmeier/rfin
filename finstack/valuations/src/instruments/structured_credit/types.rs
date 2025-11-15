@@ -100,9 +100,13 @@ pub struct StructuredCredit {
     pub waterfall: WaterfallEngine,
 
     /// Key dates
+    /// Deal closing date (issuance)
     pub closing_date: Date,
+    /// First payment date to tranches
     pub first_payment_date: Date,
+    /// End of reinvestment period (if applicable)
     pub reinvestment_end_date: Option<Date>,
+    /// Legal final maturity date
     pub legal_maturity: Date,
 
     /// Payment frequency for the structure

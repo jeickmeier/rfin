@@ -14,6 +14,7 @@ pub type SimpleFIIndexTrsDiscountingPricer = GenericDiscountingPricer<FIIndexTot
 pub struct SimpleTrsDiscountingPricer;
 
 impl SimpleTrsDiscountingPricer {
+    /// Create a new TRS pricer
     pub fn new() -> Self {
         Self
     }

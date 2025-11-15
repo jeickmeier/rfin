@@ -43,6 +43,7 @@
 //! - [`fx_swap`](super::fx_swap) for FX forwards
 
 pub mod metrics;
+/// FX spot pricer implementation
 pub mod pricer;
 mod types;
 

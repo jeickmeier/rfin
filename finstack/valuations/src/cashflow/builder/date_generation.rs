@@ -15,9 +15,12 @@
 use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};
 
 /// Period schedule with helper maps/flags for coupon generation.
+/// Period schedule output with business day adjustment tracking.
 #[derive(Clone, Debug)]
 pub struct PeriodSchedule {
+    /// Generated sequence of payment dates
     pub dates: Vec<Date>,
+    /// Mapping from adjusted dates to unadjusted dates
     pub prev: hashbrown::HashMap<Date, Date>,
     /// Set of payment dates that correspond to first or last periods.
     pub first_or_last: hashbrown::HashSet<Date>,

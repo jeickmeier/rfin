@@ -282,7 +282,12 @@ pub enum PathSamplingMethod {
     /// All paths were captured
     All,
     /// Random sample of N paths
-    RandomSample { count: usize, seed: u64 },
+    RandomSample {
+        /// Number of paths to sample
+        count: usize,
+        /// Random seed for sampling
+        seed: u64
+    },
 }
 
 impl std::fmt::Display for PathSamplingMethod {

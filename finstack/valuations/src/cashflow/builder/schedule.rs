@@ -74,8 +74,10 @@ pub(crate) fn finalize_flows(
 /// Minimal schedule metadata for a built schedule.
 ///
 /// Tracks referenced calendar IDs so callers can understand adjustment context.
+/// Metadata for cashflow schedules (calendar IDs, facility limits).
 #[derive(Debug, Clone, Default)]
 pub struct CashflowMeta {
+    /// Holiday calendar IDs used for schedule adjustments
     pub calendar_ids: Vec<String>,
     /// Optional facility limit/commitment for instruments like RCFs
     pub facility_limit: Option<Money>,
@@ -87,9 +89,13 @@ pub struct CashflowMeta {
 /// Methods provide convenient accessors commonly used by pricing and analysis.
 #[derive(Debug, Clone)]
 pub struct CashFlowSchedule {
+    /// Ordered cashflows (coupons, principal payments, fees)
     pub flows: Vec<CashFlow>,
+    /// Notional schedule (constant or amortizing)
     pub notional: Notional,
+    /// Day count convention for interest calculations
     pub day_count: DayCount,
+    /// Additional metadata (calendars, facility limits)
     pub meta: CashflowMeta,
 }
 
@@ -170,18 +176,22 @@ impl CashFlowSchedule {
     }
 
     // Convenience iterators for callers to avoid ad-hoc filtering.
+    
+    /// Get an iterator over coupon cashflows (Fixed and Stub types).
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
     }
 
+    /// Get an iterator over amortization cashflows.
     pub fn amortizations(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Amortization)
     }
 
+    /// Get an iterator over redemption cashflows (positive notional payments).
     pub fn redemptions(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()

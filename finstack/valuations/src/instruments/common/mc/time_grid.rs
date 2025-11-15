@@ -63,6 +63,7 @@ pub struct TimeGrid {
     dts: Vec<f64>,
 }
 
+/// Error type for time grid construction and validation
 #[derive(Debug, Error)]
 #[error("Invalid time grid: {0}")]
 pub struct TimeGridError(String);

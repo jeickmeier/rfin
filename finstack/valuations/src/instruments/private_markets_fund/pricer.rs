@@ -8,6 +8,7 @@ use finstack_core::market_data::MarketContext;
 pub struct PrivateMarketsFundDiscountingPricer;
 
 impl PrivateMarketsFundDiscountingPricer {
+    /// Create a new private markets fund pricer
     pub fn new() -> Self {
         Self
     }

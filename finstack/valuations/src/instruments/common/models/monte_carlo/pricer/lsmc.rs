@@ -28,6 +28,7 @@ pub trait ImmediateExercise: Send + Sync + Clone {
 /// American put option immediate exercise.
 #[derive(Clone, Debug)]
 pub struct AmericanPut {
+    /// Strike price for American put option
     pub strike: f64,
 }
 
@@ -40,6 +41,7 @@ impl ImmediateExercise for AmericanPut {
 /// American call option immediate exercise.
 #[derive(Clone, Debug)]
 pub struct AmericanCall {
+    /// Strike price for American call option
     pub strike: f64,
 }
 

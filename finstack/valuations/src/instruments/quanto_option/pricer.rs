@@ -264,6 +264,7 @@ fn collect_quanto_inputs(
 pub struct QuantoOptionAnalyticalPricer;
 
 impl QuantoOptionAnalyticalPricer {
+    /// Create a new analytical quanto option pricer
     pub fn new() -> Self {
         Self
     }

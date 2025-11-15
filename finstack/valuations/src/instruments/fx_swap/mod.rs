@@ -55,6 +55,7 @@
 
 pub mod metrics;
 pub mod parameters;
+/// FX swap pricer implementation
 pub mod pricer;
 mod types;
 

@@ -33,7 +33,12 @@ pub enum PathCaptureMode {
     /// Capture all paths
     All,
     /// Capture a random sample of paths
-    Sample { count: usize, seed: u64 },
+    Sample {
+        /// Number of Monte Carlo paths
+        count: usize,
+        /// Random seed for reproducibility
+        seed: u64
+    },
 }
 
 /// Configuration for path capture during Monte Carlo simulation.

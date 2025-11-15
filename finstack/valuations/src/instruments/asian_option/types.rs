@@ -26,20 +26,35 @@ pub enum AveragingMethod {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct AsianOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Underlying asset ticker symbol
     pub underlying_ticker: String,
+    /// Strike price
     pub strike: Money,
+    /// Option type (call or put)
     pub option_type: OptionType,
+    /// Averaging method (arithmetic or geometric)
     pub averaging_method: AveragingMethod,
+    /// Option expiry date
     pub expiry: Date,
+    /// Dates on which underlying is observed for averaging
     pub fixing_dates: Vec<Date>,
+    /// Notional amount
     pub notional: Money,
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Spot price identifier
     pub spot_id: String,
+    /// Volatility surface ID
     pub vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID
     pub div_yield_id: Option<String>,
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

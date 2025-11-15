@@ -12,17 +12,29 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct CmsOption {
+    /// Unique instrument identifier
     pub id: InstrumentId,
+    /// Strike rate (fixed rate for CMS option)
     pub strike_rate: f64,
+    /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
     pub cms_tenor: f64, // Tenor of the CMS swap (e.g., 10.0 for 10Y)
+    /// Observation/fixing dates for CMS rate
     pub fixing_dates: Vec<Date>,
+    /// Accrual fractions for each period
     pub accrual_fractions: Vec<f64>,
+    /// Option type (call or put on CMS rate)
     pub option_type: OptionType,
+    /// Notional amount
     pub notional: Money,
+    /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Optional volatility surface ID for CMS rates
     pub vol_surface_id: Option<CurveId>, // Optional volatility surface for CMS rates
+    /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
 

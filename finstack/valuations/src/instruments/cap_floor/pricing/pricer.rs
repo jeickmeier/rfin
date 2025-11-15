@@ -12,12 +12,14 @@ pub struct SimpleCapFloorBlackPricer {
 }
 
 impl SimpleCapFloorBlackPricer {
+    /// Create a new cap/floor Black pricer with default model
     pub fn new() -> Self {
         Self {
             model: ModelKey::Black76,
         }
     }
 
+    /// Create a cap/floor pricer with specified model key
     pub fn with_model(model: ModelKey) -> Self {
         Self { model }
     }

@@ -11,12 +11,18 @@ use finstack_core::Result;
 
 use super::helpers::YieldCompounding;
 
+/// Specification for yield-to-maturity calculations
 #[derive(Clone, Copy, Debug)]
 pub struct YtmPricingSpec {
+    /// Day count convention for accrual calculations
     pub day_count: DayCount,
+    /// Bond notional amount
     pub notional: Money,
+    /// Annual coupon rate (as decimal, e.g., 0.05 for 5%)
     pub coupon_rate: f64,
+    /// Yield compounding convention
     pub compounding: YieldCompounding,
+    /// Coupon payment frequency
     pub frequency: Frequency,
 }
 
@@ -76,6 +82,7 @@ impl Default for YtmSolverConfig {
     }
 }
 
+/// Yield-to-maturity solver using hybrid Newton-Brent method.
 pub struct YtmSolver {
     config: YtmSolverConfig,
 }
@@ -87,15 +94,21 @@ impl Default for YtmSolver {
 }
 
 impl YtmSolver {
+    /// Create a new YTM solver with default configuration.
     pub fn new() -> Self {
         Self {
             config: YtmSolverConfig::default(),
         }
     }
+    
+    /// Create a YTM solver with custom configuration.
     pub fn with_config(config: YtmSolverConfig) -> Self {
         Self { config }
     }
 
+    /// Solve for yield-to-maturity given cashflows and target price.
+    ///
+    /// Uses hybrid Newton-Brent solver with intelligent initial guess.
     pub fn solve(
         &self,
         cashflows: &[(Date, Money)],
@@ -196,6 +209,9 @@ impl YtmSolver {
     }
 }
 
+/// Convenience function to solve for YTM with default configuration.
+///
+/// Wrapper around YtmSolver::new().solve() for simple use cases.
 pub fn solve_ytm(
     cashflows: &[(Date, Money)],
     as_of: Date,

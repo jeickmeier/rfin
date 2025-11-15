@@ -44,10 +44,12 @@ impl Default for RatesCreditConfig {
 /// Two-factor correlated binomial tree (short rate + hazard rate).
 #[derive(Clone, Debug)]
 pub struct RatesCreditTree {
+    /// Rates-credit tree configuration
     pub config: RatesCreditConfig,
 }
 
 impl RatesCreditTree {
+    /// Create a new rates-credit tree with the given configuration
     pub fn new(config: RatesCreditConfig) -> Self {
         Self { config }
     }

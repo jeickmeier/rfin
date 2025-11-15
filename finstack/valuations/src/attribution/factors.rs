@@ -21,40 +21,50 @@ use std::sync::Arc;
 /// Snapshot of all discount and forward curves from a market context.
 #[derive(Clone, Debug)]
 pub struct RatesCurvesSnapshot {
+    /// Discount curves indexed by curve ID
     pub discount_curves: HashMap<CurveId, Arc<DiscountCurve>>,
+    /// Forward curves indexed by curve ID
     pub forward_curves: HashMap<CurveId, Arc<ForwardCurve>>,
 }
 
 /// Snapshot of all credit hazard curves from a market context.
 #[derive(Clone, Debug)]
 pub struct CreditCurvesSnapshot {
+    /// Hazard curves indexed by curve ID
     pub hazard_curves: HashMap<CurveId, Arc<HazardCurve>>,
 }
 
 /// Snapshot of all inflation curves from a market context.
 #[derive(Clone, Debug)]
 pub struct InflationCurvesSnapshot {
+    /// Inflation curves indexed by curve ID
     pub inflation_curves: HashMap<CurveId, Arc<InflationCurve>>,
 }
 
 /// Snapshot of all base correlation curves from a market context.
 #[derive(Clone, Debug)]
 pub struct CorrelationsSnapshot {
+    /// Base correlation curves indexed by curve ID
     pub base_correlation_curves: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
 }
 
 /// Snapshot of volatility surfaces from a market context.
 #[derive(Clone)]
 pub struct VolatilitySnapshot {
+    /// Volatility surfaces indexed by surface ID
     pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
 }
 
 /// Snapshot of market scalars from a market context.
 #[derive(Clone, Debug)]
 pub struct ScalarsSnapshot {
+    /// Market scalar prices indexed by ID
     pub prices: HashMap<CurveId, MarketScalar>,
+    /// Time series data indexed by ID
     pub series: HashMap<CurveId, ScalarTimeSeries>,
+    /// Inflation indices indexed by ID
     pub inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
+    /// Dividend schedules indexed by equity ID
     pub dividends: HashMap<CurveId, Arc<DividendSchedule>>,
 }
 

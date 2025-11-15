@@ -132,16 +132,24 @@ use finstack_core::math::special_functions::norm_cdf;
 /// Parameters for barrier option pricing.
 #[derive(Clone, Copy, Debug)]
 pub struct BarrierParams {
+    /// Current underlying spot price
     pub spot: f64,
+    /// Strike price
     pub strike: f64,
+    /// Barrier level
     pub barrier: f64,
+    /// Time to expiry in years
     pub time: f64,
+    /// Risk-free interest rate (annualized)
     pub rate: f64,
+    /// Continuous dividend yield (annualized)
     pub div_yield: f64,
+    /// Volatility (annualized)
     pub vol: f64,
 }
 
 impl BarrierParams {
+    /// Create new barrier parameters
     pub fn new(
         spot: f64,
         strike: f64,
@@ -166,9 +174,13 @@ impl BarrierParams {
 /// Barrier option type.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BarrierType {
+    /// Up-and-in barrier option (activates when spot rises above barrier)
     UpIn,
+    /// Up-and-out barrier option (deactivates when spot rises above barrier)
     UpOut,
+    /// Down-and-in barrier option (activates when spot falls below barrier)
     DownIn,
+    /// Down-and-out barrier option (deactivates when spot falls below barrier)
     DownOut,
 }
 

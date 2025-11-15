@@ -5,6 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
+/// Yield-to-call calculator for callable term loans
 pub struct YtcCalculator;
 
 impl MetricCalculator for YtcCalculator {

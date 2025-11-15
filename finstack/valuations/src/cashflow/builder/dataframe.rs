@@ -75,25 +75,45 @@ pub struct PeriodDataFrameOptions<'a> {
 /// - `spreads`: Margin over forward rate if floating decomposition enabled
 #[derive(Clone)]
 pub struct PeriodDataFrame {
+    /// Period start dates
     pub start_dates: Vec<Date>,
+    /// Period end dates
     pub end_dates: Vec<Date>,
+    /// Payment dates (potentially adjusted for business days)
     pub pay_dates: Vec<Date>,
+    /// Reset dates for floating rate coupons (if applicable)
     pub reset_dates: Vec<Option<Date>>,
+    /// Cashflow types (coupon, amortization, fee, etc.)
     pub cf_types: Vec<CFKind>,
+    /// Currencies for each cashflow
     pub currencies: Vec<Currency>,
+    /// Outstanding notional amounts
     pub notionals: Vec<Option<f64>>,
+    /// Undrawn notional amounts (for committed facilities)
     pub undrawn_notionals: Option<Vec<Option<f64>>>,
+    /// Year fractions for each period (time between dates in years)
     pub yr_fraqs: Vec<f64>,
+    /// Accrual factors (day count convention applied)
     pub accrual_factors: Vec<f64>,
+    /// Calendar days in each period
     pub days: Vec<i64>,
+    /// Cashflow amounts (coupons, principal, fees)
     pub amounts: Vec<f64>,
+    /// Interest rates for each period
     pub rates: Vec<f64>,
+    /// Discount factors from base date to payment dates
     pub discount_factors: Vec<f64>,
+    /// Survival probabilities (if credit risk modeled)
     pub survival_probs: Option<Vec<Option<f64>>>,
+    /// Present values of cashflows
     pub pvs: Vec<f64>,
+    /// Unfunded amounts (drawn commitment minus outstanding)
     pub unfunded_amounts: Option<Vec<Option<f64>>>,
+    /// Total commitment amounts per period
     pub commitment_amounts: Option<Vec<Option<f64>>>,
+    /// Base forward rates for floating coupons (if decomposed)
     pub base_rates: Option<Vec<Option<f64>>>,
+    /// Spread over base rates for floating coupons (if decomposed)
     pub spreads: Option<Vec<Option<f64>>>,
 }
 

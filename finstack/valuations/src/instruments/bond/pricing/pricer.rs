@@ -25,6 +25,7 @@ impl Default for SimpleBondDiscountingPricer {
 pub struct SimpleBondOasPricer;
 
 impl SimpleBondOasPricer {
+    /// Create a new bond discounting pricer
     pub fn new() -> Self {
         Self
     }

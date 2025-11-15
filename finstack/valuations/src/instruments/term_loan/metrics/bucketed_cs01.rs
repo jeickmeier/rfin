@@ -7,6 +7,7 @@ use finstack_core::market_data::bumps::BumpSpec;
 use hashbrown::HashMap;
 
 #[derive(Debug, Default, Clone, Copy)]
+/// Bucketed CS01 calculator for term loans (key rate durations)
 pub struct BucketedCs01Calculator;
 
 impl MetricCalculator for BucketedCs01Calculator {

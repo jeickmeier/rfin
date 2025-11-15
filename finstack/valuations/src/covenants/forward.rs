@@ -15,15 +15,19 @@ use finstack_core::Result;
 use crate::instruments::common::mc::traits::RandomStream;
 
 /// Comparator for headroom calculation.
+/// Comparison operator for covenant threshold tests
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Comparator {
+    /// Less than or equal to threshold (e.g., Leverage ≤ 3.0x)
     LessOrEqual,
+    /// Greater than or equal to threshold (e.g., Coverage ≥ 1.2x)
     GreaterOrEqual,
 }
 
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
 #[derive(Clone, Debug, Default)]
 pub struct McConfig {
+    /// Random number generator seed for reproducibility
     pub seed: u64,
     /// When true, uses antithetic variates (simple variance reduction).
     pub antithetic: bool,
@@ -32,24 +36,38 @@ pub struct McConfig {
 /// Covenant forecast configuration.
 #[derive(Clone, Debug, Default)]
 pub struct CovenantForecastConfig {
+    /// Whether to use stochastic simulation (vs deterministic projection)
     pub stochastic: bool,
+    /// Number of Monte Carlo paths (if stochastic)
     pub num_paths: usize,
+    /// Volatility for stochastic scenarios
     pub volatility: Option<f64>,
+    /// Random seed for reproducibility
     pub random_seed: Option<u64>,
+    /// Monte Carlo configuration
     pub mc: Option<McConfig>,
 }
 
 /// Forecast output with headroom analytics.
 #[derive(Clone, Debug)]
 pub struct CovenantForecast {
+    /// Covenant identifier
     pub covenant_id: String,
+    /// Future test dates for covenant evaluation
     pub test_dates: Vec<Date>,
+    /// Projected metric values at each test date
     pub projected_values: Vec<f64>,
+    /// Covenant thresholds at each test date
     pub thresholds: Vec<f64>,
+    /// Headroom (distance from breach) at each test date
     pub headroom: Vec<f64>,
+    /// Probability of breach at each test date (stochastic mode)
     pub breach_probability: Vec<f64>,
+    /// Date of first projected breach (if any)
     pub first_breach_date: Option<Date>,
+    /// Date with minimum headroom
     pub min_headroom_date: Date,
+    /// Minimum headroom value across all test dates
     pub min_headroom_value: f64,
 }
 
@@ -92,7 +110,9 @@ impl CovenantForecast {
 
 /// Minimal read-only adapter to query model time-series values and map periods to dates.
 pub trait ModelTimeSeries {
+    /// Get scalar value for a metric node and period
     fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64>;
+    /// Get end date for a given period
     fn period_end_date(&self, period: &PeriodId) -> Date;
 }
 

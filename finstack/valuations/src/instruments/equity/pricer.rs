@@ -102,6 +102,7 @@ impl EquityPricer {
 pub struct SimpleEquityDiscountingPricer;
 
 impl SimpleEquityDiscountingPricer {
+    /// Create a new equity discounting pricer
     pub fn new() -> Self {
         Self
     }

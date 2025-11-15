@@ -13,9 +13,13 @@ use finstack_core::currency::Currency;
 
 /// Configuration for antithetic variates pricing.
 pub struct AntitheticConfig<'a> {
+    /// Number of path pairs to simulate
     pub num_pairs: usize,
+    /// Time grid for simulation
     pub time_grid: &'a crate::instruments::common::mc::time_grid::TimeGrid,
+    /// Currency for payoff amounts
     pub currency: Currency,
+    /// Discount factor to present value
     pub discount_factor: f64,
 }
 

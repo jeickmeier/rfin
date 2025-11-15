@@ -12,6 +12,7 @@ pub struct AssetExposureCalculator {
 }
 
 impl AssetExposureCalculator {
+    /// Create an asset exposure calculator for the given asset type
     pub fn new(asset_type: AssetType) -> Self {
         Self { asset_type }
     }

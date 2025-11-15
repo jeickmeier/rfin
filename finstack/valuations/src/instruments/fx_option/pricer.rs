@@ -12,12 +12,14 @@ pub struct SimpleFxOptionBlackPricer {
 }
 
 impl SimpleFxOptionBlackPricer {
+    /// Create a new FX option pricer with default model
     pub fn new() -> Self {
         Self {
             model: ModelKey::Black76,
         }
     }
 
+    /// Create an FX option pricer with specified model key
     pub fn with_model(model: ModelKey) -> Self {
         Self { model }
     }

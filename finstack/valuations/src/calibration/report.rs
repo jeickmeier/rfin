@@ -94,19 +94,23 @@ impl CalibrationReport {
         self
     }
 
+    /// Create a successful calibration report with no residuals.
     pub fn success_empty(reason: impl Into<String>) -> Self {
         Self::new(BTreeMap::new(), 0, true, reason)
     }
 
+    /// Add metadata key-value pair to the report (builder pattern).
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// Update metadata key-value pair on an existing report.
     pub fn update_metadata(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.metadata.insert(key.into(), value.into());
     }
 
+    /// Create a calibration report for a specific calibration type.
     pub fn for_type(
         calibration_type: impl Into<String>,
         residuals: BTreeMap<String, f64>,

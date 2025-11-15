@@ -65,6 +65,7 @@
 //! - [`RepoType`] for classic vs GC vs triparty
 
 pub mod metrics;
+/// Repo pricer implementation
 pub mod pricer;
 mod types;
 

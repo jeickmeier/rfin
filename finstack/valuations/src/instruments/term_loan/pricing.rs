@@ -10,6 +10,7 @@ use super::cashflows::generate_cashflows;
 use super::types::TermLoan;
 
 #[derive(Default)]
+/// Term loan pricer using discounting of projected cashflows
 pub struct TermLoanDiscountingPricer;
 
 impl TermLoanDiscountingPricer {

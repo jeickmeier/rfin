@@ -21,13 +21,19 @@ use std::sync::Arc;
 pub enum ModelParamsSnapshot {
     /// Structured credit parameters (prepayment, default, recovery).
     StructuredCredit {
+        /// Prepayment model specification
         prepayment_spec: PrepaymentModelSpec,
+        /// Default model specification
         default_spec: DefaultModelSpec,
+        /// Recovery model specification
         recovery_spec: RecoveryModelSpec,
     },
 
     /// Convertible bond parameters (conversion ratio, policies).
-    Convertible { conversion_spec: ConversionSpec },
+    Convertible {
+        /// Conversion specification for convertible bonds
+        conversion_spec: ConversionSpec
+    },
 
     /// No extractable model parameters.
     None,

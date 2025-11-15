@@ -52,14 +52,17 @@ pub struct MultiOuProcess {
 }
 
 impl MultiOuProcess {
+    /// Create a new multi-dimensional Ornstein-Uhlenbeck process
     pub fn new(params: MultiOuParams) -> Self {
         Self { params }
     }
 
+    /// Get the dimension (number of factors) of the process
     pub fn dim(&self) -> usize {
         self.params.kappas.len()
     }
 
+    /// Get the correlation matrix (if specified)
     pub fn correlation(&self) -> Option<&[f64]> {
         self.params.correlation.as_deref()
     }

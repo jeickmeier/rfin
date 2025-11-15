@@ -8,6 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::money::Money;
 
+/// All-in rate calculator for term loans (including fees and OID)
 pub struct AllInRateCalculator;
 
 impl MetricCalculator for AllInRateCalculator {

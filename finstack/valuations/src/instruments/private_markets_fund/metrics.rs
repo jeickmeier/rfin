@@ -259,7 +259,7 @@ pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
     }
 }
 
-// Theta calculator using generic implementation
+/// Theta calculator for private markets fund time decay
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {

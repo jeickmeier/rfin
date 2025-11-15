@@ -5,4 +5,5 @@
 pub mod engine;
 pub mod equity;
 pub mod fixed_income_index;
+/// TRS pricer implementation
 pub mod pricer;

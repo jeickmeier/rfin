@@ -34,15 +34,21 @@ const INFL_MONO_POINTS: &[f64] = &[1.0, 2.0, 3.0, 5.0, 10.0];
 const INFL_BOUNDS_POINTS: &[f64] = &[1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
 
 /// Validation error details
+/// Calibration validation error with context and diagnostic values.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidationError {
+    /// Which constraint was violated (e.g., "monotonicity", "positivity")
     pub constraint: String,
+    /// Location of the violation (curve ID, point index, etc.)
     pub location: String,
+    /// Human-readable details about the violation
     pub details: String,
+    /// Relevant diagnostic values (actual vs expected, etc.)
     pub values: BTreeMap<String, f64>,
 }
 
 impl ValidationError {
+    /// Create a new validation error
     pub fn new(
         constraint: impl Into<String>,
         location: impl Into<String>,
@@ -56,6 +62,7 @@ impl ValidationError {
         }
     }
 
+    /// Add a diagnostic value to the error report
     pub fn with_value(mut self, key: impl Into<String>, value: f64) -> Self {
         self.values.insert(key.into(), value);
         self

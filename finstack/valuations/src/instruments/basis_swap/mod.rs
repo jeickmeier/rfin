@@ -49,6 +49,7 @@
 //! - Multi-curve calibration in [`calibration`](crate::calibration)
 
 pub mod metrics;
+/// Basis swap pricer implementation
 pub mod pricer;
 mod types;
 

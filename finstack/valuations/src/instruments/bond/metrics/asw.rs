@@ -13,8 +13,11 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// Market ASW: spread s that equates PV of bond fixed leg to dirty market price.
 /// Approximation: asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate.
 pub struct AssetSwapParCalculator;
+/// Asset swap spread calculator using market price
 pub struct AssetSwapMarketCalculator;
+/// Asset swap par spread calculator using forward method
 pub struct AssetSwapParFwdCalculator;
+/// Asset swap market spread calculator using forward method
 pub struct AssetSwapMarketFwdCalculator;
 
 fn fixed_leg_annuity(
