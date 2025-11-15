@@ -30,14 +30,47 @@ pub mod bump_sizes {
 /// Helper to bump a scalar price in MarketContext.
 ///
 /// Creates a new MarketContext with the bumped price, leaving other data unchanged.
+/// Used for computing delta and other price sensitivities via finite differences.
 ///
 /// # Arguments
-/// * `context` - Original market context
-/// * `price_id` - ID of the price scalar to bump
-/// * `bump_pct` - Relative bump size (e.g., 0.01 for 1%)
+///
+/// * `context` - Original market context containing the price to bump
+/// * `price_id` - ID of the price scalar to bump (e.g., equity spot price)
+/// * `bump_pct` - Relative bump size as decimal (e.g., 0.01 for 1%)
 ///
 /// # Returns
-/// New MarketContext with bumped price
+///
+/// New MarketContext with the specified price bumped by the given percentage.
+/// All other market data remains unchanged.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The price ID is not found in the market context
+/// - The price data is invalid or corrupted
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::core::finite_difference::bump_scalar_price;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::scalars::MarketScalar;
+/// use finstack_core::dates::{create_date, Month};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let as_of = create_date(2024, Month::January, 1)?;
+/// let mut context = MarketContext::new(as_of);
+/// 
+/// // Add a spot price
+/// context.add_price("AAPL", MarketScalar::Unitless(150.0));
+///
+/// // Bump the price up by 1%
+/// let bumped = bump_scalar_price(&context, "AAPL", 0.01)?;
+/// let new_price = bumped.price("AAPL")?;
+/// // new_price should be 151.5 (150 * 1.01)
+/// # Ok(())
+/// # }
+/// ```
 pub fn bump_scalar_price(
     context: &finstack_core::market_data::MarketContext,
     price_id: &str,
@@ -66,14 +99,52 @@ pub fn bump_scalar_price(
 /// Helper to bump a discount curve with parallel shift.
 ///
 /// Creates a new MarketContext with a bumped discount curve using a parallel shift.
+/// Used for computing DV01 (interest rate sensitivity) via finite differences.
 ///
 /// # Arguments
-/// * `context` - Original market context
-/// * `curve_id` - ID of the discount curve to bump
+///
+/// * `context` - Original market context containing the discount curve
+/// * `curve_id` - ID of the discount curve to bump (e.g., "USD-OIS")
 /// * `bump_decimal` - Bump size in decimal (e.g., 0.0001 for 1bp)
 ///
 /// # Returns
-/// New MarketContext with bumped curve
+///
+/// New MarketContext with the specified discount curve shifted in parallel by
+/// the given amount. All other market data remains unchanged.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The curve ID is not found in the market context
+/// - The bump operation fails due to invalid curve data
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::core::finite_difference::bump_discount_curve_parallel;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
+/// use finstack_core::types::CurveId;
+/// use finstack_core::dates::{create_date, Month, DayCount};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let as_of = create_date(2024, Month::January, 1)?;
+/// let curve_id = CurveId::from("USD-OIS");
+/// 
+/// // Create a discount curve
+/// let curve = DiscountCurve::builder(curve_id.clone())
+///     .base_date(as_of)
+///     .day_count(DayCount::Act365F)
+///     .knots(vec![(0.0, 1.0), (1.0, 0.96), (5.0, 0.85)])
+///     .build()?;
+///
+/// let context = MarketContext::new(as_of).insert_discount(curve);
+///
+/// // Bump the curve by 1bp (0.0001)
+/// let bumped = bump_discount_curve_parallel(&context, &curve_id, 0.0001)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn bump_discount_curve_parallel(
     context: &finstack_core::market_data::MarketContext,
     curve_id: &finstack_core::types::CurveId,
@@ -89,7 +160,43 @@ pub fn bump_discount_curve_parallel(
 
 /// Helper to scale a volatility surface by a constant multiplicative factor.
 ///
-/// Used for parallel volatility bumps (e.g., vega calculations).
+/// Creates a new MarketContext with a scaled volatility surface. Used for parallel
+/// volatility bumps in vega calculations via finite differences.
+///
+/// # Arguments
+///
+/// * `context` - Original market context containing the volatility surface
+/// * `vol_surface_id` - ID of the volatility surface to scale
+/// * `scale` - Multiplicative scale factor (e.g., 1.01 for 1% increase)
+///
+/// # Returns
+///
+/// New MarketContext with the specified volatility surface scaled by the given factor.
+/// All other market data remains unchanged.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The surface ID is not found in the market context
+/// - The surface data is invalid or corrupted
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::core::finite_difference::scale_surface;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::{create_date, Month};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let as_of = create_date(2024, Month::January, 1)?;
+/// let context = MarketContext::new(as_of);
+/// // Assume context has a volatility surface "AAPL-VOL"
+///
+/// // Scale the surface up by 1% (for vega calculation)
+/// let bumped = scale_surface(&context, "AAPL-VOL", 1.01)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn scale_surface(
     context: &finstack_core::market_data::MarketContext,
     vol_surface_id: &str,
@@ -142,6 +249,7 @@ pub fn adaptive_spot_bump(atm_vol: f64, time_to_expiry: f64, override_pct: Optio
 /// up/down scenarios and an absolute bump size `h`.
 ///
 /// Returns `(f(x+h) - f(x-h)) / (2h)`.
+#[allow(dead_code)]
 pub fn central_diff_1d<EFutUp, EFutDown, E>(
     eval_up: EFutUp,
     eval_down: EFutDown,
@@ -210,6 +318,7 @@ where
 ///
 /// # Returns
 /// Adaptive bump size as absolute volatility (e.g., 0.01 for 1% vol)
+#[allow(dead_code)]
 pub fn adaptive_vol_bump(current_vol: f64, override_pct: Option<f64>) -> f64 {
     if let Some(pct) = override_pct {
         return pct;
@@ -237,6 +346,7 @@ pub fn adaptive_vol_bump(current_vol: f64, override_pct: Option<f64>) -> f64 {
 ///
 /// # Returns
 /// Bump size in decimal (e.g., 0.0001 for 1bp)
+#[allow(dead_code)]
 pub fn adaptive_rate_bump(override_decimal: Option<f64>) -> f64 {
     override_decimal.unwrap_or(bump_sizes::INTEREST_RATE_BP)
 }

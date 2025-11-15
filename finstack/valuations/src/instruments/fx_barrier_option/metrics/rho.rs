@@ -15,7 +15,7 @@
 //! would be implemented.
 
 use crate::instruments::fx_barrier_option::FxBarrierOption;
-use crate::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

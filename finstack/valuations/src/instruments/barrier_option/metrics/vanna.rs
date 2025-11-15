@@ -5,7 +5,7 @@
 //! Note: Barrier options exhibit discontinuous vanna near barrier levels.
 
 use crate::instruments::barrier_option::BarrierOption;
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

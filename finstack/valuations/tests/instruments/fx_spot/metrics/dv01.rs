@@ -9,7 +9,7 @@ use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext,
 use finstack_valuations::{
     instruments::{common::traits::Instrument, fx_spot::FxSpot},
     metrics::{
-        traits::MetricCalculator, Dv01CalculatorConfig, MetricContext, UnifiedDv01Calculator,
+        MetricCalculator, Dv01CalculatorConfig, MetricContext, UnifiedDv01Calculator,
     },
 };
 use std::sync::Arc;

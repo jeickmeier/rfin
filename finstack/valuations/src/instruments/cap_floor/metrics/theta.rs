@@ -4,7 +4,7 @@
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
 use crate::instruments::cap_floor::InterestRateOption;
-use crate::metrics::theta_utils;
+use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -48,8 +48,7 @@ impl MetricCalculator for ThetaCalculator {
             next_fixing.or(Some(option.end_date)) // Fallback to end_date if no future fixings
         };
 
-        let rolled_date =
-            theta_utils::calculate_theta_date(context.as_of, period_str, expiry_date)?;
+        let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
 
         // If already expired or rolling to same date, theta is zero
         if rolled_date <= context.as_of {

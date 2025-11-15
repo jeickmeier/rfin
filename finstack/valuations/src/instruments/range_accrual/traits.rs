@@ -2,7 +2,7 @@
 
 use crate::instruments::common::traits::EquityDependencies;
 use crate::instruments::range_accrual::RangeAccrual;
-use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
+use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for RangeAccrual {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {

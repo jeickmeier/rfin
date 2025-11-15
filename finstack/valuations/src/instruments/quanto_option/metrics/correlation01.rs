@@ -5,7 +5,7 @@
 //! Correlation01 is per 1% correlation move.
 
 use crate::instruments::quanto_option::QuantoOption;
-use crate::metrics::finite_difference::bump_sizes;
+use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

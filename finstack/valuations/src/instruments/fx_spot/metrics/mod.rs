@@ -56,7 +56,7 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
 mod tests {
     use super::base_amount::BaseAmountCalculator;
     use crate::instruments::{common::traits::Instrument, fx_spot::FxSpot};
-    use crate::metrics::{traits::MetricCalculator, MetricContext};
+    use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::{
         currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
         types::InstrumentId,

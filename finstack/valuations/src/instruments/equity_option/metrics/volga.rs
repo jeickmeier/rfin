@@ -8,7 +8,7 @@
 //! Or equivalently: (PV(σ+h) - 2*PV(σ) + PV(σ-h)) / h²
 
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::finite_difference::bump_sizes;
+use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

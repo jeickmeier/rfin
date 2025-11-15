@@ -117,7 +117,7 @@
 
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
-use crate::metrics::traits::MetricCalculator;
+use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::MarketContext;
@@ -127,6 +127,25 @@ use hashbrown::HashMap;
 use std::marker::PhantomData;
 
 /// Standard IR key-rate buckets in years.
+///
+/// Returns the industry-standard interest rate sensitivity buckets used for
+/// key-rate DV01 calculations. These buckets cover the full maturity spectrum
+/// from 3 months to 30 years, matching standard market conventions.
+///
+/// # Returns
+///
+/// Vector of bucket maturities in years: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::standard_ir_dv01_buckets;
+///
+/// let buckets = standard_ir_dv01_buckets();
+/// assert_eq!(buckets.len(), 11);
+/// assert_eq!(buckets[0], 0.25); // 3 months
+/// assert_eq!(buckets[10], 30.0); // 30 years
+/// ```
 pub fn standard_ir_dv01_buckets() -> Vec<f64> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }

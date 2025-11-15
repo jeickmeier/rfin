@@ -9,9 +9,9 @@
 use std::marker::PhantomData;
 
 use crate::instruments::common::traits::{EquityDependencies, Instrument};
-use crate::metrics::finite_difference::{
-    adaptive_spot_bump, bump_scalar_price, bump_sizes, central_mixed, get_bump_overrides,
-    scale_surface,
+use crate::metrics::{bump_scalar_price, bump_sizes, scale_surface};
+use crate::metrics::core::finite_difference::{
+    adaptive_spot_bump, central_mixed, get_bump_overrides,
 };
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
@@ -24,16 +24,78 @@ use finstack_core::Result;
 /// Trait for instruments that have an expiry date.
 ///
 /// Used for adaptive bump size calculations based on time to expiry.
+/// Instruments with shorter time to expiry typically require smaller bumps
+/// to maintain numerical accuracy in finite difference calculations.
+///
+/// # Examples
+///
+/// Implementing for a custom option:
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasExpiry;
+/// use finstack_core::dates::Date;
+///
+/// struct CustomOption {
+///     expiry: Date,
+///     // ... other fields
+/// }
+///
+/// impl HasExpiry for CustomOption {
+///     fn expiry(&self) -> Date {
+///         self.expiry
+///     }
+/// }
+/// ```
 pub trait HasExpiry {
     /// Returns the expiry date for this instrument.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasExpiry;
+    ///
+    /// let expiry_date = instrument.expiry();
+    /// ```
     fn expiry(&self) -> Date;
 }
 
 /// Trait for instruments that have a day count convention.
 ///
 /// Used for computing time fractions in adaptive bump calculations.
+/// The day count convention determines how time between dates is measured,
+/// affecting the calculation of year fractions for time-to-expiry.
+///
+/// # Examples
+///
+/// Implementing for a custom option:
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasDayCount;
+/// use finstack_core::dates::DayCount;
+///
+/// struct CustomOption {
+///     day_count: DayCount,
+///     // ... other fields
+/// }
+///
+/// impl HasDayCount for CustomOption {
+///     fn day_count(&self) -> DayCount {
+///         self.day_count
+///     }
+/// }
+/// ```
 pub trait HasDayCount {
     /// Returns the day count convention for this instrument.
+    ///
+    /// Common conventions include Act/365F, Act/360, 30/360, etc.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasDayCount;
+    ///
+    /// let day_count = instrument.day_count();
+    /// ```
     fn day_count(&self) -> DayCount;
 }
 
@@ -42,8 +104,44 @@ pub trait HasDayCount {
 /// This trait allows generic metric calculators to set MC seed scenarios
 /// and other pricing overrides for deterministic greek calculations.
 /// Only implemented by instruments that use Monte Carlo pricing.
+///
+/// # Purpose
+///
+/// For Monte Carlo priced instruments, setting different random seeds for
+/// up/down bumps ensures deterministic and numerically stable greeks.
+/// Without this, random variation would contaminate the finite difference
+/// calculations.
+///
+/// # Examples
+///
+/// Implementing for a Monte Carlo option:
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasPricingOverrides;
+/// use finstack_valuations::instruments::PricingOverrides;
+///
+/// struct McOption {
+///     overrides: PricingOverrides,
+///     // ... other fields
+/// }
+///
+/// impl HasPricingOverrides for McOption {
+///     fn pricing_overrides_mut(&mut self) -> &mut PricingOverrides {
+///         &mut self.overrides
+///     }
+/// }
+/// ```
 pub trait HasPricingOverrides {
     /// Returns mutable access to pricing overrides.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasPricingOverrides;
+    ///
+    /// // Set deterministic MC seed for greek calculation
+    /// instrument.pricing_overrides_mut().mc_seed_scenario = Some("delta_up".to_string());
+    /// ```
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides;
 }
 
@@ -53,8 +151,39 @@ pub trait HasPricingOverrides {
 
 /// Generic delta calculator using finite differences.
 ///
-/// Works with any instrument that implements `EquityDependencies` and `Instrument`.
-/// Computes delta by bumping spot price up and down and using central differences.
+/// Calculates delta (price sensitivity to underlying spot) using the central
+/// finite difference method. Works with any instrument that implements the
+/// required traits: [`Instrument`], [`EquityDependencies`], [`HasExpiry`],
+/// [`HasDayCount`], and [`HasPricingOverrides`].
+///
+/// # Mathematical Foundation
+///
+/// Delta is computed using the central finite difference formula:
+/// ```text
+/// Δ = (PV(S + h) - PV(S - h)) / (2h)
+/// ```
+/// where `S` is the spot price and `h` is the bump size.
+///
+/// # Type Parameters
+///
+/// * `I` - Instrument type that implements all required traits for delta calculation
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::sensitivities::fd_greeks::GenericFdDelta;
+/// use finstack_valuations::instruments::EquityOption;
+///
+/// // Create delta calculator for equity options
+/// let calculator = GenericFdDelta::<EquityOption>::default();
+///
+/// // Register in metric registry
+/// registry.register_metric(
+///     MetricId::Delta,
+///     Arc::new(calculator),
+///     &["EquityOption"],
+/// );
+/// ```
 pub struct GenericFdDelta<I> {
     _phantom: PhantomData<I>,
 }

@@ -2,7 +2,7 @@
 
 use crate::instruments::barrier_option::BarrierOption;
 use crate::instruments::common::traits::EquityDependencies;
-use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
+use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for BarrierOption {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {

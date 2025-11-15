@@ -214,10 +214,6 @@
 //! - **`MetricRegistry`**: Registry for managing calculators and dependencies
 //! - **Risk metrics**: Specialized calculators for DV01, bucketed risk, and time decay
 //!
-//! # Documentation
-//!
-//! Comprehensive documentation on all metrics, including formulas, conventions, and units,
-//! is available in `METRICS.md` in this directory.
 
 // Internal submodules (organized by concern)
 
@@ -227,7 +223,9 @@ mod sensitivities;
 
 // Re-export all public items at the root level for backward compatibility
 pub use crate::instruments::common::pricing::HasDiscountCurve;
-pub use core::finite_difference::{bump_sizes, BumpOverrides};
+pub use core::finite_difference::{
+    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface, BumpOverrides,
+};
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
@@ -245,69 +243,13 @@ pub use sensitivities::fd_greeks::{
     HasExpiry, HasPricingOverrides,
 };
 pub use sensitivities::theta::{
-    calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny,
+    calculate_theta_date, generic_theta_calculator, parse_period_days, GenericTheta,
+    GenericThetaAny,
 };
 pub use sensitivities::vega::{
     standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
     ParallelVega, VOL_BUMP_PCT,
 };
-
-// Compatibility shims for legacy module paths
-// These allow existing code using `crate::metrics::bucketed_dv01::*` to continue working
-
-/// Legacy module for bucketed DV01. Use `sensitivities::dv01` internally.
-pub mod bucketed_dv01 {
-    pub use super::sensitivities::dv01::standard_ir_dv01_buckets;
-}
-
-/// Legacy module for bucketed CS01. Use `sensitivities::cs01` internally.
-pub mod bucketed_cs01 {
-    pub use super::sensitivities::cs01::*;
-}
-
-/// Legacy module for bucketed vega. Use `sensitivities::vega` internally.
-pub mod bucketed_vega {
-    pub use super::sensitivities::vega::*;
-}
-
-/// Legacy module for finite difference Greeks. Use `sensitivities::fd_greeks` internally.
-pub mod fd_greeks {
-    pub use super::sensitivities::fd_greeks::*;
-}
-
-/// Legacy module for finite difference utilities. Use `core::finite_difference` internally.
-pub mod finite_difference {
-    pub use super::core::finite_difference::*;
-}
-
-/// Legacy module for theta utilities. Use `sensitivities::theta` internally.
-pub mod theta_utils {
-    pub use super::sensitivities::theta::*;
-}
-
-/// Legacy module for metric IDs. Use `core::ids` internally.
-pub mod ids {
-    pub use super::core::ids::*;
-}
-
-/// Legacy module for metric registry. Use `core::registry` internally.
-pub mod registry {
-    pub use super::core::registry::*;
-}
-
-/// Legacy module for metric traits. Use `core::traits` internally.
-pub mod traits {
-    pub use super::core::traits::*;
-}
-
-/// Legacy module for registration macro. Use `core::registration_macro` internally.
-#[allow(unused_imports)]
-pub mod registration_macro {
-    pub use super::core::registration_macro::*;
-}
-
-// Legacy PV module removed - PV is always available in ValuationResult.val
-
 /// Creates a standard metric registry with all built-in metrics.
 ///
 /// This registry includes metrics for:

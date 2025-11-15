@@ -5,7 +5,7 @@ use finstack_core::{currency::Currency, dates::Date, money::Money};
 use finstack_valuations::{
     instruments::{common::traits::Instrument, fx_spot::FxSpot},
     metrics::GenericTheta,
-    metrics::{traits::MetricCalculator, MetricContext},
+    metrics::{MetricCalculator, MetricContext},
 };
 use std::sync::Arc;
 

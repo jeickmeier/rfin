@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod finite_difference_properties {
-    use crate::metrics::finite_difference::{
+    use crate::metrics::core::finite_difference::{
         adaptive_rate_bump, adaptive_spot_bump, adaptive_vol_bump, bump_sizes, central_diff_1d,
         central_mixed,
     };
@@ -600,7 +600,7 @@ mod finite_difference_properties {
 
 #[cfg(test)]
 mod bump_helper_properties {
-    use crate::metrics::finite_difference::bump_scalar_price;
+    use crate::metrics::bump_scalar_price;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::MarketContext;
     use finstack_core::money::Money;
@@ -745,7 +745,7 @@ mod bump_helper_properties {
 
 #[cfg(test)]
 mod edge_cases {
-    use crate::metrics::finite_difference::{
+    use crate::metrics::core::finite_difference::{
         adaptive_spot_bump, adaptive_vol_bump, central_diff_1d,
     };
 

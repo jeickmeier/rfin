@@ -9,7 +9,7 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::{Bond, Deposit, InterestRateSwap};
-use crate::metrics::traits::MetricCalculator;
+use crate::metrics::MetricCalculator;
 use crate::metrics::{
     CurveSelection, Dv01CalculatorConfig, Dv01ComputationMode, MetricContext, MetricId,
     UnifiedDv01Calculator,

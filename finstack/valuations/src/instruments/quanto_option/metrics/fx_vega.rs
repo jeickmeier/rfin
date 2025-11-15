@@ -10,7 +10,7 @@
 //! surface is not available.
 
 use crate::instruments::quanto_option::QuantoOption;
-use crate::metrics::finite_difference::bump_sizes;
+use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

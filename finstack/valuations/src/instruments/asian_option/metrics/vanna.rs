@@ -4,7 +4,7 @@
 //! Vanna measures how delta changes with volatility.
 
 use crate::instruments::asian_option::AsianOption;
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

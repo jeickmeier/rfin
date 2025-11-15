@@ -7,7 +7,7 @@
 //! in spot means we receive 1% more in quote currency.
 
 use crate::instruments::fx_spot::FxSpot;
-use crate::metrics::finite_difference::bump_sizes;
+use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::Result;

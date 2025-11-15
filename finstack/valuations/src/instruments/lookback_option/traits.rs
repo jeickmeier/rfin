@@ -2,7 +2,7 @@
 
 use crate::instruments::common::traits::EquityDependencies;
 use crate::instruments::lookback_option::LookbackOption;
-use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
+use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for LookbackOption {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {

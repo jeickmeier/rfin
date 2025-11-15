@@ -10,7 +10,7 @@
 //! in the FX exchange rate between these currencies.
 
 use crate::instruments::quanto_option::QuantoOption;
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

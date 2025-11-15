@@ -3,7 +3,7 @@
 //! Provides parallel and key-rate vega calculators for instruments with volatility surfaces.
 
 use crate::instruments::common::traits::Instrument;
-use crate::metrics::traits::MetricCalculator;
+use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -56,11 +56,46 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 }
 
 /// Parallel vega calculator: bumps entire volatility surface uniformly.
+///
+/// Calculates volatility sensitivity by scaling the entire volatility surface
+/// by a constant factor and measuring the present value change. This measures
+/// the P&L impact of a parallel 1% shift in implied volatility.
+///
+/// # Type Parameters
+///
+/// * `I` - Instrument type that implements [`Instrument`] and has a volatility surface
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::vega::ParallelVega;
+/// use finstack_valuations::instruments::EquityOption;
+///
+/// // Create calculator for equity options
+/// let calculator = ParallelVega::<EquityOption>::new();
+///
+/// // Use in metric registry
+/// registry.register_metric(
+///     MetricId::Vega,
+///     Arc::new(calculator),
+///     &["EquityOption"],
+/// );
+/// ```
 pub struct ParallelVega<I> {
     _phantom: PhantomData<I>,
 }
 
 impl<I> ParallelVega<I> {
+    /// Creates a new parallel vega calculator.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::metrics::vega::ParallelVega;
+    /// use finstack_valuations::instruments::EquityOption;
+    ///
+    /// let calculator = ParallelVega::<EquityOption>::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -110,6 +145,30 @@ where
 }
 
 /// Key-rate vega calculator: bumps individual (expiry, strike) points.
+///
+/// Calculates volatility sensitivity at individual points on the volatility surface
+/// by bumping each (expiry, strike) combination and measuring the present value change.
+/// This provides a detailed view of how the instrument's value depends on different
+/// parts of the volatility surface.
+///
+/// # Type Parameters
+///
+/// * `I` - Instrument type that implements [`Instrument`] and has a volatility surface
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::vega::KeyRateVega;
+/// use finstack_valuations::instruments::EquityOption;
+///
+/// // Standard equity buckets
+/// let calculator = KeyRateVega::<EquityOption>::standard();
+///
+/// // Or custom buckets
+/// let expiries = vec![0.25, 0.5, 1.0, 2.0];
+/// let strikes = vec![0.9, 1.0, 1.1];
+/// let calculator = KeyRateVega::<EquityOption>::new(expiries, strikes);
+/// ```
 pub struct KeyRateVega<I> {
     expiries: Vec<f64>,
     strikes: Vec<f64>,
@@ -118,6 +177,22 @@ pub struct KeyRateVega<I> {
 
 impl<I> KeyRateVega<I> {
     /// Create a key-rate vega calculator with custom buckets.
+    ///
+    /// # Arguments
+    ///
+    /// * `expiries` - Expiry times in years for the vega grid
+    /// * `strikes` - Strike ratios (relative to spot) for the vega grid
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::metrics::vega::KeyRateVega;
+    /// use finstack_valuations::instruments::EquityOption;
+    ///
+    /// let expiries = vec![0.25, 0.5, 1.0, 2.0];
+    /// let strikes = vec![0.9, 1.0, 1.1]; // 90%, 100%, 110% of spot
+    /// let calculator = KeyRateVega::<EquityOption>::new(expiries, strikes);
+    /// ```
     pub fn new(expiries: Vec<f64>, strikes: Vec<f64>) -> Self {
         Self {
             expiries,
@@ -127,6 +202,18 @@ impl<I> KeyRateVega<I> {
     }
 
     /// Create a key-rate vega calculator with standard equity buckets.
+    ///
+    /// Uses standard expiry buckets (1m, 3m, 6m, 1y, 2y, 3y, 5y) and
+    /// standard strike ratios (0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::metrics::vega::KeyRateVega;
+    /// use finstack_valuations::instruments::EquityOption;
+    ///
+    /// let calculator = KeyRateVega::<EquityOption>::standard();
+    /// ```
     pub fn standard() -> Self {
         Self::new(standard_equity_expiry_buckets(), standard_strike_ratios())
     }

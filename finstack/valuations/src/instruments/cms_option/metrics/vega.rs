@@ -5,7 +5,7 @@
 //! Vega is per 1% volatility move.
 
 use crate::instruments::cms_option::CmsOption;
-use crate::metrics::finite_difference::bump_sizes;
+use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

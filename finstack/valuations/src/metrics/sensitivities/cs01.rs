@@ -12,15 +12,68 @@ use finstack_core::types::CurveId;
 use std::sync::Arc;
 
 /// Standard credit key-rate buckets in years used for CS01.
-/// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
+///
+/// Returns the industry-standard credit spread sensitivity buckets used for
+/// key-rate CS01 calculations. These buckets cover the full maturity spectrum
+/// from 3 months to 30 years.
+///
+/// # Returns
+///
+/// Vector of bucket maturities in years: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::standard_credit_cs01_buckets;
+///
+/// let buckets = standard_credit_cs01_buckets();
+/// assert_eq!(buckets.len(), 11);
+/// assert_eq!(buckets[0], 0.25); // 3 months
+/// assert_eq!(buckets[10], 30.0); // 30 years
+/// ```
 pub fn standard_credit_cs01_buckets() -> Vec<f64> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }
 
 /// Compute parallel CS01 by bumping the entire hazard curve uniformly.
 ///
-/// Returns the CS01 as a single scalar value (PV change per 1bp parallel shift).
-/// Does not store bucketed series in the context.
+/// Calculates credit spread sensitivity by shifting the entire hazard curve in parallel
+/// and measuring the present value change. This is the most common CS01 measure, representing
+/// the P&L impact of a 1bp parallel shift in credit spreads.
+///
+/// # Arguments
+///
+/// * `context` - Metric context containing instrument and market data
+/// * `hazard_id` - ID of the hazard curve to bump
+/// * `bump_bp` - Bump size in basis points (typically 1.0 for CS01)
+/// * `revalue_with_hazard` - Closure that reprices the instrument with a bumped hazard curve
+///
+/// # Returns
+///
+/// CS01 value representing the present value change per 1bp parallel shift in credit spreads.
+/// A positive CS01 means the instrument gains value when spreads widen.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The hazard curve is not found in the market context
+/// - The bump operation fails due to invalid curve data
+/// - Revaluation fails
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::metrics::cs01::compute_parallel_cs01;
+///
+/// let cs01 = compute_parallel_cs01(
+///     &mut context,
+///     &hazard_curve_id,
+///     1.0, // 1bp bump
+///     |hazard| instrument.value_with_hazard(hazard)
+/// )?;
+///
+/// println!("CS01: ${:.2} per bp", cs01);
+/// ```
 pub fn compute_parallel_cs01<RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
@@ -215,7 +268,7 @@ fn with_key_rate_hazard_bump(
 // ===== Generic Calculators =====
 
 use crate::instruments::common::traits::Instrument;
-use crate::metrics::traits::MetricCalculator;
+use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 
 /// Trait for instruments that have a primary credit curve.

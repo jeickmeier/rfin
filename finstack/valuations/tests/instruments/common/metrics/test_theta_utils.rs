@@ -1,7 +1,7 @@
 //! Comprehensive tests for theta (time decay) calculation utilities.
 
 use super::super::test_helpers::*;
-use finstack_valuations::metrics::theta_utils::*;
+use finstack_valuations::metrics::{calculate_theta_date, parse_period_days};
 use time::Month;
 
 // ============================================================================

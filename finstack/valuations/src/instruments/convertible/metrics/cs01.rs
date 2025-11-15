@@ -14,7 +14,7 @@
 //! be used instead.
 
 use crate::instruments::convertible::ConvertibleBond;
-use crate::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

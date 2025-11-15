@@ -7,7 +7,7 @@ use finstack_valuations::{
         common::traits::Instrument,
         fx_spot::{metrics::base_amount::BaseAmountCalculator, FxSpot},
     },
-    metrics::{traits::MetricCalculator, MetricContext},
+    metrics::{MetricCalculator, MetricContext},
 };
 use std::sync::Arc;
 
