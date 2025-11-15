@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_compile_literal() {
         let ast = StmtExpr::literal(42.0);
-        let expr = compile(&ast).unwrap();
+        let expr = compile(&ast).expect("should compile successfully");
 
         match expr.node {
             ExprNode::Literal(v) => assert_eq!(v, 42.0),
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn test_compile_node_ref() {
         let ast = StmtExpr::node_ref("revenue");
-        let expr = compile(&ast).unwrap();
+        let expr = compile(&ast).expect("should compile successfully");
 
         match expr.node {
             ExprNode::Column(ref name) => assert_eq!(name, "revenue"),
@@ -321,7 +321,7 @@ mod tests {
             StmtExpr::literal(2.0),
         );
 
-        let expr = compile(&ast).unwrap();
+        let expr = compile(&ast).expect("should compile successfully");
 
         // Should compile to a BinOp expression
         match expr.node {
@@ -337,7 +337,7 @@ mod tests {
             vec![StmtExpr::node_ref("revenue"), StmtExpr::literal(1.0)],
         );
 
-        let expr = compile(&ast).unwrap();
+        let expr = compile(&ast).expect("should compile successfully");
 
         match expr.node {
             ExprNode::Call(Function::Lag, args) => {
@@ -349,8 +349,8 @@ mod tests {
 
     #[test]
     fn test_compile_from_parse() {
-        let ast = parse_formula("revenue - cogs").unwrap();
-        let expr = compile(&ast).unwrap();
+        let ast = parse_formula("revenue - cogs").expect("should parse successfully");
+        let expr = compile(&ast).expect("should compile successfully");
 
         // Should compile successfully to a BinOp
         match expr.node {
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_compile_complex_expression() {
-        let ast = parse_formula("(revenue - cogs) / revenue").unwrap();
+        let ast = parse_formula("(revenue - cogs) / revenue").expect("should parse successfully");
         let expr = compile(&ast);
 
         assert!(expr.is_ok());

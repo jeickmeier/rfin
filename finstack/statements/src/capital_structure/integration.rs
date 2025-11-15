@@ -166,7 +166,7 @@ pub fn aggregate_instrument_cashflows(
         // Aggregate into totals (handling Money addition which returns Result)
         for (period_id, breakdown) in &instrument_periods {
             // SAFETY: All periods were initialized at function start
-            let total = result.totals.get_mut(period_id).unwrap();
+            let total = result.totals.get_mut(period_id).expect("period should exist in totals map");
             // Money += Money unwraps internally (uses AddAssign which panics on currency mismatch)
             total.interest_expense_cash += breakdown.interest_expense_cash;
             total.interest_expense_pik += breakdown.interest_expense_pik;
@@ -356,13 +356,13 @@ mod tests {
             InstrumentId::new("BOND-001"),
             Money::new(1_000_000.0, Currency::USD),
             0.05,
-            Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-            Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
+            Date::from_calendar_date(2030, Month::January, 15).expect("valid date"),
             CurveId::new("USD-OIS"),
         );
 
         // Serialize to JSON
-        let spec_json = serde_json::to_value(&bond).unwrap();
+        let spec_json = serde_json::to_value(&bond).expect("bond should serialize");
 
         // Create DebtInstrumentSpec
         let spec = DebtInstrumentSpec::Bond {
@@ -371,7 +371,7 @@ mod tests {
         };
 
         // Deserialize back
-        let deserialized_bond = build_bond_from_spec(&spec).unwrap();
+        let deserialized_bond = build_bond_from_spec(&spec).expect("bond should deserialize");
         assert_eq!(deserialized_bond.id.as_str(), "BOND-001");
         assert_eq!(deserialized_bond.notional.currency(), Currency::USD);
         // Check coupon from cashflow_spec
@@ -395,13 +395,13 @@ mod tests {
             InstrumentId::new("SWAP-001"),
             Money::new(5_000_000.0, Currency::USD),
             0.04,
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+            Date::from_calendar_date(2030, Month::January, 1).expect("valid date"),
             PayReceive::PayFixed,
         );
 
         // Serialize to JSON
-        let spec_json = serde_json::to_value(&swap).unwrap();
+        let spec_json = serde_json::to_value(&swap).expect("swap should serialize");
 
         // Create DebtInstrumentSpec
         let spec = DebtInstrumentSpec::Swap {
@@ -410,7 +410,7 @@ mod tests {
         };
 
         // Deserialize back
-        let deserialized_swap = build_swap_from_spec(&spec).unwrap();
+        let deserialized_swap = build_swap_from_spec(&spec).expect("swap should deserialize");
         assert_eq!(deserialized_swap.id.as_str(), "SWAP-001");
         assert_eq!(deserialized_swap.notional.currency(), Currency::USD);
     }

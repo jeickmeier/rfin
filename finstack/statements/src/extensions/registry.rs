@@ -272,7 +272,7 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         let extension = Box::new(TestExtension::new("test1"));
 
-        registry.register(extension).unwrap();
+        registry.register(extension).expect("test should succeed");
 
         assert_eq!(registry.len(), 1);
         assert!(registry.has("test1"));
@@ -283,7 +283,7 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("test1")))
-            .unwrap();
+            .expect("test should succeed");
 
         let result = registry.register(Box::new(TestExtension::new("test1")));
         assert!(result.is_err());
@@ -294,10 +294,10 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("ext1")))
-            .unwrap();
+            .expect("test should succeed");
         registry
             .register(Box::new(TestExtension::new("ext2")))
-            .unwrap();
+            .expect("test should succeed");
 
         let names = registry.list();
         assert_eq!(names.len(), 2);
@@ -310,7 +310,7 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("ext1")))
-            .unwrap();
+            .expect("test should succeed");
 
         let metadata = registry.list_metadata();
         assert_eq!(metadata.len(), 1);
@@ -323,14 +323,14 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("ext1")))
-            .unwrap();
+            .expect("test should succeed");
         registry
             .register(Box::new(TestExtension::new("ext2")))
-            .unwrap();
+            .expect("test should succeed");
 
         registry
             .set_execution_order(vec!["ext2".into(), "ext1".into()])
-            .unwrap();
+            .expect("test should succeed");
 
         assert_eq!(registry.execution_order, vec!["ext2", "ext1"]);
     }
@@ -340,7 +340,7 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("ext1")))
-            .unwrap();
+            .expect("test should succeed");
 
         let result = registry.set_execution_order(vec!["ext1".into(), "nonexistent".into()]);
         assert!(result.is_err());
@@ -351,7 +351,7 @@ mod tests {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(TestExtension::new("ext1")))
-            .unwrap();
+            .expect("test should succeed");
 
         assert_eq!(registry.len(), 1);
 

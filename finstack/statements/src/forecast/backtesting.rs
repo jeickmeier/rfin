@@ -170,7 +170,7 @@ mod tests {
         let actual = vec![100.0, 110.0, 120.0];
         let forecast = vec![100.0, 110.0, 120.0];
 
-        let metrics = backtest_forecast(&actual, &forecast).unwrap();
+        let metrics = backtest_forecast(&actual, &forecast).expect("test should succeed");
 
         assert_eq!(metrics.mae, 0.0);
         assert_eq!(metrics.mape, 0.0);
@@ -183,7 +183,7 @@ mod tests {
         let actual = vec![100.0, 110.0, 120.0];
         let forecast = vec![98.0, 108.0, 118.0]; // Consistently 2.0 low
 
-        let metrics = backtest_forecast(&actual, &forecast).unwrap();
+        let metrics = backtest_forecast(&actual, &forecast).expect("test should succeed");
 
         assert!((metrics.mae - 2.0).abs() < 1e-10);
         assert!((metrics.rmse - 2.0).abs() < 1e-10); // Constant error: RMSE = MAE
@@ -194,7 +194,7 @@ mod tests {
         let actual = vec![100.0, 100.0, 100.0, 100.0];
         let forecast = vec![101.0, 101.0, 101.0, 110.0]; // One large error
 
-        let metrics = backtest_forecast(&actual, &forecast).unwrap();
+        let metrics = backtest_forecast(&actual, &forecast).expect("test should succeed");
 
         // MAE: (1+1+1+10)/4 = 3.25
         assert!((metrics.mae - 3.25).abs() < 1e-10);
@@ -209,7 +209,7 @@ mod tests {
         let actual = vec![100.0, 200.0];
         let forecast = vec![90.0, 180.0]; // 10% and 10% errors
 
-        let metrics = backtest_forecast(&actual, &forecast).unwrap();
+        let metrics = backtest_forecast(&actual, &forecast).expect("test should succeed");
 
         // MAPE: (10/100 + 20/200) * 100 / 2 = (0.1 + 0.1) * 100 / 2 = 10.0
         assert!((metrics.mape - 10.0).abs() < 1e-10);
@@ -222,7 +222,7 @@ mod tests {
 
         let result = backtest_forecast(&actual, &forecast);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("same length"));
+        assert!(result.expect_err("should fail").to_string().contains("same length"));
     }
 
     #[test]
@@ -232,7 +232,7 @@ mod tests {
 
         let result = backtest_forecast(&actual, &forecast);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("empty"));
+        assert!(result.expect_err("should fail").to_string().contains("empty"));
     }
 
     #[test]
@@ -241,7 +241,7 @@ mod tests {
         let forecast = vec![1.0, 110.0]; // Large error on near-zero value
 
         // Should not panic or produce inf/nan
-        let metrics = backtest_forecast(&actual, &forecast).unwrap();
+        let metrics = backtest_forecast(&actual, &forecast).expect("test should succeed");
         assert!(!metrics.mape.is_nan());
         assert!(!metrics.mape.is_infinite());
     }

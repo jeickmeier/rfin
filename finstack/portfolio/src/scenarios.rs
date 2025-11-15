@@ -151,7 +151,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .allow_non_monotonic()
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         MarketContext::new().insert_discount(curve)
     }
@@ -168,7 +168,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let position = Position::new(
             "POS_001",
@@ -185,7 +185,7 @@ mod tests {
             .entity(Entity::new("ENTITY_A"))
             .position(position)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let market = build_test_market();
 
@@ -204,7 +204,7 @@ mod tests {
         let result = apply_scenario(&portfolio, &scenario, &market);
         assert!(result.is_ok());
 
-        let (_modified_portfolio, _modified_market, report) = result.unwrap();
+        let (_modified_portfolio, _modified_market, report) = result.expect("test should succeed");
         assert!(report.operations_applied > 0);
     }
 
@@ -220,7 +220,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let position = Position::new(
             "POS_001",
@@ -237,7 +237,7 @@ mod tests {
             .entity(Entity::new("ENTITY_A"))
             .position(position)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let market = build_test_market();
         let config = FinstackConfig::default();

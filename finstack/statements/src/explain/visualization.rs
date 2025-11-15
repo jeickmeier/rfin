@@ -185,19 +185,19 @@ mod tests {
     fn test_render_tree_ascii() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .compute("a", "10")
-            .unwrap()
+            .expect("test should succeed")
             .compute("b", "a * 2")
-            .unwrap()
+            .expect("test should succeed")
             .compute("c", "a + b")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
         let tracer = DependencyTracer::new(&model, &graph);
-        let tree = tracer.dependency_tree("c").unwrap();
+        let tree = tracer.dependency_tree("c").expect("test should succeed");
 
         let ascii = render_tree_ascii(&tree);
         println!("ASCII tree:\n{}", ascii);
@@ -213,22 +213,22 @@ mod tests {
         let period = PeriodId::quarter(2025, 1);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .compute("revenue", "100000")
-            .unwrap()
+            .expect("test should succeed")
             .compute("cogs", "revenue * 0.4")
-            .unwrap()
+            .expect("test should succeed")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
         let tracer = DependencyTracer::new(&model, &graph);
-        let tree = tracer.dependency_tree("gross_profit").unwrap();
+        let tree = tracer.dependency_tree("gross_profit").expect("test should succeed");
 
         let detailed = render_tree_detailed(&tree, &results, &period);
         assert!(detailed.contains("gross_profit = 60000.00"));
@@ -240,15 +240,15 @@ mod tests {
     fn test_render_empty_tree() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .compute("a", "10")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
         let tracer = DependencyTracer::new(&model, &graph);
-        let tree = tracer.dependency_tree("a").unwrap();
+        let tree = tracer.dependency_tree("a").expect("test should succeed");
 
         let ascii = render_tree_ascii(&tree);
         assert!(ascii.contains("a"));

@@ -330,10 +330,10 @@ mod tests {
     #[test]
     fn test_extension_status_serialization() {
         let status = ExtensionStatus::Success;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("test should succeed");
         assert_eq!(json, r#""success""#);
 
-        let deserialized: ExtensionStatus = serde_json::from_str(&json).unwrap();
+        let deserialized: ExtensionStatus = serde_json::from_str(&json).expect("test should succeed");
         assert_eq!(deserialized, ExtensionStatus::Success);
     }
 }

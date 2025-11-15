@@ -95,7 +95,7 @@ mod tests {
         });
         params.insert("overrides".to_string(), overrides);
 
-        let results = apply_override(100.0, &periods, &params).unwrap();
+        let results = apply_override(100.0, &periods, &params).expect("apply_override should succeed");
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[&PeriodId::quarter(2025, 1)], 120.0);
@@ -118,7 +118,7 @@ mod tests {
         });
         params.insert("overrides".to_string(), overrides);
 
-        let results = apply_override(100.0, &periods, &params).unwrap();
+        let results = apply_override(100.0, &periods, &params).expect("apply_override should succeed");
 
         assert_eq!(results.len(), 4);
         assert_eq!(results[&PeriodId::quarter(2025, 1)], 120.0);
@@ -135,7 +135,7 @@ mod tests {
         let overrides = serde_json::json!({});
         params.insert("overrides".to_string(), overrides);
 
-        let results = apply_override(100.0, &periods, &params).unwrap();
+        let results = apply_override(100.0, &periods, &params).expect("apply_override should succeed");
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[&PeriodId::quarter(2025, 1)], 100.0);

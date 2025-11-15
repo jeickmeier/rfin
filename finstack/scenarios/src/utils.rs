@@ -130,19 +130,19 @@ mod tests {
 
     #[test]
     fn test_parse_tenor_years() {
-        assert!((parse_tenor_to_years("1Y").unwrap() - 1.0).abs() < 1e-6);
-        assert!((parse_tenor_to_years("5Y").unwrap() - 5.0).abs() < 1e-6);
-        assert!((parse_tenor_to_years("6M").unwrap() - 0.5).abs() < 1e-6);
-        assert!((parse_tenor_to_years("3M").unwrap() - 0.25).abs() < 1e-6);
+        assert!((parse_tenor_to_years("1Y").expect("valid tenor") - 1.0).abs() < 1e-6);
+        assert!((parse_tenor_to_years("5Y").expect("valid tenor") - 5.0).abs() < 1e-6);
+        assert!((parse_tenor_to_years("6M").expect("valid tenor") - 0.5).abs() < 1e-6);
+        assert!((parse_tenor_to_years("3M").expect("valid tenor") - 0.25).abs() < 1e-6);
     }
 
     #[test]
     fn test_parse_period_days() {
-        assert_eq!(parse_period_to_days("1D").unwrap(), 1);
-        assert_eq!(parse_period_to_days("7D").unwrap(), 7);
-        assert_eq!(parse_period_to_days("1W").unwrap(), 7);
-        assert_eq!(parse_period_to_days("1M").unwrap(), 30);
-        assert_eq!(parse_period_to_days("1Y").unwrap(), 365);
+        assert_eq!(parse_period_to_days("1D").expect("valid period"), 1);
+        assert_eq!(parse_period_to_days("7D").expect("valid period"), 7);
+        assert_eq!(parse_period_to_days("1W").expect("valid period"), 7);
+        assert_eq!(parse_period_to_days("1M").expect("valid period"), 30);
+        assert_eq!(parse_period_to_days("1Y").expect("valid period"), 365);
     }
 
     #[test]

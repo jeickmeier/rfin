@@ -154,7 +154,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .allow_non_monotonic()
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         MarketContext::new().insert_discount(curve)
     }
@@ -171,7 +171,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
@@ -181,7 +181,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let pos1 = Position::new(
             "POS_001",
@@ -212,8 +212,8 @@ mod tests {
         assert_eq!(groups.len(), 2);
         assert!(groups.contains_key("AAA"));
         assert!(groups.contains_key("AA"));
-        assert_eq!(groups.get("AAA").unwrap().len(), 1);
-        assert_eq!(groups.get("AA").unwrap().len(), 1);
+        assert_eq!(groups.get("AAA").expect("test should succeed").len(), 1);
+        assert_eq!(groups.get("AA").expect("test should succeed").len(), 1);
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
@@ -238,7 +238,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let pos1 = Position::new(
             "POS_001",
@@ -267,18 +267,18 @@ mod tests {
             .position(pos1)
             .position(pos2)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
+        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
         let aggregated =
             aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD)
-                .unwrap();
+                .expect("test should succeed");
 
         assert!(aggregated.contains_key("AAA"));
-        let total = aggregated.get("AAA").unwrap();
+        let total = aggregated.get("AAA").expect("test should succeed");
         assert!(total.amount().abs() >= 0.0);
     }
 }

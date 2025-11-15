@@ -154,7 +154,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let position = Position::new(
             "POS_001",
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn test_position_unit_serialization() {
         let unit = PositionUnit::Notional(Some(Currency::USD));
-        let json = serde_json::to_string(&unit).unwrap();
+        let json = serde_json::to_string(&unit).expect("test should succeed");
         assert!(json.contains("notional"));
     }
 }

@@ -246,22 +246,22 @@ mod tests {
 
     #[test]
     fn test_parse_literal() {
-        let result = parse_formula("42").unwrap();
+        let result = parse_formula("42").expect("test should succeed");
         assert_eq!(result, StmtExpr::Literal(42.0));
 
-        let result = parse_formula("123.456").unwrap();
+        let result = parse_formula("123.456").expect("test should succeed");
         assert_eq!(result, StmtExpr::Literal(123.456));
     }
 
     #[test]
     fn test_parse_identifier() {
-        let result = parse_formula("revenue").unwrap();
+        let result = parse_formula("revenue").expect("test should succeed");
         assert_eq!(result, StmtExpr::NodeRef("revenue".into()));
     }
 
     #[test]
     fn test_parse_addition() {
-        let result = parse_formula("1 + 2").unwrap();
+        let result = parse_formula("1 + 2").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Add),
             _ => panic!("Expected BinOp"),
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_parse_subtraction() {
-        let result = parse_formula("revenue - cogs").unwrap();
+        let result = parse_formula("revenue - cogs").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, left, right } => {
                 assert_eq!(op, BinOp::Sub);
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_parse_multiplication() {
-        let result = parse_formula("revenue * 0.6").unwrap();
+        let result = parse_formula("revenue * 0.6").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Mul),
             _ => panic!("Expected BinOp"),
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_parse_division() {
-        let result = parse_formula("gross_profit / revenue").unwrap();
+        let result = parse_formula("gross_profit / revenue").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Div),
             _ => panic!("Expected BinOp"),
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_parse_parentheses() {
-        let result = parse_formula("(1 + 2) * 3").unwrap();
+        let result = parse_formula("(1 + 2) * 3").expect("test should succeed");
         match result {
             StmtExpr::BinOp {
                 op: BinOp::Mul,
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_parse_function_call() {
-        let result = parse_formula("lag(revenue, 1)").unwrap();
+        let result = parse_formula("lag(revenue, 1)").expect("test should succeed");
         match result {
             StmtExpr::Call { func, args } => {
                 assert_eq!(func, "lag");
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_parse_nested_functions() {
-        let result = parse_formula("rolling_mean(lag(revenue, 1), 4)").unwrap();
+        let result = parse_formula("rolling_mean(lag(revenue, 1), 4)").expect("test should succeed");
         match result {
             StmtExpr::Call { func, args } => {
                 assert_eq!(func, "rolling_mean");
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_parse_comparison() {
-        let result = parse_formula("revenue > 1000000").unwrap();
+        let result = parse_formula("revenue > 1000000").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Gt),
             _ => panic!("Expected BinOp"),
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_parse_logical_and() {
-        let result = parse_formula("revenue > 1000000 and margin > 0.15").unwrap();
+        let result = parse_formula("revenue > 1000000 and margin > 0.15").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::And),
             _ => panic!("Expected BinOp"),
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_parse_if_then_else() {
-        let result = parse_formula("if(revenue > 1000000, revenue * 0.1, 0)").unwrap();
+        let result = parse_formula("if(revenue > 1000000, revenue * 0.1, 0)").expect("test should succeed");
         match result {
             StmtExpr::IfThenElse { .. } => {}
             _ => panic!("Expected IfThenElse"),
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_parse_complex_expression() {
-        let result = parse_formula("(revenue - cogs) / revenue").unwrap();
+        let result = parse_formula("(revenue - cogs) / revenue").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op: BinOp::Div, .. } => {}
             _ => panic!("Expected division"),
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_parse_negative_number() {
-        let result = parse_formula("-5").unwrap();
+        let result = parse_formula("-5").expect("test should succeed");
         match result {
             StmtExpr::UnaryOp {
                 op: UnaryOp::Neg, ..
@@ -393,7 +393,7 @@ mod tests {
     #[test]
     fn test_operator_precedence() {
         // Should parse as 1 + (2 * 3)
-        let result = parse_formula("1 + 2 * 3").unwrap();
+        let result = parse_formula("1 + 2 * 3").expect("test should succeed");
         match result {
             StmtExpr::BinOp {
                 op: BinOp::Add,

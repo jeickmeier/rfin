@@ -441,7 +441,7 @@ impl Default for Evaluator {
 /// use finstack_core::{dates::Date, market_data::MarketContext};
 ///
 /// let market_ctx = MarketContext::new();
-/// let as_of = Date::from_calendar_date(2025, time::Month::January, 31).unwrap();
+/// let as_of = Date::from_calendar_date(2025, time::Month::January, 31).expect("test should succeed");
 /// let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of);
 /// let results = evaluator.evaluate(&model)?;
 /// ```
@@ -478,7 +478,7 @@ mod tests {
     fn test_simple_evaluation() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -493,10 +493,10 @@ mod tests {
                 ],
             )
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         assert_eq!(
             results.get("revenue", &PeriodId::quarter(2025, 1)),
@@ -512,7 +512,7 @@ mod tests {
     fn test_formula_evaluation() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -527,12 +527,12 @@ mod tests {
                 ],
             )
             .compute("cogs", "revenue * 0.6")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         assert_eq!(
             results.get("cogs", &PeriodId::quarter(2025, 1)),
@@ -548,18 +548,18 @@ mod tests {
     fn test_circular_dependency_error() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .compute("a", "b + 1")
-            .unwrap()
+            .expect("test should succeed")
             .compute("b", "a + 1")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
         let result = evaluator.evaluate(&model);
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Circular"));
+        assert!(result.expect_err("should fail with circular dependency").to_string().contains("Circular"));
     }
 }

@@ -32,7 +32,7 @@
 //!     .day_count(finstack_core::dates::DayCount::Act360)
 //!     .discount_curve_id("USD".into())
 //!     .build()
-//!     .unwrap();
+//!     .expect("test should succeed");
 //!
 //! // Create a position holding the deposit
 //! let position = Position::new(
@@ -51,7 +51,7 @@
 //!     .entity(Entity::new("ACME_CORP"))
 //!     .position(position)
 //!     .build()
-//!     .unwrap();
+//!     .expect("test should succeed");
 //! ```
 
 pub mod attribution;

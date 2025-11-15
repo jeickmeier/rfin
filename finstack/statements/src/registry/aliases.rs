@@ -346,7 +346,7 @@ impl AliasRegistry {
             .collect();
 
         // Sort by score (descending)
-        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).expect("Jaro-Winkler scores should be comparable (no NaN)"));
 
         // Take top N suggestions
         scores
@@ -386,7 +386,7 @@ fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Op
         .collect();
 
     // Find best match above threshold
-    scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    scores.sort_by(|a, b| b.0.partial_cmp(&a.0).expect("Jaro-Winkler scores should be comparable (no NaN)"));
 
     scores
         .first()

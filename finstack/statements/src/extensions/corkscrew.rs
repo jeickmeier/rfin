@@ -464,7 +464,7 @@ mod tests {
 
         let extension = CorkscrewExtension::with_config(config);
         assert!(extension.config().is_some());
-        assert_eq!(extension.config().unwrap().accounts.len(), 1);
+        assert_eq!(extension.config().expect("test should succeed").accounts.len(), 1);
     }
 
     #[test]
@@ -482,7 +482,7 @@ mod tests {
 
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should fail")
             .to_string()
             .contains("requires configuration"));
     }
@@ -493,7 +493,7 @@ mod tests {
         let schema = extension.config_schema();
 
         assert!(schema.is_some());
-        let schema_obj = schema.unwrap();
+        let schema_obj = schema.expect("test should succeed");
         assert!(schema_obj.get("properties").is_some());
     }
 
@@ -530,10 +530,10 @@ mod tests {
     #[test]
     fn test_account_type_serialization() {
         let account_type = AccountType::Asset;
-        let json = serde_json::to_string(&account_type).unwrap();
+        let json = serde_json::to_string(&account_type).expect("test should succeed");
         assert_eq!(json, r#""asset""#);
 
-        let deserialized: AccountType = serde_json::from_str(&json).unwrap();
+        let deserialized: AccountType = serde_json::from_str(&json).expect("test should succeed");
         assert_eq!(deserialized, AccountType::Asset);
     }
 }

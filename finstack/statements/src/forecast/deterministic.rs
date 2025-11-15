@@ -178,7 +178,7 @@ mod tests {
             PeriodId::quarter(2025, 3),
         ];
 
-        let results = forward_fill(100.0, &periods).unwrap();
+        let results = forward_fill(100.0, &periods).expect("forward_fill should succeed");
 
         assert_eq!(results.len(), 3);
         assert_eq!(results[&PeriodId::quarter(2025, 1)], 100.0);
@@ -197,7 +197,7 @@ mod tests {
         let mut params = IndexMap::new();
         params.insert("rate".to_string(), serde_json::json!(0.05));
 
-        let results = growth_pct(100.0, &periods, &params).unwrap();
+        let results = growth_pct(100.0, &periods, &params).expect("growth_pct should succeed");
 
         assert_eq!(results.len(), 3);
         assert!((results[&PeriodId::quarter(2025, 1)] - 105.0).abs() < 0.01);
@@ -212,7 +212,7 @@ mod tests {
         let mut params = IndexMap::new();
         params.insert("rate".to_string(), serde_json::json!(-0.1)); // -10% decline
 
-        let results = growth_pct(100.0, &periods, &params).unwrap();
+        let results = growth_pct(100.0, &periods, &params).expect("growth_pct should succeed");
 
         assert!((results[&PeriodId::quarter(2025, 1)] - 90.0).abs() < 0.01);
     }
@@ -237,7 +237,7 @@ mod tests {
         let mut params = IndexMap::new();
         params.insert("curve".to_string(), serde_json::json!([0.05, 0.06, 0.05]));
 
-        let results = curve_pct(100.0, &periods, &params).unwrap();
+        let results = curve_pct(100.0, &periods, &params).expect("curve_pct should succeed");
 
         assert_eq!(results.len(), 3);
         assert!((results[&PeriodId::quarter(2025, 1)] - 105.0).abs() < 0.01);

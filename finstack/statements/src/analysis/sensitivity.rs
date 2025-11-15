@@ -150,7 +150,7 @@ mod tests {
         let period2 = PeriodId::quarter(2025, 2);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .value(
                 "revenue",
                 &[
@@ -159,11 +159,11 @@ mod tests {
                 ],
             )
             .compute("cogs", "revenue * 0.4")
-            .unwrap()
+            .expect("valid formula")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("valid formula")
             .build()
-            .unwrap();
+            .expect("valid model");
 
         let analyzer = SensitivityAnalyzer::new(&model);
 
@@ -176,7 +176,7 @@ mod tests {
         ));
         config.add_target_metric("gross_profit");
 
-        let result = analyzer.run(&config).unwrap();
+        let result = analyzer.run(&config).expect("sensitivity analysis should succeed");
         assert_eq!(result.scenarios.len(), 3); // 3 perturbations
     }
 }

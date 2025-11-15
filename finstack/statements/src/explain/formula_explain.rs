@@ -233,7 +233,7 @@ mod tests {
         let period2 = PeriodId::quarter(2025, 2);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -242,13 +242,13 @@ mod tests {
                 ],
             )
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("revenue", &period).unwrap();
+        let explanation = explainer.explain("revenue", &period).expect("test should succeed");
 
         assert_eq!(explanation.node_id, "revenue");
         assert_eq!(explanation.final_value, 100_000.0);
@@ -263,7 +263,7 @@ mod tests {
         let period2 = PeriodId::quarter(2025, 2);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -272,17 +272,17 @@ mod tests {
                 ],
             )
             .compute("cogs", "revenue * 0.4")
-            .unwrap()
+            .expect("test should succeed")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("gross_profit", &period).unwrap();
+        let explanation = explainer.explain("gross_profit", &period).expect("test should succeed");
 
         assert_eq!(explanation.node_id, "gross_profit");
         assert_eq!(explanation.final_value, 60_000.0);
@@ -297,7 +297,7 @@ mod tests {
         let period2 = PeriodId::quarter(2025, 2);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -306,15 +306,15 @@ mod tests {
                 ],
             )
             .compute("cogs", "revenue * 0.4")
-            .unwrap()
+            .expect("test should succeed")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("cogs", &period).unwrap();
+        let explanation = explainer.explain("cogs", &period).expect("test should succeed");
 
         let detailed = explanation.to_string_detailed();
         assert!(detailed.contains("cogs [2025Q1]"));
@@ -328,7 +328,7 @@ mod tests {
         let period2 = PeriodId::quarter(2025, 2);
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("test should succeed")
             .value(
                 "revenue",
                 &[
@@ -337,10 +337,10 @@ mod tests {
                 ],
             )
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).unwrap();
+        let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
         let result = explainer.explain("nonexistent", &period);

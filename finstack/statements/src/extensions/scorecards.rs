@@ -571,7 +571,7 @@ mod tests {
 
         let extension = CreditScorecardExtension::with_config(config);
         assert!(extension.config().is_some());
-        assert_eq!(extension.config().unwrap().metrics.len(), 1);
+        assert_eq!(extension.config().expect("test should succeed").metrics.len(), 1);
     }
 
     #[test]
@@ -589,7 +589,7 @@ mod tests {
 
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should fail")
             .to_string()
             .contains("requires configuration"));
     }
@@ -600,7 +600,7 @@ mod tests {
         let schema = extension.config_schema();
 
         assert!(schema.is_some());
-        let schema_obj = schema.unwrap();
+        let schema_obj = schema.expect("test should succeed");
         assert!(schema_obj.get("properties").is_some());
     }
 

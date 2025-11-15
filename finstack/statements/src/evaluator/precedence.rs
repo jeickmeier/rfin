@@ -117,7 +117,7 @@ mod tests {
             .with_values(values)
             .with_formula("revenue * 1.05");
 
-        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
+        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).expect("test should succeed");
 
         // Should use explicit value, not formula
         assert!(source.is_value());
@@ -128,7 +128,7 @@ mod tests {
     fn test_formula_fallback() {
         let node = NodeSpec::new("cogs", NodeType::Calculated).with_formula("revenue * 0.6");
 
-        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
+        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).expect("test should succeed");
 
         // Should use formula
         assert!(source.is_formula());
@@ -157,7 +157,7 @@ mod tests {
             });
 
         // In forecast period, should prefer forecast over formula
-        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 3), false).unwrap();
+        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 3), false).expect("test should succeed");
         assert!(source.is_forecast());
     }
 
@@ -173,7 +173,7 @@ mod tests {
             });
 
         // In actual period, should use formula (not forecast)
-        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
+        let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).expect("test should succeed");
         assert!(source.is_formula());
     }
 }

@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn test_to_polars_long() {
         let results = create_test_results();
-        let df = to_polars_long(&results).unwrap();
+        let df = to_polars_long(&results).expect("should convert to polars DataFrame");
 
         assert_eq!(df.height(), 6); // 3 nodes × 2 periods
         assert_eq!(df.width(), 6); // node_id, period_id, value, value_money, currency, value_type
@@ -261,23 +261,23 @@ mod tests {
         assert_eq!(columns[5].as_str(), "value_type");
 
         // Check first row
-        let node_ids = df.column("node_id").unwrap().str().unwrap();
+        let node_ids = df.column("node_id").expect("node_id column should exist").str().expect("node_id should be string type");
         assert_eq!(node_ids.get(0), Some("revenue"));
 
-        let values = df.column("value").unwrap().f64().unwrap();
+        let values = df.column("value").expect("value column should exist").f64().expect("value should be f64 type");
         assert_eq!(values.get(0), Some(100_000.0));
     }
 
     #[test]
     fn test_to_polars_long_filtered() {
         let results = create_test_results();
-        let df = to_polars_long_filtered(&results, &["revenue", "cogs"]).unwrap();
+        let df = to_polars_long_filtered(&results, &["revenue", "cogs"]).expect("should convert to polars DataFrame");
 
         assert_eq!(df.height(), 4); // 2 nodes × 2 periods
         assert_eq!(df.width(), 6); // Updated for new columns
 
         // Check that only revenue and cogs are included
-        let node_ids = df.column("node_id").unwrap().str().unwrap();
+        let node_ids = df.column("node_id").expect("node_id column should exist").str().expect("node_id should be string type");
         let unique_nodes: std::collections::HashSet<String> = node_ids
             .into_iter()
             .flatten()
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_to_polars_long_filtered_empty_includes_all() {
         let results = create_test_results();
-        let df = to_polars_long_filtered(&results, &[]).unwrap();
+        let df = to_polars_long_filtered(&results, &[]).expect("should convert to polars DataFrame");
 
         assert_eq!(df.height(), 6); // All 3 nodes × 2 periods
     }
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn test_to_polars_wide() {
         let results = create_test_results();
-        let df = to_polars_wide(&results).unwrap();
+        let df = to_polars_wide(&results).expect("should convert to polars DataFrame");
 
         assert_eq!(df.height(), 2); // 2 periods
         assert_eq!(df.width(), 4); // period_id + 3 nodes
@@ -313,19 +313,19 @@ mod tests {
         assert!(col_names.contains(&"gross_profit".to_string()));
 
         // Check first row values
-        let revenue = df.column("revenue").unwrap().f64().unwrap();
+        let revenue = df.column("revenue").expect("revenue column should exist").f64().expect("revenue should be f64 type");
         assert_eq!(revenue.get(0), Some(100_000.0));
 
-        let cogs = df.column("cogs").unwrap().f64().unwrap();
+        let cogs = df.column("cogs").expect("cogs column should exist").f64().expect("cogs should be f64 type");
         assert_eq!(cogs.get(0), Some(60_000.0));
     }
 
     #[test]
     fn test_to_polars_wide_period_order() {
         let results = create_test_results();
-        let df = to_polars_wide(&results).unwrap();
+        let df = to_polars_wide(&results).expect("should convert to polars DataFrame");
 
-        let period_ids = df.column("period_id").unwrap().str().unwrap();
+        let period_ids = df.column("period_id").expect("period_id column should exist").str().expect("period_id should be string type");
         assert_eq!(period_ids.get(0), Some("2025Q1"));
         assert_eq!(period_ids.get(1), Some("2025Q2"));
     }
@@ -339,10 +339,10 @@ mod tests {
             meta: ResultsMeta::default(),
         };
 
-        let df_long = to_polars_long(&results).unwrap();
+        let df_long = to_polars_long(&results).expect("test should succeed");
         assert_eq!(df_long.height(), 0);
 
-        let df_wide = to_polars_wide(&results).unwrap();
+        let df_wide = to_polars_wide(&results).expect("test should succeed");
         assert_eq!(df_wide.height(), 0);
     }
 }

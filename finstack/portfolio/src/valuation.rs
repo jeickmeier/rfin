@@ -308,7 +308,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .allow_non_monotonic() // Flat curve for testing
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         MarketContext::new().insert_discount(curve)
     }
@@ -325,7 +325,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let position = Position::new(
             "POS_001",
@@ -341,12 +341,12 @@ mod tests {
             .as_of(as_of)
             .position(position)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
+        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
 
         assert_eq!(valuation.position_values.len(), 1);
         // Note: With flat curve, deposit PV is small but should be present
@@ -366,7 +366,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
@@ -376,7 +376,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let pos1 = Position::new(
             "POS_001",
@@ -404,12 +404,12 @@ mod tests {
             .position(pos1)
             .position(pos2)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
+        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
 
         assert_eq!(valuation.position_values.len(), 2);
         assert_eq!(valuation.by_entity.len(), 2);

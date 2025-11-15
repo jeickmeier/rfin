@@ -272,27 +272,27 @@ mod tests {
     fn test_direct_dependencies() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid operation")
             .compute("a", "10")
-            .unwrap()
+            .expect("valid operation")
             .compute("b", "a * 2")
-            .unwrap()
+            .expect("valid operation")
             .compute("c", "a + b")
-            .unwrap()
+            .expect("valid operation")
             .build()
-            .unwrap();
+            .expect("valid operation");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
-        let deps_a = tracer.direct_dependencies("a").unwrap();
+        let deps_a = tracer.direct_dependencies("a").expect("should get dependencies");
         assert_eq!(deps_a.len(), 0);
 
-        let deps_b = tracer.direct_dependencies("b").unwrap();
+        let deps_b = tracer.direct_dependencies("b").expect("should get dependencies");
         assert_eq!(deps_b.len(), 1);
         assert!(deps_b.contains(&"a"));
 
-        let deps_c = tracer.direct_dependencies("c").unwrap();
+        let deps_c = tracer.direct_dependencies("c").expect("should get dependencies");
         assert_eq!(deps_c.len(), 2);
         assert!(deps_c.contains(&"a"));
         assert!(deps_c.contains(&"b"));
@@ -302,23 +302,23 @@ mod tests {
     fn test_all_dependencies() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid operation")
             .compute("a", "10")
-            .unwrap()
+            .expect("valid operation")
             .compute("b", "a * 2")
-            .unwrap()
+            .expect("valid operation")
             .compute("c", "b + 5")
-            .unwrap()
+            .expect("valid operation")
             .compute("d", "c - a")
-            .unwrap()
+            .expect("valid operation")
             .build()
-            .unwrap();
+            .expect("valid operation");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
         // d depends on c, c depends on b, b depends on a, and d also depends on a
-        let deps = tracer.all_dependencies("d").unwrap();
+        let deps = tracer.all_dependencies("d").expect("should get all dependencies");
         assert_eq!(deps.len(), 3); // a, b, c
         assert!(deps.contains(&"a".to_string()));
         assert!(deps.contains(&"b".to_string()));
@@ -329,20 +329,20 @@ mod tests {
     fn test_dependency_tree() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid operation")
             .compute("revenue", "100000")
-            .unwrap()
+            .expect("valid operation")
             .compute("cogs", "revenue * 0.4")
-            .unwrap()
+            .expect("valid operation")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("valid operation")
             .build()
-            .unwrap();
+            .expect("valid operation");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
-        let tree = tracer.dependency_tree("gross_profit").unwrap();
+        let tree = tracer.dependency_tree("gross_profit").expect("should build dependency tree");
         assert_eq!(tree.node_id, "gross_profit");
         assert_eq!(tree.children.len(), 2);
         assert_eq!(tree.depth(), 2); // gross_profit -> cogs -> revenue (depth 2)
@@ -353,27 +353,27 @@ mod tests {
     fn test_dependents() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid operation")
             .compute("a", "10")
-            .unwrap()
+            .expect("valid operation")
             .compute("b", "a * 2")
-            .unwrap()
+            .expect("valid operation")
             .compute("c", "a + 5")
-            .unwrap()
+            .expect("valid operation")
             .build()
-            .unwrap();
+            .expect("valid operation");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
         // Both b and c depend on a
-        let dependents = tracer.dependents("a").unwrap();
+        let dependents = tracer.dependents("a").expect("should get dependents");
         assert_eq!(dependents.len(), 2);
         assert!(dependents.contains(&"b"));
         assert!(dependents.contains(&"c"));
 
         // Nothing depends on b
-        let dependents_b = tracer.dependents("b").unwrap();
+        let dependents_b = tracer.dependents("b").expect("should get dependents");
         assert_eq!(dependents_b.len(), 0);
     }
 
@@ -381,13 +381,13 @@ mod tests {
     fn test_node_not_found() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid operation")
             .compute("a", "10")
-            .unwrap()
+            .expect("valid operation")
             .build()
-            .unwrap();
+            .expect("valid operation");
 
-        let graph = DependencyGraph::from_model(&model).unwrap();
+        let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
         let result = tracer.direct_dependencies("nonexistent");

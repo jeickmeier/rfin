@@ -410,7 +410,7 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         assert!(registry.has("test.gross_margin"));
         assert_eq!(registry.len(), 1);
@@ -430,9 +430,9 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
-        let metric = registry.get("test.gross_margin").unwrap();
+        let metric = registry.get("test.gross_margin").expect("metric should exist");
         assert_eq!(metric.definition.formula, "gross_profit / revenue");
     }
 
@@ -455,7 +455,7 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         let test_metrics: Vec<_> = registry.namespace("test").collect();
         assert_eq!(test_metrics.len(), 2);
@@ -475,7 +475,7 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         // Try to load again
         let result = registry.load_from_json_str(json);
@@ -499,8 +499,8 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json1).unwrap();
-        registry.load_from_json_str(json2).unwrap();
+        registry.load_from_json_str(json1).expect("should load valid JSON");
+        registry.load_from_json_str(json2).expect("should load valid JSON");
 
         let namespaces = registry.namespaces();
         assert_eq!(namespaces.len(), 2);
@@ -528,14 +528,14 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         // Both metrics should be loaded
         assert!(registry.has("test.gross_profit"));
         assert!(registry.has("test.gross_margin"));
 
         // gross_margin should reference gross_profit in its formula
-        let margin = registry.get("test.gross_margin").unwrap();
+        let margin = registry.get("test.gross_margin").expect("metric should exist");
         assert!(margin.definition.formula.contains("gross_profit"));
     }
 
@@ -597,7 +597,7 @@ mod tests {
 
         // Should fail with circular dependency error
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err_msg = result.expect_err("should fail with circular dependency").to_string();
         assert!(err_msg.contains("Circular dependency"));
     }
 
@@ -625,17 +625,17 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         // Get dependencies for "c" - should include both "a" and "b"
-        let deps = registry.get_metric_dependencies("test.c").unwrap();
+        let deps = registry.get_metric_dependencies("test.c").expect("metric should exist");
         assert_eq!(deps.len(), 2);
         assert!(deps.contains(&"test.a".to_string()));
         assert!(deps.contains(&"test.b".to_string()));
 
         // "a" should appear before "b" in the list (dependency order)
-        let a_pos = deps.iter().position(|d| d == "test.a").unwrap();
-        let b_pos = deps.iter().position(|d| d == "test.b").unwrap();
+        let a_pos = deps.iter().position(|d| d == "test.a").expect("test.a should be in dependencies");
+        let b_pos = deps.iter().position(|d| d == "test.b").expect("test.b should be in dependencies");
         assert!(a_pos < b_pos);
     }
 
@@ -664,10 +664,10 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         // Get dependencies for level3 - should include level1 and level2
-        let deps = registry.get_metric_dependencies("test.level3").unwrap();
+        let deps = registry.get_metric_dependencies("test.level3").expect("metric should exist");
         assert_eq!(deps.len(), 2);
         assert!(deps.contains(&"test.level1".to_string()));
         assert!(deps.contains(&"test.level2".to_string()));
@@ -698,7 +698,7 @@ mod tests {
         }"#;
 
         let mut registry = Registry::new();
-        registry.load_from_json_str(json).unwrap();
+        registry.load_from_json_str(json).expect("should load valid JSON");
 
         // All metrics should load successfully
         assert!(registry.has("test.gross_profit"));
@@ -706,9 +706,9 @@ mod tests {
         assert!(registry.has("test.ebitda_margin"));
 
         // ebitda_margin depends on both ebitda (metric) and revenue (base node)
-        let deps = registry
+          let deps = registry
             .get_metric_dependencies("test.ebitda_margin")
-            .unwrap();
+            .expect("metric should exist");
         assert_eq!(deps.len(), 2); // gross_profit and ebitda
         assert!(deps.contains(&"test.gross_profit".to_string()));
         assert!(deps.contains(&"test.ebitda".to_string()));

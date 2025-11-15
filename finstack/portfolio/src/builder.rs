@@ -16,7 +16,7 @@
 //! use finstack_core::prelude::*;
 //! use time::Month;
 //!
-//! let valuation_date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+//! let valuation_date = Date::from_calendar_date(2024, Month::January, 1).expect("test should succeed");
 //!
 //! let result = PortfolioBuilder::new("test_portfolio")
 //!     .base_ccy(Currency::USD)
@@ -245,7 +245,7 @@ mod tests {
             .entity(Entity::new("ACME"))
             .tag("strategy", "fixed_income")
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         assert_eq!(portfolio.id, "TEST_PORTFOLIO");
         assert_eq!(portfolio.name, Some("Test Portfolio".to_string()));
@@ -263,7 +263,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         let position = Position::new(
             "POS_001",
@@ -279,7 +279,7 @@ mod tests {
             .as_of(date!(2024 - 01 - 01))
             .position(position)
             .build()
-            .unwrap();
+            .expect("test should succeed");
 
         // Dummy entity should be auto-created
         assert!(portfolio.has_dummy_entity());

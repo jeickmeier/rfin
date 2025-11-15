@@ -936,7 +936,7 @@ mod tests {
         // This should compile: correct order
         let result = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .build();
 
         assert!(result.is_ok());
@@ -957,7 +957,7 @@ mod tests {
     fn test_value_node() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .value(
                 "revenue",
                 &[
@@ -966,12 +966,12 @@ mod tests {
                 ],
             )
             .build()
-            .unwrap();
+            .expect("valid model");
 
         assert_eq!(model.nodes.len(), 1);
         assert!(model.has_node("revenue"));
         assert_eq!(
-            model.get_node("revenue").unwrap().node_type,
+            model.get_node("revenue").expect("revenue node should exist").node_type,
             NodeType::Value
         );
     }
@@ -980,23 +980,23 @@ mod tests {
     fn test_computed_node() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("valid formula")
             .build()
-            .unwrap();
+            .expect("valid model");
 
         assert_eq!(model.nodes.len(), 1);
-        let node = model.get_node("gross_profit").unwrap();
+        let node = model.get_node("gross_profit").expect("gross_profit node should exist");
         assert_eq!(node.node_type, NodeType::Calculated);
-        assert_eq!(node.formula_text.as_ref().unwrap(), "revenue - cogs");
+        assert_eq!(node.formula_text.as_ref().expect("formula_text should exist"), "revenue - cogs");
     }
 
     #[test]
     fn test_empty_formula_error() {
         let result = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .compute("invalid", "");
 
         assert!(result.is_err());
@@ -1006,7 +1006,7 @@ mod tests {
     fn test_multiple_nodes() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q4", Some("2025Q2"))
-            .unwrap()
+            .expect("valid period range")
             .value(
                 "revenue",
                 &[
@@ -1015,11 +1015,11 @@ mod tests {
                 ],
             )
             .compute("cogs", "revenue * 0.6")
-            .unwrap()
+            .expect("valid formula")
             .compute("gross_profit", "revenue - cogs")
-            .unwrap()
+            .expect("valid formula")
             .build()
-            .unwrap();
+            .expect("valid model");
 
         assert_eq!(model.nodes.len(), 3);
         assert!(model.has_node("revenue"));

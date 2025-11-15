@@ -241,12 +241,12 @@ mod tests {
 
     #[test]
     fn test_add_bond() {
-        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("valid date");
 
         let builder = ModelBuilder::<NeedPeriods>::new("test")
             .periods("2025Q1..2025Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .add_bond(
                 "BOND-001",
                 Money::new(1_000_000.0, Currency::USD),
@@ -255,10 +255,10 @@ mod tests {
                 maturity,
                 "USD-OIS",
             )
-            .unwrap();
+            .expect("valid bond");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().unwrap();
+        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
@@ -271,12 +271,12 @@ mod tests {
 
     #[test]
     fn test_add_swap() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
 
         let builder = ModelBuilder::<NeedPeriods>::new("test")
             .periods("2025Q1..2025Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .add_swap(
                 "SWAP-001",
                 Money::new(5_000_000.0, Currency::USD),
@@ -286,10 +286,10 @@ mod tests {
                 "USD-OIS",
                 "USD-SOFR-3M",
             )
-            .unwrap();
+            .expect("valid swap");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().unwrap();
+        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
@@ -302,12 +302,12 @@ mod tests {
 
     #[test]
     fn test_add_multiple_instruments() {
-        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-        let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("valid date");
 
         let builder = ModelBuilder::<NeedPeriods>::new("test")
             .periods("2025Q1..2025Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .add_bond(
                 "BOND-001",
                 Money::new(1_000_000.0, Currency::USD),
@@ -316,7 +316,7 @@ mod tests {
                 maturity,
                 "USD-OIS",
             )
-            .unwrap()
+            .expect("valid bond")
             .add_bond(
                 "BOND-002",
                 Money::new(2_000_000.0, Currency::USD),
@@ -325,10 +325,10 @@ mod tests {
                 maturity,
                 "USD-OIS",
             )
-            .unwrap();
+            .expect("valid bond");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().unwrap();
+        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 2);
     }
 
@@ -336,7 +336,7 @@ mod tests {
     fn test_add_custom_debt() {
         let builder = ModelBuilder::<NeedPeriods>::new("test")
             .periods("2025Q1..2025Q2", None)
-            .unwrap()
+            .expect("valid period range")
             .add_custom_debt(
                 "TL-A",
                 serde_json::json!({
@@ -347,7 +347,7 @@ mod tests {
             );
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().unwrap();
+        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {

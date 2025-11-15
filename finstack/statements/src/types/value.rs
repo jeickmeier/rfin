@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn test_as_money() {
         let amount = AmountOrScalar::amount(1_000_000.0, Currency::USD);
-        let money = amount.as_money().unwrap();
+        let money = amount.as_money().expect("amount should convert to money");
         assert_eq!(money.amount(), 1_000_000.0);
         assert_eq!(money.currency(), Currency::USD);
 
