@@ -641,12 +641,12 @@ impl crate::instruments::common::traits::CurveDependencies for RevolvingCredit {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
-        
+
         // Add credit curve if present
         if let Some(ref credit_curve_id) = self.hazard_curve_id {
             builder = builder.credit(credit_curve_id.clone());
         }
-        
+
         builder.build()
     }
 }

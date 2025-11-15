@@ -226,6 +226,7 @@ mod core;
 mod sensitivities;
 
 // Re-export all public items at the root level for backward compatibility
+pub use crate::instruments::common::pricing::HasDiscountCurve;
 pub use core::finite_difference::{bump_sizes, BumpOverrides};
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
@@ -235,14 +236,13 @@ pub use sensitivities::cs01::{
     compute_parallel_cs01_with_context, standard_credit_cs01_buckets, GenericBucketedCs01,
     GenericParallelCs01, HasCreditCurve,
 };
-pub use crate::instruments::common::pricing::HasDiscountCurve;
 pub use sensitivities::dv01::{
-    UnifiedDv01Calculator, Dv01CalculatorConfig, Dv01ComputationMode, CurveSelection,
-    standard_ir_dv01_buckets,
+    standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig, Dv01ComputationMode,
+    UnifiedDv01Calculator,
 };
 pub use sensitivities::fd_greeks::{
-    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
-    HasDayCount, HasExpiry, HasPricingOverrides,
+    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
+    HasExpiry, HasPricingOverrides,
 };
 pub use sensitivities::theta::{
     calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny,

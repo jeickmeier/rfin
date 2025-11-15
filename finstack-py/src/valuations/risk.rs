@@ -70,8 +70,9 @@ pub fn krd_dv01_ladder(
     let instrument: Arc<dyn Instrument> = Arc::from(bond_handle.instrument);
 
     // Call Rust helper function
-    let ladder = compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    let ladder =
+        compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     // Convert to Python dict format
     let bucket_labels: Vec<String> = ladder.iter().map(|(label, _)| label.clone()).collect();
@@ -96,7 +97,7 @@ fn compute_key_rate_dv01_ladder(
 ) -> finstack_core::Result<Vec<(String, f64)>> {
     use finstack_core::types::CurveId;
     use hashbrown::HashMap;
-    
+
     // Calculate base PV
     let base_pv = instrument.value(market, as_of)?;
 
@@ -112,23 +113,23 @@ fn compute_key_rate_dv01_ladder(
 
     // Calculate DV01 for each bucket
     let mut results = Vec::new();
-    
+
     for &time_years in buckets {
         let label = format_bucket_label(time_years);
-        
+
         // Create key-rate bump for all discount curves
         let mut bumps = HashMap::new();
         for curve_id in &discount_curve_ids {
             bumps.insert(curve_id.clone(), BumpSpec::key_rate_bp(time_years, bump_bp));
         }
-        
+
         // Apply bumps and reprice
         let bumped_market = market.bump(bumps)?;
         let bumped_pv = instrument.value(&bumped_market, as_of)?;
-        
+
         // Calculate sensitivity
         let dv01 = (bumped_pv.amount() - base_pv.amount()) / bump_bp;
-        
+
         results.push((label, dv01));
     }
 
@@ -185,8 +186,9 @@ pub fn cs01_ladder(
 
     // Call Rust helper function
     // TODO: Implement proper credit curve bumping when hazard rate infrastructure is ready
-    let ladder = compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    let ladder =
+        compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     // Convert to Python dict format
     let bucket_labels: Vec<String> = ladder.iter().map(|(label, _)| label.clone()).collect();

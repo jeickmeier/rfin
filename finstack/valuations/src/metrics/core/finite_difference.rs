@@ -122,11 +122,7 @@ pub fn scale_surface(
 ///
 /// # Returns
 /// Adaptive bump size as percentage (e.g., 0.01 for 1%)
-pub fn adaptive_spot_bump(
-    atm_vol: f64,
-    time_to_expiry: f64,
-    override_pct: Option<f64>,
-) -> f64 {
+pub fn adaptive_spot_bump(atm_vol: f64, time_to_expiry: f64, override_pct: Option<f64>) -> f64 {
     if let Some(pct) = override_pct {
         return pct;
     }

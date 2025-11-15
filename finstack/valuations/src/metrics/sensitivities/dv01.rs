@@ -8,7 +8,7 @@
 //! - **Type-safe curve discovery**: Uses [`CurveDependencies`] trait to discover curves at compile time
 //! - **Flexible computation modes**: Parallel or key-rate, combined or per-curve
 //! - **Multiple curve types**: Handles discount, forward, and credit curves
-//! - **Leverages core infrastructure**: Uses [`finstack_core::market_data::bumps::BumpSpec`] 
+//! - **Leverages core infrastructure**: Uses [`finstack_core::market_data::bumps::BumpSpec`]
 //!   and [`finstack_core::market_data::MarketContext::bump`] for consistent bumping
 //!
 //! # Advantages Over Legacy Implementation
@@ -117,8 +117,8 @@
 
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
-use crate::metrics::{MetricContext, MetricId};
 use crate::metrics::traits::MetricCalculator;
+use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -183,7 +183,7 @@ impl Dv01CalculatorConfig {
             buckets: vec![],
         }
     }
-    
+
     /// Create config for parallel DV01 per curve.
     pub fn parallel_per_curve() -> Self {
         Self {
@@ -192,7 +192,7 @@ impl Dv01CalculatorConfig {
             buckets: vec![],
         }
     }
-    
+
     /// Create config for key-rate DV01.
     pub fn key_rate() -> Self {
         Self::default()
@@ -227,17 +227,17 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        
+
         // Get bump size from overrides or default
         let bump_bp = context
             .pricing_overrides
             .as_ref()
             .and_then(|po| po.rate_bump_bp)
             .unwrap_or(1.0);
-        
+
         // Collect curves based on configuration
         let curves = self.collect_curves(instrument, context.curves.as_ref())?;
-        
+
         // Compute DV01 based on mode
         match self.config.mode {
             Dv01ComputationMode::ParallelCombined => {
@@ -265,7 +265,7 @@ where
     ) -> finstack_core::Result<Vec<(CurveId, RatesCurveKind)>> {
         let deps = instrument.curve_dependencies();
         let mut curves = Vec::new();
-        
+
         match self.config.curve_selection {
             CurveSelection::DiscountOnly => {
                 // Only primary discount curve
@@ -309,17 +309,17 @@ where
                 }
             }
         }
-        
+
         if curves.is_empty() {
             tracing::warn!(
                 instrument_type = std::any::type_name::<I>(),
                 "UnifiedDv01Calculator: No rate curves found in market context, returning 0.0"
             );
         }
-        
+
         Ok(curves)
     }
-    
+
     /// Compute parallel DV01 with all curves bumped together.
     fn compute_parallel_combined(
         &self,
@@ -330,27 +330,27 @@ where
         if curves.is_empty() {
             return Ok(0.0);
         }
-        
+
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        
+
         // Recalculate base PV (see dv01.rs module docs for rationale)
         let base_pv = context.instrument.value(base_ctx, as_of)?;
-        
+
         // Create bump specs for all curves
         let mut bumps = HashMap::new();
         for (curve_id, _kind) in curves {
             bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
         }
-        
+
         // Apply all bumps together
         let bumped_ctx = base_ctx.bump(bumps)?;
         let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
-        
+
         let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
         Ok(dv01)
     }
-    
+
     /// Compute parallel DV01 per curve and store as series.
     fn compute_parallel_per_curve(
         &self,
@@ -361,35 +361,35 @@ where
         if curves.is_empty() {
             return Ok(0.0);
         }
-        
+
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        
+
         // Recalculate base PV
         let base_pv = context.instrument.value(base_ctx, as_of)?;
-        
+
         // Bump each curve individually
         let mut series = Vec::new();
         let mut total_dv01 = 0.0;
-        
+
         for (curve_id, _kind) in curves {
             let mut bumps = HashMap::new();
             bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
-            
+
             let bumped_ctx = base_ctx.bump(bumps)?;
             let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
             let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
-            
+
             series.push((curve_id.as_str().to_string(), dv01));
             total_dv01 += dv01;
         }
-        
+
         // Store per-curve series
         context.store_bucketed_series(MetricId::BucketedDv01, series);
-        
+
         Ok(total_dv01)
     }
-    
+
     /// Compute key-rate DV01 per curve.
     fn compute_key_rate_per_curve(
         &self,
@@ -400,9 +400,9 @@ where
         if curves.is_empty() {
             return Ok(0.0);
         }
-        
+
         let mut total_dv01 = 0.0;
-        
+
         // Process each curve
         for (i, (curve_id, _kind)) in curves.iter().enumerate() {
             let (metric_id, should_compute) = if curves.len() == 1 {
@@ -414,32 +414,32 @@ where
                 (MetricId::BucketedDv01, true)
             } else {
                 // Non-primary curves: use curve-specific key
-                (MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str())), true)
+                (
+                    MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str())),
+                    true,
+                )
             };
-            
+
             if should_compute {
-                let curve_total = self.compute_key_rate_for_curve(
-                    context,
-                    curve_id,
-                    metric_id.clone(),
-                    bump_bp,
-                )?;
-                
+                let curve_total =
+                    self.compute_key_rate_for_curve(context, curve_id, metric_id.clone(), bump_bp)?;
+
                 total_dv01 += curve_total;
-                
+
                 // For primary curve in multi-curve instrument, also copy to curve-specific key
                 if i == 0 && curves.len() > 1 {
-                    let curve_specific_id = MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
+                    let curve_specific_id =
+                        MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
                     if let Some(series) = context.get_series(&metric_id) {
                         context.store_bucketed_series(curve_specific_id, series.clone());
                     }
                 }
             }
         }
-        
+
         Ok(total_dv01)
     }
-    
+
     /// Compute key-rate DV01 for a single curve.
     fn compute_key_rate_for_curve(
         &self,
@@ -450,26 +450,26 @@ where
     ) -> finstack_core::Result<f64> {
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        
+
         // Recalculate base PV
         let base_pv = context.instrument.value(base_ctx, as_of)?;
-        
+
         let mut series: Vec<(String, f64)> = Vec::new();
-        
+
         for &time_years in &self.config.buckets {
             let label = format_bucket_label(time_years);
-            
+
             // Create key-rate bump spec
             let mut bumps = HashMap::new();
             bumps.insert(curve_id.clone(), BumpSpec::key_rate_bp(time_years, bump_bp));
-            
+
             let bumped_ctx = base_ctx.bump(bumps)?;
             let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
             let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
-            
+
             series.push((label, dv01));
         }
-        
+
         context.store_bucketed_series(metric_id, series.clone());
         let total: f64 = series.iter().map(|(_, v)| *v).sum();
         Ok(total)

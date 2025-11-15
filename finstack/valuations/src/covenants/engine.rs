@@ -490,7 +490,8 @@ impl CovenantEngine {
         }
 
         // Check custom metrics
-        if let MetricId::Custom(name) = metric_id {
+        if metric_id.is_custom() {
+            let name = metric_id.as_str();
             if let Some(calculator) = self.custom_metrics.get(name) {
                 let value = calculator(context)?;
                 context.computed.insert(metric_id.clone(), value);

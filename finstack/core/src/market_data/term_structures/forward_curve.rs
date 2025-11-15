@@ -277,11 +277,7 @@ impl ForwardCurve {
 
         let mut bumped_rates: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
         for (idx, (&tt, &rate)) in self.knots.iter().zip(self.forwards.iter()).enumerate() {
-            let new_rate = if idx > i { 
-                rate + bump_rate 
-            } else { 
-                rate 
-            };
+            let new_rate = if idx > i { rate + bump_rate } else { rate };
             bumped_rates.push((tt, new_rate));
         }
 

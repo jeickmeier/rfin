@@ -13,477 +13,790 @@
 //! - **Standardized sensitivity metrics**: Dividend01, Inflation01, Prepayment01, Default01, Severity01, Conversion01, CollateralHaircut01, CollateralPrice01, Nav01, Carry01, Hurdle01, Dv01Domestic, Dv01Foreign, Fx01, Npv01, SpreadDv01, Correlation01, FxVega, ConvexityAdjustmentRisk
 //! - **Custom metrics**: User-defined metrics with dynamic identifiers
 
+use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
-macro_rules! define_metrics {
-    (
-        $(
-            $(#[$meta:meta])*
-            $variant:ident => $str:literal
-        ),+ $(,)?
-    ) => {
-        /// Strongly-typed metric identifier.
-        ///
-        /// Provides compile-time validation, autocomplete support, and safe refactoring
-        /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
-        ///
-        /// See unit tests and `examples/` for usage.
-        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-        pub enum MetricId {
-            $(
-                $(#[$meta])*
-                $variant,
-            )+
-            /// Custom metric with a dynamic identifier
-            Custom(String),
-        }
+/// Strongly-typed metric identifier.
+///
+/// Provides compile-time validation, autocomplete support, and safe refactoring
+/// when metric names change. Covers bond, IRS, deposit, and risk metrics.
+///
+/// See unit tests and `examples/` for usage.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MetricId(Cow<'static, str>);
 
-        impl MetricId {
-            /// Creates a custom metric ID.
-            ///
-            /// Use this for user-defined metrics that aren't part of the standard set.
-            /// Custom metrics are stored as strings and can have any identifier.
-            pub fn custom(id: impl Into<String>) -> Self {
-                MetricId::Custom(id.into())
-            }
+#[allow(non_upper_case_globals)] // PascalCase names maintained for backward compatibility
+impl MetricId {
+    /// Creates a custom metric ID.
+    ///
+    /// Use this for user-defined metrics that aren't part of the standard set.
+    /// Custom metrics are stored as strings and can have any identifier.
+    pub fn custom(id: impl Into<String>) -> Self {
+        MetricId(Cow::Owned(id.into()))
+    }
 
-            /// Converts to string representation for compatibility.
-            ///
-            /// Returns a lowercase, snake_case string that can be used for
-            /// serialization, logging, or API interfaces.
-            pub fn as_str(&self) -> &str {
-                match self {
-                    $(
-                        MetricId::$variant => $str,
-                    )+
-                    MetricId::Custom(s) => s.as_str(),
-                }
-            }
+    /// Converts to string representation for compatibility.
+    ///
+    /// Returns a lowercase, snake_case string that can be used for
+    /// serialization, logging, or API interfaces.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 
-            /// All standard (non-custom) metric IDs.
-            pub const ALL_STANDARD: &'static [MetricId] = &[
-                $(
-                    MetricId::$variant,
-                )+
-            ];
-        }
+    /// Checks if this is a custom (non-standard) metric.
+    ///
+    /// Returns `true` if the metric was created via `custom()` and is not
+    /// part of the standard set.
+    pub fn is_custom(&self) -> bool {
+        !Self::ALL_STANDARD.iter().any(|m| m == self)
+    }
 
-        impl fmt::Display for MetricId {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", self.as_str())
-            }
-        }
+    // ========================================================================
+    // Core Risk Metrics
+    // ========================================================================
 
-        impl FromStr for MetricId {
-            type Err = (); // Never fails since we have a catch-all Custom variant
-
-            /// Parses a string into a MetricId.
-            ///
-            /// This method never fails - any unrecognized string becomes a custom metric.
-            /// Standard metrics are matched case-insensitively in snake_case format.
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let lower = s.to_lowercase();
-                let metric_id = match lower.as_str() {
-                    $(
-                        $str => MetricId::$variant,
-                    )+
-                    _ => MetricId::Custom(lower),
-                };
-                Ok(metric_id)
-            }
-        }
-    };
-}
-
-define_metrics! {
-
-    /// Common Risk metrics
     /// Time decay (theta) - 1D Day Time decay P&L
-    Theta => "theta",    
-    /// Dollar value of 01 (DV01)
-    Dv01 => "dv01",
+    pub const Theta: Self = Self(Cow::Borrowed("theta"));
+
+    /// Dollar value of 01 (DV01) - Standard for all parallel rate sensitivity
+    pub const Dv01: Self = Self(Cow::Borrowed("dv01"));
+
     /// Credit spread sensitivity (CS01) - Parallel shift in credit spread (quote spreads only)
-    Cs01 => "cs01",
+    pub const Cs01: Self = Self(Cow::Borrowed("cs01"));
+
     /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
-    BucketedDv01 => "bucketed_dv01",
+    pub const BucketedDv01: Self = Self(Cow::Borrowed("bucketed_dv01"));
+
     /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
-    BucketedCs01 => "bucketed_cs01",
+    pub const BucketedCs01: Self = Self(Cow::Borrowed("bucketed_cs01"));
 
-    // FX spot metrics
+    // ========================================================================
+    // FX Spot Metrics
+    // ========================================================================
+
     /// Spot rate
-    SpotRate => "spot_rate",
+    pub const SpotRate: Self = Self(Cow::Borrowed("spot_rate"));
+
     /// Base amount
-    BaseAmount => "base_amount",
+    pub const BaseAmount: Self = Self(Cow::Borrowed("base_amount"));
+
     /// Quote amount
-    QuoteAmount => "quote_amount",
+    pub const QuoteAmount: Self = Self(Cow::Borrowed("quote_amount"));
+
     /// Inverse rate
-    InverseRate => "inverse_rate",
+    pub const InverseRate: Self = Self(Cow::Borrowed("inverse_rate"));
 
-    // Equity metrics
-    /// Equity price per share
-    EquityPricePerShare => "equity_price_per_share",
-    /// Equity shares (effective)
-    EquityShares => "equity_shares",
-    /// Equity dividend yield (annualized, decimal)
-    EquityDividendYield => "equity_dividend_yield",
+    // ========================================================================
+    // Equity Metrics
+    // ========================================================================
+
+    /// Equity price per share - TODO: Remove this as input to metrics
+    pub const EquityPricePerShare: Self = Self(Cow::Borrowed("equity_price_per_share"));
+
+    /// Equity shares (effective) - TODO: Remove this as input to metrics
+    pub const EquityShares: Self = Self(Cow::Borrowed("equity_shares"));
+
+    /// Equity dividend yield (annualized, decimal) - TODO: Remove this as input to metrics
+    pub const EquityDividendYield: Self = Self(Cow::Borrowed("equity_dividend_yield"));
+
     /// Equity forward price per share
-    EquityForwardPrice => "equity_forward_price",
+    pub const EquityForwardPrice: Self = Self(Cow::Borrowed("equity_forward_price"));
 
-    // Bond metrics
+    // ========================================================================
+    // Bond Metrics
+    // ========================================================================
+
     /// Dirty price (includes accrued interest)
-    DirtyPrice => "dirty_price",
+    pub const DirtyPrice: Self = Self(Cow::Borrowed("dirty_price"));
+
     /// Clean price (excludes accrued interest)
-    CleanPrice => "clean_price",
+    pub const CleanPrice: Self = Self(Cow::Borrowed("clean_price"));
+
     /// Accrued interest since last coupon payment
-    Accrued => "accrued",
-    /// Accrued interest (alias of `accrued` for compatibility)
-    AccruedInterest => "accrued_interest",
+    pub const Accrued: Self = Self(Cow::Borrowed("accrued"));
+
+    /// Accrued interest (alias of `accrued` for compatibility) - TODO: Remove this
+    pub const AccruedInterest: Self = Self(Cow::Borrowed("accrued_interest"));
+
     /// Yield to maturity
-    Ytm => "ytm",
+    pub const Ytm: Self = Self(Cow::Borrowed("ytm"));
+
     /// Yield to worst
-    Ytw => "ytw",
+    pub const Ytw: Self = Self(Cow::Borrowed("ytw"));
+
     /// Macaulay duration
-    DurationMac => "duration_mac",
+    pub const DurationMac: Self = Self(Cow::Borrowed("duration_mac"));
+
     /// Modified duration
-    DurationMod => "duration_mod",
+    pub const DurationMod: Self = Self(Cow::Borrowed("duration_mod"));
+
     /// Convexity
-    Convexity => "convexity",
+    pub const Convexity: Self = Self(Cow::Borrowed("convexity"));
 
-    // Spread metrics
+    // ========================================================================
+    // Spread Metrics
+    // ========================================================================
+
     /// Z-spread - Zero-vol spread
-    ZSpread => "z_spread",
+    pub const ZSpread: Self = Self(Cow::Borrowed("z_spread"));
+
     /// OAS - Option-adjusted spread
-    Oas => "oas",
+    pub const Oas: Self = Self(Cow::Borrowed("oas"));
+
     /// I-spread - Yield over interpolated swap curve
-    ISpread => "i_spread",
+    pub const ISpread: Self = Self(Cow::Borrowed("i_spread"));
+
     /// Discount margin for floating-rate bonds (decimal; 0.01 = 100 bps)
-    DiscountMargin => "discount_margin",
+    pub const DiscountMargin: Self = Self(Cow::Borrowed("discount_margin"));
+
     /// G-spread - Govvie spread
-    GSpread => "g_spread",
+    pub const GSpread: Self = Self(Cow::Borrowed("g_spread"));
+
+    /// TODO: We should rationalize these ASW metrics to a single market standard ASW metric
     /// ASW-spread - Asset swap spread (par)
-    ASWSpread => "asw_spread",
+    pub const ASWSpread: Self = Self(Cow::Borrowed("asw_spread"));
+
     /// Par asset swap spread
-    ASWPar => "asw_par",
+    pub const ASWPar: Self = Self(Cow::Borrowed("asw_par"));
+
     /// Market (price) asset swap spread
-    ASWMarket => "asw_market",
+    pub const ASWMarket: Self = Self(Cow::Borrowed("asw_market"));
+
     /// Par asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
-    ASWParFwd => "asw_par_fwd",
+    pub const ASWParFwd: Self = Self(Cow::Borrowed("asw_par_fwd"));
+
     /// Market asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
-    ASWMarketFwd => "asw_market_fwd",
+    pub const ASWMarketFwd: Self = Self(Cow::Borrowed("asw_market_fwd"));
 
-    // IRS metrics
+    // ========================================================================
+    // IRS Metrics
+    // ========================================================================
+
     /// Annuity factor for fixed leg
-    Annuity => "annuity",
+    pub const Annuity: Self = Self(Cow::Borrowed("annuity"));
+
     /// Par swap rate
-    ParRate => "par_rate",
-    /// Present value of 01 (PV01) - Alias for DV01 (credit market convention)
-    Pv01 => "pv01",
+    pub const ParRate: Self = Self(Cow::Borrowed("par_rate"));
+
+    /// Present value of 01 (PV01) - TODO: Change this to valude of shifting coupon by 1bp
+    pub const Pv01: Self = Self(Cow::Borrowed("pv01"));
+
     /// Present value of fixed leg
-    PvFixed => "pv_fixed",
+    pub const PvFixed: Self = Self(Cow::Borrowed("pv_fixed"));
+
     /// Present value of floating leg
-    PvFloat => "pv_float",
+    pub const PvFloat: Self = Self(Cow::Borrowed("pv_float"));
 
-    // Deposit metrics
-    /// Year fraction
-    Yf => "yf",
-    /// Discount factor at start date
-    DfStart => "df_start",
-    /// Discount factor at end date
-    DfEnd => "df_end",
+    // ========================================================================
+    // Deposit Metrics
+    // ========================================================================
+
+    /// Year fraction - TODO: Do we need this?
+    pub const Yf: Self = Self(Cow::Borrowed("yf"));
+
+    /// Discount factor at start date - TODO: Do we need this?
+    pub const DfStart: Self = Self(Cow::Borrowed("df_start"));
+
+    /// Discount factor at end date - TODO: Do we need this?
+    pub const DfEnd: Self = Self(Cow::Borrowed("df_end"));
+
     /// Deposit par rate
-    DepositParRate => "deposit_par_rate",
-    /// Discount factor at end date from quote
-    DfEndFromQuote => "df_end_from_quote",
-    /// Quote rate
-    QuoteRate => "quote_rate",
+    pub const DepositParRate: Self = Self(Cow::Borrowed("deposit_par_rate"));
 
-    // CDS metrics
+    /// Discount factor at end date from quote - TODO: Do we need this?
+    pub const DfEndFromQuote: Self = Self(Cow::Borrowed("df_end_from_quote"));
+
+    /// Quote rate - TODO: Is both deposit par rate and quote rate the same thing?
+    pub const QuoteRate: Self = Self(Cow::Borrowed("quote_rate"));
+
+    // ========================================================================
+    // CDS Metrics
+    // ========================================================================
+
     /// Par spread for CDS
-    ParSpread => "par_spread",
+    pub const ParSpread: Self = Self(Cow::Borrowed("par_spread"));
+
     /// Risky PV01 for CDS
-    RiskyPv01 => "risky_pv01",
+    pub const RiskyPv01: Self = Self(Cow::Borrowed("risky_pv01"));
+
     /// Protection leg present value
-    ProtectionLegPv => "protection_leg_pv",
+    pub const ProtectionLegPv: Self = Self(Cow::Borrowed("protection_leg_pv"));
+
     /// Premium leg present value
-    PremiumLegPv => "premium_leg_pv",
+    pub const PremiumLegPv: Self = Self(Cow::Borrowed("premium_leg_pv"));
+
     /// Jump-to-default amount
-    JumpToDefault => "jump_to_default",
+    pub const JumpToDefault: Self = Self(Cow::Borrowed("jump_to_default"));
+
     /// Expected loss
-    ExpectedLoss => "expected_loss",
+    pub const ExpectedLoss: Self = Self(Cow::Borrowed("expected_loss"));
+
     /// Default probability
-    DefaultProbability => "default_probability",
+    pub const DefaultProbability: Self = Self(Cow::Borrowed("default_probability"));
+
     /// Expected recovery rate
-    Recovery01 => "recovery_01",
+    pub const Recovery01: Self = Self(Cow::Borrowed("recovery_01"));
 
-    // Option metrics
+    // ========================================================================
+    // Option Metrics
+    // ========================================================================
+
     /// Delta (price sensitivity to underlying)
-    Delta => "delta",
+    pub const Delta: Self = Self(Cow::Borrowed("delta"));
+
     /// Gamma (delta sensitivity to underlying)
-    Gamma => "gamma",
+    pub const Gamma: Self = Self(Cow::Borrowed("gamma"));
+
     /// Vega (price sensitivity to volatility)
-    Vega => "vega",
+    pub const Vega: Self = Self(Cow::Borrowed("vega"));
+
     /// Rho (price sensitivity to interest rates)
-    Rho => "rho",
+    pub const Rho: Self = Self(Cow::Borrowed("rho"));
+
     /// Forward curve PV01 (price sensitivity to a 1bp forward curve bump)
-    ForwardPv01 => "forward_pv01",
+    pub const ForwardPv01: Self = Self(Cow::Borrowed("forward_pv01"));
+
     /// Vanna (delta sensitivity to volatility)
-    Vanna => "vanna",
+    pub const Vanna: Self = Self(Cow::Borrowed("vanna"));
+
     /// Volga (vega sensitivity to volatility)
-    Volga => "volga",
+    pub const Volga: Self = Self(Cow::Borrowed("volga"));
+
     /// Veta (theta sensitivity to volatility)
-    Veta => "veta",
+    pub const Veta: Self = Self(Cow::Borrowed("veta"));
+
     /// Interest rate convexity (IRS, similar concept to bond convexity)
-    IrConvexity => "ir_convexity",
+    pub const IrConvexity: Self = Self(Cow::Borrowed("ir_convexity"));
+
     /// Credit spread gamma (second derivative w.r.t spreads)
-    CsGamma => "cs_gamma",
+    pub const CsGamma: Self = Self(Cow::Borrowed("cs_gamma"));
+
     /// Inflation convexity (second derivative w.r.t inflation)
-    InflationConvexity => "inflation_convexity",
+    pub const InflationConvexity: Self = Self(Cow::Borrowed("inflation_convexity"));
+
     /// Charm (rho sensitivity to volatility)
-    Charm => "charm",
+    pub const Charm: Self = Self(Cow::Borrowed("charm"));
+
     /// Color (gamma sensitivity to time)
-    Color => "color",
+    pub const Color: Self = Self(Cow::Borrowed("color"));
+
     /// Speed (gamma sensitivity to underlying)
-    Speed => "speed",
+    pub const Speed: Self = Self(Cow::Borrowed("speed"));
+
     /// Implied volatility (from price)
-    ImpliedVol => "implied_vol",
+    pub const ImpliedVol: Self = Self(Cow::Borrowed("implied_vol"));
 
-    // Variance swap metrics
+    // ========================================================================
+    // Variance Swap Metrics
+    // ========================================================================
+
     /// Vega expressed per variance point (variance swap sensitivity)
-    VarianceVega => "variance_vega",
+    pub const VarianceVega: Self = Self(Cow::Borrowed("variance_vega"));
+
     /// Expected variance under the pricing model
-    ExpectedVariance => "variance_expected",
+    pub const ExpectedVariance: Self = Self(Cow::Borrowed("variance_expected"));
+
     /// Realized variance computed from observed paths
-    RealizedVariance => "variance_realized",
+    pub const RealizedVariance: Self = Self(Cow::Borrowed("variance_realized"));
+
     /// Variance notional exposure (payout multiplier)
-    VarianceNotional => "variance_notional",
+    pub const VarianceNotional: Self = Self(Cow::Borrowed("variance_notional"));
+
     /// Strike volatility equivalent (sqrt of strike variance)
-    VarianceStrikeVol => "variance_strike_vol",
+    pub const VarianceStrikeVol: Self = Self(Cow::Borrowed("variance_strike_vol"));
+
     /// Time to maturity as used in the variance swap conventions
-    VarianceTimeToMaturity => "variance_time_to_maturity",
+    pub const VarianceTimeToMaturity: Self = Self(Cow::Borrowed("variance_time_to_maturity"));
 
-    // Other Risk metrics
+    // ========================================================================
+    // Other Risk Metrics
+    // ========================================================================
+
     /// Dividend yield sensitivity per basis point
-    Dividend01 => "dividend01",
+    pub const Dividend01: Self = Self(Cow::Borrowed("dividend01"));
+
     /// Inflation curve sensitivity per basis point
-    Inflation01 => "inflation01",
+    pub const Inflation01: Self = Self(Cow::Borrowed("inflation01"));
+
     /// Prepayment rate sensitivity per basis point
-    Prepayment01 => "prepayment01",
+    pub const Prepayment01: Self = Self(Cow::Borrowed("prepayment01"));
+
     /// Default rate sensitivity per basis point
-    Default01 => "default01",
+    pub const Default01: Self = Self(Cow::Borrowed("default01"));
+
     /// Loss severity sensitivity per 1% change
-    Severity01 => "severity01",
+    pub const Severity01: Self = Self(Cow::Borrowed("severity01"));
+
     /// Conversion ratio/price sensitivity per 1% change
-    Conversion01 => "conversion01",
+    pub const Conversion01: Self = Self(Cow::Borrowed("conversion01"));
+
     /// Collateral haircut sensitivity per basis point
-    CollateralHaircut01 => "collateral_haircut01",
+    pub const CollateralHaircut01: Self = Self(Cow::Borrowed("collateral_haircut01"));
+
     /// Collateral price sensitivity per 1% change
-    CollateralPrice01 => "collateral_price01",
+    pub const CollateralPrice01: Self = Self(Cow::Borrowed("collateral_price01"));
+
     /// NAV sensitivity per 1% change (private markets funds)
-    Nav01 => "nav01",
+    pub const Nav01: Self = Self(Cow::Borrowed("nav01"));
+
     /// GP carry sensitivity per basis point (private markets funds)
-    Carry01 => "carry01",
+    pub const Carry01: Self = Self(Cow::Borrowed("carry01"));
+
     /// Hurdle rate sensitivity per basis point (private markets funds)
-    Hurdle01 => "hurdle01",
+    pub const Hurdle01: Self = Self(Cow::Borrowed("hurdle01"));
+
     /// DV01 for domestic currency (FX Swap)
-    Dv01Domestic => "dv01_domestic",
+    pub const Dv01Domestic: Self = Self(Cow::Borrowed("dv01_domestic"));
+
     /// DV01 for foreign currency (FX Swap)
-    Dv01Foreign => "dv01_foreign",
+    pub const Dv01Foreign: Self = Self(Cow::Borrowed("dv01_foreign"));
+
     /// FX spot rate sensitivity per basis point
-    Fx01 => "fx01",
+    pub const Fx01: Self = Self(Cow::Borrowed("fx01"));
+
     /// NPV sensitivity per basis point (inflation swaps)
-    Npv01 => "npv01",
+    pub const Npv01: Self = Self(Cow::Borrowed("npv01"));
+
     /// Running coupon sensitivity per basis point (CDS Tranche)
-    SpreadDv01 => "spread_dv01",
+    pub const SpreadDv01: Self = Self(Cow::Borrowed("spread_dv01"));
+
     /// Correlation sensitivity per 1% change (unified for all correlation risks)
-    Correlation01 => "correlation01",
+    pub const Correlation01: Self = Self(Cow::Borrowed("correlation01"));
+
     /// FX volatility sensitivity per 1% change (quanto options)
-    FxVega => "fx_vega",
+    pub const FxVega: Self = Self(Cow::Borrowed("fx_vega"));
+
     /// Convexity adjustment risk (CMS options)
-    ConvexityAdjustmentRisk => "convexity_adjustment_risk",
+    pub const ConvexityAdjustmentRisk: Self = Self(Cow::Borrowed("convexity_adjustment_risk"));
 
-    // TRS metrics
+    // ========================================================================
+    // TRS Metrics
+    // ========================================================================
+
     /// Financing annuity for TRS
-    FinancingAnnuity => "financing_annuity",
+    pub const FinancingAnnuity: Self = Self(Cow::Borrowed("financing_annuity"));
+
     /// Index delta for TRS
-    IndexDelta => "index_delta",
+    pub const IndexDelta: Self = Self(Cow::Borrowed("index_delta"));
 
-    // Basis swap metrics (using consistent leg naming with IRS)
+    // ========================================================================
+    // Basis Swap Metrics
+    // ========================================================================
+
     /// PV of primary floating leg (includes spread)
-    PvPrimary => "pv_primary",
+    pub const PvPrimary: Self = Self(Cow::Borrowed("pv_primary"));
+
     /// PV of reference floating leg
-    PvReference => "pv_reference",
+    pub const PvReference: Self = Self(Cow::Borrowed("pv_reference"));
+
     /// Annuity of primary leg
-    AnnuityPrimary => "annuity_primary",
+    pub const AnnuityPrimary: Self = Self(Cow::Borrowed("annuity_primary"));
+
     /// Annuity of reference leg
-    AnnuityReference => "annuity_reference",
+    pub const AnnuityReference: Self = Self(Cow::Borrowed("annuity_reference"));
+
     /// DV01 of primary leg
-    Dv01Primary => "dv01_primary",
+    pub const Dv01Primary: Self = Self(Cow::Borrowed("dv01_primary"));
+
     /// DV01 of reference leg
-    Dv01Reference => "dv01_reference",
+    pub const Dv01Reference: Self = Self(Cow::Borrowed("dv01_reference"));
+
     /// Par spread for basis swap
-    BasisParSpread => "basis_par_spread",
+    pub const BasisParSpread: Self = Self(Cow::Borrowed("basis_par_spread"));
 
-    // Repo metrics
+    // ========================================================================
+    // Repo Metrics
+    // ========================================================================
+
     /// Market value of collateral
-    CollateralValue => "collateral_value",
+    pub const CollateralValue: Self = Self(Cow::Borrowed("collateral_value"));
+
     /// Required collateral value (with haircut)
-    RequiredCollateral => "required_collateral",
+    pub const RequiredCollateral: Self = Self(Cow::Borrowed("required_collateral"));
+
     /// Collateral coverage ratio
-    CollateralCoverage => "collateral_coverage",
+    pub const CollateralCoverage: Self = Self(Cow::Borrowed("collateral_coverage"));
+
     /// Repo interest amount
-    RepoInterest => "repo_interest",
+    pub const RepoInterest: Self = Self(Cow::Borrowed("repo_interest"));
+
     /// Funding risk (repo rate sensitivity)
-    FundingRisk => "funding_risk",
+    pub const FundingRisk: Self = Self(Cow::Borrowed("funding_risk"));
+
     /// Effective repo rate (adjusted for special collateral)
-    EffectiveRate => "effective_rate",
+    pub const EffectiveRate: Self = Self(Cow::Borrowed("effective_rate"));
+
     /// Time to maturity in years
-    TimeToMaturity => "time_to_maturity",
+    pub const TimeToMaturity: Self = Self(Cow::Borrowed("time_to_maturity"));
+
     /// Implied collateral return
-    ImpliedCollateralReturn => "implied_collateral_return",
+    pub const ImpliedCollateralReturn: Self = Self(Cow::Borrowed("implied_collateral_return"));
 
-    // Basket/ETF metrics
+    // ========================================================================
+    // Basket/ETF Metrics
+    // ========================================================================
+
     /// Net Asset Value per share
-    Nav => "nav",
-    /// Total basket value
-    BasketValue => "basket_value",
-    /// Number of constituents in the basket
-    ConstituentCount => "constituent_count",
-    /// Expense ratio as percentage
-    ExpenseRatio => "expense_ratio",
-    /// Tracking error vs benchmark
-    TrackingError => "tracking_error",
-    /// Utilization vs creation unit size
-    Utilization => "utilization",
-    /// Premium/discount to NAV
-    PremiumDiscount => "premium_discount",
+    pub const Nav: Self = Self(Cow::Borrowed("nav"));
 
-    // === Structured Credit Metrics ===
+    /// Total basket value
+    pub const BasketValue: Self = Self(Cow::Borrowed("basket_value"));
+
+    /// Number of constituents in the basket
+    pub const ConstituentCount: Self = Self(Cow::Borrowed("constituent_count"));
+
+    /// Expense ratio as percentage
+    pub const ExpenseRatio: Self = Self(Cow::Borrowed("expense_ratio"));
+
+    /// Tracking error vs benchmark
+    pub const TrackingError: Self = Self(Cow::Borrowed("tracking_error"));
+
+    /// Utilization vs creation unit size
+    pub const Utilization: Self = Self(Cow::Borrowed("utilization"));
+
+    /// Premium/discount to NAV
+    pub const PremiumDiscount: Self = Self(Cow::Borrowed("premium_discount"));
+
+    // ========================================================================
+    // Structured Credit Metrics
+    // ========================================================================
 
     /// Weighted Average Life (years) - Expected principal repayment life
-    WAL => "wal",
+    pub const WAL: Self = Self(Cow::Borrowed("wal"));
 
     /// Weighted Average Maturity (years) - Pool maturity
-    WAM => "wam",
+    pub const WAM: Self = Self(Cow::Borrowed("wam"));
 
     /// Expected final payment date under base assumptions
-    ExpectedMaturity => "expected_maturity",
+    pub const ExpectedMaturity: Self = Self(Cow::Borrowed("expected_maturity"));
 
     /// Percentage of original pool balance remaining
-    PoolFactor => "pool_factor",
+    pub const PoolFactor: Self = Self(Cow::Borrowed("pool_factor"));
 
     /// Constant Prepayment Rate (annualized)
-    CPR => "cpr",
+    pub const CPR: Self = Self(Cow::Borrowed("cpr"));
 
     /// Single Monthly Mortality (monthly prepayment rate)
-    SMM => "smm",
+    pub const SMM: Self = Self(Cow::Borrowed("smm"));
 
     /// Constant Default Rate (annualized)
-    CDR => "cdr",
+    pub const CDR: Self = Self(Cow::Borrowed("cdr"));
 
     /// Loss Severity (1 - Recovery Rate)
-    LossSeverity => "loss_severity",
+    pub const LossSeverity: Self = Self(Cow::Borrowed("loss_severity"));
 
     /// Spread duration (time-weighted sensitivity to spread changes)
-    SpreadDuration => "spread_duration",
+    pub const SpreadDuration: Self = Self(Cow::Borrowed("spread_duration"));
 
     /// DM01 - Discount margin sensitivity (for floating-rate CLO)
-    Dm01 => "dm01",
+    pub const Dm01: Self = Self(Cow::Borrowed("dm01"));
 
-    // === ABS-specific Metrics ===
+    // ========================================================================
+    // ABS-specific Metrics
+    // ========================================================================
 
     /// Delinquency rate - Percentage of pool in delinquency
-    AbsDelinquency => "abs_delinquency",
+    pub const AbsDelinquency: Self = Self(Cow::Borrowed("abs_delinquency"));
 
     /// Charge-off rate - Percentage of pool charged off
-    AbsChargeOff => "abs_charge_off",
+    pub const AbsChargeOff: Self = Self(Cow::Borrowed("abs_charge_off"));
 
     /// Excess spread - Spread available to absorb losses
-    AbsExcessSpread => "abs_excess_spread",
+    pub const AbsExcessSpread: Self = Self(Cow::Borrowed("abs_excess_spread"));
 
     /// Credit enhancement level - Subordination as % of pool
-    AbsCreditEnhancement => "abs_ce_level",
+    pub const AbsCreditEnhancement: Self = Self(Cow::Borrowed("abs_ce_level"));
 
-    // === CLO-specific Metrics ===
+    // ========================================================================
+    // CLO-specific Metrics
+    // ========================================================================
 
     /// Weighted Average Rating Factor
-    CloWarf => "clo_warf",
+    pub const CloWarf: Self = Self(Cow::Borrowed("clo_warf"));
 
     /// Weighted Average Spread
-    CloWas => "clo_was",
+    pub const CloWas: Self = Self(Cow::Borrowed("clo_was"));
 
     /// Weighted Average Coupon
-    CloWac => "clo_wac",
+    pub const CloWac: Self = Self(Cow::Borrowed("clo_wac"));
 
     /// Portfolio diversity score
-    CloDiversity => "clo_diversity",
+    pub const CloDiversity: Self = Self(Cow::Borrowed("clo_diversity"));
 
     /// Overcollateralization ratio
-    CloOcRatio => "clo_oc_ratio",
+    pub const CloOcRatio: Self = Self(Cow::Borrowed("clo_oc_ratio"));
 
     /// Interest coverage ratio
-    CloIcRatio => "clo_ic_ratio",
+    pub const CloIcRatio: Self = Self(Cow::Borrowed("clo_ic_ratio"));
 
     /// Average recovery rate on defaults
-    CloRecoveryRate => "clo_recovery_rate",
+    pub const CloRecoveryRate: Self = Self(Cow::Borrowed("clo_recovery_rate"));
 
-    // === CMBS-specific Metrics ===
+    // ========================================================================
+    // CMBS-specific Metrics
+    // ========================================================================
 
     /// Debt Service Coverage Ratio
-    CmbsDscr => "cmbs_dscr",
+    pub const CmbsDscr: Self = Self(Cow::Borrowed("cmbs_dscr"));
 
     /// Weighted Average Loan-to-Value
-    CmbsWaltv => "cmbs_waltv",
+    pub const CmbsWaltv: Self = Self(Cow::Borrowed("cmbs_waltv"));
 
     /// Credit Enhancement Level
-    CmbsCreditEnhancement => "cmbs_ce_level",
+    pub const CmbsCreditEnhancement: Self = Self(Cow::Borrowed("cmbs_ce_level"));
 
-    // === RMBS-specific Metrics ===
+    // ========================================================================
+    // RMBS-specific Metrics
+    // ========================================================================
 
     /// PSA prepayment speed (e.g., 100% PSA)
-    RmbsPsaSpeed => "rmbs_psa_speed",
+    pub const RmbsPsaSpeed: Self = Self(Cow::Borrowed("rmbs_psa_speed"));
 
     /// SDA default speed
-    RmbsSdaSpeed => "rmbs_sda_speed",
+    pub const RmbsSdaSpeed: Self = Self(Cow::Borrowed("rmbs_sda_speed"));
 
     /// Weighted Average LTV for RMBS
-    RmbsWaltv => "rmbs_waltv",
+    pub const RmbsWaltv: Self = Self(Cow::Borrowed("rmbs_waltv"));
 
     /// Weighted Average FICO score
-    RmbsWafico => "rmbs_wafico",
+    pub const RmbsWafico: Self = Self(Cow::Borrowed("rmbs_wafico"));
 
-    // === Inflation-Linked Bond Metrics ===
+    // ========================================================================
+    // Inflation-Linked Bond Metrics
+    // ========================================================================
 
     /// Real yield (inflation-adjusted)
-    RealYield => "real_yield",
+    pub const RealYield: Self = Self(Cow::Borrowed("real_yield"));
 
     /// Inflation index ratio
-    IndexRatio => "index_ratio",
+    pub const IndexRatio: Self = Self(Cow::Borrowed("index_ratio"));
 
     /// Real duration (inflation-adjusted duration)
-    RealDuration => "real_duration",
+    pub const RealDuration: Self = Self(Cow::Borrowed("real_duration"));
 
     /// Breakeven inflation rate
-    BreakevenInflation => "breakeven_inflation",
+    pub const BreakevenInflation: Self = Self(Cow::Borrowed("breakeven_inflation"));
 
-    // === Private Equity / Private Markets Fund Metrics ===
+    // ========================================================================
+    // Private Equity / Private Markets Fund Metrics
+    // ========================================================================
 
     /// LP (Limited Partner) Internal Rate of Return
-    LpIrr => "lp_irr",
+    pub const LpIrr: Self = Self(Cow::Borrowed("lp_irr"));
 
     /// GP (General Partner) Internal Rate of Return
-    GpIrr => "gp_irr",
+    pub const GpIrr: Self = Self(Cow::Borrowed("gp_irr"));
 
     /// LP Multiple on Invested Capital
-    MoicLp => "moic_lp",
+    pub const MoicLp: Self = Self(Cow::Borrowed("moic_lp"));
 
     /// LP Distributions to Paid In (DPI ratio)
-    DpiLp => "dpi_lp",
+    pub const DpiLp: Self = Self(Cow::Borrowed("dpi_lp"));
 
     /// LP Total Value to Paid In (TVPI ratio)
-    TvpiLp => "tvpi_lp",
+    pub const TvpiLp: Self = Self(Cow::Borrowed("tvpi_lp"));
 
     /// Accrued carry amount for GP
-    CarryAccrued => "carry_accrued",
+    pub const CarryAccrued: Self = Self(Cow::Borrowed("carry_accrued"));
 
+    // ========================================================================
+    // ALL_STANDARD Array
+    // ========================================================================
+
+    /// All standard (non-custom) metric IDs.
+    pub const ALL_STANDARD: &'static [MetricId] = &[
+        MetricId::Theta,
+        MetricId::Dv01,
+        MetricId::Cs01,
+        MetricId::BucketedDv01,
+        MetricId::BucketedCs01,
+        MetricId::SpotRate,
+        MetricId::BaseAmount,
+        MetricId::QuoteAmount,
+        MetricId::InverseRate,
+        MetricId::EquityPricePerShare,
+        MetricId::EquityShares,
+        MetricId::EquityDividendYield,
+        MetricId::EquityForwardPrice,
+        MetricId::DirtyPrice,
+        MetricId::CleanPrice,
+        MetricId::Accrued,
+        MetricId::AccruedInterest,
+        MetricId::Ytm,
+        MetricId::Ytw,
+        MetricId::DurationMac,
+        MetricId::DurationMod,
+        MetricId::Convexity,
+        MetricId::ZSpread,
+        MetricId::Oas,
+        MetricId::ISpread,
+        MetricId::DiscountMargin,
+        MetricId::GSpread,
+        MetricId::ASWSpread,
+        MetricId::ASWPar,
+        MetricId::ASWMarket,
+        MetricId::ASWParFwd,
+        MetricId::ASWMarketFwd,
+        MetricId::Annuity,
+        MetricId::ParRate,
+        MetricId::Pv01,
+        MetricId::PvFixed,
+        MetricId::PvFloat,
+        MetricId::Yf,
+        MetricId::DfStart,
+        MetricId::DfEnd,
+        MetricId::DepositParRate,
+        MetricId::DfEndFromQuote,
+        MetricId::QuoteRate,
+        MetricId::ParSpread,
+        MetricId::RiskyPv01,
+        MetricId::ProtectionLegPv,
+        MetricId::PremiumLegPv,
+        MetricId::JumpToDefault,
+        MetricId::ExpectedLoss,
+        MetricId::DefaultProbability,
+        MetricId::Recovery01,
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Rho,
+        MetricId::ForwardPv01,
+        MetricId::Vanna,
+        MetricId::Volga,
+        MetricId::Veta,
+        MetricId::IrConvexity,
+        MetricId::CsGamma,
+        MetricId::InflationConvexity,
+        MetricId::Charm,
+        MetricId::Color,
+        MetricId::Speed,
+        MetricId::ImpliedVol,
+        MetricId::VarianceVega,
+        MetricId::ExpectedVariance,
+        MetricId::RealizedVariance,
+        MetricId::VarianceNotional,
+        MetricId::VarianceStrikeVol,
+        MetricId::VarianceTimeToMaturity,
+        MetricId::Dividend01,
+        MetricId::Inflation01,
+        MetricId::Prepayment01,
+        MetricId::Default01,
+        MetricId::Severity01,
+        MetricId::Conversion01,
+        MetricId::CollateralHaircut01,
+        MetricId::CollateralPrice01,
+        MetricId::Nav01,
+        MetricId::Carry01,
+        MetricId::Hurdle01,
+        MetricId::Dv01Domestic,
+        MetricId::Dv01Foreign,
+        MetricId::Fx01,
+        MetricId::Npv01,
+        MetricId::SpreadDv01,
+        MetricId::Correlation01,
+        MetricId::FxVega,
+        MetricId::ConvexityAdjustmentRisk,
+        MetricId::FinancingAnnuity,
+        MetricId::IndexDelta,
+        MetricId::PvPrimary,
+        MetricId::PvReference,
+        MetricId::AnnuityPrimary,
+        MetricId::AnnuityReference,
+        MetricId::Dv01Primary,
+        MetricId::Dv01Reference,
+        MetricId::BasisParSpread,
+        MetricId::CollateralValue,
+        MetricId::RequiredCollateral,
+        MetricId::CollateralCoverage,
+        MetricId::RepoInterest,
+        MetricId::FundingRisk,
+        MetricId::EffectiveRate,
+        MetricId::TimeToMaturity,
+        MetricId::ImpliedCollateralReturn,
+        MetricId::Nav,
+        MetricId::BasketValue,
+        MetricId::ConstituentCount,
+        MetricId::ExpenseRatio,
+        MetricId::TrackingError,
+        MetricId::Utilization,
+        MetricId::PremiumDiscount,
+        MetricId::WAL,
+        MetricId::WAM,
+        MetricId::ExpectedMaturity,
+        MetricId::PoolFactor,
+        MetricId::CPR,
+        MetricId::SMM,
+        MetricId::CDR,
+        MetricId::LossSeverity,
+        MetricId::SpreadDuration,
+        MetricId::Dm01,
+        MetricId::AbsDelinquency,
+        MetricId::AbsChargeOff,
+        MetricId::AbsExcessSpread,
+        MetricId::AbsCreditEnhancement,
+        MetricId::CloWarf,
+        MetricId::CloWas,
+        MetricId::CloWac,
+        MetricId::CloDiversity,
+        MetricId::CloOcRatio,
+        MetricId::CloIcRatio,
+        MetricId::CloRecoveryRate,
+        MetricId::CmbsDscr,
+        MetricId::CmbsWaltv,
+        MetricId::CmbsCreditEnhancement,
+        MetricId::RmbsPsaSpeed,
+        MetricId::RmbsSdaSpeed,
+        MetricId::RmbsWaltv,
+        MetricId::RmbsWafico,
+        MetricId::RealYield,
+        MetricId::IndexRatio,
+        MetricId::RealDuration,
+        MetricId::BreakevenInflation,
+        MetricId::LpIrr,
+        MetricId::GpIrr,
+        MetricId::MoicLp,
+        MetricId::DpiLp,
+        MetricId::TvpiLp,
+        MetricId::CarryAccrued,
+    ];
+}
+
+impl fmt::Display for MetricId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+// Lazy lookup table for FromStr
+static METRIC_LOOKUP: OnceLock<HashMap<String, MetricId>> = OnceLock::new();
+
+fn metric_lookup() -> &'static HashMap<String, MetricId> {
+    METRIC_LOOKUP.get_or_init(|| {
+        let mut map = HashMap::with_capacity(MetricId::ALL_STANDARD.len());
+        for m in MetricId::ALL_STANDARD {
+            // Names are already lower snake_case
+            map.insert(m.as_str().to_string(), m.clone());
+        }
+        map
+    })
+}
+
+impl FromStr for MetricId {
+    type Err = (); // Never fails since we have a catch-all Custom variant
+
+    /// Parses a string into a MetricId.
+    ///
+    /// This method never fails - any unrecognized string becomes a custom metric.
+    /// Standard metrics are matched case-insensitively in snake_case format.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lower = s.to_lowercase();
+        if let Some(id) = metric_lookup().get(&lower) {
+            Ok(id.clone())
+        } else {
+            Ok(MetricId::custom(lower))
+        }
+    }
 }

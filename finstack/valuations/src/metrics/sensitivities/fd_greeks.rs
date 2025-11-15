@@ -69,12 +69,12 @@ impl<I> Default for GenericFdDelta<I> {
 
 impl<I> MetricCalculator for GenericFdDelta<I>
 where
-    I: Instrument 
-        + EquityDependencies 
-        + HasExpiry 
-        + HasDayCount 
-        + HasPricingOverrides 
-        + Clone 
+    I: Instrument
+        + EquityDependencies
+        + HasExpiry
+        + HasDayCount
+        + HasPricingOverrides
+        + Clone
         + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -83,8 +83,11 @@ where
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
-        let spot_id = eq_deps.spot_id.as_ref()
-            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for delta calculation".to_string()))?;
+        let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Instrument missing spot_id for delta calculation".to_string(),
+            )
+        })?;
 
         // Get current spot for bump size calculation
         let spot_scalar = context.curves.price(spot_id)?;
@@ -100,12 +103,18 @@ where
                 // Use traits to get instrument properties for adaptive calculation
                 let time_to_expiry = instrument
                     .day_count()
-                    .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        as_of,
+                        instrument.expiry(),
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .ok()
                     .unwrap_or(0.0);
 
                 let atm_vol = if time_to_expiry > 0.0 {
-                    eq_deps.vol_surface_id.as_ref()
+                    eq_deps
+                        .vol_surface_id
+                        .as_ref()
                         .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                         .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
                         .unwrap_or(bump_sizes::VOLATILITY)
@@ -165,12 +174,12 @@ impl<I> Default for GenericFdGamma<I> {
 
 impl<I> MetricCalculator for GenericFdGamma<I>
 where
-    I: Instrument 
-        + EquityDependencies 
-        + HasExpiry 
-        + HasDayCount 
-        + HasPricingOverrides 
-        + Clone 
+    I: Instrument
+        + EquityDependencies
+        + HasExpiry
+        + HasDayCount
+        + HasPricingOverrides
+        + Clone
         + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -179,8 +188,11 @@ where
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
-        let spot_id = eq_deps.spot_id.as_ref()
-            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for gamma calculation".to_string()))?;
+        let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Instrument missing spot_id for gamma calculation".to_string(),
+            )
+        })?;
 
         // Get current spot for bump size calculation
         let spot_scalar = context.curves.price(spot_id)?;
@@ -196,12 +208,18 @@ where
                 // Use traits to get instrument properties for adaptive calculation
                 let time_to_expiry = instrument
                     .day_count()
-                    .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        as_of,
+                        instrument.expiry(),
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .ok()
                     .unwrap_or(0.0);
 
                 let atm_vol = if time_to_expiry > 0.0 {
-                    eq_deps.vol_surface_id.as_ref()
+                    eq_deps
+                        .vol_surface_id
+                        .as_ref()
                         .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                         .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
                         .unwrap_or(bump_sizes::VOLATILITY)
@@ -232,16 +250,10 @@ where
             Some("gamma_up_down".to_string());
 
         let pv_up_up = instrument_up_up
-            .value(
-                &bump_scalar_price(&curves_up, spot_id, bump_pct)?,
-                as_of,
-            )?
+            .value(&bump_scalar_price(&curves_up, spot_id, bump_pct)?, as_of)?
             .amount();
         let pv_up_down = instrument_up_down
-            .value(
-                &bump_scalar_price(&curves_up, spot_id, -bump_pct)?,
-                as_of,
-            )?
+            .value(&bump_scalar_price(&curves_up, spot_id, -bump_pct)?, as_of)?
             .amount();
         let delta_up = (pv_up_up - pv_up_down) / (2.0 * bump_size);
 
@@ -260,16 +272,10 @@ where
             .mc_seed_scenario = Some("gamma_down_down".to_string());
 
         let pv_down_up = instrument_down_up
-            .value(
-                &bump_scalar_price(&curves_down, spot_id, bump_pct)?,
-                as_of,
-            )?
+            .value(&bump_scalar_price(&curves_down, spot_id, bump_pct)?, as_of)?
             .amount();
         let pv_down_down = instrument_down_down
-            .value(
-                &bump_scalar_price(&curves_down, spot_id, -bump_pct)?,
-                as_of,
-            )?
+            .value(&bump_scalar_price(&curves_down, spot_id, -bump_pct)?, as_of)?
             .amount();
         let delta_down = (pv_down_up - pv_down_down) / (2.0 * bump_size);
 
@@ -306,7 +312,7 @@ where
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
-        
+
         // Get vol surface id from instrument
         let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
             tracing::warn!(
@@ -359,7 +365,7 @@ where
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
-        
+
         // Get vol surface id from instrument
         let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
             tracing::warn!(
@@ -405,12 +411,12 @@ impl<I> Default for GenericFdVanna<I> {
 
 impl<I> MetricCalculator for GenericFdVanna<I>
 where
-    I: Instrument 
-        + EquityDependencies 
-        + HasExpiry 
-        + HasDayCount 
-        + HasPricingOverrides 
-        + Clone 
+    I: Instrument
+        + EquityDependencies
+        + HasExpiry
+        + HasDayCount
+        + HasPricingOverrides
+        + Clone
         + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -419,10 +425,16 @@ where
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
-        let spot_id = eq_deps.spot_id.as_ref()
-            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing spot_id for vanna calculation".to_string()))?;
-        let vol_surface_id = eq_deps.vol_surface_id.as_ref()
-            .ok_or_else(|| finstack_core::Error::Validation("Instrument missing vol_surface_id for vanna calculation".to_string()))?;
+        let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Instrument missing spot_id for vanna calculation".to_string(),
+            )
+        })?;
+        let vol_surface_id = eq_deps.vol_surface_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Instrument missing vol_surface_id for vanna calculation".to_string(),
+            )
+        })?;
 
         // Spot level for bump sizing
         let spot_scalar = context.curves.price(spot_id)?;
@@ -434,10 +446,14 @@ where
         // Time to expiry and ATM vol for absolute denominators
         let t = instrument
             .day_count()
-            .year_fraction(as_of, instrument.expiry(), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                as_of,
+                instrument.expiry(),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .ok()
             .unwrap_or(0.0);
-            
+
         let atm_vol = if t > 0.0 {
             context
                 .curves

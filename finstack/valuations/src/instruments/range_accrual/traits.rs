@@ -1,7 +1,7 @@
 //! Trait implementations for RangeAccrual
 
-use crate::instruments::range_accrual::RangeAccrual;
 use crate::instruments::common::traits::EquityDependencies;
+use crate::instruments::range_accrual::RangeAccrual;
 use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for RangeAccrual {

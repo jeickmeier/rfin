@@ -1,7 +1,7 @@
 //! Trait implementations for LookbackOption
 
-use crate::instruments::lookback_option::LookbackOption;
 use crate::instruments::common::traits::EquityDependencies;
+use crate::instruments::lookback_option::LookbackOption;
 use crate::metrics::fd_greeks::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for LookbackOption {

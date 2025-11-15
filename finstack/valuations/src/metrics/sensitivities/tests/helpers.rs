@@ -27,4 +27,3 @@ fn test_standard_ir_dv01_buckets() {
     assert_eq!(buckets[0], 0.25);
     assert_eq!(buckets[10], 30.0);
 }
-

@@ -924,21 +924,31 @@ impl InstrumentCurves {
     pub fn builder() -> InstrumentCurvesBuilder {
         InstrumentCurvesBuilder::default()
     }
-    
+
     /// Iterator over all curves with their kind.
     pub fn all_with_kind(&self) -> impl Iterator<Item = (CurveId, RatesCurveKind)> + '_ {
-        self.discount_curves.iter().map(|c| (c.clone(), RatesCurveKind::Discount))
-            .chain(self.forward_curves.iter().map(|c| (c.clone(), RatesCurveKind::Forward)))
-            .chain(self.credit_curves.iter().map(|c| (c.clone(), RatesCurveKind::Credit)))
+        self.discount_curves
+            .iter()
+            .map(|c| (c.clone(), RatesCurveKind::Discount))
+            .chain(
+                self.forward_curves
+                    .iter()
+                    .map(|c| (c.clone(), RatesCurveKind::Forward)),
+            )
+            .chain(
+                self.credit_curves
+                    .iter()
+                    .map(|c| (c.clone(), RatesCurveKind::Credit)),
+            )
     }
-    
+
     /// Check if any curves are defined.
     pub fn is_empty(&self) -> bool {
-        self.discount_curves.is_empty() 
-            && self.forward_curves.is_empty() 
+        self.discount_curves.is_empty()
+            && self.forward_curves.is_empty()
             && self.credit_curves.is_empty()
     }
-    
+
     /// Total number of curves.
     pub fn len(&self) -> usize {
         self.discount_curves.len() + self.forward_curves.len() + self.credit_curves.len()
@@ -957,19 +967,19 @@ impl InstrumentCurvesBuilder {
         self.curves.discount_curves.push(curve_id);
         self
     }
-    
+
     /// Add a forward curve.
     pub fn forward(mut self, curve_id: CurveId) -> Self {
         self.curves.forward_curves.push(curve_id);
         self
     }
-    
+
     /// Add a credit/hazard curve.
     pub fn credit(mut self, curve_id: CurveId) -> Self {
         self.curves.credit_curves.push(curve_id);
         self
     }
-    
+
     /// Build the final curve collection.
     pub fn build(self) -> InstrumentCurves {
         self.curves
@@ -1047,7 +1057,7 @@ pub struct EquityInstrumentDeps {
     /// This is used to look up the current equity price in the market context
     /// for pricing and sensitivity calculations.
     pub spot_id: Option<String>,
-    
+
     /// Volatility surface identifier.
     ///
     /// This is used to look up implied volatilities for option pricing
@@ -1106,7 +1116,7 @@ impl EquityInstrumentDepsBuilder {
         self.deps.spot_id = Some(id.into());
         self
     }
-    
+
     /// Add a volatility surface identifier.
     ///
     /// # Arguments
@@ -1126,7 +1136,7 @@ impl EquityInstrumentDepsBuilder {
         self.deps.vol_surface_id = Some(id.into());
         self
     }
-    
+
     /// Build the final equity dependencies collection.
     pub fn build(self) -> EquityInstrumentDeps {
         self.deps

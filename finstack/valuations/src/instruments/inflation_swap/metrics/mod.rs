@@ -57,7 +57,9 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             MetricId::Npv01,
             Arc::new(crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            >::new(
+                crate::metrics::Dv01CalculatorConfig::parallel_combined()
+            )),
             &["InflationSwap"],
         );
 

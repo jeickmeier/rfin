@@ -99,7 +99,7 @@ fn test_bucketed_dv01_reasonable_magnitude() {
         "Bucketed DV01 should be non-zero for inflation swaps with unified calculator, got {}",
         bucketed_dv01
     );
-    
+
     // Bucketed DV01 should be reasonable in magnitude
     assert!(
         bucketed_dv01.abs() < 10.0,

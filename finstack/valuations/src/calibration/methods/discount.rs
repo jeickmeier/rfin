@@ -1327,9 +1327,9 @@ mod tests {
         );
 
         // Calculate DV01 using unified DV01 calculator
-        use crate::metrics::{UnifiedDv01Calculator, Dv01CalculatorConfig};
+        use crate::metrics::{Dv01CalculatorConfig, UnifiedDv01Calculator};
         let dv01_calc = UnifiedDv01Calculator::<crate::instruments::InterestRateSwap>::new(
-            Dv01CalculatorConfig::parallel_combined()
+            Dv01CalculatorConfig::parallel_combined(),
         );
         let dv01 = dv01_calc.calculate(&mut metric_ctx).unwrap();
 

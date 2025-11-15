@@ -33,9 +33,11 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
     );
 
     // Calculate DV01 using unified DV01 calculator
-    use finstack_valuations::metrics::{UnifiedDv01Calculator, Dv01CalculatorConfig};
+    use finstack_valuations::metrics::{Dv01CalculatorConfig, UnifiedDv01Calculator};
     let dv01_calc =
-        UnifiedDv01Calculator::<finstack_valuations::instruments::irs::InterestRateSwap>::new(Dv01CalculatorConfig::parallel_combined());
+        UnifiedDv01Calculator::<finstack_valuations::instruments::irs::InterestRateSwap>::new(
+            Dv01CalculatorConfig::parallel_combined(),
+        );
     dv01_calc.calculate(&mut metric_ctx).unwrap()
 }
 

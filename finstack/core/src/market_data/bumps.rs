@@ -35,9 +35,9 @@ pub enum BumpType {
     #[default]
     Parallel,
     /// Key-rate bump at specific maturity.
-    KeyRate { 
+    KeyRate {
         /// Time in years at which to apply the key-rate bump.
-        time_years: f64 
+        time_years: f64,
     },
 }
 
@@ -97,7 +97,7 @@ impl BumpSpec {
     }
 
     /// Create a key-rate bump at a specific time in years, specified in basis points.
-    /// 
+    ///
     /// # Arguments
     /// * `time_years` - The time in years at which to apply the key-rate bump
     /// * `bump_bp` - The bump size in basis points (e.g., 100.0 = 100bp = 1%)
@@ -193,9 +193,9 @@ impl Bumpable for DiscountCurve {
         if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
             match spec.bump_type {
                 BumpType::Parallel => self.try_with_parallel_bump(spec.value).ok(),
-                BumpType::KeyRate { time_years } => {
-                    self.try_with_key_rate_bump_years(time_years, spec.value).ok()
-                }
+                BumpType::KeyRate { time_years } => self
+                    .try_with_key_rate_bump_years(time_years, spec.value)
+                    .ok(),
             }
         } else {
             None
@@ -209,9 +209,10 @@ impl Bumpable for ForwardCurve {
             BumpType::Parallel => {
                 // Simple pattern matching without boxed closures
                 let (bump_amount, is_multiplicative) = match (spec.mode, spec.units) {
-                    (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
-                        (spec.additive_fraction()?, false)
-                    }
+                    (
+                        BumpMode::Additive,
+                        BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent,
+                    ) => (spec.additive_fraction()?, false),
                     (BumpMode::Multiplicative, BumpUnits::Factor) => (spec.value, true),
                     _ => return None,
                 };
@@ -248,7 +249,8 @@ impl Bumpable for ForwardCurve {
             BumpType::KeyRate { time_years } => {
                 // For key-rate bumps, only support additive rate bumps
                 if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-                    self.try_with_key_rate_bump_years(time_years, spec.value).ok()
+                    self.try_with_key_rate_bump_years(time_years, spec.value)
+                        .ok()
                 } else {
                     None
                 }
@@ -263,7 +265,7 @@ impl Bumpable for HazardCurve {
         if !matches!(spec.bump_type, BumpType::Parallel) {
             return None;
         }
-        
+
         let shift = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
                 spec.additive_fraction()?
@@ -303,7 +305,7 @@ impl Bumpable for InflationCurve {
         if !matches!(spec.bump_type, BumpType::Parallel) {
             return None;
         }
-        
+
         let factor = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
                 1.0 + spec.additive_fraction()?
@@ -340,7 +342,7 @@ impl Bumpable for BaseCorrelationCurve {
         if !matches!(spec.bump_type, BumpType::Parallel) {
             return None;
         }
-        
+
         let (add, mul) = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
                 (spec.additive_fraction()?, 1.0)

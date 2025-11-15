@@ -112,7 +112,9 @@ mod tests {
         // FX Spot has no discount or forward curves, so generic DV01 returns 0
         let fx = sample_fx();
         let mut ctx = context_for(fx, d(2025, 1, 15));
-        let calc = crate::metrics::UnifiedDv01Calculator::<crate::instruments::FxSpot>::new(crate::metrics::Dv01CalculatorConfig::parallel_combined());
+        let calc = crate::metrics::UnifiedDv01Calculator::<crate::instruments::FxSpot>::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined(),
+        );
         let value = calc.calculate(&mut ctx).unwrap();
         assert_eq!(value, 0.0, "FxSpot DV01 should be exactly 0.0");
     }

@@ -1,5 +1,5 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-use crate::metrics::{UnifiedDv01Calculator, MetricCalculator, MetricContext};
+use crate::metrics::{MetricCalculator, MetricContext, UnifiedDv01Calculator};
 use finstack_core::Result;
 
 /// Calculates DV01 (interest rate sensitivity) for Total Return Swaps.
@@ -16,13 +16,18 @@ pub struct TrsDv01Calculator;
 impl MetricCalculator for TrsDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Try Equity TRS first
-        if let Ok(result) =
-            UnifiedDv01Calculator::<EquityTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::parallel_combined()).calculate(context)
+        if let Ok(result) = UnifiedDv01Calculator::<EquityTotalReturnSwap>::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined(),
+        )
+        .calculate(context)
         {
             return Ok(result);
         }
 
         // Fall back to FI Index TRS
-        UnifiedDv01Calculator::<FIIndexTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::parallel_combined()).calculate(context)
+        UnifiedDv01Calculator::<FIIndexTotalReturnSwap>::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined(),
+        )
+        .calculate(context)
     }
 }

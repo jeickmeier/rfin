@@ -536,12 +536,12 @@ impl crate::instruments::common::traits::CurveDependencies for Bond {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
-        
+
         // Add credit curve if present
         if let Some(ref credit_curve_id) = self.credit_curve_id {
             builder = builder.credit(credit_curve_id.clone());
         }
-        
+
         // For floating rate bonds, add forward curve from the cashflow spec
         match &self.cashflow_spec {
             CashflowSpec::Floating(floating_spec) => {
@@ -555,7 +555,7 @@ impl crate::instruments::common::traits::CurveDependencies for Bond {
             }
             _ => {}
         }
-        
+
         builder.build()
     }
 }

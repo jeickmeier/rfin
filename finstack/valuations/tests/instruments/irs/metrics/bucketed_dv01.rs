@@ -209,7 +209,7 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     // - Bucketed: Key-rate bumps at specific times (more granular)
     // - Parallel: Single parallel bump across all maturities
     // The difference is expected and acceptable (<5% tolerance)
-    let tolerance = parallel.abs() * 0.05 + 500.0;  // 5% + 500 absolute
+    let tolerance = parallel.abs() * 0.05 + 500.0; // 5% + 500 absolute
     assert!(
         (sum_bucketed - parallel).abs() < tolerance,
         "Bucketed sum ({:.2}) differs from parallel ({:.2}) by more than tolerance ({:.2})",

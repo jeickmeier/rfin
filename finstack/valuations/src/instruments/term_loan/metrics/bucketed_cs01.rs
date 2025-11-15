@@ -29,7 +29,10 @@ impl MetricCalculator for BucketedCs01Calculator {
 
             // Create key-rate bump spec
             let mut bumps = HashMap::new();
-            bumps.insert(discount_curve_id.clone(), BumpSpec::key_rate_bp(time_years, 1.0));
+            bumps.insert(
+                discount_curve_id.clone(),
+                BumpSpec::key_rate_bp(time_years, 1.0),
+            );
 
             let bumped_ctx = base_ctx.bump(bumps)?;
             let bumped_pv = loan.value(&bumped_ctx, as_of)?;

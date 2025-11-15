@@ -1,5 +1,5 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-use crate::metrics::{UnifiedDv01Calculator, MetricCalculator, MetricContext};
+use crate::metrics::{MetricCalculator, MetricContext, UnifiedDv01Calculator};
 use finstack_core::{error::InputError, Error, Result};
 
 /// Bucketed DV01 calculator that dispatches to the appropriate TRS variant.
@@ -18,7 +18,9 @@ impl MetricCalculator for TrsBucketedDv01Calculator {
             .downcast_ref::<EquityTotalReturnSwap>()
             .is_some()
         {
-            let calc = UnifiedDv01Calculator::<EquityTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::key_rate());
+            let calc = UnifiedDv01Calculator::<EquityTotalReturnSwap>::new(
+                crate::metrics::Dv01CalculatorConfig::key_rate(),
+            );
             return calc.calculate(context);
         }
 
@@ -28,7 +30,9 @@ impl MetricCalculator for TrsBucketedDv01Calculator {
             .downcast_ref::<FIIndexTotalReturnSwap>()
             .is_some()
         {
-            let calc = UnifiedDv01Calculator::<FIIndexTotalReturnSwap>::new(crate::metrics::Dv01CalculatorConfig::key_rate());
+            let calc = UnifiedDv01Calculator::<FIIndexTotalReturnSwap>::new(
+                crate::metrics::Dv01CalculatorConfig::key_rate(),
+            );
             return calc.calculate(context);
         }
 
