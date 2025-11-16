@@ -5,18 +5,44 @@
 //! - Floating-rate notes (FRNs) with caps/floors
 //! - Callable and putable bonds (American/Bermudan exercise)
 //! - Zero-coupon bonds
-//! - Custom cashflow schedules
+//! - Custom cashflow schedules (including PIK and bespoke amortization)
+//!
+//! # Holder-View Cashflow Convention
+//!
+//! All bond cashflows in this module follow a **holder-view** convention:
+//! - **Positive amounts** represent contractual inflows to a long holder
+//!   (coupons, amortization, redemption).
+//! - **Initial draw / funding legs** are handled outside the schedule
+//!   (e.g., via trade price) and are **not** included in the projected
+//!   cashflow schedule.
+//!
+//! This convention is enforced by `Bond::build_schedule`, which turns the
+//! internal cashflow schedule into a simplified `(Date, Money)` stream used
+//! by pricing and risk engines.
 //!
 //! # Bond Pricing
 //!
-//! Bonds are priced by discounting all future cashflows:
+//! Bonds are priced by discounting all future holder-view cashflows:
 //!
 //! ```text
-//! PV = Σ CF_i · DF(t_i)
+//! PV = Σ CF_i · DF(as_of → t_i)
 //! ```
 //!
 //! For bonds with embedded options (calls/puts), tree-based pricing is used
-//! to value the optionality.
+//! to value the optionality. The short-rate / rates+credit trees operate on
+//! a time axis measured from `as_of` using the discount curve’s own
+//! day-count, so that:
+//! - `t = 0` corresponds to the valuation date `as_of`
+//! - `t > 0` are year-fractions to future cashflow and exercise dates
+//!
+//! # Accrual and Ex-Coupon Conventions
+//!
+//! Accrued interest is driven directly off the true coupon schedule and
+//! outstanding notional (for amortizing structures), with explicit support
+//! for:
+//! - Linear vs. compounded accrual (`AccrualMethod`)
+//! - Ex-coupon windows where accrual drops to zero
+//! - Custom-cashflow bonds that provide their own schedule and day-count
 //!
 //! # Regional Market Conventions
 //!
