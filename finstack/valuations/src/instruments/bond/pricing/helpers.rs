@@ -178,7 +178,12 @@ pub fn price_from_ytw(
             }
         }
     }
-    candidates.push((bond.maturity, bond.notional));
+    // At maturity, principal redemption is already present in the cashflow schedule,
+    // so use a zero additional redemption here to avoid double-counting.
+    candidates.push((
+        bond.maturity,
+        Money::new(0.0, bond.notional.currency()),
+    ));
 
     // Solve YTM for each candidate and pick the smallest
     let mut best_price = 0.0;

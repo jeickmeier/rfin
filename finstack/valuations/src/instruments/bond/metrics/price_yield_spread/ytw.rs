@@ -1,7 +1,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
@@ -9,6 +9,12 @@ use finstack_core::money::Money;
 pub struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        // YTW is defined off the market price (quoted clean + accrued), so we
+        // require Accrued to be computed first to construct the dirty price.
+        &[MetricId::Accrued]
+    }
+
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Build and cache flows and hints if not already present
         let flows = if let Some(ref flows) = context.cashflows {
@@ -51,27 +57,55 @@ impl MetricCalculator for YtwCalculator {
                 }
             }
             // Always include maturity
-            candidates.push((bond.maturity, bond.notional));
+            candidates.push((
+                bond.maturity,
+                // Redemption at maturity is already included in the cashflow schedule,
+                // so we do not add an extra principal flow here to avoid double-counting.
+                Money::new(0.0, bond.notional.currency()),
+            ));
             candidates
         };
 
-        // Get current dirty price from PV
-        let dirty_now = context.base_value;
+        // Construct current dirty market price from quoted clean price + accrued interest.
+        //
+        // This mirrors the YTM and DirtyPrice calculators so that YTW is
+        // defined relative to the same market price, not the model PV.
+        let bond: &Bond = context.instrument_as()?;
+        let clean_px = bond
+            .pricing_overrides
+            .quoted_clean_price
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "bond.pricing_overrides.quoted_clean_price".to_string(),
+                })
+            })?;
+
+        // Get accrued from computed metrics (dependency ensures this is present).
+        let accrued = context
+            .computed
+            .get(&MetricId::Accrued)
+            .copied()
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "metric:Accrued".to_string(),
+                })
+            })?;
+
+        // Dirty price in currency: quoted clean is % of par.
+        let dirty_amt = (clean_px * bond.notional.amount() / 100.0) + accrued;
+        let dirty_now = Money::new(dirty_amt, bond.notional.currency());
 
         // Find worst yield
         let mut best_ytm = f64::INFINITY;
         for (exercise_date, redemption) in candidates {
-            let y = {
-                let bond: &Bond = context.instrument_as()?;
-                self.solve_ytm_with_exercise(
-                    bond,
-                    flows,
-                    context.as_of,
-                    dirty_now,
-                    exercise_date,
-                    redemption,
-                )?
-            };
+            let y = self.solve_ytm_with_exercise(
+                bond,
+                flows,
+                context.as_of,
+                dirty_now,
+                exercise_date,
+                redemption,
+            )?;
 
             if y < best_ytm {
                 best_ytm = y;
