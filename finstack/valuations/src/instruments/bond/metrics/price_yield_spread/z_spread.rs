@@ -1,5 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use std::cell::RefCell;
 
@@ -11,7 +12,85 @@ use std::cell::RefCell;
 /// shift on discount factors: `df_z(t) = df_base(t) * exp(-z * t)`.
 ///
 /// Returns `z` in decimal units (e.g., 0.01 = 100 bps).
-pub struct ZSpreadCalculator;
+///
+/// Solver configuration is provided via [`ZSpreadSolverConfig`] and is
+/// maturity-aware by default.
+#[derive(Clone, Debug)]
+pub struct ZSpreadSolverConfig {
+    /// Convergence tolerance for the Z-spread solver (on the spread axis).
+    ///
+    /// Default: `1e-10`, which typically achieves price residuals well below
+    /// `1e-6 * notional` for investment-grade and high-yield bonds.
+    pub tolerance: f64,
+
+    /// Base half-width of the initial search bracket, in basis points.
+    ///
+    /// Short-dated IG credit is usually well inside ±100–300 bp, but we
+    /// default to a **wide** ±1000 bp range to comfortably cover HY.
+    pub base_bracket_bp: f64,
+
+    /// Maximum half-width of the initial search bracket after maturity scaling.
+    ///
+    /// Provides safety for distressed/long-dated names without exploding the
+    /// initial search domain.
+    pub max_bracket_bp: f64,
+}
+
+impl Default for ZSpreadSolverConfig {
+    fn default() -> Self {
+        Self {
+            tolerance: 1e-10,
+            // Short-dated bonds: ±1000 bp is generous and covers HY/distressed
+            base_bracket_bp: 1000.0,
+            // Allow widening for long maturities, but cap to a realistic range
+            max_bracket_bp: 3000.0,
+        }
+    }
+}
+
+/// Z-spread metric calculator for vanilla bonds.
+///
+/// Uses Brent's method with a maturity-aware initial bracket and a configurable
+/// tolerance. The default configuration is tuned for production use:
+/// - `tolerance = 1e-10`
+/// - short-dated bonds: ±1000 bp initial bracket
+/// - long-dated/distressed: widened up to ±3000 bp
+#[derive(Clone, Debug, Default)]
+pub struct ZSpreadCalculator {
+    config: ZSpreadSolverConfig,
+}
+
+impl ZSpreadCalculator {
+    /// Create a Z-spread calculator with default production-grade solver
+    /// settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a Z-spread calculator with a custom solver configuration.
+    pub fn with_config(config: ZSpreadSolverConfig) -> Self {
+        Self { config }
+    }
+
+    /// Compute a maturity-aware initial bracket in decimal units.
+    ///
+    /// Short-dated bonds use the base bracket (e.g., ±1000 bp). Longer
+    /// maturities widen the bracket smoothly up to `max_bracket_bp`.
+    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> f64 {
+        let dc = bond.cashflow_spec.day_count();
+        let years = dc
+            .year_fraction(as_of, bond.maturity, DayCountCtx::default())
+            .unwrap_or(0.0)
+            .max(0.0);
+
+        // Scale between 1x and 2x base over 0–30y, then clamp.
+        let maturity_scale = 1.0 + (years / 30.0).min(1.0);
+        let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
+            .min(self.config.max_bracket_bp);
+
+        bracket_bp / 10_000.0
+    }
+}
 
 impl MetricCalculator for ZSpreadCalculator {
     fn dependencies(&self) -> &[MetricId] {
@@ -65,10 +144,12 @@ impl MetricCalculator for ZSpreadCalculator {
             }
         };
 
-        // Solve using Brent with a reasonable bracket
+        // Solve using Brent with a maturity-aware bracket and production-grade
+        // tolerance. Initial guess is 0.0 (0 bp).
+        let bracket = self.initial_bracket_decimal(bond, as_of);
         let solver = BrentSolver::new()
-            .with_tolerance(1e-12)
-            .with_initial_bracket_size(Some(0.5)); // ±50% spread range is ample
+            .with_tolerance(self.config.tolerance)
+            .with_initial_bracket_size(Some(bracket));
         let z = solver.solve(objective, 0.0)?;
 
         // If any pricing error occurred during objective evaluation, surface it instead of

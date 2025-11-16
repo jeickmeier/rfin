@@ -1,10 +1,53 @@
-use crate::instruments::bond::CashflowSpec;
 use crate::instruments::bond::pricing::helpers as price_helpers;
+use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use std::cell::RefCell;
+
+/// Configuration for the discount margin solver.
+///
+/// # Tolerance and Bracketing
+///
+/// The DM solver uses Brent's method on the discount margin (decimal) space.
+/// Defaults are tuned for production use:
+/// - `tolerance = 1e-10` (tight enough for sub-penny price accuracy)
+/// - Base bracket of **±500 bp** for short-dated FRNs
+/// - Maturity-aware widening up to **±1000–1500 bp** for longer tenors
+///
+/// Bracket sizes are specified in basis points and automatically converted to
+/// decimal space for the underlying solver.
+#[derive(Clone, Debug)]
+pub struct DiscountMarginSolverConfig {
+    /// Convergence tolerance for the DM root finder (on the DM axis).
+    ///
+    /// Default: `1e-10`. This is consistent with production YTM guidance and
+    /// typically yields price residuals well below `1e-6 * notional`.
+    pub tolerance: f64,
+
+    /// Base half-width of the initial search bracket, in basis points.
+    ///
+    /// For example, `500.0` corresponds to an initial ±500 bp range for
+    /// short-dated FRNs. Longer maturities widen this range automatically.
+    pub base_bracket_bp: f64,
+
+    /// Maximum half-width of the initial search bracket, in basis points, after
+    /// maturity scaling is applied. Acts as a safety clamp for pathological cases.
+    pub max_bracket_bp: f64,
+}
+
+impl Default for DiscountMarginSolverConfig {
+    fn default() -> Self {
+        Self {
+            tolerance: 1e-10,
+            // Short-dated FRNs: ±500 bp is ample, even in stressed markets
+            base_bracket_bp: 500.0,
+            // Allow widening for long-dated/distressed names without going extreme
+            max_bracket_bp: 1500.0,
+        }
+    }
+}
 
 /// Discount Margin (DM) for floating-rate bonds.
 ///
@@ -17,9 +60,22 @@ use std::cell::RefCell;
 /// - Uses the FRN path: coupons are projected off the forward curve at reset
 ///   with margin and gearing from `FloatingCouponSpec`, then discounted with the
 ///   discount curve. The DM is added to the projected index rate.
-pub struct DiscountMarginCalculator;
+#[derive(Clone, Debug, Default)]
+pub struct DiscountMarginCalculator {
+    config: DiscountMarginSolverConfig,
+}
 
 impl DiscountMarginCalculator {
+    /// Create a DM calculator with default production-grade solver settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a DM calculator with a custom solver configuration.
+    pub fn with_config(config: DiscountMarginSolverConfig) -> Self {
+        Self { config }
+    }
+
     fn pv_given_dm(
         bond: &Bond,
         curves: &finstack_core::market_data::MarketContext,
@@ -27,6 +83,27 @@ impl DiscountMarginCalculator {
         dm: f64,
     ) -> finstack_core::Result<f64> {
         price_helpers::price_from_dm(bond, curves, as_of, dm)
+    }
+
+    /// Compute an initial bracket half-width (in decimal) based on maturity.
+    ///
+    /// Short-dated FRNs use the base bracket (e.g., ±500 bp). Longer maturities
+    /// widen the bracket smoothly up to `max_bracket_bp`, which improves
+    /// robustness for high-yield/distressed names without over-bracketing
+    /// short, high-grade bonds.
+    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> f64 {
+        let dc = bond.cashflow_spec.day_count();
+        let years = dc
+            .year_fraction(as_of, bond.maturity, DayCountCtx::default())
+            .unwrap_or(0.0)
+            .max(0.0);
+
+        // Scale bracket between 1x and 2x base over 0–30y, then clamp.
+        let maturity_scale = 1.0 + (years / 30.0).min(1.0);
+        let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
+            .min(self.config.max_bracket_bp);
+
+        bracket_bp / 10_000.0
     }
 }
 
@@ -75,9 +152,11 @@ impl MetricCalculator for DiscountMarginCalculator {
             }
         };
 
+        // Use a maturity-aware initial bracket with production-grade tolerance.
+        let bracket = self.initial_bracket_decimal(bond, context.as_of);
         let solver = BrentSolver::new()
-            .with_tolerance(1e-12)
-            .with_initial_bracket_size(Some(0.05));
+            .with_tolerance(self.config.tolerance)
+            .with_initial_bracket_size(Some(bracket));
         // Initial guess 0.0 (0 bp). DM returned in decimal (e.g., 0.01 = 100bp)
         let dm = solver.solve(objective, 0.0)?;
 

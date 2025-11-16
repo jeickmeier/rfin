@@ -21,11 +21,11 @@ pub use asw::{
     AssetSwapMarketCalculator, AssetSwapMarketFwdCalculator, AssetSwapParCalculator,
     AssetSwapParFwdCalculator,
 };
-pub use dm::DiscountMarginCalculator;
+pub use dm::{DiscountMarginCalculator, DiscountMarginSolverConfig};
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
-pub use z_spread::ZSpreadCalculator;
+pub use z_spread::{ZSpreadCalculator, ZSpreadSolverConfig};
 
