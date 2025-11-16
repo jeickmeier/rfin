@@ -637,8 +637,7 @@ mod tests {
     use time::Month;
 
     fn sample_date() -> Date {
-        Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date")
+        Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date")
     }
 
     #[test]

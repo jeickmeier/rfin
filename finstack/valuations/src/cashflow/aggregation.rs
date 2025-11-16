@@ -499,8 +499,7 @@ mod precision_tests {
                 (
                     Date::from_calendar_date(
                         2025 + years,
-                        Month::try_from((remaining_months + 1) as u8)
-                            .expect("Valid month (1-12)"),
+                        Month::try_from((remaining_months + 1) as u8).expect("Valid month (1-12)"),
                         1,
                     )
                     .expect("Valid test date"),
@@ -521,17 +520,16 @@ mod precision_tests {
     fn checked_currency_mismatch_errors() {
         let flows = vec![
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 Money::new(100.0, Currency::USD),
             ),
             (
-                Date::from_calendar_date(2025, Month::February, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::February, 1).expect("Valid test date"),
                 Money::new(200.0, Currency::EUR),
             ),
         ];
-        let err = aggregate_cashflows_precise_checked(&flows, Currency::USD).expect_err("should fail with currency mismatch");
+        let err = aggregate_cashflows_precise_checked(&flows, Currency::USD)
+            .expect_err("should fail with currency mismatch");
         match err {
             finstack_core::error::Error::CurrencyMismatch { .. } => {}
             _ => panic!("expected CurrencyMismatch"),
@@ -542,13 +540,11 @@ mod precision_tests {
     fn checked_sum_matches() {
         let flows = vec![
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 Money::new(100.0, Currency::USD),
             ),
             (
-                Date::from_calendar_date(2025, Month::February, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::February, 1).expect("Valid test date"),
                 Money::new(200.0, Currency::USD),
             ),
         ];
@@ -639,8 +635,9 @@ mod pv_ctx_tests {
             bus_basis: None,
         };
 
-        let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-            .expect("PV by period calculation should succeed in test");
+        let pv_map =
+            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+                .expect("PV by period calculation should succeed in test");
 
         // Sum of period PVs
         let sum_pv: f64 = pv_map
@@ -712,8 +709,9 @@ mod pv_ctx_tests {
             bus_basis: None,
         };
 
-        let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-            .expect("PV by period calculation should succeed in test");
+        let pv_map =
+            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+                .expect("PV by period calculation should succeed in test");
 
         // Q1 should have both USD and EUR
         let q1 = pv_map

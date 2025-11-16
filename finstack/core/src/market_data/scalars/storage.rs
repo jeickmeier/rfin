@@ -126,8 +126,8 @@ mod tests {
     fn test_storage_creation_and_sorting() {
         // Create unsorted observations
         let obs = vec![(2, 20.0), (0, 10.0), (1, 15.0), (3, 25.0)];
-        let storage = TimeSeriesStorage::new(obs)
-            .expect("TimeSeriesStorage creation should succeed in test");
+        let storage =
+            TimeSeriesStorage::new(obs).expect("TimeSeriesStorage creation should succeed in test");
 
         // Should be sorted
         assert_eq!(storage.len(), 4);
@@ -152,8 +152,8 @@ mod tests {
     #[test]
     fn test_storage_binary_search() {
         let obs = vec![(0, 10.0), (2, 15.0), (4, 20.0)];
-        let storage = TimeSeriesStorage::new(obs)
-            .expect("TimeSeriesStorage creation should succeed in test");
+        let storage =
+            TimeSeriesStorage::new(obs).expect("TimeSeriesStorage creation should succeed in test");
 
         // Exact match
         assert_eq!(storage.binary_search(2), Ok(1));
@@ -169,8 +169,8 @@ mod tests {
     #[test]
     fn test_storage_date_range() {
         let obs = vec![(5, 50.0), (1, 10.0), (10, 100.0)];
-        let storage = TimeSeriesStorage::new(obs)
-            .expect("TimeSeriesStorage creation should succeed in test");
+        let storage =
+            TimeSeriesStorage::new(obs).expect("TimeSeriesStorage creation should succeed in test");
 
         let (min, max) = storage.date_range();
         assert_eq!(min, 1);
@@ -180,8 +180,8 @@ mod tests {
     #[test]
     fn test_storage_iteration() {
         let obs = vec![(2, 20.0), (0, 10.0), (1, 15.0)];
-        let storage = TimeSeriesStorage::new(obs)
-            .expect("TimeSeriesStorage creation should succeed in test");
+        let storage =
+            TimeSeriesStorage::new(obs).expect("TimeSeriesStorage creation should succeed in test");
 
         let collected: Vec<_> = storage.iter().collect();
         assert_eq!(collected.len(), 3);

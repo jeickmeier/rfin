@@ -431,8 +431,8 @@ mod tests {
             base_date + time::Duration::days(730),
         ];
 
-        let factors =
-            DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of).expect("should succeed");
+        let factors = DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of)
+            .expect("should succeed");
 
         assert_eq!(factors.len(), 3);
         assert!((factors.get(0) - 1.0).abs() < 1e-10);
@@ -444,7 +444,9 @@ mod tests {
     fn test_fixed_rate_projector() {
         let projector = FixedRateProjector::new(0.05);
 
-        let rate = projector.project_rate(0.0, 0.25, 0).expect("should succeed");
+        let rate = projector
+            .project_rate(0.0, 0.25, 0)
+            .expect("should succeed");
         assert!((rate - 0.05).abs() < 1e-10);
     }
 

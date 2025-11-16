@@ -172,10 +172,8 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_no_floor_no_cap() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
         let market = create_test_market(reset);
 
         let rate = project_floating_rate(
@@ -196,10 +194,8 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_with_floor() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
         // Create market with very low rates (below floor)
         let fwd_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
@@ -232,10 +228,8 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_with_cap() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
         // Create market with high rates
         let fwd_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
@@ -268,10 +262,8 @@ mod tests {
 
     #[test]
     fn test_floor_applied_before_spread() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
         // Use very low rate (0.01% = 1 bp) which is below the floor
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
@@ -304,10 +296,8 @@ mod tests {
 
     #[test]
     fn test_cap_applied_after_gearing() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
             .base_date(reset)
@@ -339,10 +329,8 @@ mod tests {
 
     #[test]
     fn test_gearing_multiplies_all_in_rate() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let period_end = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
         let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
             .base_date(reset)
@@ -374,8 +362,7 @@ mod tests {
 
     #[test]
     fn test_project_floating_rate_simple() {
-        let reset = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let market = create_test_market(reset);
 
         let rate = project_floating_rate_simple(

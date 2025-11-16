@@ -180,7 +180,7 @@ impl CashFlowSchedule {
     }
 
     // Convenience iterators for callers to avoid ad-hoc filtering.
-    
+
     /// Get an iterator over coupon cashflows (Fixed and Stub types).
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows

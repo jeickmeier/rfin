@@ -84,7 +84,8 @@ impl InterpFn for LogLinearDf {
                     }
                     ExtrapolationPolicy::FlatForward => {
                         let slope = self.segment_slope(n - 2, n - 1);
-                        let extrapolated_log_df = self.log_dfs[n - 1] + slope * (x - self.knots[n - 1]);
+                        let extrapolated_log_df =
+                            self.log_dfs[n - 1] + slope * (x - self.knots[n - 1]);
                         extrapolated_log_df.exp()
                     }
                 };

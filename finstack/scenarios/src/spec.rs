@@ -107,7 +107,7 @@ pub enum OperationSpec {
         /// Equity identifiers to shock.
         ids: Vec<String>,
         /// Percentage price change.
-        pct: f64
+        pct: f64,
     },
 
     /// Instrument price shock by exact attribute match.
@@ -197,7 +197,7 @@ pub enum OperationSpec {
         /// Surface identifier.
         surface_id: String,
         /// Absolute shift in correlation points.
-        points: f64
+        points: f64,
     },
 
     /// Bucket-specific base correlation shifts.
@@ -287,7 +287,7 @@ pub enum OperationSpec {
         /// Statement node identifier.
         node_id: String,
         /// Percentage change to apply.
-        pct: f64
+        pct: f64,
     },
 
     /// Statement forecast value assignment.
@@ -305,7 +305,7 @@ pub enum OperationSpec {
         /// Statement node identifier.
         node_id: String,
         /// Absolute value to assign.
-        value: f64
+        value: f64,
     },
 
     /// Instrument spread shock by exact attribute match (FI only).

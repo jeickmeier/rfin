@@ -147,8 +147,7 @@ mod tests {
 
     impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
-            Date::from_calendar_date(2025, Month::January, 1)
-                .expect("Valid test date")
+            Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date")
         }
         fn df(&self, _t: f64) -> f64 {
             1.0
@@ -165,7 +164,8 @@ mod tests {
             (base, Money::new(10.0, crate::currency::Currency::USD)),
             (base, Money::new(5.0, crate::currency::Currency::USD)),
         ];
-        let pv = flows.npv(&curve, base, DayCount::Act365F)
+        let pv = flows
+            .npv(&curve, base, DayCount::Act365F)
             .expect("NPV calculation should succeed in test");
         assert!((pv.amount() - 15.0).abs() < 1e-12);
     }

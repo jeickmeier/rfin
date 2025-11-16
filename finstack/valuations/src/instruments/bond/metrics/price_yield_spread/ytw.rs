@@ -62,14 +62,11 @@ impl MetricCalculator for YtwCalculator {
         // This mirrors the YTM and DirtyPrice calculators so that YTW is
         // defined relative to the same market price, not the model PV.
         let bond: &Bond = context.instrument_as()?;
-        let clean_px = bond
-            .pricing_overrides
-            .quoted_clean_price
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "bond.pricing_overrides.quoted_clean_price".to_string(),
-                })
-            })?;
+        let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
+            })
+        })?;
 
         // Get accrued from computed metrics (dependency ensures this is present).
         let accrued = context

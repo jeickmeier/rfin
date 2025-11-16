@@ -910,11 +910,15 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 0.0, 0.40);
         let pricer = CDSPricer::new();
-        let par_spread = pricer.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
+        let par_spread = pricer
+            .par_spread(&cds, &disc, &credit, as_of)
+            .expect("should succeed");
         assert!(par_spread > 0.0 && par_spread < 2000.0);
         let mut cds_at_par = cds.clone();
         cds_at_par.premium.spread_bp = par_spread;
-        let npv = pricer.npv(&cds_at_par, &disc, &credit, as_of).expect("should succeed");
+        let npv = pricer
+            .npv(&cds_at_par, &disc, &credit, as_of)
+            .expect("should succeed");
         assert!(npv.amount().abs() < 15000.0);
     }
 
@@ -951,8 +955,12 @@ mod tests {
             par_spread_uses_full_premium: true,
             ..Default::default()
         });
-        let s1 = pricer_ra.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
-        let s2 = pricer_full.par_spread(&cds, &disc, &credit, as_of).expect("should succeed");
+        let s1 = pricer_ra
+            .par_spread(&cds, &disc, &credit, as_of)
+            .expect("should succeed");
+        let s2 = pricer_full
+            .par_spread(&cds, &disc, &credit, as_of)
+            .expect("should succeed");
         assert!(s1.is_finite() && s2.is_finite());
     }
 }

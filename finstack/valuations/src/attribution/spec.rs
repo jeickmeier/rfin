@@ -291,10 +291,8 @@ mod tests {
             "TEST-BOND",
             Money::new(1_000_000.0, Currency::USD),
             0.05,
-            create_date(2024, Month::January, 1)
-                .expect("Valid test date"),
-            create_date(2034, Month::January, 1)
-                .expect("Valid test date"),
+            create_date(2024, Month::January, 1).expect("Valid test date"),
+            create_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         );
 
@@ -318,10 +316,8 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
             },
-            as_of_t0: create_date(2025, Month::January, 1)
-                .expect("Valid test date"),
-            as_of_t1: create_date(2025, Month::January, 2)
-                .expect("Valid test date"),
+            as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
+            as_of_t1: create_date(2025, Month::January, 2).expect("Valid test date"),
             method: AttributionMethod::Parallel,
             config: None,
         };
@@ -329,8 +325,8 @@ mod tests {
         let envelope = AttributionEnvelope::new(spec);
         let json = serde_json::to_string_pretty(&envelope)
             .expect("JSON serialization should succeed in test");
-        let parsed: AttributionEnvelope = serde_json::from_str(&json)
-            .expect("JSON deserialization should succeed in test");
+        let parsed: AttributionEnvelope =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
 
         assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
         assert_eq!(parsed.attribution.as_of_t0, envelope.attribution.as_of_t0);
@@ -345,8 +341,8 @@ mod tests {
             metrics: None,
         };
 
-        let json = serde_json::to_value(&config)
-            .expect("JSON value conversion should succeed in test");
+        let json =
+            serde_json::to_value(&config).expect("JSON value conversion should succeed in test");
         assert!(json.get("tolerance_abs").is_some());
         assert!(json.get("tolerance_pct").is_some());
         // metrics should not be present when None

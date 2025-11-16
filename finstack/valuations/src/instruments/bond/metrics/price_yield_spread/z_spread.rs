@@ -87,8 +87,8 @@ impl ZSpreadCalculator {
 
         // Scale between 1x and 2x base over 0–30y, then clamp.
         let maturity_scale = 1.0 + (years / 30.0).min(1.0);
-        let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
-            .min(self.config.max_bracket_bp);
+        let bracket_bp =
+            (self.config.base_bracket_bp * maturity_scale).min(self.config.max_bracket_bp);
 
         Ok(bracket_bp / 10_000.0)
     }

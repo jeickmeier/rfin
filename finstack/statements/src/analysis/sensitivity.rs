@@ -176,7 +176,9 @@ mod tests {
         ));
         config.add_target_metric("gross_profit");
 
-        let result = analyzer.run(&config).expect("sensitivity analysis should succeed");
+        let result = analyzer
+            .run(&config)
+            .expect("sensitivity analysis should succeed");
         assert_eq!(result.scenarios.len(), 3); // 3 perturbations
     }
 }

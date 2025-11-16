@@ -476,11 +476,13 @@ mod tests {
         let vs = flat_surface();
         assert!((vs.value(1.5, 95.0) - 0.2).abs() < 1e-12);
         // checked path
-        assert!((vs.value_checked(1.5, 95.0)
-            .expect("Value lookup should succeed in test")
-            - 0.2)
-            .abs()
-            < 1e-12);
+        assert!(
+            (vs.value_checked(1.5, 95.0)
+                .expect("Value lookup should succeed in test")
+                - 0.2)
+                .abs()
+                < 1e-12
+        );
         // clamped path (below min strike/expiry)
         assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
     }

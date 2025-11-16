@@ -54,14 +54,14 @@ pub enum Error {
     #[error("Market data not found: {id}")]
     MarketDataNotFound {
         /// Identifier of the missing market data element.
-        id: String
+        id: String,
     },
 
     /// Statement node not found.
     #[error("Statement node not found: {node_id}")]
     NodeNotFound {
         /// Identifier of the missing statement node.
-        node_id: String
+        node_id: String,
     },
 
     /// Curve type mismatch.
@@ -70,7 +70,7 @@ pub enum Error {
         /// Expected curve type.
         expected: String,
         /// Actual curve type encountered.
-        actual: String
+        actual: String,
     },
 
     /// Unsupported operation for target.
@@ -79,7 +79,7 @@ pub enum Error {
         /// Operation being attempted.
         operation: String,
         /// Target on which the operation is unsupported.
-        target: String
+        target: String,
     },
 
     /// Core library error.
@@ -108,7 +108,7 @@ pub enum Error {
         /// Tenor string that was not found.
         tenor: String,
         /// Identifier of the curve.
-        curve_id: String
+        curve_id: String,
     },
 
     /// Invalid time period.

@@ -171,16 +171,8 @@ impl CashFlowSchedule {
         }
 
         // Create single period spanning all flows
-        let first = self
-            .flows
-            .first()
-            .expect("Flows should not be empty")
-            .date;
-        let last = self
-            .flows
-            .last()
-            .expect("Flows should not be empty")
-            .date;
+        let first = self.flows.first().expect("Flows should not be empty").date;
+        let last = self.flows.last().expect("Flows should not be empty").date;
         let period = Period {
             id: finstack_core::dates::PeriodId::annual(first.year()),
             start: first,
@@ -484,12 +476,8 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(
-            y,
-            Month::try_from(m).expect("Valid month (1-12)"),
-            day,
-        )
-        .expect("Valid test date")
+        Date::from_calendar_date(y, Month::try_from(m).expect("Valid month (1-12)"), day)
+            .expect("Valid test date")
     }
 
     fn quarters_2025() -> Vec<Period> {

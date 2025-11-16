@@ -263,7 +263,7 @@ impl ScalarTimeSeries {
     /// .expect("Series creation should succeed");
     /// let jan = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
     /// assert_eq!(series.value_on(jan).expect("Value lookup should succeed"), 10.0);
-///
+    ///
     /// let linear = series.clone().with_interpolation(SeriesInterpolation::Linear);
     /// assert!(linear.value_on(jan).expect("Value lookup should succeed") > 10.0);
     /// ```
@@ -431,15 +431,14 @@ mod tests {
 
     #[test]
     fn series_step_and_linear() {
-        let d0 = time::Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let d0 =
+            time::Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         let d1 = time::Date::from_calendar_date(2025, time::Month::February, 1)
             .expect("Valid test date");
-        let d2 = time::Date::from_calendar_date(2025, time::Month::March, 1)
-            .expect("Valid test date");
-        let s =
-            ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)], None)
-                .expect("ScalarTimeSeries creation should succeed in test");
+        let d2 =
+            time::Date::from_calendar_date(2025, time::Month::March, 1).expect("Valid test date");
+        let s = ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)], None)
+            .expect("ScalarTimeSeries creation should succeed in test");
 
         // Midpoint between d0 and d1
         let mid = d0 + TimeDuration::days(15);
@@ -476,8 +475,7 @@ mod tests {
     fn test_scalar_time_series_single_point_error() {
         // Test that single-point series returns proper error
         let single_obs = vec![(
-            time::Date::from_calendar_date(2025, time::Month::January, 1)
-                .expect("Valid test date"),
+            time::Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
             100.0,
         )];
 

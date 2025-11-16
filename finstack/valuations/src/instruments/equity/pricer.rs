@@ -182,8 +182,8 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         let result = pricer.price_dyn(&equity, &market, as_of);
         assert!(result.is_ok());
@@ -198,8 +198,8 @@ mod tests {
         let equity = create_test_equity();
         let empty_market = MarketContext::new(); // No discount curve
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         let result = pricer.price_dyn(&equity, &empty_market, as_of);
         assert!(result.is_ok()); // Should use epoch fallback date
@@ -214,8 +214,8 @@ mod tests {
     fn test_equity_pricing_type_mismatch_error() {
         let pricer = SimpleEquityDiscountingPricer::new();
         let market = create_test_market_context();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         // Create a different instrument type (we'll use the equity itself but test type checking)
         // This test verifies the type checking logic works
@@ -231,8 +231,8 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         // Test that error propagation works correctly
         // This test verifies that date creation errors are properly handled
@@ -249,8 +249,8 @@ mod tests {
         let equity = create_test_equity();
         let empty_market = MarketContext::new();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         let result = pricer.price_dyn(&equity, &empty_market, as_of);
         assert!(result.is_ok());
@@ -278,8 +278,8 @@ mod tests {
 
         let market = MarketContext::new(); // No discount curve for EUR
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         let result = pricer.price_dyn(&eur_equity, &market, as_of);
         assert!(result.is_ok());
@@ -295,8 +295,8 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
 
         // Test that any errors have meaningful messages
         let result = pricer.price_dyn(&equity, &market, as_of);

@@ -108,12 +108,12 @@ impl MonotoneConvex {
         epsilon: f64,
     ) -> crate::Result<Self> {
         use crate::error::InputError;
-        
+
         // Validate epsilon is reasonable
         if epsilon <= 0.0 || epsilon > 1e-6 {
             return Err(InputError::Invalid.into());
         }
-        
+
         debug_assert_eq!(knots.len(), dfs.len());
 
         // ---- Sanity checks -------------------------------------------------
@@ -307,8 +307,7 @@ impl InterpFn for MonotoneConvex {
         let idx = if let Ok(idx_exact) = self.knots.binary_search_by(|k| {
             k.partial_cmp(&x)
                 .expect("f64 comparison should always be comparable")
-        })
-        {
+        }) {
             // Exact knot: use right derivative for consistency (except at last knot)
             if idx_exact == self.knots.len() - 1 {
                 idx_exact - 1

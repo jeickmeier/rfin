@@ -283,7 +283,8 @@ mod tests {
     }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("should succeed")
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day)
+            .expect("should succeed")
     }
 
     #[test]
@@ -339,7 +340,9 @@ mod tests {
             base_value,
         );
 
-        let moic = MoicLpCalculator.calculate(&mut context).expect("should succeed");
+        let moic = MoicLpCalculator
+            .calculate(&mut context)
+            .expect("should succeed");
         assert!((moic - 2.0).abs() < 1e-6); // 2x multiple
     }
 }

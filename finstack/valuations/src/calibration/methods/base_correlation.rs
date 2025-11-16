@@ -500,8 +500,7 @@ mod tests {
     use time::Month;
 
     fn create_test_market_context() -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
@@ -542,8 +541,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_calibrator_creation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         assert_eq!(calibrator.index_id, "CDX.NA.IG.42");
@@ -557,8 +555,7 @@ mod tests {
 
     #[test]
     fn test_synthetic_tranche_creation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         let tranche = calibrator
@@ -589,8 +586,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_surface_calibrator() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let surface_calibrator = BaseCorrelationSurfaceCalibrator::new(
             "CDX.NA.IG.42",
             42,
@@ -609,10 +605,8 @@ mod tests {
     fn test_base_correlation_calibration_round_trip() {
         use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2030, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
 
         // Create test market context
         let market_ctx = create_test_market_context();
@@ -710,8 +704,8 @@ mod tests {
         let calibration_result = calibrator.calibrate(&synthetic_quotes, &clean_market_ctx);
 
         assert!(calibration_result.is_ok());
-        let (calibrated_curve, report) = calibration_result
-            .expect("Calibration should succeed with synthetic quotes");
+        let (calibrated_curve, report) =
+            calibration_result.expect("Calibration should succeed with synthetic quotes");
 
         // Verify calibration was successful
         assert!(report.success);

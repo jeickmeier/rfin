@@ -283,12 +283,8 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(
-            y,
-            Month::try_from(m).expect("Valid month (1-12)"),
-            day,
-        )
-        .expect("Valid test date")
+        Date::from_calendar_date(y, Month::try_from(m).expect("Valid month (1-12)"), day)
+            .expect("Valid test date")
     }
 
     #[test]

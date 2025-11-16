@@ -284,10 +284,7 @@ mod tests {
         // Store and retrieve
         assert!(cache.put(1, result));
         let retrieved = cache.get(1).expect("Value should exist after put");
-        assert_eq!(
-            retrieved.as_scalar().expect("Value should be scalar"),
-            data
-        );
+        assert_eq!(retrieved.as_scalar().expect("Value should be scalar"), data);
 
         // Check stats
         let stats = cache.stats();
@@ -301,10 +298,8 @@ mod tests {
         // Create cache with very small budget (64KB = 0.0625MB)
         // Each large_data item is ~80KB (10000 * 8 bytes), so only one will fit
         let mut cache = ExpressionCache {
-            cache: LruCache::new(
-                NonZeroUsize::new(10).expect("10 should be non-zero")
-            ), // Small capacity for testing
-            max_memory: 65536,                                    // 64KB in bytes
+            cache: LruCache::new(NonZeroUsize::new(10).expect("10 should be non-zero")), // Small capacity for testing
+            max_memory: 65536, // 64KB in bytes
             current_memory: 0,
             stats: CacheStats {
                 hits: 0,

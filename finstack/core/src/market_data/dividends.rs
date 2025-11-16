@@ -316,12 +316,9 @@ mod tests {
 
     #[test]
     fn build_and_filter_schedule() {
-        let d1 = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let d2 = Date::from_calendar_date(2025, Month::March, 15)
-            .expect("Valid test date");
-        let d3 = Date::from_calendar_date(2025, Month::June, 15)
-            .expect("Valid test date");
+        let d1 = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let d2 = Date::from_calendar_date(2025, Month::March, 15).expect("Valid test date");
+        let d3 = Date::from_calendar_date(2025, Month::June, 15).expect("Valid test date");
 
         let sched = DividendScheduleBuilder::new("AAPL-DIVS")
             .underlying("AAPL")

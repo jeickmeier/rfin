@@ -258,7 +258,10 @@ mod tests {
             .expect("valid bond");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
+        let cs = builder
+            .capital_structure
+            .as_ref()
+            .expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
@@ -289,7 +292,10 @@ mod tests {
             .expect("valid swap");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
+        let cs = builder
+            .capital_structure
+            .as_ref()
+            .expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
@@ -328,7 +334,10 @@ mod tests {
             .expect("valid bond");
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
+        let cs = builder
+            .capital_structure
+            .as_ref()
+            .expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 2);
     }
 
@@ -347,7 +356,10 @@ mod tests {
             );
 
         assert!(builder.capital_structure.is_some());
-        let cs = builder.capital_structure.as_ref().expect("capital_structure should exist");
+        let cs = builder
+            .capital_structure
+            .as_ref()
+            .expect("capital_structure should exist");
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {

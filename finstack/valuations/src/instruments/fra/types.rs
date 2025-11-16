@@ -55,9 +55,15 @@ impl ForwardRateAgreement {
         Self::builder()
             .id(InstrumentId::new("FRA-3X6-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .fixing_date(Date::from_calendar_date(2024, time::Month::April, 1).expect("Valid example date"))
-            .start_date(Date::from_calendar_date(2024, time::Month::April, 3).expect("Valid example date"))
-            .end_date(Date::from_calendar_date(2024, time::Month::July, 3).expect("Valid example date"))
+            .fixing_date(
+                Date::from_calendar_date(2024, time::Month::April, 1).expect("Valid example date"),
+            )
+            .start_date(
+                Date::from_calendar_date(2024, time::Month::April, 3).expect("Valid example date"),
+            )
+            .end_date(
+                Date::from_calendar_date(2024, time::Month::July, 3).expect("Valid example date"),
+            )
             .fixed_rate(0.045)
             .day_count(DayCount::Act360)
             .reset_lag(2)
@@ -275,8 +281,7 @@ mod tests {
     #[cfg(feature = "slow")]
     fn fra_par_pv_near_zero_with_settlement_adjustment() {
         // Build simple flat curves: 5% forward, discount with reasonable decay
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let disc = DiscountCurve::builder("DISC")
             .base_date(base)
             .knots([(0.0, 1.0), (5.0, 0.78)])

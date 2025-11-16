@@ -13,17 +13,17 @@ pub enum FinalPayoffType {
     /// Capital protection: max(floor, participation * min(S_T/S_0, cap))
     CapitalProtection {
         /// Minimum return floor (e.g., 1.0 for 100% protection)
-        floor: f64
+        floor: f64,
     },
     /// Participation: 1 + participation_rate * max(0, S_T/S_0 - 1)
     Participation {
         /// Participation rate in upside (e.g., 1.0 for 100% participation)
-        rate: f64
+        rate: f64,
     },
     /// Knock-in put: Put option if barrier breached, otherwise return principal
     KnockInPut {
         /// Strike price for knock-in put option
-        strike: f64
+        strike: f64,
     },
 }
 

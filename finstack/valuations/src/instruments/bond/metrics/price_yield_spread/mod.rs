@@ -28,4 +28,3 @@ pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
 pub use z_spread::{ZSpreadCalculator, ZSpreadSolverConfig};
-

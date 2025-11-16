@@ -31,7 +31,8 @@ impl MetricCalculator for OasCalculator {
         // Tree pricer returns OAS in **basis points**; convert to decimal
         // so all bond spread-style metrics use a consistent convention
         // (0.01 = 100bp) at the public API surface.
-        let oas_bp = oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)?;
+        let oas_bp =
+            oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)?;
         Ok(oas_bp / 10_000.0)
     }
 }

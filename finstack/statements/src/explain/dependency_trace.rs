@@ -285,14 +285,20 @@ mod tests {
         let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
-        let deps_a = tracer.direct_dependencies("a").expect("should get dependencies");
+        let deps_a = tracer
+            .direct_dependencies("a")
+            .expect("should get dependencies");
         assert_eq!(deps_a.len(), 0);
 
-        let deps_b = tracer.direct_dependencies("b").expect("should get dependencies");
+        let deps_b = tracer
+            .direct_dependencies("b")
+            .expect("should get dependencies");
         assert_eq!(deps_b.len(), 1);
         assert!(deps_b.contains(&"a"));
 
-        let deps_c = tracer.direct_dependencies("c").expect("should get dependencies");
+        let deps_c = tracer
+            .direct_dependencies("c")
+            .expect("should get dependencies");
         assert_eq!(deps_c.len(), 2);
         assert!(deps_c.contains(&"a"));
         assert!(deps_c.contains(&"b"));
@@ -318,7 +324,9 @@ mod tests {
         let tracer = DependencyTracer::new(&model, &graph);
 
         // d depends on c, c depends on b, b depends on a, and d also depends on a
-        let deps = tracer.all_dependencies("d").expect("should get all dependencies");
+        let deps = tracer
+            .all_dependencies("d")
+            .expect("should get all dependencies");
         assert_eq!(deps.len(), 3); // a, b, c
         assert!(deps.contains(&"a".to_string()));
         assert!(deps.contains(&"b".to_string()));
@@ -342,7 +350,9 @@ mod tests {
         let graph = DependencyGraph::from_model(&model).expect("should build dependency graph");
         let tracer = DependencyTracer::new(&model, &graph);
 
-        let tree = tracer.dependency_tree("gross_profit").expect("should build dependency tree");
+        let tree = tracer
+            .dependency_tree("gross_profit")
+            .expect("should build dependency tree");
         assert_eq!(tree.node_id, "gross_profit");
         assert_eq!(tree.children.len(), 2);
         assert_eq!(tree.depth(), 2); // gross_profit -> cogs -> revenue (depth 2)

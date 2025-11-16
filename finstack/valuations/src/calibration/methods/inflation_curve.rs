@@ -392,8 +392,7 @@ mod tests {
     use time::Month;
 
     fn create_test_inflation_quotes() -> Vec<InflationQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         vec![
             InflationQuote::InflationSwap {
@@ -415,8 +414,7 @@ mod tests {
     }
 
     fn create_test_inflation_index() -> InflationIndex {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let observations = vec![
             (base_date - time::Duration::days(365), 280.0),
             (base_date - time::Duration::days(180), 285.0),
@@ -440,8 +438,7 @@ mod tests {
 
     #[test]
     fn test_inflation_curve_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = InflationCurveCalibrator::new(
             "US-CPI-U",
             base_date,
@@ -461,8 +458,7 @@ mod tests {
         let result = calibrator.calibrate(&quotes, &market_context);
 
         assert!(result.is_ok());
-        let (curve, report) = result
-            .expect("Calibration should succeed in test");
+        let (curve, report) = result.expect("Calibration should succeed in test");
         assert!(report.success);
         assert_eq!(curve.id().as_str(), "US-CPI-U");
         // Note: base_cpi is private, so we can't directly access it in tests
@@ -472,8 +468,7 @@ mod tests {
 
     #[test]
     fn test_inflation_curve_with_lag_and_seasonality() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Create seasonality factors (e.g., higher inflation in summer months)
         let seasonality_factors: [f64; 12] = [
@@ -494,8 +489,7 @@ mod tests {
         let result = calibrator.calibrate(&quotes, &market_context);
         assert!(result.is_ok());
 
-        let (curve, report) = result
-            .expect("Calibration should succeed in test");
+        let (curve, report) = result.expect("Calibration should succeed in test");
         assert!(report.success);
 
         // Check that metadata includes our new settings
@@ -515,8 +509,7 @@ mod tests {
     #[test]
     fn test_inflation_swap_repricing_under_bootstrap() {
         // Base setup
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let base_cpi = 290.0;
 
         // Quotes for inflation swaps (par fixed rates)
@@ -541,8 +534,7 @@ mod tests {
         );
         let calib = calibrator.calibrate(&quotes, &base_context);
         assert!(calib.is_ok(), "calibration failed: {:?}", calib.err());
-        let (infl_curve, _report) = calib
-            .expect("Calibration should succeed in test");
+        let (infl_curve, _report) = calib.expect("Calibration should succeed in test");
 
         // Build an inflation index with base observation for pricing
         let infl_index_res = InflationIndex::new(
@@ -558,8 +550,7 @@ mod tests {
             "inflation index build failed: {:?}",
             infl_index_res.err()
         );
-        let infl_index = infl_index_res
-            .expect("InflationIndex creation should succeed in test");
+        let infl_index = infl_index_res.expect("InflationIndex creation should succeed in test");
 
         // Market context with calibrated inflation curve and index
         let ctx = base_context

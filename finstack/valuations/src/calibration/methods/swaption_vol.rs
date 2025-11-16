@@ -40,7 +40,7 @@ pub enum SwaptionVolConvention {
     /// Shifted lognormal for negative rates
     ShiftedLognormal {
         /// Shift amount for negative rate handling
-        shift: f64
+        shift: f64,
     },
 }
 

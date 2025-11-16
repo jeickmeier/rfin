@@ -109,7 +109,7 @@ pub enum TrancheCoupon {
     /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
     Fixed {
         /// Fixed interest rate as decimal (e.g., 0.05 for 5%)
-        rate: f64
+        rate: f64,
     },
 
     /// Floating rate coupon using canonical FloatingRateSpec.

@@ -97,7 +97,8 @@ mod tests {
     use time::Month;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("valid date")
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day)
+            .expect("valid date")
     }
 
     fn create_test_repo() -> Repo {
@@ -199,7 +200,9 @@ mod tests {
             pv,
         );
         // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 should be negative
-        let res = reg.compute(&[MetricId::Dv01], &mut mctx).expect("should succeed");
+        let res = reg
+            .compute(&[MetricId::Dv01], &mut mctx)
+            .expect("should succeed");
         let dv01 = *res.get(&MetricId::Dv01).expect("should succeed");
         assert!(dv01 <= 0.0);
     }
@@ -218,7 +221,9 @@ mod tests {
             pv,
         );
         let reg = standard_registry();
-        let res = reg.compute(&[MetricId::RepoInterest], &mut mctx).expect("should succeed");
+        let res = reg
+            .compute(&[MetricId::RepoInterest], &mut mctx)
+            .expect("should succeed");
         let m_interest = *res.get(&MetricId::RepoInterest).expect("should succeed");
         let direct = repo.interest_amount().expect("should succeed").amount();
         assert!((m_interest - direct).abs() < 1e-9);
@@ -241,7 +246,9 @@ mod tests {
         let res = reg
             .compute(&[MetricId::CollateralCoverage], &mut mctx)
             .expect("should succeed");
-        let cov = *res.get(&MetricId::CollateralCoverage).expect("should succeed");
+        let cov = *res
+            .get(&MetricId::CollateralCoverage)
+            .expect("should succeed");
         // 1020 / 1,020,000 = 0.001
         assert!((cov - 0.001).abs() < 1e-6);
     }
@@ -274,8 +281,12 @@ mod tests {
         let ttm = *res.get(&MetricId::TimeToMaturity).expect("should succeed");
         assert!(ttm > 0.0);
         let cv = *res.get(&MetricId::CollateralValue).expect("should succeed");
-        let req = *res.get(&MetricId::RequiredCollateral).expect("should succeed");
-        let implied = *res.get(&MetricId::ImpliedCollateralReturn).expect("should succeed");
+        let req = *res
+            .get(&MetricId::RequiredCollateral)
+            .expect("should succeed");
+        let implied = *res
+            .get(&MetricId::ImpliedCollateralReturn)
+            .expect("should succeed");
         let expected = if req == 0.0 || ttm <= 0.0 {
             0.0
         } else {
@@ -298,7 +309,9 @@ mod tests {
             pv,
         );
         let reg = standard_registry();
-        let res = reg.compute(&[MetricId::FundingRisk], &mut mctx).expect("should succeed");
+        let res = reg
+            .compute(&[MetricId::FundingRisk], &mut mctx)
+            .expect("should succeed");
         let fr = *res.get(&MetricId::FundingRisk).expect("should succeed");
         // Increasing repo rate typically increases PV (more interest), so base - bumped <= 0
         assert!(fr <= 0.0);

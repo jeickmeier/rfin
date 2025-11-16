@@ -100,7 +100,7 @@ impl YtmSolver {
             config: YtmSolverConfig::default(),
         }
     }
-    
+
     /// Create a YTM solver with custom configuration.
     pub fn with_config(config: YtmSolverConfig) -> Self {
         Self { config }
@@ -235,7 +235,8 @@ mod tests {
         let coupon_rate = 0.05;
         let mut cashflows = vec![];
         for year in 1..=5 {
-            let date = Date::from_calendar_date(2025 + year, Month::January, 1).expect("valid date");
+            let date =
+                Date::from_calendar_date(2025 + year, Month::January, 1).expect("valid date");
             if year < 5 {
                 cashflows.push((date, Money::new(50.0, Currency::USD)));
             } else {

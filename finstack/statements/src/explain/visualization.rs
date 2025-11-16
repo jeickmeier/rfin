@@ -228,7 +228,9 @@ mod tests {
 
         let graph = DependencyGraph::from_model(&model).expect("test should succeed");
         let tracer = DependencyTracer::new(&model, &graph);
-        let tree = tracer.dependency_tree("gross_profit").expect("test should succeed");
+        let tree = tracer
+            .dependency_tree("gross_profit")
+            .expect("test should succeed");
 
         let detailed = render_tree_detailed(&tree, &results, &period);
         assert!(detailed.contains("gross_profit = 60000.00"));

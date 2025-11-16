@@ -81,7 +81,7 @@ pub enum InterestRateSpec {
     /// Fixed rate (constant, no dynamics)
     Fixed {
         /// Fixed interest rate
-        rate: f64
+        rate: f64,
     },
     /// Floating rate (Hull-White 1F)
     Floating {

@@ -6,9 +6,7 @@ use crate::instruments::bond::pricing::helpers::{
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, Frequency, StubKind,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
@@ -135,14 +133,7 @@ pub fn asw_par_with_forward(
     fwd_curve_id: &str,
     float_spread_bp: f64,
 ) -> finstack_core::Result<f64> {
-    asw_par_with_forward_config(
-        bond,
-        curves,
-        as_of,
-        fwd_curve_id,
-        float_spread_bp,
-        None,
-    )
+    asw_par_with_forward_config(bond, curves, as_of, fwd_curve_id, float_spread_bp, None)
 }
 
 /// Compute Par ASW using a forward-based methodology with explicit fixed-leg
@@ -351,20 +342,14 @@ impl MetricCalculator for AssetSwapParCalculator {
             },
         };
 
-        let freq = self
-            .config
-            .fixed_leg_frequency
-            .unwrap_or(bond_freq);
+        let freq = self.config.fixed_leg_frequency.unwrap_or(bond_freq);
         let bdc = self.config.fixed_leg_bdc.unwrap_or(bond_bdc);
         let calendar_id = self
             .config
             .fixed_leg_calendar_id
             .as_deref()
             .or(bond_calendar_id);
-        let stub = self
-            .config
-            .fixed_leg_stub
-            .unwrap_or(bond_stub);
+        let stub = self.config.fixed_leg_stub.unwrap_or(bond_stub);
 
         // Market standard: Par swap rate via discount ratio on the ASW fixed-leg
         // schedule. By default this matches the bond schedule; callers may
@@ -380,12 +365,8 @@ impl MetricCalculator for AssetSwapParCalculator {
         if sched.len() < 2 {
             return Ok(0.0);
         }
-        let dc_fixed = self
-            .config
-            .fixed_leg_day_count
-            .unwrap_or(bond_dc);
-        let (par_rate, ann) =
-            par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
+        let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(bond_dc);
+        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
         if ann == 0.0 {
             return Ok(0.0);
         }
@@ -429,11 +410,9 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(
-                        finstack_core::error::InputError::NotFound {
-                            id: "metric:Accrued".to_string(),
-                        },
-                    )
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "metric:Accrued".to_string(),
+                    })
                 })?;
             clean_px * notional_amt / 100.0 + accrued
         } else {
@@ -554,14 +533,8 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 _ => return Err(finstack_core::error::InputError::Invalid.into()),
             },
         };
-        let freq = self
-            .config
-            .fixed_leg_frequency
-            .unwrap_or(bond_freq);
-        let stub = self
-            .config
-            .fixed_leg_stub
-            .unwrap_or(bond_stub);
+        let freq = self.config.fixed_leg_frequency.unwrap_or(bond_freq);
+        let stub = self.config.fixed_leg_stub.unwrap_or(bond_stub);
         let bdc = self.config.fixed_leg_bdc.unwrap_or(bond_bdc);
         let calendar_id = self
             .config
@@ -577,12 +550,8 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             bdc,
             calendar_id,
         );
-        let dc_fixed = self
-            .config
-            .fixed_leg_day_count
-            .unwrap_or(dc);
-        let (par_rate, ann) =
-            par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
+        let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
+        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
         if ann == 0.0 || notional_amt == 0.0 {
             return Ok(0.0);
         }
@@ -641,16 +610,11 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
         match &bond.cashflow_spec {
             CashflowSpec::Floating(spec) => {
                 let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
-                    let accrued = *context
-                        .computed
-                        .get(&MetricId::Accrued)
-                        .ok_or_else(|| {
-                            finstack_core::Error::from(
-                                finstack_core::error::InputError::NotFound {
-                                    id: "metric:Accrued".to_string(),
-                                },
-                            )
-                        })?;
+                    let accrued = *context.computed.get(&MetricId::Accrued).ok_or_else(|| {
+                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                            id: "metric:Accrued".to_string(),
+                        })
+                    })?;
                     Some(clean * bond.notional.amount() / 100.0 + accrued)
                 } else {
                     Some(context.base_value.amount())

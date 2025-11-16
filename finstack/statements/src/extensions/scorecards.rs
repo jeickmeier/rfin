@@ -571,7 +571,14 @@ mod tests {
 
         let extension = CreditScorecardExtension::with_config(config);
         assert!(extension.config().is_some());
-        assert_eq!(extension.config().expect("test should succeed").metrics.len(), 1);
+        assert_eq!(
+            extension
+                .config()
+                .expect("test should succeed")
+                .metrics
+                .len(),
+            1
+        );
     }
 
     #[test]

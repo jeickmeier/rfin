@@ -342,18 +342,16 @@ mod tests {
     fn test_npv_simple() {
         let flows = vec![
             (
-                create_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100000.0,
             ),
             (
-                create_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110000.0,
             ),
         ];
-        let npv_5pct = npv(&flows, 0.05, None, None)
-            .expect("NPV calculation should succeed in test");
+        let npv_5pct =
+            npv(&flows, 0.05, None, None).expect("NPV calculation should succeed in test");
         // NPV should be positive (profitable at 5% discount rate)
         // Approximately: -100000 + 110000/(1.05) ≈ 4761.90
         assert!(npv_5pct > 4700.0 && npv_5pct < 4800.0);
@@ -363,34 +361,29 @@ mod tests {
     fn test_npv_zero_discount() {
         let flows = vec![
             (
-                create_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100.0,
             ),
             (
-                create_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 100.0,
             ),
         ];
-        let npv_zero = npv(&flows, 0.0, None, None)
-            .expect("NPV calculation should succeed in test");
+        let npv_zero =
+            npv(&flows, 0.0, None, None).expect("NPV calculation should succeed in test");
         assert_eq!(npv_zero, 0.0);
     }
 
     #[test]
     fn test_npv_allows_past_and_future_dates() {
-        let base = create_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
         let flows = vec![
             (
-                create_date(2024, Month::July, 1)
-                    .expect("Valid test date"),
+                create_date(2024, Month::July, 1).expect("Valid test date"),
                 -50.0,
             ), // past relative to base
             (
-                create_date(2025, Month::July, 1)
-                    .expect("Valid test date"),
+                create_date(2025, Month::July, 1).expect("Valid test date"),
                 55.0,
             ), // future relative to base
         ];
@@ -404,8 +397,7 @@ mod tests {
     #[test]
     fn test_npv_errors_on_empty_flows_now() {
         let flows: Vec<(Date, f64)> = vec![];
-        let err = npv(&flows, 0.05, None, None)
-            .expect_err("Should fail with empty flows");
+        let err = npv(&flows, 0.05, None, None).expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 
@@ -413,8 +405,7 @@ mod tests {
     fn test_irr_periodic() {
         // Simple case: invest 100, get 110 back after 1 period
         let amounts = vec![-100.0, 110.0];
-        let irr = irr_periodic(&amounts, None)
-            .expect("IRR calculation should succeed in test");
+        let irr = irr_periodic(&amounts, None).expect("IRR calculation should succeed in test");
         assert!((irr - 0.1).abs() < 1e-6); // 10% return
     }
 
@@ -422,8 +413,7 @@ mod tests {
     fn test_irr_periodic_multiple_periods() {
         // Invest 1000, receive 300 per period for 4 periods
         let amounts = vec![-1000.0, 300.0, 300.0, 300.0, 300.0];
-        let irr = irr_periodic(&amounts, None)
-            .expect("IRR calculation should succeed in test");
+        let irr = irr_periodic(&amounts, None).expect("IRR calculation should succeed in test");
         // Should be close to 7.71% per period
         assert!(irr > 0.07 && irr < 0.08);
     }
@@ -432,8 +422,8 @@ mod tests {
     fn test_irr_periodic_near_minus_100() {
         // Invest 100, get 1 back after one period → IRR close to -99%
         let amounts = vec![-100.0, 1.0];
-        let irr = irr_periodic(&amounts, Some(-0.5))
-            .expect("IRR calculation should succeed in test");
+        let irr =
+            irr_periodic(&amounts, Some(-0.5)).expect("IRR calculation should succeed in test");
         assert!(irr < -0.9);
         // NPV at computed IRR should be ~0
         let f = |r: f64| {
@@ -450,8 +440,8 @@ mod tests {
     fn test_irr_periodic_high_positive() {
         // Invest 100, get 300 next period → ~200% IRR
         let amounts = vec![-100.0, 300.0];
-        let irr = irr_periodic(&amounts, Some(0.5))
-            .expect("IRR calculation should succeed in test");
+        let irr =
+            irr_periodic(&amounts, Some(0.5)).expect("IRR calculation should succeed in test");
         assert!(irr > 1.0);
         let f = |r: f64| {
             amounts

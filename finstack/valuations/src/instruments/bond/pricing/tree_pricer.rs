@@ -234,7 +234,7 @@ impl TreePricer {
             config: TreePricerConfig::default(),
         }
     }
-    
+
     /// Create a tree pricer with custom configuration.
     pub fn with_config(config: TreePricerConfig) -> Self {
         Self { config }
@@ -380,8 +380,9 @@ impl TreePricer {
         _market_context: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        // Prefer context-aware helper for FRNs; MarketContext available here
-        super::helpers::compute_accrued_interest_with_context(bond, _market_context, as_of)
+        // Build full schedule with market context and use generic accrual engine
+        let schedule = bond.get_full_schedule(_market_context)?;
+        crate::cashflow::accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config())
     }
 }
 
@@ -413,10 +414,8 @@ mod tests {
     fn create_test_bond() -> Bond {
         use crate::instruments::bond::CashflowSpec;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2030, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
 
         Bond::builder()
             .id("TEST_BOND".into())
@@ -441,8 +440,7 @@ mod tests {
     }
     fn create_callable_bond() -> Bond {
         let mut bond = create_test_bond();
-        let call_date = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let call_date = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let mut call_put = CallPutSchedule::default();
         call_put.calls.push(CallPut {
             date: call_date,
@@ -452,8 +450,7 @@ mod tests {
         bond
     }
     fn create_test_market_context() -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve =
             finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
                 "USD-OIS",
@@ -480,8 +477,7 @@ mod tests {
     fn test_oas_calculator_plain_bond() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
@@ -494,8 +490,7 @@ mod tests {
     fn test_oas_calculator_callable_bond() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
@@ -522,8 +517,7 @@ mod tests {
         use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
         let bond = create_test_bond();
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Curves: discount + two hazard scenarios
         let discount_curve =
@@ -637,14 +631,12 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
         let calculator = TreePricer::new();
-        let coupon_date = Date::from_calendar_date(2025, Month::July, 1)
-            .expect("Valid test date");
+        let coupon_date = Date::from_calendar_date(2025, Month::July, 1).expect("Valid test date");
         let accrued = calculator
             .calculate_accrued_interest(&bond, &market_context, coupon_date)
             .expect("Accrued interest calculation should succeed in test");
         assert!(accrued.abs() < 1e-6);
-        let mid_period = Date::from_calendar_date(2025, Month::April, 1)
-            .expect("Valid test date");
+        let mid_period = Date::from_calendar_date(2025, Month::April, 1).expect("Valid test date");
         let accrued_mid = calculator
             .calculate_accrued_interest(&bond, &market_context, mid_period)
             .expect("Accrued interest calculation should succeed in test");

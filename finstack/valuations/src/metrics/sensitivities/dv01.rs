@@ -513,7 +513,7 @@ fn format_bucket_label(years: f64) -> String {
             return IR_BUCKET_LABELS[i].to_string();
         }
     }
-    
+
     // Fall back to dynamic formatting for non-standard buckets
     if years < 1.0 {
         format!("{:.0}m", (years * 12.0).round())
@@ -527,4 +527,3 @@ fn format_bucket_label(years: f64) -> String {
 fn calculate_dv01(base_pv: Money, bumped_pv: Money, bump_bp: f64) -> f64 {
     (bumped_pv.amount() - base_pv.amount()) / bump_bp
 }
-

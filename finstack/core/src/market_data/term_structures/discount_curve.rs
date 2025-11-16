@@ -864,8 +864,7 @@ mod tests {
     fn sample_curve_linear() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(
-                Date::from_calendar_date(2025, time::Month::June, 30)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date"),
             )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
             .set_interp(InterpStyle::Linear)
@@ -876,8 +875,7 @@ mod tests {
     fn sample_curve_log() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(
-                Date::from_calendar_date(2025, time::Month::June, 30)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date"),
             )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
             .set_interp(InterpStyle::LogLinear)
@@ -911,8 +909,8 @@ mod tests {
     #[test]
     fn tail_continuity_with_flatforward_extrapolation() {
         // Test that FlatForward extrapolation maintains continuous forward rates beyond last pillar
-        let base = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([
@@ -962,8 +960,8 @@ mod tests {
     #[test]
     fn default_uses_monotone_convex_and_flatforward() {
         // Verify new market-standard defaults are in place
-        let base = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         let curve = DiscountCurve::builder("TEST")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
@@ -996,8 +994,8 @@ mod tests {
     fn df_to_fwd_preserves_low_forwards_no_clamp() {
         // Test that DF→FWD conversion works with very small forwards
         // (The old code would clamp to [0, 0.5])
-        let base = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
 
         // Build a nearly-flat curve implying very low forwards
         // All DFs very close to 1.0 implies near-zero interest rates

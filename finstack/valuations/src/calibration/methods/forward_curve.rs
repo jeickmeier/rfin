@@ -775,8 +775,7 @@ mod tests {
     use time::Month;
 
     fn create_test_discount_curve() -> DiscountCurve {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         DiscountCurve::builder("USD-OIS-DISC")
             .base_date(base_date)
             .knots(vec![
@@ -794,8 +793,7 @@ mod tests {
 
     #[test]
     fn forward_curve_respects_time_daycount_setting() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve = create_test_discount_curve();
         let context = MarketContext::new().insert_discount(discount_curve);
 
@@ -825,8 +823,7 @@ mod tests {
     }
 
     fn create_test_fra_quotes() -> Vec<RatesQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         vec![
             RatesQuote::FRA {
@@ -852,8 +849,7 @@ mod tests {
 
     #[test]
     fn test_forward_curve_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve = create_test_discount_curve();
         let context = MarketContext::new().insert_discount(discount_curve);
 
@@ -873,8 +869,7 @@ mod tests {
             tracing::warn!(error = ?e, "Forward curve calibration failed");
             return;
         }
-        let (curve, report) = result
-            .expect("Forward curve calibration should succeed in test");
+        let (curve, report) = result.expect("Forward curve calibration should succeed in test");
 
         // Check that we got a curve with the right ID
         assert_eq!(curve.id().as_ref(), "USD-SOFR-3M-FWD");
@@ -889,8 +884,7 @@ mod tests {
         let calibrator = ForwardCurveCalibrator::new(
             "USD-SOFR-3M-FWD",
             0.25,
-            Date::from_calendar_date(2025, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
             Currency::USD,
             "USD-OIS-DISC",
         );
@@ -902,8 +896,7 @@ mod tests {
 
     #[test]
     fn test_forward_curve_id_resolution() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = ForwardCurveCalibrator::new(
             "USD-SOFR-3M-FWD",
             0.25,
@@ -964,8 +957,7 @@ mod tests {
     #[test]
     #[cfg(feature = "slow")]
     fn test_basis_swap_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Create a test context with discount curve and a 6M forward curve
         let disc_curve = create_test_discount_curve();

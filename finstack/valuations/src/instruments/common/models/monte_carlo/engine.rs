@@ -37,7 +37,7 @@ pub enum PathCaptureMode {
         /// Number of Monte Carlo paths
         count: usize,
         /// Random seed for reproducibility
-        seed: u64
+        seed: u64,
     },
 }
 

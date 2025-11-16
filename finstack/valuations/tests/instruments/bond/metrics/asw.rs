@@ -11,7 +11,7 @@ use finstack_valuations::instruments::bond::metrics::price_yield_spread::{
     AssetSwapMarketCalculator, AssetSwapParCalculator,
 };
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_valuations::metrics::{MetricCalculator, MetricContext};
 use std::sync::Arc;
 use time::macros::date;
 
@@ -40,8 +40,8 @@ fn test_asw_market_requires_accrued_when_clean_price_present() {
     let as_of = date!(2025 - 01 - 01);
     let mut bond = simple_fixed_bond(as_of);
     // Attach a clean price so the market ASW calculator will require Accrued.
-    bond.pricing_overrides = finstack_valuations::instruments::PricingOverrides::default()
-        .with_clean_price(101.0);
+    bond.pricing_overrides =
+        finstack_valuations::instruments::PricingOverrides::default().with_clean_price(101.0);
 
     // Market with a simple discount curve
     let disc = simple_discount_curve("USD-OIS", as_of);
@@ -120,5 +120,3 @@ fn test_asw_par_with_config_uses_fixed_leg_conventions() {
         "ASW par with custom conventions should differ from default"
     );
 }
-
-

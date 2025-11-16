@@ -129,7 +129,11 @@ use crate::{Error, Result};
 /// assert!((periodic_short - 0.05).abs() < 0.0001);
 /// ```
 #[inline]
-pub fn simple_to_periodic(simple_rate: f64, year_fraction: f64, periods_per_year: u32) -> Result<f64> {
+pub fn simple_to_periodic(
+    simple_rate: f64,
+    year_fraction: f64,
+    periods_per_year: u32,
+) -> Result<f64> {
     if periods_per_year == 0 {
         return Err(Error::Validation(
             "periods_per_year must be positive in simple_to_periodic".to_string(),
@@ -199,7 +203,11 @@ pub fn simple_to_periodic(simple_rate: f64, year_fraction: f64, periods_per_year
 /// assert!((original - back).abs() < 1e-12);
 /// ```
 #[inline]
-pub fn periodic_to_simple(periodic_rate: f64, year_fraction: f64, periods_per_year: u32) -> Result<f64> {
+pub fn periodic_to_simple(
+    periodic_rate: f64,
+    year_fraction: f64,
+    periods_per_year: u32,
+) -> Result<f64> {
     if periods_per_year == 0 {
         return Err(Error::Validation(
             "periods_per_year must be positive in periodic_to_simple".to_string(),
@@ -435,7 +443,7 @@ mod tests {
         let simple = 0.05;
         let yf = 0.5;
         let periodic = simple_to_periodic(simple, yf, 2).expect("conversion should succeed");
-        
+
         // (1 + 0.05*0.5) = 1.025
         // Want: (1 + r/2)^1 = 1.025
         // So: r/2 = 0.025, r = 0.05
@@ -455,7 +463,7 @@ mod tests {
         // 5% semi-annual → continuous
         let periodic = 0.05;
         let continuous = periodic_to_continuous(periodic, 2).expect("conversion should succeed");
-        
+
         // Formula: n × ln(1 + r/n) = 2 × ln(1.025)
         // 2 × 0.024693... ≈ 0.049385225181
         assert!((continuous - 0.049385225181).abs() < LOOSE_EPSILON);
@@ -476,8 +484,10 @@ mod tests {
         ];
 
         for (periodic, freq) in test_cases {
-            let continuous = periodic_to_continuous(periodic, freq).expect("conversion should succeed");
-            let back_to_periodic = continuous_to_periodic(continuous, freq).expect("conversion should succeed");
+            let continuous =
+                periodic_to_continuous(periodic, freq).expect("conversion should succeed");
+            let back_to_periodic =
+                continuous_to_periodic(continuous, freq).expect("conversion should succeed");
             assert!(
                 (periodic - back_to_periodic).abs() < EPSILON,
                 "Round-trip failed for rate={}, freq={}: {} vs {}",
@@ -492,10 +502,10 @@ mod tests {
     #[test]
     fn test_simple_periodic_round_trip() {
         let test_cases = vec![
-            (0.05, 0.25, 4),  // 5% over quarter, quarterly
-            (0.05, 0.5, 2),   // 5% over half-year, semi-annual
-            (0.05, 1.0, 2),   // 5% over year, semi-annual
-            (0.10, 2.0, 12),  // 10% over 2 years, monthly
+            (0.05, 0.25, 4), // 5% over quarter, quarterly
+            (0.05, 0.5, 2),  // 5% over half-year, semi-annual
+            (0.05, 1.0, 2),  // 5% over year, semi-annual
+            (0.10, 2.0, 12), // 10% over 2 years, monthly
         ];
 
         for (simple, yf, freq) in test_cases {
@@ -515,12 +525,7 @@ mod tests {
 
     #[test]
     fn test_simple_continuous_round_trip() {
-        let test_cases = vec![
-            (0.05, 0.25),
-            (0.05, 0.5),
-            (0.05, 1.0),
-            (0.10, 2.0),
-        ];
+        let test_cases = vec![(0.05, 0.25), (0.05, 0.5), (0.05, 1.0), (0.10, 2.0)];
 
         for (simple, yf) in test_cases {
             let continuous = simple_to_continuous(simple, yf).expect("conversion should succeed");
@@ -546,17 +551,27 @@ mod tests {
     #[test]
     fn test_zero_rate() {
         // Zero rate should remain zero through all conversions
-        assert!((simple_to_periodic(0.0, 1.0, 2).expect("conversion should succeed") - 0.0).abs() < EPSILON);
-        assert!((periodic_to_continuous(0.0, 2).expect("conversion should succeed") - 0.0).abs() < EPSILON);
-        assert!((continuous_to_periodic(0.0, 2).expect("conversion should succeed") - 0.0).abs() < EPSILON);
+        assert!(
+            (simple_to_periodic(0.0, 1.0, 2).expect("conversion should succeed") - 0.0).abs()
+                < EPSILON
+        );
+        assert!(
+            (periodic_to_continuous(0.0, 2).expect("conversion should succeed") - 0.0).abs()
+                < EPSILON
+        );
+        assert!(
+            (continuous_to_periodic(0.0, 2).expect("conversion should succeed") - 0.0).abs()
+                < EPSILON
+        );
     }
 
     #[test]
     fn test_negative_rates() {
         // Negative rates should work (important for modern markets!)
         let negative_rate = -0.005; // -0.5%
-        
-        let continuous = periodic_to_continuous(negative_rate, 2).expect("conversion should succeed");
+
+        let continuous =
+            periodic_to_continuous(negative_rate, 2).expect("conversion should succeed");
         let back = continuous_to_periodic(continuous, 2).expect("conversion should succeed");
         assert!((negative_rate - back).abs() < EPSILON);
 
@@ -570,16 +585,19 @@ mod tests {
     fn test_high_frequency_convergence() {
         // As frequency increases, periodic should converge to continuous
         let periodic_rate = 0.05;
-        let continuous = periodic_to_continuous(periodic_rate, 2).expect("conversion should succeed");
+        let continuous =
+            periodic_to_continuous(periodic_rate, 2).expect("conversion should succeed");
 
         let frequencies = vec![4, 12, 52, 365];
         let mut prev_diff = f64::MAX;
 
         for freq in frequencies {
-            let periodic = continuous_to_periodic(continuous, freq).expect("conversion should succeed");
-            let continuous_back = periodic_to_continuous(periodic, freq).expect("conversion should succeed");
+            let periodic =
+                continuous_to_periodic(continuous, freq).expect("conversion should succeed");
+            let continuous_back =
+                periodic_to_continuous(periodic, freq).expect("conversion should succeed");
             let diff = (continuous - continuous_back).abs();
-            
+
             // Each higher frequency should be closer to continuous
             assert!(diff < prev_diff || diff < 1e-10);
             prev_diff = diff;
@@ -631,7 +649,7 @@ mod tests {
         let freq = 2;
 
         let path1 = simple_to_continuous(simple, yf).expect("conversion should succeed");
-        
+
         let periodic = simple_to_periodic(simple, yf, freq).expect("conversion should succeed");
         let path2 = periodic_to_continuous(periodic, freq).expect("conversion should succeed");
 
@@ -648,7 +666,8 @@ mod tests {
     fn test_market_realistic_scenarios() {
         // US Treasury: 2.5% semi-annual to continuous (for zero curve)
         let treasury_rate = 0.025;
-        let continuous = periodic_to_continuous(treasury_rate, 2).expect("conversion should succeed");
+        let continuous =
+            periodic_to_continuous(treasury_rate, 2).expect("conversion should succeed");
         assert!((continuous - 0.024845039997).abs() < LOOSE_EPSILON);
 
         // LIBOR 3M: 3.5% simple to semi-annual (for swap pricing)
@@ -660,8 +679,8 @@ mod tests {
 
         // Corporate bond: 5% annual to continuous
         let corp_annual = 0.05;
-        let corp_continuous = periodic_to_continuous(corp_annual, 1).expect("conversion should succeed");
+        let corp_continuous =
+            periodic_to_continuous(corp_annual, 1).expect("conversion should succeed");
         assert!((corp_continuous - 0.048790164169).abs() < LOOSE_EPSILON);
     }
 }
-

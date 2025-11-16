@@ -43,7 +43,11 @@ impl MetricCalculator for VegaCalculator {
         };
 
         // Bump volatility surface by scaling all values
-        let curves_bumped = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_sizes::VOLATILITY)?;
+        let curves_bumped = scale_surface(
+            &context.curves,
+            vol_surface_id.as_str(),
+            1.0 + bump_sizes::VOLATILITY,
+        )?;
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

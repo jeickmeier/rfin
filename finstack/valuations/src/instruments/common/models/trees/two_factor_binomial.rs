@@ -228,7 +228,9 @@ mod tests {
         let ctx = MarketContext::new();
         let initial = single_factor_equity_state(100.0, 0.05, 0.0, 0.2);
         let val = TestCallValuator { strike: 100.0 };
-        let price = tree.price(initial, 1.0, &ctx, &val).expect("should succeed");
+        let price = tree
+            .price(initial, 1.0, &ctx, &val)
+            .expect("should succeed");
         assert!(price.is_finite() && price > 0.0);
     }
 

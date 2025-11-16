@@ -409,7 +409,8 @@ mod tests {
 
     // Helper function for tests
     fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day).expect("should succeed")
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid date"), day)
+            .expect("should succeed")
     }
 
     #[test]

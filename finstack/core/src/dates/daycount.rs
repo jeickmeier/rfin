@@ -831,12 +831,8 @@ mod tests {
     use time::Duration;
 
     fn make_date(y: i32, m: u8, d: u8) -> Date {
-        Date::from_calendar_date(
-            y,
-            Month::try_from(m).expect("Valid month (1-12)"),
-            d,
-        )
-        .expect("Valid test date")
+        Date::from_calendar_date(y, Month::try_from(m).expect("Valid month (1-12)"), d)
+            .expect("Valid test date")
     }
 
     #[test]

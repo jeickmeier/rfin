@@ -512,7 +512,8 @@ mod tests {
     fn create_test_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(
-                finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1).expect("should succeed"),
+                finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("should succeed"),
             )
             .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)])
             .set_interp(InterpStyle::LogLinear)

@@ -193,7 +193,7 @@ impl CompiledExpr {
         let values: Vec<f64> = if let Some(ref plan) = plan_to_use {
             // Execute nodes in topological order using arena allocation
             let len = cols.first().map(|c| c.len()).unwrap_or(0);
-            
+
             // Pre-allocate arena for all node results to avoid per-node Vec allocations
             let mut arena = vec![0.0; len * plan.nodes.len()];
             let mut offsets: FxHashMap<u64, (usize, usize)> = FxHashMap::default();
@@ -218,13 +218,13 @@ impl CompiledExpr {
                 // Allocate space in arena for this node's result
                 let start = cursor;
                 let end = cursor + len;
-                
+
                 // Evaluate node directly into arena slice
                 // Split the arena to avoid borrow conflicts
                 let (arena_deps, arena_out) = arena.split_at_mut(start);
                 let out_slice = &mut arena_out[..len];
                 self.eval_node_into(ctx, cols, node, arena_deps, &offsets, out_slice);
-                
+
                 // Cache store
                 if let Some(ref cache) = eval_cache {
                     if plan.cache_strategy.cache_nodes.contains(&node.id) {
@@ -737,9 +737,7 @@ impl CompiledExpr {
         let len = out.len();
         let data = &arg_results[0];
         if !data.is_empty() {
-            let mut guard = self.scratch
-                .lock()
-                .expect("Mutex should not be poisoned");
+            let mut guard = self.scratch.lock().expect("Mutex should not be poisoned");
             let tmp = &mut guard.tmp;
             tmp.truncate(0);
             tmp.extend_from_slice(data);
@@ -818,9 +816,7 @@ impl CompiledExpr {
         let win = arg_results[1][0] as usize;
         let mut out = vec![0.0; len];
         // Use scratch arena to avoid per-window allocations.
-        let mut guard = self.scratch
-            .lock()
-            .expect("Mutex should not be poisoned");
+        let mut guard = self.scratch.lock().expect("Mutex should not be poisoned");
         let wbuf = &mut guard.window;
         for i in 0..len {
             if i + 1 < win {
@@ -1093,16 +1089,64 @@ impl CompiledExpr {
                 BinOp::Mod => l % r,
 
                 // Comparison (return 1.0 for true, 0.0 for false)
-                BinOp::Eq => if l == r { 1.0 } else { 0.0 },
-                BinOp::Ne => if l != r { 1.0 } else { 0.0 },
-                BinOp::Lt => if l < r { 1.0 } else { 0.0 },
-                BinOp::Le => if l <= r { 1.0 } else { 0.0 },
-                BinOp::Gt => if l > r { 1.0 } else { 0.0 },
-                BinOp::Ge => if l >= r { 1.0 } else { 0.0 },
+                BinOp::Eq => {
+                    if l == r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ne => {
+                    if l != r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Lt => {
+                    if l < r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Le => {
+                    if l <= r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Gt => {
+                    if l > r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ge => {
+                    if l >= r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
 
                 // Logical (treat non-zero as true)
-                BinOp::And => if l != 0.0 && r != 0.0 { 1.0 } else { 0.0 },
-                BinOp::Or => if l != 0.0 || r != 0.0 { 1.0 } else { 0.0 },
+                BinOp::And => {
+                    if l != 0.0 && r != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Or => {
+                    if l != 0.0 || r != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
     }
@@ -1204,7 +1248,13 @@ impl CompiledExpr {
         for i in 0..len {
             out[i] = match op {
                 UnaryOp::Neg => -operand[i],
-                UnaryOp::Not => if operand[i] == 0.0 { 1.0 } else { 0.0 },
+                UnaryOp::Not => {
+                    if operand[i] == 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
     }

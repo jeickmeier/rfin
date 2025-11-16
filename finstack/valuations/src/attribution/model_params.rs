@@ -32,7 +32,7 @@ pub enum ModelParamsSnapshot {
     /// Convertible bond parameters (conversion ratio, policies).
     Convertible {
         /// Conversion specification for convertible bonds
-        conversion_spec: ConversionSpec
+        conversion_spec: ConversionSpec,
     },
 
     /// No extractable model parameters.

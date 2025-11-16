@@ -486,8 +486,8 @@ mod tests {
     #[test]
     fn tail_continuity_with_flatforward_extrapolation() {
         // Test that FlatForward extrapolation maintains stable tail forwards
-        let base = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         let fc = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
@@ -513,8 +513,8 @@ mod tests {
     #[test]
     fn default_uses_flatforward_extrapolation() {
         // Verify new market-standard default extrapolation
-        let base = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid test date");
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         let fc = ForwardCurve::builder("TEST", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.04)])

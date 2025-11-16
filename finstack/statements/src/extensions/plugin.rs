@@ -333,7 +333,8 @@ mod tests {
         let json = serde_json::to_string(&status).expect("test should succeed");
         assert_eq!(json, r#""success""#);
 
-        let deserialized: ExtensionStatus = serde_json::from_str(&json).expect("test should succeed");
+        let deserialized: ExtensionStatus =
+            serde_json::from_str(&json).expect("test should succeed");
         assert_eq!(deserialized, ExtensionStatus::Success);
     }
 }

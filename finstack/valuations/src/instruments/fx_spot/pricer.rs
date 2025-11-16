@@ -64,9 +64,8 @@ mod tests {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result = pricer.price_dyn(&fx_spot, &market, as_of);
         assert!(result.is_ok());
@@ -82,9 +81,8 @@ mod tests {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         // Test that error propagation works correctly
         let result = pricer.price_dyn(&fx_spot, &market, as_of);
@@ -105,9 +103,8 @@ mod tests {
 
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result_high = pricer.price_dyn(&fx_spot_high, &market, as_of);
         let result_low = pricer.price_dyn(&fx_spot_low, &market, as_of);
@@ -115,8 +112,7 @@ mod tests {
         assert!(result_high.is_ok());
         assert!(result_low.is_ok());
 
-        let valuation_high = result_high
-            .expect("FX spot pricing should succeed in test");
+        let valuation_high = result_high.expect("FX spot pricing should succeed in test");
         let valuation_low = result_low.expect("FX spot pricing should succeed in test");
 
         assert_eq!(valuation_high.instrument_id, "GBPUSD");
@@ -133,9 +129,8 @@ mod tests {
 
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result = pricer.price_dyn(&fx_spot_zero, &market, as_of);
 
@@ -159,9 +154,8 @@ mod tests {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result = pricer.price_dyn(&fx_spot, &market, as_of);
         assert!(result.is_ok());
@@ -185,9 +179,8 @@ mod tests {
 
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         for (id, base, quote, rate) in test_cases {
             let fx_spot = FxSpot::new(id.into(), base, quote).with_rate(rate);
@@ -217,9 +210,8 @@ mod tests {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result = pricer.price_dyn(&fx_spot, &market, as_of);
 
@@ -243,9 +235,8 @@ mod tests {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result1 = pricer.price_dyn(&fx_spot, &market, as_of);
         let result2 = pricer.price_dyn(&fx_spot, &market, as_of);
@@ -270,9 +261,8 @@ mod tests {
 
         let market = MarketContext::new();
         let pricer = SimpleFxSpotDiscountingPricer::new();
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-                .expect("Valid test date");
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
 
         let result_small = pricer.price_dyn(&fx_spot_small, &market, as_of);
         let result_large = pricer.price_dyn(&fx_spot_large, &market, as_of);

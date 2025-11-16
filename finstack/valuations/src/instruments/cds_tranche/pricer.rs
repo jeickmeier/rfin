@@ -1319,8 +1319,7 @@ mod tests {
     use time::Month;
 
     fn sample_market_context() -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Create discount curve
         let discount_curve = DiscountCurve::builder("USD-OIS")
@@ -1366,8 +1365,7 @@ mod tests {
     }
 
     fn sample_market_context_with_issuers(n: usize) -> MarketContext {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
@@ -1432,10 +1430,9 @@ mod tests {
     }
 
     fn sample_tranche() -> CdsTranche {
-        let _issue_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2030, Month::January, 1)
-            .expect("Valid test date");
+        let _issue_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
 
         {
             let tranche_params = CDSTrancheParams::new(
@@ -1522,8 +1519,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Test that pricing doesn't panic and returns a reasonable result
         let result = model.price_tranche(&tranche, &market_ctx, as_of);
@@ -1538,8 +1534,7 @@ mod tests {
     #[test]
     fn test_hetero_spa_matches_homogeneous_when_issuers_equal() {
         let ctx_base = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let mut tranche = sample_tranche();
         tranche.running_coupon_bp = 0.0; // isolate protection leg
 
@@ -1584,8 +1579,7 @@ mod tests {
     #[test]
     fn test_hetero_spa_vs_exact_convolution_small_pool() {
         let ctx = sample_market_context_with_issuers(8);
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let tranche_params = CDSTrancheParams::new(
             "CDX.NA.IG.42",
             42,
@@ -1627,8 +1621,7 @@ mod tests {
     #[test]
     fn test_grid_step_refines_exact_convolution() {
         let ctx = sample_market_context_with_issuers(10);
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let tranche_params = CDSTrancheParams::new(
             "CDX.NA.IG.42",
             42,
@@ -1677,8 +1670,7 @@ mod tests {
         let expected_loss = model.calculate_expected_loss(&tranche, &market_ctx);
         assert!(expected_loss.is_ok());
 
-        let loss = expected_loss
-            .expect("Expected loss calculation should succeed in test");
+        let loss = expected_loss.expect("Expected loss calculation should succeed in test");
         assert!(loss >= 0.0); // Expected loss should be non-negative
         assert!(loss.is_finite());
     }
@@ -1687,8 +1679,7 @@ mod tests {
     fn test_payment_schedule_generation() {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let schedule = model.generate_payment_schedule(&tranche, as_of);
         assert!(schedule.is_ok());
@@ -1696,9 +1687,7 @@ mod tests {
         let dates = schedule.expect("Schedule generation should succeed in test");
         assert!(!dates.is_empty());
         assert!(dates[0] > as_of); // First payment should be after as_of
-        assert!(
-            *dates.last().expect("Schedule should not be empty") <= tranche.maturity
-        ); // Last payment should not exceed maturity
+        assert!(*dates.last().expect("Schedule should not be empty") <= tranche.maturity); // Last payment should not exceed maturity
 
         // Check dates are in ascending order
         for window in dates.windows(2) {
@@ -1711,8 +1700,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let schedule = model
             .generate_payment_schedule(&tranche, as_of)
@@ -1723,8 +1711,7 @@ mod tests {
         let el_curve = model.build_el_curve(&tranche, &index_data_arc, &schedule);
 
         assert!(el_curve.is_ok());
-        let curve = el_curve
-            .expect("EL curve building should succeed in test");
+        let curve = el_curve.expect("EL curve building should succeed in test");
 
         // EL should be non-decreasing and bounded [0,1]
         // Allow for small numerical deviations due to base correlation model limitations
@@ -1758,8 +1745,7 @@ mod tests {
         let mut tranche = sample_tranche();
         tranche.side = TrancheSide::SellProtection; // Sell protection for positive CS01
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let cs01 = model.calculate_cs01(&tranche, &market_ctx, as_of);
         assert!(cs01.is_ok());
@@ -1775,14 +1761,12 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let corr_delta = model.calculate_correlation_delta(&tranche, &market_ctx, as_of);
         assert!(corr_delta.is_ok());
 
-        let sensitivity = corr_delta
-            .expect("Correlation delta calculation should succeed in test");
+        let sensitivity = corr_delta.expect("Correlation delta calculation should succeed in test");
         assert!(sensitivity.is_finite());
         // Correlation sensitivity should be finite and reasonable in magnitude
     }
@@ -1792,8 +1776,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let jtd = model.calculate_jump_to_default(&tranche, &market_ctx, as_of);
         assert!(jtd.is_ok());
@@ -1808,8 +1791,7 @@ mod tests {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let index_data_arc = market_ctx
             .credit_index(&tranche.credit_index_id)
             .expect("Credit index should exist in test context");
@@ -1835,8 +1817,7 @@ mod tests {
         assert!(pv_protection.is_ok());
 
         let premium = pv_premium.expect("Premium PV calculation should succeed in test");
-        let protection = pv_protection
-            .expect("Protection PV calculation should succeed in test");
+        let protection = pv_protection.expect("Protection PV calculation should succeed in test");
 
         assert!(premium.is_finite());
         assert!(protection.is_finite());
@@ -1848,8 +1829,7 @@ mod tests {
     fn test_extreme_correlation_numerical_stability() {
         let model = CDSTranchePricer::new();
         let market_ctx = sample_market_context();
-        let _as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let _as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let index_data_arc = market_ctx
             .credit_index("CDX.NA.IG.42")
             .expect("Credit index should exist in test context");
@@ -1883,8 +1863,8 @@ mod tests {
                 .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
             // Test equity tranche loss calculation
-            let maturity = Date::from_calendar_date(2030, Month::January, 1)
-                .expect("Valid test date");
+            let maturity =
+                Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
             let result = model.calculate_equity_tranche_loss(
                 7.0, // 7% detachment
                 test_correlation,
@@ -1898,8 +1878,8 @@ mod tests {
                 test_correlation
             );
 
-            let expected_loss = result
-                .expect("Equity tranche loss calculation should succeed in test");
+            let expected_loss =
+                result.expect("Equity tranche loss calculation should succeed in test");
             assert!(
                 expected_loss.is_finite(),
                 "Expected loss should be finite for correlation={}, got {}",

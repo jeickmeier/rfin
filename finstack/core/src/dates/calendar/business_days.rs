@@ -381,10 +381,10 @@ mod serde_tests {
         ];
 
         for conv in conventions {
-            let json = serde_json::to_string(&conv)
-                .expect("JSON serialization should succeed in test");
-            let deserialized: BusinessDayConvention = serde_json::from_str(&json)
-                .expect("JSON deserialization should succeed in test");
+            let json =
+                serde_json::to_string(&conv).expect("JSON serialization should succeed in test");
+            let deserialized: BusinessDayConvention =
+                serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
             assert_eq!(conv, deserialized);
         }
     }
@@ -395,13 +395,11 @@ mod serde_tests {
 
         // Test that the snake_case renaming works
         let conv = BusinessDayConvention::ModifiedFollowing;
-        let json = serde_json::to_string(&conv)
-            .expect("JSON serialization should succeed in test");
+        let json = serde_json::to_string(&conv).expect("JSON serialization should succeed in test");
         assert_eq!(json, "\"modified_following\"");
 
         let conv = BusinessDayConvention::ModifiedPreceding;
-        let json = serde_json::to_string(&conv)
-            .expect("JSON serialization should succeed in test");
+        let json = serde_json::to_string(&conv).expect("JSON serialization should succeed in test");
         assert_eq!(json, "\"modified_preceding\"");
     }
 }

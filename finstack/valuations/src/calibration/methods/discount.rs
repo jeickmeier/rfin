@@ -691,7 +691,7 @@ impl DiscountCurveCalibrator {
                     reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
-                    compounding: Default::default(),  // Simple compounding for calibration
+                    compounding: Default::default(), // Simple compounding for calibration
                 };
 
                 let swap = InterestRateSwap {
@@ -902,8 +902,7 @@ mod tests {
     fn test_multi_curve_instrument_validation() {
         // Test that RatesQuote correctly identifies forward-dependent instruments
         let deposit = RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2024, Month::February, 1)
-                .expect("Valid test date"),
+            maturity: Date::from_calendar_date(2024, Month::February, 1).expect("Valid test date"),
             rate: 0.015,
             day_count: DayCount::Act360,
         };
@@ -917,10 +916,8 @@ mod tests {
         );
 
         let fra = RatesQuote::FRA {
-            start: Date::from_calendar_date(2024, Month::April, 1)
-                .expect("Valid test date"),
-            end: Date::from_calendar_date(2024, Month::July, 1)
-                .expect("Valid test date"),
+            start: Date::from_calendar_date(2024, Month::April, 1).expect("Valid test date"),
+            end: Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
             rate: 0.018,
             day_count: DayCount::Act360,
         };
@@ -934,8 +931,7 @@ mod tests {
         );
 
         let ois_swap = RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2025, Month::January, 1)
-                .expect("Valid test date"),
+            maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
             rate: 0.02,
             fixed_freq: Frequency::annual(),
             float_freq: Frequency::daily(),
@@ -953,8 +949,7 @@ mod tests {
         );
 
         let libor_swap = RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2025, Month::January, 1)
-                .expect("Valid test date"),
+            maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
             rate: 0.02,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
@@ -981,8 +976,7 @@ mod tests {
     }
 
     fn create_test_quotes() -> Vec<RatesQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         vec![
             RatesQuote::Deposit {
@@ -1018,8 +1012,7 @@ mod tests {
 
     #[test]
     fn test_quote_validation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD);
 
         let empty_quotes = vec![];
@@ -1060,8 +1053,7 @@ mod tests {
 
     #[test]
     fn test_deposit_repricing_under_bootstrap() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
 
         // Use just deposits for initial test
@@ -1127,7 +1119,8 @@ mod tests {
                     discount_curve_id: "USD-OIS".into(),
                     attributes: Default::default(),
                 };
-                let pv = dep.value(&ctx, base_date)
+                let pv = dep
+                    .value(&ctx, base_date)
                     .expect("Deposit valuation should succeed in test");
                 // For deposits, $1 per $1M notional is approximately 0.1bp tolerance
                 assert!(
@@ -1144,8 +1137,7 @@ mod tests {
         use crate::instruments::fra::ForwardRateAgreement;
         // (no additional imports)
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let config = CalibrationConfig::conservative();
         let calibrator =
             DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
@@ -1207,7 +1199,8 @@ mod tests {
             .build()
             .expect("FRA builder should succeed with valid test data");
 
-        let pv = fra.value(&ctx, base_date)
+        let pv = fra
+            .value(&ctx, base_date)
             .expect("FRA valuation should succeed in test");
 
         // Debug: check if curves are consistent
@@ -1253,8 +1246,7 @@ mod tests {
         use crate::instruments::irs::{InterestRateSwap, PayReceive};
         use crate::metrics::{MetricCalculator, MetricContext};
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Use conservative config for tighter convergence (1e-12 tolerance, 200 iterations)
         let mut config = CalibrationConfig::conservative();
@@ -1343,7 +1335,8 @@ mod tests {
             .build()
             .expect("IRS builder should succeed with valid test data");
 
-        let pv = irs.value(&ctx, base_date)
+        let pv = irs
+            .value(&ctx, base_date)
             .expect("IRS valuation should succeed in test");
 
         // Calculate DV01 and check repricing within 0.1bp tolerance
@@ -1359,7 +1352,8 @@ mod tests {
         let dv01_calc = UnifiedDv01Calculator::<crate::instruments::InterestRateSwap>::new(
             Dv01CalculatorConfig::parallel_combined(),
         );
-        let dv01 = dv01_calc.calculate(&mut metric_ctx)
+        let dv01 = dv01_calc
+            .calculate(&mut metric_ctx)
             .expect("DV01 calculation should succeed in test");
 
         // Tolerance: 0.1bp * |DV01|, minimum $1
@@ -1378,8 +1372,7 @@ mod tests {
     fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         use finstack_core::dates::Frequency;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
 
         // Deposits + OIS swaps (float leg frequency set to daily; index contains "USD-OIS")
@@ -1428,8 +1421,8 @@ mod tests {
     fn test_configured_interpolation_used() {
         use finstack_core::dates::add_months;
 
-        let base_date = Date::from_calendar_date(2025, Month::January, 31)
-            .expect("Valid test date");
+        let base_date =
+            Date::from_calendar_date(2025, Month::January, 31).expect("Valid test date");
 
         // Test 1: Verify configured interpolation is used
         let linear_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
@@ -1473,8 +1466,7 @@ mod tests {
 
         // The proper result should handle month-end correctly
         // Jan 31 + 3 months = Apr 30 (no Apr 31)
-        let expected = Date::from_calendar_date(2025, Month::April, 30)
-            .expect("Valid test date");
+        let expected = Date::from_calendar_date(2025, Month::April, 30).expect("Valid test date");
         assert_eq!(
             proper_result, expected,
             "Expected proper month-end handling"

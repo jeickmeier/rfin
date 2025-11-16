@@ -22,7 +22,7 @@ impl CashflowProvider for Bond {
         // Pre-allocate flows vector with capacity based on schedule size
         // Most cashflows will be included (coupons + amortization + final notional)
         let mut flows: Vec<(Date, Money)> = Vec::with_capacity(schedule.flows.len());
-        
+
         // Map CashFlowSchedule to holder view (Date, Money) pairs
         //
         // Holder view convention:

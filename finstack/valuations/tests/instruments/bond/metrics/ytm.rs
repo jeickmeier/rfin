@@ -111,9 +111,9 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
+    use finstack_valuations::instruments::bond::Bond;
     use finstack_valuations::instruments::bond::{AmortizationSpec, CashflowSpec};
     use finstack_valuations::instruments::common::traits::Attributes;
-    use finstack_valuations::instruments::bond::Bond;
     use finstack_valuations::instruments::PricingOverrides;
     use finstack_valuations::metrics::MetricId;
 
@@ -138,8 +138,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
             (maturity, Money::new(0.0, Currency::USD)),
         ],
     };
-    let base_spec =
-        CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+    let base_spec = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
     let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
     let mut bond = Bond::builder()

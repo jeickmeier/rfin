@@ -197,10 +197,13 @@ impl InflationLinkedBond {
             real_coupon: 0.025,
             freq: Frequency::semi_annual(),
             dc: DayCount::Act365F,
-            issue: Date::from_calendar_date(2024, time::Month::January, 15).expect("Valid example date"),
-            maturity: Date::from_calendar_date(2034, time::Month::January, 15).expect("Valid example date"),
+            issue: Date::from_calendar_date(2024, time::Month::January, 15)
+                .expect("Valid example date"),
+            maturity: Date::from_calendar_date(2034, time::Month::January, 15)
+                .expect("Valid example date"),
             base_index: 100.0,
-            base_date: Date::from_calendar_date(2024, time::Month::January, 15).expect("Valid example date"),
+            base_date: Date::from_calendar_date(2024, time::Month::January, 15)
+                .expect("Valid example date"),
             indexation_method: IndexationMethod::TIPS,
             lag: IndexationMethod::TIPS.standard_lag(),
             deflation_protection: DeflationProtection::MaturityOnly,

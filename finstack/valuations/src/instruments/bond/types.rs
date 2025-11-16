@@ -60,7 +60,7 @@ pub struct Bond {
     /// - `Indexed`: Index ratio interpolation (inflation-linked bonds like TIPS)
     #[cfg_attr(feature = "serde", serde(default))]
     #[builder(default)]
-    pub accrual_method: super::AccrualMethod,
+    pub accrual_method: crate::cashflow::accrual::AccrualMethod,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
     /// Settlement convention: number of settlement days after trade date.
@@ -105,10 +105,8 @@ impl Bond {
             "US912828XG33",
             Money::new(1_000_000.0, Currency::USD),
             0.0425,
-            Date::from_calendar_date(2024, time::Month::January, 15)
-                .expect("Valid example date"),
-            Date::from_calendar_date(2034, time::Month::January, 15)
-                .expect("Valid example date"),
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("Valid example date"),
+            Date::from_calendar_date(2034, time::Month::January, 15).expect("Valid example date"),
             "USD-TREASURY",
         )
     }
@@ -346,9 +344,7 @@ impl Bond {
                 88..=95 => Frequency::quarterly(),
                 27..=35 => Frequency::monthly(),
                 6..=8 => Frequency::weekly(),
-                _ => Frequency::Days(
-                    u16::try_from(days).unwrap_or(1)
-                ),
+                _ => Frequency::Days(u16::try_from(days).unwrap_or(1)),
             }
         };
 
@@ -383,6 +379,22 @@ impl Bond {
     pub fn with_cashflows(mut self, schedule: CashFlowSchedule) -> Self {
         self.custom_cashflows = Some(schedule);
         self
+    }
+
+    /// Build accrual configuration from bond's accrual method and ex-coupon convention.
+    ///
+    /// This helper creates the generic `AccrualConfig` needed by the cashflow
+    /// accrual engine, incorporating both the accrual method and ex-coupon rules.
+    pub fn accrual_config(&self) -> crate::cashflow::accrual::AccrualConfig {
+        crate::cashflow::accrual::AccrualConfig {
+            method: self.accrual_method.clone(),
+            ex_coupon: self
+                .ex_coupon_days
+                .map(|d| crate::cashflow::accrual::ExCouponRule {
+                    days_before_coupon: d,
+                }),
+            include_pik: true,
+        }
     }
 
     /// Get the full cashflow schedule with kinds for this bond.
@@ -463,13 +475,11 @@ impl Bond {
         // Calculate time to maturity on the discount curve's own time basis so
         // that the short-rate tree calibration is consistent with the curve.
         let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
-        let time_to_maturity = discount_curve
-            .day_count()
-            .year_fraction(
-                discount_curve.base_date(),
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
+        let time_to_maturity = discount_curve.day_count().year_fraction(
+            discount_curve.base_date(),
+            self.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_maturity <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
@@ -588,7 +598,9 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
 // (CS01 will fail at runtime if no hazard curve exists, which is acceptable)
 impl crate::metrics::HasCreditCurve for Bond {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.credit_curve_id.as_ref().unwrap_or(&self.discount_curve_id)
+        self.credit_curve_id
+            .as_ref()
+            .unwrap_or(&self.discount_curve_id)
     }
 }
 
@@ -637,10 +649,8 @@ mod tests {
     #[test]
     fn test_bond_with_custom_cashflows() {
         // Setup dates
-        let issue = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2027, Month::January, 15)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).expect("Valid test date");
 
         // Build a custom cashflow schedule with step-up coupons
         let schedule_params = ScheduleParams {
@@ -651,8 +661,8 @@ mod tests {
             stub: StubKind::None,
         };
 
-        let step1_date = Date::from_calendar_date(2026, Month::January, 15)
-            .expect("Valid test date");
+        let step1_date =
+            Date::from_calendar_date(2026, Month::January, 15).expect("Valid test date");
 
         let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
@@ -714,10 +724,8 @@ mod tests {
 
     #[test]
     fn test_bond_builder_with_custom_cashflows() {
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Build custom cashflow with PIK toggle
         let custom_schedule = CashFlowSchedule::builder()
@@ -760,10 +768,8 @@ mod tests {
 
     #[test]
     fn test_bond_with_cashflows_method() {
-        let issue = Date::from_calendar_date(2025, Month::March, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2030, Month::March, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::March, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::March, 1).expect("Valid test date");
 
         // Create a traditional bond first (builder)
         let mut bond = Bond::builder()
@@ -811,10 +817,8 @@ mod tests {
 
     #[test]
     fn test_custom_cashflows_override_regular_generation() {
-        let issue = Date::from_calendar_date(2025, Month::June, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::June, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::June, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::June, 1).expect("Valid test date");
 
         // Create bond with regular specs (builder)
         let regular_bond = Bond::builder()
@@ -881,10 +885,8 @@ mod tests {
 
     #[test]
     fn test_bond_floating_value() {
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Curves
@@ -925,14 +927,11 @@ mod tests {
 
     #[test]
     fn test_bond_frn_ex_coupon_accrual_zero_in_window() {
-        use crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context;
         use crate::cashflow::primitives::CFKind;
         use time::Duration;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Curves
@@ -984,13 +983,30 @@ mod tests {
         let day_before_ex = ex_date - Duration::days(1);
 
         // Before ex-date, accrued interest should be positive
-        let ai_before = compute_accrued_interest_with_context(&bond, &ctx, day_before_ex)
-            .expect("Accrued interest calculation should succeed before ex-date");
-        assert!(ai_before > 0.0, "Accrued interest should be positive before ex-date");
+        let schedule_before = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule should build");
+        let ai_before = crate::cashflow::accrual::accrued_interest_amount(
+            &schedule_before,
+            day_before_ex,
+            &bond.accrual_config(),
+        )
+        .expect("Accrued interest calculation should succeed before ex-date");
+        assert!(
+            ai_before > 0.0,
+            "Accrued interest should be positive before ex-date"
+        );
 
         // On or inside the ex-coupon window, accrued interest should be zero
-        let ai_ex = compute_accrued_interest_with_context(&bond, &ctx, ex_date)
-            .expect("Accrued interest calculation should succeed on ex-date");
+        let schedule_ex = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule should build");
+        let ai_ex = crate::cashflow::accrual::accrued_interest_amount(
+            &schedule_ex,
+            ex_date,
+            &bond.accrual_config(),
+        )
+        .expect("Accrued interest calculation should succeed on ex-date");
         assert!(
             ai_ex == 0.0,
             "Accrued interest in ex-coupon window should be zero, got {}",
@@ -1000,22 +1016,17 @@ mod tests {
 
     #[test]
     fn test_amortizing_bond_ex_coupon_accrual_zero_in_window() {
-        use crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context;
         use crate::cashflow::builder::AmortizationSpec;
         use crate::cashflow::primitives::CFKind;
         use time::Duration;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2028, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("Valid test date");
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Amortizing bond with annual 5% coupon, 1/3 principal returned each year.
-        let step1 = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
-        let step2 = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let step1 = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+        let step2 = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let amort_spec = AmortizationSpec::StepRemaining {
             schedule: vec![
                 (step1, Money::new(1_000_000.0 / 3.0, Currency::USD)),
@@ -1023,8 +1034,7 @@ mod tests {
                 (maturity, Money::new(0.0, Currency::USD)),
             ],
         };
-        let base_spec =
-            CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+        let base_spec = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
         let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
         let mut bond = Bond::builder()
@@ -1068,16 +1078,30 @@ mod tests {
         let day_before_ex = ex_date - Duration::days(1);
 
         // Before ex-date, accrued interest should be positive
-        let ai_before = compute_accrued_interest_with_context(&bond, &ctx, day_before_ex)
-            .expect("Accrued interest calculation should succeed before ex-date");
+        let schedule_before = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule should build");
+        let ai_before = crate::cashflow::accrual::accrued_interest_amount(
+            &schedule_before,
+            day_before_ex,
+            &bond.accrual_config(),
+        )
+        .expect("Accrued interest calculation should succeed before ex-date");
         assert!(
             ai_before > 0.0,
             "Accrued interest should be positive before ex-date for amortizing bond"
         );
 
         // On or inside the ex-coupon window, accrued interest should be zero
-        let ai_ex = compute_accrued_interest_with_context(&bond, &ctx, ex_date)
-            .expect("Accrued interest calculation should succeed on ex-date");
+        let schedule_ex = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule should build");
+        let ai_ex = crate::cashflow::accrual::accrued_interest_amount(
+            &schedule_ex,
+            ex_date,
+            &bond.accrual_config(),
+        )
+        .expect("Accrued interest calculation should succeed on ex-date");
         assert!(
             ai_ex == 0.0,
             "Accrued interest in ex-coupon window should be zero for amortizing bond, got {}",
@@ -1090,10 +1114,8 @@ mod tests {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Create FRN
         let frn = Bond::floating(
@@ -1160,14 +1182,11 @@ mod tests {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
 
         // Create amortizing bond using CashflowSpec::Amortizing
-        let step1 = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let step1 = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let amort_spec = AmortizationSpec::StepRemaining {
             schedule: vec![
                 (step1, Money::new(500_000.0, Currency::USD)),
@@ -1267,22 +1286,15 @@ mod tests {
     fn test_amortizing_bond_pv_greater_than_bullet_for_same_yield() {
         use crate::instruments::common::traits::Instrument;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2028, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("Valid test date");
 
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Common discount curve: flat-ish, just needs to be decreasing
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
-            .knots([
-                (0.0, 1.0),
-                (1.0, 0.97),
-                (2.0, 0.94),
-                (3.0, 0.91),
-            ])
+            .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (3.0, 0.91)])
             .set_interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
@@ -1304,16 +1316,13 @@ mod tests {
             .expect("Bullet bond construction should succeed in test");
 
         // Amortizing bond with same coupon but 1/3 principal returned each year
-        let amort_step1 = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
-        let amort_step2 = Date::from_calendar_date(2027, Month::January, 1)
-            .expect("Valid test date");
+        let amort_step1 =
+            Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
+        let amort_step2 =
+            Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let amort_schedule = AmortizationSpec::StepRemaining {
             schedule: vec![
-                (
-                    amort_step1,
-                    Money::new(1_000_000.0 / 3.0, Currency::USD),
-                ),
+                (amort_step1, Money::new(1_000_000.0 / 3.0, Currency::USD)),
                 (
                     amort_step2,
                     Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD),
@@ -1321,8 +1330,7 @@ mod tests {
                 (maturity, Money::new(0.0, Currency::USD)),
             ],
         };
-        let amort_base_spec =
-            CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
+        let amort_base_spec = CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
         let amort_spec = CashflowSpec::amortizing(amort_base_spec, amort_schedule);
         let amort_bond = Bond::builder()
             .id("AMORT-TEST-PV".into())
@@ -1361,10 +1369,8 @@ mod tests {
     fn test_bond_build_schedule_includes_floating_cfkind() {
         use crate::cashflow::traits::CashflowProvider;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::July, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::July, 1).expect("Valid test date");
 
         let frn = Bond::floating(
             "FRN-CFKIND-TEST",

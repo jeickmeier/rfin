@@ -286,10 +286,9 @@ impl StructuredCredit {
                     .allocation_mode(AllocationMode::Sequential)
                     .add_recipient(Recipient::tranche_principal("A-PRIN", "CLONOTES-A", None)),
             );
-        let closing = Date::from_calendar_date(2024, Month::January, 1)
-            .expect("Valid example date");
-        let legal = Date::from_calendar_date(2034, Month::January, 1)
-            .expect("Valid example date");
+        let closing =
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date");
+        let legal = Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date");
         StructuredCredit::new_clo(
             "CLO-EXAMPLE",
             pool,
@@ -1021,8 +1020,8 @@ mod serde_tests {
         )
         .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche])
-            .expect("TrancheStructure should build in test");
+        let tranches =
+            TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let original = StructuredCredit::new_clo(
@@ -1065,8 +1064,8 @@ mod serde_tests {
         )
         .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche])
-            .expect("TrancheStructure should build in test");
+        let tranches =
+            TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let mut rmbs = StructuredCredit::new_rmbs(
@@ -1113,8 +1112,8 @@ mod serde_tests {
         )
         .expect("Tranche build should succeed in test");
 
-        let tranches = TrancheStructure::new(vec![tranche])
-            .expect("TrancheStructure should build in test");
+        let tranches =
+            TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build in test");
         let waterfall = WaterfallEngine::new(Currency::USD);
 
         let mut clo = StructuredCredit::new_clo(

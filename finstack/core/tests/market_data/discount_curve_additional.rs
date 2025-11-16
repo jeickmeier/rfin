@@ -321,4 +321,3 @@ fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
         }
     }
 }
-

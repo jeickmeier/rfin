@@ -560,6 +560,9 @@ mod tests {
         let result = evaluator.evaluate(&model);
 
         assert!(result.is_err());
-        assert!(result.expect_err("should fail with circular dependency").to_string().contains("Circular"));
+        assert!(result
+            .expect_err("should fail with circular dependency")
+            .to_string()
+            .contains("Circular"));
     }
 }

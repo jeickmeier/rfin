@@ -454,7 +454,9 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-        let flows = equity.build_schedule(&curves, as_of).expect("should succeed");
+        let flows = equity
+            .build_schedule(&curves, as_of)
+            .expect("should succeed");
         assert!(flows.is_empty());
     }
 

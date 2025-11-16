@@ -106,8 +106,8 @@ impl DiscountMarginCalculator {
 
         // Scale bracket between 1x and 2x base over 0–30y, then clamp.
         let maturity_scale = 1.0 + (years / 30.0).min(1.0);
-        let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
-            .min(self.config.max_bracket_bp);
+        let bracket_bp =
+            (self.config.base_bracket_bp * maturity_scale).min(self.config.max_bracket_bp);
 
         Ok(bracket_bp / 10_000.0)
     }
@@ -128,11 +128,9 @@ impl MetricCalculator for DiscountMarginCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(
-                        finstack_core::error::InputError::NotFound {
-                            id: "metric:Accrued".to_string(),
-                        },
-                    )
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "metric:Accrued".to_string(),
+                    })
                 })?;
             clean_px * bond.notional.amount() / 100.0 + accrued
         } else {

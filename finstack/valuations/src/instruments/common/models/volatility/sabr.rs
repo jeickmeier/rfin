@@ -464,7 +464,7 @@ impl SABRCalibrator {
             *strikes
                 .iter()
                 .min_by(|a, b| a.total_cmp(b))
-                .expect("Strikes should not be empty")
+                .expect("Strikes should not be empty"),
         );
 
         if min_rate < 0.0 {
@@ -491,7 +491,7 @@ impl SABRCalibrator {
             *strikes
                 .iter()
                 .min_by(|a, b| a.total_cmp(b))
-                .expect("Strikes should not be empty")
+                .expect("Strikes should not be empty"),
         );
 
         if min_rate < 0.0 {
@@ -1233,12 +1233,18 @@ mod tests {
         // Rho > 1
         let result1 = SABRParameters::new(0.2, 0.5, 0.3, 1.5);
         assert!(result1.is_err(), "Rho > 1 should be rejected");
-        assert!(matches!(result1.expect_err("should fail"), Error::Validation(_)));
+        assert!(matches!(
+            result1.expect_err("should fail"),
+            Error::Validation(_)
+        ));
 
         // Rho < -1
         let result2 = SABRParameters::new(0.2, 0.5, 0.3, -1.5);
         assert!(result2.is_err(), "Rho < -1 should be rejected");
-        assert!(matches!(result2.expect_err("should fail"), Error::Validation(_)));
+        assert!(matches!(
+            result2.expect_err("should fail"),
+            Error::Validation(_)
+        ));
 
         // Rho = exactly 1.0 should be OK
         let result3 = SABRParameters::new(0.2, 0.5, 0.3, 1.0);
@@ -1267,12 +1273,18 @@ mod tests {
         // Beta > 1
         let result1 = SABRParameters::new(0.2, 1.5, 0.3, 0.1);
         assert!(result1.is_err(), "Beta > 1 should be rejected");
-        assert!(matches!(result1.expect_err("should fail"), Error::Validation(_)));
+        assert!(matches!(
+            result1.expect_err("should fail"),
+            Error::Validation(_)
+        ));
 
         // Beta < 0
         let result2 = SABRParameters::new(0.2, -0.1, 0.3, 0.1);
         assert!(result2.is_err(), "Beta < 0 should be rejected");
-        assert!(matches!(result2.expect_err("should fail"), Error::Validation(_)));
+        assert!(matches!(
+            result2.expect_err("should fail"),
+            Error::Validation(_)
+        ));
 
         // Beta = 0 should be OK (normal SABR)
         let result3 = SABRParameters::new(0.2, 0.0, 0.3, 0.1);

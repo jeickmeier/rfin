@@ -130,8 +130,10 @@ impl InterestRateSwap {
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
                 stub: StubKind::None,
-                start: Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
-                end: Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid example date"),
+                start: Date::from_calendar_date(2024, time::Month::January, 1)
+                    .expect("Valid example date"),
+                end: Date::from_calendar_date(2029, time::Month::January, 1)
+                    .expect("Valid example date"),
                 par_method: None,
                 compounding_simple: true,
             })
@@ -145,8 +147,10 @@ impl InterestRateSwap {
                 calendar_id: None,
                 stub: StubKind::None,
                 reset_lag_days: 2,
-                start: Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
-                end: Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid example date"),
+                start: Date::from_calendar_date(2024, time::Month::January, 1)
+                    .expect("Valid example date"),
+                end: Date::from_calendar_date(2029, time::Month::January, 1)
+                    .expect("Valid example date"),
                 compounding: Default::default(),
             })
             .build()

@@ -655,9 +655,15 @@ mod tests {
         let tree_100 = BinomialTree::crr(100);
         let tree_200 = BinomialTree::crr(200);
 
-        let price_50 = tree_50.price_european(&market_params).expect("should succeed");
-        let price_100 = tree_100.price_european(&market_params).expect("should succeed");
-        let price_200 = tree_200.price_european(&market_params).expect("should succeed");
+        let price_50 = tree_50
+            .price_european(&market_params)
+            .expect("should succeed");
+        let price_100 = tree_100
+            .price_european(&market_params)
+            .expect("should succeed");
+        let price_200 = tree_200
+            .price_european(&market_params)
+            .expect("should succeed");
 
         // Should converge
         assert!((price_100 - price_50).abs() > (price_200 - price_100).abs());

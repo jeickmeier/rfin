@@ -5,7 +5,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::accrual;
 use finstack_valuations::instruments::bond::{AccrualMethod, Bond};
 use time::Month;
 
@@ -19,26 +21,24 @@ fn test_accrued_interest_linear_default() {
     let bond = Bond::fixed(
         "LINEAR_TEST",
         Money::new(100.0, Currency::USD),
-        0.06,  // 6% annual, semi-annual payments = 3% per period
+        0.06, // 6% annual, semi-annual payments = 3% per period
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    
+
     // Default accrual method should be Linear
     assert!(matches!(bond.accrual_method, AccrualMethod::Linear));
-    
+
     // Accrual halfway through first coupon period
     // Period: 2025-01-01 to 2025-07-01 (180 days in 30/360)
     // As of: 2025-04-01 (90 days)
     let as_of = make_date(2025, 4, 1);
-    
-    let accrued = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond,
-        as_of,
-    )
-    .unwrap();
-    
+
+    let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+    let accrued =
+        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+
     // Expected: 3% coupon * (90/180) = 1.5% of notional = $1.50
     let expected = 1.50;
     assert!(
@@ -52,17 +52,17 @@ fn test_accrued_interest_linear_default() {
 #[test]
 fn test_accrued_interest_compounded_vs_linear() {
     // Compare compounded vs linear accrual for same bond
-    
+
     // Linear accrual bond (default)
     let bond_linear = Bond::fixed(
         "LINEAR",
         Money::new(100.0, Currency::USD),
-        0.06,  // 6% annual coupon, semi-annual = 3% per period
+        0.06, // 6% annual coupon, semi-annual = 3% per period
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    
+
     // Compounded accrual bond
     let mut bond_compounded = Bond::fixed(
         "COMPOUNDED",
@@ -72,48 +72,48 @@ fn test_accrued_interest_compounded_vs_linear() {
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    bond_compounded.accrual_method = AccrualMethod::Compounded {
-        frequency: Frequency::semi_annual(),
-    };
-    
+    bond_compounded.accrual_method = AccrualMethod::Compounded;
+
     // Accrual at quarter-point (90 days out of 180)
     let as_of = make_date(2025, 4, 1);
-    
-    let accrued_linear = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond_linear,
-        as_of,
-    )
-    .unwrap();
-    
-    let accrued_compounded = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond_compounded,
-        as_of,
-    )
-    .unwrap();
-    
+
+    let sched_linear = bond_linear
+        .get_full_schedule(&MarketContext::new())
+        .unwrap();
+    let accrued_linear =
+        accrual::accrued_interest_amount(&sched_linear, as_of, &bond_linear.accrual_config())
+            .unwrap();
+
+    let sched_comp = bond_compounded
+        .get_full_schedule(&MarketContext::new())
+        .unwrap();
+    let accrued_compounded =
+        accrual::accrued_interest_amount(&sched_comp, as_of, &bond_compounded.accrual_config())
+            .unwrap();
+
     // Linear: 3% × (90/180) = 1.50%
     let expected_linear = 1.50;
-    
+
     // Compounded (ICMA Rule 251): 100 × [(1.03)^(90/180) - 1]
     // = 100 × [(1.03)^0.5 - 1]
     // = 100 × [1.014889 - 1]
     // = 1.4889%
     let expected_compounded = 1.4889;
-    
+
     assert!(
         (accrued_linear - expected_linear).abs() < 1e-2,
         "Linear: expected {}, got {}",
         expected_linear,
         accrued_linear
     );
-    
+
     assert!(
         (accrued_compounded - expected_compounded).abs() < 1e-2,
         "Compounded: expected {}, got {}",
         expected_compounded,
         accrued_compounded
     );
-    
+
     // Difference should be material (~1bp on $100 notional)
     assert!(
         (accrued_linear - accrued_compounded).abs() > 0.005,
@@ -129,22 +129,18 @@ fn test_accrued_interest_compounded_zero_coupon() {
     let mut bond = Bond::fixed(
         "ZERO",
         Money::new(100.0, Currency::USD),
-        0.0,  // Zero coupon
+        0.0, // Zero coupon
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    bond.accrual_method = AccrualMethod::Compounded {
-        frequency: Frequency::semi_annual(),
-    };
-    
+    bond.accrual_method = AccrualMethod::Compounded;
+
     let as_of = make_date(2025, 4, 1);
-    let accrued = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond,
-        as_of,
-    )
-    .unwrap();
-    
+    let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+    let accrued =
+        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+
     assert!(
         accrued.abs() < 1e-10,
         "Zero-coupon bond should have zero accrued"
@@ -162,18 +158,16 @@ fn test_accrued_interest_ex_coupon_period() {
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    bond.ex_coupon_days = Some(7);  // Ex-coupon 7 days before payment
-    
+    bond.ex_coupon_days = Some(7); // Ex-coupon 7 days before payment
+
     // 5 days before coupon (within ex-coupon window)
     let coupon_date = make_date(2025, 7, 1);
     let as_of = coupon_date - time::Duration::days(5);
-    
-    let accrued = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond,
-        as_of,
-    )
-    .unwrap();
-    
+
+    let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+    let accrued =
+        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+
     assert_eq!(accrued, 0.0, "Should be zero during ex-coupon period");
 }
 
@@ -182,22 +176,24 @@ fn test_accrued_interest_at_coupon_boundaries() {
     let bond = Bond::fixed(
         "BOUNDARY",
         Money::new(100.0, Currency::USD),
-        0.04,  // 4% annual, semi-annual = 2% per period
+        0.04, // 4% annual, semi-annual = 2% per period
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
     );
-    
+
     // Midway through first coupon period (should have accrual)
-    let midway = make_date(2025, 4, 1);  // 90 days into first 180-day period
-    let accrued_midway = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest(
-        &bond,
-        midway,
-    )
-    .unwrap();
-    
+    let midway = make_date(2025, 4, 1); // 90 days into first 180-day period
+    let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+    let accrued_midway =
+        accrual::accrued_interest_amount(&schedule, midway, &bond.accrual_config()).unwrap();
+
     // Should be positive: 2% × (90/180) = 1% of notional = $1.00
-    assert!(accrued_midway > 0.99 && accrued_midway < 1.01, "Accrued at midway: {}", accrued_midway);
+    assert!(
+        accrued_midway > 0.99 && accrued_midway < 1.01,
+        "Accrued at midway: {}",
+        accrued_midway
+    );
 }
 
 #[test]
@@ -259,12 +255,9 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     // notional.
     let as_of = make_date(2027, 7, 1);
 
-    let accrued = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest_with_context(
-        &bond,
-        &curves,
-        as_of,
-    )
-    .unwrap();
+    let schedule = bond.get_full_schedule(&curves).unwrap();
+    let accrued =
+        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     // Derive expected accrued from the schedule itself: coupon_total × (elapsed/period)
     let schedule = bond
@@ -331,19 +324,17 @@ fn test_accrual_method_serialization() {
         make_date(2035, 1, 1),
         "EUR-OIS",
     );
-    bond.accrual_method = AccrualMethod::Compounded {
-        frequency: Frequency::annual(),
-    };
-    
+    bond.accrual_method = AccrualMethod::Compounded;
+
     let json = serde_json::to_string(&bond).expect("Serialization should succeed in test");
-    let deserialized: Bond = serde_json::from_str(&json).expect("Deserialization should succeed in test");
-    
+    let deserialized: Bond =
+        serde_json::from_str(&json).expect("Deserialization should succeed in test");
+
     // Verify accrual method survived roundtrip
     match &deserialized.accrual_method {
-        AccrualMethod::Compounded { frequency } => {
-            assert_eq!(*frequency, Frequency::annual());
+        AccrualMethod::Compounded => {
+            // Compounded accrual method has no additional fields
         }
         _ => panic!("Expected Compounded accrual method"),
     }
 }
-

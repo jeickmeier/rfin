@@ -971,7 +971,10 @@ mod tests {
         assert_eq!(model.nodes.len(), 1);
         assert!(model.has_node("revenue"));
         assert_eq!(
-            model.get_node("revenue").expect("revenue node should exist").node_type,
+            model
+                .get_node("revenue")
+                .expect("revenue node should exist")
+                .node_type,
             NodeType::Value
         );
     }
@@ -987,9 +990,16 @@ mod tests {
             .expect("valid model");
 
         assert_eq!(model.nodes.len(), 1);
-        let node = model.get_node("gross_profit").expect("gross_profit node should exist");
+        let node = model
+            .get_node("gross_profit")
+            .expect("gross_profit node should exist");
         assert_eq!(node.node_type, NodeType::Calculated);
-        assert_eq!(node.formula_text.as_ref().expect("formula_text should exist"), "revenue - cogs");
+        assert_eq!(
+            node.formula_text
+                .as_ref()
+                .expect("formula_text should exist"),
+            "revenue - cogs"
+        );
     }
 
     #[test]

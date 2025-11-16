@@ -543,8 +543,7 @@ mod tests {
     use time::Month;
     #[test]
     fn survival_monotone_decreasing() {
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let hc = HazardCurve::builder("USD-CREDIT")
             .base_date(base)
             .knots([(0.0, 0.01), (5.0, 0.02)])
@@ -556,8 +555,7 @@ mod tests {
 
     #[test]
     fn default_prob_positive() {
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let hc = HazardCurve::builder("USD")
             .base_date(base)
             .knots([(0.0, 0.01), (10.0, 0.015)])
@@ -569,8 +567,7 @@ mod tests {
 
     #[test]
     fn quoted_spread_interpolation_linear() {
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let hc = HazardCurve::builder("TEST")
             .base_date(base)
             .knots([(1.0, 0.02)])

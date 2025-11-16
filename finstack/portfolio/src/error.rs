@@ -34,7 +34,7 @@ pub enum PortfolioError {
         /// Source currency.
         from: Currency,
         /// Target currency.
-        to: Currency
+        to: Currency,
     },
 
     /// Valuation error

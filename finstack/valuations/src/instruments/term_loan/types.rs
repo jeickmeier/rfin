@@ -20,7 +20,7 @@ pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed {
         /// Fixed rate in basis points
-        rate_bp: i32
+        rate_bp: i32,
     },
 
     /// Floating rate using canonical FloatingRateSpec.
@@ -107,7 +107,9 @@ impl TermLoan {
             .currency(Currency::USD)
             .notional_limit(Money::new(10_000_000.0, Currency::USD))
             .issue(Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"))
-            .maturity(Date::from_calendar_date(2029, Month::January, 1).expect("Valid example date"))
+            .maturity(
+                Date::from_calendar_date(2029, Month::January, 1).expect("Valid example date"),
+            )
             .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
             .pay_freq(Frequency::quarterly())
             .day_count(DayCount::Act360)

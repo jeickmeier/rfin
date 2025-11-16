@@ -65,7 +65,8 @@ mod tests {
     use time::Month;
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day).expect("should succeed")
+        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day)
+            .expect("should succeed")
     }
 
     fn sample_fx() -> FxSpot {
@@ -76,7 +77,9 @@ mod tests {
     }
 
     fn context_for(inst: FxSpot, as_of: Date) -> MetricContext {
-        let base_value = inst.npv(&MarketContext::new(), as_of).expect("should succeed");
+        let base_value = inst
+            .npv(&MarketContext::new(), as_of)
+            .expect("should succeed");
         let instrument_arc: Arc<dyn Instrument> = Arc::new(inst);
         MetricContext::new(
             instrument_arc,
@@ -99,7 +102,9 @@ mod tests {
     fn quote_amount_is_result_value() {
         let fx = sample_fx();
         let as_of = d(2025, 1, 15);
-        let base_value = fx.npv(&MarketContext::new(), as_of).expect("should succeed");
+        let base_value = fx
+            .npv(&MarketContext::new(), as_of)
+            .expect("should succeed");
         let result = fx
             .price_with_metrics(&MarketContext::new(), as_of, &[])
             .expect("should succeed");

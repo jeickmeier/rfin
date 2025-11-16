@@ -188,7 +188,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default");
 
         // Net loss: 400K × (1 - 0.40) = 240K
         // Outstanding: 1M - 400K + 160K = 760K
@@ -332,7 +333,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default");
 
         // Net loss is 100% of defaulted amount
         assert_eq!(outstanding, 900_000.0);
@@ -350,7 +352,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default");
 
         // Net loss is zero
         assert_eq!(outstanding, 1_000_000.0);
@@ -376,7 +379,8 @@ mod credit_emission_tests {
         ];
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD).expect("should emit multiple defaults");
+        let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD)
+            .expect("should emit multiple defaults");
 
         // Net loss: 50K × 0.6 + 30K × 0.5 = 30K + 15K = 45K
         assert_eq!(
@@ -399,7 +403,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default");
 
         assert_eq!(outstanding, 1_000_000.0); // Unchanged
         assert_eq!(flows.len(), 0);
@@ -416,7 +421,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should emit default");
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit default");
 
         let expected_recovery_date = finstack_core::dates::utils::add_months(d, 6);
         assert_eq!(flows[1].date, expected_recovery_date);

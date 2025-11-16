@@ -206,8 +206,8 @@ mod tests {
 
     #[test]
     fn test_uniform_grid() {
-        let grid = TimeGrid::uniform(1.0, 100)
-            .expect("Uniform grid creation should succeed in test");
+        let grid =
+            TimeGrid::uniform(1.0, 100).expect("Uniform grid creation should succeed in test");
         assert_eq!(grid.num_steps(), 100);
         assert_eq!(grid.t_max(), 1.0);
         assert!(grid.is_uniform());
@@ -219,8 +219,7 @@ mod tests {
     #[test]
     fn test_custom_grid() {
         let times = vec![0.0, 0.1, 0.5, 1.0];
-        let grid = TimeGrid::from_times(times)
-            .expect("TimeGrid creation should succeed in test");
+        let grid = TimeGrid::from_times(times).expect("TimeGrid creation should succeed in test");
         assert_eq!(grid.num_steps(), 3);
         assert_eq!(grid.t_max(), 1.0);
         assert!(!grid.is_uniform());

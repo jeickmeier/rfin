@@ -723,24 +723,21 @@ mod tests {
     #[test]
     fn serde_round_trip() {
         let rate = Rate::from_percent(2.5);
-        let json = serde_json::to_string(&rate)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: Rate = serde_json::from_str(&json)
-            .expect("JSON deserialization should succeed in test");
+        let json = serde_json::to_string(&rate).expect("JSON serialization should succeed in test");
+        let deserialized: Rate =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
         assert_eq!(rate, deserialized);
 
         let bps = Bps::new(250);
-        let json = serde_json::to_string(&bps)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: Bps = serde_json::from_str(&json)
-            .expect("JSON deserialization should succeed in test");
+        let json = serde_json::to_string(&bps).expect("JSON serialization should succeed in test");
+        let deserialized: Bps =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
         assert_eq!(bps, deserialized);
 
         let pct = Percentage::new(12.5);
-        let json = serde_json::to_string(&pct)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: Percentage = serde_json::from_str(&json)
-            .expect("JSON deserialization should succeed in test");
+        let json = serde_json::to_string(&pct).expect("JSON serialization should succeed in test");
+        let deserialized: Percentage =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
         assert_eq!(pct, deserialized);
     }
 }

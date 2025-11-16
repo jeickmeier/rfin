@@ -489,18 +489,16 @@ mod tests {
             "TEST-BOND",
             Money::new(1_000_000.0, Currency::USD),
             0.05,
-            Date::from_calendar_date(2024, Month::January, 1)
-                .expect("Valid test date"),
-            Date::from_calendar_date(2034, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         );
 
         let json = InstrumentJson::Bond(bond.clone());
-        let serialized = serde_json::to_string(&json)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentJson = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&json).expect("JSON serialization should succeed in test");
+        let deserialized: InstrumentJson =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         match deserialized {
             InstrumentJson::Bond(b) => {
@@ -517,10 +515,8 @@ mod tests {
             "TEST-BOND",
             Money::new(1_000_000.0, Currency::USD),
             0.05,
-            Date::from_calendar_date(2024, Month::January, 1)
-                .expect("Valid test date"),
-            Date::from_calendar_date(2034, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         );
 
@@ -531,8 +527,8 @@ mod tests {
 
         let serialized = serde_json::to_string_pretty(&envelope)
             .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentEnvelope = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let deserialized: InstrumentEnvelope =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         assert_eq!(deserialized.schema, envelope.schema);
         match deserialized.instrument {
@@ -718,19 +714,17 @@ mod tests {
             "CDS-TEST",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
-            Date::from_calendar_date(2024, Month::January, 1)
-                .expect("Valid test date"),
-            Date::from_calendar_date(2029, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2029, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
             "CORP-HAZARD",
         );
 
         let json = InstrumentJson::CreditDefaultSwap(cds.clone());
-        let serialized = serde_json::to_string(&json)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentJson = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&json).expect("JSON serialization should succeed in test");
+        let deserialized: InstrumentJson =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         match deserialized {
             InstrumentJson::CreditDefaultSwap(i) => {
@@ -747,10 +741,8 @@ mod tests {
             .id(InstrumentId::new("FXSWAP-TEST"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .near_date(Date::from_calendar_date(2024, Month::January, 3)
-                .expect("Valid test date"))
-            .far_date(Date::from_calendar_date(2024, Month::July, 3)
-                .expect("Valid test date"))
+            .near_date(Date::from_calendar_date(2024, Month::January, 3).expect("Valid test date"))
+            .far_date(Date::from_calendar_date(2024, Month::July, 3).expect("Valid test date"))
             .base_notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id("USD-OIS".into())
             .foreign_discount_curve_id("EUR-OIS".into())
@@ -761,10 +753,10 @@ mod tests {
             .expect("FxSwap builder should succeed with valid test data");
 
         let json = InstrumentJson::FxSwap(fx_swap.clone());
-        let serialized = serde_json::to_string(&json)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentJson = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&json).expect("JSON serialization should succeed in test");
+        let deserialized: InstrumentJson =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         match deserialized {
             InstrumentJson::FxSwap(i) => {
@@ -798,10 +790,8 @@ mod tests {
         let swap = BasisSwap::new(
             "BASIS-TEST",
             Money::new(10_000_000.0, Currency::USD),
-            Date::from_calendar_date(2024, Month::January, 1)
-                .expect("Valid test date"),
-            Date::from_calendar_date(2025, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
             primary_leg,
             reference_leg,
             CurveId::new("USD-OIS"),
@@ -809,10 +799,10 @@ mod tests {
         .with_calendar("USGS");
 
         let json = InstrumentJson::BasisSwap(swap.clone());
-        let serialized = serde_json::to_string(&json)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentJson = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&json).expect("JSON serialization should succeed in test");
+        let deserialized: InstrumentJson =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         match deserialized {
             InstrumentJson::BasisSwap(i) => {
@@ -830,15 +820,16 @@ mod tests {
             .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
             .expect("FxSpot notional should be valid")
             .with_rate(1.10)
-            .with_settlement(Date::from_calendar_date(2024, Month::January, 15)
-                .expect("Valid test date"))
+            .with_settlement(
+                Date::from_calendar_date(2024, Month::January, 15).expect("Valid test date"),
+            )
             .with_calendar_id("TARGET");
 
         let json = InstrumentJson::FxSpot(fx_spot.clone());
-        let serialized = serde_json::to_string(&json)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: InstrumentJson = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&json).expect("JSON serialization should succeed in test");
+        let deserialized: InstrumentJson =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
 
         match deserialized {
             InstrumentJson::FxSpot(i) => {

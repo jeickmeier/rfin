@@ -80,7 +80,9 @@ impl QuantoOption {
             .underlying_ticker("NKY".to_string())
             .equity_strike(Money::new(35000.0, Currency::JPY))
             .option_type(crate::instruments::OptionType::Call)
-            .expiry(Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"))
+            .expiry(
+                Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
+            )
             .notional(Money::new(1_000_000.0, Currency::USD))
             .domestic_currency(Currency::USD)
             .foreign_currency(Currency::JPY)

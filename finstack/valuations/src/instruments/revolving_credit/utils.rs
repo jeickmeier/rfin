@@ -296,10 +296,8 @@ mod tests {
 
     #[test]
     fn test_build_payment_dates_no_sentinel() {
-        let start = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let end = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -317,10 +315,8 @@ mod tests {
 
     #[test]
     fn test_build_payment_dates_with_sentinel() {
-        let start = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let end = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -338,9 +334,7 @@ mod tests {
         assert_eq!(dates_with_sentinel.len(), dates_no_sentinel.len() + 1);
 
         // Sentinel should be one day after the last payment date
-        let last_payment = dates_no_sentinel
-            .last()
-            .expect("Dates should not be empty");
+        let last_payment = dates_no_sentinel.last().expect("Dates should not be empty");
         let sentinel = dates_with_sentinel
             .last()
             .expect("Dates should not be empty");
@@ -349,10 +343,8 @@ mod tests {
 
     #[test]
     fn test_build_reset_dates_fixed_returns_none() {
-        let start = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let end = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -361,17 +353,15 @@ mod tests {
             None,
         );
 
-        let reset_dates = build_reset_dates(&facility)
-            .expect("Reset dates building should succeed in test");
+        let reset_dates =
+            build_reset_dates(&facility).expect("Reset dates building should succeed in test");
         assert!(reset_dates.is_none());
     }
 
     #[test]
     fn test_build_reset_dates_floating_returns_some() {
-        let start = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let end = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let facility = create_test_facility(
             start,
             end,
@@ -391,8 +381,8 @@ mod tests {
             None,
         );
 
-        let reset_dates = build_reset_dates(&facility)
-            .expect("Reset dates building should succeed in test");
+        let reset_dates =
+            build_reset_dates(&facility).expect("Reset dates building should succeed in test");
         assert!(reset_dates.is_some());
         let dates = reset_dates.expect("Reset dates should exist for floating rate");
         assert!(dates.len() >= 2);
@@ -400,10 +390,8 @@ mod tests {
 
     #[test]
     fn test_calendar_adjustment_applied() {
-        let start = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let end = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Without calendar
         let facility_no_cal = create_test_facility(
@@ -433,24 +421,22 @@ mod tests {
 
     #[test]
     fn test_compute_reset_period_end_monthly() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
-        let reset_end =
-            compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs)
-                .expect("Reset period end calculation should succeed");
+        let reset_end = compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs)
+            .expect("Reset period end calculation should succeed");
 
         // 3 months from Jan 15 should be Apr 15
-        let expected = Date::from_calendar_date(2025, Month::April, 15)
-            .expect("Valid test date");
+        let expected = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
         assert_eq!(reset_end, expected);
     }
 
     #[test]
     fn test_compute_reset_period_end_daily() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
         let reset_end = compute_reset_period_end(reset_date, &Frequency::Days(90), &attrs)
@@ -463,15 +449,14 @@ mod tests {
 
     #[test]
     fn test_compute_reset_period_end_with_calendar() {
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         // Test mechanism - calendar adjustment is calendar-dependent
         let attrs_no_cal = Attributes::new();
         let attrs_with_cal = Attributes::new().with_meta("calendar_id", "WMR");
 
-        let end_no_cal =
-            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal)
-                .expect("Reset period end calculation should succeed");
+        let end_no_cal = compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal)
+            .expect("Reset period end calculation should succeed");
 
         let end_with_cal =
             compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_with_cal)
@@ -488,8 +473,7 @@ mod tests {
 
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let draw_date = Date::from_calendar_date(2025, Month::March, 1)
-            .expect("Valid test date");
+        let draw_date = Date::from_calendar_date(2025, Month::March, 1).expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: draw_date,
@@ -508,8 +492,7 @@ mod tests {
 
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let repay_date = Date::from_calendar_date(2025, Month::March, 1)
-            .expect("Valid test date");
+        let repay_date = Date::from_calendar_date(2025, Month::March, 1).expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: repay_date,
@@ -528,8 +511,7 @@ mod tests {
 
         let balance = Money::new(8_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
-        let draw_date = Date::from_calendar_date(2025, Month::March, 1)
-            .expect("Valid test date");
+        let draw_date = Date::from_calendar_date(2025, Month::March, 1).expect("Valid test date");
 
         let event = DrawRepayEvent {
             date: draw_date,
@@ -550,8 +532,8 @@ mod tests {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
 
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
         // Create a simple forward curve
@@ -594,8 +576,8 @@ mod tests {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
 
-        let reset_date = Date::from_calendar_date(2025, Month::January, 15)
-            .expect("Valid test date");
+        let reset_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
         // Create a low forward curve (below floor)

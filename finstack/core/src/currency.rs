@@ -127,39 +127,46 @@ mod tests {
     #[test]
     fn test_currency_from_str() {
         assert_eq!(
-            "USD".parse::<Currency>()
+            "USD"
+                .parse::<Currency>()
                 .expect("USD should parse successfully"),
             Currency::USD
         );
         assert_eq!(
-            "EUR".parse::<Currency>()
+            "EUR"
+                .parse::<Currency>()
                 .expect("EUR should parse successfully"),
             Currency::EUR
         );
         assert_eq!(
-            "GBP".parse::<Currency>()
+            "GBP"
+                .parse::<Currency>()
                 .expect("GBP should parse successfully"),
             Currency::GBP
         );
         assert_eq!(
-            "JPY".parse::<Currency>()
+            "JPY"
+                .parse::<Currency>()
                 .expect("JPY should parse successfully"),
             Currency::JPY
         );
 
         // Test case insensitive
         assert_eq!(
-            "usd".parse::<Currency>()
+            "usd"
+                .parse::<Currency>()
                 .expect("usd should parse successfully"),
             Currency::USD
         );
         assert_eq!(
-            "eur".parse::<Currency>()
+            "eur"
+                .parse::<Currency>()
                 .expect("eur should parse successfully"),
             Currency::EUR
         );
         assert_eq!(
-            "gbp".parse::<Currency>()
+            "gbp"
+                .parse::<Currency>()
                 .expect("gbp should parse successfully"),
             Currency::GBP
         );
@@ -237,10 +244,10 @@ mod tests {
     #[test]
     fn test_currency_serde() {
         let currency = Currency::USD;
-        let serialized = serde_json::to_string(&currency)
-            .expect("JSON serialization should succeed in test");
-        let deserialized: Currency = serde_json::from_str(&serialized)
-            .expect("JSON deserialization should succeed in test");
+        let serialized =
+            serde_json::to_string(&currency).expect("JSON serialization should succeed in test");
+        let deserialized: Currency =
+            serde_json::from_str(&serialized).expect("JSON deserialization should succeed in test");
         assert_eq!(currency, deserialized);
     }
 
@@ -249,8 +256,8 @@ mod tests {
         let codes = [840u16, 978, 826, 392, 756, 36, 124];
 
         for &code in &codes {
-            let currency = Currency::try_from(code)
-                .expect("Currency conversion should succeed in test");
+            let currency =
+                Currency::try_from(code).expect("Currency conversion should succeed in test");
             let back: u16 = currency.into();
             assert_eq!(code, back);
             assert_eq!(currency.numeric(), code);

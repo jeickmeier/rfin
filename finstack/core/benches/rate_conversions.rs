@@ -16,17 +16,17 @@ fn bench_simple_to_periodic(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_to_periodic");
 
     let test_cases = [
-        ("short_period", 0.05, 0.25),  // 3 months
-        ("half_year", 0.05, 0.5),      // 6 months
-        ("one_year", 0.05, 1.0),       // 1 year
-        ("five_year", 0.05, 5.0),      // 5 years
+        ("short_period", 0.05, 0.25), // 3 months
+        ("half_year", 0.05, 0.5),     // 6 months
+        ("one_year", 0.05, 1.0),      // 1 year
+        ("five_year", 0.05, 5.0),     // 5 years
     ];
 
     for (name, rate, yf) in test_cases {
         group.bench_function(name, |b| {
             b.iter(|| {
-                let result = simple_to_periodic(black_box(rate), black_box(yf), black_box(2))
-                    .unwrap();
+                let result =
+                    simple_to_periodic(black_box(rate), black_box(yf), black_box(2)).unwrap();
                 black_box(result);
             })
         });
@@ -82,12 +82,7 @@ fn bench_continuous_to_periodic(c: &mut Criterion) {
 fn bench_simple_continuous_direct(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_continuous_direct");
 
-    let year_fractions = [
-        ("3m", 0.25),
-        ("6m", 0.5),
-        ("1y", 1.0),
-        ("5y", 5.0),
-    ];
+    let year_fractions = [("3m", 0.25), ("6m", 0.5), ("1y", 1.0), ("5y", 5.0)];
 
     for (name, yf) in year_fractions {
         group.bench_function(format!("to_continuous_{}", name), |b| {
@@ -121,8 +116,10 @@ fn bench_round_trip_conversions(c: &mut Criterion) {
 
     group.bench_function("simple_periodic_simple", |b| {
         b.iter(|| {
-            let periodic = simple_to_periodic(black_box(0.05), black_box(1.0), black_box(2)).unwrap();
-            let back = periodic_to_simple(black_box(periodic), black_box(1.0), black_box(2)).unwrap();
+            let periodic =
+                simple_to_periodic(black_box(0.05), black_box(1.0), black_box(2)).unwrap();
+            let back =
+                periodic_to_simple(black_box(periodic), black_box(1.0), black_box(2)).unwrap();
             black_box(back);
         })
     });
@@ -250,4 +247,3 @@ criterion_group!(
     bench_negative_rates,
 );
 criterion_main!(benches);
-

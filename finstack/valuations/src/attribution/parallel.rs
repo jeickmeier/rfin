@@ -398,7 +398,8 @@ mod tests {
 
         // For this test, we'll manually construct the attribution since our test
         // instrument returns fixed values
-        let total_pnl = val_t1.checked_sub(val_t0)
+        let total_pnl = val_t1
+            .checked_sub(val_t0)
             .expect("PNL calculation should succeed in test");
         let attribution = PnlAttribution::new(
             total_pnl,

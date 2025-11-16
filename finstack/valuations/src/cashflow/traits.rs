@@ -139,7 +139,9 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let dummy = Dummy;
-        let sched = dummy.build_full_schedule(&curves, as_of).expect("should build schedule");
+        let sched = dummy
+            .build_full_schedule(&curves, as_of)
+            .expect("should build schedule");
         assert_eq!(sched.notional.initial.amount(), 250.0);
         assert_eq!(sched.notional.initial.currency(), Currency::USD);
         assert_eq!(sched.day_count, finstack_core::dates::DayCount::Act365F);

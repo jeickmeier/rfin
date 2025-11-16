@@ -92,7 +92,8 @@ mod tests {
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Test unified pricing
-        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
+        let pv_unified =
+            RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
 
         // Verify we got a valid result
         assert!(pv_unified.currency() == Currency::USD);
@@ -160,7 +161,8 @@ mod tests {
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Test unified pricing
-        let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
+        let pv_unified =
+            RevolvingCreditPricer::price(&facility, &market, start).expect("should succeed");
 
         // Verify we got a valid result
         assert!(pv_unified.currency() == Currency::USD);

@@ -3,8 +3,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::error::{Error, InputError};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::bond::metrics::DiscountMarginCalculator;
+use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricId};
 use std::sync::Arc;
@@ -61,8 +61,7 @@ fn test_dm_missing_forward_curve_returns_error() {
     // Build a minimal metric context without relying on successful base pricing;
     // base_value is arbitrary here since we're testing failure in the DM objective.
     let base_value = Money::new(100.0, Currency::USD);
-    let mut mctx =
-        MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
 
     // No need to pre-compute Accrued; DM calculator will treat missing accrued as 0.
     let calc = DiscountMarginCalculator::default();
@@ -77,7 +76,10 @@ fn test_dm_missing_forward_curve_returns_error() {
                 id
             );
         }
-        Err(e) => panic!("expected InputError::NotFound for missing discount curve, got {}", e),
+        Err(e) => panic!(
+            "expected InputError::NotFound for missing discount curve, got {}",
+            e
+        ),
         Ok(dm) => panic!(
             "expected DM calculation to fail for missing discount curve, but got DM={}",
             dm
@@ -156,21 +158,17 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 
     // (target DM, bond) pairs covering IG, HY, and distressed regimes.
     let scenarios: Vec<(f64, Bond)> = vec![
-        (0.01, frn_ig),          // 100 bp IG
-        (0.07, frn_hy),          // 700 bp HY
-        (0.20, frn_distressed),  // 2000 bp distressed
+        (0.01, frn_ig),         // 100 bp IG
+        (0.07, frn_hy),         // 700 bp HY
+        (0.20, frn_distressed), // 2000 bp distressed
     ];
 
     for (target_dm, base_bond) in scenarios {
         // Price the FRN at the target DM to obtain a dirty price in currency.
-        let dirty_target =
-            finstack_valuations::instruments::bond::pricing::helpers::price_from_dm(
-                &base_bond,
-                &market,
-                as_of,
-                target_dm,
-            )
-            .expect("pricing with target DM should succeed");
+        let dirty_target = finstack_valuations::instruments::bond::pricing::helpers::price_from_dm(
+            &base_bond, &market, as_of, target_dm,
+        )
+        .expect("pricing with target DM should succeed");
 
         // Convert to a clean price quote (% of par) assuming valuation on a
         // coupon date (zero accrual).
@@ -199,10 +197,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         // Re-price using the solved DM and verify price residual is tiny.
         let dirty_repriced =
             finstack_valuations::instruments::bond::pricing::helpers::price_from_dm(
-                &bond,
-                &market,
-                as_of,
-                dm,
+                &bond, &market, as_of, dm,
             )
             .expect("repricing with solved DM should succeed");
         let price_error = (dirty_repriced - dirty_target).abs() / notional.amount();
@@ -269,4 +264,3 @@ fn test_dm_requires_accrued_when_clean_price_present() {
         ),
     }
 }
-

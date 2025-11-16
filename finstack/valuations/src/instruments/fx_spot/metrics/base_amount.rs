@@ -33,7 +33,8 @@ mod tests {
     use time::Month;
 
     fn d(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day).expect("should succeed")
+        Date::from_calendar_date(year, Month::try_from(month).expect("should succeed"), day)
+            .expect("should succeed")
     }
 
     fn sample_fx() -> FxSpot {
@@ -53,7 +54,9 @@ mod tests {
     fn calculator_matches_helper() {
         let fx = sample_fx();
         let as_of = d(2025, 2, 10);
-        let base_value = fx.npv(&MarketContext::new(), as_of).expect("should succeed");
+        let base_value = fx
+            .npv(&MarketContext::new(), as_of)
+            .expect("should succeed");
         let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(fx);
         let mut ctx = MetricContext::new(
             instrument,

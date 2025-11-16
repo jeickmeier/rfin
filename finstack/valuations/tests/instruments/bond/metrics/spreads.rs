@@ -58,8 +58,7 @@ fn test_z_spread_missing_discount_curve_returns_error() {
 
     // Minimal metric context: base value is arbitrary since Z-spread uses quoted clean price
     let base_value = Money::new(100.0, Currency::USD);
-    let mut mctx =
-        MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
 
     // Pre-populate accrued to bypass the metric dependency and force the failure into
     // the Z-spread pricing helper (missing discount curve), not missing accrued.
@@ -77,7 +76,10 @@ fn test_z_spread_missing_discount_curve_returns_error() {
                 id
             );
         }
-        Err(e) => panic!("expected InputError::NotFound for missing discount curve, got {}", e),
+        Err(e) => panic!(
+            "expected InputError::NotFound for missing discount curve, got {}",
+            e
+        ),
         Ok(z) => panic!(
             "expected Z-spread calculation to fail for missing discount curve, but got z={}",
             z
@@ -145,10 +147,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         // Price the bond at the target Z-spread to obtain a dirty price.
         let dirty_target =
             finstack_valuations::instruments::bond::pricing::helpers::price_from_z_spread(
-                &base_bond,
-                &market,
-                as_of,
-                target_z,
+                &base_bond, &market, as_of, target_z,
             )
             .expect("pricing with target Z-spread should succeed");
 
@@ -178,10 +177,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         // Re-price with solved z and verify price residual is tiny.
         let dirty_repriced =
             finstack_valuations::instruments::bond::pricing::helpers::price_from_z_spread(
-                &bond,
-                &market,
-                as_of,
-                z,
+                &bond, &market, as_of, z,
             )
             .expect("repricing with solved Z-spread should succeed");
         let price_error = (dirty_repriced - dirty_target).abs() / notional.amount();

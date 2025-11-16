@@ -286,7 +286,7 @@ pub enum PathSamplingMethod {
         /// Number of paths to sample
         count: usize,
         /// Random seed for sampling
-        seed: u64
+        seed: u64,
     },
 }
 

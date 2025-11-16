@@ -101,8 +101,12 @@ impl VarianceSwap {
             .underlying_id("SPX".to_string())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .strike_variance(0.04) // 20% vol squared
-            .start_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"))
-            .maturity(Date::from_calendar_date(2025, Month::January, 1).expect("Valid example date"))
+            .start_date(
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
+            )
+            .maturity(
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid example date"),
+            )
             .observation_freq(finstack_core::dates::Frequency::daily())
             .realized_var_method(RealizedVarMethod::Parkinson)
             .side(PayReceive::Receive)

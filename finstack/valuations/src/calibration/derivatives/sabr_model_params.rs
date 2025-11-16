@@ -38,7 +38,7 @@ impl SABRModelParams {
     pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Self {
         Self::new(alpha, nu, rho, 1.0)
     }
-    
+
     /// Create SABR parameters with rates market standard beta = 0.5 (CIR/square-root).
     pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Self {
         Self::new(alpha, nu, rho, 0.5)

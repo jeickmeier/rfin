@@ -75,8 +75,7 @@ impl EquityOption {
             "SPX-CALL-4500",
             "SPX",
             4500.0,
-            Date::from_calendar_date(2024, time::Month::June, 21)
-                .expect("Valid example date"),
+            Date::from_calendar_date(2024, time::Month::June, 21).expect("Valid example date"),
             Money::new(100_000.0, Currency::USD),
             100.0,
         )
@@ -636,7 +635,9 @@ mod tests {
         let curves = build_market_context(as_of, 100.0, 0.30, 0.02, 0.01);
 
         let npv = option.npv(&curves, as_of).expect("should succeed");
-        let implied = option.implied_vol(&curves, as_of, npv.amount()).expect("should succeed");
+        let implied = option
+            .implied_vol(&curves, as_of, npv.amount())
+            .expect("should succeed");
         approx_eq(implied, 0.30, 1e-5);
 
         let mut override_option = base_option(expiry);
@@ -646,7 +647,8 @@ mod tests {
         };
         override_option.pricing_overrides = overrides;
         let override_price = override_option.npv(&curves, as_of).expect("should succeed");
-        let (spot, r, q, _, t) = pricer::collect_inputs(&override_option, &curves, as_of).expect("should succeed");
+        let (spot, r, q, _, t) =
+            pricer::collect_inputs(&override_option, &curves, as_of).expect("should succeed");
         let expected = pricer::price_bs_unit(
             spot,
             override_option.strike.amount(),
@@ -678,7 +680,9 @@ mod tests {
         assert_eq!(greeks.theta, 0.0);
         assert_eq!(greeks.rho, 0.0);
 
-        let implied = option.implied_vol(&curves, as_of, pv.amount()).expect("should succeed");
+        let implied = option
+            .implied_vol(&curves, as_of, pv.amount())
+            .expect("should succeed");
         assert_eq!(implied, 0.0);
     }
 }

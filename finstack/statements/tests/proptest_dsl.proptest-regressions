@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc f943fbd5e53be4b5f232c1802855ff951f4ac7f835fdd2078070cac80f353e45 # shrinks to identifier = "nan0", value = 0.0
+cc 8620ce93e5af08b370569010397be845c55eb7e730d538178572d12ab55239cb # shrinks to identifier = "inf0", value = 0.0

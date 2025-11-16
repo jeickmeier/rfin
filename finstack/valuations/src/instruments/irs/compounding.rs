@@ -86,7 +86,7 @@ pub enum FloatingLegCompounding {
         /// Number of business days to shift observation end (lookback).
         /// Typically 2-5 days depending on market convention.
         lookback_days: i32,
-        
+
         /// Optional observation shift (in business days).
         /// Some markets use observation shift instead of lookback.
         observation_shift: Option<i32>,
@@ -150,7 +150,10 @@ mod tests {
 
     #[test]
     fn test_default_is_simple() {
-        assert_eq!(FloatingLegCompounding::default(), FloatingLegCompounding::Simple);
+        assert_eq!(
+            FloatingLegCompounding::default(),
+            FloatingLegCompounding::Simple
+        );
     }
 
     #[test]
@@ -163,7 +166,7 @@ mod tests {
                 observation_shift: None,
             }
         );
-        
+
         assert_eq!(
             FloatingLegCompounding::sonia(),
             FloatingLegCompounding::CompoundedInArrears {
@@ -184,11 +187,11 @@ mod tests {
         ];
 
         for method in methods {
-            let json = serde_json::to_string(&method).expect("Serialization should succeed in test");
-            let deserialized: FloatingLegCompounding = serde_json::from_str(&json)
-                .expect("Deserialization should succeed in test");
+            let json =
+                serde_json::to_string(&method).expect("Serialization should succeed in test");
+            let deserialized: FloatingLegCompounding =
+                serde_json::from_str(&json).expect("Deserialization should succeed in test");
             assert_eq!(method, deserialized);
         }
     }
 }
-

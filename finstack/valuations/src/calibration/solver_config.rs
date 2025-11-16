@@ -173,9 +173,10 @@ mod tests {
         ];
 
         for config in configs {
-            let json = serde_json::to_string(&config).expect("Serialization should succeed in test");
-            let deserialized: SolverConfig = serde_json::from_str(&json)
-                .expect("Deserialization should succeed in test");
+            let json =
+                serde_json::to_string(&config).expect("Serialization should succeed in test");
+            let deserialized: SolverConfig =
+                serde_json::from_str(&json).expect("Deserialization should succeed in test");
             assert_eq!(config, deserialized);
         }
     }
@@ -190,9 +191,9 @@ mod tests {
             min_derivative: 1e-14,
         };
 
-        let json = serde_json::to_string_pretty(&config).expect("Serialization should succeed in test");
+        let json =
+            serde_json::to_string_pretty(&config).expect("Serialization should succeed in test");
         assert!(json.contains(r#""method": "newton"#));
         assert!(json.contains(r#""tolerance"#));
     }
 }
-

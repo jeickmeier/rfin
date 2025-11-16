@@ -85,20 +85,16 @@ impl MetricCalculator for ISpreadCalculator {
 
         // Par rate approx: (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
         let p0 = disc.df_on_date_curve(dates[0]);
-        let pn = disc.df_on_date_curve(
-            *dates
-                .last()
-                .expect("Dates should not be empty")
-        );
+        let pn = disc.df_on_date_curve(*dates.last().expect("Dates should not be empty"));
         let num = p0 - pn;
         let mut den = 0.0;
         for w in dates.windows(2) {
             let (a, b) = (w[0], w[1]);
             // Use configured fixed-leg day-count for accrual factors.
-            let alpha = self
-                .config
-                .fixed_leg_day_count
-                .year_fraction(a, b, DayCountCtx::default())?;
+            let alpha =
+                self.config
+                    .fixed_leg_day_count
+                    .year_fraction(a, b, DayCountCtx::default())?;
             let p = disc.df_on_date_curve(b);
             den += alpha * p;
         }

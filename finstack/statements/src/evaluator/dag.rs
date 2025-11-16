@@ -184,7 +184,10 @@ impl DependencyGraph {
     ) -> Option<Vec<String>> {
         // If we've seen this node in the current path, we have a cycle
         if path.contains(&node.to_string()) {
-            let cycle_start = path.iter().position(|n| n == node).expect("node should be in path since contains returned true");
+            let cycle_start = path
+                .iter()
+                .position(|n| n == node)
+                .expect("node should be in path since contains returned true");
             let mut cycle = path[cycle_start..].to_vec();
             cycle.push(node.to_string());
             return Some(cycle);
@@ -262,7 +265,9 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
         if let Some(deps) = graph.dependents.get(&node) {
             for dependent in deps {
                 // SAFETY: All nodes in graph.dependents were initialized in in_degree map
-                let degree = in_degree.get_mut(dependent).expect("dependent node should exist in in_degree map");
+                let degree = in_degree
+                    .get_mut(dependent)
+                    .expect("dependent node should exist in in_degree map");
                 *degree -= 1;
                 if *degree == 0 {
                     queue.push(dependent.clone());
@@ -390,9 +395,18 @@ mod tests {
         let order = evaluate_order(&graph).expect("test should succeed");
 
         // 'a' should come before 'b' and 'c'
-        let a_pos = order.iter().position(|n| n == "a").expect("test should succeed");
-        let b_pos = order.iter().position(|n| n == "b").expect("test should succeed");
-        let c_pos = order.iter().position(|n| n == "c").expect("test should succeed");
+        let a_pos = order
+            .iter()
+            .position(|n| n == "a")
+            .expect("test should succeed");
+        let b_pos = order
+            .iter()
+            .position(|n| n == "b")
+            .expect("test should succeed");
+        let c_pos = order
+            .iter()
+            .position(|n| n == "c")
+            .expect("test should succeed");
 
         assert!(a_pos < b_pos);
         assert!(b_pos < c_pos);

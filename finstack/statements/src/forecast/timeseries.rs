@@ -439,7 +439,8 @@ mod tests {
 
         let periods = vec![PeriodId::quarter(2025, 1), PeriodId::quarter(2025, 2)];
 
-        let result = timeseries_forecast(100.0, &periods, &params).expect("timeseries_forecast should succeed");
+        let result = timeseries_forecast(100.0, &periods, &params)
+            .expect("timeseries_forecast should succeed");
 
         // Should continue linear trend
         assert!(result[&PeriodId::quarter(2025, 1)] > 130.0);
@@ -468,7 +469,8 @@ mod tests {
             PeriodId::quarter(2025, 4),
         ];
 
-        let result = seasonal_forecast(100.0, &periods, &params).expect("seasonal_forecast should succeed");
+        let result =
+            seasonal_forecast(100.0, &periods, &params).expect("seasonal_forecast should succeed");
 
         // Should produce forecasts for all 4 quarters with seasonal pattern
         assert!(result.len() == 4);

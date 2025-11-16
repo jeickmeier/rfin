@@ -329,7 +329,8 @@ mod tests {
 
     #[test]
     fn test_parse_nested_functions() {
-        let result = parse_formula("rolling_mean(lag(revenue, 1), 4)").expect("test should succeed");
+        let result =
+            parse_formula("rolling_mean(lag(revenue, 1), 4)").expect("test should succeed");
         match result {
             StmtExpr::Call { func, args } => {
                 assert_eq!(func, "rolling_mean");
@@ -354,7 +355,8 @@ mod tests {
 
     #[test]
     fn test_parse_logical_and() {
-        let result = parse_formula("revenue > 1000000 and margin > 0.15").expect("test should succeed");
+        let result =
+            parse_formula("revenue > 1000000 and margin > 0.15").expect("test should succeed");
         match result {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::And),
             _ => panic!("Expected BinOp"),
@@ -363,7 +365,8 @@ mod tests {
 
     #[test]
     fn test_parse_if_then_else() {
-        let result = parse_formula("if(revenue > 1000000, revenue * 0.1, 0)").expect("test should succeed");
+        let result =
+            parse_formula("if(revenue > 1000000, revenue * 0.1, 0)").expect("test should succeed");
         match result {
             StmtExpr::IfThenElse { .. } => {}
             _ => panic!("Expected IfThenElse"),

@@ -9,10 +9,10 @@
 use std::marker::PhantomData;
 
 use crate::instruments::common::traits::{EquityDependencies, Instrument};
-use crate::metrics::{bump_scalar_price, bump_sizes, scale_surface};
 use crate::metrics::core::finite_difference::{
     adaptive_spot_bump, central_mixed, get_bump_overrides,
 };
+use crate::metrics::{bump_scalar_price, bump_sizes, scale_surface};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;

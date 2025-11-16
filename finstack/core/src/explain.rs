@@ -271,14 +271,15 @@ mod tests {
             None,
         );
 
-        let json = trace.to_json_pretty()
+        let json = trace
+            .to_json_pretty()
             .expect("JSON serialization should succeed in test");
         assert!(json.contains("\"type\": \"calibration\""));
         assert!(json.contains("\"kind\": \"calibration_iteration\""));
 
         // Roundtrip
-        let deserialized: ExplanationTrace = serde_json::from_str(&json)
-            .expect("JSON deserialization should succeed in test");
+        let deserialized: ExplanationTrace =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
         assert_eq!(deserialized.trace_type, "calibration");
         assert_eq!(deserialized.entries.len(), 1);
     }
@@ -295,8 +296,8 @@ mod tests {
             curve_id: "USD_GOVT".to_string(),
         };
 
-        let json = serde_json::to_string(&entry)
-            .expect("JSON serialization should succeed in test");
+        let json =
+            serde_json::to_string(&entry).expect("JSON serialization should succeed in test");
         assert!(json.contains("\"kind\":\"cashflow_pv\""));
         assert!(json.contains("\"curve_id\":\"USD_GOVT\""));
     }

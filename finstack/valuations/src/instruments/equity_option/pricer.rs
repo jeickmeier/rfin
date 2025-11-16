@@ -227,11 +227,11 @@ pub struct UnitGreeks {
     /// Gamma per share (rate of change of delta with respect to underlying)
     pub gamma: f64,
     /// Vega per share per 1% volatility change
-    pub vega: f64,  // per 1% vol
+    pub vega: f64, // per 1% vol
     /// Theta per share per day (time decay)
     pub theta: f64, // per day
     /// Rho per share per 1% interest rate change
-    pub rho: f64,   // per 1% rate
+    pub rho: f64, // per 1% rate
 }
 
 /// Compute unit greeks from explicit inputs (no market lookups).

@@ -146,10 +146,8 @@ impl CreditDefaultSwap {
             "CDS-CORP-5Y",
             Money::new(10_000_000.0, Currency::USD),
             100.0, // 100 bps spread
-            Date::from_calendar_date(2024, time::Month::March, 20)
-                .expect("Valid example date"),
-            Date::from_calendar_date(2029, time::Month::March, 20)
-                .expect("Valid example date"),
+            Date::from_calendar_date(2024, time::Month::March, 20).expect("Valid example date"),
+            Date::from_calendar_date(2029, time::Month::March, 20).expect("Valid example date"),
             "USD-OIS",
             "CORP-HAZARD",
         )

@@ -526,8 +526,7 @@ mod tests {
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<VolQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let expiry_1m = base_date + time::Duration::days(30);
         let expiry_3m = base_date + time::Duration::days(90);
 
@@ -581,8 +580,7 @@ mod tests {
 
     #[test]
     fn test_vol_surface_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-VOL",
             1.0,                          // Lognormal beta for equity
@@ -609,8 +607,7 @@ mod tests {
         let result = calibrator.calibrate(&quotes, &context);
 
         assert!(result.is_ok());
-        let (surface, report) = result
-            .expect("Calibration should succeed in test");
+        let (surface, report) = result.expect("Calibration should succeed in test");
         assert!(report.success);
         assert_eq!(surface.id().as_str(), "TEST-VOL");
         assert_eq!(surface.expiries().len(), 2);
@@ -619,8 +616,7 @@ mod tests {
 
     #[test]
     fn test_sabr_parameter_interpolation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new("TEST", 0.5, vec![1.0, 2.0, 3.0], vec![100.0])
             .with_base_date(base_date);
 
@@ -662,8 +658,7 @@ mod tests {
 
     #[test]
     fn test_vol_grid_construction() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let calibrator = VolSurfaceCalibrator::new(
             "TEST",
             1.0,
@@ -703,8 +698,7 @@ mod tests {
 
     #[test]
     fn error_when_discount_ambiguous_without_id() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         // Two discount curves in context
         let disc_usd = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)

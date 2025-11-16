@@ -464,7 +464,14 @@ mod tests {
 
         let extension = CorkscrewExtension::with_config(config);
         assert!(extension.config().is_some());
-        assert_eq!(extension.config().expect("test should succeed").accounts.len(), 1);
+        assert_eq!(
+            extension
+                .config()
+                .expect("test should succeed")
+                .accounts
+                .len(),
+            1
+        );
     }
 
     #[test]

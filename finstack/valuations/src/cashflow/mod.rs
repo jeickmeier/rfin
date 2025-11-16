@@ -160,6 +160,9 @@ pub mod builder;
 /// Cashflow-related traits and aliases.
 pub mod traits;
 
+/// Generic schedule-driven interest accrual engine.
+pub mod accrual;
+
 // -----------------------------------------------------------------------------
 // Canonical flow aliases (deduplicated across the cashflow module)
 // -----------------------------------------------------------------------------

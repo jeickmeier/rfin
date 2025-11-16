@@ -37,19 +37,19 @@ impl Covenant {
             is_active: true,
         }
     }
-    
+
     /// Set cure period (days before breach becomes default)
     pub fn with_cure_period(mut self, days: Option<i32>) -> Self {
         self.cure_period_days = days;
         self
     }
-    
+
     /// Add a consequence for covenant breach
     pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self {
         self.consequences.push(consequence);
         self
     }
-    
+
     /// Get human-readable description of the covenant
     pub fn description(&self) -> String {
         match &self.covenant_type {
@@ -87,49 +87,49 @@ pub enum CovenantType {
     /// Maximum debt-to-EBITDA ratio
     MaxDebtToEBITDA {
         /// Maximum allowed ratio
-        threshold: f64
+        threshold: f64,
     },
     /// Minimum interest coverage ratio (EBIT/Interest)
     MinInterestCoverage {
         /// Minimum required ratio
-        threshold: f64
+        threshold: f64,
     },
     /// Minimum fixed charge coverage ratio
     MinFixedChargeCoverage {
         /// Minimum required coverage
-        threshold: f64
+        threshold: f64,
     },
     /// Maximum total leverage ratio
     MaxTotalLeverage {
         /// Maximum allowed leverage
-        threshold: f64
+        threshold: f64,
     },
     /// Maximum senior leverage ratio
     MaxSeniorLeverage {
         /// Maximum allowed senior leverage
-        threshold: f64
+        threshold: f64,
     },
     /// Minimum asset coverage ratio
     MinAssetCoverage {
         /// Minimum required coverage
-        threshold: f64
+        threshold: f64,
     },
     /// Negative covenant (prohibition)
     Negative {
         /// Description of restriction
-        restriction: String
+        restriction: String,
     },
     /// Affirmative covenant (requirement)
     Affirmative {
         /// Description of requirement
-        requirement: String
+        requirement: String,
     },
     /// Custom covenant with metric and threshold test
     Custom {
         /// Name of metric to test
         metric: String,
         /// Threshold test (min or max)
-        test: ThresholdTest
+        test: ThresholdTest,
     },
 }
 
@@ -150,24 +150,24 @@ pub enum CovenantConsequence {
     /// Interest rate margin increase
     RateIncrease {
         /// Increase in basis points
-        bp_increase: f64
+        bp_increase: f64,
     },
     /// Mandatory cash sweep of excess cash flow
     CashSweep {
         /// Percentage of cash flow to sweep
-        sweep_percentage: f64
+        sweep_percentage: f64,
     },
     /// Block distributions to equity holders
     BlockDistributions,
     /// Require additional collateral
     RequireCollateral {
         /// Description of collateral requirement
-        description: String
+        description: String,
     },
     /// Accelerate loan maturity date
     AccelerateMaturity {
         /// New accelerated maturity date
-        new_maturity: Date
+        new_maturity: Date,
     },
 }
 use crate::metrics::{MetricContext, MetricId};

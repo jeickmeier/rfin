@@ -50,7 +50,11 @@ pub type FxRate = f64;
 /// Returns `1.0 / rate` if `rate != 0.0`, otherwise returns an error.
 /// This consolidates the reciprocal logic used across FX providers and matrix lookups.
 #[inline]
-pub(crate) fn reciprocal_rate_or_err(rate: f64, from: Currency, to: Currency) -> crate::Result<f64> {
+pub(crate) fn reciprocal_rate_or_err(
+    rate: f64,
+    from: Currency,
+    to: Currency,
+) -> crate::Result<f64> {
     if rate != 0.0 {
         Ok(1.0 / rate)
     } else {
@@ -809,8 +813,7 @@ mod tests {
 
     fn test_date() -> Date {
         use time::Month;
-        Date::from_calendar_date(2023, Month::December, 15)
-            .expect("Valid test date")
+        Date::from_calendar_date(2023, Month::December, 15).expect("Valid test date")
     }
 
     #[test]

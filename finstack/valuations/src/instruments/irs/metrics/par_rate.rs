@@ -139,9 +139,7 @@ impl MetricCalculator for ParRateCalculator {
                 let tn = disc_dc
                     .year_fraction(
                         base,
-                        *dates
-                            .last()
-                            .expect("Dates should not be empty"),
+                        *dates.last().expect("Dates should not be empty"),
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0);

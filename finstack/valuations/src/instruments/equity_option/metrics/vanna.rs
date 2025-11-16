@@ -42,7 +42,11 @@ impl MetricCalculator for VannaCalculator {
         let vol_bump = bump_sizes::VOLATILITY;
 
         // Compute delta at vol_up: bump both spot and vol, compute delta
-        let curves_vol_up = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 + vol_bump)?;
+        let curves_vol_up = scale_surface(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            1.0 + vol_bump,
+        )?;
 
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
         let curves_up_vol_up =
@@ -54,7 +58,11 @@ impl MetricCalculator for VannaCalculator {
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
         // Compute delta at vol_down
-        let curves_vol_down = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 - vol_bump)?;
+        let curves_vol_down = scale_surface(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            1.0 - vol_bump,
+        )?;
 
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
         let curves_up_vol_down =

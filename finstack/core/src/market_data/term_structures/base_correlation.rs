@@ -158,7 +158,8 @@ impl BaseCorrelationCurve {
                 if detachment_pct < self.detachment_points[0] {
                     self.correlations[0]
                 } else {
-                    *self.correlations
+                    *self
+                        .correlations
                         .last()
                         .expect("correlations should not be empty")
                 }

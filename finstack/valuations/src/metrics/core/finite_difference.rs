@@ -60,7 +60,7 @@ pub mod bump_sizes {
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
 /// let mut context = MarketContext::new(as_of);
-/// 
+///
 /// // Add a spot price
 /// context.add_price("AAPL", MarketScalar::Unitless(150.0));
 ///
@@ -130,7 +130,7 @@ pub fn bump_scalar_price(
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
 /// let curve_id = CurveId::from("USD-OIS");
-/// 
+///
 /// // Create a discount curve
 /// let curve = DiscountCurve::builder(curve_id.clone())
 ///     .base_date(as_of)
@@ -402,7 +402,8 @@ mod tests {
 
     #[test]
     fn central_diff_1d_rejects_nonpositive_or_invalid_h() {
-        let err = central_diff_1d(|| Ok(1.0f64), || Ok(1.0f64), 0.0).expect_err("should fail with non-positive h");
+        let err = central_diff_1d(|| Ok(1.0f64), || Ok(1.0f64), 0.0)
+            .expect_err("should fail with non-positive h");
         match err {
             finstack_core::error::Error::Input(
                 finstack_core::error::InputError::NonPositiveValue,

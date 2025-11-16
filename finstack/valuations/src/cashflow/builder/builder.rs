@@ -211,7 +211,7 @@ fn initialize_build_state(issue: Date, notional: &Notional, estimated_dates: usi
     });
 
     // Pre-allocate outstanding_after based on number of dates
-    let mut outstanding_after: hashbrown::HashMap<Date, f64> = 
+    let mut outstanding_after: hashbrown::HashMap<Date, f64> =
         hashbrown::HashMap::with_capacity(estimated_dates);
     outstanding_after.insert(issue, notional.initial.amount());
 

@@ -120,7 +120,9 @@ mod tests {
         };
         let base = curve.base_date();
         let schedule = simple_schedule();
-        let pv = schedule.npv(&curve, base, DayCount::Act365F).expect("should calculate NPV");
+        let pv = schedule
+            .npv(&curve, base, DayCount::Act365F)
+            .expect("should calculate NPV");
         assert!(pv.amount().is_finite());
     }
 }

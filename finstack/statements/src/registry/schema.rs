@@ -155,7 +155,8 @@ mod tests {
             ]
         }"#;
 
-        let registry: MetricRegistry = serde_json::from_str(json).expect("should deserialize valid JSON");
+        let registry: MetricRegistry =
+            serde_json::from_str(json).expect("should deserialize valid JSON");
         assert_eq!(registry.namespace, "test");
         assert_eq!(registry.metrics.len(), 1);
         assert_eq!(registry.metrics[0].id, "gross_margin");

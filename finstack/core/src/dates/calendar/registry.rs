@@ -132,13 +132,11 @@ mod tests {
         let composite = CompositeCalendar::with_mode(&v[..], CompositeMode::Union);
 
         // Jan 1 is a holiday for both; union should be holiday.
-        let d1 = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let d1 = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         assert!(composite.is_holiday(d1));
 
         // Date that is holiday in GBLO but not necessarily in Target2 (e.g., 26-May-2025)
-        let d2 = Date::from_calendar_date(2025, Month::May, 26)
-            .expect("Valid test date");
+        let d2 = Date::from_calendar_date(2025, Month::May, 26).expect("Valid test date");
         assert!(GBLO.is_holiday(d2));
         assert!(composite.is_holiday(d2));
     }

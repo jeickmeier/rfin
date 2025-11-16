@@ -191,17 +191,17 @@ impl Frequency {
     }
 
     // Convenience constructors for common frequencies
-    
+
     /// Returns a frequency of 12 months (annual).
     pub const fn annual() -> Self {
         Self::Months(12)
     }
-    
+
     /// Returns a frequency of 6 months (semi-annual).
     pub const fn semi_annual() -> Self {
         Self::Months(6)
     }
-    
+
     /// Every two months.
     pub const fn bimonthly() -> Self {
         Self::Months(2)
@@ -211,12 +211,12 @@ impl Frequency {
     pub const fn quarterly() -> Self {
         Self::Months(3)
     }
-    
+
     /// Returns a frequency of 1 month (monthly).
     pub const fn monthly() -> Self {
         Self::Months(1)
     }
-    
+
     /// Returns a frequency of 14 days (biweekly).
     pub const fn biweekly() -> Self {
         Self::Days(14)
@@ -226,7 +226,7 @@ impl Frequency {
     pub const fn weekly() -> Self {
         Self::Days(7)
     }
-    
+
     /// Returns a frequency of 1 day (daily).
     pub const fn daily() -> Self {
         Self::Days(1)
@@ -966,12 +966,8 @@ mod tests {
     use time::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(
-            y,
-            Month::try_from(m).expect("Valid month (1-12)"),
-            day,
-        )
-        .expect("Valid test date")
+        Date::from_calendar_date(y, Month::try_from(m).expect("Valid month (1-12)"), day)
+            .expect("Valid test date")
     }
 
     #[test]
@@ -1102,10 +1098,10 @@ mod serde_tests {
         ];
 
         for freq in frequencies {
-            let json = serde_json::to_string(&freq)
-                .expect("JSON serialization should succeed in test");
-            let deserialized: Frequency = serde_json::from_str(&json)
-                .expect("JSON deserialization should succeed in test");
+            let json =
+                serde_json::to_string(&freq).expect("JSON serialization should succeed in test");
+            let deserialized: Frequency =
+                serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
             assert_eq!(freq, deserialized);
         }
     }
@@ -1124,10 +1120,10 @@ mod serde_tests {
         ];
 
         for stub in stub_kinds {
-            let json = serde_json::to_string(&stub)
-                .expect("JSON serialization should succeed in test");
-            let deserialized: StubKind = serde_json::from_str(&json)
-                .expect("JSON deserialization should succeed in test");
+            let json =
+                serde_json::to_string(&stub).expect("JSON serialization should succeed in test");
+            let deserialized: StubKind =
+                serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
             assert_eq!(stub, deserialized);
         }
     }
@@ -1144,8 +1140,10 @@ mod serde_tests {
             .build()
             .expect("Schedule builder should succeed with valid test data");
 
-        let json = serde_json::to_string(&sched).expect("JSON serialization should succeed in test");
-        let deserialized: Schedule = serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
+        let json =
+            serde_json::to_string(&sched).expect("JSON serialization should succeed in test");
+        let deserialized: Schedule =
+            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
 
         assert_eq!(sched.dates.len(), deserialized.dates.len());
         for (original, deserialized) in sched.dates.iter().zip(deserialized.dates.iter()) {

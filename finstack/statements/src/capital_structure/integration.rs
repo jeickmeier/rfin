@@ -166,7 +166,10 @@ pub fn aggregate_instrument_cashflows(
         // Aggregate into totals (handling Money addition which returns Result)
         for (period_id, breakdown) in &instrument_periods {
             // SAFETY: All periods were initialized at function start
-            let total = result.totals.get_mut(period_id).expect("period should exist in totals map");
+            let total = result
+                .totals
+                .get_mut(period_id)
+                .expect("period should exist in totals map");
             // Money += Money unwraps internally (uses AddAssign which panics on currency mismatch)
             total.interest_expense_cash += breakdown.interest_expense_cash;
             total.interest_expense_pik += breakdown.interest_expense_pik;

@@ -234,10 +234,8 @@ mod tests {
     use time::Month;
 
     fn create_test_bond() -> Bond {
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         Bond::fixed(
             "TEST-BOND",
@@ -264,42 +262,32 @@ mod tests {
         vec![
             Period {
                 id: PeriodId::quarter(2025, 1),
-                start: Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
-                end: Date::from_calendar_date(2025, Month::April, 1)
-                    .expect("Valid test date"),
+                start: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::April, 1).expect("Valid test date"),
                 is_actual: true,
             },
             Period {
                 id: PeriodId::quarter(2025, 2),
-                start: Date::from_calendar_date(2025, Month::April, 1)
-                    .expect("Valid test date"),
-                end: Date::from_calendar_date(2025, Month::July, 1)
-                    .expect("Valid test date"),
+                start: Date::from_calendar_date(2025, Month::April, 1).expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::July, 1).expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2025, 3),
-                start: Date::from_calendar_date(2025, Month::July, 1)
-                    .expect("Valid test date"),
-                end: Date::from_calendar_date(2025, Month::October, 1)
-                    .expect("Valid test date"),
+                start: Date::from_calendar_date(2025, Month::July, 1).expect("Valid test date"),
+                end: Date::from_calendar_date(2025, Month::October, 1).expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2025, 4),
-                start: Date::from_calendar_date(2025, Month::October, 1)
-                    .expect("Valid test date"),
-                end: Date::from_calendar_date(2026, Month::January, 1)
-                    .expect("Valid test date"),
+                start: Date::from_calendar_date(2025, Month::October, 1).expect("Valid test date"),
+                end: Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date"),
                 is_actual: false,
             },
             Period {
                 id: PeriodId::quarter(2026, 1),
-                start: Date::from_calendar_date(2026, Month::January, 1)
-                    .expect("Valid test date"),
-                end: Date::from_calendar_date(2026, Month::April, 1)
-                    .expect("Valid test date"),
+                start: Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date"),
+                end: Date::from_calendar_date(2026, Month::April, 1).expect("Valid test date"),
                 is_actual: false,
             },
         ]
@@ -308,8 +296,7 @@ mod tests {
     #[test]
     fn test_periodized_pv_bond_fixed_matches_sum_npv() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let market = create_test_market(base);
         let periods = create_quarters_2025();
 
@@ -354,10 +341,8 @@ mod tests {
         use finstack_core::dates::Frequency;
         use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
-        let issue = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Create FRN using the new floating constructor
         let frn = Bond::floating(
@@ -437,8 +422,7 @@ mod tests {
     #[test]
     fn test_periodized_pv_credit_adjusted_applies_hazard() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Create market with discount and hazard curves
         let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -516,10 +500,8 @@ mod tests {
         use crate::instruments::InterestRateSwap;
         use finstack_core::types::InstrumentId;
 
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Create a simple IRS using constructor
         let irs = InterestRateSwap::new(
@@ -554,8 +536,7 @@ mod tests {
     #[test]
     fn test_periodized_pv_empty_periods_returns_empty() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let market = create_test_market(base);
 
         let pv_by_period = bond
@@ -570,8 +551,7 @@ mod tests {
         // This test would require a multi-currency instrument
         // For now, we verify that the USD bond only produces USD PVs
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let market = create_test_market(base);
         let periods = create_quarters_2025();
 

@@ -248,7 +248,9 @@ mod tests {
         let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("revenue", &period).expect("test should succeed");
+        let explanation = explainer
+            .explain("revenue", &period)
+            .expect("test should succeed");
 
         assert_eq!(explanation.node_id, "revenue");
         assert_eq!(explanation.final_value, 100_000.0);
@@ -282,7 +284,9 @@ mod tests {
         let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("gross_profit", &period).expect("test should succeed");
+        let explanation = explainer
+            .explain("gross_profit", &period)
+            .expect("test should succeed");
 
         assert_eq!(explanation.node_id, "gross_profit");
         assert_eq!(explanation.final_value, 60_000.0);
@@ -314,7 +318,9 @@ mod tests {
         let results = evaluator.evaluate(&model).expect("test should succeed");
 
         let explainer = FormulaExplainer::new(&model, &results);
-        let explanation = explainer.explain("cogs", &period).expect("test should succeed");
+        let explanation = explainer
+            .explain("cogs", &period)
+            .expect("test should succeed");
 
         let detailed = explanation.to_string_detailed();
         assert!(detailed.contains("cogs [2025Q1]"));

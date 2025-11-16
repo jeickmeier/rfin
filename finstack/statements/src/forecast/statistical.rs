@@ -201,8 +201,10 @@ mod tests {
         params.insert("std_dev".to_string(), serde_json::json!(15_000.0));
         params.insert("seed".to_string(), serde_json::json!(42));
 
-        let results1 = normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
-        let results2 = normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
+        let results1 =
+            normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
+        let results2 =
+            normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
 
         // Same seed should produce identical results
         assert_eq!(
@@ -229,8 +231,10 @@ mod tests {
         params2.insert("std_dev".to_string(), serde_json::json!(15_000.0));
         params2.insert("seed".to_string(), serde_json::json!(43));
 
-        let results1 = normal_forecast(0.0, &periods, &params1).expect("normal_forecast should succeed");
-        let results2 = normal_forecast(0.0, &periods, &params2).expect("normal_forecast should succeed");
+        let results1 =
+            normal_forecast(0.0, &periods, &params1).expect("normal_forecast should succeed");
+        let results2 =
+            normal_forecast(0.0, &periods, &params2).expect("normal_forecast should succeed");
 
         // Different seeds should produce different results
         assert_ne!(
@@ -276,7 +280,8 @@ mod tests {
         params.insert("std_dev".to_string(), serde_json::json!(0.15));
         params.insert("seed".to_string(), serde_json::json!(42));
 
-        let results = lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
+        let results =
+            lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
 
         // All values should be positive
         for value in results.values() {
@@ -293,8 +298,10 @@ mod tests {
         params.insert("std_dev".to_string(), serde_json::json!(0.15));
         params.insert("seed".to_string(), serde_json::json!(42));
 
-        let results1 = lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
-        let results2 = lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
+        let results1 =
+            lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
+        let results2 =
+            lognormal_forecast(0.0, &periods, &params).expect("lognormal_forecast should succeed");
 
         // Same seed should produce identical results
         assert_eq!(

@@ -49,7 +49,10 @@ impl Deposit {
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))
             .notional(Money::new(100_000.0, Currency::USD))
-            .start(Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"))
+            .start(
+                Date::from_calendar_date(2024, time::Month::January, 1)
+                    .expect("Valid example date"),
+            )
             .end(Date::from_calendar_date(2024, time::Month::July, 1).expect("Valid example date"))
             .day_count(DayCount::Act360)
             .quote_rate_opt(Some(0.045))

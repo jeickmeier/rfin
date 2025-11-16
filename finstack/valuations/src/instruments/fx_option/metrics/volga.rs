@@ -31,10 +31,18 @@ impl MetricCalculator for VolgaCalculator {
         let vol_bump = bump_sizes::VOLATILITY;
 
         // Bump vol up and down
-        let curves_vol_up = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 + vol_bump)?;
+        let curves_vol_up = scale_surface(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            1.0 + vol_bump,
+        )?;
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
 
-        let curves_vol_down = scale_surface(&context.curves, option.vol_surface_id.as_str(), 1.0 - vol_bump)?;
+        let curves_vol_down = scale_surface(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            1.0 - vol_bump,
+        )?;
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
 
         // Volga = (PV(σ+h) - 2*PV(σ) + PV(σ-h)) / h²

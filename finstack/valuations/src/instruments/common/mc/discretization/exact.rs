@@ -290,7 +290,8 @@ mod tests {
         assert_eq!(disc.cholesky_factor.len(), 4);
 
         // Test from_process convenience method
-        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
+        let disc_from_process =
+            ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
         assert!(disc_from_process.is_some());
     }
 
@@ -366,7 +367,8 @@ mod tests {
         ];
         let multi_gbm = MultiGbmProcess::new(params, None); // No correlation
 
-        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
+        let disc_from_process =
+            ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
         assert!(disc_from_process.is_none()); // Should return None for uncorrelated process
     }
 }

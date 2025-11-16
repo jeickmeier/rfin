@@ -262,19 +262,16 @@ mod tests {
     fn test_xirr_basic() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         assert!((result - 0.1).abs() < 0.001); // Should be approximately 10%
     }
 
@@ -282,24 +279,20 @@ mod tests {
     fn test_xirr_multiple_flows() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::July, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
                 5_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         assert!(result > 0.1 && result < 0.2); // Should be between 10% and 20%
     }
 
@@ -308,23 +301,19 @@ mod tests {
         // Same cashflows, different order; result should be equivalent
         let sorted = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
         let mut unsorted = sorted.clone();
         unsorted.reverse();
 
-        let r1 = xirr(&sorted, None)
-            .expect("XIRR calculation should succeed in test");
-        let r2 = xirr(&unsorted, None)
-            .expect("XIRR calculation should succeed in test");
+        let r1 = xirr(&sorted, None).expect("XIRR calculation should succeed in test");
+        let r2 = xirr(&unsorted, None).expect("XIRR calculation should succeed in test");
         assert!((r1 - r2).abs() < 1e-8);
     }
 
@@ -332,19 +321,16 @@ mod tests {
     fn test_xirr_negative_return() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 90_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         assert!((result + 0.1).abs() < 0.001); // Should be approximately -10%
     }
 
@@ -352,13 +338,11 @@ mod tests {
     fn test_xirr_no_sign_change() {
         let flows = vec![
             (
-                Date::from_calendar_date(2024, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
                 100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
@@ -370,8 +354,7 @@ mod tests {
     #[test]
     fn test_xirr_too_few_flows() {
         let flows = vec![(
-            Date::from_calendar_date(2024, Month::January, 1)
-                .expect("Valid test date"),
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
             -100_000.0,
         )];
 
@@ -384,33 +367,27 @@ mod tests {
         // More realistic example with irregular payments
         let flows = vec![
             (
-                Date::from_calendar_date(2023, Month::January, 15)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2023, Month::January, 15).expect("Valid test date"),
                 -50_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::March, 31)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2023, Month::March, 31).expect("Valid test date"),
                 -30_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::June, 15)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2023, Month::June, 15).expect("Valid test date"),
                 10_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::September, 30)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2023, Month::September, 30).expect("Valid test date"),
                 15_000.0,
             ),
             (
-                Date::from_calendar_date(2023, Month::December, 31)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2023, Month::December, 31).expect("Valid test date"),
                 20_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::June, 15)
-                    .expect("Valid test date"),
+                Date::from_calendar_date(2024, Month::June, 15).expect("Valid test date"),
                 45_000.0,
             ),
         ];

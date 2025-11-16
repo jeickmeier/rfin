@@ -12,8 +12,8 @@ use super::helpers;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::bond::Bond;
 use crate::instruments::common::traits::Instrument;
-use crate::metrics::{MetricContext, MetricId};
 use crate::metrics::{standard_registry, MetricRegistry};
+use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::Result;
@@ -87,10 +87,13 @@ pub fn compute_quotes(
     // Work on a local clone so we never mutate the caller's bond instance.
     let mut bond_for_metrics = bond.clone();
 
-    // Accrued interest in currency using the context-aware helper
-    // so FRNs are handled correctly.
-    let accrued_ccy =
-        helpers::compute_accrued_interest_with_context(&bond_for_metrics, curves, as_of)?;
+    // Accrued interest using generic cashflow accrual engine
+    let schedule = bond_for_metrics.get_full_schedule(curves)?;
+    let accrued_ccy = crate::cashflow::accrual::accrued_interest_amount(
+        &schedule,
+        as_of,
+        &bond_for_metrics.accrual_config(),
+    )?;
 
     let notional = bond_for_metrics.notional.amount();
     if notional == 0.0 {
@@ -169,9 +172,7 @@ pub fn compute_quotes(
 
     // Stamp the canonical clean price quote into pricing_overrides so that all
     // existing metric calculators interpret this as the market price.
-    bond_for_metrics
-        .pricing_overrides
-        .quoted_clean_price = Some(clean_price_pct);
+    bond_for_metrics.pricing_overrides.quoted_clean_price = Some(clean_price_pct);
 
     // 2) Build metric context and use the standard registry for the rest.
     let base_value = bond_for_metrics.value(curves, as_of)?;
@@ -229,11 +230,7 @@ pub fn compute_quotes(
 /// Compute the par swap fixed rate used in the I-Spread definition
 /// (`ISpread = YTM - par_swap_rate`) using the same convention as the
 /// `ISpreadCalculator` (annual Act/Act proxy fixed leg by default).
-fn par_swap_rate_from_discount(
-    bond: &Bond,
-    curves: &MarketContext,
-    as_of: Date,
-) -> Result<f64> {
+fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
     use finstack_core::dates::{BusinessDayConvention, DayCount, DayCountCtx, Frequency, StubKind};
 
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
@@ -252,17 +249,12 @@ fn par_swap_rate_from_discount(
     }
 
     let p0 = disc.df_on_date_curve(dates[0]);
-    let pn = disc.df_on_date_curve(
-        *dates
-            .last()
-            .expect("Dates should not be empty"),
-    );
+    let pn = disc.df_on_date_curve(*dates.last().expect("Dates should not be empty"));
     let num = p0 - pn;
     let mut den = 0.0;
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
-        let alpha =
-            DayCount::ActAct.year_fraction(a, b, DayCountCtx::default())?;
+        let alpha = DayCount::ActAct.year_fraction(a, b, DayCountCtx::default())?;
         let p = disc.df_on_date_curve(b);
         den += alpha * p;
     }
@@ -287,16 +279,22 @@ fn price_from_asw_market(
     as_of: Date,
     asw_market: f64,
 ) -> Result<f64> {
-    use crate::instruments::bond::CashflowSpec;
     use crate::instruments::bond::pricing::helpers::par_rate_and_annuity_from_discount;
     use crate::instruments::bond::pricing::schedule_helpers;
+    use crate::instruments::bond::CashflowSpec;
 
     // Only well-defined for fixed-rate, non-custom bonds in this helper.
     if bond.custom_cashflows.is_some() {
         return Err(finstack_core::error::InputError::Invalid.into());
     }
     let (coupon, freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
-        CashflowSpec::Fixed(spec) => (spec.rate, spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref()),
+        CashflowSpec::Fixed(spec) => (
+            spec.rate,
+            spec.freq,
+            spec.stub,
+            spec.bdc,
+            spec.calendar_id.as_deref(),
+        ),
         _ => return Err(finstack_core::error::InputError::Invalid.into()),
     };
 
@@ -304,21 +302,14 @@ fn price_from_asw_market(
 
     // Mirror the schedule and annuity definition used by AssetSwapMarketCalculator
     // (discount-ratio approximation on the fixed-leg schedule).
-    let sched = schedule_helpers::build_bond_schedule(
-        as_of,
-        bond.maturity,
-        freq,
-        stub,
-        bdc,
-        calendar_id,
-    );
+    let sched =
+        schedule_helpers::build_bond_schedule(as_of, bond.maturity, freq, stub, bdc, calendar_id);
     if sched.len() < 2 {
         return Ok(0.0);
     }
 
     let dc = bond.cashflow_spec.day_count();
-    let (par_rate, ann) =
-        par_rate_and_annuity_from_discount(disc, dc, &sched)?;
+    let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -327,5 +318,3 @@ fn price_from_asw_market(
     let price_pct = 1.0 + (asw_market - par_asw) * ann;
     Ok(price_pct * bond.notional.amount())
 }
-
-
