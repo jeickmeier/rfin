@@ -3,7 +3,9 @@ use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, Frequency, StubKind,
+};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
@@ -13,13 +15,64 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 ///
 /// Market ASW: spread s that equates PV of bond fixed leg to dirty market price.
 /// Approximation: asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate.
-pub struct AssetSwapParCalculator;
-/// Asset swap spread calculator using market price
-pub struct AssetSwapMarketCalculator;
+/// Configuration for fixed-leg conventions used in ASW par/market metrics.
+///
+/// When a field is `None`, the corresponding convention falls back to the
+/// bond's own coupon conventions.
+#[derive(Clone, Debug, Default)]
+pub struct AssetSwapConfig {
+    /// Day-count convention for the ASW fixed leg (annuity).
+    pub fixed_leg_day_count: Option<DayCount>,
+    /// Payment frequency for the ASW fixed leg.
+    pub fixed_leg_frequency: Option<Frequency>,
+    /// Business day convention for the ASW fixed-leg schedule.
+    pub fixed_leg_bdc: Option<BusinessDayConvention>,
+    /// Optional calendar identifier for business-day adjustment.
+    pub fixed_leg_calendar_id: Option<String>,
+    /// Stub convention for the ASW fixed-leg schedule.
+    pub fixed_leg_stub: Option<StubKind>,
+}
+
+/// Asset swap par spread calculator using discount-curve annuity approximation.
+#[derive(Clone, Debug, Default)]
+pub struct AssetSwapParCalculator {
+    config: AssetSwapConfig,
+}
+
+/// Asset swap spread calculator using market price.
+#[derive(Clone, Debug, Default)]
+pub struct AssetSwapMarketCalculator {
+    config: AssetSwapConfig,
+}
+
 /// Asset swap par spread calculator using forward method
 pub struct AssetSwapParFwdCalculator;
 /// Asset swap market spread calculator using forward method
 pub struct AssetSwapMarketFwdCalculator;
+
+impl AssetSwapParCalculator {
+    /// Create a par ASW calculator with default behaviour (bond conventions).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a par ASW calculator with explicit fixed-leg conventions.
+    pub fn with_config(config: AssetSwapConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl AssetSwapMarketCalculator {
+    /// Create a market ASW calculator with default behaviour (bond conventions).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a market ASW calculator with explicit fixed-leg conventions.
+    pub fn with_config(config: AssetSwapConfig) -> Self {
+        Self { config }
+    }
+}
 
 fn fixed_leg_annuity(
     disc: &DiscountCurve,
@@ -287,11 +340,12 @@ impl MetricCalculator for AssetSwapParCalculator {
 
         let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
-        let dc = bond.cashflow_spec.day_count();
+        let bond_dc = bond.cashflow_spec.day_count();
         let disc = context.curves.get_discount_ref(&discount_curve_id)?;
 
-        // Extract schedule params from cashflow_spec
-        let (freq, bdc, calendar_id, stub) = match &bond.cashflow_spec {
+        // Extract schedule params from cashflow_spec, allowing ASW config to
+        // override fixed-leg conventions when provided.
+        let (bond_freq, bond_bdc, bond_calendar_id, bond_stub) = match &bond.cashflow_spec {
             CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
             }
@@ -315,7 +369,24 @@ impl MetricCalculator for AssetSwapParCalculator {
             },
         };
 
-        // Market standard: Par swap rate via discount ratio on bond's actual payment schedule
+        let freq = self
+            .config
+            .fixed_leg_frequency
+            .unwrap_or(bond_freq);
+        let bdc = self.config.fixed_leg_bdc.unwrap_or(bond_bdc);
+        let calendar_id = self
+            .config
+            .fixed_leg_calendar_id
+            .as_deref()
+            .or(bond_calendar_id);
+        let stub = self
+            .config
+            .fixed_leg_stub
+            .unwrap_or(bond_stub);
+
+        // Market standard: Par swap rate via discount ratio on the ASW fixed-leg
+        // schedule. By default this matches the bond schedule; callers may
+        // override fixed-leg conventions via AssetSwapConfig.
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
@@ -334,7 +405,11 @@ impl MetricCalculator for AssetSwapParCalculator {
                 .expect("Schedule should not be empty")
         );
         let num = p0 - pn;
-        let ann = fixed_leg_annuity(disc, dc, &sched);
+        let dc_fixed = self
+            .config
+            .fixed_leg_day_count
+            .unwrap_or(bond_dc);
+        let ann = fixed_leg_annuity(disc, dc_fixed, &sched);
         if ann == 0.0 {
             return Ok(0.0);
         }
@@ -378,7 +453,13 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 .computed
                 .get(&MetricId::Accrued)
                 .copied()
-                .unwrap_or(0.0);
+                .ok_or_else(|| {
+                    finstack_core::Error::from(
+                        finstack_core::error::InputError::NotFound {
+                            id: "metric:Accrued".to_string(),
+                        },
+                    )
+                })?;
             clean_px * notional_amt / 100.0 + accrued
         } else {
             context.base_value.amount()
@@ -472,9 +553,10 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         // Forward-based path when configured for non-custom bonds is available
         // via explicit helper methods (ASW*Fwd calculators). Here we keep fallback-only.
 
-        // Market standard: discount-ratio using bond's payment schedule
+        // Market standard: discount-ratio using ASW fixed-leg schedule (defaulting
+        // to bond conventions but allowing overrides via AssetSwapConfig).
         let bond: &Bond = context.instrument_as()?;
-        let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
+        let (bond_freq, bond_stub, bond_bdc, bond_calendar_id) = match &bond.cashflow_spec {
             CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
             }
@@ -497,6 +579,21 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 _ => return Err(finstack_core::error::InputError::Invalid.into()),
             },
         };
+        let freq = self
+            .config
+            .fixed_leg_frequency
+            .unwrap_or(bond_freq);
+        let stub = self
+            .config
+            .fixed_leg_stub
+            .unwrap_or(bond_stub);
+        let bdc = self.config.fixed_leg_bdc.unwrap_or(bond_bdc);
+        let calendar_id = self
+            .config
+            .fixed_leg_calendar_id
+            .as_deref()
+            .or(bond_calendar_id);
+
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
@@ -505,7 +602,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             bdc,
             calendar_id,
         );
-        let ann = fixed_leg_annuity(disc, dc, &sched);
+        let dc_fixed = self
+            .config
+            .fixed_leg_day_count
+            .unwrap_or(dc);
+        let ann = fixed_leg_annuity(disc, dc_fixed, &sched);
         if ann == 0.0 || notional_amt == 0.0 {
             return Ok(0.0);
         }
@@ -571,7 +672,16 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
         match &bond.cashflow_spec {
             CashflowSpec::Floating(spec) => {
                 let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
-                    let accrued = *context.computed.get(&MetricId::Accrued).unwrap_or(&0.0);
+                    let accrued = *context
+                        .computed
+                        .get(&MetricId::Accrued)
+                        .ok_or_else(|| {
+                            finstack_core::Error::from(
+                                finstack_core::error::InputError::NotFound {
+                                    id: "metric:Accrued".to_string(),
+                                },
+                            )
+                        })?;
                     Some(clean * bond.notional.amount() / 100.0 + accrued)
                 } else {
                     Some(context.base_value.amount())

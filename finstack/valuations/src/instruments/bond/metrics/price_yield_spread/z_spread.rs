@@ -76,11 +76,13 @@ impl ZSpreadCalculator {
     ///
     /// Short-dated bonds use the base bracket (e.g., ±1000 bp). Longer
     /// maturities widen the bracket smoothly up to `max_bracket_bp`.
-    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> f64 {
+    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> finstack_core::Result<f64> {
+        if as_of >= bond.maturity {
+            return Ok(self.config.base_bracket_bp / 10_000.0);
+        }
         let dc = bond.cashflow_spec.day_count();
         let years = dc
-            .year_fraction(as_of, bond.maturity, DayCountCtx::default())
-            .unwrap_or(0.0)
+            .year_fraction(as_of, bond.maturity, DayCountCtx::default())?
             .max(0.0);
 
         // Scale between 1x and 2x base over 0–30y, then clamp.
@@ -88,7 +90,7 @@ impl ZSpreadCalculator {
         let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
             .min(self.config.max_bracket_bp);
 
-        bracket_bp / 10_000.0
+        Ok(bracket_bp / 10_000.0)
     }
 }
 
@@ -146,7 +148,7 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // Solve using Brent with a maturity-aware bracket and production-grade
         // tolerance. Initial guess is 0.0 (0 bp).
-        let bracket = self.initial_bracket_decimal(bond, as_of);
+        let bracket = self.initial_bracket_decimal(bond, as_of)?;
         let solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
             .with_initial_bracket_size(Some(bracket));

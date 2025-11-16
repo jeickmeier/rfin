@@ -86,23 +86,19 @@ impl BondValuator {
         let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
 
         let curves = market_context;
-        let base_date = market_context
-            .get_discount(&bond.discount_curve_id)?
-            .base_date();
+        let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
+        let dc_curve = discount_curve.day_count();
+        let base_date = discount_curve.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         let mut coupon_map = HashMap::new();
         for (date, amount) in &flows {
             if *date > base_date {
-                let time_frac = bond
-                    .cashflow_spec
-                    .day_count()
-                    .year_fraction(
-                        base_date,
-                        *date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
+                let time_frac = dc_curve.year_fraction(
+                    base_date,
+                    *date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
                 // Map to the nearest forward step using ceil and clamp to [1, tree_steps]
                 let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                 let mut step = raw.ceil() as usize;
@@ -121,15 +117,11 @@ impl BondValuator {
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
-                    let time_frac = bond
-                        .cashflow_spec
-                        .day_count()
-                        .year_fraction(
-                            base_date,
-                            call.date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
+                    let time_frac = dc_curve.year_fraction(
+                        base_date,
+                        call.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
                     let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;
                     if step == 0 {
@@ -144,15 +136,11 @@ impl BondValuator {
             }
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
-                    let time_frac = bond
-                        .cashflow_spec
-                        .day_count()
-                        .year_fraction(
-                            base_date,
-                            put.date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
+                    let time_frac = dc_curve.year_fraction(
+                        base_date,
+                        put.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
                     let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;
                     if step == 0 {
@@ -266,25 +254,25 @@ impl TreePricer {
         // Convert to currency and add accrued interest (currency) to form the dirty target.
         let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
         let dirty_target = (clean_price_pct_of_par * bond.notional.amount() / 100.0) + accrued_ccy;
-        let time_to_maturity = bond
-            .cashflow_spec
-            .day_count()
-            .year_fraction(
-                as_of,
-                bond.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        if time_to_maturity <= 0.0 {
-            return Ok(0.0);
-        }
-
         // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
         // discount ID (preferred) or the fallback pattern "{discount_curve_id}-CREDIT", use the rates+credit
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
+        // Align tree time basis with the discount curve's own day-count.
+        if as_of >= bond.maturity {
+            return Ok(0.0);
+        }
+        let dc_curve = discount_curve.day_count();
+        let time_to_maturity = dc_curve.year_fraction(
+            as_of,
+            bond.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if time_to_maturity <= 0.0 {
+            return Ok(0.0);
+        }
         let hazard_curve = if let Some(hid) = bond.credit_curve_id.as_ref() {
             market_context.get_hazard(hid.as_str()).ok()
         } else {
@@ -328,9 +316,16 @@ impl TreePricer {
         )?;
 
         let objective_fn = |oas: f64| -> f64 {
+            // `oas` is treated in basis points (bp) to match `short_rate_keys::OAS`
+            // semantics in the short-rate tree. When using the rates+credit tree,
+            // we convert bp → decimal and add it to the short rate passed via
+            // `INTEREST_RATE`.
             let mut vars = StateVariables::new();
             if use_rates_credit {
-                vars.insert(tf_keys::INTEREST_RATE, discount_curve.zero(0.0));
+                let base_rate = discount_curve.zero(0.0);
+                let oas_bp = oas;
+                let rate_with_oas = base_rate + oas_bp / 10_000.0;
+                vars.insert(tf_keys::INTEREST_RATE, rate_with_oas);
                 if let Some(hc) = hazard_curve.as_ref() {
                     // Use first knot hazard as base
                     if let Some((_, lambda0)) = hc.knot_points().next() {
@@ -369,9 +364,11 @@ impl TreePricer {
             }
         };
 
-        let solver = BrentSolver::new()
+        let mut solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
             .with_initial_bracket_size(self.config.initial_bracket_size_bp);
+        // Respect the configured maximum iteration cap for OAS root-finding.
+        solver.max_iterations = self.config.max_iterations;
         let initial_guess = 0.0;
         let oas_bp = solver.solve(objective_fn, initial_guess)?;
         Ok(oas_bp)

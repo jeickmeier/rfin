@@ -95,11 +95,13 @@ impl DiscountMarginCalculator {
     /// widen the bracket smoothly up to `max_bracket_bp`, which improves
     /// robustness for high-yield/distressed names without over-bracketing
     /// short, high-grade bonds.
-    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> f64 {
+    fn initial_bracket_decimal(&self, bond: &Bond, as_of: Date) -> finstack_core::Result<f64> {
+        if as_of >= bond.maturity {
+            return Ok(self.config.base_bracket_bp / 10_000.0);
+        }
         let dc = bond.cashflow_spec.day_count();
         let years = dc
-            .year_fraction(as_of, bond.maturity, DayCountCtx::default())
-            .unwrap_or(0.0)
+            .year_fraction(as_of, bond.maturity, DayCountCtx::default())?
             .max(0.0);
 
         // Scale bracket between 1x and 2x base over 0–30y, then clamp.
@@ -107,7 +109,7 @@ impl DiscountMarginCalculator {
         let bracket_bp = (self.config.base_bracket_bp * maturity_scale)
             .min(self.config.max_bracket_bp);
 
-        bracket_bp / 10_000.0
+        Ok(bracket_bp / 10_000.0)
     }
 }
 
@@ -125,7 +127,13 @@ impl MetricCalculator for DiscountMarginCalculator {
                 .computed
                 .get(&MetricId::Accrued)
                 .copied()
-                .unwrap_or(0.0);
+                .ok_or_else(|| {
+                    finstack_core::Error::from(
+                        finstack_core::error::InputError::NotFound {
+                            id: "metric:Accrued".to_string(),
+                        },
+                    )
+                })?;
             clean_px * bond.notional.amount() / 100.0 + accrued
         } else {
             context.base_value.amount()
@@ -157,7 +165,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         };
 
         // Use a maturity-aware initial bracket with production-grade tolerance.
-        let bracket = self.initial_bracket_decimal(bond, context.as_of);
+        let bracket = self.initial_bracket_decimal(bond, context.as_of)?;
         let solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
             .with_initial_bracket_size(Some(bracket));

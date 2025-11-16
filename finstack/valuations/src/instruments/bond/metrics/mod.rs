@@ -38,10 +38,10 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (Ytw, YtwCalculator),
             (Oas, OasCalculator),
             (ZSpread, ZSpreadCalculator::default()),
-            (ISpread, ISpreadCalculator),
+            (ISpread, ISpreadCalculator::default()),
             (DiscountMargin, DiscountMarginCalculator::default()),
-            (ASWPar, AssetSwapParCalculator),
-            (ASWMarket, AssetSwapMarketCalculator),
+            (ASWPar, AssetSwapParCalculator::default()),
+            (ASWMarket, AssetSwapMarketCalculator::default()),
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
             (Cs01, crate::metrics::GenericParallelCs01::<

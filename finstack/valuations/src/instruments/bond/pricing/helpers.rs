@@ -125,9 +125,7 @@ pub fn price_from_ytm_compounded_params(
         if date <= as_of {
             continue;
         }
-        let t = day_count
-            .year_fraction(as_of, date, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t = day_count.year_fraction(as_of, date, DayCountCtx::default())?;
         if t > 0.0 {
             let df = df_from_yield(ytm, t, comp, freq)?;
             pv += amount.amount() * df;
@@ -236,9 +234,7 @@ pub fn price_from_z_spread(
 
     // Pre-compute as_of discount factor for correct theta
     let disc_dc = disc.day_count();
-    let t_as_of = disc_dc
-        .year_fraction(base_date, as_of, DayCountCtx::default())
-        .unwrap_or(0.0);
+    let t_as_of = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
     let df_as_of = disc.df(t_as_of);
 
     let mut pv = 0.0;
@@ -249,13 +245,10 @@ pub fn price_from_z_spread(
         let t_from_as_of = bond
             .cashflow_spec
             .day_count()
-            .year_fraction(as_of, *d, DayCountCtx::default())
-            .unwrap_or(0.0);
+            .year_fraction(as_of, *d, DayCountCtx::default())?;
 
         // Discount from as_of
-        let t_cf = disc_dc
-            .year_fraction(base_date, *d, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t_cf = disc_dc.year_fraction(base_date, *d, DayCountCtx::default())?;
         let df_cf_abs = disc.df(t_cf);
         let df = if df_as_of != 0.0 {
             df_cf_abs / df_as_of
@@ -283,8 +276,7 @@ pub fn price_from_oas(
     let time_to_maturity = bond
         .cashflow_spec
         .day_count()
-        .year_fraction(as_of, bond.maturity, DayCountCtx::default())
-        .unwrap_or(0.0);
+        .year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
@@ -310,9 +302,7 @@ fn price_from_annuity_spread(
 
     // Pre-compute as_of discount factor for correct theta
     let disc_dc = disc.day_count();
-    let t_as_of = disc_dc
-        .year_fraction(disc.base_date(), as_of, DayCountCtx::default())
-        .unwrap_or(0.0);
+    let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
     let df_as_of = disc.df(t_as_of);
 
     let mut pv = 0.0;
@@ -321,9 +311,7 @@ fn price_from_annuity_spread(
             continue;
         }
         // Discount from as_of
-        let t_cf = disc_dc
-            .year_fraction(disc.base_date(), *d, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t_cf = disc_dc.year_fraction(disc.base_date(), *d, DayCountCtx::default())?;
         let df_cf_abs = disc.df(t_cf);
         let df = if df_as_of != 0.0 {
             df_cf_abs / df_as_of
@@ -341,12 +329,9 @@ fn price_from_annuity_spread(
         let alpha = bond
             .cashflow_spec
             .day_count()
-            .year_fraction(a, b, DayCountCtx::default())
-            .unwrap_or(0.0);
+            .year_fraction(a, b, DayCountCtx::default())?;
         // Discount from as_of
-        let t_b = disc_dc
-            .year_fraction(disc.base_date(), b, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t_b = disc_dc.year_fraction(disc.base_date(), b, DayCountCtx::default())?;
         let df_b_abs = disc.df(t_b);
         let p = if df_as_of != 0.0 {
             df_b_abs / df_as_of
@@ -502,12 +487,10 @@ pub fn compute_accrued_interest(
             let (end_date, coupon_amount) = window[1];
             if start_date <= as_of && as_of < end_date {
                 let dc = bond.cashflow_spec.day_count();
-                let total_period = dc
-                    .year_fraction(start_date, end_date, DayCountCtx::default())
-                    .unwrap_or(0.0);
+                let total_period =
+                    dc.year_fraction(start_date, end_date, DayCountCtx::default())?;
                 let elapsed = dc
-                    .year_fraction(start_date, as_of, DayCountCtx::default())
-                    .unwrap_or(0.0)
+                    .year_fraction(start_date, as_of, DayCountCtx::default())?
                     .max(0.0);
                     
                 // Extract coupon rate from custom cashflow amount
@@ -576,17 +559,14 @@ pub fn compute_accrued_interest(
         }
         if start_date <= as_of && as_of < end_date {
             let dc = bond.cashflow_spec.day_count();
-            let yf = dc
-                .year_fraction(start_date, end_date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let yf = dc.year_fraction(start_date, end_date, DayCountCtx::default())?;
             let coupon_rate = match &bond.cashflow_spec {
                 crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
                 _ => 0.0,
             };
             let period_coupon = bond.notional.amount() * coupon_rate * yf;
             let elapsed = dc
-                .year_fraction(start_date, as_of, DayCountCtx::default())
-                .unwrap_or(0.0)
+                .year_fraction(start_date, as_of, DayCountCtx::default())?
                 .max(0.0);
             
             return calculate_accrual_by_method(
@@ -660,14 +640,10 @@ pub fn compute_accrued_interest_with_context(
             }
             let t_reset = fwd
                 .day_count()
-                .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
-                .unwrap_or(0.0);
-            let yf_total = dc
-                .year_fraction(start, end, DayCountCtx::default())
-                .unwrap_or(0.0);
+                .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())?;
+            let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
             let yf_elapsed = dc
-                .year_fraction(start, as_of, DayCountCtx::default())
-                .unwrap_or(0.0)
+                .year_fraction(start, as_of, DayCountCtx::default())?
                 .max(0.0);
             if yf_total <= 0.0 {
                 return Ok(0.0);
