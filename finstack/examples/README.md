@@ -24,6 +24,11 @@ cargo run --example <example_name> --features all
   - MarketContextV2 benefits and enum-based storage
   - Features: `core`
 
+- **[rate_conversions.rs](./core/rate_conversions.rs)**
+  - Interest rate compounding convention conversions (simple, periodic, continuous)
+  - ISDA-standard transformations for market data and derivatives pricing
+  - Features: `core`
+
 ### Statements Examples (`examples/statements/`)
 
 **Financial statement modeling and DSL engine**

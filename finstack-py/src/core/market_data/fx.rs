@@ -409,7 +409,7 @@ impl PyFxMatrix {
     /// >>> fx = FxMatrix()
     /// >>> fx.set_quote(Currency("EUR"), Currency("USD"), 1.1)
     /// >>> fx.rate(Currency("EUR"), Currency("USD"), date(2024, 1, 2))
-    #[pyo3(text_signature = "(self, from_currency, to_currency, on, policy=None)")]
+    #[pyo3(signature = (from_currency, to_currency, on, policy=None), text_signature = "(self, from_currency, to_currency, on, policy=None)")]
     fn rate(
         &self,
         py: Python<'_>,

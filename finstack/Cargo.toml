@@ -37,10 +37,14 @@ polars = { version = "0.51", optional = true, default-features = false }
 
 # Core Examples
 
-
 [[example]]
 name = "market_context_v2_demo"
 path = "examples/core/market_context_v2_demo.rs"
+required-features = ["core"]
+
+[[example]]
+name = "rate_conversions"
+path = "examples/core/rate_conversions.rs"
 required-features = ["core"]
 
 # Statements Examples
