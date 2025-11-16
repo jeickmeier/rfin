@@ -232,24 +232,24 @@ pub fn price_from_z_spread(
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let base_date = disc.base_date();
 
-    // Pre-compute as_of discount factor for correct theta
-    let disc_dc = disc.day_count();
-    let t_as_of = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
-    let df_as_of = disc.df(t_as_of);
+    // Pre-compute as_of discount factor for correct theta using the curve's
+    // own date mapping.
+    let df_as_of = disc.df_on_date_curve(as_of);
 
     let mut pv = 0.0;
     for (d, a) in &flows {
         if *d <= as_of {
             continue;
         }
-        let t_from_as_of = bond
-            .cashflow_spec
+        // Time from as_of used for the exponential z-spread term is measured
+        // on the same basis as the discount curve to keep the spread
+        // definition aligned with the curve's own time axis.
+        let t_from_as_of = disc
             .day_count()
             .year_fraction(as_of, *d, DayCountCtx::default())?;
 
-        // Discount from as_of
-        let t_cf = disc_dc.year_fraction(base_date, *d, DayCountCtx::default())?;
-        let df_cf_abs = disc.df(t_cf);
+        // Discount from as_of using the curve's DF(date) mapping.
+        let df_cf_abs = disc.df_on_date_curve(*d);
         let df = if df_as_of != 0.0 {
             df_cf_abs / df_as_of
         } else {
@@ -273,14 +273,18 @@ pub fn price_from_oas(
     use crate::instruments::common::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
-    let time_to_maturity = bond
-        .cashflow_spec
-        .day_count()
-        .year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
+    // Time to maturity is measured on the discount curve's own time basis so
+    // that the short-rate tree is calibrated consistently with the curve.
+    let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc_dc = discount_curve.day_count();
+    let time_to_maturity = disc_dc.year_fraction(
+        discount_curve.base_date(),
+        bond.maturity,
+        DayCountCtx::default(),
+    )?;
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
-    let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
@@ -291,6 +295,13 @@ pub fn price_from_oas(
 }
 
 /// Price from a spread applied to an annuity approximation.
+///
+/// This helper uses an annual annuity approximation and is **not** intended
+/// for exact market-standard pricing. Prefer the forward/schedule-based
+/// implementations in `metrics::price_yield_spread` for production use.
+#[deprecated(
+    note = "Annuity-based spread pricing is approximate; use forward/schedule-based metrics instead"
+)]
 fn price_from_annuity_spread(
     bond: &Bond,
     curves: &MarketContext,
@@ -344,7 +355,13 @@ fn price_from_annuity_spread(
     Ok(pv + notional * spread * ann)
 }
 
-/// Price from I-spread (approximate) by discount-ratio with annual schedule
+/// Price from I-spread (approximate) by discount-ratio with annual schedule.
+///
+/// This is an annuity-based approximation; for market-standard I-spread
+/// calculations prefer `ISpreadCalculator` in `metrics::price_yield_spread`.
+#[deprecated(
+    note = "Annuity-based I-spread pricing is approximate; use ISpreadCalculator instead"
+)]
 pub fn price_from_i_spread(
     bond: &Bond,
     curves: &MarketContext,
@@ -354,7 +371,13 @@ pub fn price_from_i_spread(
     price_from_annuity_spread(bond, curves, as_of, i_spread)
 }
 
-/// Price from Asset Swap Spread (par/market agnostic) using annuity approximation
+/// Price from Asset Swap Spread (par/market agnostic) using annuity approximation.
+///
+/// This is an annuity-based approximation; for market-standard ASW metrics
+/// prefer the AssetSwap* calculators in `metrics::price_yield_spread`.
+#[deprecated(
+    note = "Annuity-based ASW pricing is approximate; use AssetSwap* calculators instead"
+)]
 pub fn price_from_asw_spread(
     bond: &Bond,
     curves: &MarketContext,
@@ -439,20 +462,12 @@ fn calculate_accrual_by_method(
             Ok(notional * (compound_factor - 1.0))
         }
         AccrualMethod::Indexed { index_curve_id } => {
-            // Inflation-indexed bonds (TIPS-style)
-            // For now, fall back to linear until we have index curve lookups
-            // TODO: Implement index ratio interpolation when curves parameter is provided
-            if let Some(_ctx) = _curves {
-                // Future: look up index values and interpolate
-                // let index_start = ctx.get_inflation_index(index_curve_id, start_date)?;
-                // let index_current = ctx.get_inflation_index(index_curve_id, as_of)?;
-                // let index_end = ctx.get_inflation_index(index_curve_id, end_date)?;
-                // let ratio = (index_current - index_start) / (index_end - index_start);
-                // return Ok(coupon_amount * ratio);
-                let _ = index_curve_id;  // Suppress unused warning
-            }
-            // Fallback to linear for now
-            Ok(coupon_amount * (elapsed / total_period))
+            // Inflation-indexed bonds (TIPS-style) are modelled in a dedicated
+            // inflation-linked bond instrument. Nominal `Bond` does not
+            // implement full index-ratio accrual here to avoid silently
+            // mis-pricing ILBs.
+            let _ = index_curve_id; // suppress unused warning in this module
+            Err(finstack_core::error::InputError::Invalid.into())
         }
     }
 }
@@ -631,6 +646,13 @@ pub fn compute_accrued_interest_with_context(
         let start = w[0];
         let end = w[1];
         if start <= as_of && as_of < end {
+            // If ex-coupon is set, treat dates within ex-coupon window as zero accrual
+            if let Some(ex_days) = bond.ex_coupon_days {
+                let ex_date = end - Duration::days(ex_days as i64);
+                if as_of >= ex_date && as_of < end {
+                    return Ok(0.0);
+                }
+            }
             // Determine reset date and forward time
             let mut reset_date = start - Duration::days(reset_lag_days as i64);
             if let Some(id) = calendar_id {

@@ -33,8 +33,6 @@ impl BondEngine {
     ) -> Result<(Money, Option<ExplanationTrace>)> {
         let flows = bond.build_schedule(context, as_of)?;
         let disc = context.get_discount(bond.discount_curve_id.as_str())?;
-        // Discount using the curve's own day-count convention for time mapping.
-        // Transform (date, amount) -> (df_on_date_curve(date) * amount) and sum.
         if flows.is_empty() {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
@@ -86,30 +84,17 @@ impl BondEngine {
         } else {
             as_of
         };
-        // Pre-compute settle_date discount factor for correct theta
-        let disc_dc = disc.day_count();
-        let t_settle = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                settle_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_settle = disc.df(t_settle);
+        // Pre-compute settle-date discount factor for correct theta using the
+        // curve's own date mapping.
+        let df_settle = disc.df_on_date_curve(settle_date);
 
         for (d, amt) in &flows {
             if *d <= settle_date {
                 continue;
             }
-            // Discount from settle_date (which is derived from as_of)
-            let t_d = disc_dc
-                .year_fraction(
-                    disc.base_date(),
-                    *d,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            let df_d_abs = disc.df(t_d);
+            // Discount from settle_date (which is derived from as_of) using
+            // curve-provided DF(date).
+            let df_d_abs = disc.df_on_date_curve(*d);
             let df = if df_settle != 0.0 {
                 df_d_abs / df_settle
             } else {

@@ -13,8 +13,11 @@ use std::sync::Arc;
 /// Monomorphized schedule → PV helper for instruments using a discount curve.
 ///
 /// - Builds the schedule via `CashflowProvider`.
-/// - Retrieves the discount curve by borrowed ID using `get_ref::<DiscountCurve>`.
-/// - Performs NPV using static dispatch on `DiscountCurve`.
+/// - Retrieves the discount curve by borrowed ID using `get_discount_ref`.
+/// - For legacy callers, performs NPV using a caller-supplied `DayCount`
+///   passed through to the core discounting helper. Instruments that want
+///   DF-by-date semantics should prefer using `DiscountCurve::df_on_date_curve`
+///   directly or a dedicated helper instead of this function.
 pub fn schedule_pv_impl<S>(
     instrument: &S,
     curves: &MarketContext,

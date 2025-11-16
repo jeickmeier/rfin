@@ -413,23 +413,20 @@ impl Bond {
             short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
         };
 
-        // Calculate time to maturity
-        let time_to_maturity = self
-            .cashflow_spec
+        // Calculate time to maturity on the discount curve's own time basis so
+        // that the short-rate tree calibration is consistent with the curve.
+        let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
+        let time_to_maturity = discount_curve
             .day_count()
             .year_fraction(
-                as_of,
+                discount_curve.base_date(),
                 self.maturity,
                 finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+            )?;
 
         if time_to_maturity <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-
-        // Get discount curve and calibrate tree
-        let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
 
         // Tree configuration - use 100 steps and 1% volatility as defaults
         // These can be overridden via attributes if needed for specific calibration
@@ -498,14 +495,10 @@ impl crate::instruments::common::traits::Instrument for Bond {
             }
         }
 
-        // Standard cashflow discounting for straight bonds
-        crate::instruments::common::helpers::schedule_pv_impl(
-            self,
-            curves,
-            as_of,
-            &self.discount_curve_id,
-            self.cashflow_spec.day_count(),
-        )
+        // Standard cashflow discounting for straight bonds using bond cashflows
+        // sized under the bond's own day-count and discount factors provided by
+        // the assigned discount curve.
+        crate::instruments::bond::pricing::engine::BondEngine::price(self, curves, as_of)
     }
 
     fn price_with_metrics(
@@ -881,6 +874,81 @@ mod tests {
             .value(&ctx, issue)
             .expect("Bond valuation should succeed in test");
         assert!(pv.amount().is_finite());
+    }
+
+    #[test]
+    fn test_bond_frn_ex_coupon_accrual_zero_in_window() {
+        use crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context;
+        use crate::cashflow::primitives::CFKind;
+        use time::Duration;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        // Curves
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed in test");
+        let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(issue)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.05), (2.0, 0.055)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("ForwardCurve builder should succeed in test");
+        let ctx = MarketContext::new()
+            .insert_discount(disc)
+            .insert_forward(fwd);
+
+        let mut bond = Bond::floating(
+            "FRN-EX-COUPON",
+            notional,
+            "USD-SOFR-3M",
+            150.0,
+            issue,
+            maturity,
+            Frequency::quarterly(),
+            DayCount::Act360,
+            "USD-OIS",
+        );
+        // Apply an ex-coupon convention of 5 days
+        bond.ex_coupon_days = Some(5);
+
+        // Use the full schedule to locate the first coupon end date
+        let full_schedule = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule retrieval should succeed in test");
+        let first_coupon_date = full_schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::FloatReset | CFKind::Stub))
+            .map(|cf| cf.date)
+            .filter(|d| *d > issue)
+            .min()
+            .expect("FRN should have at least one coupon date in test");
+
+        let ex_date = first_coupon_date - Duration::days(5);
+        let day_before_ex = ex_date - Duration::days(1);
+
+        // Before ex-date, accrued interest should be positive
+        let ai_before = compute_accrued_interest_with_context(&bond, &ctx, day_before_ex)
+            .expect("Accrued interest calculation should succeed before ex-date");
+        assert!(ai_before > 0.0, "Accrued interest should be positive before ex-date");
+
+        // On or inside the ex-coupon window, accrued interest should be zero
+        let ai_ex = compute_accrued_interest_with_context(&bond, &ctx, ex_date)
+            .expect("Accrued interest calculation should succeed on ex-date");
+        assert!(
+            ai_ex == 0.0,
+            "Accrued interest in ex-coupon window should be zero, got {}",
+            ai_ex
+        );
     }
 
     #[test]

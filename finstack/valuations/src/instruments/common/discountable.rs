@@ -4,6 +4,7 @@ pub use finstack_core::cashflow::discounting::{npv_static, Discountable};
 
 use crate::cashflow::builder::CashFlowSchedule;
 use finstack_core::dates::{Date, DayCount};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 
@@ -19,6 +20,40 @@ impl Discountable for CashFlowSchedule {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         finstack_core::cashflow::discounting::npv_static(disc, base, dc, &flows)
     }
+}
+
+/// Discount dated `Money` flows to `as_of` using the curve's own day-count and
+/// `df_on_date_curve(date)` mapping.
+pub fn npv_by_date(
+    disc: &DiscountCurve,
+    as_of: Date,
+    flows: &[(Date, Money)],
+) -> finstack_core::Result<Money> {
+    if flows.is_empty() {
+        return Err(finstack_core::error::InputError::TooFewPoints.into());
+    }
+
+    let ccy = flows[0].1.currency();
+    let mut total = Money::new(0.0, ccy);
+
+    let df_as_of = disc.df_on_date_curve(as_of);
+
+    for (d, amt) in flows {
+        if *d <= as_of {
+            continue;
+        }
+
+        let df_cf_abs = disc.df_on_date_curve(*d);
+        let df = if df_as_of != 0.0 {
+            df_cf_abs / df_as_of
+        } else {
+            1.0
+        };
+
+        total = (total + (*amt * df))?;
+    }
+
+    Ok(total)
 }
 
 #[cfg(test)]
