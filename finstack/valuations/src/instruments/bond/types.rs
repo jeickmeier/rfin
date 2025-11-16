@@ -406,7 +406,7 @@ impl Bond {
     fn value_with_tree(
         &self,
         market: &finstack_core::market_data::MarketContext,
-        as_of: finstack_core::dates::Date,
+        _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::bond::pricing::tree_pricer::BondValuator;
         use crate::instruments::common::models::{

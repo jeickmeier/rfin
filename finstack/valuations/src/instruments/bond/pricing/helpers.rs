@@ -152,16 +152,15 @@ pub fn price_from_ytm_compounded(
     )
 }
 
-/// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path
-pub fn price_from_ytw(
+/// Solve yield-to-worst over all call/put/maturity candidates for a given flow set.
+///
+/// Returns the worst (minimum) yield and the corresponding truncated cashflow path.
+pub(crate) fn solve_ytw_from_flows(
     bond: &Bond,
-    curves: &MarketContext,
+    flows: &[(Date, Money)],
     as_of: Date,
     dirty_price_target: Money,
-) -> finstack_core::Result<f64> {
-    // Build or reuse flows
-    let flows = bond.build_schedule(curves, as_of)?;
-
+) -> finstack_core::Result<(f64, Vec<(Date, Money)>)> {
     // Generate call/put candidates + maturity
     let mut candidates: Vec<(Date, Money)> = Vec::new();
     if let Some(cp) = &bond.call_put {
@@ -183,19 +182,20 @@ pub fn price_from_ytw(
         Money::new(0.0, bond.notional.currency()),
     ));
 
-    // Solve YTM for each candidate and pick the smallest
-    let mut best_price = 0.0;
     let mut best_yield = f64::INFINITY;
+    let mut best_flows: Vec<(Date, Money)> = Vec::new();
+
     for (exercise_date, redemption) in candidates {
         // Truncate flows to exercise and add redemption
-        let mut ex_flows: Vec<(Date, Money)> = Vec::new();
-        for &(d, a) in &flows {
+        let mut ex_flows: Vec<(Date, Money)> = Vec::with_capacity(flows.len());
+        for &(d, a) in flows {
             if d > as_of && d <= exercise_date {
                 ex_flows.push((d, a));
             }
         }
         ex_flows.push((exercise_date, redemption));
-        // Solve yield that matches target dirty price, then compute price from that yield
+
+        // Solve yield that matches target dirty price
         let coupon_rate = match &bond.cashflow_spec {
             crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
             _ => 0.0,
@@ -212,12 +212,32 @@ pub fn price_from_ytw(
                 frequency: bond.cashflow_spec.frequency(),
             },
         )?;
+
         if y < best_yield {
             best_yield = y;
-            best_price =
-                price_from_ytm_compounded(bond, &ex_flows, as_of, y, YieldCompounding::Street)?;
+            best_flows = ex_flows;
         }
     }
+
+    Ok((best_yield, best_flows))
+}
+
+/// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path.
+pub fn price_from_ytw(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    dirty_price_target: Money,
+) -> finstack_core::Result<f64> {
+    // Build holder-view flows and delegate to shared YTW helper
+    let flows = bond.build_schedule(curves, as_of)?;
+    let (best_yield, best_flows) =
+        solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target)?;
+
+    // Re-price along the worst-yield path for a consistent price result
+    let best_price =
+        price_from_ytm_compounded(bond, &best_flows, as_of, best_yield, YieldCompounding::Street)?;
+
     Ok(best_price)
 }
 
@@ -230,8 +250,6 @@ pub fn price_from_z_spread(
 ) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
-    let base_date = disc.base_date();
-
     // Pre-compute as_of discount factor for correct theta using the curve's
     // own date mapping.
     let df_as_of = disc.df_on_date_curve(as_of);
@@ -265,7 +283,7 @@ pub fn price_from_z_spread(
 pub fn price_from_oas(
     bond: &Bond,
     curves: &MarketContext,
-    as_of: Date,
+    _as_of: Date,
     oas_bp: f64,
 ) -> finstack_core::Result<f64> {
     // Use the short-rate tree directly to price at a given OAS
@@ -292,99 +310,6 @@ pub fn price_from_oas(
     vars.insert(short_rate_keys::OAS, oas_bp);
     let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;
     Ok(price)
-}
-
-/// Price from a spread applied to an annuity approximation.
-///
-/// This helper uses an annual annuity approximation and is **not** intended
-/// for exact market-standard pricing. Prefer the forward/schedule-based
-/// implementations in `metrics::price_yield_spread` for production use.
-#[deprecated(
-    note = "Annuity-based spread pricing is approximate; use forward/schedule-based metrics instead"
-)]
-fn price_from_annuity_spread(
-    bond: &Bond,
-    curves: &MarketContext,
-    as_of: Date,
-    spread: f64,
-) -> finstack_core::Result<f64> {
-    let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
-
-    // Pre-compute as_of discount factor for correct theta
-    let disc_dc = disc.day_count();
-    let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
-    let df_as_of = disc.df(t_as_of);
-
-    let mut pv = 0.0;
-    for (d, a) in &flows {
-        if *d <= as_of {
-            continue;
-        }
-        // Discount from as_of
-        let t_cf = disc_dc.year_fraction(disc.base_date(), *d, DayCountCtx::default())?;
-        let df_cf_abs = disc.df(t_cf);
-        let df = if df_as_of != 0.0 {
-            df_cf_abs / df_as_of
-        } else {
-            1.0
-        };
-        pv += a.amount() * df;
-    }
-    // As an approximation path, add the spread annuity contribution
-    // Build a simple annual schedule
-    let dates = super::schedule_helpers::build_annual_schedule(as_of, bond.maturity);
-    let mut ann = 0.0;
-    for w in dates.windows(2) {
-        let (a, b) = (w[0], w[1]);
-        let alpha = bond
-            .cashflow_spec
-            .day_count()
-            .year_fraction(a, b, DayCountCtx::default())?;
-        // Discount from as_of
-        let t_b = disc_dc.year_fraction(disc.base_date(), b, DayCountCtx::default())?;
-        let df_b_abs = disc.df(t_b);
-        let p = if df_as_of != 0.0 {
-            df_b_abs / df_as_of
-        } else {
-            1.0
-        };
-        ann += alpha * p;
-    }
-    let notional = bond.notional.amount();
-    Ok(pv + notional * spread * ann)
-}
-
-/// Price from I-spread (approximate) by discount-ratio with annual schedule.
-///
-/// This is an annuity-based approximation; for market-standard I-spread
-/// calculations prefer `ISpreadCalculator` in `metrics::price_yield_spread`.
-#[deprecated(
-    note = "Annuity-based I-spread pricing is approximate; use ISpreadCalculator instead"
-)]
-pub fn price_from_i_spread(
-    bond: &Bond,
-    curves: &MarketContext,
-    as_of: Date,
-    i_spread: f64,
-) -> finstack_core::Result<f64> {
-    price_from_annuity_spread(bond, curves, as_of, i_spread)
-}
-
-/// Price from Asset Swap Spread (par/market agnostic) using annuity approximation.
-///
-/// This is an annuity-based approximation; for market-standard ASW metrics
-/// prefer the AssetSwap* calculators in `metrics::price_yield_spread`.
-#[deprecated(
-    note = "Annuity-based ASW pricing is approximate; use AssetSwap* calculators instead"
-)]
-pub fn price_from_asw_spread(
-    bond: &Bond,
-    curves: &MarketContext,
-    as_of: Date,
-    asw_spread: f64,
-) -> finstack_core::Result<f64> {
-    price_from_annuity_spread(bond, curves, as_of, asw_spread)
 }
 
 /// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer
@@ -472,6 +397,53 @@ fn calculate_accrual_by_method(
     }
 }
 
+/// Locate the current coupon period for a given `as_of` date and apply ex-coupon rules.
+///
+/// Returns `Ok(None)` when:
+/// - `as_of` falls outside all coupon windows, or
+/// - `as_of` is inside the ex-coupon window for the next coupon (zero accrual).
+fn find_coupon_window_with_ex_coupon(
+    bond: &Bond,
+    as_of: finstack_core::dates::Date,
+    freq: finstack_core::dates::Frequency,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<&str>,
+) -> finstack_core::Result<
+    Option<(
+        finstack_core::dates::Date, // start
+        finstack_core::dates::Date, // end
+    )>,
+> {
+    let sched = crate::cashflow::builder::build_dates(
+        bond.issue,
+        bond.maturity,
+        freq,
+        stub,
+        bdc,
+        calendar_id,
+    );
+
+    for window in sched.dates.windows(2) {
+        let start_date = window[0];
+        let end_date = window[1];
+
+        // If ex-coupon is set, treat dates within ex-coupon window as zero accrual
+        if let Some(ex_days) = bond.ex_coupon_days {
+            let ex_date = end_date - Duration::days(ex_days as i64);
+            if as_of >= ex_date && as_of < end_date {
+                return Ok(None);
+            }
+        }
+
+        if start_date <= as_of && as_of < end_date {
+            return Ok(Some((start_date, end_date)));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Compute accrued interest between the last and next coupon dates.
 ///
 /// If custom cashflows exist, uses Fixed/Stub coupon flows for accrual; otherwise,
@@ -554,47 +526,31 @@ pub fn compute_accrued_interest(
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         },
     };
-    let sched = crate::cashflow::builder::build_dates(
-        bond.issue,
-        bond.maturity,
-        freq,
-        stub,
-        bdc,
-        calendar_id,
-    );
-    for window in sched.dates.windows(2) {
-        let start_date = window[0];
-        let end_date = window[1];
-        // If ex-coupon is set, treat dates within ex-coupon window as zero accrual
-        if let Some(ex_days) = bond.ex_coupon_days {
-            let ex_date = end_date - Duration::days(ex_days as i64);
-            if as_of >= ex_date && as_of < end_date {
-                return Ok(0.0);
-            }
-        }
-        if start_date <= as_of && as_of < end_date {
-            let dc = bond.cashflow_spec.day_count();
-            let yf = dc.year_fraction(start_date, end_date, DayCountCtx::default())?;
-            let coupon_rate = match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
-                _ => 0.0,
-            };
-            let period_coupon = bond.notional.amount() * coupon_rate * yf;
-            let elapsed = dc
-                .year_fraction(start_date, as_of, DayCountCtx::default())?
-                .max(0.0);
-            
-            return calculate_accrual_by_method(
-                &bond.accrual_method,
-                bond.notional.amount(),
-                period_coupon,
-                coupon_rate,
-                yf,
-                elapsed,
-                None,
-            );
-        }
+    if let Some((start_date, end_date)) =
+        find_coupon_window_with_ex_coupon(bond, as_of, freq, stub, bdc, calendar_id)?
+    {
+        let dc = bond.cashflow_spec.day_count();
+        let yf = dc.year_fraction(start_date, end_date, DayCountCtx::default())?;
+        let coupon_rate = match &bond.cashflow_spec {
+            crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+            _ => 0.0,
+        };
+        let period_coupon = bond.notional.amount() * coupon_rate * yf;
+        let elapsed = dc
+            .year_fraction(start_date, as_of, DayCountCtx::default())?
+            .max(0.0);
+
+        return calculate_accrual_by_method(
+            &bond.accrual_method,
+            bond.notional.amount(),
+            period_coupon,
+            coupon_rate,
+            yf,
+            elapsed,
+            None,
+        );
     }
+
     Ok(0.0)
 }
 
@@ -633,48 +589,31 @@ pub fn compute_accrued_interest_with_context(
     let fwd = curves.get_forward_ref(index_id)?;
 
     // Build schedule with instrument conventions to locate current coupon window
-    let sched = crate::cashflow::builder::build_dates(
-        bond.issue,
-        bond.maturity,
-        freq,
-        stub,
-        bdc,
-        calendar_id,
-    );
-    let dates = sched.dates;
-    for w in dates.windows(2) {
-        let start = w[0];
-        let end = w[1];
-        if start <= as_of && as_of < end {
-            // If ex-coupon is set, treat dates within ex-coupon window as zero accrual
-            if let Some(ex_days) = bond.ex_coupon_days {
-                let ex_date = end - Duration::days(ex_days as i64);
-                if as_of >= ex_date && as_of < end {
-                    return Ok(0.0);
-                }
+    if let Some((start, end)) =
+        find_coupon_window_with_ex_coupon(bond, as_of, freq, stub, bdc, calendar_id)?
+    {
+        // Determine reset date and forward time
+        let mut reset_date = start - Duration::days(reset_lag_days as i64);
+        if let Some(id) = calendar_id {
+            if let Some(cal) = calendar_by_id(id) {
+                reset_date = adjust(reset_date, bdc, cal)?;
             }
-            // Determine reset date and forward time
-            let mut reset_date = start - Duration::days(reset_lag_days as i64);
-            if let Some(id) = calendar_id {
-                if let Some(cal) = calendar_by_id(id) {
-                    reset_date = adjust(reset_date, bdc, cal)?;
-                }
-            }
-            let t_reset = fwd
-                .day_count()
-                .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())?;
-            let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
-            let yf_elapsed = dc
-                .year_fraction(start, as_of, DayCountCtx::default())?
-                .max(0.0);
-            if yf_total <= 0.0 {
-                return Ok(0.0);
-            }
-            let rate = gearing * fwd.rate(t_reset) + margin_bp * 1e-4;
-            // Use current outstanding approximation as full notional for accrual
-            let coupon_total = bond.notional.amount() * rate * yf_total;
-            return Ok(coupon_total * (yf_elapsed / yf_total));
         }
+        let t_reset = fwd
+            .day_count()
+            .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())?;
+        let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
+        let yf_elapsed = dc
+            .year_fraction(start, as_of, DayCountCtx::default())?
+            .max(0.0);
+        if yf_total <= 0.0 {
+            return Ok(0.0);
+        }
+        let rate = gearing * fwd.rate(t_reset) + margin_bp * 1e-4;
+        // Use current outstanding approximation as full notional for accrual
+        let coupon_total = bond.notional.amount() * rate * yf_total;
+        return Ok(coupon_total * (yf_elapsed / yf_total));
     }
+
     Ok(0.0)
 }

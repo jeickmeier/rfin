@@ -123,7 +123,7 @@ impl MetricCalculator for ZSpreadCalculator {
             };
 
         // Objective: PV_z(z) - target_value_ccy = 0
-        let curves = context.curves.as_ref().clone();
+        let curves = std::sync::Arc::clone(&context.curves);
         let as_of = context.as_of;
         let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
 
