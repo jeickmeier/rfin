@@ -241,6 +241,7 @@ fn test_irs_receive_vs_pay_fixed() {
         calendar_id: None,
         stub: StubKind::None,
         reset_lag_days: 2,
+            compounding: Default::default(),
         start: as_of,
         end,
     };
@@ -320,6 +321,7 @@ fn test_irs_rate_sensitivity() {
         calendar_id: None,
         stub: StubKind::None,
         reset_lag_days: 2,
+            compounding: Default::default(),
         start: as_of,
         end,
     };
@@ -412,6 +414,7 @@ fn test_irs_leg_pvs_consistency() {
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start: as_of,
             end,
         },

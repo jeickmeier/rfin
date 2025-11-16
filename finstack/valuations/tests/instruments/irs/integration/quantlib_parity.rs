@@ -112,6 +112,7 @@ fn create_quantlib_swap(
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start,
             end,
         },

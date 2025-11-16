@@ -691,6 +691,7 @@ impl DiscountCurveCalibrator {
                     reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
+                    compounding: Default::default(),  // Simple compounding for calibration
                 };
 
                 let swap = InterestRateSwap {
@@ -1337,6 +1338,7 @@ mod tests {
                 reset_lag_days: 2,
                 start,
                 end,
+                compounding: Default::default(),
             })
             .build()
             .expect("IRS builder should succeed with valid test data");

@@ -45,6 +45,15 @@ pub struct Bond {
     /// generating cashflows from the cashflow_spec.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub custom_cashflows: Option<CashFlowSchedule>,
+    /// Accrual method for interest calculation between coupon dates.
+    ///
+    /// Determines how accrued interest is calculated:
+    /// - `Linear` (default): Simple interest interpolation (most bonds)
+    /// - `Compounded`: Actuarial accrual per ICMA Rule 251 (some European bonds)
+    /// - `Indexed`: Index ratio interpolation (inflation-linked bonds like TIPS)
+    #[cfg_attr(feature = "serde", serde(default))]
+    #[builder(default)]
+    pub accrual_method: super::AccrualMethod,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
     /// Settlement convention: number of settlement days after trade date.

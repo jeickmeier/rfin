@@ -269,6 +269,7 @@ fn test_irs_multi_curve_dv01() {
             calendar_id: None,
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start: as_of,
             end: create_date(2029, Month::January, 1).unwrap(),
         })

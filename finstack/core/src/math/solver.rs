@@ -88,10 +88,14 @@ pub trait Solver: Send + Sync {
 /// x_{n+1} = x_n - f(x_n) / f'(x_n)
 /// ```
 ///
-/// where `f'(x)` is approximated using central differences:
+/// where `f'(x)` is approximated using scale-adaptive central differences:
 /// ```text
+/// h = base_step × max(|x|, 1.0)
 /// f'(x) ≈ (f(x + h) - f(x - h)) / (2h)
 /// ```
+///
+/// The adaptive step size prevents catastrophic cancellation for large-magnitude
+/// problems while maintaining accuracy for small values.
 ///
 /// # Convergence
 ///
@@ -128,6 +132,7 @@ pub trait Solver: Send + Sync {
 /// # References
 ///
 /// - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.4.
+///   Recommends h ≈ sqrt(epsilon) × max(|x|, 1) for scale-adaptive derivatives.
 /// - Ralston, A., & Rabinowitz, P. (2001). *A First Course in Numerical Analysis*
 ///   (2nd ed.). Dover. Chapter 8.
 #[derive(Clone, Debug)]
@@ -137,8 +142,10 @@ pub struct NewtonSolver {
     pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
-    /// Finite difference step for derivative estimation
+    /// Base finite difference step for derivative estimation (scaled adaptively)
     pub fd_step: f64,
+    /// Minimum derivative threshold (absolute and relative guard)
+    pub min_derivative: f64,
 }
 
 impl Default for NewtonSolver {
@@ -147,6 +154,7 @@ impl Default for NewtonSolver {
             tolerance: 1e-12,
             max_iterations: 50,
             fd_step: 1e-8,
+            min_derivative: 1e-14,  // More permissive than legacy 1e-10
         }
     }
 }
@@ -168,6 +176,28 @@ impl NewtonSolver {
         self.max_iterations = max_iterations;
         self
     }
+
+    /// Set minimum derivative threshold.
+    pub fn with_min_derivative(mut self, min_derivative: f64) -> Self {
+        self.min_derivative = min_derivative;
+        self
+    }
+
+    /// Compute scale-adaptive finite difference step.
+    ///
+    /// Uses the formula: h = base_step × max(|x|, 1.0)
+    ///
+    /// This prevents catastrophic cancellation for large-magnitude problems
+    /// while maintaining accuracy for small values.
+    ///
+    /// # References
+    ///
+    /// Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.4.
+    #[inline]
+    fn adaptive_fd_step(&self, x: f64) -> f64 {
+        let scale = x.abs().max(1.0);
+        self.fd_step * scale
+    }
 }
 
 impl Solver for NewtonSolver {
@@ -175,11 +205,12 @@ impl Solver for NewtonSolver {
     where
         Func: Fn(f64) -> f64,
     {
-        // Use automatic differentiation via finite differences
+        // Use automatic differentiation via scale-adaptive finite differences
         let derivative = |x: f64| -> f64 {
-            let f_plus = f(x + self.fd_step);
-            let f_minus = f(x - self.fd_step);
-            (f_plus - f_minus) / (2.0 * self.fd_step)
+            let h = self.adaptive_fd_step(x);
+            let f_plus = f(x + h);
+            let f_minus = f(x - h);
+            (f_plus - f_minus) / (2.0 * h)
         };
 
         self.newton_method(&f, derivative, initial_guess)
@@ -213,8 +244,10 @@ impl NewtonSolver {
                 return Err(InputError::Invalid.into());
             }
 
-            // Avoid division by zero
-            if fpx.abs() < 1e-10 {
+            // Avoid division by zero with both absolute and relative guards
+            // Uses more permissive threshold (1e-14) and checks relative to function value
+            const MIN_DERIVATIVE_REL: f64 = 1e-6;
+            if fpx.abs() < self.min_derivative && fpx.abs() < MIN_DERIVATIVE_REL * fx.abs() {
                 return Err(InputError::Invalid.into());
             }
 
@@ -338,6 +371,13 @@ impl BrentSolver {
     where
         Func: Fn(f64) -> f64,
     {
+        use crate::error::InputError;
+        
+        // Maximum bracket width to prevent overflow
+        const MAX_BRACKET_WIDTH: f64 = 1e6;
+        const MIN_VALUE: f64 = -1e6;
+        const MAX_VALUE: f64 = 1e6;
+        
         // Calculate adaptive initial bracket size
         let initial_size = self.initial_bracket_size.unwrap_or_else(|| {
             // Use 1% of the initial guess magnitude, with a minimum of 0.01
@@ -356,18 +396,41 @@ impl BrentSolver {
         for _ in 0..20 {
             let fa = f(a);
             let fb = f(b);
+            
+            // Check for non-finite function values
+            if !fa.is_finite() || !fb.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
 
             if fa * fb < 0.0 {
                 return Ok((a, b));
             }
 
-            // Expand bracket
+            // Expand bracket with overflow protection
             let width = b - a;
-            a -= width * self.bracket_expansion;
-            b += width * self.bracket_expansion;
+            
+            // Stop if bracket is unreasonably wide
+            if width > MAX_BRACKET_WIDTH {
+                break;
+            }
+            
+            // Expand with bounds checking to prevent overflow
+            a = (a - width * self.bracket_expansion).max(MIN_VALUE);
+            b = (b + width * self.bracket_expansion).min(MAX_VALUE);
+            
+            // Stop if we've hit the bounds
+            if a <= MIN_VALUE && b >= MAX_VALUE {
+                break;
+            }
         }
 
-        Err(crate::Error::Internal) // Could not find bracket
+        Err(crate::Error::Calibration {
+            message: format!(
+                "Could not find bracket for root within [{}, {}]",
+                MIN_VALUE, MAX_VALUE
+            ),
+            category: "root_finding".to_string(),
+        })
     }
 }
 
@@ -493,8 +556,10 @@ impl BrentSolver {
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HybridSolver {
-    newton: NewtonSolver,
-    brent: BrentSolver,
+    /// Newton solver component (tried first)
+    pub newton: NewtonSolver,
+    /// Brent solver component (fallback)
+    pub brent: BrentSolver,
 }
 
 impl HybridSolver {
@@ -603,5 +668,126 @@ mod tests {
             .solve(f, 95.0)
             .expect("Root finding should succeed in test");
         assert!(f(root2).abs() < 1e-10);
+    }
+
+    // ===== Phase 1 Robustness Tests =====
+
+    #[test]
+    fn test_newton_scale_robustness() {
+        // Test solver across magnitude scales 10^-6 to 10^6
+        let solver = NewtonSolver::new();
+        
+        for exp in -6..=6 {
+            let target = 10f64.powi(exp);
+            let f = |x: f64| x * x - target;
+            let root = solver.solve(f, target.sqrt() * 0.9)
+                .unwrap_or_else(|_| panic!("Root finding should succeed at scale 10^{}", exp));
+            
+            // Use scale-aware tolerance accounting for floating point precision
+            // For small targets, absolute error dominates; for large targets, relative error
+            let abs_tolerance: f64 = 1e-12;  // Absolute tolerance near machine precision
+            let rel_tolerance = 1e-10 * target;  // Relative tolerance
+            let tolerance = abs_tolerance.max(rel_tolerance);
+            
+            assert!(
+                (f(root)).abs() < tolerance,
+                "Failed at scale 10^{}: residual {} (tolerance {})",
+                exp, f(root), tolerance
+            );
+        }
+    }
+
+    #[test]
+    fn test_newton_shallow_slope() {
+        // Test Newton solver with shallow derivative but valid root
+        let solver = NewtonSolver::new();
+        
+        // f(x) = x^4 - 1e-8, root at x ≈ 0.01
+        // At x=0.01: f'(x) = 4x^3 = 4e-6 (was rejected by legacy guard)
+        let f = |x: f64| x.powi(4) - 1e-8;
+        let root = solver.solve(f, 0.02)
+            .expect("Should solve function with shallow derivative");
+        
+        assert!((f(root)).abs() < 1e-12, "Residual: {}", f(root));
+        assert!((root - 0.01).abs() < 1e-6, "Root: {}", root);
+    }
+
+    #[test]
+    fn test_brent_overflow_protection() {
+        // Test that Brent solver doesn't overflow on pathological functions
+        let solver = BrentSolver::new();
+        
+        // Function with no roots (always positive)
+        let f = |x: f64| x * x + 1.0;
+        let result = solver.solve(f, 0.0);
+        
+        // Should fail gracefully, not panic or return NaN
+        assert!(result.is_err(), "Should fail to find root of x^2 + 1");
+    }
+
+    #[test]
+    fn test_brent_pathological_functions() {
+        let solver = BrentSolver::new();
+        
+        // Flat function (derivative = 0 everywhere)
+        let flat = |_x: f64| 1.0;
+        assert!(solver.solve(flat, 0.0).is_err(), "Should reject flat function");
+        
+        // Discontinuous function with root at 0
+        let step = |x: f64| if x >= 0.0 { 1.0 } else { -1.0 };
+        let root = solver.solve(step, 0.5)
+            .expect("Should find root at discontinuity");
+        assert!(root.abs() < 1e-6, "Root: {}", root);
+    }
+
+    #[test]
+    fn test_newton_adaptive_fd_step() {
+        // Verify adaptive FD step prevents cancellation errors
+        let solver = NewtonSolver::new();
+        
+        // Large-scale problem: x^2 = 1,000,000
+        let f_large = |x: f64| x * x - 1_000_000.0;
+        let root_large = solver.solve(f_large, 900.0)
+            .expect("Should solve large-scale problem");
+        assert!((root_large - 1000.0).abs() < 1e-6);
+        
+        // Small-scale problem: x^2 = 0.000001
+        let f_small = |x: f64| x * x - 1e-6;
+        let root_small = solver.solve(f_small, 0.0009)
+            .expect("Should solve small-scale problem");
+        assert!((root_small - 0.001).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_solver_convergence_comparison() {
+        // Compare Newton vs Brent on well-behaved function
+        let newton = NewtonSolver::new();
+        let brent = BrentSolver::new();
+        
+        let f = |x: f64| x * x * x - x - 1.0;  // Root ≈ 1.3247
+        
+        let root_newton = newton.solve(f, 1.0)
+            .expect("Newton should converge");
+        let root_brent = brent.solve(f, 1.0)
+            .expect("Brent should converge");
+        
+        // Both should find the same root
+        assert!((root_newton - root_brent).abs() < 1e-6);
+        assert!((f(root_newton)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_configurable_min_derivative() {
+        // Test that min_derivative threshold is configurable
+        let _solver_strict = NewtonSolver::new().with_min_derivative(1e-10);
+        let solver_permissive = NewtonSolver::new().with_min_derivative(1e-16);
+        
+        // Function with very small derivative
+        let f = |x: f64| x.powi(5) - 1e-12;
+        
+        // Permissive solver should succeed where strict might fail
+        let root = solver_permissive.solve(f, 0.001)
+            .expect("Permissive solver should handle shallow slopes");
+        assert!((f(root)).abs() < 1e-12);
     }
 }

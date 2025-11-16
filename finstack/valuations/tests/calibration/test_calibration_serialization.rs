@@ -308,6 +308,7 @@ fn test_calibration_report_serialization() {
         rmse: 2.1e-8,
         convergence_reason: "Tolerance met".to_string(),
         metadata,
+        solver_config: Default::default(),
         results_meta: finstack_core::config::results_meta(
             &finstack_core::config::FinstackConfig::default(),
         ),

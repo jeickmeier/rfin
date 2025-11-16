@@ -132,6 +132,20 @@ pub struct FloatLegSpec {
     pub start: Date,
     /// End date of the floating leg
     pub end: Date,
+    /// Compounding method for floating coupons.
+    ///
+    /// Determines how floating rate coupons are calculated:
+    /// - `Simple` (default): LIBOR-style simple interest
+    /// - `CompoundedInArrears`: SOFR/SONIA-style daily compounding
+    /// - `CompoundedDaily`: Legacy EONIA-style
+    ///
+    /// # Note
+    ///
+    /// Currently implemented for documentation and future use. The pricing
+    /// engine defaults to simple compounding for all floating legs.
+    /// Full compounded-in-arrears support will be added in a future release.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub compounding: crate::instruments::irs::FloatingLegCompounding,
 }
 
 /// Specification for basis swap legs (floating vs floating)

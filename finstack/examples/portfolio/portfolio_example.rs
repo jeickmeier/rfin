@@ -630,6 +630,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             start: as_of,
             end: date!(2029 - 01 - 01),
             reset_lag_days: 2,
+            compounding: Default::default(),
         })
         .build()
         .unwrap();

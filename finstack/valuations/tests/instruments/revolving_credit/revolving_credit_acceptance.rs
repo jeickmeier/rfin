@@ -173,6 +173,7 @@ fn test_floating_vs_margin_only() {
                 cap_bp: None,
                 reset_freq: Frequency::quarterly(),
                 reset_lag_days: 2,
+            compounding: Default::default(),
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -247,6 +248,7 @@ fn test_reset_frequency_mismatch() {
                 cap_bp: None,
                 reset_freq: Frequency::monthly(), // Monthly resets
                 reset_lag_days: 2,
+            compounding: Default::default(),
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,

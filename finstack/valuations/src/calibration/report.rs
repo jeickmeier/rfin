@@ -24,6 +24,12 @@ pub struct CalibrationReport {
     pub convergence_reason: String,
     /// Calibration metadata (key-value pairs for domain-specific info)
     pub metadata: BTreeMap<String, String>,
+    /// Solver configuration used for calibration.
+    ///
+    /// Captures the complete solver state for reproducibility. Defaults to
+    /// Hybrid solver if not explicitly set.
+    #[serde(default)]
+    pub solver_config: crate::calibration::SolverConfig,
     /// Result metadata (timestamp, version, rounding context, etc.)
     #[serde(default)]
     pub results_meta: ResultsMeta,
@@ -77,6 +83,7 @@ impl CalibrationReport {
             rmse,
             convergence_reason: convergence_reason.into(),
             metadata: BTreeMap::new(),
+            solver_config: crate::calibration::SolverConfig::default(),
             results_meta,
             explanation: None,
         }
@@ -110,6 +117,17 @@ impl CalibrationReport {
         self.metadata.insert(key.into(), value.into());
     }
 
+    /// Set solver configuration (builder pattern).
+    pub fn with_solver_config(mut self, config: crate::calibration::SolverConfig) -> Self {
+        self.solver_config = config;
+        self
+    }
+
+    /// Update solver configuration on an existing report.
+    pub fn update_solver_config(&mut self, config: crate::calibration::SolverConfig) {
+        self.solver_config = config;
+    }
+
     /// Create a calibration report for a specific calibration type.
     pub fn for_type(
         calibration_type: impl Into<String>,
@@ -136,6 +154,7 @@ impl Default for CalibrationReport {
             rmse: f64::INFINITY,
             convergence_reason: "Not started".to_string(),
             metadata: BTreeMap::new(),
+            solver_config: crate::calibration::SolverConfig::default(),
             results_meta,
             explanation: None,
         }

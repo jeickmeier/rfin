@@ -379,6 +379,7 @@ impl PyInterestRateSwap {
             reset_lag_days: reset_lag_days.unwrap_or(2),
             start: start_date,
             end: end_date,
+            compounding: Default::default(),
         };
 
         InterestRateSwap::builder()

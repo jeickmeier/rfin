@@ -151,6 +151,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                     calendar_id: None,
                     stub: finstack_core::dates::StubKind::None,
                     reset_lag_days: 2,
+            compounding: Default::default(),
                     start: base_date,
                     end: *maturity,
                 })

@@ -116,9 +116,10 @@ fn main() -> finstack_core::Result<()> {
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 2,
             start: issue,
             end: maturity_5y,
-            reset_lag_days: 2,
+            compounding: Default::default(),
         })
         .build()?;
     println!(

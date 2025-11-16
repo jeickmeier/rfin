@@ -70,9 +70,11 @@
 //! - [`PayReceive`] for swap direction
 //! - [`metrics`] for swap-specific risk metrics
 
+pub mod compounding;
 pub mod metrics;
 /// Interest rate swap pricer implementation
 pub mod pricer;
 mod types;
 
+pub use compounding::FloatingLegCompounding;
 pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, ParRateMethod, PayReceive};

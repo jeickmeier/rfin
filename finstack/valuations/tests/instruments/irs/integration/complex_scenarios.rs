@@ -69,6 +69,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start: as_of,
             end,
         },
@@ -224,6 +225,7 @@ fn test_forward_starting_swap() {
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start,
             end,
         },
@@ -342,6 +344,7 @@ fn test_swap_seasoned() {
             calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
+            compounding: Default::default(),
             start: as_of, // Use as_of instead of start to avoid invalid time range
             end,
         },

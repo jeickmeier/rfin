@@ -50,12 +50,14 @@
 //! - [`AmortizationSpec`] for amortizing bonds
 //! - [`metrics`] for bond-specific risk metrics
 
+pub mod accrual_method;
 pub mod cashflow_spec;
 pub mod cashflows;
 pub mod metrics;
 pub mod pricing;
 mod types;
 
+pub use accrual_method::AccrualMethod;
 pub use cashflow_spec::CashflowSpec;
 pub use types::AmortizationSpec;
 pub use types::Bond;

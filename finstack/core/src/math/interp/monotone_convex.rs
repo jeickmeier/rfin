@@ -51,10 +51,19 @@ pub struct MonotoneConvex {
     coeffs: Box<[(f64, f64, f64, f64)]>,
     /// Extrapolation policy for out-of-bounds evaluation.
     extrapolation: ExtrapolationPolicy,
+    /// Numerical tolerance for near-zero slope detection.
+    ///
+    /// Used to avoid harmonic mean calculation when slopes are near zero.
+    /// Default is 100 × machine epsilon (≈ 2.22e-14). Can be adjusted for
+    /// extreme curves (ultra-steep or ultra-flat).
+    epsilon: f64,
 }
 
 impl MonotoneConvex {
-    /// Construct a new monotone-convex interpolator.
+    /// Construct a new monotone-convex interpolator with default epsilon.
+    ///
+    /// Uses epsilon = 100 × machine epsilon (≈ 2.22e-14) for near-zero
+    /// slope detection. For custom epsilon, use [`Self::new_with_epsilon`].
     ///
     /// # Parameters
     /// * `knots` – strictly increasing times in the same units as evaluation
@@ -74,6 +83,37 @@ impl MonotoneConvex {
         dfs: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
+        Self::new_with_epsilon(knots, dfs, extrapolation, DEFAULT_EPSILON)
+    }
+
+    /// Construct a monotone-convex interpolator with custom epsilon.
+    ///
+    /// Allows fine-tuning the numerical tolerance for near-zero slope detection.
+    /// Use this for:
+    /// - **Ultra-steep curves**: Smaller epsilon (e.g., 10 × machine epsilon)
+    /// - **Ultra-flat curves**: Larger epsilon (e.g., 1000 × machine epsilon)
+    ///
+    /// # Parameters
+    /// * `epsilon` – Tolerance for near-zero slope detection. Must be in range
+    ///   [1e-16, 1e-6]. Outside this range indicates likely misconfiguration.
+    ///
+    /// # Errors
+    /// * `InputError::Invalid` – epsilon outside valid range
+    /// * (Plus all errors from [`Self::new`])
+    #[allow(clippy::boxed_local)]
+    pub fn new_with_epsilon(
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
+        extrapolation: ExtrapolationPolicy,
+        epsilon: f64,
+    ) -> crate::Result<Self> {
+        use crate::error::InputError;
+        
+        // Validate epsilon is reasonable
+        if epsilon <= 0.0 || epsilon > 1e-6 {
+            return Err(InputError::Invalid.into());
+        }
+        
         debug_assert_eq!(knots.len(), dfs.len());
 
         // ---- Sanity checks -------------------------------------------------
@@ -82,19 +122,20 @@ impl MonotoneConvex {
 
         // Compute cubic coefficients **before** moving `knots` and `dfs` into
         // the struct to avoid partial move/borrow checker conflicts.
-        let coeffs = Self::build_coeffs(&knots, &dfs);
+        let coeffs = Self::build_coeffs(&knots, &dfs, epsilon);
 
         Ok(Self {
             knots,
             dfs,
             coeffs,
             extrapolation,
+            epsilon,
         })
     }
 
     /// Compute cubic coefficients for each segment according to the
     /// Hagan–West monotone–convex algorithm.
-    fn build_coeffs(knots: &[f64], dfs: &[f64]) -> Box<[(f64, f64, f64, f64)]> {
+    fn build_coeffs(knots: &[f64], dfs: &[f64], epsilon: f64) -> Box<[(f64, f64, f64, f64)]> {
         let n = knots.len();
         debug_assert!(n >= 2);
 
@@ -118,7 +159,7 @@ impl MonotoneConvex {
             if m[i - 1] * m[i] <= 0.0 {
                 // Sign change or zero crossing: use zero derivative for monotonicity
                 d[i] = 0.0;
-            } else if m[i - 1].abs() < EPS || m[i].abs() < EPS {
+            } else if m[i - 1].abs() < epsilon || m[i].abs() < epsilon {
                 // Near-zero slope: avoid numerical instability in harmonic mean
                 d[i] = 0.0;
             } else {
@@ -134,7 +175,7 @@ impl MonotoneConvex {
         // maintains positive forward rates. When violated, scale derivatives
         // by τ = 3/√(α² + β²) to satisfy the constraint.
         for i in 0..n - 1 {
-            if m[i].abs() < EPS {
+            if m[i].abs() < epsilon {
                 continue; // avoid division by zero; d already satisfy monotonic.
             }
             let alpha = d[i] / m[i]; // Left derivative normalized by secant slope
@@ -170,6 +211,11 @@ impl MonotoneConvex {
     #[cfg(feature = "serde")]
     pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
         self.extrapolation
+    }
+
+    /// Get the epsilon value used for near-zero slope detection.
+    pub fn epsilon(&self) -> f64 {
+        self.epsilon
     }
 }
 
@@ -286,14 +332,16 @@ impl InterpFn for MonotoneConvex {
     }
 }
 
-/// Numerical tolerance for near-zero slope detection.
+/// Default numerical tolerance for near-zero slope detection.
 ///
-/// Set to 100 × machine epsilon to provide adequate protection against
-/// division by very small numbers while preserving numerical accuracy.
+/// Set to 100 × machine epsilon (≈ 2.22e-14) to provide adequate protection
+/// against division by very small numbers while preserving numerical accuracy.
 /// This threshold is used to:
 /// - Avoid harmonic mean calculation when slopes are near zero
 /// - Skip convexity constraint scaling for flat segments
-pub(crate) const EPS: f64 = f64::EPSILON * 100.0;
+///
+/// Can be customized via [`MonotoneConvex::new_with_epsilon`] for extreme curves.
+pub const DEFAULT_EPSILON: f64 = f64::EPSILON * 100.0;
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for MonotoneConvex {
@@ -307,14 +355,22 @@ impl serde::Serialize for MonotoneConvex {
             knots: &'a [f64],
             dfs: &'a [f64],
             extrapolation: ExtrapolationPolicy,
+            #[serde(default = "default_epsilon_serde")]
+            epsilon: f64,
         }
         let data = MonotoneConvexData {
             knots: &self.knots,
             dfs: &self.dfs,
             extrapolation: self.extrapolation,
+            epsilon: self.epsilon,
         };
         data.serialize(serializer)
     }
+}
+
+#[cfg(feature = "serde")]
+fn default_epsilon_serde() -> f64 {
+    DEFAULT_EPSILON
 }
 
 #[cfg(feature = "serde")]
@@ -329,12 +385,15 @@ impl<'de> serde::Deserialize<'de> for MonotoneConvex {
             knots: Vec<f64>,
             dfs: Vec<f64>,
             extrapolation: ExtrapolationPolicy,
+            #[serde(default = "default_epsilon_serde")]
+            epsilon: f64,
         }
         let data = MonotoneConvexData::deserialize(deserializer)?;
-        MonotoneConvex::new(
+        MonotoneConvex::new_with_epsilon(
             data.knots.into_boxed_slice(),
             data.dfs.into_boxed_slice(),
             data.extrapolation,
+            data.epsilon,
         )
         .map_err(serde::de::Error::custom)
     }

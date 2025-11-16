@@ -93,6 +93,7 @@ impl JsInterestRateSwap {
             reset_lag_days: reset_lag_days.unwrap_or(2),
             start: start.inner(),
             end: end.inner(),
+            compounding: Default::default(),
         };
         let swap = InterestRateSwap::builder()
             .id(instrument_id_from_str(instrument_id))

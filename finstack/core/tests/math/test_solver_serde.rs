@@ -124,6 +124,7 @@ mod tests {
             tolerance: 1e-15,
             max_iterations: 200,
             fd_step: 1e-7,
+            min_derivative: 1e-14,
         };
 
         let json = serde_json::to_string_pretty(&newton).unwrap();

@@ -147,6 +147,7 @@ impl InterestRateSwap {
                 reset_lag_days: 2,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
                 end: Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid example date"),
+                compounding: Default::default(),
             })
             .build()
             .expect("Example IRS construction should not fail")
@@ -187,6 +188,7 @@ impl InterestRateSwap {
             reset_lag_days: config.reset_lag_days,
             start,
             end,
+            compounding: Default::default(),
         };
         Self::builder()
             .id(id)
@@ -336,6 +338,7 @@ impl InterestRateSwap {
             reset_lag_days: convention.reset_lag_days(),
             start,
             end,
+            compounding: Default::default(),
         };
 
         Self::builder()
@@ -384,6 +387,7 @@ impl InterestRateSwap {
             reset_lag_days: 2,
             start,
             end,
+            compounding: Default::default(),
         };
         Self::builder()
             .id(id)

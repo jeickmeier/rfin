@@ -469,6 +469,7 @@ impl ForwardCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
+                    compounding: Default::default(),
                     discount_curve_id: self.discount_curve_id.to_owned(),
                     forward_curve_id: self.fwd_curve_id.clone(),
                     spread_bp: 0.0,

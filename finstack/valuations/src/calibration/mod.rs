@@ -56,12 +56,14 @@ pub mod derivatives;
 pub mod methods;
 mod quote;
 mod report;
+mod solver_config;
 pub mod spec;
 mod traits;
 mod validation;
 
 // Re-exports
 pub use config::{CalibrationConfig, MultiCurveConfig, SolverKind};
+pub use solver_config::SolverConfig;
 pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
 pub use derivatives::sabr_model_params::SABRModelParams;
 pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
