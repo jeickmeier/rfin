@@ -56,6 +56,10 @@ impl Default for DiscountMarginSolverConfig {
 /// cashflows equals the observed dirty market price.
 ///
 /// Notes:
+/// - Intended for **floating-rate notes (FRNs)**. For fixed-rate bonds and
+///   other non-floating `CashflowSpec` variants, this calculator returns
+///   **`0.0` by convention**, since there is no forward index to spread over.
+///   In those cases, use **YTM**, **Z-spread**, or asset-swap spreads instead.
 /// - Requires quoted clean price or falls back to base PV as target.
 /// - Uses the FRN path: coupons are projected off the forward curve at reset
 ///   with margin and gearing from `FloatingCouponSpec`, then discounted with the

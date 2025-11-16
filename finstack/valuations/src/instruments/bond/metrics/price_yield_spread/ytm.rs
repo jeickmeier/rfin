@@ -4,11 +4,27 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
 
-/// Calculates yield to maturity for bonds.
+/// Calculates yield to maturity (YTM) for bonds.
 ///
-/// Computes the internal rate of return that equates the present value of
-/// all future cashflows to the current market price. This is a fundamental
-/// metric for bond valuation and comparison across different bonds.
+/// YTM is defined here as the internal rate of return that equates the present
+/// value of **all projected future cashflows** to the current dirty market
+/// price (quoted clean price plus accrued interest).
+///
+/// # Applicability
+///
+/// - **Primary use**: plain-vanilla **fixed-rate bullet bonds**, where YTM has
+///   the usual market interpretation (coupon-like yield for comparison).
+/// - **Other cashflow specs**: for floating-rate, amortizing, or custom
+///   cashflow structures, this calculator still solves a well-defined IRR off
+///   the full discounted cashflow schedule. The resulting YTM is a
+///   **cashflow-implied yield**, but it is **not** the market-standard quote
+///   for FRNs (where **discount margin** is preferred) and may have less direct
+///   interpretation for exotic structures.
+///
+/// Implementation detail: the `coupon_rate` field in `YtmPricingSpec` is used
+/// only as a **solver hint / initial guess**. For non-fixed `CashflowSpec`
+/// variants this is set to `0.0`, but the solved YTM is fully determined by
+/// the explicit projected cashflows and the target price, not by this hint.
 ///
 /// # Dependencies
 /// Requires `Accrued` metric to be computed first.

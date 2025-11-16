@@ -5,7 +5,28 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-/// Calculates yield-to-worst for bonds with call/put schedules.
+/// Calculates yield-to-worst (YTW) for bonds with call/put schedules.
+///
+/// YTW is defined here as the minimum yield-to-maturity across all admissible
+/// exercise paths (calls, puts, and final maturity), where each candidate
+/// yield is solved as an IRR that equates the present value of the **truncated
+/// projected cashflows** to the current dirty market price.
+///
+/// # Applicability
+///
+/// - **Primary use**: callable / putable **fixed-rate bonds**, where YTW is
+///   the standard market risk measure ("worst case" yield to any exercise).
+/// - **Other cashflow specs**: for floating-rate, amortizing, or custom
+///   structures, this calculator still computes a well-defined "worst-case
+///   cashflow-implied yield" across exercise dates, but this is **not** the
+///   standard FRN quoting convention and should be interpreted as an internal
+///   risk/analytics measure rather than a market quote. For FRNs, **discount
+///   margin** is typically the preferred spread metric.
+///
+/// As with `YtmCalculator`, the `coupon_rate` field passed into the YTM solver
+/// is only an **initial guess**; for non-fixed `CashflowSpec` variants it is
+/// set to `0.0`, but the solved YTW values are driven entirely by the explicit
+/// projected cashflows and the target price along each exercise path.
 pub struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {

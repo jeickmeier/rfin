@@ -138,3 +138,141 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
         ytw_high
     );
 }
+
+/// YTW for a simple FRN without optionality should collapse to the same
+/// cashflow-implied yield as YTM and remain numerically well-behaved.
+#[test]
+fn test_ytw_floating_bond_matches_ytm_from_price() {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::money::Money;
+    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::PricingOverrides;
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = date!(2025 - 01 - 01);
+    let maturity = date!(2027 - 01 - 01);
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (2.0, 0.95)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.03), (2.0, 0.035)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let mut bond = Bond::floating(
+        "YTW-FRN",
+        notional,
+        "USD-SOFR-3M",
+        150.0,
+        as_of,
+        maturity,
+        Frequency::quarterly(),
+        DayCount::Act360,
+        "USD-OIS",
+    );
+
+    // Use model PV to back out a clean price quote consistent with the curves.
+    let pv = bond.value(&market, as_of).unwrap().amount();
+    let clean_px = pv / notional.amount() * 100.0;
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+
+    let result = bond
+        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Ytw])
+        .unwrap();
+    let ytm = *result.measures.get("ytm").unwrap();
+    let ytw = *result.measures.get("ytw").unwrap();
+
+    assert!(ytm.is_finite() && ytw.is_finite());
+    assert!(
+        (ytw - ytm).abs() <= 1e-6,
+        "expected FRN YTW ≈ YTM when no optionality is present, got ytm={} ytw={}",
+        ytm,
+        ytw
+    );
+}
+
+/// YTW for a plain amortizing bond without optionality should also reduce to
+/// the same IRR as YTM over the projected cashflows.
+#[test]
+fn test_ytw_amortizing_bond_matches_ytm_from_price() {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::money::Money;
+    use finstack_core::types::CurveId;
+    use finstack_valuations::instruments::bond::{AmortizationSpec, CashflowSpec};
+    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::common::traits::Attributes;
+    use finstack_valuations::instruments::PricingOverrides;
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = date!(2025 - 01 - 01);
+    let maturity = date!(2027 - 01 - 01);
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (3.0, 0.94)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert_discount(disc);
+
+    let step_date = date!(2026 - 01 - 01);
+    let amort_spec = AmortizationSpec::StepRemaining {
+        schedule: vec![
+            (step_date, Money::new(500_000.0, Currency::USD)),
+            (maturity, Money::new(0.0, Currency::USD)),
+        ],
+    };
+    let base_spec =
+        CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+    let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
+
+    let mut bond = Bond::builder()
+        .id("YTW-AMORT".into())
+        .notional(notional)
+        .issue(as_of)
+        .maturity(maturity)
+        .cashflow_spec(cashflow_spec)
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("amortizing bond construction should succeed in test");
+
+    let pv = bond.value(&market, as_of).unwrap().amount();
+    let clean_px = pv / notional.amount() * 100.0;
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+
+    let result = bond
+        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Ytw])
+        .unwrap();
+    let ytm = *result.measures.get("ytm").unwrap();
+    let ytw = *result.measures.get("ytw").unwrap();
+
+    assert!(ytm.is_finite() && ytw.is_finite());
+    assert!(
+        (ytw - ytm).abs() <= 1e-6,
+        "expected amortizing YTW ≈ YTM when no optionality is present, got ytm={} ytw={}",
+        ytm,
+        ytw
+    );
+}
