@@ -16,17 +16,11 @@ rayon = { version = "1.10", optional = true }
 ordered-float = { version = "4.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", features = ["raw_value"], optional = true }
-schemars = { version = "0.8", optional = true }
 time = { version = "0.3" }
 rust_decimal = { version = "1.36" }
-rand = { version = "0.8", optional = true }
-rand_pcg = { version = "0.3", optional = true }
-rand_distr = { version = "0.4", optional = true }
-rand_core = { version = "0.6", optional = true }
 nalgebra = { version = "0.33", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
-dhat = { version = "0.3", optional = true }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
@@ -38,13 +32,10 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [features]
 default = ["serde", "parallel"]
 serde = ["dep:serde", "dep:serde_json", "finstack-core/serde", "hashbrown/serde"]
-schema = ["dep:schemars", "serde"]  # JSON Schema generation for documentation and LLM outputs
 parallel = ["dep:rayon", "finstack-core/parallel"]
-stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr", "dep:rand_core"]
-mc = ["stochastic", "dep:nalgebra"]
+mc = ["dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 strict_validation = []  # Enforce no-arbitrage checks as hard errors in validators
-dhat-heap = ["dep:dhat"]  # Enable heap profiling with dhat
 
 [[bench]]
 name = "bond_pricing"

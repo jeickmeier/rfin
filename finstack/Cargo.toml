@@ -22,7 +22,6 @@ all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
 serde = []  # Delegated to subcrates (enabled by default in most)
 parallel = ["finstack_core/parallel", "finstack_valuations/parallel"]
 dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes", "dep:polars"]
-stochastic = ["finstack_valuations/stochastic"]
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }

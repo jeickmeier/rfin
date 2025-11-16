@@ -28,9 +28,6 @@ indexmap = "2.0"
 # Month enum required by Date bindings
 time = { version = "0.3", default-features = false }
 
-# WASM-compatible random number generation
-getrandom = { version = "0.2", default-features = false, features = ["js"] }
-
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
