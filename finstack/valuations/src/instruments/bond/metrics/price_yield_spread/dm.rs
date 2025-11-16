@@ -1,3 +1,4 @@
+use crate::instruments::bond::CashflowSpec;
 use crate::instruments::bond::pricing::helpers as price_helpers;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -49,7 +50,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         };
 
         // If no floating spec, DM is zero by definition here
-        if !matches!(&bond.cashflow_spec, super::super::CashflowSpec::Floating(_)) {
+        if !matches!(&bond.cashflow_spec, CashflowSpec::Floating(_)) {
             return Ok(0.0);
         }
 

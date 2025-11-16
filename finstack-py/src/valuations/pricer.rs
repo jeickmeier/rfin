@@ -5,7 +5,7 @@ use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use crate::valuations::metrics::MetricIdArg;
 use crate::valuations::results::PyValuationResult;
-use finstack_valuations::instruments::bond::metrics::asw::{
+use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::instruments::common::helpers::{

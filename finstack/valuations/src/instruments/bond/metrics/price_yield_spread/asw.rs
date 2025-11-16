@@ -1,5 +1,6 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
+use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -128,7 +129,7 @@ pub fn asw_par_with_forward(
     } else {
         // Extract fixed coupon rate from cashflow_spec
         match &bond.cashflow_spec {
-            super::super::CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate,
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         }
     };
@@ -178,7 +179,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         // custom-swap constructed on the same schedule. Requires a float spec.
         if bond.custom_cashflows.is_some() {
             match &bond.cashflow_spec {
-                super::super::CashflowSpec::Floating(spec) => {
+                CashflowSpec::Floating(spec) => {
                     return asw_par_with_forward(
                         bond,
                         &context.curves,
@@ -203,20 +204,20 @@ impl MetricCalculator for AssetSwapParCalculator {
 
         // Extract schedule params from cashflow_spec
         let (freq, bdc, calendar_id, stub) = match &bond.cashflow_spec {
-            super::super::CashflowSpec::Fixed(spec) => {
+            CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
             }
-            super::super::CashflowSpec::Floating(spec) => (
+            CashflowSpec::Floating(spec) => (
                 spec.freq,
                 spec.rate_spec.bdc,
                 spec.rate_spec.calendar_id.as_deref(),
                 spec.stub,
             ),
-            super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
-                super::super::CashflowSpec::Fixed(spec) => {
+            CashflowSpec::Amortizing { base, .. } => match &**base {
+                CashflowSpec::Fixed(spec) => {
                     (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
                 }
-                super::super::CashflowSpec::Floating(spec) => (
+                CashflowSpec::Floating(spec) => (
                     spec.freq,
                     spec.rate_spec.bdc,
                     spec.rate_spec.calendar_id.as_deref(),
@@ -252,7 +253,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let par_rate = num / ann;
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
         let coupon = match &bond.cashflow_spec {
-            super::super::CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate,
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         };
         Ok(coupon - par_rate)
@@ -268,7 +269,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let (discount_curve_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
             let coupon_rate = match &b.cashflow_spec {
-                super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                CashflowSpec::Fixed(spec) => spec.rate,
                 _ => 0.0, // Will be handled later if needed
             };
             (
@@ -300,7 +301,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         if is_custom {
             let bond: &Bond = context.instrument_as()?;
             match &bond.cashflow_spec {
-                super::super::CashflowSpec::Floating(spec) => {
+                CashflowSpec::Floating(spec) => {
                     return asw_market_with_forward(
                         bond,
                         &context.curves,
@@ -346,20 +347,20 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             // For standard bonds, coupon PV uses bond's actual payment schedule
             let bond: &Bond = context.instrument_as()?;
             let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
-                super::super::CashflowSpec::Fixed(spec) => {
+                CashflowSpec::Fixed(spec) => {
                     (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                 }
-                super::super::CashflowSpec::Floating(spec) => (
+                CashflowSpec::Floating(spec) => (
                     spec.freq,
                     spec.stub,
                     spec.rate_spec.bdc,
                     spec.rate_spec.calendar_id.as_deref(),
                 ),
-                super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
-                    super::super::CashflowSpec::Fixed(spec) => {
+                CashflowSpec::Amortizing { base, .. } => match &**base {
+                    CashflowSpec::Fixed(spec) => {
                         (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                     }
-                    super::super::CashflowSpec::Floating(spec) => (
+                    CashflowSpec::Floating(spec) => (
                         spec.freq,
                         spec.stub,
                         spec.rate_spec.bdc,
@@ -386,20 +387,20 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         // Market standard: discount-ratio using bond's payment schedule
         let bond: &Bond = context.instrument_as()?;
         let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
-            super::super::CashflowSpec::Fixed(spec) => {
+            CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
             }
-            super::super::CashflowSpec::Floating(spec) => (
+            CashflowSpec::Floating(spec) => (
                 spec.freq,
                 spec.stub,
                 spec.rate_spec.bdc,
                 spec.rate_spec.calendar_id.as_deref(),
             ),
-            super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
-                super::super::CashflowSpec::Fixed(spec) => {
+            CashflowSpec::Amortizing { base, .. } => match &**base {
+                CashflowSpec::Fixed(spec) => {
                     (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                 }
-                super::super::CashflowSpec::Floating(spec) => (
+                CashflowSpec::Floating(spec) => (
                     spec.freq,
                     spec.stub,
                     spec.rate_spec.bdc,
@@ -453,7 +454,7 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
             .get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
         match &bond.cashflow_spec {
-            super::super::CashflowSpec::Floating(spec) => asw_par_with_forward(
+            CashflowSpec::Floating(spec) => asw_par_with_forward(
                 bond,
                 &context.curves,
                 as_of,
@@ -480,7 +481,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
             .get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
         match &bond.cashflow_spec {
-            super::super::CashflowSpec::Floating(spec) => {
+            CashflowSpec::Floating(spec) => {
                 let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
                     let accrued = *context.computed.get(&MetricId::Accrued).unwrap_or(&0.0);
                     Some(clean * bond.notional.amount() / 100.0 + accrued)

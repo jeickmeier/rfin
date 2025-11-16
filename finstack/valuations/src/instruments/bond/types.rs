@@ -543,6 +543,15 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     }
 }
 
+// Implement HasCreditCurve for generic CS01 calculator
+// Returns credit_curve_id if present, otherwise falls back to discount_curve_id
+// (CS01 will fail at runtime if no hazard curve exists, which is acceptable)
+impl crate::metrics::HasCreditCurve for Bond {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        self.credit_curve_id.as_ref().unwrap_or(&self.discount_curve_id)
+    }
+}
+
 impl crate::instruments::common::traits::CurveDependencies for Bond {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()

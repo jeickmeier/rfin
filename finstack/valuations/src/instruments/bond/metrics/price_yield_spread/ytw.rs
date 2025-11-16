@@ -1,4 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
@@ -109,7 +110,7 @@ impl YtwCalculator {
                 day_count: bond.cashflow_spec.day_count(),
                 notional: bond.notional,
                 coupon_rate: match &bond.cashflow_spec {
-                    super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                    CashflowSpec::Fixed(spec) => spec.rate,
                     _ => 0.0,
                 },
                 compounding: crate::instruments::bond::pricing::helpers::YieldCompounding::Street,

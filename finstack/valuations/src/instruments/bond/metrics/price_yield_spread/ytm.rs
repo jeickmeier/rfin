@@ -1,4 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
@@ -34,7 +35,7 @@ impl MetricCalculator for YtmCalculator {
                 bond.cashflow_spec.day_count(),
                 bond.discount_curve_id.to_owned(),
                 match &bond.cashflow_spec {
-                    super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                    CashflowSpec::Fixed(spec) => spec.rate,
                     _ => 0.0,
                 },
                 bond.cashflow_spec.frequency(),
