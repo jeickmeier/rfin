@@ -1,6 +1,7 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
+use std::cell::RefCell;
 
 /// Calculates Z-Spread (zero-volatility spread) for fixed-rate bonds.
 ///
@@ -43,12 +44,24 @@ impl MetricCalculator for ZSpreadCalculator {
         // Objective: PV_z(z) - target_value_ccy = 0
         let curves = context.curves.as_ref().clone();
         let as_of = context.as_of;
+        let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
+
         let objective = |z: f64| -> f64 {
             match crate::instruments::bond::pricing::helpers::price_from_z_spread(
                 bond, &curves, as_of, z,
             ) {
                 Ok(pv) => pv - target_value_ccy,
-                Err(_) => 1e12 * z.signum(),
+                Err(e) => {
+                    // Capture the first pricing error and map to a large non-zero residual
+                    let mut slot = pricing_error.borrow_mut();
+                    if slot.is_none() {
+                        *slot = Some(e);
+                    }
+                    drop(slot);
+                    // Use a large residual with deterministic sign so the solver never sees a
+                    // spurious "perfect fit" at the initial guess (0.0 spread).
+                    1e12 * if z >= 0.0 { 1.0 } else { -1.0 }
+                }
             }
         };
 
@@ -57,6 +70,13 @@ impl MetricCalculator for ZSpreadCalculator {
             .with_tolerance(1e-12)
             .with_initial_bracket_size(Some(0.5)); // ±50% spread range is ample
         let z = solver.solve(objective, 0.0)?;
+
+        // If any pricing error occurred during objective evaluation, surface it instead of
+        // returning a potentially meaningless Z-spread.
+        if let Some(err) = pricing_error.into_inner() {
+            return Err(err);
+        }
+
         Ok(z)
     }
 }
