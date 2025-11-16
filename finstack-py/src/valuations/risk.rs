@@ -79,7 +79,7 @@ pub fn krd_dv01_ladder(
     let dv01_values: Vec<f64> = ladder.iter().map(|(_, value)| *value).collect();
 
     let dict = PyDict::new(py);
-    dict.set_item("bucket", bucket_labels)?;
+    dict.set_item("buckets", bucket_labels)?;
     dict.set_item("dv01", dv01_values)?;
 
     Ok(dict.into())
@@ -195,7 +195,7 @@ pub fn cs01_ladder(
     let cs01_values: Vec<f64> = ladder.iter().map(|(_, value)| *value).collect();
 
     let dict = PyDict::new(py);
-    dict.set_item("bucket", bucket_labels)?;
+    dict.set_item("buckets", bucket_labels)?;
     dict.set_item("cs01", cs01_values)?;
 
     Ok(dict.into())
