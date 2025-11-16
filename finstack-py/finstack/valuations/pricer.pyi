@@ -91,7 +91,12 @@ class PricerRegistry:
             market: Market context providing discount curves.
             forward_curve: Identifier for the forward curve.
             float_margin_bp: Floating margin in basis points.
-            dirty_price_ccy: Optional dirty price expressed in currency.
+            dirty_price_ccy: Dirty market price expressed in currency.
+                This argument is **required** to compute the market ASW leg.
+                To interpret the market spread relative to par, explicitly pass
+                the par notional amount (for example, ``bond.notional.amount``);
+                omitting it will cause the underlying engine to raise a configuration
+                error instead of silently assuming a par price.
 
         Returns:
             tuple[float, float]: Par and market asset swap spreads in basis points.

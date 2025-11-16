@@ -3,7 +3,7 @@ use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
@@ -83,12 +83,47 @@ fn pv_coupon_from_custom_schedule(
 }
 
 /// Compute Par ASW using a forward-based methodology with explicit parameters.
+///
+/// Note:
+/// - This helper uses the bond's coupon day-count for the fixed-leg annuity.
+/// - In many markets, par asset swaps are quoted on swap fixed-leg conventions
+///   that may differ from the bond's coupon convention.
+///
+/// For explicit control over the fixed-leg convention (e.g., to align with
+/// a swap market standard per currency), prefer
+/// [`asw_par_with_forward_config`], which accepts an optional fixed-leg
+/// day-count override.
 pub fn asw_par_with_forward(
     bond: &Bond,
     curves: &finstack_core::market_data::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
     float_spread_bp: f64,
+) -> finstack_core::Result<f64> {
+    asw_par_with_forward_config(
+        bond,
+        curves,
+        as_of,
+        fwd_curve_id,
+        float_spread_bp,
+        None,
+    )
+}
+
+/// Compute Par ASW using a forward-based methodology with explicit fixed-leg
+/// conventions.
+///
+/// - `fixed_leg_day_count`: when `Some`, this day-count is used to build the
+///   fixed-leg annuity, allowing callers to align with swap fixed-leg market
+///   conventions (e.g., 30E/360) instead of the bond's coupon convention.
+/// - When `None`, this falls back to `bond.cashflow_spec.day_count()`.
+pub fn asw_par_with_forward_config(
+    bond: &Bond,
+    curves: &finstack_core::market_data::MarketContext,
+    as_of: finstack_core::dates::Date,
+    fwd_curve_id: &str,
+    float_spread_bp: f64,
+    fixed_leg_day_count: Option<DayCount>,
 ) -> finstack_core::Result<f64> {
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let fwd = curves.get_forward_ref(fwd_curve_id)?;
@@ -100,7 +135,8 @@ pub fn asw_par_with_forward(
         return Ok(0.0);
     }
 
-    let ann = fixed_leg_annuity(disc, bond.cashflow_spec.day_count(), &sched);
+    let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
+    let ann = fixed_leg_annuity(disc, fixed_dc, &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -137,6 +173,17 @@ pub fn asw_par_with_forward(
 }
 
 /// Compute Market ASW using forward-based methodology with explicit parameters.
+///
+/// Note:
+/// - This helper requires an explicit dirty market price in currency.
+///   Callers **must** pass `Some(dirty_price_ccy)` even when interpreting
+///   ASW relative to par (in which case, pass `bond.notional.amount()`).
+/// - In many markets, the fixed leg follows swap fixed-leg conventions that
+///   may differ from the bond's coupon convention.
+///
+/// For explicit control over fixed-leg conventions (e.g., swap day-count),
+/// prefer [`asw_market_with_forward_config`], which accepts an optional
+/// fixed-leg day-count override.
 pub fn asw_market_with_forward(
     bond: &Bond,
     curves: &finstack_core::market_data::MarketContext,
@@ -145,24 +192,65 @@ pub fn asw_market_with_forward(
     float_spread_bp: f64,
     dirty_price_ccy: Option<f64>,
 ) -> finstack_core::Result<f64> {
+    asw_market_with_forward_config(
+        bond,
+        curves,
+        as_of,
+        fwd_curve_id,
+        float_spread_bp,
+        dirty_price_ccy,
+        None,
+    )
+}
+
+/// Compute Market ASW using forward-based methodology with explicit
+/// fixed-leg conventions.
+///
+/// - `dirty_price_ccy`: dirty market price expressed in currency. When
+///   `None`, this returns `InputError::NotFound { id: "dirty_price_ccy" }`
+///   instead of silently assuming par.
+/// - `fixed_leg_day_count`: when `Some`, this day-count is used to build
+///   the fixed-leg annuity; otherwise the bond's coupon day-count is used.
+pub fn asw_market_with_forward_config(
+    bond: &Bond,
+    curves: &finstack_core::market_data::MarketContext,
+    as_of: finstack_core::dates::Date,
+    fwd_curve_id: &str,
+    float_spread_bp: f64,
+    dirty_price_ccy: Option<f64>,
+    fixed_leg_day_count: Option<DayCount>,
+) -> finstack_core::Result<f64> {
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Ok(0.0);
     }
-    let ann = fixed_leg_annuity(disc, bond.cashflow_spec.day_count(), &sched);
+    let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
+    let ann = fixed_leg_annuity(disc, fixed_dc, &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
 
-    let par_asw = asw_par_with_forward(bond, curves, as_of, fwd_curve_id, float_spread_bp)?;
+    let par_asw = asw_par_with_forward_config(
+        bond,
+        curves,
+        as_of,
+        fwd_curve_id,
+        float_spread_bp,
+        fixed_leg_day_count,
+    )?;
     let notional = bond.notional.amount();
-    let price_pct = if let Some(dirty) = dirty_price_ccy {
-        dirty / notional
-    } else {
-        1.0 // Assume par if no price provided
+    let dirty = match dirty_price_ccy {
+        Some(v) => v,
+        None => {
+            return Err(finstack_core::error::InputError::NotFound {
+                id: "dirty_price_ccy".to_string(),
+            }
+            .into());
+        }
     };
+    let price_pct = dirty / notional;
     // Market ASW = Par ASW + (Market Price % - 100%) / Annuity
     Ok(par_asw + (price_pct - 1.0) / ann)
 }
