@@ -473,11 +473,7 @@ fn calculate_accrual_by_method(
             // `AccrualMethod::Indexed` on plain bonds are forced to migrate to
             // the inflation-linked instrument surface.
             let _ = (index_curve_id, coupon_rate, curves); // suppress unused warnings
-            Err(finstack_core::error::InputError::InvalidContext {
-                msg: "AccrualMethod::Indexed is not supported on nominal Bond; use the dedicated inflation-linked bond instrument"
-                    .to_string(),
-            }
-            .into())
+            Err(finstack_core::error::InputError::Invalid.into())
         }
     }
 }
