@@ -279,13 +279,27 @@ pub fn price_from_z_spread(
     Ok(pv)
 }
 
-/// Price from Option-Adjusted Spread using the short-rate tree pricer (expects bp input)
+/// Price from Option-Adjusted Spread using the short-rate tree pricer.
+///
+/// The public API takes **decimal spread units** (`oas_decimal`), where
+/// `0.01` corresponds to **100 basis points**. Internally, the tree
+/// pricer continues to work in basis points for compatibility, so we
+/// convert:
+///
+/// - `oas_bp = oas_decimal * 10_000.0`
+///
+/// This keeps all bond spread-style metrics on a consistent decimal
+/// convention at the API surface while preserving existing internal
+/// tree semantics.
 pub fn price_from_oas(
     bond: &Bond,
     curves: &MarketContext,
     _as_of: Date,
-    oas_bp: f64,
+    oas_decimal: f64,
 ) -> finstack_core::Result<f64> {
+    // Convert decimal spread (0.01 = 100bp) to basis points for the tree.
+    let oas_bp = oas_decimal * 10_000.0;
+
     // Use the short-rate tree directly to price at a given OAS
     use crate::instruments::bond::pricing::tree_pricer::BondValuator;
     use crate::instruments::common::models::{
@@ -592,16 +606,24 @@ pub fn compute_accrued_interest_with_context(
     if let Some((start, end)) =
         find_coupon_window_with_ex_coupon(bond, as_of, freq, stub, bdc, calendar_id)?
     {
-        // Determine reset date and forward time
+        // Determine reset date and forward time. If the reset date falls
+        // *before* the forward curve base date (e.g., first period with
+        // T‑2 reset lag and curve anchored at issue), clamp the time to
+        // zero to avoid invalid date ranges while still using the base
+        // curve level as the reset rate.
         let mut reset_date = start - Duration::days(reset_lag_days as i64);
         if let Some(id) = calendar_id {
             if let Some(cal) = calendar_by_id(id) {
                 reset_date = adjust(reset_date, bdc, cal)?;
             }
         }
-        let t_reset = fwd
-            .day_count()
-            .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())?;
+        let base_date = fwd.base_date();
+        let t_reset = if reset_date <= base_date {
+            0.0
+        } else {
+            fwd.day_count()
+                .year_fraction(base_date, reset_date, DayCountCtx::default())?
+        };
         let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
         let yf_elapsed = dc
             .year_fraction(start, as_of, DayCountCtx::default())?

@@ -4,7 +4,8 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 /// Calculates Option-Adjusted Spread for bonds with embedded options.
 ///
 /// Uses short-rate trees to value callable/putable bonds and solve for the
-/// spread that makes the model price equal to the market price.
+/// spread (in **decimal units**, e.g. `0.01 = 100bp`) that makes the model
+/// price equal to the market price.
 pub struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
@@ -27,6 +28,10 @@ impl MetricCalculator for OasCalculator {
 
         // Use Tree pricer to solve for OAS
         let oas_calculator = crate::instruments::bond::pricing::tree_pricer::TreePricer::new();
-        oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)
+        // Tree pricer returns OAS in **basis points**; convert to decimal
+        // so all bond spread-style metrics use a consistent convention
+        // (0.01 = 100bp) at the public API surface.
+        let oas_bp = oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)?;
+        Ok(oas_bp / 10_000.0)
     }
 }

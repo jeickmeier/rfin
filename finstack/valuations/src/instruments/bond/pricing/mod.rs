@@ -11,3 +11,5 @@ pub mod schedule_helpers;
 /// Tree-based pricing for callable/putable bonds and OAS
 pub mod tree_pricer;
 pub mod ytm_solver;
+/// Quote engine for mapping between price, yields, and spreads
+pub mod quote_engine;
