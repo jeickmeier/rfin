@@ -1,5 +1,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
+use crate::instruments::bond::pricing::helpers::{
+    fixed_leg_annuity, par_rate_and_annuity_from_discount,
+};
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -72,27 +75,6 @@ impl AssetSwapMarketCalculator {
     pub fn with_config(config: AssetSwapConfig) -> Self {
         Self { config }
     }
-}
-
-fn fixed_leg_annuity(
-    disc: &DiscountCurve,
-    dc: finstack_core::dates::DayCount,
-    schedule: &[finstack_core::dates::Date],
-) -> f64 {
-    if schedule.len() < 2 {
-        return 0.0;
-    }
-    let mut ann = 0.0;
-    let mut prev = schedule[0];
-    for &d in &schedule[1..] {
-        let alpha = dc
-            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-            .unwrap_or(0.0);
-        let p = disc.df_on_date_curve(d);
-        ann += alpha * p;
-        prev = d;
-    }
-    ann
 }
 
 fn build_future_dates_from_flows(
@@ -398,22 +380,15 @@ impl MetricCalculator for AssetSwapParCalculator {
         if sched.len() < 2 {
             return Ok(0.0);
         }
-        let p0 = disc.df_on_date_curve(sched[0]);
-        let pn = disc.df_on_date_curve(
-            *sched
-                .last()
-                .expect("Schedule should not be empty")
-        );
-        let num = p0 - pn;
         let dc_fixed = self
             .config
             .fixed_leg_day_count
             .unwrap_or(bond_dc);
-        let ann = fixed_leg_annuity(disc, dc_fixed, &sched);
+        let (par_rate, ann) =
+            par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
         if ann == 0.0 {
             return Ok(0.0);
         }
-        let par_rate = num / ann;
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
         let coupon = match &bond.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.rate,
@@ -606,17 +581,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             .config
             .fixed_leg_day_count
             .unwrap_or(dc);
-        let ann = fixed_leg_annuity(disc, dc_fixed, &sched);
+        let (par_rate, ann) =
+            par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
         if ann == 0.0 || notional_amt == 0.0 {
             return Ok(0.0);
         }
-        let p0 = disc.df_on_date_curve(sched[0]);
-        let pn = disc.df_on_date_curve(
-            *sched
-                .last()
-                .expect("Schedule should not be empty")
-        );
-        let par_rate = (p0 - pn) / ann;
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon
         let eq_coupon = if let Some(custom) = &context.instrument_as::<Bond>()?.custom_cashflows {
             let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, context.as_of);

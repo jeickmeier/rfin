@@ -288,8 +288,8 @@ fn price_from_asw_market(
     asw_market: f64,
 ) -> Result<f64> {
     use crate::instruments::bond::CashflowSpec;
+    use crate::instruments::bond::pricing::helpers::par_rate_and_annuity_from_discount;
     use crate::instruments::bond::pricing::schedule_helpers;
-    use finstack_core::dates::DayCountCtx;
 
     // Only well-defined for fixed-rate, non-custom bonds in this helper.
     if bond.custom_cashflows.is_some() {
@@ -317,25 +317,11 @@ fn price_from_asw_market(
     }
 
     let dc = bond.cashflow_spec.day_count();
-    let mut ann = 0.0;
-    let mut prev = sched[0];
-    for &d in &sched[1..] {
-        let alpha = dc.year_fraction(prev, d, DayCountCtx::default())?;
-        let p = disc.df_on_date_curve(d);
-        ann += alpha * p;
-        prev = d;
-    }
+    let (par_rate, ann) =
+        par_rate_and_annuity_from_discount(disc, dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
-
-    let p0 = disc.df_on_date_curve(sched[0]);
-    let pn = disc.df_on_date_curve(
-        *sched
-            .last()
-            .expect("Schedule should not be empty"),
-    );
-    let par_rate = (p0 - pn) / ann;
 
     let par_asw = coupon - par_rate;
     let price_pct = 1.0 + (asw_market - par_asw) * ann;

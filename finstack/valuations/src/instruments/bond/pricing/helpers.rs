@@ -6,7 +6,8 @@ use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::adjust;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::Date;
-use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, DayCountCtx, StubKind};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
@@ -72,6 +73,68 @@ pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core:
         }
         _ => Err(finstack_core::error::InputError::Invalid.into()),
     }
+}
+
+/// Fixed-leg annuity for a bond-style schedule using discount-curve discount factors.
+///
+/// This computes the standard swap-style annuity:
+/// sum(alpha_i * P(as_of, T_i)) for i over future coupon dates, where
+/// alpha_i is the year fraction between consecutive schedule dates under `dc`.
+///
+/// The `schedule` is expected to start at the valuation date (`as_of`) and
+/// contain strictly increasing dates.
+pub fn fixed_leg_annuity(
+    disc: &DiscountCurve,
+    dc: DayCount,
+    schedule: &[Date],
+) -> f64 {
+    if schedule.len() < 2 {
+        return 0.0;
+    }
+
+    let mut ann = 0.0;
+    let mut prev = schedule[0];
+    for &d in &schedule[1..] {
+        let alpha = dc
+            .year_fraction(prev, d, DayCountCtx::default())
+            .unwrap_or(0.0);
+        let p = disc.df_on_date_curve(d);
+        ann += alpha * p;
+        prev = d;
+    }
+    ann
+}
+
+/// Par swap rate from discount-curve discount ratios and a fixed-leg annuity.
+///
+/// Uses the standard discount-ratio formula:
+/// `par_rate = (P(as_of, T0) - P(as_of, Tn)) / sum(alpha_i * P(as_of, Ti))`
+/// where the denominator is the fixed-leg annuity computed with `dc`.
+///
+/// Returns both the par rate and the annuity so callers can reuse the latter
+/// in asset-swap formulas and related analytics.
+pub fn par_rate_and_annuity_from_discount(
+    disc: &DiscountCurve,
+    dc: DayCount,
+    schedule: &[Date],
+) -> finstack_core::Result<(f64, f64)> {
+    if schedule.len() < 2 {
+        return Ok((0.0, 0.0));
+    }
+
+    let ann = fixed_leg_annuity(disc, dc, schedule);
+    if ann == 0.0 {
+        return Ok((0.0, 0.0));
+    }
+
+    let p0 = disc.df_on_date_curve(schedule[0]);
+    let pn = disc.df_on_date_curve(
+        *schedule
+            .last()
+            .expect("Schedule should not be empty"),
+    );
+    let num = p0 - pn;
+    Ok((num / ann, ann))
 }
 
 #[inline]
@@ -364,10 +427,10 @@ fn calculate_accrual_by_method(
     accrual_method: &crate::instruments::bond::AccrualMethod,
     notional: f64,
     coupon_amount: f64,
-    _coupon_rate: f64,
+    coupon_rate: f64,
     total_period: f64,
     elapsed: f64,
-    _curves: Option<&MarketContext>,
+    curves: Option<&MarketContext>,
 ) -> finstack_core::Result<f64> {
     use crate::instruments::bond::AccrualMethod;
     
@@ -402,11 +465,19 @@ fn calculate_accrual_by_method(
         }
         AccrualMethod::Indexed { index_curve_id } => {
             // Inflation-indexed bonds (TIPS-style) are modelled in a dedicated
-            // inflation-linked bond instrument. Nominal `Bond` does not
-            // implement full index-ratio accrual here to avoid silently
+            // inflation-linked bond instrument. The nominal `Bond` type does
+            // not implement full index-ratio accrual here to avoid silently
             // mis-pricing ILBs.
-            let _ = index_curve_id; // suppress unused warning in this module
-            Err(finstack_core::error::InputError::Invalid.into())
+            //
+            // We fail fast with a descriptive error so callers using
+            // `AccrualMethod::Indexed` on plain bonds are forced to migrate to
+            // the inflation-linked instrument surface.
+            let _ = (index_curve_id, coupon_rate, curves); // suppress unused warnings
+            Err(finstack_core::error::InputError::InvalidContext {
+                msg: "AccrualMethod::Indexed is not supported on nominal Bond; use the dedicated inflation-linked bond instrument"
+                    .to_string(),
+            }
+            .into())
         }
     }
 }
