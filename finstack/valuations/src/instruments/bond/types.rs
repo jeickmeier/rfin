@@ -314,8 +314,47 @@ impl Bond {
             .copied()
             .ok_or(finstack_core::error::InputError::TooFewPoints)?;
 
-        // Default cashflow spec (won't be used since custom_cashflows overrides)
-        let cashflow_spec = CashflowSpec::default();
+        // Infer a representative coupon frequency from the schedule's coupon dates.
+        //
+        // This is used only for yield/duration conventions; the actual cashflows
+        // always come from `custom_cashflows`.
+        use crate::cashflow::primitives::CFKind;
+        use finstack_core::dates::Frequency;
+
+        let mut coupon_dates: Vec<Date> = schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .map(|cf| cf.date)
+            .collect();
+        coupon_dates.sort();
+        coupon_dates.dedup();
+
+        let inferred_freq = if coupon_dates.len() < 2 {
+            // Fallback to annual if we cannot infer a pattern
+            Frequency::annual()
+        } else {
+            // Use the first interval as a proxy for the schedule frequency.
+            let d0 = coupon_dates[0];
+            let d1 = coupon_dates[1];
+            let days = (d1 - d0).whole_days().abs();
+            // Map common patterns to standard frequencies; otherwise fall back
+            // to an approximate day-based frequency.
+            match days {
+                360..=370 => Frequency::annual(),
+                178..=187 => Frequency::semi_annual(),
+                88..=95 => Frequency::quarterly(),
+                27..=35 => Frequency::monthly(),
+                6..=8 => Frequency::weekly(),
+                _ => Frequency::Days(
+                    u16::try_from(days).unwrap_or(1)
+                ),
+            }
+        };
+
+        // Use schedule day count and inferred frequency in the spec so that
+        // YTM/YTW/duration/convexity use correct conventions for custom bonds.
+        let cashflow_spec = CashflowSpec::fixed(0.0, inferred_freq, schedule.day_count);
 
         let pricing_overrides = if let Some(price) = quoted_clean {
             PricingOverrides::default().with_clean_price(price)
