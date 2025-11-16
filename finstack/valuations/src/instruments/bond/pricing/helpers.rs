@@ -458,6 +458,94 @@ fn find_coupon_window_with_ex_coupon(
     Ok(None)
 }
 
+/// Compute accrued interest from an explicit `CashFlowSchedule`.
+///
+/// Uses schedule-driven coupon amounts (Fixed/Stub legs) and the schedule's
+/// own day count to determine:
+/// - The current coupon window containing `as_of`
+/// - The total coupon amount for that window
+/// - The fraction of the period that has elapsed
+///
+/// Ex-coupon conventions on the `Bond` are honored by returning zero
+/// accrued interest whenever `as_of` falls inside the ex-coupon window
+/// for the upcoming coupon date.
+fn compute_accrued_from_schedule(
+    bond: &Bond,
+    schedule: &crate::cashflow::builder::CashFlowSchedule,
+    as_of: finstack_core::dates::Date,
+) -> finstack_core::Result<f64> {
+    use crate::cashflow::primitives::CFKind;
+    use finstack_core::dates::DayCountCtx;
+
+    // Collect coupon dates (Fixed + Stub) and sum amounts per date
+    let mut coupon_by_date: Vec<(finstack_core::dates::Date, f64)> = Vec::new();
+    for cf in &schedule.flows {
+        if matches!(cf.kind, CFKind::Fixed | CFKind::Stub) {
+            if let Some((d, total)) = coupon_by_date.last_mut() {
+                if *d == cf.date {
+                    *total += cf.amount.amount();
+                    continue;
+                }
+            }
+            coupon_by_date.push((cf.date, cf.amount.amount()));
+        }
+    }
+
+    if coupon_by_date.is_empty() {
+        return Ok(0.0);
+    }
+
+    let dc = schedule.day_count;
+    let mut prev_date = bond.issue;
+
+    for (end_date, coupon_total) in coupon_by_date {
+        if end_date <= prev_date {
+            prev_date = end_date;
+            continue;
+        }
+
+        // Apply ex-coupon convention: inside ex-window => zero accrued
+        if let Some(ex_days) = bond.ex_coupon_days {
+            let ex_date = end_date - Duration::days(ex_days as i64);
+            if as_of >= ex_date && as_of < end_date {
+                return Ok(0.0);
+            }
+        }
+
+        if prev_date <= as_of && as_of < end_date {
+            let total_period = dc.year_fraction(prev_date, end_date, DayCountCtx::default())?;
+            if total_period <= 0.0 {
+                return Ok(0.0);
+            }
+            let elapsed = dc
+                .year_fraction(prev_date, as_of, DayCountCtx::default())?
+                .max(0.0);
+
+            // Derive an effective period coupon rate relative to original notional.
+            let notional_amt = bond.notional.amount();
+            let coupon_rate = if notional_amt > 0.0 {
+                coupon_total / (notional_amt * total_period)
+            } else {
+                0.0
+            };
+
+            return calculate_accrual_by_method(
+                &bond.accrual_method,
+                notional_amt,
+                coupon_total,
+                coupon_rate,
+                total_period,
+                elapsed,
+                None,
+            );
+        }
+
+        prev_date = end_date;
+    }
+
+    Ok(0.0)
+}
+
 /// Compute accrued interest between the last and next coupon dates.
 ///
 /// If custom cashflows exist, uses Fixed/Stub coupon flows for accrual; otherwise,
@@ -575,67 +663,65 @@ pub fn compute_accrued_interest_with_context(
     curves: &MarketContext,
     as_of: finstack_core::dates::Date,
 ) -> finstack_core::Result<f64> {
-    // If fixed or custom flows exist, fall back to standard helper and return
-    let is_floating = matches!(
-        &bond.cashflow_spec,
-        crate::instruments::bond::CashflowSpec::Floating(_)
-    );
-    if !is_floating || bond.custom_cashflows.is_some() {
-        return compute_accrued_interest(bond, as_of);
-    }
+    // Floating-rate bonds use forward curve context to approximate the
+    // current coupon; all other bonds use schedule-driven coupons.
+    match &bond.cashflow_spec {
+        crate::instruments::bond::CashflowSpec::Floating(spec) => {
+            let index_id = spec.rate_spec.index_id.as_str();
+            let margin_bp = spec.rate_spec.spread_bp;
+            let gearing = spec.rate_spec.gearing;
+            let reset_lag_days = spec.rate_spec.reset_lag_days;
+            let freq = spec.freq;
+            let stub = spec.stub;
+            let bdc = spec.rate_spec.bdc;
+            let calendar_id = spec.rate_spec.calendar_id.as_deref();
+            let dc = spec.rate_spec.dc;
 
-    // FRN path: approximate accrual using forward rate fixed at last reset
-    let (index_id, margin_bp, gearing, reset_lag_days, freq, stub, bdc, calendar_id, dc) =
-        match &bond.cashflow_spec {
-            crate::instruments::bond::CashflowSpec::Floating(spec) => (
-                spec.rate_spec.index_id.as_str(),
-                spec.rate_spec.spread_bp,
-                spec.rate_spec.gearing,
-                spec.rate_spec.reset_lag_days,
-                spec.freq,
-                spec.stub,
-                spec.rate_spec.bdc,
-                spec.rate_spec.calendar_id.as_deref(),
-                spec.rate_spec.dc,
-            ),
-            _ => return compute_accrued_interest(bond, as_of),
-        };
-    let fwd = curves.get_forward_ref(index_id)?;
+            let fwd = curves.get_forward_ref(index_id)?;
 
-    // Build schedule with instrument conventions to locate current coupon window
-    if let Some((start, end)) =
-        find_coupon_window_with_ex_coupon(bond, as_of, freq, stub, bdc, calendar_id)?
-    {
-        // Determine reset date and forward time. If the reset date falls
-        // *before* the forward curve base date (e.g., first period with
-        // T‑2 reset lag and curve anchored at issue), clamp the time to
-        // zero to avoid invalid date ranges while still using the base
-        // curve level as the reset rate.
-        let mut reset_date = start - Duration::days(reset_lag_days as i64);
-        if let Some(id) = calendar_id {
-            if let Some(cal) = calendar_by_id(id) {
-                reset_date = adjust(reset_date, bdc, cal)?;
+            // Build schedule geometry to locate the current coupon window,
+            // then apply ex-coupon rules via `find_coupon_window_with_ex_coupon`.
+            if let Some((start, end)) =
+                find_coupon_window_with_ex_coupon(bond, as_of, freq, stub, bdc, calendar_id)?
+            {
+                // Determine reset date and forward time. If the reset date falls
+                // *before* the forward curve base date (e.g., first period with
+                // T‑2 reset lag and curve anchored at issue), clamp the time to
+                // zero to avoid invalid date ranges while still using the base
+                // curve level as the reset rate.
+                let mut reset_date = start - Duration::days(reset_lag_days as i64);
+                if let Some(id) = calendar_id {
+                    if let Some(cal) = calendar_by_id(id) {
+                        reset_date = adjust(reset_date, bdc, cal)?;
+                    }
+                }
+                let base_date = fwd.base_date();
+                let t_reset = if reset_date <= base_date {
+                    0.0
+                } else {
+                    fwd.day_count()
+                        .year_fraction(base_date, reset_date, DayCountCtx::default())?
+                };
+                let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
+                let yf_elapsed = dc
+                    .year_fraction(start, as_of, DayCountCtx::default())?
+                    .max(0.0);
+                if yf_total <= 0.0 {
+                    return Ok(0.0);
+                }
+                let rate = gearing * fwd.rate(t_reset) + margin_bp * 1e-4;
+                // Use current outstanding approximation as full notional for accrual
+                let coupon_total = bond.notional.amount() * rate * yf_total;
+                Ok(coupon_total * (yf_elapsed / yf_total))
+            } else {
+                Ok(0.0)
             }
         }
-        let base_date = fwd.base_date();
-        let t_reset = if reset_date <= base_date {
-            0.0
-        } else {
-            fwd.day_count()
-                .year_fraction(base_date, reset_date, DayCountCtx::default())?
-        };
-        let yf_total = dc.year_fraction(start, end, DayCountCtx::default())?;
-        let yf_elapsed = dc
-            .year_fraction(start, as_of, DayCountCtx::default())?
-            .max(0.0);
-        if yf_total <= 0.0 {
-            return Ok(0.0);
+        // Fixed, amortizing, and custom-cashflow bonds: use the actual
+        // schedule (including amortization and step-ups) for accrual.
+        _ => {
+            let schedule = bond.get_full_schedule(curves)?;
+            compute_accrued_from_schedule(bond, &schedule, as_of)
         }
-        let rate = gearing * fwd.rate(t_reset) + margin_bp * 1e-4;
-        // Use current outstanding approximation as full notional for accrual
-        let coupon_total = bond.notional.amount() * rate * yf_total;
-        return Ok(coupon_total * (yf_elapsed / yf_total));
     }
-
-    Ok(0.0)
 }

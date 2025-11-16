@@ -201,6 +201,125 @@ fn test_accrued_interest_at_coupon_boundaries() {
 }
 
 #[test]
+fn test_accrued_interest_amortizing_schedule_driven() {
+    use finstack_core::dates::DayCount;
+    use finstack_core::dates::DayCountCtx;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_valuations::cashflow::builder::AmortizationSpec;
+    use finstack_valuations::instruments::bond::CashflowSpec;
+
+    // 3-year annual amortizing bond, 5% coupon, 1/3 principal returned each year.
+    let issue = make_date(2025, 1, 1);
+    let year1 = make_date(2026, 1, 1);
+    let year2 = make_date(2027, 1, 1);
+    let maturity = make_date(2028, 1, 1);
+
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    // StepRemaining schedule encodes remaining outstanding after each date.
+    // For a 3-year, 1/3-per-year amortization this means:
+    // - After year1: 2/3 notional outstanding
+    // - After year2: 1/3 notional outstanding
+    // - At maturity: 0 outstanding
+    let amort_spec = AmortizationSpec::StepRemaining {
+        schedule: vec![
+            (year1, Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD)),
+            (year2, Money::new(1.0 * 1_000_000.0 / 3.0, Currency::USD)),
+            (maturity, Money::new(0.0, Currency::USD)),
+        ],
+    };
+    let base_spec = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+    let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
+
+    let bond = Bond::builder()
+        .id("AMORT_AI".into())
+        .notional(notional)
+        .issue(issue)
+        .maturity(maturity)
+        .cashflow_spec(cashflow_spec)
+        .discount_curve_id("USD-OIS".into())
+        .pricing_overrides(Default::default())
+        .build()
+        .unwrap();
+
+    // Simple downward-sloping discount curve; actual level is irrelevant for AI.
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(issue)
+        .knots([(0.0, 1.0), (3.0, 0.9)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let curves = MarketContext::new().insert_discount(disc);
+
+    // Midway through last coupon period (year2 to maturity): outstanding notional
+    // is 1/3 of original. We verify that accrued interest uses the actual
+    // schedule coupon for this period, not `notional * rate` on the original
+    // notional.
+    let as_of = make_date(2027, 7, 1);
+
+    let accrued = finstack_valuations::instruments::bond::pricing::helpers::compute_accrued_interest_with_context(
+        &bond,
+        &curves,
+        as_of,
+    )
+    .unwrap();
+
+    // Derive expected accrued from the schedule itself: coupon_total × (elapsed/period)
+    let schedule = bond
+        .get_full_schedule(&curves)
+        .expect("Full schedule retrieval should succeed in test");
+    use finstack_valuations::cashflow::primitives::CFKind;
+    let mut coupon_dates: Vec<(Date, f64)> = Vec::new();
+    for cf in &schedule.flows {
+        if matches!(cf.kind, CFKind::Fixed | CFKind::Stub) {
+            if let Some((d, total)) = coupon_dates.last_mut() {
+                if *d == cf.date {
+                    *total += cf.amount.amount();
+                    continue;
+                }
+            }
+            coupon_dates.push((cf.date, cf.amount.amount()));
+        }
+    }
+    assert!(
+        coupon_dates.len() >= 2,
+        "Amortizing test schedule should have at least two coupon dates"
+    );
+    // Locate the period containing `as_of`
+    let mut expected = 0.0;
+    let mut prev = issue;
+    for (end, coupon_total) in coupon_dates {
+        if prev <= as_of && as_of < end {
+            let total_period = schedule
+                .day_count
+                .year_fraction(prev, end, DayCountCtx::default())
+                .unwrap();
+            let elapsed = schedule
+                .day_count
+                .year_fraction(prev, as_of, DayCountCtx::default())
+                .unwrap()
+                .max(0.0);
+            expected = coupon_total * (elapsed / total_period);
+            break;
+        }
+        prev = end;
+    }
+    assert!(
+        expected > 0.0,
+        "Expected schedule-derived accrued interest should be positive"
+    );
+
+    assert!(
+        (accrued - expected).abs() < 1.0,
+        "Amortizing AI should be schedule-driven; expected ~{}, got {}",
+        expected,
+        accrued
+    );
+}
+
+#[test]
 #[cfg(feature = "serde")]
 fn test_accrual_method_serialization() {
     // Test that accrual method survives JSON roundtrip

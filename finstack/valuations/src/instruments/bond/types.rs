@@ -960,6 +960,93 @@ mod tests {
     }
 
     #[test]
+    fn test_amortizing_bond_ex_coupon_accrual_zero_in_window() {
+        use crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context;
+        use crate::cashflow::builder::AmortizationSpec;
+        use crate::cashflow::primitives::CFKind;
+        use time::Duration;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2028, Month::January, 1)
+            .expect("Valid test date");
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        // Amortizing bond with annual 5% coupon, 1/3 principal returned each year.
+        let step1 = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
+        let step2 = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
+        let amort_spec = AmortizationSpec::StepRemaining {
+            schedule: vec![
+                (step1, Money::new(1_000_000.0 / 3.0, Currency::USD)),
+                (step2, Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD)),
+                (maturity, Money::new(0.0, Currency::USD)),
+            ],
+        };
+        let base_spec =
+            CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+        let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
+
+        let mut bond = Bond::builder()
+            .id("AMORT-EX-COUPON".into())
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(cashflow_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Amortizing bond construction should succeed in test");
+
+        // Apply an ex-coupon convention of 7 days
+        bond.ex_coupon_days = Some(7);
+
+        // Curves for pricing (levels are not important for accrual)
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (3.0, 0.9)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed in test");
+        let ctx = MarketContext::new().insert_discount(disc_curve);
+
+        // Use the full schedule to locate the first coupon end date
+        let full_schedule = bond
+            .get_full_schedule(&ctx)
+            .expect("Full schedule retrieval should succeed in test");
+        let first_coupon_date = full_schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .map(|cf| cf.date)
+            .filter(|d| *d > issue)
+            .min()
+            .expect("Amortizing bond should have at least one coupon date in test");
+
+        let ex_date = first_coupon_date - Duration::days(7);
+        let day_before_ex = ex_date - Duration::days(1);
+
+        // Before ex-date, accrued interest should be positive
+        let ai_before = compute_accrued_interest_with_context(&bond, &ctx, day_before_ex)
+            .expect("Accrued interest calculation should succeed before ex-date");
+        assert!(
+            ai_before > 0.0,
+            "Accrued interest should be positive before ex-date for amortizing bond"
+        );
+
+        // On or inside the ex-coupon window, accrued interest should be zero
+        let ai_ex = compute_accrued_interest_with_context(&bond, &ctx, ex_date)
+            .expect("Accrued interest calculation should succeed on ex-date");
+        assert!(
+            ai_ex == 0.0,
+            "Accrued interest in ex-coupon window should be zero for amortizing bond, got {}",
+            ai_ex
+        );
+    }
+
+    #[test]
     fn test_bond_frn_build_schedule_uses_builder() {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
