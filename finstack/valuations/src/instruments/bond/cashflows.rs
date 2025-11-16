@@ -24,18 +24,23 @@ impl CashflowProvider for Bond {
         let mut flows: Vec<(Date, Money)> = Vec::with_capacity(schedule.flows.len());
         
         // Map CashFlowSchedule to holder view (Date, Money) pairs
+        //
+        // Holder view convention:
+        // - All contractual inflows to a long holder (coupons, amortization, redemption)
+        //   are POSITIVE amounts.
+        // - Cash outflows (e.g., purchase price, funding, shorts) are NEGATIVE and are
+        //   handled outside this schedule (e.g., via trade price).
         for cf in &schedule.flows {
             match cf.kind {
                 // Include coupons and interest flows as-is (holder receives them)
                 CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => {
                     flows.push((cf.date, cf.amount));
                 }
-                // Amortization: flip sign (holder receives principal back, stored as positive in schedule)
+                // Amortization principal repayment: schedule already stores amortization
+                // as a POSITIVE reduction of outstanding principal. For a long holder
+                // this is an inflow, so we keep the sign as-is.
                 CFKind::Amortization => {
-                    flows.push((
-                        cf.date,
-                        Money::new(-cf.amount.amount(), cf.amount.currency()),
-                    ));
+                    flows.push((cf.date, cf.amount));
                 }
                 // Notional: only redemption (positive), exclude initial draw (negative)
                 CFKind::Notional if cf.amount.amount() > 0.0 => {

@@ -191,26 +191,19 @@ fn test_amortizing_bond_linear() {
     // Should have cashflows (coupons + amortization + redemption)
     assert!(!flows.is_empty(), "Amortizing bond should have cashflows");
 
-    // Amortizing bonds have:
-    // - Positive coupon flows
-    // - Negative amortization flows (principal paydowns from holder perspective)
-    // - Positive final redemption
+    // Holder-view convention:
+    // - All contractual inflows to a long holder (coupons, amortization, redemption)
+    //   are POSITIVE amounts.
+    //
+    for (_date, amount) in &flows {
+        assert!(
+            amount.amount() > 0.0,
+            "All amortizing bond cashflows should be positive in holder view"
+        );
+    }
 
-    // Count different flow types
-    let positive_flows: Vec<_> = flows.iter().filter(|(_, amt)| amt.amount() > 0.0).collect();
-    let negative_flows: Vec<_> = flows.iter().filter(|(_, amt)| amt.amount() < 0.0).collect();
-
-    // Should have both positive (coupons + redemption) and negative (amortization) flows
-    assert!(
-        !positive_flows.is_empty(),
-        "Should have positive cashflows (coupons, redemption)"
-    );
-    assert!(
-        !negative_flows.is_empty(),
-        "Should have negative cashflows (amortization)"
-    );
-
-    // Net cashflow should be positive (holder receives more than pays)
+    // Net cashflow should be positive (holder receives more than pays) even
+    // though the initial drawdown is excluded from this schedule.
     let total: f64 = flows.iter().map(|(_, amt)| amt.amount()).sum();
     assert!(total.is_finite(), "Total cashflow should be finite");
 }

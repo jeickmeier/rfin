@@ -12,6 +12,11 @@ use super::super::types::Bond;
 use super::super::CashflowSpec;
 
 /// Bond pricing engine providing core valuation methods.
+///
+/// The engine expects **holder-view** cashflows from `Bond::build_schedule`,
+/// i.e. all contractual amounts received by a long holder (coupons,
+/// amortization, redemption) are positive, and any cash outflows are
+/// represented separately at trade level (e.g. purchase price).
 pub struct BondEngine;
 
 impl BondEngine {

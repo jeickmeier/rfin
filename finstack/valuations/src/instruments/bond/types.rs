@@ -13,6 +13,13 @@ pub use crate::cashflow::builder::AmortizationSpec;
 
 /// Bond instrument with fixed, floating, or amortizing cashflows.
 ///
+/// Cashflow sign convention (holder view):
+/// - All contractual cashflows **received by a long holder** (coupons,
+///   amortization, final redemption) are represented as **positive** amounts.
+/// - Cash outflows for the holder (e.g., purchase price, funding, short
+///   positions) are represented as **negative** amounts and are handled at
+///   trade level rather than in the bond's contractual schedule.
+///
 /// Supports call/put schedules, quoted prices for yield-to-maturity calculations,
 /// and custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps
 /// the canonical builder coupon specs for maximum flexibility and parity.
@@ -342,7 +349,8 @@ impl Bond {
     /// Get the full cashflow schedule with kinds for this bond.
     ///
     /// This returns the complete `CashFlowSchedule` including all cashflow types
-    /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata.
+    /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata in the
+    /// builder’s native convention (typically issuer view).
     ///
     /// For floating rate bonds, requires market curves to properly compute floating
     /// coupon amounts (forward rate + discount margin).
@@ -1021,7 +1029,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_amortization_sign_flip_and_notional_exclusion() {
+    fn test_bond_amortization_holder_view_and_notional_exclusion() {
         use crate::cashflow::builder::AmortizationSpec;
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
@@ -1112,29 +1120,114 @@ mod tests {
             "Simplified schedule should exclude initial negative notional draw"
         );
 
-        // Amortization should be flipped to negative (holder receives principal back)
+        // Amortization should appear as positive holder receipts (principal repayments)
         let amort_in_simplified: Vec<_> = flows
             .iter()
             .filter(|(d, _)| *d == step1 || *d == maturity)
             .collect();
         // We expect at least one amortization payment
-        let has_negative_amort = amort_in_simplified.iter().any(|(_, m)| m.amount() < 0.0);
+        let has_positive_amort = amort_in_simplified.iter().any(|(_, m)| m.amount() > 0.0);
         assert!(
-            has_negative_amort,
-            "Amortization in simplified schedule should be negative (principal repayment)"
+            has_positive_amort,
+            "Amortization in simplified schedule should be positive (holder-view principal receipt)"
         );
 
-        // Final redemption at maturity: even when amortizing to zero, there may be a
-        // small redemption flow for the final outstanding amount after last amortization
-        let final_positive_flows: Vec<_> = flows
-            .iter()
-            .filter(|(d, m)| *d == maturity && m.amount() > 0.0)
-            .collect();
-        // Could be zero or have a small final payment depending on amortization schedule
-        // The key is that amortizations are negative (principal repayment)
+        // Final redemption at maturity: depending on amortization schedule the
+        // maturity date can include coupon, amortization, and/or redemption
+        // flows, all of which should be positive from the holder's perspective.
+    }
+
+    #[test]
+    fn test_amortizing_bond_pv_greater_than_bullet_for_same_yield() {
+        use crate::instruments::common::traits::Instrument;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1)
+            .expect("Valid test date");
+        let maturity = Date::from_calendar_date(2028, Month::January, 1)
+            .expect("Valid test date");
+
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        // Common discount curve: flat-ish, just needs to be decreasing
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([
+                (0.0, 1.0),
+                (1.0, 0.97),
+                (2.0, 0.94),
+                (3.0, 0.91),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed in test");
+        let market = MarketContext::new().insert_discount(disc_curve);
+
+        // Bullet bond: 3-year annual, 1% coupon, full principal at maturity
+        let bullet_cashflow_spec =
+            CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
+        let bullet_bond = Bond::builder()
+            .id("BULLET-TEST".into())
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(bullet_cashflow_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bullet bond construction should succeed in test");
+
+        // Amortizing bond with same coupon but 1/3 principal returned each year
+        let amort_step1 = Date::from_calendar_date(2026, Month::January, 1)
+            .expect("Valid test date");
+        let amort_step2 = Date::from_calendar_date(2027, Month::January, 1)
+            .expect("Valid test date");
+        let amort_schedule = AmortizationSpec::StepRemaining {
+            schedule: vec![
+                (
+                    amort_step1,
+                    Money::new(1_000_000.0 / 3.0, Currency::USD),
+                ),
+                (
+                    amort_step2,
+                    Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD),
+                ),
+                (maturity, Money::new(0.0, Currency::USD)),
+            ],
+        };
+        let amort_base_spec =
+            CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
+        let amort_spec = CashflowSpec::amortizing(amort_base_spec, amort_schedule);
+        let amort_bond = Bond::builder()
+            .id("AMORT-TEST-PV".into())
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(amort_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Amortizing bond construction should succeed in test");
+
+        let pv_bullet = bullet_bond
+            .value(&market, issue)
+            .expect("Bullet bond valuation should succeed in test")
+            .amount();
+        let pv_amort = amort_bond
+            .value(&market, issue)
+            .expect("Amortizing bond valuation should succeed in test")
+            .amount();
+
+        // With earlier principal repayments and a coupon below the curve's
+        // effective yield, the amortizing bond should have a higher PV than
+        // the bullet (principal is returned sooner and reinvested at higher
+        // rates).
         assert!(
-            final_positive_flows.len() <= 1,
-            "At most one positive flow at maturity (redemption)"
+            pv_amort > pv_bullet,
+            "Amortizing bond PV ({}) should be greater than bullet PV ({}) for the same yield curve",
+            pv_amort,
+            pv_bullet
         );
     }
 

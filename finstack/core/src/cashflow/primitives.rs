@@ -17,6 +17,10 @@ use crate::money::Money;
 ///
 /// Used to distinguish between different types of cashflows for
 /// proper sequencing, risk calculation, and accounting treatment.
+/// The enum itself is **view agnostic**: individual instruments are
+/// responsible for mapping these kinds into a holder or issuer view
+/// (e.g. whether amortization appears as a positive or negative amount
+/// in their simplified cashflow schedules).
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
