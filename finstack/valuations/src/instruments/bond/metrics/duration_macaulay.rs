@@ -59,16 +59,14 @@ impl MetricCalculator for MacaulayDurationCalculator {
                         context.as_of,
                         date,
                         finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0)
+                    )?
                     .max(0.0);
                 let df = crate::instruments::bond::pricing::quote_engine::df_from_yield(
                     ytm,
                     t,
                     crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
                     bond.cashflow_spec.frequency(),
-                )
-                .unwrap_or(0.0);
+                )?;
                 weighted_time += t * amount.amount() * df;
             }
         }

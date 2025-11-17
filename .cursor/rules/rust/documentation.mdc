@@ -13,6 +13,7 @@ This document defines documentation standards for all public APIs in the Finstac
 3. **Clarity over brevity**: Be explicit about behavior, constraints, and edge cases
 4. **Testable documentation**: Use doctests to ensure examples stay correct
 5. **Progressive disclosure**: Start simple, layer in complexity as needed
+6. **Math/Algorithm/Financial Model**: Include source references to the canical methodologies.
 
 ## Module-Level Documentation
 

@@ -137,9 +137,12 @@ impl MetricCalculator for DiscountMarginCalculator {
             context.base_value.amount()
         };
 
-        // If no floating spec, DM is zero by definition here
+        // DM is only defined for floating-rate bonds. For fixed-rate bonds, return an error.
+        // Callers should use YTM, Z-spread, or asset-swap spreads for fixed-rate instruments.
         if !matches!(&bond.cashflow_spec, CashflowSpec::Floating(_)) {
-            return Ok(0.0);
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
 
         // Root-find DM such that PV(dm) - dirty = 0

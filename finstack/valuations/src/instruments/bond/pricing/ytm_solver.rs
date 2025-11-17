@@ -190,13 +190,11 @@ impl YtmSolver {
             .last()
             .map(|(date, _)| *date)
             .ok_or(finstack_core::error::InputError::TooFewPoints)?;
-        let years_to_maturity = day_count
-            .year_fraction(
-                as_of,
-                maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+        let years_to_maturity = day_count.year_fraction(
+            as_of,
+            maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if years_to_maturity <= 0.0 {
             return Ok(current_yield);
         }

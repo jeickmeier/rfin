@@ -465,18 +465,18 @@ impl Bond {
     fn value_with_tree(
         &self,
         market: &finstack_core::market_data::MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::bond::pricing::tree_pricer::BondValuator;
         use crate::instruments::common::models::{
             short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
         };
 
-        // Calculate time to maturity on the discount curve's own time basis so
-        // that the short-rate tree calibration is consistent with the curve.
+        // Calculate time to maturity from the valuation date (as_of) using the
+        // discount curve's day-count convention to ensure consistency with tree calibration.
         let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
         let time_to_maturity = discount_curve.day_count().year_fraction(
-            discount_curve.base_date(),
+            as_of,
             self.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
@@ -499,7 +499,7 @@ impl Bond {
         tree.calibrate(discount_curve, time_to_maturity)?;
 
         // Create bond valuator with call/put schedule mapped to tree steps
-        let valuator = BondValuator::new(self.clone(), market, time_to_maturity, tree_steps)?;
+        let valuator = BondValuator::new(self.clone(), market, as_of, time_to_maturity, tree_steps)?;
 
         // Set up initial state variables (no OAS for vanilla pricing)
         let mut vars = StateVariables::new();

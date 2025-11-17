@@ -76,9 +76,22 @@ impl BondValuator {
     /// Create a new bond valuator for tree pricing.
     ///
     /// Builds maps of coupons, call prices, and put prices indexed by tree step.
+    ///
+    /// # Arguments
+    /// * `bond` - The bond to value
+    /// * `market_context` - Market data including curves
+    /// * `as_of` - Valuation date (time origin for the tree)
+    /// * `time_to_maturity` - Time from `as_of` to maturity in years
+    /// * `tree_steps` - Number of tree steps
+    ///
+    /// # Time Axis Consistency
+    /// The `as_of` date defines the time origin (t=0) for the tree. All cashflow
+    /// times and option exercise times are measured from `as_of` using the discount
+    /// curve's day-count convention to ensure consistency with tree calibration.
     pub fn new(
         bond: Bond,
         market_context: &MarketContext,
+        as_of: Date,
         time_to_maturity: f64,
         tree_steps: usize,
     ) -> Result<Self> {
@@ -88,14 +101,13 @@ impl BondValuator {
         let curves = market_context;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
-        let base_date = discount_curve.base_date();
-        let flows = bond.build_schedule(curves, base_date)?;
+        let flows = bond.build_schedule(curves, as_of)?;
 
         let mut coupon_map = HashMap::new();
         for (date, amount) in &flows {
-            if *date > base_date {
+            if *date > as_of {
                 let time_frac = dc_curve.year_fraction(
-                    base_date,
+                    as_of,
                     *date,
                     finstack_core::dates::DayCountCtx::default(),
                 )?;
@@ -116,9 +128,9 @@ impl BondValuator {
         let mut put_map = HashMap::new();
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
-                if call.date > base_date && call.date <= bond.maturity {
+                if call.date > as_of && call.date <= bond.maturity {
                     let time_frac = dc_curve.year_fraction(
-                        base_date,
+                        as_of,
                         call.date,
                         finstack_core::dates::DayCountCtx::default(),
                     )?;
@@ -135,9 +147,9 @@ impl BondValuator {
                 }
             }
             for put in &call_put.puts {
-                if put.date > base_date && put.date <= bond.maturity {
+                if put.date > as_of && put.date <= bond.maturity {
                     let time_frac = dc_curve.year_fraction(
-                        base_date,
+                        as_of,
                         put.date,
                         finstack_core::dates::DayCountCtx::default(),
                     )?;
@@ -155,16 +167,23 @@ impl BondValuator {
             }
         }
 
-        // Try to source recovery rate from a hazard curve whose ID matches the bond's credit curve ID.
-        // Convention: credit (hazard) curve ID == hazard curve ID. For compatibility, we also try a
-        // fallback suffix of "-CREDIT".
+        // Source recovery rate from the hazard curve identified by the bond's credit_curve_id
+        // (if present), otherwise try the discount curve ID with fallback "-CREDIT" suffix.
+        // This ensures consistency with the hazard curve used for rates+credit tree calibration.
         let mut recovery_rate: Option<f64> = None;
-        if let Ok(hc) = market_context.get_hazard(bond.discount_curve_id.as_str()) {
-            recovery_rate = Some(hc.recovery_rate());
-        } else if let Ok(hc) =
-            market_context.get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
-        {
-            recovery_rate = Some(hc.recovery_rate());
+        if let Some(ref credit_id) = bond.credit_curve_id {
+            if let Ok(hc) = market_context.get_hazard(credit_id.as_str()) {
+                recovery_rate = Some(hc.recovery_rate());
+            }
+        } else {
+            // Fallback to discount_curve_id or discount_curve_id-CREDIT for legacy compatibility
+            if let Ok(hc) = market_context.get_hazard(bond.discount_curve_id.as_str()) {
+                recovery_rate = Some(hc.recovery_rate());
+            } else if let Ok(hc) =
+                market_context.get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
+            {
+                recovery_rate = Some(hc.recovery_rate());
+            }
         }
 
         Ok(Self {
@@ -311,6 +330,7 @@ impl TreePricer {
         let valuator = BondValuator::new(
             bond.clone(),
             market_context,
+            as_of,
             time_to_maturity,
             self.config.tree_steps,
         )?;
@@ -466,7 +486,8 @@ mod tests {
     fn test_bond_valuator_creation() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        let valuator = BondValuator::new(bond, &market_context, 5.0, 50);
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50);
         assert!(valuator.is_ok());
         let valuator = valuator.expect("BondValuator creation should succeed in test");
         assert!(!valuator.coupon_map.is_empty());
@@ -501,7 +522,8 @@ mod tests {
     fn test_bond_valuator_with_calls() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
-        let valuator = BondValuator::new(bond, &market_context, 5.0, 50)
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50)
             .expect("BondValuator creation should succeed in test");
         assert!(!valuator.call_map.is_empty());
         assert!(valuator.put_map.is_empty());
@@ -584,9 +606,9 @@ mod tests {
 
         // Valuator
         let valuator_low =
-            BondValuator::new(bond.clone(), &ctx_low, time_to_maturity, steps).expect("valuator");
+            BondValuator::new(bond.clone(), &ctx_low, as_of, time_to_maturity, steps).expect("valuator");
         let valuator_high =
-            BondValuator::new(bond.clone(), &ctx_high, time_to_maturity, steps).expect("valuator");
+            BondValuator::new(bond.clone(), &ctx_high, as_of, time_to_maturity, steps).expect("valuator");
 
         // Two-factor rates+credit trees aligned to each hazard curve
         let mut tree_low = RatesCreditTree::new(RatesCreditConfig {

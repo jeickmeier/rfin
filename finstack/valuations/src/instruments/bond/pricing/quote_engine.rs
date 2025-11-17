@@ -75,28 +75,29 @@ pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core:
 ///
 /// The `schedule` is expected to start at the valuation date (`as_of`) and
 /// contain strictly increasing dates.
+///
+/// # Errors
+/// Returns an error if any year_fraction calculation fails (e.g., invalid dates).
 pub fn fixed_leg_annuity(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     dc: finstack_core::dates::DayCount,
     schedule: &[Date],
-) -> f64 {
+) -> finstack_core::Result<f64> {
     use finstack_core::dates::DayCountCtx;
     
     if schedule.len() < 2 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     let mut ann = 0.0;
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
-        let alpha = dc
-            .year_fraction(prev, d, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let alpha = dc.year_fraction(prev, d, DayCountCtx::default())?;
         let p = disc.df_on_date_curve(d);
         ann += alpha * p;
         prev = d;
     }
-    ann
+    Ok(ann)
 }
 
 /// Par swap rate from discount-curve discount ratios and a fixed-leg annuity.
@@ -107,6 +108,9 @@ pub fn fixed_leg_annuity(
 ///
 /// Returns both the par rate and the annuity so callers can reuse the latter
 /// in asset-swap formulas and related analytics.
+///
+/// # Errors
+/// Returns an error if the annuity calculation fails (invalid dates/day-count).
 pub fn par_rate_and_annuity_from_discount(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     dc: finstack_core::dates::DayCount,
@@ -116,7 +120,7 @@ pub fn par_rate_and_annuity_from_discount(
         return Ok((0.0, 0.0));
     }
 
-    let ann = fixed_leg_annuity(disc, dc, schedule);
+    let ann = fixed_leg_annuity(disc, dc, schedule)?;
     if ann == 0.0 {
         return Ok((0.0, 0.0));
     }
@@ -419,7 +423,7 @@ pub fn price_from_z_spread(
 pub fn price_from_oas(
     bond: &Bond,
     curves: &MarketContext,
-    _as_of: Date,
+    as_of: Date,
     oas_decimal: f64,
 ) -> finstack_core::Result<f64> {
     // Convert decimal spread (0.01 = 100bp) to basis points for the tree.
@@ -430,12 +434,12 @@ pub fn price_from_oas(
     use crate::instruments::common::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
-    // Time to maturity is measured on the discount curve's own time basis so
-    // that the short-rate tree is calibrated consistently with the curve.
+    // Time to maturity is measured from the valuation date (as_of) using the
+    // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
     let disc_dc = discount_curve.day_count();
     let time_to_maturity = disc_dc.year_fraction(
-        discount_curve.base_date(),
+        as_of,
         bond.maturity,
         DayCountCtx::default(),
     )?;
@@ -444,7 +448,7 @@ pub fn price_from_oas(
     }
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
-    let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
+    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, 100)?;
     let mut vars = StateVariables::new();
     vars.insert(short_rate_keys::OAS, oas_bp);
     let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;

@@ -162,7 +162,7 @@ pub fn asw_par_with_forward_config(
     }
 
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
-    let ann = fixed_leg_annuity(disc, fixed_dc, &sched);
+    let ann = fixed_leg_annuity(disc, fixed_dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -253,7 +253,7 @@ pub fn asw_market_with_forward_config(
         return Ok(0.0);
     }
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
-    let ann = fixed_leg_annuity(disc, fixed_dc, &sched);
+    let ann = fixed_leg_annuity(disc, fixed_dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -506,7 +506,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             }
             
             let sched: Vec<Date> = builder.build()?.into_iter().collect();
-            let ann = fixed_leg_annuity(disc, dc, &sched);
+            let ann = fixed_leg_annuity(disc, dc, &sched)?;
             notional_amt * coupon * ann
         };
 
