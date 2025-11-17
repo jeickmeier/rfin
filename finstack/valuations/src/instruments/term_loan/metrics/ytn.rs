@@ -6,56 +6,8 @@
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
-use finstack_core::money::Money;
 
-/// Solve IRR to a fixed horizon using holder-view cashflows and outstanding at horizon.
-fn solve_irr_to_date(
-    loan: &TermLoan,
-    curves: &finstack_core::market_data::MarketContext,
-    as_of: Date,
-    target_price: Money,
-    exercise_date: Date,
-) -> finstack_core::Result<f64> {
-    use crate::cashflow::traits::CashflowProvider;
-    
-    // Build full schedule to get outstanding path
-    let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
-        loan,
-        curves,
-        as_of,
-    )?;
-    
-    // Get holder-view flows
-    let holder_flows = loan.build_schedule(curves, as_of)?;
-    
-    let mut flows: Vec<(Date, Money)> = Vec::new();
-    // Initial price leg
-    flows.push((
-        as_of,
-        Money::new(-target_price.amount(), target_price.currency()),
-    ));
-    
-    // Add holder-view flows up to exercise date
-    for (date, amount) in holder_flows {
-        if date > as_of && date <= exercise_date {
-            flows.push((date, amount));
-        }
-    }
-
-    // Redemption = outstanding at exercise date
-    let out_path = schedule.outstanding_by_date_including_notional();
-    let mut outstanding_at = Money::new(0.0, loan.currency);
-    for (d, amt) in &out_path {
-        if *d <= exercise_date {
-            outstanding_at = *amt;
-        } else {
-            break;
-        }
-    }
-    flows.push((exercise_date, outstanding_at));
-
-    crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
-}
+use super::irr_helpers::solve_irr_to_date;
 
 fn years_ahead(as_of: Date, years: i32) -> Date {
     // Attempt to construct same month/day years ahead; fall back to maturity elsewhere

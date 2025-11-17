@@ -2,6 +2,7 @@
 
 mod all_in_rate;
 mod discount_margin;
+mod irr_helpers;
 mod ytc;
 mod ytm;
 mod ytn;

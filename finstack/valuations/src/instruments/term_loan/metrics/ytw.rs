@@ -8,6 +8,8 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
+use super::irr_helpers::solve_irr_to_exercise;
+
 /// Yield-to-worst calculator for callable term loans.
 ///
 /// Solves for the worst (minimum) yield across all call dates and maturity.
@@ -80,38 +82,4 @@ impl MetricCalculator for YtwCalculator {
         }
         Ok(y_worst)
     }
-}
-
-/// Solve IRR to an exercise date using holder-view cashflows.
-fn solve_irr_to_exercise(
-    loan: &TermLoan,
-    curves: &finstack_core::market_data::MarketContext,
-    as_of: Date,
-    target_price: Money,
-    exercise_date: Date,
-    redemption: Money,
-) -> finstack_core::Result<f64> {
-    use crate::cashflow::traits::CashflowProvider;
-    
-    // Get holder-view flows
-    let holder_flows = loan.build_schedule(curves, as_of)?;
-    
-    let mut flows: Vec<(Date, Money)> = Vec::new();
-    // Initial price leg
-    flows.push((
-        as_of,
-        Money::new(-target_price.amount(), target_price.currency()),
-    ));
-    
-    // Add holder-view flows up to exercise date
-    for (date, amount) in holder_flows {
-        if date > as_of && date <= exercise_date {
-            flows.push((date, amount));
-        }
-    }
-    
-    // Add redemption
-    flows.push((exercise_date, redemption));
-
-    crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
 }

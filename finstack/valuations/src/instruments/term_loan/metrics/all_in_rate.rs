@@ -33,14 +33,17 @@ impl MetricCalculator for AllInRateCalculator {
         // Get outstanding path including notional draws/repays, amortization, and PIK
         let out_path = schedule.outstanding_by_date_including_notional();
 
-        // Helper to look up outstanding at a given date
+        // Helper to look up outstanding at a given date (piecewise-constant: last value <= target)
         let outstanding_at = |target: finstack_core::dates::Date| -> finstack_core::Result<Money> {
+            let mut last = Money::new(0.0, loan.currency);
             for (d, amt) in &out_path {
-                if *d >= target {
-                    return Ok(*amt);
+                if *d <= target {
+                    last = *amt;
+                } else {
+                    break;
                 }
             }
-            Ok(Money::new(0.0, loan.currency))
+            Ok(last)
         };
 
         // Build coupon dates
@@ -77,19 +80,8 @@ impl MetricCalculator for AllInRateCalculator {
                     (*rate_bp as f64) * 1e-4
                 }
                 crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
-                    // Calculate total margin including step-ups
-                    let step_ups: f64 = loan
-                        .covenants
-                        .as_ref()
-                        .map(|c| {
-                            c.margin_stepups
-                                .iter()
-                                .filter(|m| m.date <= d)
-                                .map(|m| m.delta_bp as f64)
-                                .sum::<f64>()
-                        })
-                        .unwrap_or(0.0);
-                    let total_spread = spec.spread_bp + step_ups;
+                    // Use shared margin helper (includes base spread + covenant step-ups + overrides)
+                    let total_spread = crate::instruments::term_loan::cashflows::margin_bp_at(loan, d);
 
                     crate::cashflow::builder::project_floating_rate_simple(
                         prev,
@@ -115,7 +107,15 @@ impl MetricCalculator for AllInRateCalculator {
                         limit = sd.new_limit;
                     }
                 }
-                let undrawn = (limit.amount() - outstanding.amount()).max(0.0);
+                // Use same fee base logic as cashflow engine
+                let undrawn = match ddtl.fee_base {
+                    crate::instruments::term_loan::spec::CommitmentFeeBase::Undrawn => {
+                        (limit.amount() - outstanding.amount()).max(0.0)
+                    }
+                    crate::instruments::term_loan::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
+                        (limit.amount() - outstanding.amount()).max(0.0)
+                    }
+                };
                 if ddtl.commitment_fee_bp != 0 {
                     fees += undrawn * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf;
                 }

@@ -1,116 +1,72 @@
 //! Discount Margin for floating-rate term loans.
 //!
-//! Solves for an additive spread (decimal) to the projected index such that
-//! discounted PV matches observed price (or base PV if no quote provided).
+//! Solves for an additive spread (decimal) to the loan's base spread such that
+//! discounted PV of all cashflows (coupons + principal) matches observed price.
 //!
-//! # Fidelity Level
+//! # Market-Standard Implementation
 //!
-//! This implementation uses a **moderate-fidelity** approximation:
-//! - Uses a simplified outstanding path (aggregates draws, no time-dependent DDTL/amortization/PIK).
-//! - Adds DM to the forward rate directly (does not re-run full cashflow engine).
-//! - Suitable for plain floating-rate loans; may deviate for complex DDTL/amortizing structures.
+//! This implementation uses **full-fidelity re-pricing**:
+//! - Clones the TermLoan and adjusts the spread by DM
+//! - Re-runs complete cashflow generation including:
+//!   * DDTL draw timing and fees
+//!   * Amortization schedules
+//!   * PIK capitalization
+//!   * Cash sweeps and covenants
+//!   * Principal redemptions
+//! - Uses the actual pricer to compute PV
+//! - Solves for DM using Brent's method
 //!
-//! For higher fidelity, consider implementing a version that adjusts the spread in a cloned
-//! `TermLoan` and re-runs `generate_cashflows` + `TermLoanDiscountingPricer`.
+//! This ensures DM is consistent with the loan's true cashflow structure.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::money::Money;
 
 /// Discount margin calculator for floating rate term loans
 pub struct DiscountMarginCalculator;
 
 impl DiscountMarginCalculator {
+    /// Compute PV of term loan with adjusted spread (base_spread + dm_bp).
+    ///
+    /// Clones the loan, adds `dm_bp` to the floating spread, and re-prices using
+    /// the full cashflow engine and pricer.
     fn pv_given_dm(
         loan: &TermLoan,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-        dm: f64,
+        dm_bp: f64,
     ) -> finstack_core::Result<f64> {
-        // Recreate a simplified cashflow accrual over coupon periods but add dm to base rate
-        let disc = curves.get_discount_ref(loan.discount_curve_id.as_str())?;
-
-        let sched = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
-            .frequency(loan.pay_freq)
-            .stub_rule(loan.stub)
-            .build()?;
-        let mut dates: Vec<finstack_core::dates::Date> = sched.into_iter().collect();
-        if dates.first().copied() != Some(loan.issue) {
-            dates.insert(0, loan.issue);
-        }
-
-        let mut outstanding = Money::new(0.0, loan.currency);
-        if let Some(ddtl) = &loan.ddtl {
-            for ev in &ddtl.draws {
-                if ev.date >= loan.issue && ev.date <= loan.maturity {
-                    outstanding = outstanding.checked_add(ev.amount)?;
-                }
+        use crate::instruments::term_loan::types::RateSpec;
+        
+        // Clone loan and adjust spread
+        let mut loan_with_dm = loan.clone();
+        
+        match &mut loan_with_dm.rate {
+            RateSpec::Floating(spec) => {
+                // Add DM (in bp) to base spread
+                spec.spread_bp += dm_bp;
             }
-        } else {
-            outstanding = outstanding.checked_add(loan.notional_limit)?;
-        }
-
-        // Anchor discounting on the valuation date rather than the curve base date.
-        let df_as_of = disc.df_on_date_curve(as_of);
-
-        let mut pv = 0.0;
-        let mut prev = dates[0];
-        for &d in dates.iter().skip(1) {
-            if d <= as_of {
-                prev = d;
-                continue;
+            RateSpec::Fixed { .. } => {
+                // Should not happen (caller checks), but return zero if called on fixed rate
+                return Ok(0.0);
             }
-            let yf = loan
-                .day_count
-                .year_fraction(prev, d, DayCountCtx::default())?;
-            let rate = match &loan.rate {
-                crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => {
-                    (*rate_bp as f64) * 1e-4
-                }
-                crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
-                    // For discount margin calculation, we add DM to the forward rate
-                    // Then apply spread on top
-                    let fwd = curves.get_forward_ref(spec.index_id.as_str())?;
-                    let mut index_with_dm = fwd.rate(yf) + dm;
-
-                    // Apply floor to index+DM
-                    if let Some(floor) = spec.floor_bp {
-                        index_with_dm = index_with_dm.max(floor * 1e-4);
-                    }
-
-                    // Add spread
-                    let mut all_in = (index_with_dm + spec.spread_bp * 1e-4) * spec.gearing;
-
-                    // Apply cap
-                    if let Some(cap) = spec.cap_bp {
-                        all_in = all_in.min(cap * 1e-4);
-                    }
-
-                    all_in
-                }
-            };
-            let interest = outstanding.amount() * rate * yf;
-
-            // Discount to as_of using date-based curve mapping
-            let df_cf_abs = disc.df_on_date_curve(d);
-            let df = if df_as_of != 0.0 {
-                df_cf_abs / df_as_of
-            } else {
-                1.0
-            };
-            pv += interest * df;
-
-            prev = d;
         }
-        Ok(pv)
+        
+        // Re-price using full cashflow engine and pricer
+        let pv = crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(
+            &loan_with_dm,
+            curves,
+            as_of,
+        )?;
+        
+        Ok(pv.amount())
     }
 }
 
 impl MetricCalculator for DiscountMarginCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
+        
         // If not floating, DM = 0.0
         if let crate::instruments::term_loan::types::RateSpec::Fixed { .. } = loan.rate {
             return Ok(0.0);
@@ -124,16 +80,22 @@ impl MetricCalculator for DiscountMarginCalculator {
             context.base_value.amount()
         };
 
-        let objective = |dm: f64| -> f64 {
-            match Self::pv_given_dm(loan, &context.curves, context.as_of, dm) {
+        // Objective function: PV(dm) - target_price
+        let objective = |dm_bp: f64| -> f64 {
+            match Self::pv_given_dm(loan, &context.curves, context.as_of, dm_bp) {
                 Ok(pv) => pv - target,
-                Err(_) => 1e12 * dm.signum(),
+                Err(_) => 1e12 * dm_bp.signum(),
             }
         };
 
+        // Solve for DM in basis points
         let solver = BrentSolver::new()
             .with_tolerance(1e-12)
-            .with_initial_bracket_size(Some(0.05));
-        solver.solve(objective, 0.0)
+            .with_initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
+
+        let dm_bp = solver.solve(objective, 0.0)?;
+        
+        // Return DM as decimal (bp / 10000)
+        Ok(dm_bp * 1e-4)
     }
 }

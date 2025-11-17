@@ -15,11 +15,25 @@ pub struct TermLoanDiscountingPricer;
 
 impl TermLoanDiscountingPricer {
     /// Price a term loan using deterministic cashflows and discounting.
+    ///
+    /// # PIK Treatment
+    ///
+    /// PIK (payment-in-kind) interest is capitalized into outstanding principal and excluded
+    /// from PV calculation. Only cash flows are discounted:
+    /// - Coupons (Fixed, FloatReset, Stub)
+    /// - Amortization
+    /// - Redemptions (Notional)
+    /// - Fees
+    ///
+    /// PIK capitalization affects the outstanding principal path and is reflected in the
+    /// final redemption amount.
     pub fn price(
         loan: &TermLoan,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        use finstack_core::cashflow::primitives::CFKind;
+        
         // Build full cashflow schedule
         let schedule = generate_cashflows(loan, market, as_of)?;
 
@@ -27,9 +41,13 @@ impl TermLoanDiscountingPricer {
         // This ensures valuation is anchored on the valuation date rather than the curve's
         // internal base date.
         let disc = market.get_discount_ref(loan.discount_curve_id.as_str())?;
+        
+        // Filter flows: exclude PIK (capitalized interest) from PV
+        // PIK increases outstanding and is repaid via principal redemption
         let flows: Vec<(finstack_core::dates::Date, Money)> = schedule
             .flows
             .iter()
+            .filter(|cf| cf.kind != CFKind::PIK)
             .map(|cf| (cf.date, cf.amount))
             .collect();
 
