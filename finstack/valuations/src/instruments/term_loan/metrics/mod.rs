@@ -1,8 +1,6 @@
 //! Metrics for Term Loan instruments.
 
 mod all_in_rate;
-mod bucketed_cs01;
-mod cs01;
 mod discount_margin;
 mod ytc;
 mod ytm;
@@ -10,8 +8,6 @@ mod ytn;
 mod ytw;
 
 pub use all_in_rate::AllInRateCalculator;
-pub use bucketed_cs01::BucketedCs01Calculator;
-pub use cs01::Cs01Calculator;
 pub use discount_margin::DiscountMarginCalculator;
 pub use ytc::YtcCalculator;
 pub use ytm::YtmCalculator;
@@ -26,19 +22,23 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         registry: registry,
     instrument: "TermLoan",
         metrics: [
+            (Ytw, YtwCalculator),
+
+            // Theta is now registered universally in metrics::standard_registry()
+
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::TermLoan,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Cs01, Cs01Calculator),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::TermLoan,
-            >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::TermLoan,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
-            // Bucketed CS01 via discount curve bumps
-            (BucketedCs01, BucketedCs01Calculator),
-            (Ytw, YtwCalculator),
+
+            (Cs01, crate::metrics::GenericParallelCs01::<
+                crate::instruments::TermLoan,
+            >::default()),
+            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
+                crate::instruments::TermLoan,
+            >::default()),
         ]
     }
 

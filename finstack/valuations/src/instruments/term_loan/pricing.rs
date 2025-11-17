@@ -20,43 +20,20 @@ impl TermLoanDiscountingPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        // Build full cashflow schedule
         let schedule = generate_cashflows(loan, market, as_of)?;
 
-        // Get discount curve
+        // Retrieve discount curve and discount flows to `as_of` using date-based DF mapping.
+        // This ensures valuation is anchored on the valuation date rather than the curve's
+        // internal base date.
         let disc = market.get_discount_ref(loan.discount_curve_id.as_str())?;
-        let disc_dc = disc.day_count();
-        let base_date = disc.base_date();
+        let flows: Vec<(finstack_core::dates::Date, Money)> = schedule
+            .flows
+            .iter()
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
 
-        let t_as_of = disc_dc.year_fraction(
-            base_date,
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let df_as_of = disc.df(t_as_of);
-
-        let mut pv = Money::new(0.0, loan.currency);
-
-        for cf in &schedule.flows {
-            if cf.date <= as_of {
-                continue;
-            }
-            let t_cf = disc_dc.year_fraction(
-                base_date,
-                cf.date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let df = {
-                let df_abs = disc.df(t_cf);
-                if df_as_of != 0.0 {
-                    df_abs / df_as_of
-                } else {
-                    1.0
-                }
-            };
-            pv = pv.checked_add(cf.amount * df)?;
-        }
-
-        Ok(pv)
+        crate::instruments::common::discountable::npv_by_date(disc, as_of, &flows)
     }
 }
 

@@ -21,7 +21,6 @@ impl DiscountMarginCalculator {
     ) -> finstack_core::Result<f64> {
         // Recreate a simplified cashflow accrual over coupon periods but add dm to base rate
         let disc = curves.get_discount_ref(loan.discount_curve_id.as_str())?;
-        let disc_dc = disc.day_count();
 
         let sched = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
             .frequency(loan.pay_freq)
@@ -42,6 +41,9 @@ impl DiscountMarginCalculator {
         } else {
             outstanding = outstanding.checked_add(loan.notional_limit)?;
         }
+
+        // Anchor discounting on the valuation date rather than the curve base date.
+        let df_as_of = disc.df_on_date_curve(as_of);
 
         let mut pv = 0.0;
         let mut prev = dates[0];
@@ -81,12 +83,10 @@ impl DiscountMarginCalculator {
             };
             let interest = outstanding.amount() * rate * yf;
 
-            // Discount to as_of
-            let t = disc_dc.year_fraction(disc.base_date(), d, DayCountCtx::default())?;
-            let df_abs = disc.df(t);
-            let t_asof = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
-            let df = if t_asof != 0.0 {
-                df_abs / disc.df(t_asof)
+            // Discount to as_of using date-based curve mapping
+            let df_cf_abs = disc.df_on_date_curve(d);
+            let df = if df_as_of != 0.0 {
+                df_cf_abs / df_as_of
             } else {
                 1.0
             };
