@@ -467,7 +467,7 @@ impl Bond {
         market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::bond::pricing::tree_pricer::BondValuator;
+        use crate::instruments::bond::pricing::tree_engine::BondValuator;
         use crate::instruments::common::models::{
             short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
         };
@@ -555,7 +555,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
         // Standard cashflow discounting for straight bonds using bond cashflows
         // sized under the bond's own day-count and discount factors provided by
         // the assigned discount curve.
-        crate::instruments::bond::pricing::engine::BondEngine::price(self, curves, as_of)
+        crate::instruments::bond::pricing::discount_engine::BondEngine::price(self, curves, as_of)
     }
 
     fn price_with_metrics(

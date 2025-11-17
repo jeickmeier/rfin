@@ -883,7 +883,7 @@ fn quantlib_parity_oas_calculation() {
     let market = create_market(as_of, 0.04);
 
     // Calculate OAS using tree pricer
-    use finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricer;
+    use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
     let tree_pricer = TreePricer::new();
     let oas_result = tree_pricer.calculate_oas(&callable_bond, &market, as_of, market_price);
 
@@ -930,7 +930,7 @@ fn quantlib_parity_oas_price_sensitivity() {
 
     let market = create_market(as_of, 0.05);
 
-    use finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricer;
+    use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
     let tree_pricer = TreePricer::new();
 
     // Calculate OAS at two different prices

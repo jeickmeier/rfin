@@ -430,7 +430,7 @@ pub fn price_from_oas(
     let oas_bp = oas_decimal * 10_000.0;
 
     // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::bond::pricing::tree_pricer::BondValuator;
+    use crate::instruments::bond::pricing::tree_engine::BondValuator;
     use crate::instruments::common::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };

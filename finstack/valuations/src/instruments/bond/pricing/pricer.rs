@@ -1,4 +1,4 @@
-use crate::instruments::bond::pricing::tree_pricer::TreePricer;
+use crate::instruments::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
@@ -6,8 +6,6 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
 use indexmap::IndexMap;
-
-// ========================= NEW SIMPLIFIED PRICERS =========================
 
 // Using generic pricer implementation to eliminate boilerplate
 pub use crate::instruments::common::GenericDiscountingPricer;
