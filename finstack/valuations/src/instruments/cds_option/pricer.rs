@@ -466,7 +466,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -481,12 +481,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
                 )
             })?;
 
-        // Get as_of date from discount curve
-        let disc = market
-            .get_discount_ref(&cds_option.discount_curve_id)
-            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for valuation
         // Compute present value using the engine
         let pv = CdsOptionPricer::default()
             .npv(cds_option, market, as_of)

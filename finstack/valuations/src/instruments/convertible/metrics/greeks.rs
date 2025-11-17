@@ -12,7 +12,7 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
-        bond.delta(&context.curves)
+        bond.delta(&context.curves, context.as_of)
     }
 }
 
@@ -20,7 +20,7 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
-        bond.gamma(&context.curves)
+        bond.gamma(&context.curves, context.as_of)
     }
 }
 
@@ -28,7 +28,7 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
-        bond.vega(&context.curves)
+        bond.vega(&context.curves, context.as_of)
     }
 }
 
@@ -36,7 +36,7 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
-        bond.rho(&context.curves)
+        bond.rho(&context.curves, context.as_of)
     }
 }
 

@@ -176,9 +176,9 @@ impl ConvertibleBond {
     pub fn npv(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default())
+        pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
     }
 
     /// Calculate parity ratio of this convertible bond
@@ -239,16 +239,18 @@ impl ConvertibleBond {
         curves: &finstack_core::market_data::MarketContext,
         tree_type: Option<pricer::ConvertibleTreeType>,
         bump_size: Option<f64>,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
-        pricer::calculate_convertible_greeks(self, curves, tree_type.unwrap_or_default(), bump_size)
+        pricer::calculate_convertible_greeks(self, curves, tree_type.unwrap_or_default(), bump_size, as_of)
     }
 
     /// Calculate delta of this convertible bond
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let greeks = self.greeks(curves, None, None)?;
+        let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.delta)
     }
 
@@ -256,8 +258,9 @@ impl ConvertibleBond {
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let greeks = self.greeks(curves, None, None)?;
+        let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.gamma)
     }
 
@@ -265,8 +268,9 @@ impl ConvertibleBond {
     pub fn vega(
         &self,
         curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let greeks = self.greeks(curves, None, None)?;
+        let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.vega)
     }
 
@@ -274,8 +278,9 @@ impl ConvertibleBond {
     pub fn rho(
         &self,
         curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let greeks = self.greeks(curves, None, None)?;
+        let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.rho)
     }
 
@@ -283,8 +288,9 @@ impl ConvertibleBond {
     pub fn theta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let greeks = self.greeks(curves, None, None)?;
+        let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.theta)
     }
 }

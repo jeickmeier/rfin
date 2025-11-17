@@ -166,6 +166,7 @@ fn bench_npv_binomial(c: &mut Criterion) {
                         black_box(&bond),
                         black_box(&market),
                         black_box(ConvertibleTreeType::Binomial(s)),
+                        base_date(),
                     )
                 });
             },
@@ -189,6 +190,7 @@ fn bench_npv_trinomial(c: &mut Criterion) {
                         black_box(&bond),
                         black_box(&market),
                         black_box(ConvertibleTreeType::Trinomial(s)),
+                        base_date(),
                     )
                 });
             },
@@ -213,6 +215,7 @@ fn bench_npv_by_moneyness(c: &mut Criterion) {
                     black_box(&bond),
                     black_box(&market),
                     black_box(ConvertibleTreeType::Binomial(50)),
+                    base_date(),
                 )
             });
         });
@@ -236,6 +239,7 @@ fn bench_npv_features(c: &mut Criterion) {
                 black_box(&standard),
                 black_box(&market),
                 black_box(ConvertibleTreeType::Binomial(50)),
+                base_date(),
             )
         });
     });
@@ -248,6 +252,7 @@ fn bench_npv_features(c: &mut Criterion) {
                 black_box(&callable),
                 black_box(&market),
                 black_box(ConvertibleTreeType::Binomial(50)),
+                base_date(),
             )
         });
     });
@@ -260,6 +265,7 @@ fn bench_npv_features(c: &mut Criterion) {
                 black_box(&zero_coupon),
                 black_box(&market),
                 black_box(ConvertibleTreeType::Binomial(50)),
+                base_date(),
             )
         });
     });
@@ -283,6 +289,7 @@ fn bench_npv_volatility(c: &mut Criterion) {
                     black_box(&bond),
                     black_box(&market),
                     black_box(ConvertibleTreeType::Binomial(50)),
+                    base_date(),
                 )
             });
         });
@@ -310,6 +317,7 @@ fn bench_greeks_calculation(c: &mut Criterion) {
                         black_box(&market),
                         black_box(ConvertibleTreeType::Binomial(s)),
                         black_box(Some(0.01)),
+                        base_date(),
                     )
                 });
             },
@@ -331,6 +339,7 @@ fn bench_greeks_by_moneyness(c: &mut Criterion) {
                     black_box(&market),
                     black_box(ConvertibleTreeType::Binomial(50)),
                     black_box(Some(0.01)),
+                    base_date(),
                 )
             });
         });
@@ -402,6 +411,7 @@ fn bench_tree_convergence(c: &mut Criterion) {
                         black_box(&bond),
                         black_box(&market),
                         black_box(ConvertibleTreeType::Binomial(s)),
+                        base_date(),
                     )
                 });
             },

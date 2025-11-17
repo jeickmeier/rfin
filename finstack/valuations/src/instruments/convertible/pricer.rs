@@ -271,6 +271,7 @@ fn extract_equity_state(
     maturity: Date,
     expected_currency: Currency,
     attributes: &Attributes,
+    as_of: Date,
 ) -> Result<(f64, f64, f64, f64, f64)> {
     // Get spot price
     let spot_price = ctx.price(underlying_id)?;
@@ -288,12 +289,11 @@ fn extract_equity_state(
 
     // Get risk-free rate from discount curve
     let discount_curve = ctx.get_discount_ref(discount_curve_id.as_str())?;
-    let base_date = discount_curve.base_date();
 
-    // Calculate time to maturity
+    // Calculate time to maturity using the provided as_of date
     let time_to_maturity = finstack_core::dates::DayCount::Act365F
         .year_fraction(
-            base_date,
+            as_of,
             maturity,
             finstack_core::dates::DayCountCtx::default(),
         )
@@ -422,6 +422,7 @@ struct PricingInputs {
 fn prepare_for_pricing(
     bond: &ConvertibleBond,
     market_context: &MarketContext,
+    as_of: Date,
 ) -> Result<PricingInputs> {
     let cashflow_schedule = build_convertible_schedule(bond)?;
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
@@ -433,6 +434,7 @@ fn prepare_for_pricing(
             bond.maturity,
             bond.notional.currency(),
             &bond.attributes,
+            as_of,
         )?;
 
     Ok(PricingInputs {
@@ -450,9 +452,10 @@ pub fn price_convertible_bond(
     bond: &ConvertibleBond,
     market_context: &MarketContext,
     tree_type: ConvertibleTreeType,
+    as_of: Date,
 ) -> Result<Money> {
     // Step 1: Prepare all inputs
-    let inputs = prepare_for_pricing(bond, market_context)?;
+    let inputs = prepare_for_pricing(bond, market_context, as_of)?;
 
     if inputs.time_to_maturity <= 0.0 {
         return Ok(Money::new(0.0, bond.notional.currency()));
@@ -464,15 +467,12 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context
-        .get_discount_ref(bond.discount_curve_id.as_str())?
-        .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,
         inputs.time_to_maturity,
         steps,
-        base_date,
+        as_of,
     )?;
 
     // Step 3: Create initial state variables
@@ -514,9 +514,10 @@ pub fn calculate_convertible_greeks(
     market_context: &MarketContext,
     tree_type: ConvertibleTreeType,
     bump_size: Option<f64>,
+    as_of: Date,
 ) -> Result<TreeGreeks> {
     // Prepare all inputs
-    let inputs = prepare_for_pricing(bond, market_context)?;
+    let inputs = prepare_for_pricing(bond, market_context, as_of)?;
 
     // Create valuator and initial state
     let steps = match tree_type {
@@ -524,15 +525,12 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context
-        .get_discount_ref(bond.discount_curve_id.as_str())?
-        .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,
         inputs.time_to_maturity,
         steps,
-        base_date,
+        as_of,
     )?;
 
     let initial_vars = single_factor_equity_state(
@@ -639,7 +637,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -654,14 +652,9 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
                 )
             })?;
 
-        // Get as_of date from discount curve
-        let disc = market
-            .get_discount_ref(convertible.discount_curve_id.as_str())
-            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for valuation
         // Compute present value using the engine with binomial tree
-        let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::Binomial(100))
+        let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::Binomial(100), as_of)
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
@@ -755,9 +748,10 @@ mod tests {
     fn test_convertible_bond_pricing() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         let price =
-            price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
+            price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50), as_of);
 
         assert!(price.is_ok());
         let price = price.expect("should succeed");
@@ -775,11 +769,13 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
 
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let greeks = calculate_convertible_greeks(
             &bond,
             &market_context,
             ConvertibleTreeType::Binomial(50),
             Some(0.01),
+            as_of,
         );
 
         assert!(greeks.is_ok());

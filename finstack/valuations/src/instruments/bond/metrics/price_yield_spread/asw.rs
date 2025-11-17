@@ -585,10 +585,7 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get_discount_ref(bond.discount_curve_id.as_str())?;
-        let as_of = disc.base_date();
+        let as_of = context.as_of;
         match &bond.cashflow_spec {
             CashflowSpec::Floating(spec) => asw_par_with_forward(
                 bond,
@@ -612,10 +609,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get_discount_ref(bond.discount_curve_id.as_str())?;
-        let as_of = disc.base_date();
+        let as_of = context.as_of;
         match &bond.cashflow_spec {
             CashflowSpec::Floating(spec) => {
                 let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {

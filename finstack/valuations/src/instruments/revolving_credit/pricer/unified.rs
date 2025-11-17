@@ -408,7 +408,7 @@ impl Pricer for RevolvingCreditPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let facility = instrument
@@ -418,12 +418,7 @@ impl Pricer for RevolvingCreditPricer {
                 PricingError::type_mismatch(InstrumentType::RevolvingCredit, instrument.key())
             })?;
 
-        // Extract valuation date from discount curve
-        let disc = market
-            .get_discount_ref(&facility.discount_curve_id)
-            .map_err(|e| PricingError::MissingMarketData(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for valuation
         // Price using unified interface
         let pv = Self::price(facility, market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;

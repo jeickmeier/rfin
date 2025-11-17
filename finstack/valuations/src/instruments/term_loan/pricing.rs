@@ -69,7 +69,7 @@ impl Pricer for TermLoanDiscountingPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         let loan = instrument
             .as_any()
@@ -78,12 +78,7 @@ impl Pricer for TermLoanDiscountingPricer {
                 PricingError::type_mismatch(InstrumentType::TermLoan, instrument.key())
             })?;
 
-        // Use discount curve base date as valuation date
-        let disc = market
-            .get_discount_ref(loan.discount_curve_id.as_str())
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for valuation
         let pv = Self::price(loan, market, as_of)
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
 

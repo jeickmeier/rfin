@@ -24,6 +24,7 @@ fn test_greeks_calculation_success() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     );
 
     assert!(greeks.is_ok(), "Greeks calculation should succeed");
@@ -39,6 +40,7 @@ fn test_delta_positive_for_itm() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -60,6 +62,7 @@ fn test_delta_bounded_by_conversion_ratio() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -87,6 +90,7 @@ fn test_delta_increases_with_moneyness() {
         &market_otm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -101,6 +105,7 @@ fn test_delta_increases_with_moneyness() {
         &market_atm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -111,6 +116,7 @@ fn test_delta_increases_with_moneyness() {
         &market_itm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -140,6 +146,7 @@ fn test_gamma_non_negative() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -166,6 +173,7 @@ fn test_gamma_peaks_near_atm() {
         &market_otm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -180,6 +188,7 @@ fn test_gamma_peaks_near_atm() {
         &market_atm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -194,6 +203,7 @@ fn test_gamma_peaks_near_atm() {
         &market_itm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -216,6 +226,7 @@ fn test_vega_non_negative() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -241,6 +252,7 @@ fn test_vega_positive_for_atm() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -262,6 +274,7 @@ fn test_theta_reasonable() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -291,6 +304,7 @@ fn test_rho_finite() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -319,6 +333,7 @@ fn test_greeks_price_consistency() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -351,6 +366,7 @@ fn test_greeks_with_different_bump_sizes() {
             &market,
             ConvertibleTreeType::Binomial(50),
             Some(bump),
+            dates::base_date(),
         );
 
         assert!(
@@ -388,6 +404,7 @@ fn test_greeks_with_trinomial_tree() {
         &market,
         ConvertibleTreeType::Trinomial(50),
         Some(0.01),
+        dates::base_date(),
     );
 
     assert!(greeks.is_ok(), "Greeks should work with trinomial tree");
@@ -408,6 +425,7 @@ fn test_greeks_binomial_vs_trinomial() {
         &market,
         ConvertibleTreeType::Binomial(100),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -416,6 +434,7 @@ fn test_greeks_binomial_vs_trinomial() {
         &market,
         ConvertibleTreeType::Trinomial(100),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -444,6 +463,7 @@ fn test_delta_for_deep_itm() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -470,6 +490,7 @@ fn test_delta_for_deep_otm() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -496,6 +517,7 @@ fn test_vega_decreases_deep_itm() {
         &market_atm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -510,6 +532,7 @@ fn test_vega_decreases_deep_itm() {
         &market_itm,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -533,6 +556,7 @@ fn test_greeks_all_finite() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
@@ -554,6 +578,7 @@ fn test_zero_coupon_greeks() {
         &market,
         ConvertibleTreeType::Binomial(50),
         Some(0.01),
+        dates::base_date(),
     )
     .unwrap();
 
