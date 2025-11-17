@@ -8,7 +8,28 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// valuation date. This is essential for determining the dirty price and
 /// other bond metrics that depend on accrued interest.
 ///
-/// See unit tests and `examples/` for usage.
+/// The calculation uses the bond's accrual method (linear, compounded, or indexed)
+/// and respects ex-coupon conventions where accrual drops to zero in the ex-coupon window.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Accrued interest is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`Bond::accrual_config`] for accrual configuration
+/// - [`crate::cashflow::accrual`] for the accrual engine
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {

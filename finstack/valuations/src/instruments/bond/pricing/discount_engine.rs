@@ -17,10 +17,71 @@ use super::super::CashflowSpec;
 /// i.e. all contractual amounts received by a long holder (coupons,
 /// amortization, redemption) are positive, and any cash outflows are
 /// represented separately at trade level (e.g. purchase price).
+///
+/// # Pricing Formula
+///
+/// The present value is computed by discounting all future holder-view cashflows:
+/// ```text
+/// PV = Σ CF_i · DF(settle_date → t_i)
+/// ```
+/// where:
+/// - `CF_i` are holder-view cashflows (coupons, amortization, redemption)
+/// - `DF(settle_date → t_i)` is the discount factor from settlement date to cashflow date
+/// - Settlement date is computed from `as_of` using `bond.settlement_days` and calendar conventions
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let pv = BondEngine::price(&bond, &market, as_of)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct BondEngine;
 
 impl BondEngine {
     /// Price a bond using discount curve present value calculation.
+    ///
+    /// Computes the present value by discounting all future holder-view cashflows
+    /// from the settlement date using the bond's discount curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond` - The bond to price
+    /// * `context` - Market context containing the discount curve
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value of the bond in the bond's currency, discounted from settlement date.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found in market context
+    /// - Bond has no future cashflows
+    /// - Cashflow schedule building fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let pv = BondEngine::price(&bond, &market, as_of)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
         Self::price_with_explanation(bond, context, as_of, ExplainOpts::disabled())
             .map(|(pv, _)| pv)
@@ -30,6 +91,48 @@ impl BondEngine {
     ///
     /// Returns the present value and an optional trace containing
     /// cashflow-level PV breakdown when explanation is enabled.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond` - The bond to price
+    /// * `context` - Market context containing the discount curve
+    /// * `as_of` - Valuation date
+    /// * `explain` - Explanation options controlling trace generation
+    ///
+    /// # Returns
+    ///
+    /// Tuple of `(Money, Option<ExplanationTrace>)`:
+    /// - Present value of the bond
+    /// - Optional explanation trace with cashflow-level breakdown (if enabled)
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found in market context
+    /// - Bond has no future cashflows
+    /// - Cashflow schedule building fails
+    /// - Calendar adjustment fails (if settlement days and calendar are specified)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_core::explain::ExplainOpts;
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let (pv, trace) = BondEngine::price_with_explanation(
+    ///     &bond,
+    ///     &market,
+    ///     as_of,
+    ///     ExplainOpts::enabled(),
+    /// )?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn price_with_explanation(
         bond: &Bond,
         context: &MarketContext,

@@ -28,6 +28,32 @@ impl Default for ISpreadConfig {
 ///
 /// Uses the bond's discount curve to approximate a par swap fixed leg with
 /// configurable day-count and frequency (defaults to annual Act/Act).
+///
+/// The I-spread is computed as:
+/// ```text
+/// I-Spread = YTM - par_swap_rate
+/// ```
+/// where `par_swap_rate` is derived from the discount curve using a proxy
+/// fixed-leg schedule.
+///
+/// # Dependencies
+///
+/// Requires `Ytm` metric to be computed first.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // I-spread is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct ISpreadCalculator {
     config: ISpreadConfig,

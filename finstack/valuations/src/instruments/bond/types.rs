@@ -70,6 +70,23 @@ pub struct Bond {
 }
 
 /// Call or put option on a bond.
+///
+/// Represents a single call or put option with an exercise date and redemption price.
+/// Call options allow the issuer to redeem early; put options allow the holder to redeem early.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::CallPut;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// // Call option: issuer can redeem at 102% of par on Jan 1, 2027
+/// let call = CallPut {
+///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     price_pct_of_par: 102.0,
+/// };
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallPut {
@@ -80,6 +97,23 @@ pub struct CallPut {
 }
 
 /// Schedule of call and put options for a bond.
+///
+/// Contains lists of call and put options that can be exercised during the bond's life.
+/// Used for pricing callable/putable bonds and calculating yield-to-worst.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let mut schedule = CallPutSchedule::default();
+/// schedule.calls.push(CallPut {
+///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     price_pct_of_par: 102.0,
+/// });
+/// ```
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallPutSchedule {
@@ -91,6 +125,19 @@ pub struct CallPutSchedule {
 
 impl CallPutSchedule {
     /// Check if this schedule has any active call or put options.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the schedule contains at least one call or put option, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::CallPutSchedule;
+    ///
+    /// let schedule = CallPutSchedule::default();
+    /// assert!(!schedule.has_options());
+    /// ```
     pub fn has_options(&self) -> bool {
         !self.calls.is_empty() || !self.puts.is_empty()
     }
@@ -116,6 +163,23 @@ impl Bond {
     /// Creates a bond with semi-annual frequency and 30/360 day count following
     /// **US market conventions**. For other regional conventions, use
     /// `::with_convention()` or `::builder()` for full customization.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the bond
+    /// * `notional` - Principal amount of the bond
+    /// * `coupon_rate` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
+    /// * `issue` - Issue date of the bond
+    /// * `maturity` - Maturity date of the bond
+    /// * `discount_curve_id` - Discount curve identifier for pricing
+    ///
+    /// # Returns
+    ///
+    /// A `Bond` instance with US market conventions (semi-annual, 30/360).
+    ///
+    /// # Panics
+    ///
+    /// Panics if bond construction fails (should not occur with valid inputs).
     ///
     /// # Regional Bond Conventions (Market Standards Review - Week 5)
     ///
@@ -184,6 +248,24 @@ impl Bond {
     /// Applies region-specific conventions for day count, frequency, and
     /// calendar adjustments. For full customization, use `::builder()`.
     ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the bond
+    /// * `notional` - Principal amount of the bond
+    /// * `coupon_rate` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
+    /// * `issue` - Issue date of the bond
+    /// * `maturity` - Maturity date of the bond
+    /// * `convention` - Regional bond convention (e.g., `BondConvention::USTreasury`)
+    /// * `discount_curve_id` - Discount curve identifier for pricing
+    ///
+    /// # Returns
+    ///
+    /// A `Bond` instance with conventions matching the specified regional standard.
+    ///
+    /// # Panics
+    ///
+    /// Panics if bond construction fails (should not occur with valid inputs).
+    ///
     /// # Example
     /// ```ignore
     /// use finstack_valuations::instruments::bond::Bond;
@@ -230,6 +312,26 @@ impl Bond {
     ///
     /// Creates a bond with floating-rate coupons linked to a forward index
     /// (e.g., SOFR, EURIBOR) plus a margin.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the bond
+    /// * `notional` - Principal amount of the bond
+    /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
+    /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
+    /// * `issue` - Issue date of the bond
+    /// * `maturity` - Maturity date of the bond
+    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
+    /// * `discount_curve_id` - Discount curve identifier for pricing
+    ///
+    /// # Returns
+    ///
+    /// A `Bond` instance configured as a floating-rate note.
+    ///
+    /// # Panics
+    ///
+    /// Panics if bond construction fails (should not occur with valid inputs).
     ///
     /// # Example
     /// ```ignore
@@ -281,6 +383,23 @@ impl Bond {
     /// a bond that will use these custom cashflows for all calculations.
     /// Use this for complex structures like PIK bonds, fixed-to-floating, or
     /// custom amortization schedules.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the bond
+    /// * `schedule` - Pre-built cashflow schedule
+    /// * `discount_curve_id` - Discount curve identifier for pricing
+    /// * `quoted_clean` - Optional quoted clean price as percentage of par
+    ///
+    /// # Returns
+    ///
+    /// A `Bond` instance configured to use the provided custom cashflow schedule.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Schedule has fewer than 2 dates
+    /// - Bond construction fails
     ///
     /// # Example
     /// ```ignore
@@ -376,6 +495,30 @@ impl Bond {
     ///
     /// When custom cashflows are set, they will be used instead of generating
     /// cashflows from the bond's coupon and amortization specifications.
+    ///
+    /// # Arguments
+    ///
+    /// * `schedule` - Custom cashflow schedule to use for pricing and metrics
+    ///
+    /// # Returns
+    ///
+    /// The bond instance with custom cashflows set.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use crate::cashflow::builder::CashFlowSchedule;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let schedule = CashFlowSchedule::builder()
+    /// #     .principal(Money::new(1_000_000.0, Currency::USD), Date::from_calendar_date(2024, time::Month::January, 1).unwrap(), Date::from_calendar_date(2034, time::Month::January, 1).unwrap())
+    /// #     .build().unwrap();
+    /// let bond_with_custom = bond.with_cashflows(schedule);
+    /// ```
     pub fn with_cashflows(mut self, schedule: CashFlowSchedule) -> Self {
         self.custom_cashflows = Some(schedule);
         self
@@ -385,6 +528,20 @@ impl Bond {
     ///
     /// This helper creates the generic `AccrualConfig` needed by the cashflow
     /// accrual engine, incorporating both the accrual method and ex-coupon rules.
+    ///
+    /// # Returns
+    ///
+    /// An `AccrualConfig` combining the bond's accrual method and ex-coupon convention.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    ///
+    /// # let bond = Bond::example();
+    /// let accrual_config = bond.accrual_config();
+    /// // Use with accrual engine
+    /// ```
     pub fn accrual_config(&self) -> crate::cashflow::accrual::AccrualConfig {
         crate::cashflow::accrual::AccrualConfig {
             method: self.accrual_method.clone(),
@@ -401,12 +558,38 @@ impl Bond {
     ///
     /// This returns the complete `CashFlowSchedule` including all cashflow types
     /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata in the
-    /// builder’s native convention (typically issuer view).
+    /// builder's native convention (typically issuer view).
     ///
     /// For floating rate bonds, requires market curves to properly compute floating
     /// coupon amounts (forward rate + discount margin).
     ///
     /// Note: Amortization amounts are stored as POSITIVE values in the schedule.
+    ///
+    /// # Arguments
+    ///
+    /// * `curves` - Market context containing discount and forward curves
+    ///
+    /// # Returns
+    ///
+    /// The complete `CashFlowSchedule` with all cashflow types and metadata.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Market curves are missing (for floating rate bonds)
+    /// - Cashflow schedule building fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_core::market_data::MarketContext;
+    ///
+    /// # let bond = Bond::example();
+    /// # let curves = MarketContext::new();
+    /// let schedule = bond.get_full_schedule(&curves)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn get_full_schedule(
         &self,
         curves: &finstack_core::market_data::MarketContext,

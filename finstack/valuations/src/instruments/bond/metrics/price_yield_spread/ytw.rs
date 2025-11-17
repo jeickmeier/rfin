@@ -25,6 +25,25 @@ use finstack_core::money::Money;
 /// is only an **initial guess**; for non-fixed `CashflowSpec` variants it is
 /// set to `0.0`, but the solved YTW values are driven entirely by the explicit
 /// projected cashflows and the target price along each exercise path.
+///
+/// # Dependencies
+///
+/// Requires `Accrued` metric to be computed first.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // YTW is computed automatically when requesting bond metrics for callable/putable bonds
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {

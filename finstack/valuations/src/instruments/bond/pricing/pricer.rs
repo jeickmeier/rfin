@@ -1,3 +1,8 @@
+//! Bond pricer implementations for the pricing registry.
+//!
+//! This module provides pricer implementations that integrate bond pricing engines
+//! with the instrument pricing registry system.
+
 use crate::instruments::bond::pricing::hazard_engine::HazardBondEngine;
 use crate::instruments::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::bond::types::Bond;
@@ -12,6 +17,9 @@ use indexmap::IndexMap;
 pub use crate::instruments::common::GenericDiscountingPricer;
 
 /// Bond discounting pricer using the generic implementation.
+///
+/// This pricer uses the standard discount curve-based pricing engine for bonds
+/// without embedded options or credit adjustments.
 pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
 
 impl Default for SimpleBondDiscountingPricer {
@@ -21,10 +29,18 @@ impl Default for SimpleBondDiscountingPricer {
 }
 
 /// Hazard-rate bond pricer using the FRP hazard engine.
+///
+/// This pricer uses the hazard-rate pricing engine with fractional recovery of par
+/// for bonds with credit risk. Falls back to risk-free pricing if no hazard curve
+/// is available in the market context.
 pub struct SimpleBondHazardPricer;
 
 impl SimpleBondHazardPricer {
     /// Create a new hazard-rate bond pricer.
+    ///
+    /// # Returns
+    ///
+    /// A new `SimpleBondHazardPricer` instance.
     pub fn new() -> Self {
         Self
     }
@@ -60,11 +76,18 @@ impl Pricer for SimpleBondHazardPricer {
     }
 }
 
-/// New simplified Bond OAS pricer (replaces macro-based version)  
+/// Option-adjusted spread (OAS) pricer for bonds with embedded options.
+///
+/// This pricer calculates OAS using tree-based pricing for callable/putable bonds.
+/// Requires a quoted clean price in the bond's `pricing_overrides`.
 pub struct SimpleBondOasPricer;
 
 impl SimpleBondOasPricer {
-    /// Create a new bond discounting pricer
+    /// Create a new bond OAS pricer.
+    ///
+    /// # Returns
+    ///
+    /// A new `SimpleBondOasPricer` instance.
     pub fn new() -> Self {
         Self
     }

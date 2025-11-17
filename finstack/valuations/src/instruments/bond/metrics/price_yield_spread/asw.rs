@@ -9,17 +9,26 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-/// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
-///
-/// Par ASW: spread s such that PV of fixed coupons at (df * (1 + s*alpha)) equals par.
-/// Closed-form approximation: asw_par ≈ coupon - par_swap_rate.
-///
-/// Market ASW: spread s that equates PV of bond fixed leg to dirty market price.
-/// Approximation: asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate.
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
 ///
-/// When a field is `None`, the corresponding convention falls back to the
-/// bond's own coupon conventions.
+/// Controls the day-count, frequency, business day convention, calendar, and stub
+/// rules for the asset swap fixed leg. When a field is `None`, the corresponding
+/// convention falls back to the bond's own coupon conventions.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::AssetSwapConfig;
+/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention, StubKind};
+///
+/// let config = AssetSwapConfig {
+///     fixed_leg_day_count: Some(DayCount::Act365F),
+///     fixed_leg_frequency: Some(Frequency::semi_annual()),
+///     fixed_leg_bdc: Some(BusinessDayConvention::ModifiedFollowing),
+///     fixed_leg_calendar_id: Some("USGS".to_string()),
+///     fixed_leg_stub: Some(StubKind::ShortFront),
+/// };
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct AssetSwapConfig {
     /// Day-count convention for the ASW fixed leg (annuity).
@@ -35,20 +44,74 @@ pub struct AssetSwapConfig {
 }
 
 /// Asset swap par spread calculator using discount-curve annuity approximation.
+///
+/// Par ASW is the spread such that the PV of fixed coupons at `(df * (1 + s*α))`
+/// equals par. Uses the closed-form approximation: `asw_par ≈ coupon - par_swap_rate`.
+///
+/// # Dependencies
+///
+/// Requires `Ytm` metric to be computed first (for par rate calculation).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Par ASW is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct AssetSwapParCalculator {
     config: AssetSwapConfig,
 }
 
-/// Asset swap spread calculator using market price.
+/// Asset swap market spread calculator using market price.
+///
+/// Market ASW is the spread that equates the PV of the bond's fixed leg to the
+/// dirty market price. Uses the approximation:
+/// ```text
+/// asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate
+/// ```
+///
+/// # Dependencies
+///
+/// Requires `Accrued` metric to be computed first (for dirty price calculation).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Market ASW is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct AssetSwapMarketCalculator {
     config: AssetSwapConfig,
 }
 
-/// Asset swap par spread calculator using forward method
+/// Asset swap par spread calculator using forward method.
+///
+/// Similar to `AssetSwapParCalculator` but uses forward curve-based calculations
+/// for more accurate pricing of floating-rate legs.
 pub struct AssetSwapParFwdCalculator;
-/// Asset swap market spread calculator using forward method
+
+/// Asset swap market spread calculator using forward method.
+///
+/// Similar to `AssetSwapMarketCalculator` but uses forward curve-based calculations
+/// for more accurate pricing of floating-rate legs.
 pub struct AssetSwapMarketFwdCalculator;
 
 impl AssetSwapParCalculator {

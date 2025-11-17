@@ -3,6 +3,36 @@
 //! This module provides a clean, ergonomic API for bonds by wrapping the canonical
 //! builder coupon specs (`FixedCouponSpec`, `FloatingCouponSpec`) with convenience
 //! constructors that apply sensible defaults.
+//!
+//! # Features
+//!
+//! - Fixed-rate bonds with configurable coupon rates and frequencies
+//! - Floating-rate notes (FRNs) with index spreads and margins
+//! - Amortizing bonds with custom principal repayment schedules
+//! - Full parity with builder coupon specs (floors/caps, BDC, calendars, PIK, etc.)
+//!
+//! # Examples
+//!
+//! ```rust
+//! use finstack_valuations::instruments::bond::CashflowSpec;
+//! use finstack_core::dates::{Frequency, DayCount};
+//!
+//! // Fixed-rate bond: 5% annual coupon, semi-annual payments
+//! let fixed = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+//!
+//! // Floating-rate note: SOFR + 200bps, quarterly payments
+//! let floating = CashflowSpec::floating(
+//!     "USD-SOFR-3M".into(),
+//!     200.0,  // margin in basis points
+//!     Frequency::quarterly(),
+//!     DayCount::Act360,
+//! );
+//! ```
+//!
+//! # See Also
+//!
+//! - [`Bond`] for bond construction using cashflow specs
+//! - [`crate::cashflow::builder::specs`] for full builder coupon specifications
 
 use crate::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
@@ -38,13 +68,37 @@ pub enum CashflowSpec {
 impl CashflowSpec {
     /// Create a fixed-rate specification with sensible defaults.
     ///
-    /// Defaults:
+    /// # Arguments
+    ///
+    /// * `coupon` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
+    /// * `freq` - Payment frequency (e.g., `Frequency::semi_annual()`)
+    /// * `dc` - Day count convention (e.g., `DayCount::Thirty360`)
+    ///
+    /// # Defaults
+    ///
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `bdc`: Following
     /// - `stub`: None
     /// - `calendar_id`: None
     ///
-    /// For full control, construct `FixedCouponSpec` directly and wrap in `CashflowSpec::Fixed(...)`.
+    /// # Returns
+    ///
+    /// A `CashflowSpec::Fixed` variant with the specified coupon rate, frequency, and day count.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_core::dates::{Frequency, DayCount};
+    ///
+    /// // US Treasury-style: 4% coupon, semi-annual, 30/360
+    /// let spec = CashflowSpec::fixed(0.04, Frequency::semi_annual(), DayCount::Thirty360);
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// For full control (PIK, custom calendars, stubs), construct `FixedCouponSpec` directly
+    /// and wrap in `CashflowSpec::Fixed(...)`.
     pub fn fixed(coupon: f64, freq: Frequency, dc: DayCount) -> Self {
         Self::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -59,7 +113,15 @@ impl CashflowSpec {
 
     /// Create a floating-rate specification with sensible defaults.
     ///
-    /// Defaults:
+    /// # Arguments
+    ///
+    /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
+    /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
+    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
+    ///
+    /// # Defaults
+    ///
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `gearing`: 1.0
     /// - `reset_lag_days`: 2 (T-2 convention)
@@ -69,6 +131,28 @@ impl CashflowSpec {
     /// - `bdc`: Following
     /// - `stub`: None
     /// - `calendar_id`: None
+    ///
+    /// # Returns
+    ///
+    /// A `CashflowSpec::Floating` variant with the specified index, margin, frequency, and day count.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::types::CurveId;
+    ///
+    /// // FRN: 3M SOFR + 200bps, quarterly payments
+    /// let spec = CashflowSpec::floating(
+    ///     CurveId::new("USD-SOFR-3M"),
+    ///     200.0,  // 200 basis points
+    ///     Frequency::quarterly(),
+    ///     DayCount::Act360,
+    /// );
+    /// ```
+    ///
+    /// # See Also
     ///
     /// For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
     /// and wrap in `CashflowSpec::Floating(...)`.
@@ -94,8 +178,45 @@ impl CashflowSpec {
 
     /// Create an amortizing bond specification.
     ///
-    /// The base spec (fixed or floating) determines the coupon payments,
-    /// while the amortization schedule specifies principal reductions.
+    /// Combines a base cashflow specification (fixed or floating) with an amortization
+    /// schedule that specifies principal repayments during the bond's life.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - Base cashflow specification (fixed or floating) for coupon payments
+    /// * `schedule` - Amortization schedule specifying principal repayment dates and amounts
+    ///
+    /// # Returns
+    ///
+    /// A `CashflowSpec::Amortizing` variant combining the base spec with the amortization schedule.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use crate::cashflow::builder::AmortizationSpec;
+    /// use finstack_core::dates::{Frequency, DayCount, Date};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use time::Month;
+    ///
+    /// // Base fixed-rate spec
+    /// let base = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+    ///
+    /// // Amortization: 1/3 principal each year
+    /// let step1 = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    /// let step2 = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+    /// let maturity = Date::from_calendar_date(2028, Month::January, 1).unwrap();
+    /// let amort = AmortizationSpec::StepRemaining {
+    ///     schedule: vec![
+    ///         (step1, Money::new(333_333.33, Currency::USD)),
+    ///         (step2, Money::new(666_666.67, Currency::USD)),
+    ///         (maturity, Money::new(0.0, Currency::USD)),
+    ///     ],
+    /// };
+    ///
+    /// let amortizing_spec = CashflowSpec::amortizing(base, amort);
+    /// ```
     pub fn amortizing(base: CashflowSpec, schedule: AmortizationSpec) -> Self {
         Self::Amortizing {
             base: Box::new(base),
@@ -104,6 +225,12 @@ impl CashflowSpec {
     }
 
     /// Get the payment frequency from this specification.
+    ///
+    /// # Returns
+    ///
+    /// The payment frequency (e.g., `Frequency::semi_annual()`).
+    ///
+    /// For amortizing bonds, returns the frequency from the base specification.
     pub fn frequency(&self) -> Frequency {
         match self {
             Self::Fixed(spec) => spec.freq,
@@ -113,6 +240,12 @@ impl CashflowSpec {
     }
 
     /// Get the day count convention from this specification.
+    ///
+    /// # Returns
+    ///
+    /// The day count convention (e.g., `DayCount::Thirty360`).
+    ///
+    /// For amortizing bonds, returns the day count from the base specification.
     pub fn day_count(&self) -> DayCount {
         match self {
             Self::Fixed(spec) => spec.dc,

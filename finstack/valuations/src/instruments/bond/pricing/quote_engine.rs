@@ -25,11 +25,13 @@ use std::sync::Arc;
 /// **Important:** This function is for **frequency conversion only**, NOT day count conventions.
 ///
 /// # Purpose
+///
 /// This helper determines how many payment periods occur in a year based on the
 /// payment frequency. For example, semi-annual payments occur 2 times per year,
 /// monthly payments occur 12 times per year.
 ///
 /// # Day Count Conventions
+///
 /// Actual day count calculations (Actual/360, Actual/365, Actual/Actual, 30/360, etc.)
 /// are handled separately via the `DayCount` enum and `year_fraction()` methods in
 /// finstack-core. Those methods properly account for:
@@ -37,11 +39,33 @@ use std::sync::Arc;
 /// - Different day count bases (360 vs 365)
 /// - Month length variations (30/360)
 ///
+/// # Arguments
+///
+/// * `freq` - Payment frequency (e.g., `Frequency::semi_annual()`)
+///
+/// # Returns
+///
+/// Number of periods per year as `f64`.
+///
+/// # Errors
+///
+/// Returns `Err` when:
+/// - Frequency is zero (invalid)
+///
 /// # Examples
-/// - Monthly payments (6 months): `12 / 6 = 2` periods/year (semi-annual frequency)
-/// - Daily payments (90 days): `365 / 90 ≈ 4.06` periods/year (approximate)
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::pricing::quote_engine::periods_per_year;
+/// use finstack_core::dates::Frequency;
+///
+/// assert_eq!(periods_per_year(Frequency::semi_annual())?, 2.0);
+/// assert_eq!(periods_per_year(Frequency::quarterly())?, 4.0);
+/// assert_eq!(periods_per_year(Frequency::annual())?, 1.0);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 ///
 /// # Note on Daily Frequency
+///
 /// For daily frequencies, this uses 365 as an approximation of annual periods.
 /// This is appropriate for frequency calculations but should NOT be confused with
 /// the Actual/365 day count convention used in accrual and discount factor calculations.
@@ -70,14 +94,41 @@ pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core:
 /// Fixed-leg annuity for a bond-style schedule using discount-curve discount factors.
 ///
 /// This computes the standard swap-style annuity:
-/// sum(alpha_i * P(as_of, T_i)) for i over future coupon dates, where
-/// alpha_i is the year fraction between consecutive schedule dates under `dc`.
+/// ```text
+/// Annuity = Σ (α_i · P(as_of, T_i))
+/// ```
+/// where `α_i` is the year fraction between consecutive schedule dates under `dc`,
+/// and `P(as_of, T_i)` is the discount factor from `as_of` to date `T_i`.
 ///
 /// The `schedule` is expected to start at the valuation date (`as_of`) and
 /// contain strictly increasing dates.
 ///
+/// # Arguments
+///
+/// * `disc` - Discount curve for discount factor calculations
+/// * `dc` - Day count convention for year fraction calculations
+/// * `schedule` - Schedule of coupon payment dates (must start at `as_of`)
+///
+/// # Returns
+///
+/// The fixed-leg annuity value.
+///
 /// # Errors
+///
 /// Returns an error if any year_fraction calculation fails (e.g., invalid dates).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::pricing::quote_engine::fixed_leg_annuity;
+/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::dates::{DayCount, Date};
+///
+/// # let disc = DiscountCurve::builder("USD-OIS").base_date(Date::from_calendar_date(2024, time::Month::January, 1).unwrap()).knots([(0.0, 1.0)]).build().unwrap();
+/// # let schedule = vec![Date::from_calendar_date(2024, time::Month::January, 1).unwrap(), Date::from_calendar_date(2025, time::Month::January, 1).unwrap()];
+/// let annuity = fixed_leg_annuity(&disc, DayCount::Act365F, &schedule)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn fixed_leg_annuity(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     dc: finstack_core::dates::DayCount,
@@ -103,14 +154,42 @@ pub fn fixed_leg_annuity(
 /// Par swap rate from discount-curve discount ratios and a fixed-leg annuity.
 ///
 /// Uses the standard discount-ratio formula:
-/// `par_rate = (P(as_of, T0) - P(as_of, Tn)) / sum(alpha_i * P(as_of, Ti))`
+/// ```text
+/// par_rate = (P(as_of, T₀) - P(as_of, Tₙ)) / Annuity
+/// ```
 /// where the denominator is the fixed-leg annuity computed with `dc`.
 ///
 /// Returns both the par rate and the annuity so callers can reuse the latter
 /// in asset-swap formulas and related analytics.
 ///
+/// # Arguments
+///
+/// * `disc` - Discount curve for discount factor calculations
+/// * `dc` - Day count convention for year fraction calculations
+/// * `schedule` - Schedule of coupon payment dates
+///
+/// # Returns
+///
+/// Tuple of `(par_rate, annuity)` where:
+/// - `par_rate` is the par swap rate (decimal, e.g., 0.05 for 5%)
+/// - `annuity` is the fixed-leg annuity value
+///
 /// # Errors
+///
 /// Returns an error if the annuity calculation fails (invalid dates/day-count).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::pricing::quote_engine::par_rate_and_annuity_from_discount;
+/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::dates::{DayCount, Date};
+///
+/// # let disc = DiscountCurve::builder("USD-OIS").base_date(Date::from_calendar_date(2024, time::Month::January, 1).unwrap()).knots([(0.0, 1.0)]).build().unwrap();
+/// # let schedule = vec![Date::from_calendar_date(2024, time::Month::January, 1).unwrap(), Date::from_calendar_date(2025, time::Month::January, 1).unwrap()];
+/// let (par_rate, annuity) = par_rate_and_annuity_from_discount(&disc, DayCount::Act365F, &schedule)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn par_rate_and_annuity_from_discount(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     dc: finstack_core::dates::DayCount,
@@ -488,6 +567,40 @@ pub fn price_from_dm(
 /// - Derives the corresponding clean price (% of par) and stamps it into
 ///   `pricing_overrides.quoted_clean_price` on an internal bond clone.
 /// - Uses the standard metrics registry to compute the remaining metrics.
+///
+/// # Arguments
+///
+/// * `bond` - The bond to compute quotes for
+/// * `curves` - Market context with discount and forward curves
+/// * `as_of` - Valuation date
+/// * `quote_input` - One quote input (price, yield, or spread) to normalize from
+///
+/// # Returns
+///
+/// A `BondQuoteSet` containing all computed price, yield, and spread metrics.
+///
+/// # Errors
+///
+/// Returns `Err` when:
+/// - Market curves are missing
+/// - Cashflow schedule building fails
+/// - Metric calculations fail
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let curves = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let quotes = compute_quotes(&bond, &curves, as_of, BondQuoteInput::CleanPricePct(98.5))?;
+/// // quotes contains YTM, Z-spread, OAS, etc.
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn compute_quotes(
     bond: &Bond,
     curves: &MarketContext,

@@ -57,13 +57,32 @@ impl Default for DiscountMarginSolverConfig {
 ///
 /// Notes:
 /// - Intended for **floating-rate notes (FRNs)**. For fixed-rate bonds and
-///   other non-floating `CashflowSpec` variants, this calculator returns
-///   **`0.0` by convention**, since there is no forward index to spread over.
-///   In those cases, use **YTM**, **Z-spread**, or asset-swap spreads instead.
+///   other non-floating `CashflowSpec` variants, this calculator returns an error,
+///   since there is no forward index to spread over. In those cases, use **YTM**,
+///   **Z-spread**, or asset-swap spreads instead.
 /// - Requires quoted clean price or falls back to base PV as target.
 /// - Uses the FRN path: coupons are projected off the forward curve at reset
 ///   with margin and gearing from `FloatingCouponSpec`, then discounted with the
 ///   discount curve. The DM is added to the projected index rate.
+///
+/// # Dependencies
+///
+/// Requires `Accrued` metric to be computed first.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Discount margin is computed automatically when requesting bond metrics for FRNs
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct DiscountMarginCalculator {
     config: DiscountMarginSolverConfig,

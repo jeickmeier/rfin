@@ -1,4 +1,35 @@
 //! Cashflow construction for bonds (deterministic schedules only).
+//!
+//! This module implements the [`CashflowProvider`] trait for [`Bond`], converting
+//! the bond's internal cashflow schedule into a simplified holder-view stream
+//! of `(Date, Money)` pairs used by pricing and risk engines.
+//!
+//! # Holder-View Convention
+//!
+//! All cashflows returned by `build_schedule` follow a **holder-view** convention:
+//! - **Positive amounts** represent contractual inflows to a long holder
+//!   (coupons, amortization, redemption).
+//! - **Initial draw / funding legs** are excluded (handled at trade level).
+//!
+//! # Examples
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::bond::Bond;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::dates::Date;
+//!
+//! # let bond = Bond::example();
+//! # let market = MarketContext::new();
+//! # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+//! let flows = bond.build_schedule(&market, as_of)?;
+//! // flows is Vec<(Date, Money)> with positive holder receipts
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # See Also
+//!
+//! - [`Bond`] for the main bond struct
+//! - [`CashflowProvider`] for the trait interface
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;

@@ -4,6 +4,31 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
 /// Calculates Macaulay duration for bonds.
+///
+/// Macaulay duration is the weighted average time to receive cashflows, where
+/// weights are the present values of each cashflow:
+/// ```text
+/// D_mac = Σ (t_i * PV(CF_i)) / Price
+/// ```
+///
+/// # Dependencies
+///
+/// Requires `Ytm` metric to be computed first.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Macaulay duration is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct MacaulayDurationCalculator;
 
 impl MetricCalculator for MacaulayDurationCalculator {

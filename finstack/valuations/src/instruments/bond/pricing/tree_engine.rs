@@ -1,5 +1,41 @@
-// Moved from bond/oas_pricer.rs without changes other than path adjustments.
-// See original for detailed comments.
+//! Tree-based pricing engine for bonds with embedded options and OAS calculations.
+//!
+//! This module provides tree-based pricing for callable/putable bonds and option-adjusted
+//! spread (OAS) calculations using either:
+//! - **Short-rate tree**: For bonds without credit risk
+//! - **Rates+credit tree**: For bonds with credit risk (two-factor model)
+//!
+//! # Pricing Models
+//!
+//! ## Short-Rate Tree
+//! Used for bonds without embedded credit risk. The tree models interest rate evolution
+//! and applies call/put constraints via backward induction.
+//!
+//! ## Rates+Credit Tree
+//! Used when a hazard curve is present in the market context. Models both interest rate
+//! and credit risk evolution, with default events and recovery payments.
+//!
+//! # Examples
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::bond::Bond;
+//! use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::dates::Date;
+//!
+//! # let bond = Bond::example();
+//! # let market = MarketContext::new();
+//! # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+//! let pricer = TreePricer::new();
+//! let oas_bp = pricer.calculate_oas(&bond, &market, as_of, 98.5)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # See Also
+//!
+//! - [`TreePricer`] for OAS calculation
+//! - [`BondValuator`] for tree valuator implementation
+//! - [`TreePricerConfig`] for configuration options
 
 #![allow(clippy::module_inception)]
 
@@ -28,6 +64,23 @@ use std::collections::HashMap;
 use finstack_core::money::Money;
 
 /// Configuration for tree-based bond pricing (callable/putable bonds, OAS).
+///
+/// Controls the tree structure, convergence settings, and solver parameters
+/// for option-adjusted spread calculations.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricerConfig;
+///
+/// let config = TreePricerConfig {
+///     tree_steps: 200,        // Higher resolution
+///     volatility: 0.015,      // 1.5% volatility
+///     tolerance: 1e-8,        // Tighter convergence
+///     max_iterations: 100,
+///     initial_bracket_size_bp: Some(2000.0),
+/// };
+/// ```
 #[derive(Clone, Debug)]
 pub struct TreePricerConfig {
     /// Number of time steps in the interest rate tree
@@ -57,7 +110,24 @@ impl Default for TreePricerConfig {
 
 /// Bond valuator for tree-based pricing of callable/putable bonds.
 ///
-/// Implements TreeValuator trait for backward induction pricing with embedded options.
+/// Implements [`TreeValuator`] trait for backward induction pricing with embedded options.
+/// Maps bond cashflows and call/put schedules to tree time steps and handles
+/// exercise decisions during backward induction.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::tree_engine::BondValuator;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct BondValuator {
     bond: Bond,
     /// Coupon amounts indexed by time step
@@ -76,18 +146,48 @@ impl BondValuator {
     /// Create a new bond valuator for tree pricing.
     ///
     /// Builds maps of coupons, call prices, and put prices indexed by tree step.
+    /// Cashflows and option exercise dates are mapped to the nearest tree step
+    /// using the discount curve's day-count convention.
     ///
     /// # Arguments
+    ///
     /// * `bond` - The bond to value
     /// * `market_context` - Market data including curves
     /// * `as_of` - Valuation date (time origin for the tree)
     /// * `time_to_maturity` - Time from `as_of` to maturity in years
     /// * `tree_steps` - Number of tree steps
     ///
+    /// # Returns
+    ///
+    /// A `BondValuator` instance ready for tree-based pricing.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found
+    /// - Cashflow schedule building fails
+    /// - Time fraction calculations fail
+    ///
     /// # Time Axis Consistency
+    ///
     /// The `as_of` date defines the time origin (t=0) for the tree. All cashflow
     /// times and option exercise times are measured from `as_of` using the discount
     /// curve's day-count convention to ensure consistency with tree calibration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::bond::pricing::tree_engine::BondValuator;
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn new(
         bond: Bond,
         market_context: &MarketContext,
@@ -241,6 +341,27 @@ impl TreeValuator for BondValuator {
 }
 
 /// Tree-based pricer for bonds with embedded options and OAS calculations.
+///
+/// Provides methods for calculating option-adjusted spread (OAS) for bonds with
+/// embedded call/put options. Automatically selects between short-rate and
+/// rates+credit tree models based on available market data.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let pricer = TreePricer::new();
+/// // OAS in basis points
+/// let oas_bp = pricer.calculate_oas(&bond, &market, as_of, 98.5)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct TreePricer {
     /// Pricer configuration (tree steps, volatility, convergence settings)
     config: TreePricerConfig,
@@ -248,6 +369,18 @@ pub struct TreePricer {
 
 impl TreePricer {
     /// Create a new tree pricer with default configuration.
+    ///
+    /// # Returns
+    ///
+    /// A `TreePricer` with default configuration (100 steps, 1% volatility).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+    ///
+    /// let pricer = TreePricer::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             config: TreePricerConfig::default(),
@@ -255,6 +388,29 @@ impl TreePricer {
     }
 
     /// Create a tree pricer with custom configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Custom tree pricer configuration
+    ///
+    /// # Returns
+    ///
+    /// A `TreePricer` with the specified configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::pricing::tree_engine::{TreePricer, TreePricerConfig};
+    ///
+    /// let config = TreePricerConfig {
+    ///     tree_steps: 200,
+    ///     volatility: 0.015,
+    ///     tolerance: 1e-8,
+    ///     max_iterations: 100,
+    ///     initial_bracket_size_bp: Some(2000.0),
+    /// };
+    /// let pricer = TreePricer::with_config(config);
+    /// ```
     pub fn with_config(config: TreePricerConfig) -> Self {
         Self { config }
     }
@@ -262,6 +418,44 @@ impl TreePricer {
     /// Calculate option-adjusted spread (OAS) for a bond.
     ///
     /// Solves for the constant spread that equates the tree price to the market price.
+    /// Uses Brent's method for root finding, automatically selecting between short-rate
+    /// and rates+credit tree models based on available market data.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond` - The bond to calculate OAS for (must have call/put options)
+    /// * `market_context` - Market context with discount and optionally hazard curves
+    /// * `as_of` - Valuation date
+    /// * `clean_price_pct_of_par` - Market clean price as percentage of par (e.g., 98.5)
+    ///
+    /// # Returns
+    ///
+    /// OAS in basis points (e.g., 150.0 means 150 basis points).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found
+    /// - Tree calibration fails
+    /// - Root finding fails to converge
+    /// - Bond is already matured
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let pricer = TreePricer::new();
+    /// let oas_bp = pricer.calculate_oas(&bond, &market, as_of, 98.5)?;
+    /// // oas_bp is in basis points
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn calculate_oas(
         &self,
         bond: &Bond,
@@ -414,7 +608,34 @@ impl Default for TreePricer {
 
 /// Calculate option-adjusted spread for a bond given market price.
 ///
-/// Convenience function using default tree configuration.
+/// Convenience function using default tree configuration. This is a wrapper
+/// around `TreePricer::new().calculate_oas()` for simple use cases.
+///
+/// # Arguments
+///
+/// * `bond` - The bond to calculate OAS for
+/// * `market_context` - Market context with curves
+/// * `as_of` - Valuation date
+/// * `clean_price` - Market clean price as percentage of par
+///
+/// # Returns
+///
+/// OAS in basis points.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::tree_engine::calculate_oas;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let oas_bp = calculate_oas(&bond, &market, as_of, 98.5)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn calculate_oas(
     bond: &Bond,
     market_context: &MarketContext,

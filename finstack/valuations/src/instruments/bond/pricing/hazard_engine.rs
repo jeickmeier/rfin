@@ -40,6 +40,25 @@ use super::super::types::Bond;
 use super::super::CashflowSpec;
 
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
+///
+/// This engine prices defaultable bonds using a reduced-form hazard-rate model
+/// with fractional recovery of par (FRP). It gracefully falls back to risk-free
+/// pricing if no hazard curve is available in the market context.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let pv = HazardBondEngine::price(&bond, &market, as_of)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct HazardBondEngine;
 
 impl HazardBondEngine {
@@ -134,9 +153,47 @@ impl HazardBondEngine {
 
     /// Price a bond using a hazard curve with fractional recovery of par (FRP).
     ///
+    /// Computes the present value accounting for credit risk by:
+    /// 1. Discounting survival-weighted cashflows (alive leg)
+    /// 2. Adding recovery value on default events (recovery leg)
+    ///
     /// If no hazard curve can be resolved from the market context, this
     /// gracefully falls back to the standard discounting engine so callers
     /// can safely request hazard pricing even when credit data is absent.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond` - The bond to price
+    /// * `market` - Market context containing discount and hazard curves
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value of the bond accounting for credit risk, or risk-free PV
+    /// if no hazard curve is available.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found in market context
+    /// - Bond has no future cashflows
+    /// - Cashflow schedule building fails
+    /// - Survival probability calculation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let pv = HazardBondEngine::price(&bond, &market, as_of)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
         if as_of >= bond.maturity {
             return Ok(Money::new(0.0, bond.notional.currency()));

@@ -1,4 +1,4 @@
-//! Enhanced YTM solver with FinancePy-inspired improvements.
+//! Enhanced YTM solver.
 //!
 //! Provides a robust yield-to-maturity solver using Newton-Raphson with
 //! intelligent initial guesses and automatic fallback to Brent's method.
@@ -83,6 +83,32 @@ impl Default for YtmSolverConfig {
 }
 
 /// Yield-to-maturity solver using hybrid Newton-Brent method.
+///
+/// Provides robust YTM calculation with intelligent initial guesses and automatic
+/// fallback to Brent's method if Newton-Raphson fails. Configured via `YtmSolverConfig`.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
+/// use finstack_core::dates::{Date, DayCount, Frequency};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+///
+/// # let cashflows = vec![];
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+/// # let target_price = Money::new(1000.0, Currency::USD);
+/// let solver = YtmSolver::new();
+/// let spec = YtmPricingSpec {
+///     day_count: DayCount::Act365F,
+///     notional: Money::new(1000.0, Currency::USD),
+///     coupon_rate: 0.05,
+///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     frequency: Frequency::semi_annual(),
+/// };
+/// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct YtmSolver {
     config: YtmSolverConfig,
 }
@@ -95,6 +121,18 @@ impl Default for YtmSolver {
 
 impl YtmSolver {
     /// Create a new YTM solver with default configuration.
+    ///
+    /// # Returns
+    ///
+    /// A `YtmSolver` with default configuration (sub-penny precision, hybrid Newton-Brent).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::YtmSolver;
+    ///
+    /// let solver = YtmSolver::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             config: YtmSolverConfig::default(),
@@ -102,13 +140,77 @@ impl YtmSolver {
     }
 
     /// Create a YTM solver with custom configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Custom solver configuration
+    ///
+    /// # Returns
+    ///
+    /// A `YtmSolver` with the specified configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmSolverConfig};
+    ///
+    /// let config = YtmSolverConfig {
+    ///     tolerance: 1e-10,      // Faster convergence
+    ///     max_iterations: 100,
+    ///     use_smart_guess: true,
+    ///     use_newton: true,
+    /// };
+    /// let solver = YtmSolver::with_config(config);
+    /// ```
     pub fn with_config(config: YtmSolverConfig) -> Self {
         Self { config }
     }
 
     /// Solve for yield-to-maturity given cashflows and target price.
     ///
-    /// Uses hybrid Newton-Brent solver with intelligent initial guess.
+    /// Uses hybrid Newton-Brent solver with intelligent initial guess based on
+    /// current yield and pull-to-par effect.
+    ///
+    /// # Arguments
+    ///
+    /// * `cashflows` - Bond cashflows as `(Date, Money)` pairs
+    /// * `as_of` - Valuation date
+    /// * `target_price` - Target dirty price to match
+    /// * `spec` - YTM pricing specification (day count, compounding, frequency)
+    ///
+    /// # Returns
+    ///
+    /// Yield to maturity as decimal (e.g., 0.05 for 5%).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Target price is non-positive
+    /// - Cashflows are empty
+    /// - Solver fails to converge
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
+    /// use finstack_core::dates::{Date, DayCount, Frequency};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// # let cashflows = vec![];
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    /// # let target_price = Money::new(1000.0, Currency::USD);
+    /// let solver = YtmSolver::new();
+    /// let spec = YtmPricingSpec {
+    ///     day_count: DayCount::Act365F,
+    ///     notional: Money::new(1000.0, Currency::USD),
+    ///     coupon_rate: 0.05,
+    ///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+    ///     frequency: Frequency::semi_annual(),
+    /// };
+    /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn solve(
         &self,
         cashflows: &[(Date, Money)],
@@ -207,7 +309,40 @@ impl YtmSolver {
 
 /// Convenience function to solve for YTM with default configuration.
 ///
-/// Wrapper around YtmSolver::new().solve() for simple use cases.
+/// Wrapper around `YtmSolver::new().solve()` for simple use cases.
+///
+/// # Arguments
+///
+/// * `cashflows` - Bond cashflows as `(Date, Money)` pairs
+/// * `as_of` - Valuation date
+/// * `target_price` - Target dirty price to match
+/// * `spec` - YTM pricing specification
+///
+/// # Returns
+///
+/// Yield to maturity as decimal.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
+/// use finstack_core::dates::{Date, DayCount, Frequency};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+///
+/// # let cashflows = vec![];
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+/// # let target_price = Money::new(1000.0, Currency::USD);
+/// let spec = YtmPricingSpec {
+///     day_count: DayCount::Act365F,
+///     notional: Money::new(1000.0, Currency::USD),
+///     coupon_rate: 0.05,
+///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     frequency: Frequency::semi_annual(),
+/// };
+/// let ytm = solve_ytm(&cashflows, as_of, target_price, spec)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn solve_ytm(
     cashflows: &[(Date, Money)],
     as_of: Date,

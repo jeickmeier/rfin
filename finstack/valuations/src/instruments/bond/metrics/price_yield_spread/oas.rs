@@ -3,9 +3,31 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Calculates Option-Adjusted Spread for bonds with embedded options.
 ///
-/// Uses short-rate trees to value callable/putable bonds and solve for the
-/// spread (in **decimal units**, e.g. `0.01 = 100bp`) that makes the model
-/// price equal to the market price.
+/// Uses short-rate trees (or rates+credit trees when hazard curves are present)
+/// to value callable/putable bonds and solve for the spread (in **decimal units**,
+/// e.g. `0.01 = 100bp`) that makes the model price equal to the market price.
+///
+/// OAS accounts for the value of embedded call/put options by using tree-based
+/// pricing with backward induction to properly value optionality.
+///
+/// # Dependencies
+///
+/// Requires `quoted_clean_price` to be set in `bond.pricing_overrides`.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // OAS is computed automatically when requesting bond metrics for callable/putable bonds
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {

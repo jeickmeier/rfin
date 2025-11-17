@@ -4,17 +4,23 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use std::cell::RefCell;
 
-/// Calculates Z-Spread (zero-volatility spread) for fixed-rate bonds.
+/// Configuration for Z-spread solver with maturity-aware bracket sizing.
 ///
-/// Market-standard definition: constant additive spread `z` to the base
-/// discount curve such that the discounted value of future cashflows equals
-/// the bond's dirty market price. We apply the spread as an exponential
-/// shift on discount factors: `df_z(t) = df_base(t) * exp(-z * t)`.
+/// Controls convergence tolerance and initial search bracket width for the
+/// Z-spread root-finding algorithm. The bracket width scales with bond maturity
+/// to handle both short-dated and long-dated bonds efficiently.
 ///
-/// Returns `z` in decimal units (e.g., 0.01 = 100 bps).
+/// # Examples
 ///
-/// Solver configuration is provided via [`ZSpreadSolverConfig`] and is
-/// maturity-aware by default.
+/// ```rust
+/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::ZSpreadSolverConfig;
+///
+/// let config = ZSpreadSolverConfig {
+///     tolerance: 1e-12,        // Tighter tolerance
+///     base_bracket_bp: 2000.0, // Wider initial bracket
+///     max_bracket_bp: 5000.0,  // Higher cap for long maturities
+/// };
+/// ```
 #[derive(Clone, Debug)]
 pub struct ZSpreadSolverConfig {
     /// Convergence tolerance for the Z-spread solver (on the spread axis).
@@ -50,11 +56,35 @@ impl Default for ZSpreadSolverConfig {
 
 /// Z-spread metric calculator for vanilla bonds.
 ///
+/// Calculates the zero-volatility spread (Z-spread) as the constant additive spread
+/// to the base discount curve that makes the discounted value of future cashflows
+/// equal to the bond's dirty market price. The spread is applied as an exponential
+/// shift: `df_z(t) = df_base(t) * exp(-z * t)`.
+///
 /// Uses Brent's method with a maturity-aware initial bracket and a configurable
 /// tolerance. The default configuration is tuned for production use:
 /// - `tolerance = 1e-10`
 /// - short-dated bonds: ±1000 bp initial bracket
 /// - long-dated/distressed: widened up to ±3000 bp
+///
+/// # Dependencies
+///
+/// Requires `Accrued` metric to be computed first.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// // Z-spread is computed automatically when requesting bond metrics
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct ZSpreadCalculator {
     config: ZSpreadSolverConfig,
