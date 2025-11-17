@@ -1,3 +1,4 @@
+use crate::instruments::bond::pricing::hazard_engine::HazardBondEngine;
 use crate::instruments::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
@@ -16,6 +17,46 @@ pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
 impl Default for SimpleBondDiscountingPricer {
     fn default() -> Self {
         Self::new(crate::pricer::InstrumentType::Bond)
+    }
+}
+
+/// Hazard-rate bond pricer using the FRP hazard engine.
+pub struct SimpleBondHazardPricer;
+
+impl SimpleBondHazardPricer {
+    /// Create a new hazard-rate bond pricer.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleBondHazardPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for SimpleBondHazardPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ValuationResult, PricingError> {
+        // Type-safe downcast to Bond
+        let bond = instrument
+            .as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
+
+        let pv = HazardBondEngine::price(bond, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        Ok(ValuationResult::stamped(bond.id(), as_of, pv))
     }
 }
 

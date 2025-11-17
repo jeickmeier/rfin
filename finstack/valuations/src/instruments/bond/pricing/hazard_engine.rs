@@ -1,0 +1,415 @@
+//! Hazard-rate (intensity) bond pricer with fractional recovery of par (FRP).
+//!
+//! This engine prices defaultable bonds using a reduced-form hazard-rate model
+//! with piecewise-constant hazard curve and **fractional recovery of par**.
+//!
+//! Let:
+//! - `D(0, t)` be the risk-free discount factor from the discount curve.
+//! - `S(t)` be the survival probability from the hazard curve.
+//! - `R` be the recovery rate (fraction of outstanding notional).
+//! - `CF_i` be holder-view cashflows (coupons + principal) at dates `T_i`.
+//! - `N(t)` be the outstanding notional process (including amortization).
+//!
+//! Under independence of rates and credit and FRP, the price is:
+//! ```text
+//! PV ≈ Σ_i CF_i · D(0, T_i) · S(T_i)
+//!    + R · Σ_k N(t_{k-1}) · D(0, t_k) · ΔS_k
+//! ```
+//! where:
+//! - `ΔS_k = S(t_{k-1}) - S(t_k) ≈ ∫_{t_{k-1}}^{t_k} λ(u) S(u) du`
+//! - the time grid `{t_k}` is built from the bond cashflow dates, with `t_0`
+//!   anchored at settlement.
+//!
+//! Recovery is taken as a fraction of **outstanding notional** (par) during
+//! each interval, which matches the fractional recovery of par convention used
+//! in the two-factor rates+credit tree (`BondValuator`).
+
+use finstack_core::dates::{Date, DateExt};
+use finstack_core::error::InputError;
+use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+use crate::cashflow::builder::CashFlowSchedule;
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::traits::CashflowProvider;
+
+use super::discount_engine::BondEngine;
+use super::super::types::Bond;
+use super::super::CashflowSpec;
+
+/// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
+pub struct HazardBondEngine;
+
+impl HazardBondEngine {
+    /// Resolve the settlement date using the same logic as the discount engine.
+    ///
+    /// This mirrors the logic in `BondEngine::price_with_explanation` so that
+    /// both engines respect `settlement_days`, calendars, and business-day
+    /// conventions in the same way. If you change that logic, update this
+    /// helper accordingly.
+    fn compute_settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
+        if let Some(sd_u32) = bond.settlement_days {
+            let sd: i32 = sd_u32 as i32;
+            let (calendar_id, bdc) = match &bond.cashflow_spec {
+                CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
+                CashflowSpec::Floating(spec) => {
+                    (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
+                }
+                CashflowSpec::Amortizing { base, .. } => match &**base {
+                    CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
+                    CashflowSpec::Floating(spec) => {
+                        (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
+                    }
+                    _ => (None, finstack_core::dates::BusinessDayConvention::Following),
+                },
+            };
+            if let Some(id) = calendar_id {
+                if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
+                    // Walk business days using the provided calendar
+                    let mut d = as_of;
+                    let mut remaining = sd;
+                    let step = if remaining >= 0 { 1 } else { -1 };
+                    while remaining != 0 {
+                        d = d.saturating_add(time::Duration::days(step as i64));
+                        if cal.is_business_day(d) {
+                            remaining -= step;
+                        }
+                    }
+                    finstack_core::dates::adjust(d, bdc, cal)
+                } else {
+                    Ok(as_of.add_weekdays(sd))
+                }
+            } else {
+                Ok(as_of.add_weekdays(sd))
+            }
+        } else {
+            Ok(as_of)
+        }
+    }
+
+    /// Resolve a hazard curve for the bond using the same precedence as the
+    /// tree-based bond valuator:
+    ///
+    /// 1. `credit_curve_id` if present.
+    /// 2. `discount_curve_id`.
+    /// 3. `discount_curve_id` with `-CREDIT` suffix.
+    fn resolve_hazard_curve<'a>(
+        bond: &Bond,
+        market: &'a MarketContext,
+    ) -> Option<&'a HazardCurve> {
+        if let Some(ref credit_id) = bond.credit_curve_id {
+            if let Ok(hc) = market.get_hazard_ref(credit_id.as_str()) {
+                return Some(hc);
+            }
+        }
+
+        if let Ok(hc) = market.get_hazard_ref(bond.discount_curve_id.as_str()) {
+            return Some(hc);
+        }
+
+        if let Ok(hc) =
+            market.get_hazard_ref(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
+        {
+            return Some(hc);
+        }
+
+        None
+    }
+
+    /// Build holder-view cashflows and the full internal schedule.
+    fn build_schedules(
+        bond: &Bond,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<(Vec<(Date, Money)>, CashFlowSchedule)> {
+        let flows = bond.build_schedule(market, as_of)?;
+        if flows.is_empty() {
+            return Err(InputError::TooFewPoints.into());
+        }
+        let schedule = bond.get_full_schedule(market)?;
+        Ok((flows, schedule))
+    }
+
+    /// Price a bond using a hazard curve with fractional recovery of par (FRP).
+    ///
+    /// If no hazard curve can be resolved from the market context, this
+    /// gracefully falls back to the standard discounting engine so callers
+    /// can safely request hazard pricing even when credit data is absent.
+    pub fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
+        if as_of >= bond.maturity {
+            return Ok(Money::new(0.0, bond.notional.currency()));
+        }
+
+        // Resolve discount curve
+        let disc = market.get_discount_ref(&bond.discount_curve_id)?;
+        let df_as_of = disc.df_on_date_curve(as_of);
+
+        // Compute settlement date and its discount factor (theta alignment).
+        let settle_date = Self::compute_settlement_date(bond, as_of)?;
+        let df_settle = disc.df_on_date_curve(settle_date);
+
+        // Resolve hazard curve; if not found, fall back to risk-free pricing.
+        let hazard = match Self::resolve_hazard_curve(bond, market) {
+            Some(h) => h,
+            None => return BondEngine::price(bond, market, as_of),
+        };
+        let recovery = hazard.recovery_rate().clamp(0.0, 1.0);
+
+        // Schedules
+        let (flows, schedule) = Self::build_schedules(bond, market, as_of)?;
+
+        // Build time grid from settlement + future cashflow dates.
+        let mut dates: Vec<Date> = flows
+            .iter()
+            .map(|(d, _)| *d)
+            .filter(|d| *d > settle_date)
+            .collect();
+        dates.sort();
+        dates.dedup();
+
+        // No future cashflows after settlement → PV is zero.
+        if dates.is_empty() {
+            return Ok(Money::new(0.0, bond.notional.currency()));
+        }
+
+        dates.insert(0, settle_date);
+
+        // Discount factors relative to settlement for correct theta.
+        let mut dfs = Vec::with_capacity(dates.len());
+        for d in &dates {
+            let df_abs = disc.df_on_date_curve(*d);
+            let df_rel = if df_settle != 0.0 {
+                df_abs / df_settle
+            } else if df_as_of != 0.0 {
+                // Fallback: use as_of as reference if settle DF is degenerate.
+                df_abs / df_as_of
+            } else {
+                1.0
+            };
+            dfs.push(df_rel);
+        }
+
+        // Survival probabilities from hazard curve at the grid dates, then
+        // renormalized to be conditional on survival up to settlement.
+        let mut surv_raw = hazard.survival_at_dates(&dates)?;
+        if surv_raw.is_empty() {
+            return Err(InputError::TooFewPoints.into());
+        }
+        let s0 = surv_raw[0].clamp(0.0, 1.0);
+        if s0 <= 0.0 {
+            // Already defaulted by settlement; no future value.
+            return Ok(Money::new(0.0, bond.notional.currency()));
+        }
+        let mut surv = Vec::with_capacity(surv_raw.len());
+        for s in surv_raw.drain(..) {
+            surv.push((s / s0).clamp(0.0, 1.0));
+        }
+
+        // Alive leg: survival-weighted PV of holder-view coupons and principal.
+        // Use Money accumulation to mirror the discount engine's numerics.
+        let ccy = bond.notional.currency();
+        let mut pv_cf = Money::new(0.0, ccy);
+        for (d, amt) in &flows {
+            if *d <= settle_date {
+                continue;
+            }
+            if amt.amount() == 0.0 {
+                continue;
+            }
+            let idx = dates
+                .binary_search(d)
+                .expect("Cashflow date should be on hazard pricing grid");
+            let df = dfs[idx];
+            let s = surv[idx];
+            let df_surv = df * s;
+            let pv_cf_flow = *amt * df_surv;
+            pv_cf = (pv_cf + pv_cf_flow)?;
+        }
+
+        // Recovery leg: FRP on outstanding notional.
+        let mut pv_rec = 0.0;
+        if recovery > 0.0 {
+            // Compute outstanding notional at settlement and future reductions.
+            let mut full_flows = schedule.flows.clone();
+            full_flows.sort_by_key(|cf| cf.date);
+
+            let mut outstanding = schedule.notional.initial.amount();
+            let mut future_principal = std::collections::BTreeMap::<Date, f64>::new();
+
+            for cf in &full_flows {
+                let amt = cf.amount.amount();
+                if amt <= 0.0 {
+                    continue;
+                }
+                let is_principal = matches!(cf.kind, CFKind::Amortization | CFKind::Notional);
+                if !is_principal {
+                    continue;
+                }
+                if cf.date <= settle_date {
+                    outstanding -= amt;
+                } else {
+                    *future_principal.entry(cf.date).or_insert(0.0) += amt;
+                }
+            }
+
+            let mut current_outstanding = outstanding.max(0.0);
+
+            for k in 1..dates.len() {
+                let n_prev = current_outstanding.max(0.0);
+                if n_prev > 0.0 {
+                    let delta_s = (surv[k - 1] - surv[k]).max(0.0);
+                    if delta_s > 0.0 {
+                        let df_k = dfs[k];
+                        pv_rec += recovery * n_prev * df_k * delta_s;
+                    }
+                }
+                // Apply principal repayments at the end of the interval.
+                if let Some(amt) = future_principal.remove(&dates[k]) {
+                    current_outstanding = (current_outstanding - amt).max(0.0);
+                }
+            }
+        }
+
+        let pv_rec_money = Money::new(pv_rec, ccy);
+        let total = (pv_cf + pv_rec_money)?;
+        Ok(total)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::bond::CashflowSpec;
+    use crate::instruments::common::traits::Attributes;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::types::CurveId;
+    use finstack_core::{dates::Date, money::Money};
+    use time::Month;
+
+    fn build_test_bond(issue: Date, maturity: Date) -> Bond {
+        Bond::builder()
+            .id("TEST_BOND_HAZARD".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT")))
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Bond builder should succeed in hazard engine test")
+    }
+
+    fn build_flat_discount(issue: Date) -> DiscountCurve {
+        DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (10.0, 0.8)])
+            .set_interp(InterpStyle::LogLinear)
+            .build()
+            .expect("DiscountCurve builder should succeed in hazard engine test")
+    }
+
+    fn build_flat_hazard(id: &str, issue: Date, lambda: f64, recovery: f64) -> HazardCurve {
+        HazardCurve::builder(id)
+            .base_date(issue)
+            .recovery_rate(recovery)
+            .knots([(0.0, lambda), (10.0, lambda)])
+            .build()
+            .expect("HazardCurve builder should succeed in hazard engine test")
+    }
+
+    #[test]
+    fn hazard_zero_matches_discounting_for_plain_bond() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_test_bond(issue, maturity);
+        let disc = build_flat_discount(issue);
+        let hazard_zero = build_flat_hazard("USD-CREDIT", issue, 0.0, 0.4);
+
+        let market = MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard_zero);
+
+        let pv_rf = BondEngine::price(&bond, &market, issue).expect("RF price should succeed");
+        let pv_haz =
+            HazardBondEngine::price(&bond, &market, issue).expect("Hazard price should succeed");
+
+        let diff = (pv_rf.amount() - pv_haz.amount()).abs();
+        assert!(
+            diff < 1e-6,
+            "Hazard price with zero intensity should match risk-free price; diff={}",
+            diff
+        );
+    }
+
+    #[test]
+    fn higher_hazard_produces_lower_price() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_test_bond(issue, maturity);
+        let hazard_low = build_flat_hazard("USD-CREDIT", issue, 0.01, 0.4);
+        let hazard_high = build_flat_hazard("USD-CREDIT", issue, 0.05, 0.4);
+
+        let market_low = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(hazard_low);
+        let market_high = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(hazard_high);
+
+        let pv_low =
+            HazardBondEngine::price(&bond, &market_low, issue).expect("Low hazard price succeeds");
+        let pv_high = HazardBondEngine::price(&bond, &market_high, issue)
+            .expect("High hazard price succeeds");
+
+        assert!(
+            pv_high.amount() < pv_low.amount(),
+            "Price with higher hazard should be lower (pv_high={}, pv_low={})",
+            pv_high.amount(),
+            pv_low.amount()
+        );
+    }
+
+    #[test]
+    fn higher_recovery_increases_price() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_test_bond(issue, maturity);
+        let hazard_low_recovery = build_flat_hazard("USD-CREDIT", issue, 0.03, 0.0);
+        let hazard_high_recovery = build_flat_hazard("USD-CREDIT", issue, 0.03, 1.0);
+
+        let market_low_r = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(hazard_low_recovery);
+        let market_high_r = MarketContext::new()
+            .insert_discount(build_flat_discount(issue))
+            .insert_hazard(hazard_high_recovery);
+
+        let pv_low_r = HazardBondEngine::price(&bond, &market_low_r, issue)
+            .expect("Low recovery hazard price succeeds");
+        let pv_high_r = HazardBondEngine::price(&bond, &market_high_r, issue)
+            .expect("High recovery hazard price succeeds");
+
+        assert!(
+            pv_high_r.amount() > pv_low_r.amount(),
+            "Price with higher recovery should be higher (pv_high={}, pv_low={})",
+            pv_high_r.amount(),
+            pv_low_r.amount()
+        );
+    }
+}
+
+

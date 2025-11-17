@@ -566,6 +566,10 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::default()),
     );
     registry.register_pricer(
+        PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate),
+        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondHazardPricer),
+    );
+    registry.register_pricer(
         PricerKey::new(InstrumentType::Bond, ModelKey::Tree),
         Box::new(crate::instruments::bond::pricing::pricer::SimpleBondOasPricer),
     );
@@ -973,6 +977,12 @@ mod tests {
                 .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Discounting))
                 .is_some(),
             "Bond Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate))
+                .is_some(),
+            "Bond HazardRate pricer should be registered"
         );
         assert!(
             registry

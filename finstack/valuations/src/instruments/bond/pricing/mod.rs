@@ -4,6 +4,8 @@
 
 /// Bond pricing engine (discount curve-based valuation logic)
 pub mod discount_engine;
+/// Hazard-rate FRP bond pricing engine (HazardCurve + recovery)
+pub mod hazard_engine;
 /// Bond pricer implementation (registry integration)
 pub mod pricer;
 /// Quote engine for mapping between price, yields, and spreads
