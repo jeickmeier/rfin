@@ -1,4 +1,4 @@
-use crate::instruments::bond::pricing::helpers as price_helpers;
+use crate::instruments::bond::pricing::quote_engine::price_from_dm;
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -86,7 +86,7 @@ impl DiscountMarginCalculator {
         as_of: Date,
         dm: f64,
     ) -> finstack_core::Result<f64> {
-        price_helpers::price_from_dm(bond, curves, as_of, dm)
+        price_from_dm(bond, curves, as_of, dm)
     }
 
     /// Compute an initial bracket half-width (in decimal) based on maturity.

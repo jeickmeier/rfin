@@ -418,7 +418,7 @@ impl InflationLinkedBond {
 
     /// Calculate real yield (yield in real terms, before inflation)
     pub fn real_yield(&self, clean_price: f64, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::bond::pricing::helpers::YieldCompounding;
+        use crate::instruments::bond::pricing::quote_engine::YieldCompounding;
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
         if !clean_price.is_finite() || clean_price <= 0.0 {
@@ -476,7 +476,7 @@ impl InflationLinkedBond {
         // Bump yield by 1bp in decimal terms
         let bp = 1e-4;
         // Price function from yield using helper
-        use crate::instruments::bond::pricing::helpers::{
+        use crate::instruments::bond::pricing::quote_engine::{
             price_from_ytm_compounded_params, YieldCompounding,
         };
         let flows = self.build_schedule(curves, as_of)?;

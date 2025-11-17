@@ -39,19 +39,19 @@ impl MetricCalculator for ConvexityCalculator {
         // Calculate prices with yield bumps for numerical convexity
         let (p0, p_up, p_dn) = {
             let bond: &Bond = context.instrument_as()?;
-            let p0 = crate::instruments::bond::pricing::helpers::price_from_ytm(
+            let p0 = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
                 bond,
                 flows,
                 context.as_of,
                 ytm,
             )?;
-            let p_up = crate::instruments::bond::pricing::helpers::price_from_ytm(
+            let p_up = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
                 bond,
                 flows,
                 context.as_of,
                 ytm + dy,
             )?;
-            let p_dn = crate::instruments::bond::pricing::helpers::price_from_ytm(
+            let p_dn = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
                 bond,
                 flows,
                 context.as_of,

@@ -85,7 +85,7 @@ impl MetricCalculator for YtwCalculator {
 
         // Delegate candidate scanning and YTM solving to shared helper.
         let (best_ytm, _best_flows) =
-            crate::instruments::bond::pricing::helpers::solve_ytw_from_flows(
+            crate::instruments::bond::pricing::quote_engine::solve_ytw_from_flows(
                 bond,
                 flows,
                 context.as_of,

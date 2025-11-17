@@ -128,7 +128,7 @@ impl MetricCalculator for ZSpreadCalculator {
         let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
 
         let objective = |z: f64| -> f64 {
-            match crate::instruments::bond::pricing::helpers::price_from_z_spread(
+            match crate::instruments::bond::pricing::quote_engine::price_from_z_spread(
                 bond, &curves, as_of, z,
             ) {
                 Ok(pv) => pv - target_value_ccy,

@@ -15,9 +15,11 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::Date;
+use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::Result;
-use std::sync::Arc;
+use std::sync::Arc; 
 
 /// Quote input for the bond quote engine.
 ///
@@ -70,6 +72,304 @@ pub struct BondQuoteSet {
     /// I-spread (decimal), if applicable.
     pub i_spread: Option<f64>,
 }
+
+// ============================================================================
+// Price-from-Metric Functions
+// ============================================================================
+
+/// Yield Compounding enumeration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum YieldCompounding {
+    /// Simple variant.
+    Simple,
+    /// Annual variant.
+    Annual,
+    /// Periodic variant.
+    Periodic(u32),
+    /// Continuous variant.
+    Continuous,
+    /// Street variant.
+    Street,
+}
+
+/// Discount factor from yield.
+#[inline]
+pub fn df_from_yield(
+    ytm: f64,
+    t: f64,
+    comp: YieldCompounding,
+    bond_freq: finstack_core::dates::Frequency,
+) -> finstack_core::Result<f64> {
+    if t <= 0.0 {
+        return Ok(1.0);
+    }
+    Ok(match comp {
+        YieldCompounding::Simple => 1.0 / (1.0 + ytm * t),
+        YieldCompounding::Annual => (1.0 + ytm).powf(-t),
+        YieldCompounding::Periodic(m) => {
+            let m = m as f64;
+            (1.0 + ytm / m).powf(-m * t)
+        }
+        YieldCompounding::Continuous => (-ytm * t).exp(),
+        YieldCompounding::Street => {
+            let m = helpers::periods_per_year(bond_freq)?.max(1.0);
+            (1.0 + ytm / m).powf(-m * t)
+        }
+    })
+}
+
+/// Price from yield using explicit day count and frequency (no `Bond` borrow required).
+#[inline]
+pub fn price_from_ytm_compounded_params(
+    day_count: finstack_core::dates::DayCount,
+    freq: finstack_core::dates::Frequency,
+    flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
+    as_of: finstack_core::dates::Date,
+    ytm: f64,
+    comp: YieldCompounding,
+) -> finstack_core::Result<f64> {
+    let mut pv = 0.0;
+    for &(date, amount) in flows {
+        if date <= as_of {
+            continue;
+        }
+        let t = day_count.year_fraction(as_of, date, DayCountCtx::default())?;
+        if t > 0.0 {
+            let df = df_from_yield(ytm, t, comp, freq)?;
+            pv += amount.amount() * df;
+        }
+    }
+    Ok(pv)
+}
+
+/// Price from ytm compounded.
+pub fn price_from_ytm_compounded(
+    bond: &Bond,
+    flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
+    as_of: finstack_core::dates::Date,
+    ytm: f64,
+    comp: YieldCompounding,
+) -> finstack_core::Result<f64> {
+    price_from_ytm_compounded_params(
+        bond.cashflow_spec.day_count(),
+        bond.cashflow_spec.frequency(),
+        flows,
+        as_of,
+        ytm,
+        comp,
+    )
+}
+
+/// Price from ytm (using Street convention).
+pub fn price_from_ytm(
+    bond: &Bond,
+    flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
+    as_of: finstack_core::dates::Date,
+    ytm: f64,
+) -> finstack_core::Result<f64> {
+    price_from_ytm_compounded(bond, flows, as_of, ytm, YieldCompounding::Street)
+}
+
+/// Solve yield-to-worst over all call/put/maturity candidates for a given flow set.
+///
+/// Returns the worst (minimum) yield and the corresponding truncated cashflow path.
+pub(crate) fn solve_ytw_from_flows(
+    bond: &Bond,
+    flows: &[(Date, Money)],
+    as_of: Date,
+    dirty_price_target: Money,
+) -> finstack_core::Result<(f64, Vec<(Date, Money)>)> {
+    // Generate call/put candidates + maturity
+    let mut candidates: Vec<(Date, Money)> = Vec::new();
+    if let Some(cp) = &bond.call_put {
+        for c in &cp.calls {
+            if c.date >= as_of && c.date <= bond.maturity {
+                candidates.push((c.date, bond.notional * (c.price_pct_of_par / 100.0)));
+            }
+        }
+        for p in &cp.puts {
+            if p.date >= as_of && p.date <= bond.maturity {
+                candidates.push((p.date, bond.notional * (p.price_pct_of_par / 100.0)));
+            }
+        }
+    }
+    // At maturity, principal redemption is already present in the cashflow schedule,
+    // so use a zero additional redemption here to avoid double-counting.
+    candidates.push((bond.maturity, Money::new(0.0, bond.notional.currency())));
+
+    let mut best_yield = f64::INFINITY;
+    let mut best_flows: Vec<(Date, Money)> = Vec::new();
+
+    for (exercise_date, redemption) in candidates {
+        // Truncate flows to exercise and add redemption
+        let mut ex_flows: Vec<(Date, Money)> = Vec::with_capacity(flows.len());
+        for &(d, a) in flows {
+            if d > as_of && d <= exercise_date {
+                ex_flows.push((d, a));
+            }
+        }
+        ex_flows.push((exercise_date, redemption));
+
+        // Solve yield that matches target dirty price
+        let coupon_rate = match &bond.cashflow_spec {
+            crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+            _ => 0.0,
+        };
+        let y = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
+            &ex_flows,
+            as_of,
+            dirty_price_target,
+            crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
+                day_count: bond.cashflow_spec.day_count(),
+                notional: bond.notional,
+                coupon_rate,
+                compounding: YieldCompounding::Street,
+                frequency: bond.cashflow_spec.frequency(),
+            },
+        )?;
+
+        if y < best_yield {
+            best_yield = y;
+            best_flows = ex_flows;
+        }
+    }
+
+    Ok((best_yield, best_flows))
+}
+
+/// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path.
+pub fn price_from_ytw(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    dirty_price_target: Money,
+) -> finstack_core::Result<f64> {
+    // Build holder-view flows and delegate to shared YTW helper
+    let flows = bond.build_schedule(curves, as_of)?;
+    let (best_yield, best_flows) = solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target)?;
+
+    // Re-price along the worst-yield path for a consistent price result
+    let best_price = price_from_ytm_compounded(
+        bond,
+        &best_flows,
+        as_of,
+        best_yield,
+        YieldCompounding::Street,
+    )?;
+
+    Ok(best_price)
+}
+
+/// Price from Z-spread applied exponentially to base discount curve
+pub fn price_from_z_spread(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    z: f64,
+) -> finstack_core::Result<f64> {
+    let flows = bond.build_schedule(curves, as_of)?;
+    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
+    // Pre-compute as_of discount factor for correct theta using the curve's
+    // own date mapping.
+    let df_as_of = disc.df_on_date_curve(as_of);
+
+    let mut pv = 0.0;
+    for (d, a) in &flows {
+        if *d <= as_of {
+            continue;
+        }
+        // Time from as_of used for the exponential z-spread term is measured
+        // on the same basis as the discount curve to keep the spread
+        // definition aligned with the curve's own time axis.
+        let t_from_as_of = disc
+            .day_count()
+            .year_fraction(as_of, *d, DayCountCtx::default())?;
+
+        // Discount from as_of using the curve's DF(date) mapping.
+        let df_cf_abs = disc.df_on_date_curve(*d);
+        let df = if df_as_of != 0.0 {
+            df_cf_abs / df_as_of
+        } else {
+            1.0
+        };
+        let df_z = df * (-z * t_from_as_of).exp();
+        pv += a.amount() * df_z;
+    }
+    Ok(pv)
+}
+
+/// Price from Option-Adjusted Spread using the short-rate tree pricer.
+///
+/// The public API takes **decimal spread units** (`oas_decimal`), where
+/// `0.01` corresponds to **100 basis points**. Internally, the tree
+/// pricer continues to work in basis points for compatibility, so we
+/// convert:
+///
+/// - `oas_bp = oas_decimal * 10_000.0`
+///
+/// This keeps all bond spread-style metrics on a consistent decimal
+/// convention at the API surface while preserving existing internal
+/// tree semantics.
+pub fn price_from_oas(
+    bond: &Bond,
+    curves: &MarketContext,
+    _as_of: Date,
+    oas_decimal: f64,
+) -> finstack_core::Result<f64> {
+    // Convert decimal spread (0.01 = 100bp) to basis points for the tree.
+    let oas_bp = oas_decimal * 10_000.0;
+
+    // Use the short-rate tree directly to price at a given OAS
+    use crate::instruments::bond::pricing::tree_pricer::BondValuator;
+    use crate::instruments::common::models::{
+        short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+    };
+    // Time to maturity is measured on the discount curve's own time basis so
+    // that the short-rate tree is calibrated consistently with the curve.
+    let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc_dc = discount_curve.day_count();
+    let time_to_maturity = disc_dc.year_fraction(
+        discount_curve.base_date(),
+        bond.maturity,
+        DayCountCtx::default(),
+    )?;
+    if time_to_maturity <= 0.0 {
+        return Ok(0.0);
+    }
+    let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
+    short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
+    let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
+    let mut vars = StateVariables::new();
+    vars.insert(short_rate_keys::OAS, oas_bp);
+    let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;
+    Ok(price)
+}
+
+/// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer
+pub fn price_from_dm(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    dm: f64,
+) -> finstack_core::Result<f64> {
+    // Check if it's a floating rate bond
+    let is_floating = matches!(
+        &bond.cashflow_spec,
+        crate::instruments::bond::CashflowSpec::Floating(_)
+    );
+    if !is_floating {
+        return Ok(bond.value(curves, as_of)?.amount());
+    }
+    let mut b = bond.clone();
+    if let crate::instruments::bond::CashflowSpec::Floating(spec) = &mut b.cashflow_spec {
+        spec.rate_spec.spread_bp += dm * 1e4;
+    }
+    Ok(b.value(curves, as_of)?.amount())
+}
+
+// ============================================================================
+// Main Quote Engine
+// ============================================================================
 
 /// Convert between price, yield, and spread metrics for a bond.
 ///
@@ -128,25 +428,25 @@ pub fn compute_quotes(
             // Use standard holder-view flows and price_from_ytm helper.
             let flows =
                 <Bond as CashflowProvider>::build_schedule(&bond_for_metrics, curves, as_of)?;
-            let dirty_ccy = helpers::price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
+            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::ZSpread(z) => {
-            let dirty_ccy = helpers::price_from_z_spread(&bond_for_metrics, curves, as_of, z)?;
+            let dirty_ccy = price_from_z_spread(&bond_for_metrics, curves, as_of, z)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::DiscountMargin(dm) => {
-            let dirty_ccy = helpers::price_from_dm(&bond_for_metrics, curves, as_of, dm)?;
+            let dirty_ccy = price_from_dm(&bond_for_metrics, curves, as_of, dm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::Oas(oas_decimal) => {
-            let dirty_ccy = helpers::price_from_oas(&bond_for_metrics, curves, as_of, oas_decimal)?;
+            let dirty_ccy = price_from_oas(&bond_for_metrics, curves, as_of, oas_decimal)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)
@@ -163,7 +463,7 @@ pub fn compute_quotes(
             let ytm = i_spread + par_swap_rate;
             let flows =
                 <Bond as CashflowProvider>::build_schedule(&bond_for_metrics, curves, as_of)?;
-            let dirty_ccy = helpers::price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
+            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
             (clean_pct, clean_ccy, dirty_ccy)

@@ -32,7 +32,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         // Calculate price from flows to ensure consistency
         let price = {
             let bond: &Bond = context.instrument_as()?;
-            crate::instruments::bond::pricing::helpers::price_from_ytm(
+            crate::instruments::bond::pricing::quote_engine::price_from_ytm(
                 bond,
                 flows,
                 context.as_of,
@@ -62,10 +62,10 @@ impl MetricCalculator for MacaulayDurationCalculator {
                     )
                     .unwrap_or(0.0)
                     .max(0.0);
-                let df = crate::instruments::bond::pricing::helpers::df_from_yield(
+                let df = crate::instruments::bond::pricing::quote_engine::df_from_yield(
                     ytm,
                     t,
-                    crate::instruments::bond::pricing::helpers::YieldCompounding::Street,
+                    crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
                     bond.cashflow_spec.frequency(),
                 )
                 .unwrap_or(0.0);

@@ -9,7 +9,7 @@ use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-use super::helpers::YieldCompounding;
+use super::quote_engine::{price_from_ytm_compounded_params, YieldCompounding};
 
 /// Specification for yield-to-maturity calculations
 #[derive(Clone, Copy, Debug)]
@@ -172,10 +172,8 @@ impl YtmSolver {
         comp: YieldCompounding,
         freq: Frequency,
     ) -> f64 {
-        super::helpers::price_from_ytm_compounded_params(
-            day_count, freq, cashflows, as_of, yield_rate, comp,
-        )
-        .unwrap_or(0.0)
+        price_from_ytm_compounded_params(day_count, freq, cashflows, as_of, yield_rate, comp)
+            .unwrap_or(0.0)
     }
 
     fn calculate_initial_guess(

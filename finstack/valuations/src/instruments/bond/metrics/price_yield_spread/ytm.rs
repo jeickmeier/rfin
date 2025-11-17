@@ -96,7 +96,7 @@ impl MetricCalculator for YtmCalculator {
                 day_count: dc,
                 notional,
                 coupon_rate: coupon,
-                compounding: crate::instruments::bond::pricing::helpers::YieldCompounding::Street,
+                compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
                 frequency: freq,
             },
         )?;

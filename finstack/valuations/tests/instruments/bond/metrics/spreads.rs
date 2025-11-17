@@ -146,7 +146,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
     for (target_z, base_bond) in scenarios {
         // Price the bond at the target Z-spread to obtain a dirty price.
         let dirty_target =
-            finstack_valuations::instruments::bond::pricing::helpers::price_from_z_spread(
+            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_z_spread(
                 &base_bond, &market, as_of, target_z,
             )
             .expect("pricing with target Z-spread should succeed");
@@ -176,7 +176,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
 
         // Re-price with solved z and verify price residual is tiny.
         let dirty_repriced =
-            finstack_valuations::instruments::bond::pricing::helpers::price_from_z_spread(
+            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_z_spread(
                 &bond, &market, as_of, z,
             )
             .expect("repricing with solved Z-spread should succeed");
