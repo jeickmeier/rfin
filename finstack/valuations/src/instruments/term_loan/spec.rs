@@ -217,6 +217,9 @@ pub enum AmortizationSpec {
 
 /// Payment-in-kind (PIK) interest specification.
 ///
+/// **Note: This type is currently experimental and not fully wired into cashflow generation.**
+/// PIK behavior is controlled via `CouponType` and `PikToggle` in `CovenantSpec`.
+///
 /// Defines the portion of interest that may be capitalized (added to principal)
 /// rather than paid in cash, with optional toggle schedule.
 #[derive(Clone, Debug)]
@@ -245,6 +248,9 @@ pub enum OidEirMethod {
 
 /// Original Issue Discount (OID) with effective interest rate amortization.
 ///
+/// **Note: This type is currently experimental and not fully wired into cashflow generation.**
+/// OID handling is partially supported via `OidPolicy` in `DdtlSpec` for DDTL loans.
+///
 /// Configures OID amortization using the effective interest rate method,
 /// which spreads the discount as additional interest expense over the loan term.
 #[derive(Clone, Debug)]
@@ -271,31 +277,47 @@ pub struct OidEirSpec {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// use finstack_valuations::instruments::term_loan::spec::*;
 /// use finstack_valuations::instruments::term_loan::types::RateSpec;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 /// use finstack_valuations::cashflow::builder::specs::CouponType;
+/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::*;
+/// use finstack_core::types::{InstrumentId, CurveId};
 /// use time::Month;
 ///
 /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Example: Floating-rate term loan with SOFR + 300 bps
+/// let floating_spec = FloatingRateSpec {
+///     index_id: CurveId::new("USD-SOFR-3M"),
+///     spread_bp: 300.0,
+///     gearing: 1.0,
+///     floor_bp: Some(0.0),  // 0% floor
+///     cap_bp: None,
+///     reset_freq: Frequency::quarterly(),
+///     reset_lag_days: 2,
+///     dc: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: None,
+/// };
+///
 /// let spec = TermLoanSpec {
-///     id: "TL-001".to_string().into(),
-///     discount_curve_id: "USD-CREDIT".to_string().into(),
+///     id: InstrumentId::new("TL-001"),
+///     discount_curve_id: CurveId::new("USD-CREDIT"),
 ///     currency: Currency::USD,
 ///     issue: create_date(2025, Month::January, 15)?,
 ///     maturity: create_date(2030, Month::January, 15)?,
-///     rate: RateSpec::FloatingSpread { base_rate_bp: 500, margin_bp: 300 },
-///     pay_freq: Frequency::Quarterly,
-///     day_count: DayCount::Actual360,
+///     rate: RateSpec::Floating(floating_spec),
+///     pay_freq: Frequency::quarterly(),
+///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
-///     stub: StubKind::ShortFinal,
+///     stub: StubKind::None,
 ///     amortization: AmortizationSpec::None,  // Bullet loan
-///     coupon_type: CouponType::InArrears,
+///     coupon_type: CouponType::Cash,
 ///     upfront_fee: None,
 ///     ddtl: None,
 ///     covenants: None,

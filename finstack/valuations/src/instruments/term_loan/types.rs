@@ -189,11 +189,39 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
-        let sched =
-            crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
-        Ok(crate::instruments::term_loan::cashflows::build_dated_flows(
-            &sched,
-        ))
+        use finstack_core::cashflow::primitives::CFKind;
+        
+        // Get full internal schedule
+        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
+        
+        // Filter to holder-view: only contractual inflows to a long lender
+        // Include: coupons, amortization, positive notional redemptions
+        // Exclude: funding legs (negative notional draws), PIK capitalization
+        let mut flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> = Vec::new();
+        
+        for cf in &schedule.flows {
+            match cf.kind {
+                // Include coupons and interest flows as-is (holder receives them)
+                CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => {
+                    flows.push((cf.date, cf.amount));
+                }
+                // Amortization principal repayment: holder receives this
+                CFKind::Amortization => {
+                    flows.push((cf.date, cf.amount));
+                }
+                // Notional: only redemptions (positive), exclude draws (negative)
+                CFKind::Notional if cf.amount.amount() > 0.0 => {
+                    flows.push((cf.date, cf.amount));
+                }
+                // Exclude funding legs (negative notional), PIK capitalization, and other kinds
+                _ => {}
+            }
+        }
+        
+        // Sort by date for deterministic ordering
+        flows.sort_by_key(|(d, _)| *d);
+        
+        Ok(flows)
     }
 
     fn build_full_schedule(

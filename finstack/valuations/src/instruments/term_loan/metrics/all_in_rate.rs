@@ -1,14 +1,20 @@
 //! All-in rate metric for term loans.
 //!
-//! Approximates the effective annualized borrower cost including cash interest
+//! Computes the effective annualized borrower **cash cost** including cash interest
 //! and periodic fees, divided by time-weighted outstanding principal.
+//!
+//! This metric uses the corrected outstanding path from the full cashflow schedule,
+//! accounting for DDTL draw timing, amortization, and PIK capitalization.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::money::Money;
 
-/// All-in rate calculator for term loans (including fees and OID)
+/// All-in rate calculator for term loans.
+///
+/// Returns the cash-cost all-in rate: (cash interest + fees) / time-weighted outstanding.
+/// PIK interest is excluded from the numerator (cash cost only) but affects outstanding.
 pub struct AllInRateCalculator;
 
 impl MetricCalculator for AllInRateCalculator {
@@ -17,36 +23,37 @@ impl MetricCalculator for AllInRateCalculator {
         let market = &context.curves;
         let as_of = context.as_of;
 
-        // Build coupon schedule
-        let sched = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
+        // Build full cashflow schedule to get outstanding path
+        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
+            loan,
+            market,
+            as_of,
+        )?;
+        
+        // Get outstanding path including notional draws/repays, amortization, and PIK
+        let out_path = schedule.outstanding_by_date_including_notional();
+
+        // Helper to look up outstanding at a given date
+        let outstanding_at = |target: finstack_core::dates::Date| -> finstack_core::Result<Money> {
+            for (d, amt) in &out_path {
+                if *d >= target {
+                    return Ok(*amt);
+                }
+            }
+            Ok(Money::new(0.0, loan.currency))
+        };
+
+        // Build coupon dates
+        let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
             .frequency(loan.pay_freq)
-            .stub_rule(loan.stub)
-            .build()?;
+            .stub_rule(loan.stub);
+        if let Some(ref cal_id) = loan.calendar_id {
+            schedule_builder = schedule_builder.adjust_with_id(loan.bdc, cal_id);
+        }
+        let sched = schedule_builder.build()?;
         let mut dates: Vec<finstack_core::dates::Date> = sched.into_iter().collect();
         if dates.first().copied() != Some(loan.issue) {
             dates.insert(0, loan.issue);
-        }
-
-        // Track outstanding using simple path: initial draws and PIK add; sweeps/amort subtract
-        let mut outstanding = Money::new(0.0, loan.currency);
-        if let Some(ddtl) = &loan.ddtl {
-            let draw_stop = loan
-                .covenants
-                .as_ref()
-                .and_then(|c| c.draw_stop_dates.iter().min().copied());
-            for ev in &ddtl.draws {
-                if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {
-                    continue;
-                }
-                if let Some(ds) = draw_stop {
-                    if ev.date >= ds {
-                        continue;
-                    }
-                }
-                outstanding = outstanding.checked_add(ev.amount)?;
-            }
-        } else {
-            outstanding = outstanding.checked_add(loan.notional_limit)?;
         }
 
         let dc = loan.day_count;
@@ -60,6 +67,9 @@ impl MetricCalculator for AllInRateCalculator {
                 continue;
             }
             let yf = dc.year_fraction(prev, d, DayCountCtx::default())?;
+            
+            // Outstanding at start of period
+            let outstanding = outstanding_at(prev)?;
 
             // Compute period rate with centralized projection
             let rate = match &loan.rate {
@@ -116,13 +126,6 @@ impl MetricCalculator for AllInRateCalculator {
 
             fee_interest_sum += cash_interest + fees;
             time_weighted_outstanding += outstanding.amount() * yf;
-
-            // Apply sweeps/amortization
-            if let Some(cov) = &loan.covenants {
-                for s in cov.cash_sweeps.iter().filter(|s| s.date == d) {
-                    outstanding = outstanding.checked_sub(s.amount)?;
-                }
-            }
 
             prev = d;
         }

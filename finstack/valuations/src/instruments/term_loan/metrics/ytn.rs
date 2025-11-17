@@ -1,32 +1,49 @@
 //! Yield-to-N-years calculators for term loans.
+//!
+//! Computes IRR to fixed horizons (2y, 3y, 4y) using holder-view cashflows
+//! and outstanding principal at the horizon date for redemption.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
+/// Solve IRR to a fixed horizon using holder-view cashflows and outstanding at horizon.
 fn solve_irr_to_date(
     loan: &TermLoan,
-    schedule: &crate::cashflow::builder::schedule::CashFlowSchedule,
+    curves: &finstack_core::market_data::MarketContext,
     as_of: Date,
     target_price: Money,
     exercise_date: Date,
 ) -> finstack_core::Result<f64> {
+    use crate::cashflow::traits::CashflowProvider;
+    
+    // Build full schedule to get outstanding path
+    let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
+        loan,
+        curves,
+        as_of,
+    )?;
+    
+    // Get holder-view flows
+    let holder_flows = loan.build_schedule(curves, as_of)?;
+    
     let mut flows: Vec<(Date, Money)> = Vec::new();
-    // Include initial outflow equal to current base PV
+    // Initial price leg
     flows.push((
         as_of,
         Money::new(-target_price.amount(), target_price.currency()),
     ));
-    for cf in &schedule.flows {
-        if cf.date <= as_of || cf.date > exercise_date {
-            continue;
+    
+    // Add holder-view flows up to exercise date
+    for (date, amount) in holder_flows {
+        if date > as_of && date <= exercise_date {
+            flows.push((date, amount));
         }
-        flows.push((cf.date, cf.amount));
     }
 
     // Redemption = outstanding at exercise date
-    let out_path = schedule.outstanding_path();
+    let out_path = schedule.outstanding_by_date_including_notional();
     let mut outstanding_at = Money::new(0.0, loan.currency);
     for (d, amt) in &out_path {
         if *d <= exercise_date {
@@ -74,13 +91,7 @@ macro_rules! define_ytn {
                     return Ok(0.0);
                 }
 
-                let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
-                    loan,
-                    &context.curves,
-                    as_of,
-                )?;
-
-                solve_irr_to_date(loan, &schedule, as_of, context.base_value, exercise_date)
+                solve_irr_to_date(loan, &context.curves, as_of, context.base_value, exercise_date)
             }
         }
     };

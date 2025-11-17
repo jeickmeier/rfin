@@ -150,3 +150,7 @@ mod repo;
 /// Revolving credit tests - Revolving credit facilities
 #[path = "instruments/revolving_credit/mod.rs"]
 mod revolving_credit;
+
+/// Term loan tests - Institutional term loans and DDTL facilities
+#[path = "instruments/term_loan/mod.rs"]
+mod term_loan;

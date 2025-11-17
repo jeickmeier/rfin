@@ -1,10 +1,18 @@
 //! YTM metric for term loans via IRR solving.
+//!
+//! Yield-to-maturity is computed using the holder-view cashflow schedule (excluding
+//! funding legs) with an initial price leg at `as_of` equal to the negative base PV.
+//! Uses the same IRR engine and day-count as the loan for consistency.
 
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
-/// Yield-to-maturity calculator for term loans
+/// Yield-to-maturity calculator for term loans.
+///
+/// Solves for the IRR using holder-view flows (coupons, amortization, redemptions only)
+/// plus an initial price leg at as_of.
 pub struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
@@ -12,25 +20,25 @@ impl MetricCalculator for YtmCalculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        // Build full schedule and convert to (Date, Money)
-        let sched = crate::instruments::term_loan::cashflows::generate_cashflows(
-            loan,
-            &context.curves,
-            as_of,
-        )?;
+        // Use holder-view schedule (via CashflowProvider::build_schedule)
+        // This filters to contractual inflows: coupons, amortization, positive redemptions
+        let holder_flows = loan.build_schedule(&context.curves, as_of)?;
 
         let mut flows: Vec<(finstack_core::dates::Date, Money)> =
-            Vec::with_capacity(sched.flows.len() + 1);
-        // Add initial outflow equal to -PV at as_of to emulate market price
+            Vec::with_capacity(holder_flows.len() + 1);
+        
+        // Add initial price leg at as_of (negative = outflow for purchase)
         let base_pv = context.base_value;
         flows.push((as_of, Money::new(-base_pv.amount(), base_pv.currency())));
-        for cf in &sched.flows {
-            if cf.date <= as_of {
-                continue;
+        
+        // Add holder-view flows (already filtered for dates > as_of by build_schedule)
+        for (date, amount) in holder_flows {
+            if date > as_of {
+                flows.push((date, amount));
             }
-            flows.push((cf.date, cf.amount));
         }
 
+        // Solve IRR using the loan's day-count convention
         crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
     }
 }

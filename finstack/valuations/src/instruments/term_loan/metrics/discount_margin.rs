@@ -2,6 +2,16 @@
 //!
 //! Solves for an additive spread (decimal) to the projected index such that
 //! discounted PV matches observed price (or base PV if no quote provided).
+//!
+//! # Fidelity Level
+//!
+//! This implementation uses a **moderate-fidelity** approximation:
+//! - Uses a simplified outstanding path (aggregates draws, no time-dependent DDTL/amortization/PIK).
+//! - Adds DM to the forward rate directly (does not re-run full cashflow engine).
+//! - Suitable for plain floating-rate loans; may deviate for complex DDTL/amortizing structures.
+//!
+//! For higher fidelity, consider implementing a version that adjusts the spread in a cloned
+//! `TermLoan` and re-runs `generate_cashflows` + `TermLoanDiscountingPricer`.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
