@@ -587,6 +587,8 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 }
 
+
+// Implement HasDiscountCurve for Bond
 impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -604,6 +606,7 @@ impl crate::metrics::HasCreditCurve for Bond {
     }
 }
 
+// Implement CurveDependencies for DV01/CS01 calculators
 impl crate::instruments::common::traits::CurveDependencies for Bond {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()

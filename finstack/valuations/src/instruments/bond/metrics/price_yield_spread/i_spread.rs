@@ -1,6 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{BusinessDayConvention, DayCount, DayCountCtx, Frequency, StubKind};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, StubKind};
 
 /// Configuration for I-Spread fixed-leg conventions.
 ///
@@ -71,14 +71,13 @@ impl MetricCalculator for ISpreadCalculator {
         // Build proxy fixed-leg schedule using configured frequency and standard
         // business-day / stub rules. This approximates a plain-vanilla par swap
         // fixed leg at the bond maturity.
-        let dates = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
-            context.as_of,
-            bond.maturity,
-            self.config.fixed_leg_frequency,
-            StubKind::ShortFront,
-            BusinessDayConvention::Following,
-            None,
-        );
+        let dates: Vec<Date> = finstack_core::dates::ScheduleBuilder::new(context.as_of, bond.maturity)
+            .frequency(self.config.fixed_leg_frequency)
+            .stub_rule(StubKind::ShortFront)
+            .build()?
+            .into_iter()
+            .collect();
+        
         if dates.len() < 2 {
             return Ok(0.0);
         }

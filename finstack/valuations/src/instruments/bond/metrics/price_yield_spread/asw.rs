@@ -354,14 +354,17 @@ impl MetricCalculator for AssetSwapParCalculator {
         // Market standard: Par swap rate via discount ratio on the ASW fixed-leg
         // schedule. By default this matches the bond schedule; callers may
         // override fixed-leg conventions via AssetSwapConfig.
-        let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
-            context.as_of,
-            maturity,
-            freq,
-            stub,
-            bdc,
-            calendar_id,
-        );
+        let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)
+            .frequency(freq)
+            .stub_rule(stub);
+        
+        if let Some(id) = calendar_id {
+            if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
+                builder = builder.adjust_with(bdc, cal);
+            }
+        }
+        
+        let sched: Vec<Date> = builder.build()?.into_iter().collect();
         if sched.len() < 2 {
             return Ok(0.0);
         }
@@ -492,14 +495,17 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                     _ => return Err(finstack_core::error::InputError::Invalid.into()),
                 },
             };
-            let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
-                context.as_of,
-                maturity,
-                freq,
-                stub,
-                bdc,
-                calendar_id,
-            );
+            let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)
+                .frequency(freq)
+                .stub_rule(stub);
+            
+            if let Some(id) = calendar_id {
+                if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
+                    builder = builder.adjust_with(bdc, cal);
+                }
+            }
+            
+            let sched: Vec<Date> = builder.build()?.into_iter().collect();
             let ann = fixed_leg_annuity(disc, dc, &sched);
             notional_amt * coupon * ann
         };
@@ -536,20 +542,23 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let freq = self.config.fixed_leg_frequency.unwrap_or(bond_freq);
         let stub = self.config.fixed_leg_stub.unwrap_or(bond_stub);
         let bdc = self.config.fixed_leg_bdc.unwrap_or(bond_bdc);
-        let calendar_id = self
+        let calendar_id =         self
             .config
             .fixed_leg_calendar_id
             .as_deref()
             .or(bond_calendar_id);
 
-        let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
-            context.as_of,
-            maturity,
-            freq,
-            stub,
-            bdc,
-            calendar_id,
-        );
+        let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)
+            .frequency(freq)
+            .stub_rule(stub);
+        
+        if let Some(id) = calendar_id {
+            if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
+                builder = builder.adjust_with(bdc, cal);
+            }
+        }
+        
+        let sched: Vec<Date> = builder.build()?.into_iter().collect();
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
         let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
         if ann == 0.0 || notional_amt == 0.0 {
