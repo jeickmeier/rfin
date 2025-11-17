@@ -4,7 +4,6 @@
 
 /// Bond pricing engine (valuation logic)
 pub mod engine;
-pub mod helpers;
 /// Bond pricer implementation (registry integration)
 pub mod pricer;
 /// Quote engine for mapping between price, yields, and spreads

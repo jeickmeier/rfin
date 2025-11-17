@@ -1,6 +1,6 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
-use crate::instruments::bond::pricing::helpers::{
+use crate::instruments::bond::pricing::quote_engine::{
     fixed_leg_annuity, par_rate_and_annuity_from_discount,
 };
 use crate::instruments::bond::CashflowSpec;

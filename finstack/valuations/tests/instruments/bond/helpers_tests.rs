@@ -3,9 +3,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::pricing::helpers::*;
 use finstack_valuations::instruments::bond::pricing::quote_engine::{
-    df_from_yield, price_from_ytm_compounded_params, YieldCompounding,
+    df_from_yield, periods_per_year, price_from_ytm_compounded_params, YieldCompounding,
 };
 
 #[test]
