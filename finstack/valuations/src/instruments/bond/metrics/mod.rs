@@ -32,10 +32,12 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (DirtyPrice, DirtyPriceCalculator),
             (CleanPrice, CleanPriceCalculator),
             (Ytm, YtmCalculator),
+            (Ytw, YtwCalculator),  
+
             (DurationMac, MacaulayDurationCalculator),
             (DurationMod, ModifiedDurationCalculator),
             (Convexity, ConvexityCalculator),
-            (Ytw, YtwCalculator),
+
             (Oas, OasCalculator),
             (ZSpread, ZSpreadCalculator::default()),
             (ISpread, ISpreadCalculator::default()),
@@ -44,13 +46,14 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ASWMarket, AssetSwapMarketCalculator::default()),
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
+
+            // Theta is now registered universally in metrics::standard_registry()            
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::Bond,
             >::default()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
