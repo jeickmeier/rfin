@@ -394,7 +394,7 @@ mod tests {
         use finstack_valuations::instruments::common::parameters::PayReceive;
 
         // Create a Swap using valuations
-        let swap = InterestRateSwap::new(
+        let swap = InterestRateSwap::create_swap(
             InstrumentId::new("SWAP-001"),
             Money::new(5_000_000.0, Currency::USD),
             0.04,

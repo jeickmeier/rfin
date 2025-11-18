@@ -117,27 +117,6 @@ fn test_off_market_swap_all_metrics() {
     assert!(result.value.amount() < 0.0);
 }
 
-#[test]
-fn test_basis_swap() {
-    // Basis swap: float vs float with different indices
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
-
-    let swap = InterestRateSwap::usd_basis_swap(
-        "BASIS_SWAP".into(),
-        Money::new(1_000_000.0, Currency::USD),
-        as_of,
-        end,
-        15.0, // 15bp spread on primary leg
-        10.0, // 10bp spread on reference leg
-    );
-
-    let market = build_flat_curves(0.05, 0.05, as_of);
-
-    let npv = swap.value(&market, as_of);
-
-    assert!(npv.is_ok(), "Basis swap should price successfully");
-}
 
 #[test]
 fn test_multi_curve_environment() {

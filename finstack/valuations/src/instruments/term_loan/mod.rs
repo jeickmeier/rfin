@@ -11,7 +11,6 @@ pub mod types;
 // Re-export main type
 pub use spec::{
     AmortizationSpec, CashSweepEvent, CommitmentFeeBase, CommitmentStepDown, CovenantSpec,
-    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, OidEirSpec, OidPolicy, PikSpec, PikToggle,
-    TermLoanSpec,
+    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, OidPolicy, PikToggle, TermLoanSpec,
 };
 pub use types::TermLoan;

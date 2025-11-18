@@ -152,7 +152,7 @@ impl InterestRateSwap {
     }
 
     /// Helper to construct a swap with specified curve configuration.
-    fn create_swap(
+    fn create_swap_with_config(
         id: InstrumentId,
         notional: Money,
         fixed_rate: f64,
@@ -198,23 +198,26 @@ impl InterestRateSwap {
             .expect("Swap construction should not fail")
     }
 
-    /// Create a standard interest rate swap (most common use case).
+    /// Create a standard USD interest rate swap (most common use case).
     ///
     /// Creates a USD swap with standard market conventions. For other
-    /// currencies or custom conventions, use `::with_convention()` or `::builder()`.
+    /// currencies or custom conventions, use `::builder()`.
+    ///
+    /// This replaces the former `InterestRateSwap::new` convenience
+    /// constructor.
     ///
     /// # Example
     /// ```ignore
-    /// let swap = InterestRateSwap::new(
+    /// let swap = InterestRateSwap::create_swap(
     ///     "IRS-5Y".into(),
     ///     Money::new(10_000_000.0, Currency::USD),
     ///     0.03,
     ///     start,
     ///     end,
-    ///     PayReceive::PayFixed
+    ///     PayReceive::PayFixed,
     /// );
     /// ```
-    pub fn new(
+    pub fn create_swap(
         id: InstrumentId,
         notional: Money,
         fixed_rate: f64,
@@ -222,7 +225,7 @@ impl InterestRateSwap {
         end: Date,
         side: PayReceive,
     ) -> Self {
-        Self::create_swap(
+        Self::create_swap_with_config(
             id,
             notional,
             fixed_rate,
@@ -237,133 +240,6 @@ impl InterestRateSwap {
             },
         )
     }
-
-    /// Create a USD basis swap (float vs float with different indices/spreads).
-    ///
-    /// This is modeled as an IRS where the "fixed" leg carries the primary
-    /// spread as a fixed coupon, and the floating leg carries the reference
-    /// spread on a different index.
-    pub fn usd_basis_swap(
-        id: InstrumentId,
-        notional: Money,
-        start: Date,
-        end: Date,
-        primary_spread_bp: f64,   // Spread on the "fixed" leg (really floating)
-        reference_spread_bp: f64, // Spread on the "float" leg
-    ) -> Self {
-        let sched = crate::cashflow::builder::ScheduleParams::usd_standard();
-        let fixed = FixedLegSpec {
-            discount_curve_id: CurveId::from("USD-OIS"),
-            rate: primary_spread_bp * 1e-4,
-            freq: sched.freq,
-            dc: sched.dc,
-            bdc: sched.bdc,
-            calendar_id: sched.calendar_id.clone(),
-            stub: sched.stub,
-            start,
-            end,
-            par_method: None,
-            compounding_simple: true,
-        };
-        let float = FloatLegSpec {
-            discount_curve_id: CurveId::from("USD-OIS"),
-            forward_curve_id: CurveId::from("USD-SOFR-6M"),
-            spread_bp: reference_spread_bp,
-            freq: sched.freq,
-            dc: sched.dc,
-            bdc: sched.bdc,
-            calendar_id: sched.calendar_id.clone(),
-            stub: sched.stub,
-            reset_lag_days: 2,
-            start,
-            end,
-            compounding: Default::default(),
-        };
-        Self::builder()
-            .id(id)
-            .notional(notional)
-            .side(PayReceive::PayFixed)
-            .fixed(fixed)
-            .float(float)
-            .build()
-            .expect("USD basis swap construction should not fail")
-    }
-
-    /// Create a swap with standard market conventions.
-    ///
-    /// Applies region-specific conventions for day count, frequency, calendars,
-    /// and curve identifiers. For full customization, use `::builder()`.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let swap = InterestRateSwap::with_convention(
-    ///     "EUR-IRS-10Y".into(),
-    ///     notional,
-    ///     0.02,
-    ///     start,
-    ///     end,
-    ///     PayReceive::PayFixed,
-    ///     IRSConvention::EURStandard
-    /// );
-    /// ```
-    pub fn with_convention(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-        convention: crate::instruments::common::parameters::IRSConvention,
-    ) -> Self {
-        use finstack_core::dates::StubKind;
-        use finstack_core::types::CurveId;
-
-        let fixed_freq = convention.fixed_frequency();
-        let float_freq = convention.float_frequency();
-        let fixed_dc = convention.fixed_day_count();
-        let float_dc = convention.float_day_count();
-        let bdc = convention.business_day_convention();
-        let calendar_id = convention.calendar_id();
-
-        let fixed = FixedLegSpec {
-            discount_curve_id: CurveId::from(convention.disc_curve_id()),
-            rate: fixed_rate,
-            freq: fixed_freq,
-            dc: fixed_dc,
-            bdc,
-            calendar_id: calendar_id.clone(),
-            stub: StubKind::None,
-            start,
-            end,
-            par_method: None,
-            compounding_simple: true,
-        };
-        let float = FloatLegSpec {
-            discount_curve_id: CurveId::from(convention.disc_curve_id()),
-            forward_curve_id: CurveId::from(convention.forward_curve_id()),
-            spread_bp: 0.0,
-            freq: float_freq,
-            dc: float_dc,
-            bdc,
-            calendar_id,
-            stub: StubKind::None,
-            reset_lag_days: convention.reset_lag_days(),
-            start,
-            end,
-            compounding: Default::default(),
-        };
-
-        Self::builder()
-            .id(id)
-            .notional(notional)
-            .side(side)
-            .fixed(fixed)
-            .float(float)
-            .build()
-            .expect("IRS with convention construction should not fail")
-    }
-
-
 
 }
 

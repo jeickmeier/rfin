@@ -30,7 +30,7 @@ fn main() -> finstack_core::Result<()> {
     println!("----------------------------------------");
 
     // Interest Rate Swap - ONE LINE!
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-001".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.045, // 4.5% fixed rate

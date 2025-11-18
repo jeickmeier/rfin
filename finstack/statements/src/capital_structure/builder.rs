@@ -126,7 +126,7 @@ impl<State> ModelBuilder<State> {
         use finstack_valuations::instruments::common::parameters::PayReceive;
 
         // Create swap using valuations crate
-        let swap = InterestRateSwap::new(
+        let swap = InterestRateSwap::create_swap(
             InstrumentId::new(&id_str),
             notional,
             fixed_rate,

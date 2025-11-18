@@ -281,6 +281,7 @@ pub enum OidEirMethod {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 #[deprecated(note = "Experimental type not yet implemented. Use DdtlSpec::oid_policy instead.")]
+#[allow(deprecated)] // Allow deprecated types in deprecated struct (eir_method uses OidEirMethod)
 pub struct OidEirSpec {
     /// Total OID amount (discount from par)
     pub amount: Money,
@@ -356,6 +357,7 @@ pub struct OidEirSpec {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[allow(deprecated)] // Allow deprecated types in deprecated fields (oid_eir uses OidEirSpec)
 pub struct TermLoanSpec {
     /// Unique instrument identifier
     pub id: InstrumentId,

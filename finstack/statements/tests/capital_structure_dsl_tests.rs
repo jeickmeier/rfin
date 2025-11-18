@@ -451,7 +451,7 @@ fn test_build_swap_from_spec() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         InstrumentId::new("SWAP-001"),
         Money::new(5_000_000.0, Currency::USD),
         0.04,
@@ -547,7 +547,7 @@ fn test_build_any_instrument_from_spec_swap_variant() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         InstrumentId::new("SWAP-002"),
         Money::new(3_000_000.0, Currency::USD),
         0.045,

@@ -9,14 +9,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::parameters::IRSConvention;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
 
 #[test]
 fn test_irs_standard_construction() {
     // Standard USD swap using defaults
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-5Y".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -83,99 +82,6 @@ fn test_irs_builder_pattern() {
     assert_eq!(swap.float.freq, Frequency::quarterly());
 }
 
-#[test]
-fn test_irs_usd_convention() {
-    let swap = InterestRateSwap::with_convention(
-        "IRS-USD-10Y".into(),
-        Money::new(10_000_000.0, Currency::USD),
-        0.04,
-        date!(2024 - 01 - 01),
-        date!(2034 - 01 - 01),
-        PayReceive::PayFixed,
-        IRSConvention::USDStandard,
-    );
-
-    assert_eq!(swap.id.as_str(), "IRS-USD-10Y");
-    assert_eq!(swap.notional.amount(), 10_000_000.0);
-    assert_eq!(swap.fixed.rate, 0.04);
-
-    // Verify USD standard conventions
-    assert_eq!(swap.fixed.freq, Frequency::semi_annual());
-    assert_eq!(swap.float.freq, Frequency::semi_annual());
-    assert_eq!(swap.fixed.dc, DayCount::Thirty360);
-    assert_eq!(swap.float.dc, DayCount::Act360);
-    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "USD-OIS");
-    assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-3M");
-}
-
-#[test]
-fn test_irs_eur_convention() {
-    let swap = InterestRateSwap::with_convention(
-        "IRS-EUR-5Y".into(),
-        Money::new(5_000_000.0, Currency::EUR),
-        0.02,
-        date!(2024 - 01 - 01),
-        date!(2029 - 01 - 01),
-        PayReceive::ReceiveFixed,
-        IRSConvention::EURStandard,
-    );
-
-    assert_eq!(swap.id.as_str(), "IRS-EUR-5Y");
-
-    // Verify EUR standard conventions
-    assert_eq!(swap.fixed.freq, Frequency::annual());
-    assert_eq!(swap.float.freq, Frequency::semi_annual());
-    assert_eq!(swap.fixed.dc, DayCount::Thirty360);
-    assert_eq!(swap.float.dc, DayCount::Act360);
-    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "EUR-ESTR");
-    assert_eq!(swap.float.forward_curve_id.as_ref(), "EUR-EURIBOR-6M");
-}
-
-#[test]
-fn test_irs_gbp_convention() {
-    let swap = InterestRateSwap::with_convention(
-        "IRS-GBP-7Y".into(),
-        Money::new(3_000_000.0, Currency::GBP),
-        0.035,
-        date!(2024 - 01 - 01),
-        date!(2031 - 01 - 01),
-        PayReceive::PayFixed,
-        IRSConvention::GBPStandard,
-    );
-
-    assert_eq!(swap.id.as_str(), "IRS-GBP-7Y");
-
-    // Verify GBP standard conventions
-    assert_eq!(swap.fixed.freq, Frequency::semi_annual());
-    assert_eq!(swap.float.freq, Frequency::semi_annual());
-    assert_eq!(swap.fixed.dc, DayCount::Act365F);
-    assert_eq!(swap.float.dc, DayCount::Act365F);
-    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "GBP-SONIA");
-    assert_eq!(swap.float.forward_curve_id.as_ref(), "GBP-SONIA");
-}
-
-#[test]
-fn test_irs_basis_swap() {
-    // Basis swap: float vs float with different indices
-    let swap = InterestRateSwap::usd_basis_swap(
-        "BASIS-3M-6M".into(),
-        Money::new(1_000_000.0, Currency::USD),
-        date!(2024 - 01 - 01),
-        date!(2029 - 01 - 01),
-        15.0, // 15bp spread on primary leg
-        10.0, // 10bp spread on reference leg
-    );
-
-    assert_eq!(swap.id.as_str(), "BASIS-3M-6M");
-    assert_eq!(swap.notional.amount(), 1_000_000.0);
-
-    // Primary spread carried in fixed leg
-    assert_eq!(swap.fixed.rate, 15.0 * 1e-4);
-
-    // Reference spread on float leg
-    assert_eq!(swap.float.spread_bp, 10.0);
-    assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-6M");
-}
 
 #[test]
 fn test_irs_receive_vs_pay() {
@@ -184,7 +90,7 @@ fn test_irs_receive_vs_pay() {
     let notional = Money::new(1_000_000.0, Currency::USD);
     let rate = 0.05;
 
-    let swap_receive = InterestRateSwap::new(
+    let swap_receive = InterestRateSwap::create_swap(
         "IRS-RECEIVE".into(),
         notional,
         rate,
@@ -193,7 +99,7 @@ fn test_irs_receive_vs_pay() {
         PayReceive::ReceiveFixed,
     );
 
-    let swap_pay = InterestRateSwap::new(
+    let swap_pay = InterestRateSwap::create_swap(
         "IRS-PAY".into(),
         notional,
         rate,
@@ -213,7 +119,7 @@ fn test_irs_receive_vs_pay() {
 #[test]
 fn test_irs_short_maturity() {
     // 6-month swap
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-6M".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -229,7 +135,7 @@ fn test_irs_short_maturity() {
 #[test]
 fn test_irs_long_maturity() {
     // 30-year swap
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-30Y".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04,
@@ -244,7 +150,7 @@ fn test_irs_long_maturity() {
 
 #[test]
 fn test_irs_zero_spread() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-ZERO-SPREAD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -258,7 +164,7 @@ fn test_irs_zero_spread() {
 
 #[test]
 fn test_irs_with_spread() {
-    let mut swap = InterestRateSwap::new(
+    let mut swap = InterestRateSwap::create_swap(
         "IRS-WITH-SPREAD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -275,7 +181,7 @@ fn test_irs_with_spread() {
 #[test]
 fn test_irs_large_notional() {
     // Test with large notional typical of institutional trades
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-LARGE".into(),
         Money::new(1_000_000_000.0, Currency::USD), // $1B
         0.045,
@@ -290,7 +196,7 @@ fn test_irs_large_notional() {
 #[test]
 fn test_irs_small_notional() {
     // Test with small notional
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-SMALL".into(),
         Money::new(10_000.0, Currency::USD),
         0.05,
@@ -349,7 +255,7 @@ fn test_irs_different_leg_frequencies() {
 
 #[test]
 fn test_irs_attribute_management() {
-    let mut swap = InterestRateSwap::new(
+    let mut swap = InterestRateSwap::create_swap(
         "IRS-ATTRS".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

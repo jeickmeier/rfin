@@ -45,7 +45,7 @@ fn build_test_curves() -> MarketContext {
 
 #[test]
 fn test_irs_cashflow_schedule_generation() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-CF-TEST".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -171,7 +171,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
 
 #[test]
 fn test_irs_floating_leg_schedule() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-FLOAT-TEST".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -289,7 +289,7 @@ fn test_irs_stub_back() {
 
 #[test]
 fn test_irs_cashflow_dates_ordered() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-DATES".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -313,7 +313,7 @@ fn test_irs_cashflow_dates_ordered() {
 
 #[test]
 fn test_irs_cashflow_amounts_nonzero() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-AMOUNTS".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -339,7 +339,7 @@ fn test_irs_cashflow_amounts_nonzero() {
 
 #[test]
 fn test_irs_full_schedule_with_cfkind() {
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-FULL-SCHED".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -468,7 +468,7 @@ fn test_irs_calendar_adjustments() {
 #[test]
 fn test_irs_receive_fixed_cashflow_signs() {
     // Receive fixed: fixed coupons positive, float negative
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-RECEIVE".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -509,7 +509,7 @@ fn test_irs_receive_fixed_cashflow_signs() {
 #[test]
 fn test_irs_pay_fixed_cashflow_signs() {
     // Pay fixed: fixed coupons negative, float positive
-    let swap = InterestRateSwap::new(
+    let swap = InterestRateSwap::create_swap(
         "IRS-PAY".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

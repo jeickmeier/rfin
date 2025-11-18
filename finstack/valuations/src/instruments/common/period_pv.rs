@@ -504,7 +504,7 @@ mod tests {
         let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
 
         // Create a simple IRS using constructor
-        let irs = InterestRateSwap::new(
+        let irs = InterestRateSwap::create_swap(
             InstrumentId::new("IRS-001"),
             Money::new(1_000_000.0, Currency::USD),
             0.04, // 4% fixed

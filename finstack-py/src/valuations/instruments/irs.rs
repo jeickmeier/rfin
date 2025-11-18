@@ -142,7 +142,7 @@ impl PyInterestRateSwap {
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
-        Ok(Self::new(InterestRateSwap::new(
+        Ok(Self::new(InterestRateSwap::create_swap(
             id,
             amt,
             fixed_rate,
@@ -184,7 +184,7 @@ impl PyInterestRateSwap {
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
-        Ok(Self::new(InterestRateSwap::new(
+        Ok(Self::new(InterestRateSwap::create_swap(
             id,
             amt,
             fixed_rate,
@@ -194,49 +194,6 @@ impl PyInterestRateSwap {
         )))
     }
 
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, start, end, primary_spread_bp, reference_spread_bp)"
-    )]
-    /// Create a USD basis swap with spreads applied to both floating legs.
-    ///
-    /// Note: Uses USD market conventions. For explicit curve control, use ``builder()``.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     start: Effective start date.
-    ///     end: Maturity date.
-    ///     primary_spread_bp: Spread in basis points for the primary floating leg.
-    ///     reference_spread_bp: Spread in basis points for the reference floating leg.
-    ///
-    /// Returns:
-    ///     InterestRateSwap: Configured basis swap.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    fn usd_basis_swap(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
-        primary_spread_bp: f64,
-        reference_spread_bp: f64,
-    ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
-        let amt = extract_money(&notional)?;
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
-        Ok(Self::new(InterestRateSwap::usd_basis_swap(
-            id,
-            amt,
-            start_date,
-            end_date,
-            primary_spread_bp,
-            reference_spread_bp,
-        )))
-    }
 
     #[classmethod]
     #[pyo3(
