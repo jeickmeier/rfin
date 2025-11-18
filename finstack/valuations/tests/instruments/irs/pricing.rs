@@ -306,7 +306,7 @@ fn test_irs_npv_scales_with_notional() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap_1m = InterestRateSwap::create_swap(
+    let swap_1m = InterestRateSwap::create_usd_swap(
         "SWAP_1M".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -315,7 +315,7 @@ fn test_irs_npv_scales_with_notional() {
         PayReceive::ReceiveFixed,
     );
 
-    let swap_10m = InterestRateSwap::create_swap(
+    let swap_10m = InterestRateSwap::create_usd_swap(
         "SWAP_10M".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.05,
@@ -342,7 +342,7 @@ fn test_irs_rate_sensitivity_inverse() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_RATE_SENS".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -391,7 +391,7 @@ fn test_irs_with_spread() {
         .insert_forward(fwd_curve);
 
     // Swap with 50bp spread on floating leg
-    let mut swap = InterestRateSwap::create_swap(
+    let mut swap = InterestRateSwap::create_usd_swap(
         "SWAP_SPREAD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -424,7 +424,7 @@ fn test_irs_short_maturity() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_1Y".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -456,7 +456,7 @@ fn test_irs_long_maturity() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_30Y".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -488,7 +488,7 @@ fn test_irs_zero_rate() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_ZERO".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -516,7 +516,7 @@ fn test_irs_theta_calculation() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_THETA".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -553,7 +553,7 @@ fn test_irs_forward_starting() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_FORWARD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -579,7 +579,7 @@ fn test_irs_npv_currency_matches() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "SWAP_CCY".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

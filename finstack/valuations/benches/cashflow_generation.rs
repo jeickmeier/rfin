@@ -94,7 +94,7 @@ fn bench_swap_cashflow_generation(c: &mut Criterion) {
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2025 + tenor, Month::January, 1).unwrap();
 
-        let swap = InterestRateSwap::create_swap(
+        let swap = InterestRateSwap::create_usd_swap(
             format!("IRS-{}Y", tenor).into(),
             Money::new(10_000_000.0, Currency::USD),
             0.04,

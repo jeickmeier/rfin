@@ -59,7 +59,7 @@ proptest! {
         let start = base_date;
         let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 15).unwrap();
 
-        let swap_pay = InterestRateSwap::create_swap(
+        let swap_pay = InterestRateSwap::create_usd_swap(
             "PAY-FIXED".into(),
             Money::new(notional, Currency::USD),
             fixed_rate,
@@ -68,7 +68,7 @@ proptest! {
             PayReceive::PayFixed,
         );
 
-        let swap_rec = InterestRateSwap::create_swap(
+        let swap_rec = InterestRateSwap::create_usd_swap(
             "RECEIVE-FIXED".into(),
             Money::new(notional, Currency::USD),
             fixed_rate,
@@ -108,7 +108,7 @@ proptest! {
         let market = create_test_market(base_date, 0.04, 0.05);
 
         // First, find the par rate for this maturity
-        let temp_swap = InterestRateSwap::create_swap(
+        let temp_swap = InterestRateSwap::create_usd_swap(
             "PAR-FINDER".into(),
             Money::new(notional, Currency::USD),
             0.04, // temporary rate
@@ -126,7 +126,7 @@ proptest! {
         prop_assume!(par_rate > 0.001 && par_rate < 0.20);
 
         // Create swaps at par rate
-        let swap_pay = InterestRateSwap::create_swap(
+        let swap_pay = InterestRateSwap::create_usd_swap(
             "PAY-AT-PAR".into(),
             Money::new(notional, Currency::USD),
             par_rate,
@@ -135,7 +135,7 @@ proptest! {
             PayReceive::PayFixed,
         );
 
-        let swap_rec = InterestRateSwap::create_swap(
+        let swap_rec = InterestRateSwap::create_usd_swap(
             "REC-AT-PAR".into(),
             Money::new(notional, Currency::USD),
             par_rate,
@@ -167,7 +167,7 @@ proptest! {
         let start = base_date;
         let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 15).unwrap();
 
-        let swap = InterestRateSwap::create_swap(
+        let swap = InterestRateSwap::create_usd_swap(
             "ANNUITY-TEST".into(),
             Money::new(notional, Currency::USD),
             fixed_rate,

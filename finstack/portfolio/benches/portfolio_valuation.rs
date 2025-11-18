@@ -388,7 +388,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_common {
         let swap_id = format!("IRS_{}", i);
         let notional = Money::new(5_000_000.0 * (i + 1) as f64, Currency::USD);
-        let swap = InterestRateSwap::create_swap(
+        let swap = InterestRateSwap::create_usd_swap(
             swap_id.clone().into(),
             notional,
             0.04,

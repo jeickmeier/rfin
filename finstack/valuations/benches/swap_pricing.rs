@@ -24,7 +24,7 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
 
-    InterestRateSwap::create_swap(
+    InterestRateSwap::create_usd_swap(
         format!("IRS-{}Y", tenor_years).into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04, // 4% fixed rate

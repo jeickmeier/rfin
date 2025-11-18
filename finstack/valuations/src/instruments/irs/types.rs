@@ -106,6 +106,32 @@ impl IRSScheduleConfig {
 }
 
 impl InterestRateSwap {
+    /// Create a standard USD OIS-discounted IRS using ISDA market conventions.
+    ///
+    /// This is the primary convenience constructor used throughout tests and
+    /// examples. It builds a vanilla fixed-vs-floating swap with:
+    /// - Discount curve: `USD-OIS`
+    /// - Forward curve: `USD-SOFR-3M`
+    /// - Fixed leg: semi-annual, 30/360, Modified Following
+    /// - Float leg: quarterly, ACT/360, Modified Following, 2-day reset lag
+    pub fn create_usd_swap(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+    ) -> Self {
+        let config = SwapConfig {
+            disc_curve: "USD-OIS",
+            fwd_curve: "USD-SOFR-3M",
+            reset_lag_days: 2,
+            sched: IRSScheduleConfig::usd_isda_standard(),
+        };
+
+        Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
+    }
+
     /// Create a canonical example IRS for testing and documentation.
     ///
     /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
@@ -196,49 +222,6 @@ impl InterestRateSwap {
             .float(float)
             .build()
             .expect("Swap construction should not fail")
-    }
-
-    /// Create a standard USD interest rate swap (most common use case).
-    ///
-    /// Creates a USD swap with standard market conventions. For other
-    /// currencies or custom conventions, use `::builder()`.
-    ///
-    /// This replaces the former `InterestRateSwap::new` convenience
-    /// constructor.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let swap = InterestRateSwap::create_swap(
-    ///     "IRS-5Y".into(),
-    ///     Money::new(10_000_000.0, Currency::USD),
-    ///     0.03,
-    ///     start,
-    ///     end,
-    ///     PayReceive::PayFixed,
-    /// );
-    /// ```
-    pub fn create_swap(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-    ) -> Self {
-        Self::create_swap_with_config(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            side,
-            SwapConfig {
-                disc_curve: "USD-OIS",
-                fwd_curve: "USD-SOFR-3M",
-                reset_lag_days: 2,
-                sched: IRSScheduleConfig::usd_isda_standard(),
-            },
-        )
     }
 
 }
@@ -336,5 +319,61 @@ impl crate::instruments::common::traits::CurveDependencies for InterestRateSwap 
             .discount(self.fixed.discount_curve_id.clone())
             .forward(self.float.forward_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_swap_with_config_uses_usd_isda_standard_schedule() {
+        let config = SwapConfig {
+            disc_curve: "USD-OIS",
+            fwd_curve: "USD-SOFR-3M",
+            reset_lag_days: 2,
+            sched: IRSScheduleConfig::usd_isda_standard(),
+        };
+
+        let start =
+            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid start date");
+        let end =
+            Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid end date");
+
+        let swap = InterestRateSwap::create_swap_with_config(
+            InstrumentId::new("IRS-TEST-USD"),
+            Money::new(1_000_000.0, Currency::USD),
+            0.03,
+            start,
+            end,
+            PayReceive::PayFixed,
+            config,
+        );
+
+        let sched = IRSScheduleConfig::usd_isda_standard();
+
+        // Discount and forward curve wiring
+        assert_eq!(swap.fixed.discount_curve_id, CurveId::new("USD-OIS"));
+        assert_eq!(swap.float.discount_curve_id, CurveId::new("USD-OIS"));
+        assert_eq!(swap.float.forward_curve_id, CurveId::new("USD-SOFR-3M"));
+
+        // Schedule conventions match usd_isda_standard configuration
+        assert_eq!(swap.fixed.freq, sched.fixed_freq);
+        assert_eq!(swap.fixed.dc, sched.fixed_dc);
+        assert_eq!(swap.float.freq, sched.float_freq);
+        assert_eq!(swap.float.dc, sched.float_dc);
+        assert_eq!(swap.fixed.bdc, sched.bdc);
+        assert_eq!(swap.float.bdc, sched.bdc);
+        assert_eq!(swap.fixed.calendar_id, sched.calendar_id);
+        assert_eq!(swap.float.calendar_id, sched.calendar_id);
+        assert_eq!(swap.fixed.stub, sched.stub);
+        assert_eq!(swap.float.stub, sched.stub);
+
+        // Reset lag and date range are propagated correctly
+        assert_eq!(swap.float.reset_lag_days, 2);
+        assert_eq!(swap.fixed.start, start);
+        assert_eq!(swap.fixed.end, end);
+        assert_eq!(swap.float.start, start);
+        assert_eq!(swap.float.end, end);
     }
 }

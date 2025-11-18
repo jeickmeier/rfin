@@ -15,7 +15,7 @@ use time::macros::date;
 #[test]
 fn test_irs_standard_construction() {
     // Standard USD swap using defaults
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-5Y".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -90,7 +90,7 @@ fn test_irs_receive_vs_pay() {
     let notional = Money::new(1_000_000.0, Currency::USD);
     let rate = 0.05;
 
-    let swap_receive = InterestRateSwap::create_swap(
+    let swap_receive = InterestRateSwap::create_usd_swap(
         "IRS-RECEIVE".into(),
         notional,
         rate,
@@ -99,7 +99,7 @@ fn test_irs_receive_vs_pay() {
         PayReceive::ReceiveFixed,
     );
 
-    let swap_pay = InterestRateSwap::create_swap(
+    let swap_pay = InterestRateSwap::create_usd_swap(
         "IRS-PAY".into(),
         notional,
         rate,
@@ -119,7 +119,7 @@ fn test_irs_receive_vs_pay() {
 #[test]
 fn test_irs_short_maturity() {
     // 6-month swap
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-6M".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -135,7 +135,7 @@ fn test_irs_short_maturity() {
 #[test]
 fn test_irs_long_maturity() {
     // 30-year swap
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-30Y".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04,
@@ -150,7 +150,7 @@ fn test_irs_long_maturity() {
 
 #[test]
 fn test_irs_zero_spread() {
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-ZERO-SPREAD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -164,7 +164,7 @@ fn test_irs_zero_spread() {
 
 #[test]
 fn test_irs_with_spread() {
-    let mut swap = InterestRateSwap::create_swap(
+    let mut swap = InterestRateSwap::create_usd_swap(
         "IRS-WITH-SPREAD".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -181,7 +181,7 @@ fn test_irs_with_spread() {
 #[test]
 fn test_irs_large_notional() {
     // Test with large notional typical of institutional trades
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-LARGE".into(),
         Money::new(1_000_000_000.0, Currency::USD), // $1B
         0.045,
@@ -196,7 +196,7 @@ fn test_irs_large_notional() {
 #[test]
 fn test_irs_small_notional() {
     // Test with small notional
-    let swap = InterestRateSwap::create_swap(
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-SMALL".into(),
         Money::new(10_000.0, Currency::USD),
         0.05,
@@ -255,7 +255,7 @@ fn test_irs_different_leg_frequencies() {
 
 #[test]
 fn test_irs_attribute_management() {
-    let mut swap = InterestRateSwap::create_swap(
+    let mut swap = InterestRateSwap::create_usd_swap(
         "IRS-ATTRS".into(),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

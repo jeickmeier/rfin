@@ -495,45 +495,6 @@ mod tests {
     }
 
     #[test]
-    fn test_extension_available_for_many_instruments() {
-        use crate::instruments::common::parameters::PayReceive;
-        use crate::instruments::InterestRateSwap;
-        use finstack_core::types::InstrumentId;
-
-        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
-
-        // Create a simple IRS using constructor
-        let irs = InterestRateSwap::create_swap(
-            InstrumentId::new("IRS-001"),
-            Money::new(1_000_000.0, Currency::USD),
-            0.04, // 4% fixed
-            base,
-            maturity,
-            PayReceive::ReceiveFixed,
-        );
-
-        let market = create_test_market(base);
-        let periods = create_quarters_2025();
-
-        // This should compile and run without error
-        // (IRS implements both CashflowProvider and HasDiscountCurve)
-        let result = irs.periodized_pv(&periods, &market, base, DayCount::Act365F);
-
-        // We might get an error due to missing forward curve, but the method exists
-        // The key is that it compiles, showing the extension trait works
-        match result {
-            Ok(_pv_map) => {
-                // Success case
-            }
-            Err(_e) => {
-                // Expected: missing forward curve in market
-                // But the method compiled and was callable
-            }
-        }
-    }
-
-    #[test]
     fn test_periodized_pv_empty_periods_returns_empty() {
         let bond = create_test_bond();
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");

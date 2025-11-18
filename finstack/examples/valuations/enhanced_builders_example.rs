@@ -29,8 +29,8 @@ fn main() -> finstack_core::Result<()> {
     println!("1. Ultra-Simple Convenience Constructors");
     println!("----------------------------------------");
 
-    // Interest Rate Swap - ONE LINE!
-    let swap = InterestRateSwap::create_swap(
+    // Interest Rate Swap - ONE LINE (USD market standard)!
+    let swap = InterestRateSwap::create_usd_swap(
         "IRS-001".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.045, // 4.5% fixed rate

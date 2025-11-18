@@ -18,7 +18,7 @@ fn create_test_swap() -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    InterestRateSwap::create_swap(
+    InterestRateSwap::create_usd_swap(
         "IRS-DETERMINISM-TEST".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04, // 4% fixed rate
@@ -208,7 +208,7 @@ fn test_swap_pay_vs_receive_determinism() {
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let swap_pay = InterestRateSwap::create_swap(
+    let swap_pay = InterestRateSwap::create_usd_swap(
         "PAY-FIXED".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04,
@@ -217,7 +217,7 @@ fn test_swap_pay_vs_receive_determinism() {
         PayReceive::PayFixed,
     );
 
-    let swap_rec = InterestRateSwap::create_swap(
+    let swap_rec = InterestRateSwap::create_usd_swap(
         "RECEIVE-FIXED".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.04,
