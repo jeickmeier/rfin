@@ -36,9 +36,17 @@ fn build_flat_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketCo
         .build()
         .unwrap();
 
+    let fwd_curve_6m = ForwardCurve::builder("USD-SOFR-6M", 0.5)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, fwd_rate), (10.0, fwd_rate)])
+        .build()
+        .unwrap();
+
     MarketContext::new()
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve)
+        .insert_forward(fwd_curve_6m)
 }
 
 fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> InterestRateSwap {
@@ -377,11 +385,13 @@ fn test_swap_risk_attribution() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let annuity = *result.measures.get("annuity").unwrap();
 
-    // Verify risk attribution is consistent
+    // Verify risk attribution is consistent. With a multi-curve setup the
+    // float leg also contributes discounting risk, so we allow a modest
+    // tolerance around the annuity-based approximation.
     let expected_dv01 = annuity * 1_000_000.0 * 0.0001;
     let ratio = dv01.abs() / expected_dv01;
     assert!(
-        (ratio - 1.0).abs() < 0.02, // 2% tolerance for numerical precision
+        (ratio - 1.0).abs() < 0.05, // 5% tolerance for multi-curve + numerical effects
         "DV01 {} should be close to annuity-based estimate {}, ratio: {}",
         dv01,
         expected_dv01,

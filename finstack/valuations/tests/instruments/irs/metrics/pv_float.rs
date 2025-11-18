@@ -190,6 +190,41 @@ fn test_pv_float_equals_fixed_at_par() {
 }
 
 #[test]
+fn test_swap_npv_matches_leg_pvs() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let swap = create_swap(as_of, end, 0.05);
+    let market = build_curves(0.05, 0.05, as_of);
+
+    // Base NPV from the instrument pricer
+    let npv = swap.value(&market, as_of).unwrap().amount();
+
+    // Leg PVs from metrics should recombine to the same NPV
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::PvFixed, MetricId::PvFloat])
+        .unwrap();
+
+    let pv_fixed = *result.measures.get("pv_fixed").unwrap();
+    let pv_float = *result.measures.get("pv_float").unwrap();
+
+    let recomposed = match swap.side {
+        PayReceive::ReceiveFixed => pv_fixed - pv_float,
+        PayReceive::PayFixed => pv_float - pv_fixed,
+    };
+
+    assert!(
+        (npv - recomposed).abs() < 1e-6,
+        "NPV from instrument ({}) should match recomposed leg PVs ({}). \
+         pv_fixed={}, pv_float={}",
+        npv,
+        recomposed,
+        pv_fixed,
+        pv_float
+    );
+}
+
+#[test]
 fn test_pv_float_independent_of_side() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);

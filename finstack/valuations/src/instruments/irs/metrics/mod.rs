@@ -4,7 +4,6 @@
 //! focused files under this directory.
 
 pub mod annuity;
-pub mod convexity;
 pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
@@ -18,16 +17,17 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
         metrics: [
             (Annuity, annuity::AnnuityCalculator),
             (ParRate, par_rate::ParRateCalculator),
+
+            // Theta is now registered universally in metrics::standard_registry()
+
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (IrConvexity, convexity::ConvexityCalculator),
-            (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::InterestRateSwap,
-            >::default()),
+
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
         ]

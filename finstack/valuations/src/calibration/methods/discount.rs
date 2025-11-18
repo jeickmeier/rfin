@@ -12,6 +12,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
+use crate::instruments::irs::FloatingLegCompounding;
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -521,6 +522,7 @@ impl DiscountCurveCalibrator {
     /// Returns the pricing error (PV for par instruments) that should be zero
     /// when the curve is correctly calibrated.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
+        let is_ois_quote = quote.is_ois_suitable();
         match quote {
             RatesQuote::Deposit {
                 maturity,
@@ -679,9 +681,27 @@ impl DiscountCurveCalibrator {
                     end: *maturity,
                 };
 
+                // For OIS quotes, configure the floating leg as an overnight-indexed
+                // swap (compounded in arrears) and use the discount curve as both
+                // discount and index curve so that pricing is purely discount-based.
+                // For non-OIS swaps, we keep a separate forward curve for the float leg.
+                let (float_discount_id, float_forward_id, compounding) = if is_ois_quote {
+                    (
+                        finstack_core::types::CurveId::from("CALIB_CURVE"),
+                        finstack_core::types::CurveId::from("CALIB_CURVE"),
+                        FloatingLegCompounding::sofr(),
+                    )
+                } else {
+                    (
+                        finstack_core::types::CurveId::from("CALIB_CURVE"),
+                        finstack_core::types::CurveId::from("CALIB_FWD"),
+                        FloatingLegCompounding::Simple,
+                    )
+                };
+
                 let float_spec = FloatLegSpec {
-                    discount_curve_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
-                    forward_curve_id: finstack_core::types::CurveId::from("CALIB_FWD"),
+                    discount_curve_id: float_discount_id,
+                    forward_curve_id: float_forward_id,
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -691,7 +711,7 @@ impl DiscountCurveCalibrator {
                     reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
-                    compounding: Default::default(), // Simple compounding for calibration
+                    compounding,
                 };
 
                 let swap = InterestRateSwap {
@@ -1320,7 +1340,7 @@ mod tests {
             })
             .float(crate::instruments::irs::FloatLegSpec {
                 discount_curve_id: "USD-OIS".into(),
-                forward_curve_id: "USD-SOFR".into(),
+                forward_curve_id: "USD-OIS".into(),
                 spread_bp: 0.0,
                 freq: Frequency::daily(),
                 dc: DayCount::Act360,
@@ -1330,7 +1350,7 @@ mod tests {
                 reset_lag_days: 2,
                 start,
                 end,
-                compounding: Default::default(),
+                compounding: FloatingLegCompounding::sofr(),
             })
             .build()
             .expect("IRS builder should succeed with valid test data");

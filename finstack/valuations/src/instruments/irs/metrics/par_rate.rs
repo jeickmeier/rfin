@@ -111,7 +111,9 @@ impl MetricCalculator for ParRateCalculator {
                 Ok(pv / (irs.notional.amount() * annuity))
             }
             ParRateMethod::DiscountRatio => {
-                // (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
+                // (P(as_of,T0) - P(as_of,Tn)) / Sum alpha_i P(as_of,Ti)
+                // This formulation is only exact for unseasoned swaps where
+                // `as_of` is on or before the fixed leg start date.
                 let as_of = context.as_of;
                 let sched = crate::cashflow::builder::build_dates(
                     irs.fixed.start,
@@ -124,6 +126,15 @@ impl MetricCalculator for ParRateCalculator {
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {
                     return Ok(0.0);
+                }
+
+                // Guard against seasoned swaps: for `as_of` after the start date
+                // the classic discount-ratio formula ceases to be exact. For live
+                // trades use `ParRateMethod::ForwardBased` instead.
+                if as_of > dates[0] {
+                    return Err(
+                        finstack_core::error::InputError::Invalid.into(),
+                    );
                 }
 
                 let disc_dc = disc.day_count();

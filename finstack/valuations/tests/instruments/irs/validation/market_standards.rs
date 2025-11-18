@@ -17,7 +17,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{
-    FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
+    FixedLegSpec, FloatLegSpec, InterestRateSwap, ParRateMethod, PayReceive,
 };
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -93,6 +93,97 @@ fn test_irs_par_rate_market_standard() {
         npv.amount().abs() < 2000.0,
         "Par swap NPV={:.2} near zero",
         npv.amount()
+    );
+}
+
+#[test]
+fn test_par_rate_discount_ratio_matches_forward_for_new_swap() {
+    // For an unseasoned swap (as_of == start), DiscountRatio and ForwardBased
+    // par rate methods should agree.
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap_forward = InterestRateSwap::new(
+        "SWAP_PAR_FWD".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+    let mut swap_discount = swap_forward.clone();
+    swap_discount.fixed.par_method = Some(ParRateMethod::DiscountRatio);
+
+    let par_forward = swap_forward
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .unwrap()
+        .measures["par_rate"];
+
+    let par_discount = swap_discount
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .unwrap()
+        .measures["par_rate"];
+
+    let diff = (par_forward - par_discount).abs();
+    assert!(
+        diff < 5e-4, // 0.05% tolerance (~0.5bp)
+        "ForwardBased and DiscountRatio par rates should be very close for new \
+         swaps: forward={}, discount={}, diff={}",
+        par_forward,
+        par_discount,
+        diff
+    );
+}
+
+#[test]
+fn test_par_rate_discount_ratio_rejects_seasoned_swap() {
+    let start = date!(2024 - 01 - 01);
+    let as_of = date!(2024 - 06 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let mut swap = InterestRateSwap::new(
+        "SWAP_PAR_SEASONED".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        start,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+    swap.fixed.par_method = Some(ParRateMethod::DiscountRatio);
+
+    let par_forward = swap
+        .clone()
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .unwrap()
+        .measures["par_rate"];
+
+    let par_discount = swap
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .unwrap()
+        .measures["par_rate"];
+
+    let diff = (par_forward - par_discount).abs();
+    assert!(
+        diff < 5e-4,
+        "For seasoned swaps, DiscountRatio should effectively fall back to \
+         ForwardBased par rate: forward={}, discount={}, diff={}",
+        par_forward,
+        par_discount,
+        diff
     );
 }
 

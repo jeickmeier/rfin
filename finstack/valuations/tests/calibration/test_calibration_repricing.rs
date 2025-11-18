@@ -108,9 +108,9 @@ fn test_discount_curve_swap_repricing_0_1bp() {
 
     assert!(report.success, "Calibration should succeed: {:?}", report);
 
-    // Derive forward curve for repricing
-    let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
-    let ctx = base_context.insert_discount(curve).insert_forward(fwd);
+    // For OIS swaps, we don't need a separate forward curve: pricing is
+    // discount-only when the float leg is configured as an overnight index.
+    let ctx = base_context.insert_discount(curve);
 
     // Reprice each swap and verify within 0.1bp tolerance
     for quote in &quotes {
@@ -143,7 +143,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                 })
                 .float(finstack_valuations::instruments::irs::FloatLegSpec {
                     discount_curve_id: "USD-OIS".into(),
-                    forward_curve_id: "USD-SOFR".into(),
+                    forward_curve_id: "USD-OIS".into(),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -151,7 +151,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                     calendar_id: None,
                     stub: finstack_core::dates::StubKind::None,
                     reset_lag_days: 2,
-                    compounding: Default::default(),
+                    compounding: finstack_valuations::instruments::irs::FloatingLegCompounding::sofr(),
                     start: base_date,
                     end: *maturity,
                 })

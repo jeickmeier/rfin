@@ -6,7 +6,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
@@ -30,6 +30,21 @@ fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
     }
 
     builder.build().unwrap()
+}
+
+fn build_market(rate: f64, base_date: Date) -> MarketContext {
+    let disc_curve = build_flat_discount_curve(rate, base_date, "USD_OIS");
+    let fwd_rate = if rate.abs() < 1e-10 { 1.0e-8 } else { rate };
+    let fwd_curve = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, fwd_rate), (10.0, fwd_rate)])
+        .build()
+        .unwrap();
+
+    MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
 }
 
 fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
@@ -74,9 +89,7 @@ fn test_annuity_positive() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -94,9 +107,7 @@ fn test_annuity_less_than_maturity() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -118,9 +129,7 @@ fn test_annuity_five_year_swap() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -139,9 +148,7 @@ fn test_annuity_five_year_swap() {
 fn test_annuity_scales_with_maturity() {
     // Longer maturity → higher annuity
     let as_of = date!(2024 - 01 - 01);
-
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let swap_2y = create_standard_swap(as_of, date!(2026 - 01 - 01));
     let swap_5y = create_standard_swap(as_of, date!(2029 - 01 - 01));
@@ -179,12 +186,8 @@ fn test_annuity_higher_rates_lower_annuity() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve_3pct = build_flat_discount_curve(0.03, as_of, "USD_OIS");
-    let disc_curve_7pct = build_flat_discount_curve(0.07, as_of, "USD_OIS");
-
-    let market_3pct = MarketContext::new().insert_discount(disc_curve_3pct);
-    let market_7pct = MarketContext::new().insert_discount(disc_curve_7pct);
+    let market_3pct = build_market(0.03, as_of);
+    let market_7pct = build_market(0.07, as_of);
 
     let annuity_3pct = *swap
         .price_with_metrics(&market_3pct, as_of, &[MetricId::Annuity])
@@ -215,9 +218,7 @@ fn test_annuity_short_swap() {
     let end = date!(2025 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -238,8 +239,7 @@ fn test_annuity_semiannual_vs_quarterly() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let swap_quarterly = create_standard_swap(as_of, end);
 
@@ -271,8 +271,7 @@ fn test_annuity_independent_of_side() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let mut swap_receive = create_standard_swap(as_of, end);
     swap_receive.side = PayReceive::ReceiveFixed;
@@ -309,9 +308,7 @@ fn test_annuity_zero_rate_equals_maturity() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_standard_swap(as_of, end);
-
-    let disc_curve = build_flat_discount_curve(0.0, as_of, "USD_OIS");
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.0, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])

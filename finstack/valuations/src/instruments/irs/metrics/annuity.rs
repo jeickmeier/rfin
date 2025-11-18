@@ -3,8 +3,10 @@
 //! Computes the sum of discounted accrual factors on the fixed leg, commonly
 //! used for par rate calculations and risk analytics.
 //!
-//! The annuity represents sum(year_fraction[i] * discount_factor[i]) for future
-//! cashflows only, with discount factors computed relative to the valuation date.
+//! The annuity represents `sum(alpha_i * DF_i)` for future cashflows only, with
+//! discount factors computed relative to the valuation date. For IRS fixed legs
+//! we always treat coupons as simple interest; fixed-leg compounding settings do
+//! not change the annuity weights.
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -75,12 +77,10 @@ impl MetricCalculator for AnnuityCalculator {
                 1.0
             };
 
-            if irs.fixed.compounding_simple {
-                annuity += yf * df;
-            } else {
-                // Treat each period as compounded: accumulate (1 + r*alpha) weights approximated via DF spacing
-                annuity += yf * df; // keep same weight; compounding affects coupon accrual, not DF weight here
-            }
+            // For IRS fixed legs we always treat coupons as simple interest; the
+            // compounding configuration affects coupon accrual, not the annuity
+            // weight, so the annuity is just sum(alpha * DF).
+            annuity += yf * df;
             prev = d;
         }
         // Return annuity in dollar terms

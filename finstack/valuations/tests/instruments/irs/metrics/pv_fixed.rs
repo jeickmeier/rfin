@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
@@ -27,6 +27,20 @@ fn build_flat_discount_curve(rate: f64, base_date: Date) -> DiscountCurve {
     }
 
     builder.build().unwrap()
+}
+
+fn build_market(rate: f64, base_date: Date) -> MarketContext {
+    let disc_curve = build_flat_discount_curve(rate, base_date);
+    let fwd_curve = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, rate), (10.0, rate)])
+        .build()
+        .unwrap();
+
+    MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
 }
 
 fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
@@ -71,8 +85,7 @@ fn test_pv_fixed_positive() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_swap(as_of, end, 0.05);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
@@ -87,8 +100,7 @@ fn test_pv_fixed_positive() {
 fn test_pv_fixed_scales_with_rate() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let swap_3pct = create_swap(as_of, end, 0.03);
     let swap_6pct = create_swap(as_of, end, 0.06);
@@ -120,8 +132,7 @@ fn test_pv_fixed_scales_with_rate() {
 fn test_pv_fixed_scales_with_notional() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let swap_1m = create_swap(as_of, end, 0.05);
 
@@ -157,8 +168,7 @@ fn test_pv_fixed_reasonable_magnitude() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_swap(as_of, end, 0.05);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
@@ -178,8 +188,7 @@ fn test_pv_fixed_reasonable_magnitude() {
 fn test_pv_fixed_independent_of_side() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let mut swap_receive = create_swap(as_of, end, 0.05);
     swap_receive.side = PayReceive::ReceiveFixed;

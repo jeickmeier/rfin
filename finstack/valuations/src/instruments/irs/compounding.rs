@@ -6,8 +6,8 @@
 /// Method for calculating floating leg coupon payments.
 ///
 /// Different reference rates require different compounding conventions:
-/// - **Term rates (LIBOR)**: Simple interest
-/// - **Overnight rates (SOFR, SONIA, €STR)**: Compounded in arrears
+/// - **Term rates (SOFR 3M, EURIBOR, legacy LIBOR)**: Simple interest
+/// - **Overnight rates (SOFR, SONIA, €STR, TONA)**: Compounded in arrears
 ///
 /// # Market Standards
 ///
@@ -44,20 +44,25 @@
 /// - **ARRC** (Alternative Reference Rates Committee): SOFR conventions
 /// - **BoE** (Bank of England): SONIA conventions
 /// - **ECB**: €STR conventions
+///
+/// In the IRS instrument implementation, RFR-style variants
+/// (`CompoundedInArrears` / `CompoundedDaily`) are also used to classify
+/// swaps as OIS for discount-only float-leg pricing; see
+/// `InterestRateSwap::is_ois` for details.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum FloatingLegCompounding {
-    /// Simple interest compounding (LIBOR-style term rates).
+    /// Simple interest compounding (term-rate style).
     ///
     /// Coupon = Notional × (Forward_Rate + Spread) × Day_Count_Fraction
     ///
     /// Use for:
-    /// - USD LIBOR (legacy)
-    /// - EUR EURIBOR
-    /// - Term rates with fixed tenors
+    /// - Term SOFR / EURIBOR-style swaps with fixed-tenor indices
+    /// - Legacy USD/EUR/GBP LIBOR swaps (for back-testing only)
     ///
-    /// This is the current default behavior and matches ISDA 2006 conventions.
+    /// This is the current default behavior for vanilla IRS and matches
+    /// ISDA 2006 term-rate conventions.
     Simple,
 
     /// Compounded in arrears (overnight RFR rates).

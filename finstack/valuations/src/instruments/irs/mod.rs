@@ -70,6 +70,7 @@
 //! - [`PayReceive`] for swap direction
 //! - [`metrics`] for swap-specific risk metrics
 
+pub mod cashflow;
 pub mod compounding;
 pub mod metrics;
 /// Interest rate swap pricer implementation

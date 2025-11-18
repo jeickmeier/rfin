@@ -6,7 +6,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::irs::{
+    FloatingLegCompounding, InterestRateSwap, PayReceive,
+};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -30,6 +32,15 @@ fn build_flat_discount_curve(rate: f64, base_date: Date) -> DiscountCurve {
     }
 
     builder.build().unwrap()
+}
+
+fn build_market(rate: f64, base_date: Date) -> MarketContext {
+    let disc_curve = build_flat_discount_curve(rate, base_date);
+    let fwd_curve = build_flat_forward_curve(rate, base_date, "USD_LIBOR_3M");
+
+    MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
 }
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, id: &str) -> ForwardCurve {
@@ -91,8 +102,7 @@ fn test_bucketed_dv01_computes() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_swap(as_of, end);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
@@ -111,8 +121,7 @@ fn test_bucketed_dv01_reasonable_values() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_swap(as_of, end);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
@@ -130,8 +139,7 @@ fn test_bucketed_dv01_five_year_swap() {
     let end = date!(2029 - 01 - 01);
 
     let swap = create_swap(as_of, end);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
@@ -148,8 +156,7 @@ fn test_bucketed_dv01_short_swap() {
     let end = date!(2025 - 01 - 01);
 
     let swap = create_swap(as_of, end);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
@@ -165,8 +172,7 @@ fn test_bucketed_dv01_long_swap() {
     let end = date!(2034 - 01 - 01);
 
     let swap = create_swap(as_of, end);
-    let disc_curve = build_flat_discount_curve(0.05, as_of);
-    let market = MarketContext::new().insert_discount(disc_curve);
+    let market = build_market(0.05, as_of);
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
@@ -181,7 +187,13 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end);
+    let mut swap = create_swap(as_of, end);
+    // Make this an OIS-style swap so that pricing depends only on the discount
+    // curve; this keeps bucketed vs parallel DV01 comparable in a single-curve
+    // setting, which is what this sanity check is targeting.
+    swap.float.compounding = FloatingLegCompounding::sofr();
+    swap.float.forward_curve_id = "USD_OIS".into();
+
     let disc_curve = build_flat_discount_curve(0.05, as_of);
     let market = MarketContext::new().insert_discount(disc_curve);
 
