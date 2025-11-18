@@ -18,6 +18,56 @@ use crate::instruments::irs::FloatingLegCompounding;
 /// from -10% to +50%.
 const DF_EPSILON: f64 = 1e-10;
 
+/// Basis points to decimal conversion factor.
+const BP_TO_DECIMAL: f64 = 1e-4;
+
+/// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
+///
+/// This helper centralizes the pattern of:
+/// 1. Computing year fractions from base_date to as_of and target
+/// 2. Getting absolute discount factors
+/// 3. Validating as_of DF against DF_EPSILON
+/// 4. Returning relative DF = DF(target) / DF(as_of)
+///
+/// # Errors
+///
+/// Returns a validation error if:
+/// - Year fraction calculation fails
+/// - The as_of discount factor is below DF_EPSILON threshold
+fn relative_df(
+    disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+    as_of: Date,
+    target: Date,
+) -> Result<f64> {
+    let disc_dc = disc.day_count();
+    let base = disc.base_date();
+    
+    let t_as_of = disc_dc.year_fraction(
+        base,
+        as_of,
+        finstack_core::dates::DayCountCtx::default(),
+    )?;
+    let t_target = disc_dc.year_fraction(
+        base,
+        target,
+        finstack_core::dates::DayCountCtx::default(),
+    )?;
+    
+    let df_as_of = disc.df(t_as_of);
+    
+    // Guard against near-zero discount factors for numerical stability
+    if df_as_of.abs() < DF_EPSILON {
+        return Err(finstack_core::error::Error::Validation(format!(
+            "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+             This may indicate extreme rate scenarios or very long time horizons.",
+            df_as_of, DF_EPSILON
+        )));
+    }
+    
+    let df_target = disc.df(t_target);
+    Ok(df_target / df_as_of)
+}
+
 /// IRS discounting pricer using the generic implementation.
 pub type SimpleIrsDiscountingPricer =
     GenericDiscountingPricer<crate::instruments::InterestRateSwap>;
@@ -62,47 +112,9 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
     ) -> Result<Money> {
-        let disc_dc = disc.day_count();
-
-        // Discount factor at valuation date for correct theta / seasoned handling
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_as_of = disc.df(t_as_of);
-
-        // Guard against near-zero discount factors for numerical stability
-        if df_as_of.abs() < DF_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
-                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                 This may indicate extreme rate scenarios or very long time horizons.",
-                df_as_of, DF_EPSILON
-            )));
-        }
-
-        // Start and end discount factors for the OIS leg
-        let t_start = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                self.float.start,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_end = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                self.float.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_start_abs = disc.df(t_start);
-        let df_end_abs = disc.df(t_end);
-        let df_start = df_start_abs / df_as_of;
-        let df_end = df_end_abs / df_as_of;
+        // Start and end discount factors for the OIS leg (relative to as_of)
+        let df_start = relative_df(disc, as_of, self.float.start)?;
+        let df_end = relative_df(disc, as_of, self.float.end)?;
 
         let mut pv = self.notional.amount() * (df_start - df_end);
 
@@ -122,21 +134,12 @@ impl InterestRateSwap {
                 }
 
                 let alpha = cf.accrual_factor;
-                let t_d = disc_dc
-                    .year_fraction(
-                        disc.base_date(),
-                        cf.date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-                let df_d_abs = disc.df(t_d);
-                // df_as_of already validated above, safe to divide
-                let df = df_d_abs / df_as_of;
+                let df = relative_df(disc, as_of, cf.date)?;
                 annuity += alpha * df;
             }
 
             if annuity != 0.0 {
-                pv += self.notional.amount() * (self.float.spread_bp * 1e-4) * annuity;
+                pv += self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * annuity;
             }
         }
 
@@ -173,24 +176,6 @@ impl InterestRateSwap {
 
         // Sum discounted coupon flows from as_of date
         let mut total = Money::new(0.0, self.notional.currency());
-        let disc_dc = disc.day_count();
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_as_of = disc.df(t_as_of);
-
-        // Guard against near-zero discount factors for numerical stability
-        if df_as_of.abs() < DF_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
-                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                 This may indicate extreme rate scenarios or very long time horizons.",
-                df_as_of, DF_EPSILON
-            )));
-        }
 
         for cf in &sched.flows {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
@@ -202,16 +187,7 @@ impl InterestRateSwap {
                 }
 
                 // Discount from as_of for correct theta
-                let t_cf = disc_dc
-                    .year_fraction(
-                        disc.base_date(),
-                        cf.date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-                let df_cf_abs = disc.df(t_cf);
-                // df_as_of already validated above, safe to divide
-                let df = df_cf_abs / df_as_of;
+                let df = relative_df(disc, as_of, cf.date)?;
                 let disc_amt = cf.amount * df;
                 total = (total + disc_amt)?;
             }
@@ -244,7 +220,7 @@ impl InterestRateSwap {
             })
             .collect();
 
-        if float_flows.len() < 1 {
+        if float_flows.is_empty() {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
@@ -252,26 +228,7 @@ impl InterestRateSwap {
         float_flows.sort_by_key(|cf| cf.date);
 
         let mut total = Money::new(0.0, self.notional.currency());
-
-        // Pre-compute as_of discount factor
-        let disc_dc = disc.day_count();
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_as_of = disc.df(t_as_of);
-
-        // Guard against near-zero discount factors for numerical stability
-        if df_as_of.abs() < DF_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
-                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                 This may indicate extreme rate scenarios or very long time horizons.",
-                df_as_of, DF_EPSILON
-            )));
-        }
+        let base = disc.base_date();
 
         for (idx, cf) in float_flows.iter().enumerate() {
             let d = cf.date;
@@ -288,17 +245,14 @@ impl InterestRateSwap {
                 float_flows[idx - 1].date
             };
 
-            let base = disc.base_date();
             let t1 = self
                 .float
                 .dc
-                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
+                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?;
             let t2 = self
                 .float
                 .dc
-                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
+                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
 
             // Use accrual factor from schedule if available, otherwise fall back to recomputation
             let yf = if cf.accrual_factor > 0.0 {
@@ -306,8 +260,7 @@ impl InterestRateSwap {
             } else {
                 self.float
                     .dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-                    .unwrap_or(0.0)
+                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?
             };
 
             // Only call rate_period if t1 < t2 to avoid date ordering errors
@@ -316,20 +269,11 @@ impl InterestRateSwap {
             } else {
                 0.0
             };
-            let rate = f + (self.float.spread_bp * 1e-4);
+            let rate = f + (self.float.spread_bp * BP_TO_DECIMAL);
             let coupon = self.notional * (rate * yf);
 
             // Discount from as_of for correct theta
-            let t_cf = disc_dc
-                .year_fraction(
-                    disc.base_date(),
-                    d,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            let df_cf_abs = disc.df(t_cf);
-            // df_as_of already validated above, safe to divide
-            let df = df_cf_abs / df_as_of;
+            let df = relative_df(disc, as_of, d)?;
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
         }
@@ -373,7 +317,7 @@ mod tests {
     fn is_ois_classification_uses_compounding_and_curve_ids() {
         // Start from the example vanilla IRS (term-rate style) which should
         // not be classified as OIS even though both legs are discounted on OIS.
-        let mut irs = InterestRateSwap::example();
+        let mut irs = InterestRateSwap::example().expect("Example should construct successfully");
         assert!(
             !irs.is_ois(),
             "Vanilla term-rate IRS with Simple compounding must not be OIS"

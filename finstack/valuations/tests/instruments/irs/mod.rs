@@ -14,4 +14,5 @@ mod construction;
 mod integration;
 mod metrics;
 mod pricing;
+mod proptests;
 mod validation;

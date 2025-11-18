@@ -8,7 +8,6 @@
 //! Pricing logic (discounting, forwards, PV) lives in `pricer.rs` and consumes
 //! these schedules where appropriate.
 
-use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -33,7 +32,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             freq: irs.fixed.freq,
             dc: irs.fixed.dc,
             bdc: irs.fixed.bdc,
-            calendar_id: irs.fixed.calendar_id.clone(),
+            calendar_id: irs.fixed.calendar_id.as_deref().map(String::from),
             stub: irs.fixed.stub,
         });
     fixed_b.build()
@@ -58,7 +57,7 @@ pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
                 reset_lag_days: irs.float.reset_lag_days,
                 dc: irs.float.dc,
                 bdc: irs.float.bdc,
-                calendar_id: irs.float.calendar_id.clone(),
+                calendar_id: irs.float.calendar_id.as_deref().map(String::from),
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,
             freq: irs.float.freq,

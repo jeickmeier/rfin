@@ -46,8 +46,7 @@ impl MetricCalculator for AnnuityCalculator {
                 disc.base_date(),
                 as_of,
                 finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+            )?;
         let df_as_of = disc.df(t_as_of);
 
         // Guard against near-zero discount factors for numerical stability
@@ -72,8 +71,7 @@ impl MetricCalculator for AnnuityCalculator {
             let yf = irs
                 .fixed
                 .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
             // Discount from as_of for correct theta and seasoned swap handling
             let t_d = disc_dc
@@ -81,8 +79,7 @@ impl MetricCalculator for AnnuityCalculator {
                     disc.base_date(),
                     d,
                     finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
+                )?;
             let df_d_abs = disc.df(t_d);
             // df_as_of already validated above, safe to divide
             let df = df_d_abs / df_as_of;

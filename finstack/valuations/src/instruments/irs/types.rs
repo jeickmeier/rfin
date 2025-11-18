@@ -114,6 +114,10 @@ impl InterestRateSwap {
     /// - Forward curve: `USD-SOFR-3M`
     /// - Fixed leg: semi-annual, 30/360, Modified Following
     /// - Float leg: quarterly, ACT/360, Modified Following, 2-day reset lag
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if swap construction fails (e.g., invalid date range).
     pub fn create_usd_swap(
         id: InstrumentId,
         notional: Money,
@@ -121,7 +125,7 @@ impl InterestRateSwap {
         start: Date,
         end: Date,
         side: PayReceive,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let config = SwapConfig {
             disc_curve: "USD-OIS",
             fwd_curve: "USD-SOFR-3M",
@@ -135,7 +139,11 @@ impl InterestRateSwap {
     /// Create a canonical example IRS for testing and documentation.
     ///
     /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
-    pub fn example() -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if example construction fails (e.g., invalid dates).
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
         Self::builder()
@@ -151,9 +159,9 @@ impl InterestRateSwap {
                 calendar_id: None,
                 stub: StubKind::None,
                 start: Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
+                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example start date: {}", e)))?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1)
-                    .expect("Valid example date"),
+                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example end date: {}", e)))?,
                 par_method: None,
                 compounding_simple: true,
             })
@@ -168,13 +176,12 @@ impl InterestRateSwap {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 start: Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
+                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example start date: {}", e)))?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1)
-                    .expect("Valid example date"),
+                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example end date: {}", e)))?,
                 compounding: Default::default(),
             })
             .build()
-            .expect("Example IRS construction should not fail")
     }
 
     /// Helper to construct a swap with specified curve configuration.
@@ -186,14 +193,14 @@ impl InterestRateSwap {
         end: Date,
         side: PayReceive,
         config: SwapConfig<'_>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let fixed = FixedLegSpec {
             discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
             rate: fixed_rate,
             freq: config.sched.fixed_freq,
             dc: config.sched.fixed_dc,
             bdc: config.sched.bdc,
-            calendar_id: config.sched.calendar_id.clone(),
+            calendar_id: config.sched.calendar_id.as_deref().map(String::from),
             stub: config.sched.stub,
             start,
             end,
@@ -207,7 +214,7 @@ impl InterestRateSwap {
             freq: config.sched.float_freq,
             dc: config.sched.float_dc,
             bdc: config.sched.bdc,
-            calendar_id: config.sched.calendar_id.clone(),
+            calendar_id: config.sched.calendar_id.as_deref().map(String::from),
             stub: config.sched.stub,
             reset_lag_days: config.reset_lag_days,
             start,
@@ -221,7 +228,6 @@ impl InterestRateSwap {
             .fixed(fixed)
             .float(float)
             .build()
-            .expect("Swap construction should not fail")
     }
 
 }
@@ -336,9 +342,9 @@ mod tests {
         };
 
         let start =
-            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid start date");
+            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid test date");
         let end =
-            Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid end date");
+            Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid test date");
 
         let swap = InterestRateSwap::create_swap_with_config(
             InstrumentId::new("IRS-TEST-USD"),
@@ -348,7 +354,7 @@ mod tests {
             end,
             PayReceive::PayFixed,
             config,
-        );
+        ).expect("Valid test swap construction");
 
         let sched = IRSScheduleConfig::usd_isda_standard();
 

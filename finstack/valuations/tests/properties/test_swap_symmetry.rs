@@ -66,7 +66,7 @@ proptest! {
             start,
             end,
             PayReceive::PayFixed,
-        );
+        ).expect("Valid swap construction");
 
         let swap_rec = InterestRateSwap::create_usd_swap(
             "RECEIVE-FIXED".into(),
@@ -75,7 +75,7 @@ proptest! {
             start,
             end,
             PayReceive::ReceiveFixed,
-        );
+        ).expect("Valid swap construction");
 
         // Create market with reasonable rates
         let market = create_test_market(base_date, 0.03, 0.05);
@@ -115,7 +115,7 @@ proptest! {
             start,
             end,
             PayReceive::PayFixed,
-        );
+        ).expect("Valid swap construction");
 
         let par_result = temp_swap
             .price_with_metrics(&market, base_date, &[MetricId::ParRate])
@@ -133,7 +133,7 @@ proptest! {
             start,
             end,
             PayReceive::PayFixed,
-        );
+        ).expect("Valid swap construction");
 
         let swap_rec = InterestRateSwap::create_usd_swap(
             "REC-AT-PAR".into(),
@@ -142,7 +142,7 @@ proptest! {
             start,
             end,
             PayReceive::ReceiveFixed,
-        );
+        ).expect("Valid swap construction");
 
         let pv_pay = swap_pay.value(&market, base_date).unwrap().amount();
         let pv_rec = swap_rec.value(&market, base_date).unwrap().amount();
@@ -174,7 +174,7 @@ proptest! {
             start,
             end,
             PayReceive::PayFixed,
-        );
+        ).expect("Valid swap construction");
 
         let market = create_test_market(base_date, 0.03, 0.05);
 

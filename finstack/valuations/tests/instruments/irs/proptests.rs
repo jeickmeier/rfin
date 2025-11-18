@@ -1,0 +1,341 @@
+//! Property-based tests for Interest Rate Swap instruments.
+//!
+//! Uses proptest to verify invariants and edge cases across a wide range
+//! of randomly generated inputs. Tests cover numerical stability, monotonicity,
+//! and fundamental swap relationships.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use proptest::prelude::*;
+use time::macros::date;
+
+/// Helper to build a flat discount curve for property tests.
+fn build_test_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+    let mut builder = DiscountCurve::builder(curve_id)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
+            (30.0, (-rate * 30.0).exp()),
+        ]);
+
+    // For zero or negative rates, allow non-monotonic DFs
+    if rate.abs() < 1e-10 || rate < 0.0 {
+        builder = builder.allow_non_monotonic();
+    }
+
+    builder.build().unwrap()
+}
+
+/// Helper to build a flat forward curve for property tests.
+fn build_test_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
+    ForwardCurve::builder(curve_id, 0.25)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
+        .build()
+        .unwrap()
+}
+
+proptest! {
+    /// Property: Receiver swap NPV should increase as fixed rate increases (holding curves constant).
+    ///
+    /// For a receiver swap (receive fixed, pay floating), the NPV should be
+    /// monotonically increasing in the fixed rate, as higher coupons increase
+    /// the present value of the fixed leg received.
+    #[test]
+    fn receiver_npv_increases_with_fixed_rate(
+        fixed_rate_1 in 0.01f64..0.10,
+        fixed_rate_2 in 0.01f64..0.10,
+        notional in 1_000_000.0..100_000_000.0f64,
+        tenor_years in 1i32..10,
+    ) {
+        // Ensure rate_1 < rate_2
+        let (rate_low, rate_high) = if fixed_rate_1 < fixed_rate_2 {
+            (fixed_rate_1, fixed_rate_2)
+        } else {
+            (fixed_rate_2, fixed_rate_1)
+        };
+
+        if (rate_high - rate_low).abs() < 1e-6 {
+            // Skip if rates are too close
+            return Ok(());
+        }
+
+        let base_date = date!(2024-01-01);
+        let start = date!(2024-01-01);
+        let end = Date::from_ordinal_date(start.year() + tenor_years, 1).unwrap();
+
+        // Build market curves
+        let disc = build_test_discount_curve(0.03, base_date, "USD-OIS");
+        let fwd = build_test_forward_curve(0.03, base_date, "USD-SOFR-3M");
+        let mut context = MarketContext::empty();
+        context.add_discount(disc);
+        context.add_forward(fwd);
+
+        // Create two receiver swaps with different fixed rates
+        let irs_low = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS-LOW"))
+            .notional(Money::new(notional, Currency::USD))
+            .side(PayReceive::ReceiveFixed)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: rate_low,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: Default::default(),
+            })
+            .build()?;
+
+        let irs_high = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS-HIGH"))
+            .notional(Money::new(notional, Currency::USD))
+            .side(PayReceive::ReceiveFixed)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: rate_high,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: Default::default(),
+            })
+            .build()?;
+
+        let npv_low = finstack_valuations::instruments::irs::pricer::npv(&irs_low, &context, base_date)?;
+        let npv_high = finstack_valuations::instruments::irs::pricer::npv(&irs_high, &context, base_date)?;
+
+        // Higher fixed rate should yield higher NPV for receiver swap
+        prop_assert!(
+            npv_high.amount() > npv_low.amount(),
+            "Receiver swap NPV should increase with fixed rate: {} (low) vs {} (high) at rates {} vs {}",
+            npv_low.amount(), npv_high.amount(), rate_low, rate_high
+        );
+
+        Ok(())
+    }
+
+    /// Property: Payer and receiver swaps at same rate should have opposite NPVs.
+    ///
+    /// For identical swap terms, a payer swap (pay fixed) should have
+    /// NPV = -1 * receiver swap NPV, as they are mirror positions.
+    #[test]
+    fn payer_receiver_symmetry(
+        fixed_rate in 0.01f64..0.10,
+        notional in 1_000_000.0..100_000_000.0f64,
+        tenor_years in 2i32..10,
+    ) {
+        let base_date = date!(2024-01-01);
+        let start = date!(2024-01-01);
+        let end = Date::from_ordinal_date(start.year() + tenor_years, 1).unwrap();
+
+        // Build market curves
+        let disc = build_test_discount_curve(0.04, base_date, "USD-OIS");
+        let fwd = build_test_forward_curve(0.04, base_date, "USD-SOFR-3M");
+        let mut context = MarketContext::empty();
+        context.add_discount(disc);
+        context.add_forward(fwd);
+
+        let payer = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS-PAYER"))
+            .notional(Money::new(notional, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: fixed_rate,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: Default::default(),
+            })
+            .build()?;
+
+        let receiver = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS-RECEIVER"))
+            .notional(Money::new(notional, Currency::USD))
+            .side(PayReceive::ReceiveFixed)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: fixed_rate,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: Default::default(),
+            })
+            .build()?;
+
+        let npv_payer = finstack_valuations::instruments::irs::pricer::npv(&payer, &context, base_date)?;
+        let npv_receiver = finstack_valuations::instruments::irs::pricer::npv(&receiver, &context, base_date)?;
+
+        // Payer and receiver should be exact opposites
+        let sum = npv_payer.amount() + npv_receiver.amount();
+        prop_assert!(
+            sum.abs() < 1e-6,
+            "Payer and receiver NPVs should sum to zero: payer={}, receiver={}, sum={}",
+            npv_payer.amount(), npv_receiver.amount(), sum
+        );
+
+        Ok(())
+    }
+
+    /// Property: NPV should not overflow or underflow for extreme (but valid) rates.
+    ///
+    /// Tests numerical stability across a wide range of rates, from deeply
+    /// negative to very high positive rates. All calculations should complete
+    /// without errors and produce finite results.
+    #[test]
+    fn numerical_stability_extreme_rates(
+        fixed_rate in -0.05f64..0.20,
+        curve_rate in -0.05f64..0.20,
+        notional in 1_000_000.0..10_000_000.0f64,
+    ) {
+        let base_date = date!(2024-01-01);
+        let start = date!(2024-01-01);
+        let end = date!(2029-01-01);
+
+        // Build market curves with potentially extreme rates
+        let disc = build_test_discount_curve(curve_rate, base_date, "USD-OIS");
+        let fwd = build_test_forward_curve(curve_rate, base_date, "USD-SOFR-3M");
+        let mut context = MarketContext::empty();
+        context.add_discount(disc);
+        context.add_forward(fwd);
+
+        let irs = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS-EXTREME"))
+            .notional(Money::new(notional, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .fixed(FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: fixed_rate,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: Default::default(),
+            })
+            .build()?;
+
+        let npv = finstack_valuations::instruments::irs::pricer::npv(&irs, &context, base_date)?;
+
+        // NPV should be finite (not NaN or infinite)
+        prop_assert!(
+            npv.amount().is_finite(),
+            "NPV should be finite for extreme rates: fixed_rate={}, curve_rate={}, npv={}",
+            fixed_rate, curve_rate, npv.amount()
+        );
+
+        // NPV should be bounded (rough sanity check: within 2x notional * tenor)
+        let max_reasonable_npv = notional * 5.0 * 2.0; // 5 years * 2x factor
+        prop_assert!(
+            npv.amount().abs() < max_reasonable_npv,
+            "NPV should be reasonable for extreme rates: {}, max expected: {}",
+            npv.amount(), max_reasonable_npv
+        );
+
+        Ok(())
+    }
+}
+

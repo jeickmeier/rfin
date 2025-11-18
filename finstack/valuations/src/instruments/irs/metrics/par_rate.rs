@@ -11,6 +11,9 @@ use finstack_core::dates::Date;
 /// Same as in pricer.rs to ensure consistency across IRS calculations.
 const DF_EPSILON: f64 = 1e-10;
 
+/// Basis points to decimal conversion factor.
+const BP_TO_DECIMAL: f64 = 1e-4;
+
 /// Par rate calculator for IRS.
 pub struct ParRateCalculator;
 
@@ -37,7 +40,7 @@ impl MetricCalculator for ParRateCalculator {
                     .computed
                     .get(&MetricId::Annuity)
                     .copied()
-                    .unwrap_or(0.0);
+                    .unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
                 if annuity == 0.0 {
                     return Ok(0.0);
                 }
@@ -57,8 +60,7 @@ impl MetricCalculator for ParRateCalculator {
 
                 let disc_dc = disc.day_count();
                 let t_as_of = disc_dc
-                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())
-                    .unwrap_or(0.0);
+                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
                 let df_as_of = disc.df(t_as_of);
 
                 // Guard against near-zero discount factors for numerical stability
@@ -82,18 +84,15 @@ impl MetricCalculator for ParRateCalculator {
                     let t1 = irs
                         .float
                         .dc
-                        .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?;
                     let t2 = irs
                         .float
                         .dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
                     let yf = irs
                         .float
                         .dc
-                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
                     // Only call rate_period if t1 < t2 to avoid date ordering errors
                     let f = if t2 > t1 {
@@ -101,13 +100,12 @@ impl MetricCalculator for ParRateCalculator {
                     } else {
                         0.0
                     };
-                    let rate = f + (irs.float.spread_bp * 1e-4);
+                    let rate = f + (irs.float.spread_bp * BP_TO_DECIMAL);
                     let coupon = irs.notional.amount() * rate * yf;
 
                     // Discount from as_of for correct theta and seasoned swap handling
                     let t_d = disc_dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
                     let df_d_abs = disc.df(t_d);
                     // df_as_of already validated above, safe to divide
                     let df = df_d_abs / df_as_of;
@@ -142,15 +140,18 @@ impl MetricCalculator for ParRateCalculator {
                 // the classic discount-ratio formula ceases to be exact. For live
                 // trades use `ParRateMethod::ForwardBased` instead.
                 if as_of > dates[0] {
-                    return Err(
-                        finstack_core::error::InputError::Invalid.into(),
-                    );
+                    return Err(finstack_core::error::Error::Validation(
+                        format!(
+                            "ParRateMethod::DiscountRatio requires as_of ({}) <= start_date ({}). \
+                             Use ParRateMethod::ForwardBased for seasoned swaps.",
+                            as_of, dates[0]
+                        )
+                    ));
                 }
 
                 let disc_dc = disc.day_count();
                 let t_as_of = disc_dc
-                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())
-                    .unwrap_or(0.0);
+                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
                 let df_as_of = disc.df(t_as_of);
 
                 // Guard against near-zero discount factors for numerical stability
@@ -164,15 +165,13 @@ impl MetricCalculator for ParRateCalculator {
 
                 // Numerator: P(as_of,T0) - P(as_of,Tn)
                 let t0 = disc_dc
-                    .year_fraction(base, dates[0], finstack_core::dates::DayCountCtx::default())
-                    .unwrap_or(0.0);
+                    .year_fraction(base, dates[0], finstack_core::dates::DayCountCtx::default())?;
                 let tn = disc_dc
                     .year_fraction(
                         base,
                         *dates.last().expect("Dates should not be empty"),
                         finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
+                    )?;
 
                 let p0_abs = disc.df(t0);
                 let pn_abs = disc.df(tn);
@@ -194,11 +193,9 @@ impl MetricCalculator for ParRateCalculator {
                     let alpha = irs
                         .fixed
                         .dc
-                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
                     let t_d = disc_dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
-                        .unwrap_or(0.0);
+                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
                     let p_abs = disc.df(t_d);
                     // df_as_of already validated above, safe to divide
                     let p = p_abs / df_as_of;

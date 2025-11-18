@@ -83,7 +83,7 @@ fn generate_all_json_examples() {
     // Rates
     write_example(
         "interest_rate_swap",
-        json_loader::InstrumentJson::InterestRateSwap(InterestRateSwap::example()),
+        json_loader::InstrumentJson::InterestRateSwap(InterestRateSwap::example().expect("Example IRS should construct")),
     )
     .unwrap();
     count += 1;
