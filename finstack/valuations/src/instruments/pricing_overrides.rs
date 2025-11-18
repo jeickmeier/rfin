@@ -8,8 +8,12 @@ use finstack_core::money::Money;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PricingOverrides {
-    /// Quoted clean price (for bonds)
+    /// Quoted clean price for bond yield calculations
     pub quoted_clean_price: Option<f64>,
+    /// Rho bump size in decimal (default 0.0001 = 1bp)
+    pub rho_bump_decimal: Option<f64>,
+    /// Vega bump size in decimal (default 0.01 = 1%)
+    pub vega_bump_decimal: Option<f64>,
     /// Implied volatility (overrides vol surface)
     pub implied_volatility: Option<f64>,
     /// Quoted spread (for credit instruments)

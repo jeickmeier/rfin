@@ -36,8 +36,8 @@ impl MetricCalculator for RhoCalculator {
             return Ok(0.0);
         }
 
-        // Bump discount curve by 1bp (0.0001)
-        let bump_bp = 0.0001;
+        // Bump discount curve. Default to 1bp (0.0001) if not overridden.
+        let bump_bp = instrument.pricing_overrides.rho_bump_decimal.unwrap_or(0.0001);
         let curves_bumped =
             bump_discount_curve_parallel(&context.curves, &instrument.discount_curve_id, bump_bp)?;
 

@@ -399,6 +399,12 @@ pub enum PricingError {
     MissingMarketData(String),
 }
 
+impl From<PricingError> for finstack_core::Error {
+    fn from(err: PricingError) -> Self {
+        finstack_core::Error::Validation(err.to_string())
+    }
+}
+
 impl From<finstack_core::Error> for PricingError {
     fn from(err: finstack_core::Error) -> Self {
         PricingError::ModelFailure(err.to_string())

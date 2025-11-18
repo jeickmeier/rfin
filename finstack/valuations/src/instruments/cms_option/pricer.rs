@@ -21,20 +21,15 @@ impl CmsOptionMcPricer {
     /// Price a CMS option using Monte Carlo.
     fn price_internal(
         &self,
-        inst: &CmsOption,
+        _inst: &CmsOption,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> Result<finstack_core::money::Money> {
-        // Simplified: CMS options require Hull-White model for rates
-        // This is a placeholder implementation
-        // Full implementation would need swap schedule construction and Hull-White calibration
-
-        // For now, return zero as placeholder
-        // TODO: Implement full CMS pricing with Hull-White model
-        Ok(finstack_core::money::Money::new(
-            0.0,
-            inst.notional.currency(),
-        ))
+        // CRITICAL: Previously returned 0.0 as placeholder. 
+        // Explicitly failing until Hull-White model is fully implemented.
+        Err(finstack_core::Error::from(PricingError::model_failure(
+            "CMS Option pricing not yet implemented (Hull-White model required)".to_string()
+        )))
     }
 }
 

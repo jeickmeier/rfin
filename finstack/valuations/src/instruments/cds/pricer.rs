@@ -15,6 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
@@ -59,6 +60,10 @@ pub struct CDSPricerConfig {
     /// Business days per year for settlement delay calculations (region-specific).
     /// Default: 252 (US), alternatives: 250 (UK), 255 (Japan)
     pub business_days_per_year: f64,
+    /// Max iterations for bootstrapping solver
+    pub bootstrap_max_iterations: usize,
+    /// Tolerance for bootstrapping solver
+    pub bootstrap_tolerance: f64,
 }
 
 impl Default for CDSPricerConfig {
@@ -81,6 +86,8 @@ impl CDSPricerConfig {
             gl_order: 8,
             adaptive_max_depth: 12,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
+            bootstrap_max_iterations: 100,
+            bootstrap_tolerance: 1e-8,
         }
     }
 
@@ -113,6 +120,8 @@ impl CDSPricerConfig {
             gl_order: 4,
             adaptive_max_depth: 10,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
+            bootstrap_max_iterations: 100,
+            bootstrap_tolerance: 1e-8,
         }
     }
 }
@@ -788,25 +797,30 @@ impl CDSBootstrapper {
         target_spread_bps: f64,
         pricer: &CDSPricer,
     ) -> Result<f64> {
-        let mut hazard_rate = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
-        for _ in 0..20 {
-            let surv = self.create_flat_hazard_curve(hazard_rate, cds)?;
-            let calculated_spread = pricer.par_spread(cds, disc, &surv, disc.base_date())?;
-            let error = calculated_spread - target_spread_bps;
-            if error.abs() < self.config.tolerance {
-                return Ok(hazard_rate);
+        // Objective function: ParSpread(h) - TargetSpread = 0
+        let objective = |h: f64| -> f64 {
+            // Create temp hazard curve with flat rate h
+            // Note: We handle errors inside by returning NaN to solver or panicking 
+            // (BrentSolver requires infallible closure, so we assume creation succeeds for valid h)
+            let surv = self.create_flat_hazard_curve(h, cds).expect("Hazard curve creation failed");
+            match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
+                Ok(spread) => spread - target_spread_bps,
+                Err(_) => f64::NAN, // Signal invalid region to solver
             }
-            let bump = 0.0001;
-            let surv_bumped = self.create_flat_hazard_curve(hazard_rate + bump, cds)?;
-            let spread_bumped = pricer.par_spread(cds, disc, &surv_bumped, disc.base_date())?;
-            let derivative = (spread_bumped - calculated_spread) / bump;
-            if derivative.abs() < 1e-10 {
-                return Err(Error::Internal);
-            }
-            hazard_rate -= error / derivative;
-            hazard_rate = hazard_rate.clamp(0.0001, 0.5);
-        }
-        Err(Error::Internal)
+        };
+
+        // Initial guess using credit triangle approximation: h ~ S / (1-R)
+        let initial_guess = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
+        let bracket_min = 1e-5; // 0.1 bp hazard
+        let bracket_max = 1.0;  // 100% hazard
+
+        let solver = BrentSolver {
+            tolerance: self.config.bootstrap_tolerance,
+            max_iterations: self.config.bootstrap_max_iterations,
+            ..Default::default()
+        };
+
+        solver.solve(objective, initial_guess.clamp(bracket_min, bracket_max))
     }
 
     fn create_flat_hazard_curve(

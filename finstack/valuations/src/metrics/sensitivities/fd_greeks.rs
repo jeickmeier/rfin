@@ -454,7 +454,10 @@ where
         // Determine bump size (relative scale of vols)
         let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
             // Prefer explicit override; otherwise use default 1% vol scale
-            overrides.vol_bump_pct.unwrap_or(bump_sizes::VOLATILITY)
+            overrides
+                .vega_bump_decimal
+                .or(overrides.vol_bump_pct)
+                .unwrap_or(bump_sizes::VOLATILITY)
         } else {
             bump_sizes::VOLATILITY
         };
