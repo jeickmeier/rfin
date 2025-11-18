@@ -313,7 +313,8 @@ fn test_irs_npv_scales_with_notional() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let swap_10m = InterestRateSwap::create_usd_swap(
         "SWAP_10M".into(),
@@ -322,7 +323,8 @@ fn test_irs_npv_scales_with_notional() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv_1m = swap_1m.value(&market, as_of).unwrap();
     let npv_10m = swap_10m.value(&market, as_of).unwrap();
@@ -349,7 +351,8 @@ fn test_irs_rate_sensitivity_inverse() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let mut npvs = Vec::new();
 
@@ -398,7 +401,8 @@ fn test_irs_with_spread() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
     swap.float.spread_bp = 50.0;
 
     let npv = swap.value(&market, as_of).unwrap();
@@ -431,7 +435,8 @@ fn test_irs_short_maturity() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv = swap.value(&market, as_of).unwrap();
 
@@ -463,7 +468,8 @@ fn test_irs_long_maturity() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv = swap.value(&market, as_of).unwrap();
 
@@ -495,7 +501,8 @@ fn test_irs_zero_rate() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv = swap.value(&market, as_of);
 
@@ -523,7 +530,8 @@ fn test_irs_theta_calculation() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Theta])
@@ -560,7 +568,8 @@ fn test_irs_forward_starting() {
         start,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv = swap.value(&market, as_of);
 
@@ -586,7 +595,8 @@ fn test_irs_npv_currency_matches() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let npv = swap.value(&market, as_of).unwrap();
 

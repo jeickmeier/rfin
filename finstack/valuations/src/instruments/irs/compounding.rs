@@ -25,17 +25,25 @@
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use finstack_valuations::instruments::irs::FloatingLegCompounding;
 ///
 /// // LIBOR-style swap (simple compounding)
 /// let simple = FloatingLegCompounding::Simple;
+/// assert_eq!(simple, FloatingLegCompounding::default());
 ///
 /// // SOFR swap with 2-day lookback
 /// let sofr = FloatingLegCompounding::CompoundedInArrears {
 ///     lookback_days: 2,
 ///     observation_shift: None,
 /// };
+/// assert_eq!(sofr, FloatingLegCompounding::sofr());
+///
+/// // SONIA swap with 5-day lookback
+/// let sonia = FloatingLegCompounding::sonia();
+/// if let FloatingLegCompounding::CompoundedInArrears { lookback_days, .. } = sonia {
+///     assert_eq!(lookback_days, 5);
+/// }
 /// ```
 ///
 /// # References
@@ -45,10 +53,9 @@
 /// - **BoE** (Bank of England): SONIA conventions
 /// - **ECB**: €STR conventions
 ///
-/// In the IRS instrument implementation, RFR-style variants
-/// (`CompoundedInArrears` / `CompoundedDaily`) are also used to classify
-/// swaps as OIS for discount-only float-leg pricing; see
-/// `InterestRateSwap::is_ois` for details.
+/// In the IRS instrument implementation, the RFR-style variant
+/// (`CompoundedInArrears`) is also used to classify swaps as OIS for
+/// discount-only float-leg pricing; see `InterestRateSwap::is_ois` for details.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
@@ -96,15 +103,6 @@ pub enum FloatingLegCompounding {
         /// Some markets use observation shift instead of lookback.
         observation_shift: Option<i32>,
     },
-
-    /// Daily compounding with no lookback (legacy EONIA-style).
-    ///
-    /// Similar to CompoundedInArrears but without lookback period.
-    /// Mainly for historical compatibility with EONIA swaps.
-    ///
-    /// Formula: Same as CompoundedInArrears but observation period
-    /// aligns exactly with payment period.
-    CompoundedDaily,
 }
 
 impl Default for FloatingLegCompounding {
@@ -188,7 +186,6 @@ mod tests {
             FloatingLegCompounding::Simple,
             FloatingLegCompounding::sofr(),
             FloatingLegCompounding::sonia(),
-            FloatingLegCompounding::CompoundedDaily,
         ];
 
         for method in methods {

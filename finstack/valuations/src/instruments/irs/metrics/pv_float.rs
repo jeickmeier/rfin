@@ -1,13 +1,44 @@
-//! IRS floating leg PV metric.
+//! Floating leg present value calculation for interest rate swaps.
 //!
-//! Discounts floating coupons projected from a forward curve, including
-//! any quoted spread in basis points.
-//! Only includes future cashflows (payment date > as_of date).
+//! Computes the present value of all future floating rate payments by
+//! projecting forward rates from the forward curve and discounting.
+//!
+//! # Calculation
+//!
+//! ## Term-Rate Swaps (LIBOR-style)
+//!
+//! ```text
+//! PV_float = Σ Notional × (Forward_i + Spread) × α_i × DF(T_i)
+//! ```
+//!
+//! where:
+//! - `Forward_i` = forward rate for period i from the forward curve
+//! - `Spread` = quoted spread in basis points
+//! - `α_i` = accrual factor for period i
+//! - `DF(T_i)` = discount factor to payment date i
+//!
+//! ## OIS/Overnight Swaps (RFR-style)
+//!
+//! For swaps with compounded-in-arrears floating legs, uses the
+//! discount-only identity:
+//! ```text
+//! PV_float = Notional × (DF(start) - DF(end)) + Spread_Annuity
+//! ```
+//!
+//! This is exact when the forward curve matches the discount curve.
+//!
+//! # References
+//!
+//! - **ISDA 2006 Definitions**: Sections 4.1-4.2 (term rates)
+//! - **ISDA 2021 Definitions**: Section 4.5 (compounded RFR)
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-/// PV of the floating leg of an IRS.
+/// Present value calculator for the floating leg of an interest rate swap.
+///
+/// Projects forward rates and discounts floating coupon payments. Automatically
+/// detects OIS swaps (overnight compounding) and uses the appropriate pricing method.
 pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {

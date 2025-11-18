@@ -1,20 +1,53 @@
-//! IRS par rate metric.
+//! Interest rate swap par rate calculation.
 //!
-//! Computes the fixed rate that sets the swap PV to zero given curves.
-//! Uses float-leg PV divided by notional times fixed-leg annuity.
+//! Computes the fixed rate that sets the swap PV to zero given market curves.
+//!
+//! # Calculation Methods
+//!
+//! ## Forward-Based Method (Default)
+//!
+//! Computes par rate as:
+//! ```text
+//! Par Rate = PV_float / (Notional × Annuity)
+//! ```
+//!
+//! where:
+//! - `PV_float` = sum of discounted projected floating coupons
+//! - `Annuity` = sum of discounted accrual factors on fixed leg
+//!
+//! This method works for both seasoned and unseasoned swaps.
+//!
+//! ## Discount Ratio Method
+//!
+//! Uses the closed-form identity:
+//! ```text
+//! Par Rate = (DF(start) - DF(end)) / Annuity
+//! ```
+//!
+//! This method is exact only for unseasoned swaps where `as_of <= start_date`.
+//! For seasoned swaps, use the forward-based method instead.
+//!
+//! # References
+//!
+//! - **ISDA 2006 Definitions**: Section 7.1 - Par Swap Rates
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
 
 use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 
-/// Minimum threshold for discount factor values to avoid numerical instability.
-/// Same as in pricer.rs to ensure consistency across IRS calculations.
-const DF_EPSILON: f64 = 1e-10;
-
 /// Basis points to decimal conversion factor.
 const BP_TO_DECIMAL: f64 = 1e-4;
 
-/// Par rate calculator for IRS.
+/// Par rate calculator for interest rate swaps.
+///
+/// Computes the fixed rate that makes the swap's net present value equal to zero.
+/// Supports both forward-based (works for seasoned swaps) and discount-ratio
+/// (exact for unseasoned swaps only) methods.
+///
+/// # Dependencies
+///
+/// Requires the `Annuity` metric to be computed first.
 pub struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
@@ -58,20 +91,6 @@ impl MetricCalculator for ParRateCalculator {
                     return Ok(0.0);
                 }
 
-                let disc_dc = disc.day_count();
-                let t_as_of = disc_dc
-                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
-                let df_as_of = disc.df(t_as_of);
-
-                // Guard against near-zero discount factors for numerical stability
-                if df_as_of.abs() < DF_EPSILON {
-                    return Err(finstack_core::error::Error::Validation(format!(
-                        "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                         This may indicate extreme rate scenarios or very long time horizons.",
-                        df_as_of, DF_EPSILON
-                    )));
-                }
-
                 let mut pv = 0.0;
                 let mut prev = schedule[0];
                 for &d in &schedule[1..] {
@@ -103,12 +122,8 @@ impl MetricCalculator for ParRateCalculator {
                     let rate = f + (irs.float.spread_bp * BP_TO_DECIMAL);
                     let coupon = irs.notional.amount() * rate * yf;
 
-                    // Discount from as_of for correct theta and seasoned swap handling
-                    let t_d = disc_dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
-                    let df_d_abs = disc.df(t_d);
-                    // df_as_of already validated above, safe to divide
-                    let df = df_d_abs / df_as_of;
+                    // Use shared helper - handles epsilon validation and relative DF calculation
+                    let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
 
                     pv += coupon * df;
                     prev = d;
@@ -149,35 +164,13 @@ impl MetricCalculator for ParRateCalculator {
                     ));
                 }
 
-                let disc_dc = disc.day_count();
-                let t_as_of = disc_dc
-                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
-                let df_as_of = disc.df(t_as_of);
-
-                // Guard against near-zero discount factors for numerical stability
-                if df_as_of.abs() < DF_EPSILON {
-                    return Err(finstack_core::error::Error::Validation(format!(
-                        "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                         This may indicate extreme rate scenarios or very long time horizons.",
-                        df_as_of, DF_EPSILON
-                    )));
-                }
-
                 // Numerator: P(as_of,T0) - P(as_of,Tn)
-                let t0 = disc_dc
-                    .year_fraction(base, dates[0], finstack_core::dates::DayCountCtx::default())?;
-                let tn = disc_dc
-                    .year_fraction(
-                        base,
-                        *dates.last().expect("Dates should not be empty"),
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-
-                let p0_abs = disc.df(t0);
-                let pn_abs = disc.df(tn);
-                // df_as_of already validated above, safe to divide
-                let p0 = p0_abs / df_as_of;
-                let pn = pn_abs / df_as_of;
+                let p0 = crate::instruments::irs::pricer::relative_df(&disc, as_of, dates[0])?;
+                let pn = crate::instruments::irs::pricer::relative_df(
+                    &disc,
+                    as_of,
+                    *dates.last().expect("Dates should not be empty"),
+                )?;
                 let num = p0 - pn;
 
                 // Denominator: Sum alpha_i P(as_of,Ti) for future cashflows
@@ -194,11 +187,7 @@ impl MetricCalculator for ParRateCalculator {
                         .fixed
                         .dc
                         .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-                    let t_d = disc_dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
-                    let p_abs = disc.df(t_d);
-                    // df_as_of already validated above, safe to divide
-                    let p = p_abs / df_as_of;
+                    let p = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
                     den += alpha * p;
                     prev = d;
                 }

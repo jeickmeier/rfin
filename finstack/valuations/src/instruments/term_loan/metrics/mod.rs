@@ -1,4 +1,65 @@
-//! Metrics for Term Loan instruments.
+//! Metrics for term loan instruments.
+//!
+//! This module provides comprehensive risk and return metrics for term loans including:
+//! - **Yield metrics**: YTM, YTC, YTW, YT2Y/3Y/4Y
+//! - **Spread metrics**: Discount Margin, All-In Rate
+//! - **Risk metrics**: DV01, CS01, Theta (bucketed and parallel)
+//!
+//! # Available Metrics
+//!
+//! ## Yield and Return
+//!
+//! - **YTM** (Yield-to-Maturity): IRR to final maturity
+//! - **YTC** (Yield-to-Call): IRR to first call date  
+//! - **YTW** (Yield-to-Worst): Minimum yield across all call dates and maturity
+//! - **YT2Y/3Y/4Y**: IRR to fixed 2/3/4-year horizons
+//! - **All-In Rate**: Effective borrower cost including fees
+//!
+//! ## Spread Metrics
+//!
+//! - **Discount Margin**: Additive spread for floating-rate loans to match price
+//!
+//! ## Risk Metrics
+//!
+//! - **DV01**: Dollar value of 1bp parallel shift (combined parallel + key-rate)
+//! - **BucketedDV01**: Key-rate risk by tenor bucket
+//! - **CS01**: Credit spread sensitivity (parallel)
+//! - **BucketedCS01**: Credit spread sensitivity by tenor
+//! - **Theta**: Time decay (1-day price change)
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_valuations::instruments::term_loan::TermLoan;
+//! use finstack_valuations::metrics::{MetricId, MetricRegistry};
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let loan = TermLoan::example();
+//! let market = MarketContext::new();
+//! let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
+//!
+//! // Compute base value
+//! // let pv = loan.value(&market, as_of)?;
+//!
+//! // Request metrics
+//! let metrics = vec![MetricId::Ytm, MetricId::Dv01, MetricId::custom("ytw")];
+//! // let result = loan.price_with_metrics(&market, as_of, &metrics)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Registration
+//!
+//! Metrics are registered via [`register_term_loan_metrics()`] in the global registry.
+//!
+//! # See Also
+//!
+//! - [`YtmCalculator`] for yield-to-maturity implementation
+//! - [`DiscountMarginCalculator`] for floating-rate spread calculation
+//! - [`AllInRateCalculator`] for borrower cost calculation
 
 mod all_in_rate;
 mod discount_margin;
@@ -17,7 +78,25 @@ pub use ytw::YtwCalculator;
 
 use crate::metrics::MetricRegistry;
 
-/// Register all Term Loan metrics with the registry.
+/// Register all term loan metrics with the global registry.
+///
+/// Registers yield, spread, and risk metrics for term loan instruments.
+/// Called automatically during registry initialization.
+///
+/// # Registered Metrics
+///
+/// - Standard: YTM, Discount Margin, DV01, BucketedDV01, CS01, BucketedCS01, Theta
+/// - Custom: YTW (`"ytw"`), YTC (`"ytc"`), YT2Y/3Y/4Y, All-In Rate (`"all_in_rate"`)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::metrics::MetricRegistry;
+/// use finstack_valuations::instruments::term_loan::metrics::register_term_loan_metrics;
+///
+/// let mut registry = MetricRegistry::new();
+/// register_term_loan_metrics(&mut registry);
+/// ```
 pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     crate::register_metrics! {
         registry: registry,

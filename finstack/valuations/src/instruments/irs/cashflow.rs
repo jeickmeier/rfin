@@ -22,6 +22,35 @@ use crate::instruments::irs::{InterestRateSwap, PayReceive};
 ///
 /// The resulting schedule has positive notionals and coupon amounts; caller is
 /// responsible for applying `PayReceive` sign conventions.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build the schedule
+///
+/// # Returns
+///
+/// A `CashFlowSchedule` containing all fixed leg cashflows with `CFKind::Fixed`
+/// or `CFKind::Stub` classifications. Amounts are unsigned (positive).
+///
+/// # Errors
+///
+/// Returns an error if the cashflow schedule cannot be built (e.g., invalid
+/// date ranges or calendar lookups fail).
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let irs = InterestRateSwap::example()?;
+/// let schedule = cashflow::fixed_leg_schedule(&irs)?;
+///
+/// // Schedule contains fixed coupon flows
+/// assert!(!schedule.flows.is_empty());
+/// # Ok(())
+/// # }
+/// ```
 pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     let mut fixed_b = CashFlowSchedule::builder();
     fixed_b
@@ -42,6 +71,36 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 ///
 /// The schedule encodes reset dates, payment dates, and accrual metadata. The
 /// amounts are unsigned; caller is responsible for applying `PayReceive`.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build the schedule
+///
+/// # Returns
+///
+/// A `CashFlowSchedule` containing all floating leg cashflows with `CFKind::FloatReset`
+/// classifications. Amounts are unsigned (positive) and represent notional × spread
+/// × accrual factor (forward rates must be added separately by the pricer).
+///
+/// # Errors
+///
+/// Returns an error if the cashflow schedule cannot be built (e.g., invalid
+/// date ranges or calendar lookups fail).
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let irs = InterestRateSwap::example()?;
+/// let schedule = cashflow::float_leg_schedule(&irs)?;
+///
+/// // Schedule contains floating rate reset flows
+/// assert!(!schedule.flows.is_empty());
+/// # Ok(())
+/// # }
+/// ```
 pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     let mut float_b = CashFlowSchedule::builder();
     float_b
@@ -70,6 +129,35 @@ pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 ///
 /// Returns a vector of `(date, amount)` with signs applied according to
 /// `PayReceive` and fixed/float leg direction.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build dated flows
+///
+/// # Returns
+///
+/// A vector of `(Date, Money)` tuples with:
+/// - Fixed leg flows: positive for ReceiveFixed, negative for PayFixed
+/// - Floating leg flows: negative for ReceiveFixed, positive for PayFixed
+///
+/// # Errors
+///
+/// Returns an error if either leg's cashflow schedule cannot be built.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow, PayReceive};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let irs = InterestRateSwap::example()?;
+/// let flows = cashflow::signed_dated_flows(&irs)?;
+///
+/// // PayFixed swap has negative fixed leg flows, positive float leg flows
+/// assert!(!flows.is_empty());
+/// # Ok(())
+/// # }
+/// ```
 pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
     let fixed_sched = fixed_leg_schedule(irs)?;
     let float_sched = float_leg_schedule(irs)?;
@@ -107,6 +195,41 @@ pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
 ///
 /// This combines fixed and floating leg schedules, applies sign conventions,
 /// and sorts flows by date and CFKind priority.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build the full schedule
+///
+/// # Returns
+///
+/// A `CashFlowSchedule` containing all cashflows from both legs with:
+/// - Proper sign conventions applied based on `PayReceive`
+/// - `CFKind` metadata preserved for each flow
+/// - Flows sorted by date and kind priority
+///
+/// # Errors
+///
+/// Returns an error if either leg's cashflow schedule cannot be built.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let irs = InterestRateSwap::example()?;
+/// let schedule = cashflow::full_signed_schedule(&irs)?;
+///
+/// // Combined schedule has flows from both fixed and floating legs
+/// assert!(!schedule.flows.is_empty());
+///
+/// // Flows are sorted by date
+/// for i in 1..schedule.flows.len() {
+///     assert!(schedule.flows[i].date >= schedule.flows[i-1].date);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 

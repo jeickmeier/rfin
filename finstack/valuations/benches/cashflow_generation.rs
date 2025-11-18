@@ -101,7 +101,8 @@ fn bench_swap_cashflow_generation(c: &mut Criterion) {
             start,
             end,
             finstack_valuations::instruments::irs::PayReceive::PayFixed,
-        );
+        )
+        .expect("Failed to create swap for benchmark");
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),

@@ -46,10 +46,15 @@
 //!
 //! Standard conventions by currency:
 //!
-//! - **USD**: ACT/360 (float), 30/360 or ACT/360 (fixed), SOFR index
-//! - **EUR**: ACT/360 (float), 30/360 (fixed), EURIBOR index
-//! - **GBP**: ACT/365 (float), ACT/365 (fixed), SONIA index
-//! - **JPY**: ACT/365 (float), ACT/365 (fixed), TONA index
+//! - **USD**: ACT/360 (float), ACT/360 (fixed OIS), SOFR index
+//! - **EUR**: ACT/360 (float), ACT/360 (fixed OIS), €STR index
+//! - **GBP**: ACT/365F (float), ACT/365F (fixed), SONIA index
+//! - **JPY**: ACT/365F (float), ACT/365F (fixed), TONA index
+//! - **CAD**: ACT/365F (float), ACT/365F (fixed), CORRA (OIS) index
+//! - **AUD**: ACT/365F (float), ACT/365F (fixed), AONIA / BBSW index
+//! - **NZD**: ACT/365F (float), ACT/365F (fixed), BKBM index
+//! - **CHF**: ACT/360 (float), ACT/360 (fixed OIS), SARON index
+//! - **CNY**: ACT/365F (float), ACT/365F (fixed), Shibor index
 //!
 //! # Key Metrics
 //!
@@ -57,6 +62,23 @@
 //! - **DV01**: Dollar value of 1bp parallel shift in curve
 //! - **Bucketed DV01**: Sensitivity to individual curve points
 //! - **Annuity**: Present value of 1 unit paid each period
+//!
+//! # References
+//!
+//! ## Academic & Industry Standards
+//!
+//! - **ISDA 2006 Definitions**: Standard definitions for interest rate derivatives,
+//!   including day count conventions, business day adjustments, and calculation
+//!   methodologies
+//! - **ISDA 2021 Definitions**: Updated definitions for risk-free rate (RFR)
+//!   derivatives using compounded rates in arrears
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
+//!   Pearson. Chapter 7: Swaps.
+//! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities: Tools for
+//!   Today's Markets* (3rd ed.). Wiley. Chapters 3-4: Swaps and Duration.
+//! - Brigo, D., & Mercurio, F. (2006). *Interest Rate Models - Theory and
+//!   Practice* (2nd ed.). Springer Finance. Chapter 1: Definitions and
+//!   Conventions.
 //!
 //! # Examples
 //!

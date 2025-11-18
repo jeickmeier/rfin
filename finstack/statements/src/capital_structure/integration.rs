@@ -401,7 +401,7 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
             Date::from_calendar_date(2030, Month::January, 1).expect("valid date"),
             PayReceive::PayFixed,
-        );
+        ).expect("swap should build");
 
         // Serialize to JSON
         let spec_json = serde_json::to_value(&swap).expect("swap should serialize");

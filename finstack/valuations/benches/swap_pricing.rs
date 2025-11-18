@@ -32,6 +32,7 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
         end,
         PayReceive::PayFixed,
     )
+    .expect("Failed to create swap for benchmark")
 }
 
 fn create_market() -> MarketContext {

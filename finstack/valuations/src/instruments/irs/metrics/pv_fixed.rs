@@ -1,12 +1,32 @@
-//! IRS fixed leg PV metric.
+//! Fixed leg present value calculation for interest rate swaps.
 //!
-//! Discounts fixed coupons on the fixed leg using the discount curve.
-//! Only includes future cashflows (payment date > as_of date).
+//! Computes the present value of all future fixed coupon payments by
+//! discounting them using the discount curve specified in the fixed leg.
+//!
+//! # Calculation
+//!
+//! ```text
+//! PV_fixed = Σ Notional × Fixed_Rate × α_i × DF(T_i)
+//! ```
+//!
+//! where:
+//! - `α_i` = accrual factor for period i (from day count convention)
+//! - `DF(T_i)` = discount factor to payment date i
+//! - Sum includes only future cashflows (T_i > as_of)
+//!
+//! # Use Cases
+//!
+//! - Computing individual leg PVs for risk analysis
+//! - Decomposing swap value into fixed vs floating components
+//! - Calibration and curve fitting workflows
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-/// PV of the fixed leg of an IRS.
+/// Present value calculator for the fixed leg of an interest rate swap.
+///
+/// Discounts all future fixed coupon payments using the discount curve
+/// specified in the swap's fixed leg specification.
 pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {

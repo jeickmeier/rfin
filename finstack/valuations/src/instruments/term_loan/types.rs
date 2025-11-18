@@ -1,4 +1,42 @@
-//! Term loan types and instrument trait implementation.
+//! Term loan instrument type and core specifications.
+//!
+//! This module defines the [`TermLoan`] instrument type and its associated specifications
+//! including rate types, trait implementations, and conversion from [`TermLoanSpec`].
+//!
+//! # Overview
+//!
+//! The [`TermLoan`] type represents a fully-validated term loan instrument with:
+//! - Fixed or floating rate specifications
+//! - Optional DDTL (delayed-draw) features
+//! - Covenant-driven events
+//! - Amortization schedules
+//! - Call schedules
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_valuations::instruments::term_loan::{TermLoan, RateSpec};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::dates::*;
+//! use finstack_core::types::{InstrumentId, CurveId};
+//! use time::Month;
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a simple example term loan
+//! let loan = TermLoan::example();
+//!
+//! assert_eq!(loan.currency, Currency::USD);
+//! assert_eq!(loan.notional_limit, Money::new(10_000_000.0, Currency::USD));
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # See Also
+//!
+//! - [`TermLoanSpec`] for the serializable specification type
+//! - [`RateSpec`] for rate type definitions
+//! - [`super::spec`] module for all specification types
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -13,24 +51,134 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 
 /// Rate specification for term loans.
 ///
-/// Defines whether the loan uses fixed or floating rate interest.
+///  Defines whether the loan uses fixed or floating rate interest, with full
+/// support for floating rate features including floors, caps, and leverage.
+///
+/// # Variants
+///
+/// - [`Fixed`](RateSpec::Fixed): Constant rate specified in basis points
+/// - [`Floating`](RateSpec::Floating): Index-based rate with spread and optional limits
+///
+/// # Examples
+///
+/// Fixed rate loan:
+/// ```rust
+/// use finstack_valuations::instruments::term_loan::RateSpec;
+///
+/// let fixed_rate = RateSpec::Fixed { rate_bp: 600 };  // 6% fixed
+/// ```
+///
+/// Floating rate with floor:
+/// ```rust
+/// use finstack_valuations::instruments::term_loan::RateSpec;
+/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
+/// use finstack_core::dates::{DayCount, BusinessDayConvention, Frequency};
+/// use finstack_core::types::CurveId;
+///
+/// let floating = RateSpec::Floating(FloatingRateSpec {
+///     index_id: CurveId::new("USD-SOFR-3M"),
+///     spread_bp: 300.0,     // +300 bps spread
+///     gearing: 1.0,
+///     floor_bp: Some(0.0),  // 0% floor
+///     cap_bp: None,
+///     reset_freq: Frequency::quarterly(),
+///     reset_lag_days: 2,
+///     dc: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: None,
+/// });
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed {
-        /// Fixed rate in basis points
+        /// Fixed rate in basis points (e.g., 600 = 6%)
         rate_bp: i32,
     },
 
     /// Floating rate using canonical FloatingRateSpec.
     ///
     /// Uses the standard floating rate specification with full support
-    /// for floors, caps, and gearing.
+    /// for floors, caps, gearing, and reset conventions.
     Floating(FloatingRateSpec),
 }
 
-/// Term Loan instrument (DDTL features added via later tasks)
+/// Term loan instrument with covenant and DDTL support.
+///
+/// Represents a fully-validated institutional term loan with support for:
+/// - Fixed or floating interest rates
+/// - Delayed-draw term loan (DDTL) features
+/// - Payment-in-kind (PIK) interest
+/// - Flexible amortization schedules
+/// - Covenant-driven events (margin step-ups, cash sweeps, PIK toggles)
+/// - Original issue discount (OID) handling
+/// - Borrower call schedules
+///
+/// # Construction
+///
+/// Create via [`TermLoanSpec`] conversion or use the builder pattern:
+///
+/// ```rust
+/// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanBuilder, RateSpec};
+/// use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
+/// use finstack_valuations::cashflow::builder::specs::CouponType;
+/// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+/// use finstack_valuations::instruments::common::traits::Attributes;
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::*;
+/// use finstack_core::types::{InstrumentId, CurveId};
+/// use time::Month;
+///
+/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let loan = TermLoanBuilder::new()
+///     .id(InstrumentId::new("TL-001"))
+///     .currency(Currency::USD)
+///     .notional_limit(Money::new(5_000_000.0, Currency::USD))
+///     .issue(create_date(2025, Month::January, 1)?)
+///     .maturity(create_date(2030, Month::January, 1)?)
+///     .rate(RateSpec::Fixed { rate_bp: 550 })
+///     .pay_freq(Frequency::quarterly())
+///     .day_count(DayCount::Act360)
+///     .bdc(BusinessDayConvention::ModifiedFollowing)
+///     .calendar_id_opt(None)
+///     .stub(StubKind::None)
+///     .discount_curve_id(CurveId::new("USD-CREDIT"))
+///     .amortization(AmortizationSpec::None)
+///     .coupon_type(CouponType::Cash)
+///     .upfront_fee_opt(None)
+///     .ddtl_opt(None)
+///     .covenants_opt(None)
+///     .pricing_overrides(PricingOverrides::default())
+///     .call_schedule_opt(None)
+///     .attributes(Attributes::new())
+///     .build()?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Cashflow Generation
+///
+/// Uses the [`CashflowProvider`](crate::cashflow::traits::CashflowProvider) trait:
+/// - `build_schedule()` returns holder-view flows (coupons, amortization, redemptions)
+/// - `build_full_schedule()` returns internal engine schedule with all flow types
+///
+/// # Pricing
+///
+/// Implements [`Instrument::value()`](crate::instruments::common::traits::Instrument::value)
+/// using deterministic cashflow discounting. PIK interest is capitalized and excluded from PV.
+///
+/// # Invariants
+///
+/// - `issue < maturity`
+/// - `notional_limit.currency() == currency`
+/// - All monetary amounts are in the same currency
+/// - Amortization does not exceed outstanding principal
+///
+/// # Thread Safety
+///
+/// This type is `Send + Sync` as all fields are thread-safe.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -97,7 +245,25 @@ pub struct TermLoan {
 }
 
 impl TermLoan {
-    /// Create a canonical example term loan (fixed rate, quarterly, linear amortization).
+    /// Create a canonical example term loan for testing and documentation.
+    ///
+    /// Generates a 5-year USD term loan with:
+    /// - $10M notional
+    /// - 6% fixed rate
+    /// - Quarterly payments
+    /// - 2.5% per-period amortization
+    /// - Act/360 day count
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::term_loan::TermLoan;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let loan = TermLoan::example();
+    /// assert_eq!(loan.currency, Currency::USD);
+    /// assert_eq!(loan.notional_limit.amount(), 10_000_000.0);
+    /// ```
     pub fn example() -> Self {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;

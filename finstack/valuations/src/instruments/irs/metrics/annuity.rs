@@ -1,22 +1,48 @@
-//! IRS annuity metric.
+//! Fixed leg annuity calculation for interest rate swaps.
 //!
-//! Computes the sum of discounted accrual factors on the fixed leg, commonly
-//! used for par rate calculations and risk analytics.
+//! Computes the sum of discounted accrual factors on the fixed leg, which
+//! represents the present value of receiving $1 per unit coupon on each
+//! fixed payment date.
 //!
-//! The annuity represents `sum(alpha_i * DF_i)` for future cashflows only, with
-//! discount factors computed relative to the valuation date. For IRS fixed legs
-//! we always treat coupons as simple interest; fixed-leg compounding settings do
-//! not change the annuity weights.
+//! # Definition
+//!
+//! ```text
+//! Annuity = Σ α_i × DF(T_i)
+//! ```
+//!
+//! where:
+//! - `α_i` = accrual factor for period i (from day count convention)
+//! - `DF(T_i)` = discount factor to payment date i (relative to valuation date)
+//! - Sum includes only future cashflows (T_i > as_of)
+//!
+//! # Applications
+//!
+//! The annuity is a fundamental quantity used in:
+//! - **Par rate calculation**: `Par Rate = PV_float / (Notional × Annuity)`
+//! - **DV01 approximation**: Change in swap value for 1bp rate change
+//! - **Duration metrics**: Effective duration and modified duration
+//! - **Risk scaling**: Converting PV sensitivities to rate sensitivities
+//!
+//! # Implementation Notes
+//!
+//! For IRS fixed legs we always treat coupons as simple interest; the
+//! compounding configuration affects coupon accrual (handled in cashflow
+//! builders), not the annuity weight calculation itself.
+//!
+//! # References
+//!
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
+//! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities*. Chapter 4.
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 
-/// Minimum threshold for discount factor values to avoid numerical instability.
-/// Same as in pricer.rs to ensure consistency across IRS calculations.
-const DF_EPSILON: f64 = 1e-10;
-
-/// Calculates the fixed-leg annuity for an IRS.
+/// Fixed-leg annuity calculator for interest rate swaps.
+///
+/// Computes the present value of $1 paid per unit coupon on each fixed
+/// payment date, discounted to the valuation date. This is a fundamental
+/// quantity used in par rate and risk calculations.
 pub struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
@@ -25,7 +51,6 @@ impl MetricCalculator for AnnuityCalculator {
         let as_of = context.as_of;
 
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
-        let disc_dc = disc.day_count();
 
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,
@@ -38,24 +63,6 @@ impl MetricCalculator for AnnuityCalculator {
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {
             return Ok(0.0);
-        }
-
-        // Pre-compute as_of discount factor for correct discounting
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-        let df_as_of = disc.df(t_as_of);
-
-        // Guard against near-zero discount factors for numerical stability
-        if df_as_of.abs() < DF_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
-                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-                 This may indicate extreme rate scenarios or very long time horizons.",
-                df_as_of, DF_EPSILON
-            )));
         }
 
         let mut annuity = 0.0;
@@ -73,16 +80,8 @@ impl MetricCalculator for AnnuityCalculator {
                 .dc
                 .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
-            // Discount from as_of for correct theta and seasoned swap handling
-            let t_d = disc_dc
-                .year_fraction(
-                    disc.base_date(),
-                    d,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?;
-            let df_d_abs = disc.df(t_d);
-            // df_as_of already validated above, safe to divide
-            let df = df_d_abs / df_as_of;
+            // Use shared helper - handles epsilon validation and relative DF calculation
+            let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
 
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity

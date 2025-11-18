@@ -22,7 +22,8 @@ fn test_irs_standard_construction() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.id.as_str(), "IRS-5Y");
     assert_eq!(swap.notional.amount(), 1_000_000.0);
@@ -97,7 +98,8 @@ fn test_irs_receive_vs_pay() {
         start,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let swap_pay = InterestRateSwap::create_usd_swap(
         "IRS-PAY".into(),
@@ -106,7 +108,8 @@ fn test_irs_receive_vs_pay() {
         start,
         end,
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap_receive.side, PayReceive::ReceiveFixed);
     assert_eq!(swap_pay.side, PayReceive::PayFixed);
@@ -126,7 +129,8 @@ fn test_irs_short_maturity() {
         date!(2024 - 01 - 01),
         date!(2024 - 07 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.id.as_str(), "IRS-6M");
     assert!(swap.fixed.end.year() - swap.fixed.start.year() < 1);
@@ -142,7 +146,8 @@ fn test_irs_long_maturity() {
         date!(2024 - 01 - 01),
         date!(2054 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.id.as_str(), "IRS-30Y");
     assert_eq!(swap.fixed.end.year() - swap.fixed.start.year(), 30);
@@ -157,7 +162,8 @@ fn test_irs_zero_spread() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.float.spread_bp, 0.0);
 }
@@ -171,7 +177,8 @@ fn test_irs_with_spread() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     swap.float.spread_bp = 50.0;
 
@@ -188,7 +195,8 @@ fn test_irs_large_notional() {
         date!(2024 - 01 - 01),
         date!(2034 - 01 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.notional.amount(), 1_000_000_000.0);
 }
@@ -203,7 +211,8 @@ fn test_irs_small_notional() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     assert_eq!(swap.notional.amount(), 10_000.0);
 }
@@ -262,7 +271,8 @@ fn test_irs_attribute_management() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     // Add attributes
     swap.attributes

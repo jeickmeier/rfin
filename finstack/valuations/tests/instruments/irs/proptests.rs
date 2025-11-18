@@ -13,6 +13,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use proptest::prelude::*;
+use std::sync::Arc;
 use time::macros::date;
 
 /// Helper to build a flat discount curve for property tests.
@@ -66,10 +67,8 @@ proptest! {
             (fixed_rate_2, fixed_rate_1)
         };
 
-        if (rate_high - rate_low).abs() < 1e-6 {
-            // Skip if rates are too close
-            return Ok(());
-        }
+        // Skip if rates are too close
+        prop_assume!((rate_high - rate_low).abs() >= 1e-6);
 
         let base_date = date!(2024-01-01);
         let start = date!(2024-01-01);
@@ -78,9 +77,9 @@ proptest! {
         // Build market curves
         let disc = build_test_discount_curve(0.03, base_date, "USD-OIS");
         let fwd = build_test_forward_curve(0.03, base_date, "USD-SOFR-3M");
-        let mut context = MarketContext::empty();
-        context.add_discount(disc);
-        context.add_forward(fwd);
+        let mut context = MarketContext::new();
+        context.insert_discount_mut(Arc::new(disc));
+        context.insert_forward_mut(Arc::new(fwd));
 
         // Create two receiver swaps with different fixed rates
         let irs_low = InterestRateSwap::builder()
@@ -158,8 +157,6 @@ proptest! {
             "Receiver swap NPV should increase with fixed rate: {} (low) vs {} (high) at rates {} vs {}",
             npv_low.amount(), npv_high.amount(), rate_low, rate_high
         );
-
-        Ok(())
     }
 
     /// Property: Payer and receiver swaps at same rate should have opposite NPVs.
@@ -179,9 +176,9 @@ proptest! {
         // Build market curves
         let disc = build_test_discount_curve(0.04, base_date, "USD-OIS");
         let fwd = build_test_forward_curve(0.04, base_date, "USD-SOFR-3M");
-        let mut context = MarketContext::empty();
-        context.add_discount(disc);
-        context.add_forward(fwd);
+        let mut context = MarketContext::new();
+        context.insert_discount_mut(Arc::new(disc));
+        context.insert_forward_mut(Arc::new(fwd));
 
         let payer = InterestRateSwap::builder()
             .id(InstrumentId::new("IRS-PAYER"))
@@ -259,8 +256,6 @@ proptest! {
             "Payer and receiver NPVs should sum to zero: payer={}, receiver={}, sum={}",
             npv_payer.amount(), npv_receiver.amount(), sum
         );
-
-        Ok(())
     }
 
     /// Property: NPV should not overflow or underflow for extreme (but valid) rates.
@@ -281,9 +276,9 @@ proptest! {
         // Build market curves with potentially extreme rates
         let disc = build_test_discount_curve(curve_rate, base_date, "USD-OIS");
         let fwd = build_test_forward_curve(curve_rate, base_date, "USD-SOFR-3M");
-        let mut context = MarketContext::empty();
-        context.add_discount(disc);
-        context.add_forward(fwd);
+        let mut context = MarketContext::new();
+        context.insert_discount_mut(Arc::new(disc));
+        context.insert_forward_mut(Arc::new(fwd));
 
         let irs = InterestRateSwap::builder()
             .id(InstrumentId::new("IRS-EXTREME"))
@@ -334,8 +329,6 @@ proptest! {
             "NPV should be reasonable for extreme rates: {}, max expected: {}",
             npv.amount(), max_reasonable_npv
         );
-
-        Ok(())
     }
 }
 

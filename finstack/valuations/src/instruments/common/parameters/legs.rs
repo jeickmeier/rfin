@@ -137,7 +137,6 @@ pub struct FloatLegSpec {
     /// Determines how floating rate coupons are calculated:
     /// - `Simple` (default): LIBOR-style simple interest
     /// - `CompoundedInArrears`: SOFR/SONIA-style daily compounding
-    /// - `CompoundedDaily`: Legacy EONIA-style
     ///
     /// # Note
     ///

@@ -54,6 +54,7 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
         end,
         PayReceive::PayFixed,
     )
+    .unwrap()
 }
 
 fn create_cds(tenor_years: i32) -> CreditDefaultSwap {

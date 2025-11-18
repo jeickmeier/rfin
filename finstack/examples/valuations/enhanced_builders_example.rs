@@ -37,7 +37,8 @@ fn main() -> finstack_core::Result<()> {
         issue,
         maturity_5y,
         PayReceive::PayFixed,
-    );
+    )
+    .expect("Failed to create swap");
     println!("✓ IRS created: {} notional", swap.notional.amount());
 
     // Standard Bond - ONE LINE!

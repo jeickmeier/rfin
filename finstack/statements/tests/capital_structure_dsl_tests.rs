@@ -458,7 +458,7 @@ fn test_build_swap_from_spec() {
         start,
         maturity,
         PayReceive::PayFixed,
-    );
+    ).unwrap();
 
     let spec_json = serde_json::to_value(&swap).unwrap();
     let spec = DebtInstrumentSpec::Swap {
@@ -554,7 +554,7 @@ fn test_build_any_instrument_from_spec_swap_variant() {
         start,
         maturity,
         PayReceive::PayFixed,
-    );
+    ).unwrap();
 
     let spec_json = serde_json::to_value(&swap).unwrap();
     let spec = DebtInstrumentSpec::Swap {

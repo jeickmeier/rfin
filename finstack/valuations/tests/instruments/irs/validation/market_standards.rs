@@ -73,7 +73,8 @@ fn test_irs_par_rate_market_standard() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
     // Compute par rate under current curves
     let par = swap
         .price_with_metrics(&market, as_of, &[MetricId::ParRate])
@@ -87,7 +88,8 @@ fn test_irs_par_rate_market_standard() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
     let npv = par_swap.value(&market, as_of).unwrap();
     assert!(
         npv.amount().abs() < 2000.0,
@@ -117,7 +119,8 @@ fn test_par_rate_discount_ratio_matches_forward_for_new_swap() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
     let mut swap_discount = swap_forward.clone();
     swap_discount.fixed.par_method = Some(ParRateMethod::DiscountRatio);
 
@@ -162,7 +165,8 @@ fn test_par_rate_discount_ratio_rejects_seasoned_swap() {
         start,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
     swap.fixed.par_method = Some(ParRateMethod::DiscountRatio);
 
     let par_forward = swap
@@ -210,7 +214,8 @@ fn test_irs_annuity_calculation() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -257,7 +262,8 @@ fn test_irs_dv01_market_standard() {
         as_of,
         end,
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity, MetricId::Dv01])

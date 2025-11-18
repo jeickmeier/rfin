@@ -52,7 +52,8 @@ fn test_irs_cashflow_schedule_generation() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -178,7 +179,8 @@ fn test_irs_floating_leg_schedule() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -296,7 +298,8 @@ fn test_irs_cashflow_dates_ordered() {
         date!(2024 - 01 - 01),
         date!(2027 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -320,7 +323,8 @@ fn test_irs_cashflow_amounts_nonzero() {
         date!(2024 - 01 - 01),
         date!(2027 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -346,7 +350,8 @@ fn test_irs_full_schedule_with_cfkind() {
         date!(2024 - 01 - 01),
         date!(2026 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -475,7 +480,8 @@ fn test_irs_receive_fixed_cashflow_signs() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         PayReceive::ReceiveFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
@@ -516,7 +522,8 @@ fn test_irs_pay_fixed_cashflow_signs() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         PayReceive::PayFixed,
-    );
+    )
+    .unwrap();
 
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);

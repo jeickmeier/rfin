@@ -399,7 +399,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             } else {
                 PayReceive::ReceiveFixed
             },
-        );
+        )
+        .expect("Failed to create swap for benchmark");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(Position::new(

@@ -29,12 +29,41 @@ const BP_TO_DECIMAL: f64 = 1e-4;
 /// 3. Validating as_of DF against DF_EPSILON
 /// 4. Returning relative DF = DF(target) / DF(as_of)
 ///
+/// # Arguments
+///
+/// * `disc` - Discount curve for pricing
+/// * `as_of` - Valuation date (denominator for relative discounting)
+/// * `target` - Target payment date (numerator for relative discounting)
+///
+/// # Returns
+///
+/// Discount factor from `as_of` to `target` (DF(target) / DF(as_of)).
+/// For seasoned instruments this represents the proper discount factor for
+/// cashflows occurring after the valuation date.
+///
 /// # Errors
 ///
 /// Returns a validation error if:
 /// - Year fraction calculation fails
-/// - The as_of discount factor is below DF_EPSILON threshold
-fn relative_df(
+/// - The as_of discount factor is below DF_EPSILON threshold (1e-10),
+///   which can occur in extreme rate scenarios or very long time horizons
+///
+/// # Examples
+///
+/// ```ignore
+/// // Note: relative_df is a private helper function used internally
+/// use finstack_core::dates::Date;
+/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_valuations::instruments::irs::pricer::relative_df;
+///
+/// let curve = build_test_curve();
+/// let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+/// let target = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+///
+/// let df = relative_df(&curve, as_of, target)?;
+/// assert!(df > 0.0 && df <= 1.0);
+/// ```
+pub(in crate::instruments::irs) fn relative_df(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     as_of: Date,
     target: Date,
@@ -68,30 +97,42 @@ fn relative_df(
     Ok(df_target / df_as_of)
 }
 
-/// IRS discounting pricer using the generic implementation.
-pub type SimpleIrsDiscountingPricer =
-    GenericDiscountingPricer<crate::instruments::InterestRateSwap>;
-
-impl Default for SimpleIrsDiscountingPricer {
-    fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::IRS)
-    }
-}
-
 impl InterestRateSwap {
     /// Returns true if this swap should be treated as an overnight index swap (OIS)
     /// for pricing purposes.
     ///
     /// A swap is considered OIS when:
     /// - The floating leg uses an overnight compounding convention
-    ///   (`CompoundedInArrears` or `CompoundedDaily`), and
+    ///   (`CompoundedInArrears`), and
     /// - The floating leg's index (forward curve) is the same as the fixed leg's
     ///   discount curve, so both are tied to the same OIS curve.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the swap uses overnight compounding with matching discount/forward
+    /// curves, `false` otherwise (indicating a term-rate swap requiring separate
+    /// forward curve projection).
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Note: is_ois is a private helper method used internally for pricing logic
+    /// use finstack_valuations::instruments::irs::{InterestRateSwap, FloatingLegCompounding};
+    ///
+    /// let mut irs = InterestRateSwap::example()?;
+    ///
+    /// // Default example is a term-rate swap (not OIS)
+    /// assert!(!irs.is_ois());
+    ///
+    /// // Convert to OIS by using overnight compounding and matching curves
+    /// irs.float.compounding = FloatingLegCompounding::sofr();
+    /// irs.float.forward_curve_id = irs.fixed.discount_curve_id.clone();
+    /// assert!(irs.is_ois());
+    /// ```
     pub(crate) fn is_ois(&self) -> bool {
         matches!(
             self.float.compounding,
             FloatingLegCompounding::CompoundedInArrears { .. }
-                | FloatingLegCompounding::CompoundedDaily
         ) && self.float.forward_curve_id == self.fixed.discount_curve_id
     }
 
@@ -150,8 +191,21 @@ impl InterestRateSwap {
     ///
     /// This is a thin wrapper around [`pv_ois_float_leg`] and exists to make the
     /// pricing intent explicit when the floating leg uses an RFR-style
-    /// compounding convention (`FloatingLegCompounding::CompoundedInArrears` or
-    /// `FloatingLegCompounding::CompoundedDaily`).
+    /// compounding convention (`FloatingLegCompounding::CompoundedInArrears`).
+    ///
+    /// # Arguments
+    ///
+    /// * `disc` - Discount curve for discounting cashflows
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value of the compounded floating leg in the swap's notional currency.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if the valuation date discount factor is below
+    /// the numerical stability threshold (DF_EPSILON = 1e-10).
     #[inline]
     pub(crate) fn pv_compounded_float_leg(
         &self,
@@ -162,6 +216,18 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
+    ///
+    /// Discounts all future fixed coupon payments using the discount curve,
+    /// applying the fixed leg's day count convention and payment schedule.
+    ///
+    /// # Arguments
+    ///
+    /// * `disc` - Discount curve for discounting cashflows
+    /// * `as_of` - Valuation date (only future cashflows are included)
+    ///
+    /// # Returns
+    ///
+    /// Present value of the fixed leg in the swap's notional currency.
     ///
     /// # Errors
     ///
@@ -196,6 +262,21 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of floating leg (helper for value calculation).
+    ///
+    /// Projects floating rate coupons using the forward curve, applies any
+    /// quoted spread, and discounts to present value. This method is used for
+    /// term-rate swaps (LIBOR-style, SOFR 3M) where the floating leg requires
+    /// forward rate projection.
+    ///
+    /// # Arguments
+    ///
+    /// * `disc` - Discount curve for discounting cashflows
+    /// * `fwd` - Forward curve for projecting floating rates
+    /// * `as_of` - Valuation date (only future cashflows are included)
+    ///
+    /// # Returns
+    ///
+    /// Present value of the floating leg in the swap's notional currency.
     ///
     /// # Errors
     ///
@@ -281,7 +362,55 @@ impl InterestRateSwap {
     }
 }
 
-/// Standalone NPV helper to keep pricing logic in the `pricer` module.
+/// Compute the net present value (NPV) of an interest rate swap.
+///
+/// Calculates the swap's mark-to-market value by computing the present value
+/// of both fixed and floating legs, then taking their difference according to
+/// the swap's pay/receive direction.
+///
+/// For OIS swaps (overnight-indexed with compounding), uses the discount-only
+/// method. For term-rate swaps, projects floating rates from the forward curve.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap to value
+/// * `context` - Market context containing discount and forward curves
+/// * `as_of` - Valuation date
+///
+/// # Returns
+///
+/// Net present value of the swap in the notional currency. Positive values
+/// indicate the swap is in-the-money for the holder (based on pay/receive side).
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Required curves (discount or forward) are not found in the market context
+/// - Discount factor calculations fail due to numerical instability
+/// - Date calculations fail
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_valuations::instruments::irs::{InterestRateSwap, pricer};
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::dates::Date;
+/// # use time::Month;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let irs = InterestRateSwap::example()?;
+/// // Build market context with required curves
+/// let mut context = MarketContext::new();
+/// // ... add USD-OIS and USD-SOFR-3M curves ...
+///
+/// let as_of = Date::from_calendar_date(2024, Month::January, 1)
+///     .map_err(|e| finstack_core::error::Error::Validation(format!("{}", e)))?;
+///
+/// let npv = pricer::npv(&irs, &context, as_of)?;
+/// println!("Swap NPV: {}", npv);
+/// # Ok(())
+/// # }
+/// ```
 pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
     let disc = context.get_discount_ref(irs.fixed.discount_curve_id.as_ref())?;
     let pv_fixed = irs.pv_fixed_leg(disc, as_of)?;

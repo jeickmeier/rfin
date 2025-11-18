@@ -577,7 +577,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     // Interest Rate Swaps
     registry.register_pricer(
         PricerKey::new(InstrumentType::IRS, ModelKey::Discounting),
-        Box::new(crate::instruments::irs::pricer::SimpleIrsDiscountingPricer::default()),
+        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::InterestRateSwap,
+        >::new(InstrumentType::IRS)),
     );
 
     // FRA
