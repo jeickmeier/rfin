@@ -10,6 +10,14 @@ use finstack_core::Result;
 
 use crate::instruments::irs::FloatingLegCompounding;
 
+/// Minimum threshold for discount factor values to avoid numerical instability.
+///
+/// Set to 1e-10 to protect against division by near-zero discount factors
+/// that can arise from extreme rate scenarios or very long time horizons.
+/// This aligns with ISDA stress testing requirements for rates ranging
+/// from -10% to +50%.
+const DF_EPSILON: f64 = 1e-10;
+
 /// IRS discounting pricer using the generic implementation.
 pub type SimpleIrsDiscountingPricer =
     GenericDiscountingPricer<crate::instruments::InterestRateSwap>;
@@ -43,6 +51,12 @@ impl InterestRateSwap {
     /// `PV_float = N × (DF(start) - DF(end)) + spread_annuity`, with all
     /// discounting performed relative to `as_of` so seasoned swaps are handled
     /// consistently with other instruments.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if the valuation date discount factor is below
+    /// the numerical stability threshold (DF_EPSILON = 1e-10), which can occur
+    /// in extreme rate scenarios.
     pub(crate) fn pv_ois_float_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
@@ -59,6 +73,15 @@ impl InterestRateSwap {
             )
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
+
+        // Guard against near-zero discount factors for numerical stability
+        if df_as_of.abs() < DF_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                 This may indicate extreme rate scenarios or very long time horizons.",
+                df_as_of, DF_EPSILON
+            )));
+        }
 
         // Start and end discount factors for the OIS leg
         let t_start = disc_dc
@@ -78,16 +101,8 @@ impl InterestRateSwap {
 
         let df_start_abs = disc.df(t_start);
         let df_end_abs = disc.df(t_end);
-        let df_start = if df_as_of != 0.0 {
-            df_start_abs / df_as_of
-        } else {
-            1.0
-        };
-        let df_end = if df_as_of != 0.0 {
-            df_end_abs / df_as_of
-        } else {
-            1.0
-        };
+        let df_start = df_start_abs / df_as_of;
+        let df_end = df_end_abs / df_as_of;
 
         let mut pv = self.notional.amount() * (df_start - df_end);
 
@@ -115,11 +130,8 @@ impl InterestRateSwap {
                     )
                     .unwrap_or(0.0);
                 let df_d_abs = disc.df(t_d);
-                let df = if df_as_of != 0.0 {
-                    df_d_abs / df_as_of
-                } else {
-                    1.0
-                };
+                // df_as_of already validated above, safe to divide
+                let df = df_d_abs / df_as_of;
                 annuity += alpha * df;
             }
 
@@ -132,6 +144,11 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if the valuation date discount factor is below
+    /// the numerical stability threshold (DF_EPSILON = 1e-10).
     pub(crate) fn pv_fixed_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
@@ -151,6 +168,15 @@ impl InterestRateSwap {
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
 
+        // Guard against near-zero discount factors for numerical stability
+        if df_as_of.abs() < DF_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                 This may indicate extreme rate scenarios or very long time horizons.",
+                df_as_of, DF_EPSILON
+            )));
+        }
+
         for cf in &sched.flows {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
                 || cf.kind == crate::cashflow::primitives::CFKind::Stub
@@ -169,11 +195,8 @@ impl InterestRateSwap {
                     )
                     .unwrap_or(0.0);
                 let df_cf_abs = disc.df(t_cf);
-                let df = if df_as_of != 0.0 {
-                    df_cf_abs / df_as_of
-                } else {
-                    1.0
-                };
+                // df_as_of already validated above, safe to divide
+                let df = df_cf_abs / df_as_of;
                 let disc_amt = cf.amount * df;
                 total = (total + disc_amt)?;
             }
@@ -182,6 +205,11 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of floating leg (helper for value calculation).
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if the valuation date discount factor is below
+    /// the numerical stability threshold (DF_EPSILON = 1e-10).
     pub(crate) fn pv_float_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
@@ -208,6 +236,15 @@ impl InterestRateSwap {
             )
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
+
+        // Guard against near-zero discount factors for numerical stability
+        if df_as_of.abs() < DF_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                 This may indicate extreme rate scenarios or very long time horizons.",
+                df_as_of, DF_EPSILON
+            )));
+        }
 
         for &d in &sched_dates[1..] {
             // Only include future cashflows
@@ -251,11 +288,8 @@ impl InterestRateSwap {
                 )
                 .unwrap_or(0.0);
             let df_cf_abs = disc.df(t_cf);
-            let df = if df_as_of != 0.0 {
-                df_cf_abs / df_as_of
-            } else {
-                1.0
-            };
+            // df_as_of already validated above, safe to divide
+            let df = df_cf_abs / df_as_of;
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
             prev = d;

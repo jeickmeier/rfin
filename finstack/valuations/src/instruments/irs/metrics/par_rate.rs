@@ -7,6 +7,10 @@ use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 
+/// Minimum threshold for discount factor values to avoid numerical instability.
+/// Same as in pricer.rs to ensure consistency across IRS calculations.
+const DF_EPSILON: f64 = 1e-10;
+
 /// Par rate calculator for IRS.
 pub struct ParRateCalculator;
 
@@ -57,6 +61,15 @@ impl MetricCalculator for ParRateCalculator {
                     .unwrap_or(0.0);
                 let df_as_of = disc.df(t_as_of);
 
+                // Guard against near-zero discount factors for numerical stability
+                if df_as_of.abs() < DF_EPSILON {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                         This may indicate extreme rate scenarios or very long time horizons.",
+                        df_as_of, DF_EPSILON
+                    )));
+                }
+
                 let mut pv = 0.0;
                 let mut prev = schedule[0];
                 for &d in &schedule[1..] {
@@ -96,11 +109,8 @@ impl MetricCalculator for ParRateCalculator {
                         .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
                         .unwrap_or(0.0);
                     let df_d_abs = disc.df(t_d);
-                    let df = if df_as_of != 0.0 {
-                        df_d_abs / df_as_of
-                    } else {
-                        1.0
-                    };
+                    // df_as_of already validated above, safe to divide
+                    let df = df_d_abs / df_as_of;
 
                     pv += coupon * df;
                     prev = d;
@@ -143,6 +153,15 @@ impl MetricCalculator for ParRateCalculator {
                     .unwrap_or(0.0);
                 let df_as_of = disc.df(t_as_of);
 
+                // Guard against near-zero discount factors for numerical stability
+                if df_as_of.abs() < DF_EPSILON {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                         This may indicate extreme rate scenarios or very long time horizons.",
+                        df_as_of, DF_EPSILON
+                    )));
+                }
+
                 // Numerator: P(as_of,T0) - P(as_of,Tn)
                 let t0 = disc_dc
                     .year_fraction(base, dates[0], finstack_core::dates::DayCountCtx::default())
@@ -157,16 +176,9 @@ impl MetricCalculator for ParRateCalculator {
 
                 let p0_abs = disc.df(t0);
                 let pn_abs = disc.df(tn);
-                let p0 = if df_as_of != 0.0 {
-                    p0_abs / df_as_of
-                } else {
-                    1.0
-                };
-                let pn = if df_as_of != 0.0 {
-                    pn_abs / df_as_of
-                } else {
-                    1.0
-                };
+                // df_as_of already validated above, safe to divide
+                let p0 = p0_abs / df_as_of;
+                let pn = pn_abs / df_as_of;
                 let num = p0 - pn;
 
                 // Denominator: Sum alpha_i P(as_of,Ti) for future cashflows
@@ -188,11 +200,8 @@ impl MetricCalculator for ParRateCalculator {
                         .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
                         .unwrap_or(0.0);
                     let p_abs = disc.df(t_d);
-                    let p = if df_as_of != 0.0 {
-                        p_abs / df_as_of
-                    } else {
-                        1.0
-                    };
+                    // df_as_of already validated above, safe to divide
+                    let p = p_abs / df_as_of;
                     den += alpha * p;
                     prev = d;
                 }

@@ -12,6 +12,10 @@ use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 
+/// Minimum threshold for discount factor values to avoid numerical instability.
+/// Same as in pricer.rs to ensure consistency across IRS calculations.
+const DF_EPSILON: f64 = 1e-10;
+
 /// Calculates the fixed-leg annuity for an IRS.
 pub struct AnnuityCalculator;
 
@@ -46,6 +50,15 @@ impl MetricCalculator for AnnuityCalculator {
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
 
+        // Guard against near-zero discount factors for numerical stability
+        if df_as_of.abs() < DF_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
+                 This may indicate extreme rate scenarios or very long time horizons.",
+                df_as_of, DF_EPSILON
+            )));
+        }
+
         let mut annuity = 0.0;
         let mut prev = dates[0];
 
@@ -71,11 +84,8 @@ impl MetricCalculator for AnnuityCalculator {
                 )
                 .unwrap_or(0.0);
             let df_d_abs = disc.df(t_d);
-            let df = if df_as_of != 0.0 {
-                df_d_abs / df_as_of
-            } else {
-                1.0
-            };
+            // df_as_of already validated above, safe to divide
+            let df = df_d_abs / df_as_of;
 
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity
