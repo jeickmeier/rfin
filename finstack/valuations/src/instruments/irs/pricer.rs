@@ -143,6 +143,21 @@ impl InterestRateSwap {
         Ok(Money::new(pv, self.notional.currency()))
     }
 
+    /// Compute PV of an overnight-indexed (compounded-in-arrears) floating leg.
+    ///
+    /// This is a thin wrapper around [`pv_ois_float_leg`] and exists to make the
+    /// pricing intent explicit when the floating leg uses an RFR-style
+    /// compounding convention (`FloatingLegCompounding::CompoundedInArrears` or
+    /// `FloatingLegCompounding::CompoundedDaily`).
+    #[inline]
+    pub(crate) fn pv_compounded_float_leg(
+        &self,
+        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+        as_of: Date,
+    ) -> Result<Money> {
+        self.pv_ois_float_leg(disc, as_of)
+    }
+
     /// Compute PV of fixed leg (helper for value calculation).
     ///
     /// # Errors
@@ -216,14 +231,26 @@ impl InterestRateSwap {
         fwd: &dyn Forward,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        // Use shared pricing grid from cashflow module to build date schedule
-        let sched_dates = crate::instruments::irs::cashflow::float_pricing_grid(self)?;
+        // Use shared floating-leg cashflow schedule for dates and accrual metadata
+        let sched = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
 
-        if sched_dates.len() < 2 {
+        // Collect floating coupon flows in chronological order
+        let mut float_flows: Vec<&crate::cashflow::primitives::CashFlow> = sched
+            .flows
+            .iter()
+            .filter(|cf| {
+                cf.kind == crate::cashflow::primitives::CFKind::FloatReset
+                    // Only include cash-paying coupons; PIK (if any) is handled via outstanding
+            })
+            .collect();
+
+        if float_flows.len() < 1 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        let mut prev = sched_dates[0];
+        // Ensure flows are sorted by date in case upstream builders change ordering
+        float_flows.sort_by_key(|cf| cf.date);
+
         let mut total = Money::new(0.0, self.notional.currency());
 
         // Pre-compute as_of discount factor
@@ -246,12 +273,20 @@ impl InterestRateSwap {
             )));
         }
 
-        for &d in &sched_dates[1..] {
+        for (idx, cf) in float_flows.iter().enumerate() {
+            let d = cf.date;
+
             // Only include future cashflows
             if d <= as_of {
-                prev = d;
                 continue;
             }
+
+            // Determine accrual period start: first coupon uses leg start, others use prior coupon date
+            let prev = if idx == 0 {
+                self.float.start
+            } else {
+                float_flows[idx - 1].date
+            };
 
             let base = disc.base_date();
             let t1 = self
@@ -264,11 +299,16 @@ impl InterestRateSwap {
                 .dc
                 .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
-            let yf = self
-                .float
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
+
+            // Use accrual factor from schedule if available, otherwise fall back to recomputation
+            let yf = if cf.accrual_factor > 0.0 {
+                cf.accrual_factor
+            } else {
+                self.float
+                    .dc
+                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
+            };
 
             // Only call rate_period if t1 < t2 to avoid date ordering errors
             let f = if t2 > t1 {
@@ -292,7 +332,6 @@ impl InterestRateSwap {
             let df = df_cf_abs / df_as_of;
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
-            prev = d;
         }
         Ok(total)
     }
@@ -303,8 +342,8 @@ pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Resu
     let disc = context.get_discount_ref(irs.fixed.discount_curve_id.as_ref())?;
     let pv_fixed = irs.pv_fixed_leg(disc, as_of)?;
     let pv_float = if irs.is_ois() {
-        // OIS swap: use discount-only method for accurate pricing.
-        irs.pv_ois_float_leg(disc, as_of)?
+        // OIS / compounded RFR swap: use discount-only method for accurate pricing.
+        irs.pv_compounded_float_leg(disc, as_of)?
     } else {
         // Non-OIS swap: requires forward curve for float leg pricing
         match context.get_forward_ref(irs.float.forward_curve_id.as_ref()) {

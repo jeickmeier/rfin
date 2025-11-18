@@ -192,28 +192,3 @@ pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> 
     })
 }
 
-/// Build the date grid used for floating-leg pricing.
-///
-/// This reproduces the original `ScheduleBuilder`-based logic used in pricing,
-/// but centralizes it so that `pricer.rs` does not construct schedules directly.
-pub fn float_pricing_grid(irs: &InterestRateSwap) -> Result<Vec<Date>> {
-    let builder =
-        finstack_core::dates::ScheduleBuilder::new(irs.float.start, irs.float.end)
-            .frequency(irs.float.freq)
-            .stub_rule(irs.float.stub);
-
-    let sched = if let Some(id) = &irs.float.calendar_id {
-        if let Some(cal) = calendar_by_id(id) {
-            builder.adjust_with(irs.float.bdc, cal).build()?
-        } else {
-            builder.build()?
-        }
-    } else {
-        builder.build()?
-    };
-
-    Ok(sched.into_iter().collect())
-}
-
-
-

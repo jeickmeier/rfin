@@ -19,8 +19,8 @@ impl MetricCalculator for FloatLegPvCalculator {
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
         let pv_money = if irs.is_ois() {
-            // OIS swap: reuse discount-only helper for consistency with npv()
-            irs.pv_ois_float_leg(&disc, as_of)?
+            // OIS / compounded RFR swap: reuse discount-only helper for consistency with npv()
+            irs.pv_compounded_float_leg(&disc, as_of)?
         } else {
             // Non-OIS swap: requires forward curve for float leg pricing
             let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
