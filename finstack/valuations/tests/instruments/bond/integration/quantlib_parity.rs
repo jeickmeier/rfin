@@ -340,6 +340,10 @@ fn quantlib_parity_ytm_below_par() {
         maturity,
         "USD-OIS",
     );
+    // NOTE: Using pricing_overrides to force a clean price for YTM calculation testing.
+    // This is the correct usage: YTM is calculated by reverse-engineering the yield
+    // that produces the given market price. The override does NOT bypass the pricer;
+    // instead, it provides the target price for the YTM solver to match.
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_price);
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
@@ -525,6 +529,9 @@ fn quantlib_parity_z_spread() {
         maturity,
         "USD-OIS",
     );
+    // NOTE: Using pricing_overrides to force a market price for Z-Spread calculation.
+    // Similar to YTM, the Z-Spread metric solves for the constant spread over the
+    // risk-free curve that reproduces the given market price.
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(market_price);
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");

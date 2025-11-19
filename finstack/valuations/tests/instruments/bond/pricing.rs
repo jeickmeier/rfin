@@ -49,7 +49,14 @@ fn test_bond_basic_pricing() {
     let pv = bond.value(&market, as_of).unwrap();
 
     // At 5% curve with 5% coupon, should be near par
-    assert!((pv.amount() - 1000.0).abs() < 50.0);
+    // Note: Small deviation from exact par due to semi-annual compounding vs
+    // continuous discounting in the curve. Tolerance tightened from 50.0 to 3.0
+    // (empirically: ~997.15, deviation of ~2.85 due to compounding mismatch).
+    assert!(
+        (pv.amount() - 1000.0).abs() < 3.0,
+        "Par bond should price near par, got {}",
+        pv.amount()
+    );
     assert_eq!(pv.currency(), Currency::USD);
 }
 
@@ -177,8 +184,16 @@ fn test_bond_price_zero_coupon() {
     // Zero coupon bond should be priced at discount
     assert!(pv.amount() < 1000.0);
 
-    // Approximately: 1000 * exp(-0.05 * 5) ≈ 778
-    assert!((pv.amount() - 778.0).abs() < 50.0);
+    // Expected: 1000 * exp(-0.05 * 5) = 778.8007...
+    // Actual implementation may differ slightly due to curve interpolation
+    // and discrete payment timing. Tolerance tightened from 50.0 to 1.0.
+    let expected = 1000.0 * (-0.05 * 5.0_f64).exp();
+    assert!(
+        (pv.amount() - expected).abs() < 1.0,
+        "Zero coupon bond should price near {:.2}, got {:.2}",
+        expected,
+        pv.amount()
+    );
 }
 
 #[test]

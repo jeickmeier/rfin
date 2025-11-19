@@ -637,8 +637,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             // Default multiplicative evolution for binomial/trinomial
             match inputs.branching {
                 TreeBranching::Binomial => {
-                    let net_ups = step as i32 - node as i32;
-                    spot0 * inputs.up_factor.powi(net_ups) * inputs.down_factor.powi(-net_ups)
+                    // Node i at step n has i up moves and (n-i) down moves
+                    let ups = node as i32;
+                    let downs = step as i32 - node as i32;
+                    spot0 * inputs.up_factor.powi(ups) * inputs.down_factor.powi(downs)
                 }
                 TreeBranching::Trinomial => {
                     let net_moves = node as i32 - step as i32;
