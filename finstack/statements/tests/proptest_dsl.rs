@@ -14,13 +14,15 @@ fn valid_identifier() -> impl Strategy<Value = String> {
             "must not start with 'nan' or 'inf' followed by digit or be exactly 'nan' or 'inf'",
             |s: &String| {
                 // Reject if starts with "nan" followed by digit or is exactly "nan"
-                let nan_issue = s.starts_with("nan") 
-                    && (s.len() == 3 || (s.len() > 3 && s.chars().nth(3).unwrap().is_ascii_digit()));
-                
+                let nan_issue = s.starts_with("nan")
+                    && (s.len() == 3
+                        || (s.len() > 3 && s.chars().nth(3).unwrap().is_ascii_digit()));
+
                 // Reject if starts with "inf" followed by digit or is exactly "inf"
-                let inf_issue = s.starts_with("inf") 
-                    && (s.len() == 3 || (s.len() > 3 && s.chars().nth(3).unwrap().is_ascii_digit()));
-                
+                let inf_issue = s.starts_with("inf")
+                    && (s.len() == 3
+                        || (s.len() > 3 && s.chars().nth(3).unwrap().is_ascii_digit()));
+
                 !nan_issue && !inf_issue
             },
         )

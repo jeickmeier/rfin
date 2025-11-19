@@ -2,16 +2,14 @@ use crate::core::common::args::DayCountArg;
 // use crate::errors::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{
-    frequency_from_payments_per_year, PyInstrumentType,
-};
+use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
 use finstack_core::dates::DayCount;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
     if let Some(bound) = dc {

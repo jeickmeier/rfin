@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use std::sync::Arc;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
-use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
+use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
 
 /// Emit fixed coupon cashflows on a specific date.
 ///
@@ -35,10 +35,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                 .unwrap_or(&outstanding_fallback);
 
             // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = spec
-                .calendar_id
-                .as_deref()
-                .and_then(finstack_core::dates::calendar::calendar_by_id);
+            let calendar = resolve_calendar(spec.calendar_id.as_deref());
 
             let yf = spec.dc.year_fraction(
                 prev,
@@ -106,11 +103,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .unwrap_or(&outstanding_fallback);
 
             // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = spec
-                .rate_spec
-                .calendar_id
-                .as_deref()
-                .and_then(finstack_core::dates::calendar::calendar_by_id);
+            let calendar = resolve_calendar(spec.rate_spec.calendar_id.as_deref());
 
             let yf = spec.rate_spec.dc.year_fraction(
                 prev,

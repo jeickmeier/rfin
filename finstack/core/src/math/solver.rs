@@ -263,12 +263,7 @@ impl NewtonSolver {
     ///
     /// - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.4.
     ///   "When derivatives are available analytically, Newton-Raphson is the method of choice."
-    pub fn solve_with_derivative<F, G>(
-        &self,
-        f: F,
-        f_prime: G,
-        initial_guess: f64,
-    ) -> Result<f64>
+    pub fn solve_with_derivative<F, G>(&self, f: F, f_prime: G, initial_guess: f64) -> Result<f64>
     where
         F: Fn(f64) -> f64,
         G: Fn(f64) -> f64,
@@ -610,7 +605,6 @@ impl BrentSolver {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -641,7 +635,6 @@ mod tests {
         assert!(f(root).abs() < 1e-10);
         assert!((root - 1.3247179572447).abs() < 1e-6);
     }
-
 
     #[test]
     fn test_brent_solver_adaptive_bracket() {

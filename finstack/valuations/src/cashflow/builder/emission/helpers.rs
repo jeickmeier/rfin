@@ -2,6 +2,7 @@
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
+use finstack_core::dates::calendar::business_days::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;
@@ -44,10 +45,18 @@ pub(in crate::cashflow::builder) fn compute_reset_date(
     calendar_id: &Option<String>,
 ) -> finstack_core::Result<Date> {
     let mut reset_date = payment_date - Duration::days(reset_lag_days as i64);
-    if let Some(id) = calendar_id {
-        if let Some(cal) = calendar_by_id(id) {
-            reset_date = adjust(reset_date, bdc, cal)?;
-        }
+    if let Some(cal) = resolve_calendar(calendar_id.as_deref()) {
+        reset_date = adjust(reset_date, bdc, cal)?;
     }
     Ok(reset_date)
+}
+
+/// Resolve calendar from optional ID string.
+///
+/// Centralized helper for looking up calendars by ID.
+#[inline]
+pub(in crate::cashflow::builder) fn resolve_calendar(
+    calendar_id: Option<&str>,
+) -> Option<&'static dyn HolidayCalendar> {
+    calendar_id.and_then(calendar_by_id)
 }

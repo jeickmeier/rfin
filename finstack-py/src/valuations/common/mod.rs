@@ -443,7 +443,6 @@ pub(crate) fn pricing_error_to_py(err: PricingError) -> PyErr {
     }
 }
 
-
 /// Convert an optional string to owned String.
 pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
     value.map(|s| s.to_string())

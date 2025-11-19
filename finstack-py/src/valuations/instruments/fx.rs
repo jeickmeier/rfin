@@ -1,10 +1,11 @@
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
-use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
@@ -13,7 +14,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// FX spot instrument exchanging base currency for quote currency.
 ///
@@ -428,7 +428,6 @@ impl PyFxOption {
         let for_id = CurveId::new(foreign_curve.extract::<&str>()?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
 
-
         let settle = match settlement
             .map(crate::core::common::labels::normalize_label)
             .as_deref()
@@ -654,7 +653,6 @@ impl PyFxSwap {
         let far = py_to_date(&far_date)?;
         let domestic = CurveId::new(domestic_curve.extract::<&str>()?);
         let foreign = CurveId::new(foreign_curve.extract::<&str>()?);
-
 
         let mut builder = FxSwap::builder();
         builder = builder.id(id);

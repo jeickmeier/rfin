@@ -1,19 +1,18 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::errors::core_to_py;
 use crate::valuations::common::{
-    frequency_from_payments_per_year, to_optional_string,
-    PyInstrumentType,
+    frequency_from_payments_per_year, to_optional_string, PyInstrumentType,
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     match label {

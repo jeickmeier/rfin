@@ -1,6 +1,7 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
@@ -9,7 +10,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::InstrumentId;
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
@@ -137,13 +137,7 @@ impl PyCdsOption {
         }
 
         let credit_params = CreditParams::new("CDS_OPTION", recovery, credit);
-        let option = CdsOption::new(
-            id,
-            &option_params,
-            &credit_params,
-            discount,
-            vol_surface,
-        );
+        let option = CdsOption::new(id, &option_params, &credit_params, discount, vol_surface);
         Ok(Self::new(option))
     }
 

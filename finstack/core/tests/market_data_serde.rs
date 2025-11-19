@@ -5,6 +5,7 @@
 
 #![cfg(feature = "serde")]
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
@@ -18,7 +19,6 @@ use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::currency::Currency;
 use time::Month;
 
 fn test_date() -> Date {
@@ -128,10 +128,7 @@ fn base_correlation_curve_serde_roundtrip() {
     let deserialized: BaseCorrelationCurve = serde_json::from_str(&json).unwrap();
 
     assert_eq!(deserialized.id(), curve.id());
-    assert_eq!(
-        deserialized.detachment_points(),
-        curve.detachment_points()
-    );
+    assert_eq!(deserialized.detachment_points(), curve.detachment_points());
     assert_eq!(deserialized.correlations(), curve.correlations());
 }
 
@@ -220,6 +217,8 @@ fn discount_curve_validates_on_deserialization() {
     }"#;
 
     let result: Result<DiscountCurve, _> = serde_json::from_str(bad_json);
-    assert!(result.is_err(), "Should reject non-monotonic discount factors");
+    assert!(
+        result.is_err(),
+        "Should reject non-monotonic discount factors"
+    );
 }
-

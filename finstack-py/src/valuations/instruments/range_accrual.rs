@@ -1,10 +1,10 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::range_accrual::RangeAccrual;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Range accrual instrument.
 #[pyclass(

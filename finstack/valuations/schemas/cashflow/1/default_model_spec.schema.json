@@ -90,6 +90,14 @@
           "type": "integer",
           "minimum": 0,
           "description": "Recovery lag in months"
+        },
+        "recovery_bdc": {
+          "type": ["string", "null"],
+          "description": "Optional business-day convention for recovery date adjustment (e.g., 'following', 'modified_following'). When null or omitted, no business-day adjustment is applied."
+        },
+        "recovery_calendar_id": {
+          "type": ["string", "null"],
+          "description": "Optional holiday calendar identifier used for recovery date adjustment (e.g., 'nyse', 'target2'). When null or omitted, recovery dates are not adjusted to a specific market calendar."
         }
       }
     }

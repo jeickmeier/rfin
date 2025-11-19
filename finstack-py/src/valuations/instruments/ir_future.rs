@@ -1,9 +1,10 @@
 use crate::core::common::args::DayCountArg;
-use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::py_to_date;
-use crate::valuations::common::{PyInstrumentType};
+use crate::errors::core_to_py;
+use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
@@ -12,7 +13,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
     match label {

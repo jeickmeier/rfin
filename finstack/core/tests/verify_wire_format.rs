@@ -17,16 +17,27 @@ fn discount_curve_wire_format_contains_expected_fields() {
         .unwrap();
 
     let json = serde_json::to_string_pretty(&curve).unwrap();
-    
+
     println!("Serialized JSON:\n{}", json);
-    
+
     // Verify key fields are present in the JSON
     assert!(json.contains(r#""id""#), "Should have id field");
     assert!(json.contains(r#""USD-OIS""#), "Should have curve ID");
     assert!(json.contains(r#""base""#), "Should have base date field");
-    assert!(json.contains(r#""2025-01-01""#), "Should have base date value");
-    assert!(json.contains(r#""knot_points""#), "Should have knot_points field");
-    assert!(json.contains(r#""interp_style""#), "Should have interp_style field");
-    assert!(json.contains(r#""day_count""#), "Should have day_count field");
+    assert!(
+        json.contains(r#""2025-01-01""#),
+        "Should have base date value"
+    );
+    assert!(
+        json.contains(r#""knot_points""#),
+        "Should have knot_points field"
+    );
+    assert!(
+        json.contains(r#""interp_style""#),
+        "Should have interp_style field"
+    );
+    assert!(
+        json.contains(r#""day_count""#),
+        "Should have day_count field"
+    );
 }
-

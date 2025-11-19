@@ -54,6 +54,3 @@ impl JsQuantoOption {
         JsQuantoOption::from_inner(self.0.clone())
     }
 }
-
-
-

@@ -129,6 +129,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// ```ignore
     /// let pv_map = bond.periodized_pv(&quarters, &market, base, DayCount::Act365F)?;
     /// ```
+    #[allow(deprecated)]
     fn periodized_pv(
         &self,
         periods: &[Period],
@@ -182,6 +183,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///     DayCount::Act365F,
     /// )?;
     /// ```
+    #[allow(deprecated)]
     fn periodized_pv_credit_adjusted(
         &self,
         periods: &[Period],

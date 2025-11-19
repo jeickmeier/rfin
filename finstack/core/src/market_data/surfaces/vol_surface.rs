@@ -47,7 +47,10 @@ use ndarray::Array2;
 /// Volatility surface defined on expiry × strike grid.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "RawVolSurface", into = "RawVolSurface"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawVolSurface", into = "RawVolSurface")
+)]
 pub struct VolSurface {
     id: CurveId,
     expiries: Box<[f64]>,

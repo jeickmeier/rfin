@@ -217,7 +217,12 @@ mod tests {
             let s = state.spot().ok_or(Error::Internal)?;
             Ok((s - self.strike).max(0.0))
         }
-        fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+        fn value_at_node(
+            &self,
+            _state: &NodeState,
+            continuation_value: f64,
+            _dt: f64,
+        ) -> Result<f64> {
             Ok(continuation_value)
         }
     }

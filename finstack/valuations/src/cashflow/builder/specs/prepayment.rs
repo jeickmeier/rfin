@@ -44,8 +44,8 @@ impl PrepaymentModelSpec {
             }
         };
 
-        use super::super::credit_rates::annual_to_monthly;
-        annual_to_monthly(cpr)
+        use super::super::credit_rates::cpr_to_smm;
+        cpr_to_smm(cpr)
     }
 
     /// Constant CPR (no curve).

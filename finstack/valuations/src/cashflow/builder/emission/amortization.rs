@@ -36,6 +36,7 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
     notional: &Notional,
     outstanding: &mut f64,
     params: &AmortizationParams,
+    is_maturity: bool,
 ) -> finstack_core::Result<Vec<CashFlow>> {
     let mut new_flows: Vec<CashFlow> = Vec::new();
     match &notional.amort {
@@ -43,8 +44,15 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
         AmortizationSpec::LinearTo { .. } => {
             if params.amort_dates.contains(&d) {
                 if let Some(delta) = params.linear_delta {
-                    let pay = delta.min(*outstanding);
+                    let mut pay = if is_maturity {
+                        // Final clean-up: pay whatever remains outstanding
+                        *outstanding
+                    } else {
+                        delta.min(*outstanding)
+                    };
                     if pay > 0.0 {
+                        // Clamp to outstanding to guard against any numerical drift
+                        pay = pay.min(*outstanding);
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
@@ -62,8 +70,14 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
             if let Some(map) = params.step_remaining_map {
                 if let Some(rem_after) = map.get(&d) {
                     let target = rem_after.amount();
-                    let pay = (*outstanding - target).max(0.0).min(*outstanding);
+                    let mut pay = if is_maturity {
+                        // On final date, ignore target and fully clean up balance
+                        *outstanding
+                    } else {
+                        (*outstanding - target).max(0.0).min(*outstanding)
+                    };
                     if pay > 0.0 {
+                        pay = pay.min(*outstanding);
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
@@ -80,8 +94,13 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
         AmortizationSpec::PercentPerPeriod { .. } => {
             if params.amort_dates.contains(&d) {
                 if let Some(per) = params.percent_per {
-                    let pay = per.min(*outstanding);
+                    let mut pay = if is_maturity {
+                        *outstanding
+                    } else {
+                        per.min(*outstanding)
+                    };
                     if pay > 0.0 {
+                        pay = pay.min(*outstanding);
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
@@ -98,8 +117,13 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
         AmortizationSpec::CustomPrincipal { items } => {
             for (dd, amt) in items {
                 if *dd == d {
-                    let pay = amt.amount().max(0.0).min(*outstanding);
+                    let mut pay = if is_maturity {
+                        *outstanding
+                    } else {
+                        amt.amount().max(0.0).min(*outstanding)
+                    };
                     if pay > 0.0 {
+                        pay = pay.min(*outstanding);
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,

@@ -727,7 +727,6 @@ impl MultiSolver for LevenbergMarquardtSolver {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -836,7 +835,6 @@ mod tests {
             result[2]
         );
     }
-
 
     #[test]
     fn test_analytical_derivatives_simple() {

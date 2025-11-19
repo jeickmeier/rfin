@@ -264,7 +264,10 @@ impl Default for InflationLag {
 ///     Bank of England Quarterly Bulletin, Q2 2006.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "RawInflationIndex", into = "RawInflationIndex"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawInflationIndex", into = "RawInflationIndex")
+)]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,

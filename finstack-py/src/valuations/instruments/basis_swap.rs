@@ -1,15 +1,15 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::py_to_date;
-use crate::valuations::common::{PyInstrumentType};
+use crate::errors::core_to_py;
+use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_frequency(label: Option<&str>) -> PyResult<Frequency> {
     crate::valuations::common::parse_frequency_label(label)

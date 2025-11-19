@@ -39,7 +39,10 @@ use crate::error::InputError;
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound(serialize = "S: serde::Serialize")))]
-#[cfg_attr(feature = "serde", serde(bound(deserialize = "S: serde::de::DeserializeOwned")))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(deserialize = "S: serde::de::DeserializeOwned"))
+)]
 pub struct Interpolator<S: InterpolationStrategy> {
     /// Strictly increasing knot times.
     knots: Box<[f64]>,
@@ -71,7 +74,7 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), values.len());
-        
+
         // Centralized validation
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
@@ -160,4 +163,3 @@ impl<S: InterpolationStrategy> InterpFn for Interpolator<S> {
             .interp_prime(x, &self.knots, &self.values, self.extrapolation)
     }
 }
-

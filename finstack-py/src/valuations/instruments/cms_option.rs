@@ -1,11 +1,11 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cms_option::CmsOption;
 use finstack_valuations::instruments::OptionType;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// CMS option instrument.
 #[pyclass(module = "finstack.valuations.instruments", name = "CmsOption", frozen)]
@@ -83,7 +83,8 @@ impl PyCmsOption {
             }
         };
 
-        let vol_surface_id = vol_surface.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
+        let vol_surface_id =
+            vol_surface.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);

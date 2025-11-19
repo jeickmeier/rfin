@@ -103,7 +103,11 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyBasisSwap, InstrumentType::BasisSwap);
     try_extract!(value, PyForwardRateAgreement, InstrumentType::FRA);
     try_extract!(value, PyInterestRateOption, InstrumentType::CapFloor);
-    try_extract!(value, PyInterestRateFuture, InstrumentType::InterestRateFuture);
+    try_extract!(
+        value,
+        PyInterestRateFuture,
+        InstrumentType::InterestRateFuture
+    );
     try_extract!(value, PyInterestRateSwap, InstrumentType::IRS);
     try_extract!(value, PyFxSpot, InstrumentType::FxSpot);
     try_extract!(value, PyFxOption, InstrumentType::FxOption);
@@ -120,10 +124,18 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
     try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
     try_extract!(value, PyRepo, InstrumentType::Repo);
-    try_extract!(value, PyInflationLinkedBond, InstrumentType::InflationLinkedBond);
+    try_extract!(
+        value,
+        PyInflationLinkedBond,
+        InstrumentType::InflationLinkedBond
+    );
     try_extract!(value, PyInflationSwap, InstrumentType::InflationSwap);
     try_extract!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
-    try_extract!(value, PyPrivateMarketsFund, InstrumentType::PrivateMarketsFund);
+    try_extract!(
+        value,
+        PyPrivateMarketsFund,
+        InstrumentType::PrivateMarketsFund
+    );
     try_extract!(value, PyBasket, InstrumentType::Basket);
     try_extract!(value, PyAsianOption, InstrumentType::AsianOption);
     try_extract!(value, PyAutocallable, InstrumentType::Autocallable);
@@ -136,7 +148,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
     try_extract!(value, PyRevolvingCredit, InstrumentType::RevolvingCredit);
     try_extract!(value, PyTermLoan, InstrumentType::TermLoan);
-    
+
     Err(PyTypeError::new_err(
         "Unsupported instrument type; construct instruments from finstack.valuations",
     ))

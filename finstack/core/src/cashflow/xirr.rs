@@ -577,8 +577,9 @@ mod tests {
             ),
         ];
 
-        let result = xirr(&flows, None).expect("XIRR calculation should succeed for negative return");
-        
+        let result =
+            xirr(&flows, None).expect("XIRR calculation should succeed for negative return");
+
         // Should be approximately -3%
         assert!(result < 0.0);
         assert!((result + 0.03).abs() < 0.001);
@@ -598,8 +599,9 @@ mod tests {
             ),
         ];
 
-        let result = xirr(&flows, None).expect("XIRR calculation should succeed for near-zero return");
-        
+        let result =
+            xirr(&flows, None).expect("XIRR calculation should succeed for near-zero return");
+
         // Should be approximately 0.1%
         assert!(result > 0.0 && result < 0.01);
         assert!((result - 0.001).abs() < 0.0001);

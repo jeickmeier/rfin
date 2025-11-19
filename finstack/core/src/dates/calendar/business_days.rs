@@ -241,9 +241,13 @@ impl core::str::FromStr for BusinessDayConvention {
         match normalized.as_str() {
             "unadjusted" => Ok(BusinessDayConvention::Unadjusted),
             "following" => Ok(BusinessDayConvention::Following),
-            "modified_following" | "modifiedfollowing" => Ok(BusinessDayConvention::ModifiedFollowing),
+            "modified_following" | "modifiedfollowing" => {
+                Ok(BusinessDayConvention::ModifiedFollowing)
+            }
             "preceding" => Ok(BusinessDayConvention::Preceding),
-            "modified_preceding" | "modifiedpreceding" => Ok(BusinessDayConvention::ModifiedPreceding),
+            "modified_preceding" | "modifiedpreceding" => {
+                Ok(BusinessDayConvention::ModifiedPreceding)
+            }
             _ => Err(format!("Unknown business day convention: {}", s)),
         }
     }

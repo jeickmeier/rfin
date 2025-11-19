@@ -27,18 +27,26 @@ impl JsPathPoint {
     pub fn state_vars(&self) -> JsValue {
         use finstack_valuations::instruments::common::mc::paths::state_indices;
         let obj = Object::new();
-        
+
         // Map state vector indices to named properties
         if let Some(spot) = self.inner.state.get(state_indices::IDX_SPOT) {
             let _ = Reflect::set(&obj, &JsValue::from_str("spot"), &JsValue::from_f64(*spot));
         }
         if let Some(variance) = self.inner.state.get(state_indices::IDX_VARIANCE) {
-            let _ = Reflect::set(&obj, &JsValue::from_str("variance"), &JsValue::from_f64(*variance));
+            let _ = Reflect::set(
+                &obj,
+                &JsValue::from_str("variance"),
+                &JsValue::from_f64(*variance),
+            );
         }
         if let Some(credit_spread) = self.inner.state.get(state_indices::IDX_CREDIT_SPREAD) {
-            let _ = Reflect::set(&obj, &JsValue::from_str("credit_spread"), &JsValue::from_f64(*credit_spread));
+            let _ = Reflect::set(
+                &obj,
+                &JsValue::from_str("credit_spread"),
+                &JsValue::from_f64(*credit_spread),
+            );
         }
-        
+
         obj.into()
     }
 
@@ -53,7 +61,11 @@ impl JsPathPoint {
         match key {
             "spot" => self.inner.state.get(state_indices::IDX_SPOT).copied(),
             "variance" => self.inner.state.get(state_indices::IDX_VARIANCE).copied(),
-            "credit_spread" => self.inner.state.get(state_indices::IDX_CREDIT_SPREAD).copied(),
+            "credit_spread" => self
+                .inner
+                .state
+                .get(state_indices::IDX_CREDIT_SPREAD)
+                .copied(),
             _ => None,
         }
     }

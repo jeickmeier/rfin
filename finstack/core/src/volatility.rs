@@ -182,20 +182,14 @@ pub fn convert_volatility(
         (VolatilityConvention::ShiftedLognormal { shift }, VolatilityConvention::Normal) => {
             vol * (f + shift)
         }
-        (
-            VolatilityConvention::Lognormal,
-            VolatilityConvention::ShiftedLognormal { shift },
-        ) => {
+        (VolatilityConvention::Lognormal, VolatilityConvention::ShiftedLognormal { shift }) => {
             if (f + shift).abs() > zero_threshold {
                 vol * f / (f + shift)
             } else {
                 vol
             }
         }
-        (
-            VolatilityConvention::ShiftedLognormal { shift },
-            VolatilityConvention::Lognormal,
-        ) => {
+        (VolatilityConvention::ShiftedLognormal { shift }, VolatilityConvention::Lognormal) => {
             if f.abs() > zero_threshold {
                 vol * (f + shift) / f
             } else {
@@ -212,7 +206,7 @@ pub fn convert_volatility(
     // Use Brent solver directly since solve_1d helper is not available in core
     let solver = BrentSolver::new().with_tolerance(1e-8);
     let solved = solver.solve(objective, guess).unwrap_or(guess);
-    
+
     let out = solved.abs();
     if out.is_finite() && out > 0.0 {
         out

@@ -83,7 +83,10 @@ use crate::{
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve")
+)]
 pub struct DiscountCurve {
     id: CurveId,
     base: Date,
@@ -111,7 +114,8 @@ impl Clone for DiscountCurve {
             self.knots.clone(),
             self.dfs.clone(),
             self.extrapolation,
-        ).expect("Clone should not fail for valid curve");
+        )
+        .expect("Clone should not fail for valid curve");
 
         Self {
             id: self.id.clone(),
@@ -618,7 +622,6 @@ impl DiscountCurve {
             .set_interp(interp_style)
             .build()
     }
-
 }
 
 /// Fluent builder for [`DiscountCurve`].
@@ -876,7 +879,6 @@ impl TermStructure for DiscountCurve {
 // -----------------------------------------------------------------------------
 // Serialization support
 // -----------------------------------------------------------------------------
-
 
 // -----------------------------------------------------------------------------
 // Tests

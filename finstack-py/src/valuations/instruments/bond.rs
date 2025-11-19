@@ -2,13 +2,13 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Fixed-income bond instrument with convenience constructors.
 #[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]

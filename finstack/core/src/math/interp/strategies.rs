@@ -176,13 +176,14 @@ impl InterpolationStrategy for LogLinearStrategy {
             if x >= last_knot {
                 let n = knots.len();
                 return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => {
-                        (*self.log_values.last().expect("log_values should not be empty")).exp()
-                    }
+                    ExtrapolationPolicy::FlatZero => (*self
+                        .log_values
+                        .last()
+                        .expect("log_values should not be empty"))
+                    .exp(),
                     ExtrapolationPolicy::FlatForward => {
                         let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
-                        let extrapolated_log =
-                            self.log_values[n - 1] + slope * (x - knots[n - 1]);
+                        let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
                         extrapolated_log.exp()
                     }
                 };
@@ -261,7 +262,12 @@ impl LogLinearStrategy {
 
 // Helper for log-linear slope calculation
 #[inline]
-fn log_segment_slope(log_values: &[f64], knots: &[f64], left_index: usize, right_index: usize) -> f64 {
+fn log_segment_slope(
+    log_values: &[f64],
+    knots: &[f64],
+    left_index: usize,
+    right_index: usize,
+) -> f64 {
     let x0 = knots[left_index];
     let x1 = knots[right_index];
     let y0 = log_values[left_index];
@@ -480,9 +486,9 @@ fn compute_monotone_slopes(xs: &[f64], ys: &[f64]) -> Box<[f64]> {
 
     // m_{n-1}
     let last = n - 1;
-    ms[last] =
-        ((2.0 * h[last - 1] + h[last - 2]) * delta[last - 1] - h[last - 1] * delta[last - 2])
-            / (h[last - 1] + h[last - 2]);
+    ms[last] = ((2.0 * h[last - 1] + h[last - 2]) * delta[last - 1]
+        - h[last - 1] * delta[last - 2])
+        / (h[last - 1] + h[last - 2]);
     if ms[last].signum() != delta[last - 1].signum() {
         ms[last] = 0.0;
     } else if delta[last - 2].signum() != delta[last - 1].signum()
@@ -524,11 +530,11 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
     ) -> crate::Result<Self> {
         // Validate monotone non-increasing (arbitrage-free)
         validate_monotone_nonincreasing(values)?;
-        
+
         // Build cubic coefficients with default epsilon
         let epsilon = DEFAULT_EPSILON;
         let coeffs = Self::build_coeffs(knots, values, epsilon);
-        
+
         Ok(Self { coeffs, epsilon })
     }
 
@@ -671,21 +677,17 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
 
 impl MonotoneConvexStrategy {
     /// Construct with custom epsilon for near-zero slope detection.
-    pub fn with_epsilon(
-        knots: &[f64],
-        values: &[f64],
-        epsilon: f64,
-    ) -> crate::Result<Self> {
+    pub fn with_epsilon(knots: &[f64], values: &[f64], epsilon: f64) -> crate::Result<Self> {
         use crate::error::InputError;
-        
+
         // Validate epsilon is reasonable
         if epsilon <= 0.0 || epsilon > 1e-6 {
             return Err(InputError::Invalid.into());
         }
-        
+
         // Validate monotone non-increasing
         validate_monotone_nonincreasing(values)?;
-        
+
         let coeffs = Self::build_coeffs(knots, values, epsilon);
         Ok(Self { coeffs, epsilon })
     }
@@ -763,4 +765,3 @@ impl MonotoneConvexStrategy {
         &self.coeffs
     }
 }
-

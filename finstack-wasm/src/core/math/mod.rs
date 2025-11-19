@@ -14,6 +14,4 @@ pub use integration::{
     simpson_rule as simpsonRule, trapezoidal_rule as trapezoidalRule,
     JsGaussHermiteQuadrature as GaussHermiteQuadrature,
 };
-pub use solver::{
-    JsBrentSolver as BrentSolver, JsNewtonSolver as NewtonSolver,
-};
+pub use solver::{JsBrentSolver as BrentSolver, JsNewtonSolver as NewtonSolver};

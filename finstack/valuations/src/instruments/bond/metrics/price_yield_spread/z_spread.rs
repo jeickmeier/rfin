@@ -159,7 +159,7 @@ impl MetricCalculator for ZSpreadCalculator {
         let disc = context.curves.get_discount_ref(&bond.discount_curve_id)?;
         let as_of = context.as_of;
         let dc = disc.day_count();
-        
+
         // Cache (time, df_base, amount) for each future cashflow
         let cached_flows: Vec<(f64, f64, f64)> = flows
             .iter()

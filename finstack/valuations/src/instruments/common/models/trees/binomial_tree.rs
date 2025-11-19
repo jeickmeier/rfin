@@ -219,7 +219,12 @@ impl BinomialTree {
                 })
             }
 
-            fn value_at_node(&self, state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+            fn value_at_node(
+                &self,
+                state: &NodeState,
+                continuation_value: f64,
+                _dt: f64,
+            ) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
                         let s = state.spot().ok_or(Error::Internal)?;
@@ -421,7 +426,12 @@ impl BinomialTree {
                     OptionType::Put => (self.strike - s).max(0.0),
                 })
             }
-            fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+            fn value_at_node(
+                &self,
+                _state: &NodeState,
+                continuation_value: f64,
+                _dt: f64,
+            ) -> Result<f64> {
                 Ok(continuation_value)
             }
         }
@@ -672,13 +682,17 @@ mod tests {
         let bs_value = 10.45;
         let error_50 = (price_50 - bs_value).abs();
         let error_200 = (price_200 - bs_value).abs();
-        
+
         // Higher steps should give better accuracy (with some tolerance for oscillation)
-        assert!(error_200 < 0.2, "Price at 200 steps should be reasonably close to BS");
         assert!(
-            error_200 < error_50 * 1.5, 
-            "Higher steps should generally improve or maintain accuracy: err_50={}, err_200={}", 
-            error_50, error_200
+            error_200 < 0.2,
+            "Price at 200 steps should be reasonably close to BS"
+        );
+        assert!(
+            error_200 < error_50 * 1.5,
+            "Higher steps should generally improve or maintain accuracy: err_50={}, err_200={}",
+            error_50,
+            error_200
         );
 
         // Should be close to Black-Scholes (approximately 10.45)

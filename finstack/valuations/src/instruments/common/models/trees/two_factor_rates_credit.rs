@@ -199,7 +199,12 @@ mod tests {
         fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
             Ok(1.0)
         }
-        fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+        fn value_at_node(
+            &self,
+            _state: &NodeState,
+            continuation_value: f64,
+            _dt: f64,
+        ) -> Result<f64> {
             Ok(continuation_value)
         }
     }

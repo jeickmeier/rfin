@@ -1,10 +1,8 @@
 //! Tests for the cashflow builder state module.
 
-use super::schedule::kind_rank;
-use super::specs::{CouponType, FixedCouponSpec};
-use super::CashFlowSchedule;
-use crate::cashflow::builder::AmortizationSpec;
-use crate::instruments::common::discountable::Discountable;
+use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
+use finstack_valuations::instruments::common::discountable::Discountable;
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
@@ -13,6 +11,17 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve a
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use time::Month;
+
+fn kind_rank(kind: CFKind) -> u8 {
+    match kind {
+        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
+        CFKind::Fee => 1,
+        CFKind::Amortization => 2,
+        CFKind::PIK => 3,
+        CFKind::Notional => 4,
+        _ => 5,
+    }
+}
 
 #[test]
 fn linear_vs_step_parity() {

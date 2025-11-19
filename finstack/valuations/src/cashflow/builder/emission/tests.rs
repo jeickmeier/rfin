@@ -98,8 +98,8 @@ mod accrual_context_tests {
             &outstanding_after,
             outstanding_fallback,
             Currency::USD,
-            None,      // No curves: use spread only
-            &[None],   // One resolved curve slot (None) to match the one float schedule
+            None,    // No curves: use spread only
+            &[None], // One resolved curve slot (None) to match the one float schedule
         )
         .expect("should emit float coupons");
 
@@ -186,6 +186,8 @@ mod credit_emission_tests {
             defaulted_amount: 400_000.0,
             recovery_rate: 0.40,
             recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -251,6 +253,8 @@ mod credit_emission_tests {
             defaulted_amount: 400_000.0,
             recovery_rate: 0.40,
             recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -331,6 +335,8 @@ mod credit_emission_tests {
             defaulted_amount: 100_000.0,
             recovery_rate: 0.0, // Total loss
             recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -350,6 +356,8 @@ mod credit_emission_tests {
             defaulted_amount: 100_000.0,
             recovery_rate: 1.0, // Full recovery
             recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -370,12 +378,16 @@ mod credit_emission_tests {
                 defaulted_amount: 50_000.0,
                 recovery_rate: 0.40,
                 recovery_lag: 12,
+                recovery_bdc: None,
+                recovery_calendar_id: None,
             },
             DefaultEvent {
                 default_date: d,
                 defaulted_amount: 30_000.0,
                 recovery_rate: 0.50,
                 recovery_lag: 6,
+                recovery_bdc: None,
+                recovery_calendar_id: None,
             },
         ];
 
@@ -401,6 +413,8 @@ mod credit_emission_tests {
             defaulted_amount: 100_000.0,
             recovery_rate: 0.40,
             recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -419,6 +433,8 @@ mod credit_emission_tests {
             defaulted_amount: 100_000.0,
             recovery_rate: 0.40,
             recovery_lag: 6,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
         };
 
         let mut outstanding = 1_000_000.0;
@@ -431,7 +447,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_prepayment_model_psa_curve() {
-        use super::super::super::credit_rates::monthly_to_annual;
+        use super::super::super::credit_rates::smm_to_cpr;
         use super::super::super::specs::PrepaymentModelSpec;
 
         let model = PrepaymentModelSpec::psa(1.5); // 150% PSA
@@ -439,17 +455,17 @@ mod credit_emission_tests {
         // Month 15: should be 4.5% CPR (halfway to 9%)
         let smm = model.smm(15);
         assert!(smm > 0.0);
-        let cpr = monthly_to_annual(smm);
+        let cpr = smm_to_cpr(smm);
         assert!((cpr - 0.045).abs() < 0.001);
 
         // Month 30: should be 9% CPR = ~0.77% SMM
         let smm = model.smm(30);
-        let cpr = monthly_to_annual(smm);
+        let cpr = smm_to_cpr(smm);
         assert!((cpr - 0.09).abs() < 0.001);
 
         // Month 60: should still be 9% CPR (flat after month 30)
         let smm = model.smm(60);
-        let cpr = monthly_to_annual(smm);
+        let cpr = smm_to_cpr(smm);
         assert!((cpr - 0.09).abs() < 0.001);
     }
 

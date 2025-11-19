@@ -1,12 +1,12 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::asian_option::{AsianOption, AveragingMethod};
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Averaging method for Asian options.
 #[pyclass(

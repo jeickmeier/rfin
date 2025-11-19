@@ -81,7 +81,7 @@ impl ParityTestCase {
             //
             // Until resolved, using finstack baseline for regression testing:
             expected_pv: 17_727.07, // Finstack empirical baseline
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,     // Tightened from 0.02 (2%)
         }
     }
 
@@ -97,7 +97,7 @@ impl ParityTestCase {
             volatility: 0.20,
             is_payer: true,
             expected_pv: 81_940.54, // Finstack baseline
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,     // Tightened from 0.02 (2%)
         }
     }
 
@@ -113,7 +113,7 @@ impl ParityTestCase {
             volatility: 0.20,
             is_payer: true,
             expected_pv: 830.36, // Finstack baseline
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,  // Tightened from 0.02 (2%)
         }
     }
 
@@ -129,7 +129,7 @@ impl ParityTestCase {
             volatility: 0.20,
             is_payer: false,
             expected_pv: 18_489.29, // Finstack baseline (differs from payer due to leg conventions)
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,     // Tightened from 0.02 (2%)
         }
     }
 
@@ -145,7 +145,7 @@ impl ParityTestCase {
             volatility: 0.25,
             is_payer: true,
             expected_pv: 14_409.52, // Finstack baseline
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,     // Tightened from 0.02 (2%)
         }
     }
 
@@ -161,7 +161,7 @@ impl ParityTestCase {
             volatility: 0.18,
             is_payer: true,
             expected_pv: 9_127.17, // Finstack baseline
-            pv_tolerance: 1e-4, // Tightened from 0.02 (2%)
+            pv_tolerance: 1e-4,    // Tightened from 0.02 (2%)
         }
     }
 }

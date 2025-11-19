@@ -1,6 +1,6 @@
-use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::utils::py_to_date;
+use crate::errors::core_to_py;
 use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use crate::valuations::metrics::MetricIdArg;
@@ -155,13 +155,12 @@ impl PyPricerRegistry {
             handles
                 .par_iter()
                 .map(|handle| {
-                    self.inner
-                        .price_with_registry(
-                            handle.instrument.as_ref(),
-                            model_key,
-                            &market.inner,
-                            as_of_date,
-                        )
+                    self.inner.price_with_registry(
+                        handle.instrument.as_ref(),
+                        model_key,
+                        &market.inner,
+                        as_of_date,
+                    )
                 })
                 .collect()
         });

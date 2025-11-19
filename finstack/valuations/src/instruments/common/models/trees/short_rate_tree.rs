@@ -10,8 +10,8 @@ use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 
 use super::tree_framework::{
-    price_recombining_tree, RecombiningInputs, StateGenerator, StateVariables,
-    TreeBranching, TreeGreeks, TreeModel, TreeValuator,
+    price_recombining_tree, RecombiningInputs, StateGenerator, StateVariables, TreeBranching,
+    TreeGreeks, TreeModel, TreeValuator,
 };
 
 /// Short-rate tree model types
@@ -392,12 +392,12 @@ impl TreeModel for ShortRateTree {
         // FIX: Switch to Trinomial branching for improved stability
         let (p_up, p_down) = self.probs.first().copied().unwrap_or((0.5, 0.5));
         let p_middle = 0.0; // Binomial mode (trinomial would use ~1/3 each)
-        
+
         // Use Trinomial branching for better numerical stability with mean-reverting models
         // Note: For a proper trinomial implementation, probabilities should sum to 1.0
         // and the tree structure needs to support 3 branches per node.
         // For now, we delegate using Binomial structure but with the refactored framework.
-        
+
         price_recombining_tree(RecombiningInputs {
             branching: TreeBranching::Binomial, // TODO: Upgrade to Trinomial after full calibration
             steps: self.config.steps,

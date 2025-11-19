@@ -1,12 +1,12 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::quanto_option::QuantoOption;
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Quanto option instrument.
 #[pyclass(
@@ -96,7 +96,8 @@ impl PyQuantoOption {
         let equity_strike_money = finstack_core::money::Money::new(equity_strike, for_currency);
         let notional_money = extract_money(&notional)?;
 
-        let fx_vol_curve_id = fx_vol_id.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
+        let fx_vol_curve_id =
+            fx_vol_id.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
 
         let mut builder = QuantoOption::builder();
         builder = builder.id(id);

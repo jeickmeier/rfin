@@ -236,8 +236,7 @@ pub use types::{BehaviorOverrides, DealMetadata, StructuredCredit};
 // ============================================================================
 
 pub use components::{
-    // Rate conversion utilities (from builder)
-    annual_to_monthly,
+    // Rate conversion utilities
     calculate_pool_stats,
     calculate_tranche_cs01,
     calculate_tranche_duration,
@@ -248,7 +247,6 @@ pub use components::{
     get_validation_errors,
     is_valid_waterfall_spec,
     mdr_to_cdr,
-    monthly_to_annual,
     psa_to_cpr,
     smm_to_cpr,
     AllocationMode,

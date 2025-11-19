@@ -398,4 +398,3 @@ impl JsBrentSolver {
         )
     }
 }
-

@@ -48,7 +48,6 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
     );
 }
 
-
 #[test]
 fn test_ytw_tracks_quoted_price_not_model_pv() {
     let as_of = date!(2025 - 01 - 01);

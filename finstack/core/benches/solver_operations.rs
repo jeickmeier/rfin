@@ -202,4 +202,3 @@ criterion_group!(
     benchmark_irr_periodic,
 );
 criterion_main!(benches);
-

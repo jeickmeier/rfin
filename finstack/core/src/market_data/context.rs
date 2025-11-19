@@ -319,11 +319,7 @@ impl From<&MarketContext> for MarketContextState {
             .collect();
 
         // Convert series
-        let series: Vec<_> = ctx
-            .series
-            .values()
-            .cloned()
-            .collect();
+        let series: Vec<_> = ctx.series.values().cloned().collect();
 
         // Convert inflation indices
         let inflation_indices: Vec<_> = ctx

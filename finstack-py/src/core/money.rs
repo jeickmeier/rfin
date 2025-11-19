@@ -382,7 +382,5 @@ pub(crate) fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
         return Ok(mny.inner);
     }
 
-    Err(PyTypeError::new_err(
-        "Expected Money instance",
-    ))
+    Err(PyTypeError::new_err("Expected Money instance"))
 }

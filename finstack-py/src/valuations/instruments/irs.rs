@@ -1,9 +1,10 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
@@ -12,7 +13,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Pay/receive direction for swap fixed-leg cashflows.
 #[pyclass(
@@ -198,7 +198,6 @@ impl PyInterestRateSwap {
         .map_err(core_to_py)?;
         Ok(Self::new(swap))
     }
-
 
     #[classmethod]
     #[pyo3(

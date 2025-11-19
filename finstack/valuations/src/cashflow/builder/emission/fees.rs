@@ -9,6 +9,33 @@ use finstack_core::money::Money;
 use super::super::compiler::PeriodicFee;
 use super::super::specs::FeeBase;
 
+/// Internal generic helper for fee emission.
+///
+/// Creates a single fee cashflow with the specified kind if the computed fee amount
+/// is positive, otherwise returns an empty vector.
+fn emit_fee_generic(
+    d: Date,
+    base_amount: f64,
+    fee_bp: f64,
+    year_fraction: f64,
+    ccy: Currency,
+    kind: CFKind,
+) -> Vec<CashFlow> {
+    let fee_amt = base_amount * (fee_bp * 1e-4 * year_fraction);
+    if fee_amt > 0.0 {
+        vec![CashFlow {
+            date: d,
+            reset_date: None,
+            amount: Money::new(fee_amt, ccy),
+            kind,
+            accrual_factor: year_fraction,
+            rate: Some(fee_bp * 1e-4),
+        }]
+    } else {
+        vec![]
+    }
+}
+
 /// Emit commitment fee cashflow (fee on undrawn balance).
 ///
 /// Commitment fees are charged on the undrawn portion of a credit facility.
@@ -32,19 +59,14 @@ pub fn emit_commitment_fee_on(
     year_fraction: f64,
     ccy: Currency,
 ) -> Vec<CashFlow> {
-    let fee_amt = undrawn_balance * (commitment_fee_bp * 1e-4 * year_fraction);
-    if fee_amt > 0.0 {
-        vec![CashFlow {
-            date: d,
-            reset_date: None,
-            amount: Money::new(fee_amt, ccy),
-            kind: CFKind::CommitmentFee,
-            accrual_factor: year_fraction,
-            rate: Some(commitment_fee_bp * 1e-4),
-        }]
-    } else {
-        vec![]
-    }
+    emit_fee_generic(
+        d,
+        undrawn_balance,
+        commitment_fee_bp,
+        year_fraction,
+        ccy,
+        CFKind::CommitmentFee,
+    )
 }
 
 /// Emit usage fee cashflow (fee on drawn balance).
@@ -70,19 +92,14 @@ pub fn emit_usage_fee_on(
     year_fraction: f64,
     ccy: Currency,
 ) -> Vec<CashFlow> {
-    let fee_amt = drawn_balance * (usage_fee_bp * 1e-4 * year_fraction);
-    if fee_amt > 0.0 {
-        vec![CashFlow {
-            date: d,
-            reset_date: None,
-            amount: Money::new(fee_amt, ccy),
-            kind: CFKind::UsageFee,
-            accrual_factor: year_fraction,
-            rate: Some(usage_fee_bp * 1e-4),
-        }]
-    } else {
-        vec![]
-    }
+    emit_fee_generic(
+        d,
+        drawn_balance,
+        usage_fee_bp,
+        year_fraction,
+        ccy,
+        CFKind::UsageFee,
+    )
 }
 
 /// Emit facility fee cashflow (fee on total commitment).
@@ -108,19 +125,14 @@ pub fn emit_facility_fee_on(
     year_fraction: f64,
     ccy: Currency,
 ) -> Vec<CashFlow> {
-    let fee_amt = commitment_amount * (facility_fee_bp * 1e-4 * year_fraction);
-    if fee_amt > 0.0 {
-        vec![CashFlow {
-            date: d,
-            reset_date: None,
-            amount: Money::new(fee_amt, ccy),
-            kind: CFKind::FacilityFee,
-            accrual_factor: year_fraction,
-            rate: Some(facility_fee_bp * 1e-4),
-        }]
-    } else {
-        vec![]
-    }
+    emit_fee_generic(
+        d,
+        commitment_amount,
+        facility_fee_bp,
+        year_fraction,
+        ccy,
+        CFKind::FacilityFee,
+    )
 }
 
 /// Emit fee cashflows on a specific date.

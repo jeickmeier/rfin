@@ -287,8 +287,13 @@ fn process_one_date(
         percent_per: amort_setup.percent_per,
         step_remaining_map: &amort_setup.step_remaining_map,
     };
-    let mut amort_flows =
-        emit_amortization_on(d, ctx.notional, &mut state.outstanding, &amort_params)?;
+    let mut amort_flows = emit_amortization_on(
+        d,
+        ctx.notional,
+        &mut state.outstanding,
+        &amort_params,
+        d == ctx.maturity,
+    )?;
     state.flows.append(&mut amort_flows);
 
     // PIK capitalization
@@ -351,6 +356,17 @@ impl CashflowBuilder {
     /// Creates a new composable cashflow builder.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Helper: Validate that issue and maturity are set.
+    ///
+    /// Returns an error if either issue or maturity is not set. This is used by
+    /// builder methods that require the instrument horizon to be established.
+    fn ensure_dates_set(&self) -> finstack_core::Result<()> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(())
     }
 
     /// Helper: Get issue and maturity with clear panic message if not set.
@@ -456,9 +472,7 @@ impl CashflowBuilder {
     ///
     /// Preferred for library code to avoid panics in production.
     pub fn try_fixed_cf(&mut self, spec: FixedCouponSpec) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.fixed_cf(spec))
     }
 
@@ -501,9 +515,7 @@ impl CashflowBuilder {
         &mut self,
         spec: FloatingCouponSpec,
     ) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.floating_cf(spec))
     }
 
@@ -578,9 +590,7 @@ impl CashflowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.fixed_stepup(steps, schedule, default_split))
     }
 
@@ -666,9 +676,7 @@ impl CashflowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.float_margin_stepup(steps, base_params, schedule, default_split))
     }
 
@@ -770,9 +778,7 @@ impl CashflowBuilder {
         float_win: FloatWindow,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.fixed_to_float(switch, fixed_win, float_win, default_split))
     }
 
@@ -864,9 +870,7 @@ impl CashflowBuilder {
         &mut self,
         steps: &[(Date, CouponType)],
     ) -> finstack_core::Result<&mut Self> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
-        }
+        self.ensure_dates_set()?;
         Ok(self.payment_split_program(steps))
     }
 

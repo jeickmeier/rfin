@@ -1,6 +1,6 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};

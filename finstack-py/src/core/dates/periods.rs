@@ -3,8 +3,8 @@
 //! Provides helpers to construct calendar or fiscal periods and containers for
 //! downstream analysis. Use `build_periods("2024Q1..Q4")` or
 //! `build_fiscal_periods(range, FiscalConfig.US_FEDERAL)` to generate plans.
-use crate::errors::core_to_py;
 use crate::core::utils::date_to_py;
+use crate::errors::core_to_py;
 use finstack_core::dates::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};

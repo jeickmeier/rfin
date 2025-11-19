@@ -741,7 +741,7 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::annual_to_monthly;
+        use super::components::cpr_to_smm;
 
         // Check overrides in priority order
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
@@ -749,12 +749,12 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         }
 
         if let Some(cpr) = self.behavior_overrides.cpr_annual {
-            return Some(annual_to_monthly(cpr));
+            return Some(cpr_to_smm(cpr));
         }
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
             // Inline PSA calculation
-            use super::components::annual_to_monthly;
+            use super::components::cpr_to_smm;
             let psa_ramp_months = 30;
             let psa_terminal_cpr = 0.06;
             let base_cpr = if seasoning <= psa_ramp_months {
@@ -763,18 +763,18 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
                 psa_terminal_cpr
             };
             let cpr = base_cpr * psa_mult;
-            return Some(annual_to_monthly(cpr));
+            return Some(cpr_to_smm(cpr));
         }
 
         None
     }
 
     fn default_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::annual_to_monthly;
+        use super::components::cdr_to_mdr;
 
         // Check overrides in priority order
         if let Some(cdr) = self.behavior_overrides.cdr_annual {
-            return Some(annual_to_monthly(cdr));
+            return Some(cdr_to_mdr(cdr));
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {

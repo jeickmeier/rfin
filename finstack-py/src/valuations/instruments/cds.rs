@@ -1,6 +1,7 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cds::{CreditDefaultSwap, PayReceive};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
@@ -8,7 +9,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 /// Pay/receive indicator for CDS premium leg.
 ///

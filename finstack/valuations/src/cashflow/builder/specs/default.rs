@@ -1,6 +1,6 @@
 //! Default model specifications for credit instruments.
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, Date};
 
 /// Default curve shape.
 #[derive(Clone, Debug, PartialEq)]
@@ -50,8 +50,8 @@ impl DefaultModelSpec {
             }
         };
 
-        use super::super::credit_rates::annual_to_monthly;
-        annual_to_monthly(cdr)
+        use super::super::credit_rates::cpr_to_smm;
+        cpr_to_smm(cdr)
     }
 
     /// Constant CDR (no curve).
@@ -90,4 +90,16 @@ pub struct DefaultEvent {
     pub recovery_rate: f64,
     /// Recovery lag in months
     pub recovery_lag: u32,
+    /// Optional business-day convention for recovery date adjustment.
+    ///
+    /// When `None`, recovery dates are computed using a simple calendar
+    /// month offset with no adjustment.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub recovery_bdc: Option<BusinessDayConvention>,
+    /// Optional holiday calendar identifier used for recovery date adjustment.
+    ///
+    /// When `None`, calendar-aware adjustment is skipped and the recovery
+    /// date is left as the raw lagged date.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub recovery_calendar_id: Option<String>,
 }

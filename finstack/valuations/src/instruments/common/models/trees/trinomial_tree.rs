@@ -273,7 +273,12 @@ mod tests {
             Ok((spot - self.strike).max(0.0))
         }
 
-        fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+        fn value_at_node(
+            &self,
+            _state: &NodeState,
+            continuation_value: f64,
+            _dt: f64,
+        ) -> Result<f64> {
             // European-style: just return continuation value
             Ok(continuation_value)
         }

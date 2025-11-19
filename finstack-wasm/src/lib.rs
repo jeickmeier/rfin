@@ -46,8 +46,7 @@ pub use core::market_data::{
 pub use core::math::{
     adaptiveQuadrature, adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,
     gaussLegendreIntegrateAdaptive, gaussLegendreIntegrateComposite, logBinomialCoefficient,
-    logFactorial, simpsonRule, trapezoidalRule, BrentSolver, GaussHermiteQuadrature,
-    NewtonSolver,
+    logFactorial, simpsonRule, trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
 pub use valuations::calibration::{

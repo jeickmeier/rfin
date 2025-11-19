@@ -97,7 +97,10 @@ use crate::{
 /// - Pension liability modeling with inflation indexation
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "RawInflationCurve", into = "RawInflationCurve"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawInflationCurve", into = "RawInflationCurve")
+)]
 pub struct InflationCurve {
     id: CurveId,
     base_cpi: f64,
@@ -115,7 +118,8 @@ impl Clone for InflationCurve {
             self.knots.clone(),
             self.cpi_levels.clone(),
             self.interp.extrapolation(),
-        ).expect("Clone should not fail for valid curve");
+        )
+        .expect("Clone should not fail for valid curve");
 
         Self {
             id: self.id.clone(),
@@ -316,7 +320,6 @@ impl InflationCurveBuilder {
 // -----------------------------------------------------------------------------
 // Serialization support
 // -----------------------------------------------------------------------------
-
 
 // -----------------------------------------------------------------------------
 // Tests

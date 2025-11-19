@@ -66,8 +66,8 @@ pub use specs::{
     RecoveryModelSpec, ScheduleParams,
 };
 
-// Re-export credit rate conversions
-pub use credit_rates::{annual_to_monthly, monthly_to_annual};
+// Re-export credit rate conversions (hazard-style CPR↔SMM helpers)
+pub use credit_rates::{cpr_to_smm, smm_to_cpr};
 
 // Re-export emission functions
 pub use emission::{

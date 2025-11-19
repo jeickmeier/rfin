@@ -618,7 +618,7 @@ pub struct RecombiningInputs<'a, V: TreeValuator> {
 /// Present value of the option at time 0
 pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<f64> {
     let dt = inputs.time_to_maturity / inputs.steps as f64;
-    
+
     // Helper: compute discount factor at a given step/node
     let get_df = |step: usize, node: usize| -> f64 {
         if let Some(rate_gen) = &inputs.custom_rate_generator {
@@ -681,7 +681,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             for i in 0..=inputs.steps {
                 let time_t = inputs.time_to_maturity;
                 let terminal_spot = get_state(inputs.steps, i, spot0);
-                
+
                 // Update state variable (SPOT for equity, INTEREST_RATE for rates)
                 if inputs.initial_vars.contains_key(state_keys::SPOT) {
                     node_vars.insert(state_keys::SPOT, terminal_spot);
@@ -697,12 +697,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     if t_dn { 1.0 } else { 0.0 },
                 );
 
-                let terminal_state = NodeState::new(
-                    inputs.steps,
-                    time_t,
-                    &node_vars,
-                    inputs.market_context,
-                );
+                let terminal_state =
+                    NodeState::new(inputs.steps, time_t, &node_vars, inputs.market_context);
                 let payoff = if breached {
                     rebate
                 } else {
@@ -715,7 +711,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             for step in (0..inputs.steps).rev() {
                 for i in 0..=step {
                     let spot_t = get_state(step, i, spot0);
-                    
+
                     // Barrier handling at current node
                     let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
 
@@ -725,14 +721,14 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         df_node * (inputs.prob_up * values[i + 1] + inputs.prob_down * values[i]);
 
                     let time_t = step as f64 * dt;
-                    
+
                     // Update state variable (SPOT for equity, INTEREST_RATE for rates)
                     if inputs.initial_vars.contains_key(state_keys::SPOT) {
                         node_vars.insert(state_keys::SPOT, spot_t);
                     } else {
                         node_vars.insert(state_keys::INTEREST_RATE, spot_t);
                     }
-                    
+
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                     node_vars.insert(
                         state_keys::BARRIER_TOUCHED_DOWN,
@@ -744,7 +740,9 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     values[i] = if breached {
                         rebate
                     } else {
-                        inputs.valuator.value_at_node(&node_state, continuation, dt)?
+                        inputs
+                            .valuator
+                            .value_at_node(&node_state, continuation, dt)?
                     };
                 }
                 values.pop();
@@ -779,7 +777,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     } else {
                         node_vars.insert(state_keys::INTEREST_RATE, spot_t);
                     }
-                    
+
                     let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                     node_vars.insert(
@@ -787,12 +785,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         if t_dn { 1.0 } else { 0.0 },
                     );
 
-                    let terminal_state = NodeState::new(
-                        inputs.steps,
-                        time_t,
-                        &node_vars,
-                        inputs.market_context,
-                    );
+                    let terminal_state =
+                        NodeState::new(inputs.steps, time_t, &node_vars, inputs.market_context);
                     let payoff = if breached {
                         rebate
                     } else {
@@ -827,7 +821,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     } else {
                         node_vars.insert(state_keys::INTEREST_RATE, spot_t);
                     }
-                    
+
                     let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                     node_vars.insert(
@@ -839,7 +833,9 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     values[step][j] = if breached {
                         rebate
                     } else {
-                        inputs.valuator.value_at_node(&node_state, continuation, dt)?
+                        inputs
+                            .valuator
+                            .value_at_node(&node_state, continuation, dt)?
                     };
                 }
             }

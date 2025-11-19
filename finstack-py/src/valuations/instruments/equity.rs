@@ -1,13 +1,13 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 // use crate::core::money::PyMoney; // not used in this module
-use crate::valuations::common::{PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::equity::Equity;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-use finstack_core::types::InstrumentId;
 
 /// Spot equity position with optional share count and price override.
 ///

@@ -3,7 +3,7 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::aggregation::{pv_by_period, pv_by_period_credit_adjusted};
+use crate::cashflow::aggregation::{pv_by_period_with_ctx, pv_by_period_credit_adjusted_with_ctx};
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -306,6 +306,7 @@ impl CashFlowSchedule {
     /// # Returns
     /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
     /// are omitted from the result.
+    #[allow(deprecated)]
     pub fn pre_period_pv(
         &self,
         periods: &[Period],
@@ -314,7 +315,8 @@ impl CashFlowSchedule {
         dc: DayCount,
     ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        pv_by_period(&flows, periods, disc, base, dc)
+        pv_by_period_with_ctx(&flows, periods, disc, base, dc, DayCountCtx::default())
+            .unwrap_or_default()
     }
 
     /// Compute pre-period present values with explicit day-count context.
@@ -369,6 +371,7 @@ impl CashFlowSchedule {
     /// # Errors
     /// Returns an error if the discount curve is not found, or if hazard_curve_id
     /// is provided but the curve is not found in the market context.
+    #[allow(deprecated)]
     pub fn pre_period_pv_with_market(
         &self,
         periods: &[Period],
@@ -396,9 +399,9 @@ impl CashFlowSchedule {
             .as_ref()
             .map(|arc| arc.as_ref() as &dyn Survival);
 
-        Ok(pv_by_period_credit_adjusted(
-            &flows, periods, disc, hazard, base, dc,
-        ))
+        pv_by_period_credit_adjusted_with_ctx(
+            &flows, periods, disc, hazard, base, dc, DayCountCtx::default(),
+        )
     }
 
     /// Compute pre-period present values with market context and explicit day-count context.

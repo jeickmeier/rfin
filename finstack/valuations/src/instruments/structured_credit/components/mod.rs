@@ -86,7 +86,6 @@ pub use specs::{
 };
 
 // Rate conversion utilities
-pub use crate::cashflow::builder::credit_rates::{annual_to_monthly, monthly_to_annual};
 pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 
 // ============================================================================

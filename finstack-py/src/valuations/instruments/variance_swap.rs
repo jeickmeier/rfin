@@ -1,11 +1,12 @@
 use crate::core::common::labels::normalize_label;
-use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{PyInstrumentType};
+use crate::errors::core_to_py;
+use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::Frequency;
 use finstack_core::math::stats::RealizedVarMethod;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::variance_swap::{PayReceive, VarianceSwap};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -13,7 +14,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, PyRef};
 use std::fmt;
-use finstack_core::types::{CurveId, InstrumentId};
 
 fn method_label(method: RealizedVarMethod) -> &'static str {
     match method {

@@ -165,7 +165,13 @@ impl SABRCalibrationDerivatives {
 
     /// Compute ATM volatility and derivatives.
     /// Uses shifted forward 'f' if provided to handle negative rates.
-    fn sabr_atm_vol_and_derivatives(&self, alpha: f64, nu: f64, rho: f64, f: f64) -> (f64, f64, f64, f64) {
+    fn sabr_atm_vol_and_derivatives(
+        &self,
+        alpha: f64,
+        nu: f64,
+        rho: f64,
+        f: f64,
+    ) -> (f64, f64, f64, f64) {
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 

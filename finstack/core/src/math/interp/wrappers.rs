@@ -127,4 +127,3 @@ pub type CubicHermite = Interpolator<CubicHermiteStrategy>;
 /// let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
 /// ```
 pub type MonotoneConvex = Interpolator<MonotoneConvexStrategy>;
-

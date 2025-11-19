@@ -94,7 +94,10 @@ use crate::{
 /// Immutable after construction; safe to share via `Arc<ForwardCurve>`.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "RawForwardCurve", into = "RawForwardCurve"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawForwardCurve", into = "RawForwardCurve")
+)]
 pub struct ForwardCurve {
     id: CurveId,
     base: Date,
@@ -118,7 +121,8 @@ impl Clone for ForwardCurve {
             self.knots.clone(),
             self.forwards.clone(),
             self.interp.extrapolation(),
-        ).expect("Clone should not fail for valid curve");
+        )
+        .expect("Clone should not fail for valid curve");
 
         Self {
             id: self.id.clone(),
@@ -470,7 +474,6 @@ impl TermStructure for ForwardCurve {
 // -----------------------------------------------------------------------------
 // Serialization support
 // -----------------------------------------------------------------------------
-
 
 // -----------------------------------------------------------------------------
 // Tests

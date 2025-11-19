@@ -106,7 +106,7 @@ impl PyPathPoint {
     fn state_vars(&self, py: Python) -> PyResult<Py<PyDict>> {
         use finstack_valuations::instruments::common::mc::paths::state_indices;
         let dict = PyDict::new(py);
-        
+
         // Map state vector indices to named keys
         if let Some(spot) = self.inner.state.get(state_indices::IDX_SPOT) {
             dict.set_item("spot", spot)?;
@@ -117,7 +117,7 @@ impl PyPathPoint {
         if let Some(credit_spread) = self.inner.state.get(state_indices::IDX_CREDIT_SPREAD) {
             dict.set_item("credit_spread", credit_spread)?;
         }
-        
+
         Ok(dict.into())
     }
 
@@ -133,7 +133,11 @@ impl PyPathPoint {
         match key {
             "spot" => self.inner.state.get(state_indices::IDX_SPOT).copied(),
             "variance" => self.inner.state.get(state_indices::IDX_VARIANCE).copied(),
-            "credit_spread" => self.inner.state.get(state_indices::IDX_CREDIT_SPREAD).copied(),
+            "credit_spread" => self
+                .inner
+                .state
+                .get(state_indices::IDX_CREDIT_SPREAD)
+                .copied(),
             _ => None,
         }
     }
@@ -602,7 +606,7 @@ impl PyPathDataset {
         // First, find the index of the requested state variable
         let state_keys = self.inner.state_var_keys();
         let state_idx = state_keys.iter().position(|k| k == state_var);
-        
+
         for (idx, path) in self.inner.paths.iter().enumerate() {
             let values: Vec<Option<f64>> = path
                 .points

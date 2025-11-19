@@ -350,7 +350,10 @@ fn test_exact_daycount_vs_approximate() {
 fn test_isda_standard_config() {
     let config = CDSPricerConfig::isda_standard();
 
-    assert_eq!(config.integration_method, IntegrationMethod::IsdaStandardModel);
+    assert_eq!(
+        config.integration_method,
+        IntegrationMethod::IsdaStandardModel
+    );
     assert!(config.include_accrual);
     assert!(config.exact_daycount);
     assert!(config.use_isda_coupon_dates);
@@ -362,7 +365,10 @@ fn test_isda_europe_config() {
     let config = CDSPricerConfig::isda_europe();
 
     assert_eq!(config.business_days_per_year, 250.0); // UK market
-    assert_eq!(config.integration_method, IntegrationMethod::IsdaStandardModel);
+    assert_eq!(
+        config.integration_method,
+        IntegrationMethod::IsdaStandardModel
+    );
 }
 
 #[test]
@@ -370,7 +376,10 @@ fn test_isda_asia_config() {
     let config = CDSPricerConfig::isda_asia();
 
     assert_eq!(config.business_days_per_year, 255.0); // Japan market
-    assert_eq!(config.integration_method, IntegrationMethod::IsdaStandardModel);
+    assert_eq!(
+        config.integration_method,
+        IntegrationMethod::IsdaStandardModel
+    );
 }
 
 #[test]
