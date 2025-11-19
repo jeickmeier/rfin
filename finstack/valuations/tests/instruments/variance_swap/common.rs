@@ -51,9 +51,11 @@ pub fn sample_swap(side: PayReceive) -> VarianceSwap {
 
 /// Build a base market context with discount curve and spot price.
 pub fn base_context() -> MarketContext {
-    let (start, _) = default_dates();
+    // Use an earlier base date to allow pre-start valuations
+    // Swap starts 2025-01-02, so use 2024-12-01 as curve base
+    let curve_base = date(2024, 12, 1);
     let disc_curve = DiscountCurve::builder(DISC_ID)
-        .base_date(start)
+        .base_date(curve_base)
         .knots([
             (0.0, 1.0),
             (0.25, 0.995),

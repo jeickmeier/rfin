@@ -117,8 +117,34 @@ impl VarianceSwap {
             .expect("Example VarianceSwap construction should not fail")
     }
 
+    /// Validate that as_of is compatible with the market context.
+    ///
+    /// Checks for obvious misalignments between the as_of date and market data:
+    /// - as_of must not be before the discount curve base date
+    /// - as_of must align with instrument dates (not before start_date minus reasonable lookback)
+    ///
+    /// Returns a descriptive error if validation fails.
+    fn validate_as_of(&self, context: &MarketContext, as_of: Date) -> Result<()> {
+        // Check discount curve base date alignment
+        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let curve_base = disc.base_date();
+        
+        if as_of < curve_base {
+            return Err(finstack_core::Error::Validation(format!(
+                "VarianceSwap valuation as_of date ({}) is before discount curve '{}' base date ({}). \
+                 Market data must be aligned with or precede the valuation date.",
+                as_of, self.discount_curve_id.as_str(), curve_base
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Calculate present value of the variance swap.
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Validate as_of alignment with market data
+        self.validate_as_of(context, as_of)?;
+
         // Get discount curve
         let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
 

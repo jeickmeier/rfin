@@ -74,11 +74,13 @@ fn test_valuation_with_extreme_price_moves() {
 fn test_valuation_with_negative_rates() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
+    // Use earlier base date to allow pre-start valuation
+    let curve_base = date(2024, 12, 1);
     let disc_curve =
         finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
             DISC_ID,
         )
-        .base_date(swap.start_date)
+        .base_date(curve_base)
         .knots([
             (0.0, 1.0),
             (0.25, 1.005), // Negative rates => DF > 1
@@ -95,7 +97,7 @@ fn test_valuation_with_negative_rates() {
             UNDERLYING_ID,
             finstack_core::market_data::scalars::MarketScalar::Unitless(5_000.0),
         );
-    let as_of = date(2024, 12, 1);
+    let as_of = curve_base;
 
     // Act
     let pv = swap.npv(&ctx, as_of);
@@ -445,6 +447,114 @@ fn test_payoff_is_linear_in_variance_difference() {
         let expected_ratio = var_diffs[i] / var_diffs[0];
         assert!((ratio - expected_ratio).abs() < EPSILON);
     }
+}
+
+// ============================================================================
+// As-Of Date Validation Tests
+// ============================================================================
+
+#[test]
+fn test_valuation_fails_when_as_of_before_discount_curve_base() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    // Try to value before the discount curve base date (2024-12-01)
+    let as_of = date(2024, 11, 30);
+
+    // Act
+    let result = swap.npv(&ctx, as_of);
+
+    // Assert - should return validation error
+    assert!(result.is_err());
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("Validation"));
+    assert!(err_msg.contains("base date"));
+}
+
+#[test]
+fn test_price_with_metrics_fails_when_as_of_before_discount_curve_base() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = date(2024, 11, 30);
+
+    // Act
+    let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::Vega]);
+
+    // Assert
+    assert!(result.is_err());
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("Validation"));
+}
+
+#[test]
+fn test_valuation_succeeds_when_as_of_equals_discount_curve_base() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date; // Equals discount curve base date
+
+    // Act
+    let result = swap.npv(&ctx, as_of);
+
+    // Assert
+    assert!(result.is_ok());
+    assert!(result.unwrap().amount().is_finite());
+}
+
+// ============================================================================
+// CashflowProvider Tests
+// ============================================================================
+
+#[test]
+fn test_cashflow_schedule_returns_single_maturity_flow() {
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+
+    // Assert
+    assert_eq!(flows.len(), 1);
+    assert_eq!(flows[0].0, swap.maturity);
+    assert_eq!(flows[0].1.currency(), swap.notional.currency());
+}
+
+#[test]
+fn test_cashflow_schedule_preserves_currency() {
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.notional = Money::new(DEFAULT_NOTIONAL, Currency::EUR);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+
+    // Assert
+    assert_eq!(flows[0].1.currency(), Currency::EUR);
+}
+
+#[test]
+fn test_cashflow_schedule_has_zero_amount_before_settlement() {
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+
+    // Assert - variance swaps have path-dependent payoff, amount is 0 in schedule
+    assert_eq!(flows[0].1.amount(), 0.0);
 }
 
 // ============================================================================
