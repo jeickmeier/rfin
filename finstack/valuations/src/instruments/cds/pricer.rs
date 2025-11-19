@@ -271,24 +271,14 @@ impl CDSPricer {
                 self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv)
             }
             IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => {
-                match self.accrual_on_default_adaptive(
+                self.accrual_on_default_adaptive(
                     spread,
                     t_start,
                     t_end,
                     period_length,
                     disc,
                     surv,
-                ) {
-                    Ok(aod) => Ok(aod),
-                    Err(_) => self.accrual_on_default_midpoint(
-                        spread,
-                        t_start,
-                        t_end,
-                        period_length,
-                        disc,
-                        surv,
-                    ),
-                }
+                )
             }
             IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
                 spread,

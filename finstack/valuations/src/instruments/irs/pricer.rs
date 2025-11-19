@@ -288,61 +288,67 @@ impl InterestRateSwap {
         fwd: &dyn Forward,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        // Use shared floating-leg cashflow schedule for dates and accrual metadata
-        let sched = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
-
-        // Collect floating coupon flows in chronological order
-        let mut float_flows: Vec<&crate::cashflow::primitives::CashFlow> = sched
-            .flows
-            .iter()
-            .filter(|cf| {
-                cf.kind == crate::cashflow::primitives::CFKind::FloatReset
-                    // Only include cash-paying coupons; PIK (if any) is handled via outstanding
-            })
-            .collect();
-
-        if float_flows.is_empty() {
+        // Build a simple schedule of reset/payment dates for the floating leg.
+        //
+        // We do not rely on the cashflow builder here because that path requires
+        // a `MarketContext` for projecting forwards up-front, which would double‐count
+        // forward application relative to this pricer. Instead we mirror the
+        // forward-based par rate logic: project period forwards from the
+        // forward curve and discount each coupon from `as_of`.
+        let sched = crate::cashflow::builder::build_dates(
+            self.float.start,
+            self.float.end,
+            self.float.freq,
+            self.float.stub,
+            self.float.bdc,
+            self.float.calendar_id.as_deref(),
+        );
+        let dates: Vec<Date> = sched.dates;
+        if dates.len() < 2 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-
-        // Ensure flows are sorted by date in case upstream builders change ordering
-        float_flows.sort_by_key(|cf| cf.date);
 
         let mut total = Money::new(0.0, self.notional.currency());
         let base = disc.base_date();
 
-        for (idx, cf) in float_flows.iter().enumerate() {
-            let d = cf.date;
-
+        // Iterate over accrual periods [prev, d], matching standard IRS conventions.
+        for (idx, &d) in dates.iter().enumerate().skip(1) {
             // Only include future cashflows
             if d <= as_of {
                 continue;
             }
 
             // Determine accrual period start: first coupon uses leg start, others use prior coupon date
-            let prev = if idx == 0 {
-                self.float.start
+            let prev = if idx == 1 { self.float.start } else { dates[idx - 1] };
+
+            // Times to period boundaries measured from curve base date.
+            // For accrual dates before the base date, clamp to t = 0.0
+            // to avoid invalid date ranges while preserving correct
+            // forward rates from the base onward.
+            let t1 = if prev <= base {
+                0.0
             } else {
-                float_flows[idx - 1].date
+                self.float.dc.year_fraction(
+                    base,
+                    prev,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?
+            };
+            let t2 = if d <= base {
+                0.0
+            } else {
+                self.float.dc.year_fraction(
+                    base,
+                    d,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?
             };
 
-            let t1 = self
+            // Accrual factor for the coupon period
+            let yf = self
                 .float
                 .dc
-                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?;
-            let t2 = self
-                .float
-                .dc
-                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
-
-            // Use accrual factor from schedule if available, otherwise fall back to recomputation
-            let yf = if cf.accrual_factor > 0.0 {
-                cf.accrual_factor
-            } else {
-                self.float
-                    .dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?
-            };
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
             // Only call rate_period if t1 < t2 to avoid date ordering errors
             let f = if t2 > t1 {

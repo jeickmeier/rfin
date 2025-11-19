@@ -1216,7 +1216,11 @@ impl McEngine {
         // Initialize state
         state.copy_from_slice(initial_state);
 
-        // Initialize simulated path
+        // Initialize simulated path.
+        //
+        // Use with_capacity for the points Vec to avoid reallocations as we push,
+        // but keep per-path allocation local to this function to preserve
+        // thread-safety and deterministic ordering under parallel execution.
         let num_steps = self.config.time_grid.num_steps() + 1; // +1 for initial point
         let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
 

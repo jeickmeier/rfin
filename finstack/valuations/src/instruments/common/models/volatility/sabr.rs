@@ -176,17 +176,17 @@ impl SABRModel {
             (forward, strike)
         };
 
-        // Enhanced ATM detection with absolute and relative tolerance
-        let abs_diff = (effective_forward - effective_strike).abs();
-        let relative_diff = abs_diff / effective_forward.max(effective_strike);
-        if abs_diff < 1e-8 || relative_diff < 1e-8 {
-            return self.atm_volatility(effective_forward, time_to_expiry);
-        }
-
         let alpha = self.params.alpha;
-        let beta = self.params.beta;
+        let mut beta = self.params.beta;
         let nu = self.params.nu;
         let rho = self.params.rho;
+
+        // Clamp beta to avoid numerical instability near 0 or 1
+        if beta < 1e-4 {
+            beta = 0.0;
+        } else if (1.0 - beta).abs() < 1e-4 {
+            beta = 1.0;
+        }
 
         // Calculate intermediate values with numerical protection
         let f_mid = (effective_forward * effective_strike).sqrt();
@@ -209,8 +209,10 @@ impl SABRModel {
                 / (1.0 - beta)
         };
 
-        // Enhanced ATM detection based on z
-        if z.abs() < 1e-8 {
+        // Enhanced ATM detection based on log-moneyness and z
+        let abs_diff = (effective_forward - effective_strike).abs();
+        let relative_diff = abs_diff / effective_forward.max(effective_strike);
+        if abs_diff < 1e-8 || relative_diff < 1e-8 || z.abs() < 1e-8 {
             return self.atm_volatility(effective_forward, time_to_expiry);
         }
 
@@ -320,10 +322,15 @@ impl SABRModel {
     fn calculate_chi_robust(&self, z: f64) -> Result<f64> {
         let rho = self.params.rho;
 
-        // For very small z, use series expansion to avoid numerical issues
-        if z.abs() < 1e-6 {
-            // Series expansion: χ(z) ≈ z * (1 + (rho-1)/2 * z + ...)
-            return Ok(z * (1.0 + (rho - 1.0) / 2.0 * z));
+        // For very small z, use second-order series expansion to avoid numerical issues.
+        //
+        // Hagan form: χ(z) = ln((√(1 - 2ρz + z²) + z - ρ)/(1 - ρ))
+        // Expand around z = 0 to O(z²) to keep Greeks smooth near ATM.
+        if z.abs() < 1e-4 {
+            let z2 = z * z;
+            // Coefficients from Taylor expansion around z = 0:
+            // χ(z) ≈ z + ρ/2 * z²  for |z| ≪ 1
+            return Ok(z + 0.5 * rho * z2);
         }
 
         // Calculate discriminant with protection
@@ -336,7 +343,7 @@ impl SABRModel {
         let sqrt_disc = discriminant.sqrt();
 
         // Enhanced handling for different rho cases
-        if (1.0 - rho).abs() < 1e-12 {
+        if (1.0 - rho).abs() < 1e-6 {
             // Handle rho ≈ 1 case with series expansion
             // For rho ≈ 1: χ(z) ≈ z/(1+z/2) for small z
             if z.abs() < 0.1 {
@@ -344,7 +351,7 @@ impl SABRModel {
             } else {
                 Ok(z / (1.0 + z))
             }
-        } else if (-1.0 - rho).abs() < 1e-12 {
+        } else if (-1.0 - rho).abs() < 1e-6 {
             // Handle rho ≈ -1 case
             Ok((sqrt_disc + z + 1.0).ln() - 0.5 * 2.0_f64.ln())
         } else {

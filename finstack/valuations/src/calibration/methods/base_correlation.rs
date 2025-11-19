@@ -21,11 +21,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// Interpolation method for base correlation curves (currently linear only).
+/// Interpolation method for base correlation curves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CorrelationInterp {
     /// Linear interpolation between detachment points
     Linear,
+    /// Monotone interpolation enforcing non-decreasing base correlations
+    Monotone,
 }
 
 /// Minimum correlation bound (1% to avoid numerical issues)

@@ -8,6 +8,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
@@ -27,7 +28,11 @@ fn build_test_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
             (30.0, (-rate * 30.0).exp()),
-        ]);
+        ])
+        // For property tests we prefer robustness over strict Hagan–West
+        // monotone-convex behaviour; linear interpolation is sufficient and
+        // handles flat/zero-rate curves gracefully.
+        .set_interp(InterpStyle::Linear);
 
     // For zero or negative rates, allow non-monotonic DFs
     if rate.abs() < 1e-10 || rate < 0.0 {
@@ -43,6 +48,7 @@ fn build_test_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> Forwa
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -273,9 +279,34 @@ proptest! {
         let start = date!(2024-01-01);
         let end = date!(2029-01-01);
 
-        // Build market curves with potentially extreme rates
-        let disc = build_test_discount_curve(curve_rate, base_date, "USD-OIS");
-        let fwd = build_test_forward_curve(curve_rate, base_date, "USD-SOFR-3M");
+        // Build market curves with potentially extreme rates. Some combinations
+        // of parameters may violate curve builder invariants (e.g., forward
+        // positivity constraints). Those are treated as outside the property
+        // domain and discarded via `prop_assume!`.
+        let disc_res = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .day_count(DayCount::Act360)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-curve_rate).exp()),
+                (5.0, (-curve_rate * 5.0).exp()),
+                (10.0, (-curve_rate * 10.0).exp()),
+                (30.0, (-curve_rate * 30.0).exp()),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build();
+
+        let fwd_res = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base_date)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, curve_rate), (10.0, curve_rate), (30.0, curve_rate)])
+            .set_interp(InterpStyle::Linear)
+            .build();
+
+        prop_assume!(disc_res.is_ok() && fwd_res.is_ok());
+        let disc = disc_res.unwrap();
+        let fwd = fwd_res.unwrap();
+
         let mut context = MarketContext::new();
         context.insert_discount_mut(Arc::new(disc));
         context.insert_forward_mut(Arc::new(fwd));

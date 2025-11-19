@@ -311,8 +311,6 @@ impl CDSTranchePricer {
         let attach_pct = tranche.attach_pct;
         let detach_pct = tranche.detach_pct;
 
-        let _years = self.years_from_base(index_data, date);
-
         // Get correlations for attachment and detachment points
         let corr_attach = index_data.base_correlation_curve.correlation(attach_pct);
         let corr_detach = index_data.base_correlation_curve.correlation(detach_pct);
@@ -399,7 +397,7 @@ impl CDSTranchePricer {
 
             let detachment_notional = detachment_pct / 100.0;
             let quad = self.select_quadrature();
-            let maturity_years = self.years_from_base(index_data, maturity);
+            let maturity_years = self.years_from_base(index_data, maturity)?;
             let default_prob = self.get_default_probability(index_data, maturity_years)?;
             let default_threshold = standard_normal_inv_cdf(default_prob);
             let integrand = |z: f64| {
@@ -436,7 +434,7 @@ impl CDSTranchePricer {
         maturity: Date,
     ) -> Result<f64> {
         // Precompute unconditional PD_i(t)
-        let t = self.years_from_base(index_data, maturity);
+        let t = self.years_from_base(index_data, maturity)?;
         let recovery = index_data.recovery_rate;
         let lgd = 1.0 - recovery;
         let weights = 1.0 / (index_data.num_constituents as f64);
@@ -823,7 +821,7 @@ impl CDSTranchePricer {
         let mut prev_el_fraction = 0.0; // Start with no loss
 
         for (i, &payment_date) in payment_dates.iter().enumerate() {
-            let t = self.years_from_base(index_data, payment_date);
+            let t = self.years_from_base(index_data, payment_date)?;
             if t <= 0.0 {
                 continue;
             }
@@ -868,7 +866,7 @@ impl CDSTranchePricer {
 
             // Discount at end or midpoint depending on config
             let df_time = if self.params.mid_period_protection {
-                let t_start = self.years_from_base(index_data, period_start);
+                let t_start = self.years_from_base(index_data, period_start)?;
                 (t_start + t) * 0.5
             } else {
                 t
@@ -906,7 +904,7 @@ impl CDSTranchePricer {
         let mut prev_el_fraction = 0.0; // Start with no loss
 
         for (i, &payment_date) in payment_dates.iter().enumerate() {
-            let t = self.years_from_base(index_data, payment_date);
+            let t = self.years_from_base(index_data, payment_date)?;
             if t <= 0.0 {
                 continue;
             }
@@ -939,14 +937,13 @@ impl CDSTranchePricer {
     }
 
     /// Calculate years from the credit curve base date.
-    fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> f64 {
+    fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> Result<f64> {
         let dc = index_data.index_credit_curve.day_count();
         dc.year_fraction(
             index_data.index_credit_curve.base_date(),
             date,
             finstack_core::dates::DayCountCtx::default(),
         )
-        .unwrap_or(0.0)
     }
 
     /// Create a bumped base correlation curve for sensitivity analysis.

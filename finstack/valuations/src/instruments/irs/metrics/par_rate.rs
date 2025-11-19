@@ -34,6 +34,7 @@
 
 use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::dates::Date;
 
 /// Basis points to decimal conversion factor.
@@ -59,80 +60,9 @@ impl MetricCalculator for ParRateCalculator {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
-        let base = disc.base_date();
-
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
         match method {
-            ParRateMethod::ForwardBased => {
-                // float PV / (N * annuity)
-                let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
-                let as_of = context.as_of;
-
-                // Annuity is sum(yf*df) in years
-                let annuity = context
-                    .computed
-                    .get(&MetricId::Annuity)
-                    .copied()
-                    .unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
-                if annuity == 0.0 {
-                    return Ok(0.0);
-                }
-
-                let fs = crate::cashflow::builder::build_dates(
-                    irs.float.start,
-                    irs.float.end,
-                    irs.float.freq,
-                    irs.float.stub,
-                    irs.float.bdc,
-                    irs.float.calendar_id.as_deref(),
-                );
-                let schedule: Vec<Date> = fs.dates;
-                if schedule.len() < 2 {
-                    return Ok(0.0);
-                }
-
-                let mut pv = 0.0;
-                let mut prev = schedule[0];
-                for &d in &schedule[1..] {
-                    // Only include future cashflows
-                    if d <= as_of {
-                        prev = d;
-                        continue;
-                    }
-
-                    let t1 = irs
-                        .float
-                        .dc
-                        .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?;
-                    let t2 = irs
-                        .float
-                        .dc
-                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?;
-                    let yf = irs
-                        .float
-                        .dc
-                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-
-                    // Only call rate_period if t1 < t2 to avoid date ordering errors
-                    let f = if t2 > t1 {
-                        fwd.rate_period(t1, t2)
-                    } else {
-                        0.0
-                    };
-                    let rate = f + (irs.float.spread_bp * BP_TO_DECIMAL);
-                    let coupon = irs.notional.amount() * rate * yf;
-
-                    // Use shared helper - handles epsilon validation and relative DF calculation
-                    let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
-
-                    pv += coupon * df;
-                    prev = d;
-                }
-
-                // Par rate = float_pv / (notional * annuity)
-                // Annuity is sum(yf*df), so this gives: pv / (notional * sum(yf*df))
-                Ok(pv / (irs.notional.amount() * annuity))
-            }
+            ParRateMethod::ForwardBased => par_rate_forward_based(irs, &*context, &disc),
             ParRateMethod::DiscountRatio => {
                 // (P(as_of,T0) - P(as_of,Tn)) / Sum alpha_i P(as_of,Ti)
                 // This formulation is only exact for unseasoned swaps where
@@ -151,17 +81,10 @@ impl MetricCalculator for ParRateCalculator {
                     return Ok(0.0);
                 }
 
-                // Guard against seasoned swaps: for `as_of` after the start date
-                // the classic discount-ratio formula ceases to be exact. For live
-                // trades use `ParRateMethod::ForwardBased` instead.
+                // For seasoned swaps (`as_of` after the start date), fall back to the
+                // forward-based method, which is robust for live trades.
                 if as_of > dates[0] {
-                    return Err(finstack_core::error::Error::Validation(
-                        format!(
-                            "ParRateMethod::DiscountRatio requires as_of ({}) <= start_date ({}). \
-                             Use ParRateMethod::ForwardBased for seasoned swaps.",
-                            as_of, dates[0]
-                        )
-                    ));
+                    return par_rate_forward_based(irs, &*context, &disc);
                 }
 
                 // Numerator: P(as_of,T0) - P(as_of,Tn)
@@ -198,4 +121,97 @@ impl MetricCalculator for ParRateCalculator {
             }
         }
     }
+}
+
+/// Forward-based par rate calculation used for both the default method and
+/// as a fallback when the discount-ratio method is not applicable (e.g. for
+/// seasoned swaps where `as_of` is after the fixed leg start date).
+fn par_rate_forward_based(
+    irs: &InterestRateSwap,
+    ctx: &MetricContext,
+    disc: &DiscountCurve,
+) -> finstack_core::Result<f64> {
+    // float PV / (N * annuity)
+    let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
+    let as_of = ctx.as_of;
+    let base = disc.base_date();
+
+    // Annuity is sum(yf*df) in years
+    let annuity = ctx
+        .computed
+        .get(&MetricId::Annuity)
+        .copied()
+        .unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
+    if annuity == 0.0 {
+        return Ok(0.0);
+    }
+
+    let fs = crate::cashflow::builder::build_dates(
+        irs.float.start,
+        irs.float.end,
+        irs.float.freq,
+        irs.float.stub,
+        irs.float.bdc,
+        irs.float.calendar_id.as_deref(),
+    );
+    let schedule: Vec<Date> = fs.dates;
+    if schedule.len() < 2 {
+        return Ok(0.0);
+    }
+
+    let mut pv = 0.0;
+    let mut prev = schedule[0];
+    for &d in &schedule[1..] {
+        // Only include future cashflows
+        if d <= as_of {
+            prev = d;
+            continue;
+        }
+
+        // Times to accrual boundaries measured from curve base date. Clamp to
+        // zero if the boundary is on or before the base date to avoid invalid
+        // date ranges when the curve is built with `base_date = as_of`.
+        let t1 = if prev <= base {
+            0.0
+        } else {
+            irs.float.dc.year_fraction(
+                base,
+                prev,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
+        };
+        let t2 = if d <= base {
+            0.0
+        } else {
+            irs.float.dc.year_fraction(
+                base,
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
+        };
+
+        let yf = irs
+            .float
+            .dc
+            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+
+        // Only call rate_period if t1 < t2 to avoid date ordering errors
+        let f = if t2 > t1 {
+            fwd.rate_period(t1, t2)
+        } else {
+            0.0
+        };
+        let rate = f + (irs.float.spread_bp * BP_TO_DECIMAL);
+        let coupon = irs.notional.amount() * rate * yf;
+
+        // Use shared helper - handles epsilon validation and relative DF calculation
+        let df = crate::instruments::irs::pricer::relative_df(disc, as_of, d)?;
+
+        pv += coupon * df;
+        prev = d;
+    }
+
+    // Par rate = float_pv / (notional * annuity)
+    // Annuity is sum(yf*df), so this gives: pv / (notional * sum(yf*df))
+    Ok(pv / (irs.notional.amount() * annuity))
 }

@@ -208,25 +208,33 @@ impl DiscountCurve {
     /// the curve base `base` and `day_count`.
     /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
     #[inline]
+    #[allow(clippy::manual_unwrap_or)]
     pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> f64 {
         let t = if date == self.base {
             0.0
         } else {
-            dc.year_fraction(self.base, date, DayCountCtx::default())
-                .unwrap_or(0.0)
+            match dc.year_fraction(self.base, date, DayCountCtx::default()) {
+                Ok(yf) => yf,
+                Err(_) => 0.0,
+            }
         };
         self.df(t)
     }
 
     /// Convenience: discount factor on a specific date using the curve's own day-count.
     #[inline]
+    #[allow(clippy::manual_unwrap_or)]
     pub fn df_on_date_curve(&self, date: Date) -> f64 {
         let t = if date == self.base {
             0.0
         } else {
-            self.day_count
+            match self
+                .day_count
                 .year_fraction(self.base, date, DayCountCtx::default())
-                .unwrap_or(0.0)
+            {
+                Ok(yf) => yf,
+                Err(_) => 0.0,
+            }
         };
         self.df(t)
     }
@@ -234,6 +242,7 @@ impl DiscountCurve {
     /// Static convenience: discount factor on a specific date given any discount curve.
     /// For backward compatibility with existing code.
     #[inline]
+    #[allow(clippy::manual_unwrap_or)]
     pub fn df_on(
         disc: &dyn Discounting,
         base: Date,
@@ -243,8 +252,10 @@ impl DiscountCurve {
         let t = if date == base {
             0.0
         } else {
-            dc.year_fraction(base, date, DayCountCtx::default())
-                .unwrap_or(0.0)
+            match dc.year_fraction(base, date, DayCountCtx::default()) {
+                Ok(yf) => yf,
+                Err(_) => 0.0,
+            }
         };
         disc.df(t)
     }

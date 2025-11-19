@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
 include_paths = [
-    "finstack/valuations/src/instruments/",
+    "finstack/core/src/",
 ]
+
+# Option to strip Rust comments (helps conserve tokens)
+strip_rust_comments = True
 
 # Define patterns to exclude
 exclude_patterns = [
@@ -57,6 +60,41 @@ def is_excluded(path, patterns):
         if fnmatch(path.name, pattern) or fnmatch(str(path), pattern):
             return True
     return False
+
+
+def strip_rust_comments_from_text(content):
+    """
+    Remove Rust comments from text content.
+    Handles single-line (//) and multi-line (/* */) comments.
+    Note: This is a simple implementation that may not handle all edge cases
+    (e.g., comment markers inside strings), but works well for most code.
+    """
+    import re
+    
+    # Remove multi-line comments /* ... */
+    # This regex handles nested cases by being non-greedy
+    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    
+    # Remove single-line comments //
+    # Only remove if // is not inside quotes (simple heuristic)
+    lines = content.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Find // that's not in a string (simple check)
+        comment_pos = line.find('//')
+        if comment_pos != -1:
+            # Simple heuristic: count quotes before the comment
+            before_comment = line[:comment_pos]
+            # If even number of quotes, likely not in string
+            if before_comment.count('"') % 2 == 0 and before_comment.count("'") % 2 == 0:
+                line = line[:comment_pos].rstrip()
+        
+        # Only keep non-empty lines or lines with actual content
+        if line.strip():
+            cleaned_lines.append(line)
+    
+    return '\n'.join(cleaned_lines)
 
 
 def concatenate_files(output_filename="concatenated_code.txt"):
@@ -120,6 +158,11 @@ def concatenate_files(output_filename="concatenated_code.txt"):
             try:
                 with open(file_path, encoding="utf-8") as input_file:
                     content = input_file.read()
+                    
+                    # Strip Rust comments if enabled and file is a .rs file
+                    if strip_rust_comments and file_path.suffix == ".rs":
+                        content = strip_rust_comments_from_text(content)
+                    
                     output_file.write(content)
                     output_file.write("\n\n")
             except FileNotFoundError:
@@ -132,8 +175,9 @@ def concatenate_files(output_filename="concatenated_code.txt"):
     try:
         output_path = Path(output_filename)
         if output_path.exists():
+            comment_status = " (with Rust comments stripped)" if strip_rust_comments else ""
             logger.info(
-                f"Successfully concatenated {len(file_paths)} files into {output_filename}"
+                f"Successfully concatenated {len(file_paths)} files into {output_filename}{comment_status}"
             )
     except Exception as e:
         logger.error("Error writing to output file %s: %s", output_filename, e)
