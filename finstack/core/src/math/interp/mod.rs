@@ -28,28 +28,21 @@
 //! - Hagan, P. S., & West, G. (2008). "Methods for Constructing a Yield Curve."
 //!   *Wilmott Magazine*, May 2008.
 
-/// Monotone cubic-Hermite interpolation (PCHIP / Fritsch-Carlson).
-pub mod cubic_hermite;
-/// Piecewise-flat instantaneous forward-rate interpolation (log-linear DF).
-pub mod flat_fwd;
-/// Simple piecewise-linear interpolation on positive values.
-pub mod linear;
-/// Linear interpolation in log(values) (constant zero-yield behaviour for DFs).
-pub mod log_linear;
-/// Hagan–West monotone-convex cubic interpolation in log-space.
-pub mod monotone_convex;
+/// Generic interpolator container with strategy pattern.
+pub mod generic;
+/// Concrete strategy implementations.
+pub mod strategies;
 /// Traits for interpolation.
 pub mod traits;
 /// Types and factory for interpolation.
 pub mod types;
 /// Shared helpers (validation and search).
 pub mod utils;
+/// Public wrapper types for interpolators.
+pub mod wrappers;
 
 // Re-exports for ergonomic access
-pub use cubic_hermite::CubicHermite;
-pub use flat_fwd::FlatFwd;
-pub use linear::LinearDf;
-pub use log_linear::LogLinearDf;
-pub use monotone_convex::MonotoneConvex;
-pub use traits::InterpFn;
+pub use generic::Interpolator;
+pub use traits::{InterpFn, InterpolationStrategy};
 pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
+pub use wrappers::{CubicHermite, FlatFwd, LinearDf, LogLinearDf, MonotoneConvex};

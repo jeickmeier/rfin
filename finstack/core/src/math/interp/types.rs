@@ -4,10 +4,7 @@
 //! the internal `Interp` enum for static dispatch in hot paths.
 
 use super::traits::InterpFn;
-use super::{
-    cubic_hermite::CubicHermite, flat_fwd::FlatFwd, linear::LinearDf, log_linear::LogLinearDf,
-    monotone_convex::MonotoneConvex,
-};
+use super::wrappers::{CubicHermite, FlatFwd, LinearDf, LogLinearDf, MonotoneConvex};
 
 /// Epsilon for finite difference derivative calculations.
 pub const DERIVATIVE_EPSILON: f64 = 1e-6;

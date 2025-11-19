@@ -1,6 +1,6 @@
 //! Tests for monotone convex interpolation.
 
-use finstack_core::math::interp::{monotone_convex::MonotoneConvex, ExtrapolationPolicy, InterpFn};
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, MonotoneConvex};
 
 #[test]
 fn test_monotone_convex_construction() {

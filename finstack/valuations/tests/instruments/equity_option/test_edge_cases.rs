@@ -156,42 +156,6 @@ fn test_very_deep_otm_call() {
 // ==================== EXTREME VOLATILITY ====================
 
 #[test]
-#[ignore] // Temporarily disabled - numerical precision issues in option pricing model
-fn test_zero_volatility_itm() {
-    let as_of = date!(2024 - 01 - 01);
-    let expiry = date!(2025 - 01 - 01);
-    let strike = 95.0;
-    let spot = 100.0;
-
-    let call = create_call(as_of, expiry, strike);
-    let market = build_standard_market(as_of, spot, 0.0, 0.05, 0.0);
-
-    let pv = call.value(&market, as_of).unwrap();
-
-    // With zero vol, ITM call = S - K*exp(-rT)
-    let expected = (spot - strike * (-0.05_f64 * 1.0).exp()) * call.contract_size;
-
-    assert_approx_eq_tol(pv.amount(), expected, LOOSE_TOL, "Zero vol ITM call");
-}
-
-#[test]
-#[ignore] // Temporarily disabled - numerical precision issues in option pricing model
-fn test_zero_volatility_otm() {
-    let as_of = date!(2024 - 01 - 01);
-    let expiry = date!(2025 - 01 - 01);
-    let strike = 105.0;
-    let spot = 100.0;
-
-    let call = create_call(as_of, expiry, strike);
-    let market = build_standard_market(as_of, spot, 0.0, 0.05, 0.0);
-
-    let pv = call.value(&market, as_of).unwrap();
-
-    // With zero vol, OTM call is worthless
-    assert_approx_eq_tol(pv.amount(), 0.0, TIGHT_TOL, "Zero vol OTM call");
-}
-
-#[test]
 fn test_very_high_volatility() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);

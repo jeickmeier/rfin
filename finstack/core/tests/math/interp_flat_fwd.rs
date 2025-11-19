@@ -1,9 +1,7 @@
 //! Tests for flat forward interpolation.
 
 use super::common::approx_eq;
-use finstack_core::math::interp::{
-    flat_fwd::FlatFwd, log_linear::LogLinearDf, ExtrapolationPolicy, InterpFn,
-};
+use finstack_core::math::interp::{ExtrapolationPolicy, FlatFwd, InterpFn, LogLinearDf};
 
 #[test]
 fn test_flat_fwd_construction() {
