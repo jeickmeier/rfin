@@ -32,3 +32,4 @@ strum = { workspace = true }
 [features]
 default = ["scenarios"]
 scenarios = []
+

@@ -79,4 +79,4 @@ pub mod xirr;
 pub use discounting::{npv_static, Discountable};
 pub use performance::{irr_periodic, npv as npv_performance};
 pub use primitives::{CFKind, CashFlow};
-pub use xirr::xirr;
+pub use xirr::{xirr, xirr_with_daycount};

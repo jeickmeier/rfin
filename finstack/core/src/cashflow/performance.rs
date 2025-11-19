@@ -80,7 +80,7 @@
 
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
-use crate::math::solver::{HybridSolver, Solver};
+use crate::math::solver::NewtonSolver;
 
 /// Calculate Net Present Value (NPV) for irregular cashflows.
 ///
@@ -300,8 +300,21 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
             .sum()
     };
 
+    // Analytic derivative of NPV with respect to rate
+    // d/dr [ Σ CF_i / (1 + r)^i ] = Σ -i * CF_i / (1 + r)^(i + 1)
+    let npv_derivative = |rate: f64| -> f64 {
+        amounts
+            .iter()
+            .enumerate()
+            .map(|(i, &amount)| {
+                let i_f64 = i as f64;
+                -i_f64 * amount / (1.0 + rate).powf(i_f64 + 1.0)
+            })
+            .sum()
+    };
+
     let initial_guess = guess.unwrap_or(0.1);
-    let solver = HybridSolver::new()
+    let solver = NewtonSolver::new()
         .with_tolerance(1e-6)
         .with_max_iterations(100);
 
@@ -314,6 +327,7 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
         -0.75,
         -0.5,
         -0.25,
+        -0.05,
         0.01,
         0.05,
         0.1,
@@ -323,7 +337,7 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
         2.0,
     ];
     for &g in seeds {
-        if let Ok(root) = solver.solve(npv, g) {
+        if let Ok(root) = solver.solve_with_derivative(npv, npv_derivative, g) {
             return Ok(root);
         }
     }

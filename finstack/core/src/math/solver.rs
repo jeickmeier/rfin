@@ -6,7 +6,7 @@
 //!
 //! # Algorithms
 //!
-//! - [`NewtonSolver`]: Newton-Raphson method with finite difference derivatives
+//! - [`NewtonSolver`]: Newton-Raphson method with finite difference derivatives (or analytic via [`solve_with_derivative`](NewtonSolver::solve_with_derivative))
 //! - [`BrentSolver`]: Brent's method (robust bracketing method)
 //! - [`HybridSolver`]: Automatic fallback from Newton to Brent
 //!
@@ -218,6 +218,65 @@ impl Solver for NewtonSolver {
 }
 
 impl NewtonSolver {
+    /// Solve using Newton-Raphson with an analytic derivative.
+    ///
+    /// This method provides better performance and numerical stability compared to
+    /// the automatic finite-difference approach in [`solve`](Solver::solve) when
+    /// an analytic derivative is available.
+    ///
+    /// # Performance Benefits
+    ///
+    /// - **2x fewer function evaluations**: No need to compute `f(x+h)` and `f(x-h)`
+    /// - **Better numerical stability**: Avoids finite-difference cancellation errors
+    /// - **Faster convergence**: Exact derivatives lead to more accurate Newton steps
+    ///
+    /// # When to Use
+    ///
+    /// Use this method when you can cheaply compute the derivative analytically:
+    /// - **XIRR/IRR**: Derivative of NPV with respect to rate is known analytically
+    /// - **Implied volatility**: Vega (∂Price/∂σ) is available from option pricing
+    /// - **Yield-to-maturity**: Duration (∂Price/∂y) is known from bond pricing
+    /// - **Calibration**: When instrument sensitivities are already computed
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - Function to find the root of (f(x) = 0)
+    /// * `f_prime` - Derivative of f with respect to x
+    /// * `initial_guess` - Starting point for iteration
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::NewtonSolver;
+    ///
+    /// let solver = NewtonSolver::new();
+    ///
+    /// // Solve x^2 - 4 = 0 with analytic derivative (2x)
+    /// let f = |x: f64| x * x - 4.0;
+    /// let f_prime = |x: f64| 2.0 * x;
+    ///
+    /// let root = solver.solve_with_derivative(f, f_prime, 1.0)
+    ///     .expect("Root finding should succeed");
+    /// assert!((root - 2.0).abs() < 1e-10);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.4.
+    ///   "When derivatives are available analytically, Newton-Raphson is the method of choice."
+    pub fn solve_with_derivative<F, G>(
+        &self,
+        f: F,
+        f_prime: G,
+        initial_guess: f64,
+    ) -> Result<f64>
+    where
+        F: Fn(f64) -> f64,
+        G: Fn(f64) -> f64,
+    {
+        self.newton_method(&f, f_prime, initial_guess)
+    }
+
     /// Core Newton-Raphson method implementation.
     fn newton_method<Func, DFunc>(&self, f: Func, f_prime: DFunc, x0: f64) -> Result<f64>
     where
@@ -798,5 +857,66 @@ mod tests {
             .solve(f, 0.001)
             .expect("Permissive solver should handle shallow slopes");
         assert!((f(root)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_solve_with_derivative_quadratic() {
+        // Test analytic derivative on simple quadratic
+        let solver = NewtonSolver::new();
+
+        // Solve x^2 - 4 = 0 (root at x = 2)
+        let f = |x: f64| x * x - 4.0;
+        let f_prime = |x: f64| 2.0 * x;
+
+        let root = solver
+            .solve_with_derivative(f, f_prime, 1.0)
+            .expect("Root finding with analytic derivative should succeed");
+
+        assert!((root - 2.0).abs() < 1e-10);
+        assert!((f(root)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_solve_with_derivative_vs_finite_diff() {
+        // Compare analytic derivative to finite difference on same function
+        let solver = NewtonSolver::new();
+
+        // Cubic function: x^3 - 2x - 5 = 0
+        let f = |x: f64| x.powi(3) - 2.0 * x - 5.0;
+        let f_prime = |x: f64| 3.0 * x.powi(2) - 2.0;
+
+        let root_analytic = solver
+            .solve_with_derivative(f, f_prime, 2.0)
+            .expect("Analytic derivative should succeed");
+
+        let root_fd = solver
+            .solve(f, 2.0)
+            .expect("Finite difference should succeed");
+
+        // Both should converge to same root
+        assert!(
+            (root_analytic - root_fd).abs() < 1e-9,
+            "Analytic and FD roots differ: {} vs {}",
+            root_analytic,
+            root_fd
+        );
+        assert!((f(root_analytic)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_solve_with_derivative_exponential() {
+        // Test on transcendental equation: e^x - 3x = 0
+        let solver = NewtonSolver::new();
+
+        let f = |x: f64| x.exp() - 3.0 * x;
+        let f_prime = |x: f64| x.exp() - 3.0;
+
+        let root = solver
+            .solve_with_derivative(f, f_prime, 1.0)
+            .expect("Should solve exponential equation");
+
+        assert!((f(root)).abs() < 1e-10);
+        // One root is around x ≈ 0.619 (there's also one near 1.512)
+        assert!(root > 0.0 && root < 2.0);
     }
 }

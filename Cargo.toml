@@ -93,3 +93,54 @@ inherits = "release"
 opt-level = 3       # Optimize for speed
 lto = "thin"        # Link-time optimization
 debug = 1           # Line info for profiling tools (flamegraph, perf)
+
+[workspace.metadata.clippy]
+profile = "finstack-strict"
+
+[workspace.lints.clippy]
+# ---- SAFETY / NO PANICS ----
+# Never allow panicking in library code.
+"panic" = "deny"
+"unwrap_used" = "deny"
+"expect_used" = "deny"
+"unreachable" = "deny"
+"indexing_slicing" = "deny"     # deny vec[i] unless bounds-checked
+"wildcard_dependencies" = "deny"
+
+# ---- NUMERICAL SOUNDNESS ----
+# Avoid floating-point surprises
+"float_cmp" = "warn"            # use approx comparisons
+"lossy_float_literal" = "deny"
+
+# ---- ERROR HANDLING ----
+"result_large_err" = "warn"     # catches heavy error types
+"match_wild_err_arm" = "deny"   # no wildcard catching errors
+"needless_borrow" = "warn"
+
+# ---- API DESIGN / READABILITY ----
+"missing_docs_in_private_items" = "allow"
+"missing_docs" = "warn"         # encourage docs for public API
+"too_many_arguments" = "warn"
+"type_complexity" = "warn"
+"large_enum_variant" = "warn"
+"module_name_repetitions" = "allow"   # allow finstack_valuations::valuations
+
+# ---- PERFORMANCE ----
+"map_clone" = "warn"
+"clone_on_ref_ptr" = "deny"
+"unused_async" = "warn"
+"boxed_local" = "deny"
+
+# ---- CORRECTNESS ----
+"match_like_matches_macro" = "deny"
+"redundant_clone" = "deny"
+"redundant_field_names" = "deny"
+"match_same_arms" = "deny"
+"match_wildcard_for_single_variants" = "deny"
+
+# ---- MODERN RUST STYLE ----
+"manual_let_else" = "deny"
+"manual_ok_or" = "deny"
+"manual_strip" = "deny"
+"manual_unwrap_or_default" = "deny"
+"manual_assert" = "deny"
