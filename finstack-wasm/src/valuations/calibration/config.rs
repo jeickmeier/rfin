@@ -38,27 +38,11 @@ impl JsSolverKind {
         }
     }
 
-    /// Hybrid strategy (Newton then Brent).
-    #[wasm_bindgen(js_name = Hybrid)]
-    pub fn hybrid() -> Self {
-        Self {
-            inner: SolverKind::Hybrid,
-        }
-    }
-
     /// Levenberg-Marquardt optimizer.
     #[wasm_bindgen(js_name = LevenbergMarquardt)]
     pub fn levenberg_marquardt() -> Self {
         Self {
             inner: SolverKind::LevenbergMarquardt,
-        }
-    }
-
-    /// Differential evolution global optimizer.
-    #[wasm_bindgen(js_name = DifferentialEvolution)]
-    pub fn differential_evolution() -> Self {
-        Self {
-            inner: SolverKind::DifferentialEvolution,
         }
     }
 
@@ -69,9 +53,7 @@ impl JsSolverKind {
         let kind = match normalized.as_str() {
             "newton" => SolverKind::Newton,
             "brent" => SolverKind::Brent,
-            "hybrid" => SolverKind::Hybrid,
             "levenberg_marquardt" => SolverKind::LevenbergMarquardt,
-            "differential_evolution" => SolverKind::DifferentialEvolution,
             _ => return Err(JsValue::from_str(&format!("Unknown solver kind: {}", name))),
         };
         Ok(Self { inner: kind })
@@ -83,9 +65,7 @@ impl JsSolverKind {
         match self.inner {
             SolverKind::Newton => "newton".to_string(),
             SolverKind::Brent => "brent".to_string(),
-            SolverKind::Hybrid => "hybrid".to_string(),
             SolverKind::LevenbergMarquardt => "levenberg_marquardt".to_string(),
-            SolverKind::DifferentialEvolution => "differential_evolution".to_string(),
         }
     }
 }

@@ -678,7 +678,14 @@ mod tests {
         }
 
         // Now calibrate using these synthetic quotes
-        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
+        // Use Newton solver for this smooth calibration problem (faster convergence)
+        let config = CalibrationConfig {
+            solver_kind: crate::calibration::SolverKind::Newton,
+            tolerance: 1e-10,
+            ..CalibrationConfig::default()
+        };
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
+            .with_config(config);
 
         // Create clean market context for calibration (with dummy base correlation curve)
         let original_index = market_ctx

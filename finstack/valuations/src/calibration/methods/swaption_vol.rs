@@ -466,7 +466,7 @@ impl SwaptionVolCalibrator {
         }
 
         // Solve with a robust 1D solver
-        let solved = solve_1d(SolverKind::Hybrid, 1e-8, 100, objective, guess).unwrap_or(guess);
+        let solved = solve_1d(SolverKind::Brent, 1e-8, 100, objective, guess).unwrap_or(guess);
         let out = solved.abs();
         if out.is_finite() && out > 0.0 {
             out

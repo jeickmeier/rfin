@@ -4,7 +4,7 @@
 mod tests {
     use finstack_core::math::integration::GaussHermiteQuadrature;
     use finstack_core::math::random::{RandomNumberGenerator, SimpleRng};
-    use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver};
+    use finstack_core::math::solver::{BrentSolver, NewtonSolver};
 
     #[test]
     fn test_newton_solver_serde() {
@@ -44,25 +44,6 @@ mod tests {
             solver.initial_bracket_size,
             deserialized.initial_bracket_size
         );
-    }
-
-    #[test]
-    fn test_hybrid_solver_serde() {
-        let solver = HybridSolver::new()
-            .with_tolerance(1e-12)
-            .with_max_iterations(50);
-
-        // Serialize
-        let json = serde_json::to_string(&solver).unwrap();
-
-        // Deserialize
-        let deserialized: HybridSolver = serde_json::from_str(&json).unwrap();
-
-        // Check that both internal solvers are properly configured
-        // Note: We can't directly access newton and brent fields as they're private,
-        // but we can verify through a round-trip test
-        let json2 = serde_json::to_string(&deserialized).unwrap();
-        assert_eq!(json, json2);
     }
 
     #[test]

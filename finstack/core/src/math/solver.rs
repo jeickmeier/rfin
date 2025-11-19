@@ -8,7 +8,6 @@
 //!
 //! - [`NewtonSolver`]: Newton-Raphson method with finite difference derivatives (or analytic via [`solve_with_derivative`](NewtonSolver::solve_with_derivative))
 //! - [`BrentSolver`]: Brent's method (robust bracketing method)
-//! - [`HybridSolver`]: Automatic fallback from Newton to Brent
 //!
 //! # Mathematical Foundation
 //!
@@ -611,57 +610,6 @@ impl BrentSolver {
     }
 }
 
-/// Hybrid solver that tries Newton first, falls back to Brent.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct HybridSolver {
-    /// Newton solver component (tried first)
-    pub newton: NewtonSolver,
-    /// Brent solver component (fallback)
-    pub brent: BrentSolver,
-}
-
-impl HybridSolver {
-    /// Create a new hybrid solver.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set a unified tolerance for both Newton and Brent components.
-    ///
-    /// This ensures consistent convergence criteria regardless of which
-    /// method ultimately succeeds.
-    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
-        self.newton.tolerance = tolerance;
-        self.brent.tolerance = tolerance;
-        self
-    }
-
-    /// Set a unified maximum iteration cap for both Newton and Brent components.
-    ///
-    /// This provides predictable iteration limits across fallback paths.
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
-        self.newton.max_iterations = max_iterations;
-        self.brent.max_iterations = max_iterations;
-        self
-    }
-}
-
-impl Solver for HybridSolver {
-    fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
-    where
-        Func: Fn(f64) -> f64,
-    {
-        // Try Newton first
-        match self.newton.solve(&f, initial_guess) {
-            Ok(root) => Ok(root),
-            Err(_) => {
-                // Fall back to Brent
-                self.brent.solve(f, initial_guess)
-            }
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -694,18 +642,6 @@ mod tests {
         assert!((root - 1.3247179572447).abs() < 1e-6);
     }
 
-    #[test]
-    fn test_hybrid_solver_fallback() {
-        let solver = HybridSolver::new();
-
-        // Function with discontinuous derivative (Newton may fail)
-        let f = |x: f64| if x > 0.0 { x - 1.0 } else { -x - 1.0 };
-        let root = solver
-            .solve(f, 0.5)
-            .expect("Root finding should succeed in test");
-
-        assert!(f(root).abs() < 1e-10);
-    }
 
     #[test]
     fn test_brent_solver_adaptive_bracket() {

@@ -3,7 +3,7 @@
 //! Provides serializable solver configuration that can be persisted
 //! in calibration reports for full reproducibility.
 
-use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver};
+use finstack_core::math::solver::{BrentSolver, NewtonSolver};
 use serde::{Deserialize, Serialize};
 
 /// Serializable solver configuration for calibration.
@@ -54,14 +54,6 @@ pub enum SolverConfig {
         /// Initial bracket size (None = adaptive)
         initial_bracket_size: Option<f64>,
     },
-
-    /// Hybrid solver (tries Newton first, falls back to Brent).
-    Hybrid {
-        /// Newton solver parameters
-        newton: Box<SolverConfig>,
-        /// Brent solver parameters
-        brent: Box<SolverConfig>,
-    },
 }
 
 impl SolverConfig {
@@ -87,14 +79,6 @@ impl SolverConfig {
         }
     }
 
-    /// Create a Hybrid solver config with default settings.
-    pub fn hybrid_default() -> Self {
-        Self::Hybrid {
-            newton: Box::new(Self::newton_default()),
-            brent: Box::new(Self::brent_default()),
-        }
-    }
-
     /// Create from a NewtonSolver instance.
     pub fn from_newton(solver: &NewtonSolver) -> Self {
         Self::Newton {
@@ -114,19 +98,11 @@ impl SolverConfig {
             initial_bracket_size: solver.initial_bracket_size,
         }
     }
-
-    /// Create from a HybridSolver instance.
-    pub fn from_hybrid(solver: &HybridSolver) -> Self {
-        Self::Hybrid {
-            newton: Box::new(Self::from_newton(&solver.newton)),
-            brent: Box::new(Self::from_brent(&solver.brent)),
-        }
-    }
 }
 
 impl Default for SolverConfig {
     fn default() -> Self {
-        Self::hybrid_default()
+        Self::brent_default()
     }
 }
 
@@ -138,12 +114,10 @@ mod tests {
     fn test_solver_config_defaults() {
         let newton = SolverConfig::newton_default();
         let brent = SolverConfig::brent_default();
-        let hybrid = SolverConfig::hybrid_default();
 
         // Verify they're different types
         assert!(matches!(newton, SolverConfig::Newton { .. }));
         assert!(matches!(brent, SolverConfig::Brent { .. }));
-        assert!(matches!(hybrid, SolverConfig::Hybrid { .. }));
     }
 
     #[test]
@@ -163,7 +137,6 @@ mod tests {
         let configs = vec![
             SolverConfig::newton_default(),
             SolverConfig::brent_default(),
-            SolverConfig::hybrid_default(),
             SolverConfig::Newton {
                 tolerance: 1e-14,
                 max_iterations: 200,

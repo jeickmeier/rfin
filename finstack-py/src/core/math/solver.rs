@@ -1,4 +1,4 @@
-use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -286,107 +286,6 @@ impl PyBrentSolver {
     }
 }
 
-#[pyclass(name = "HybridSolver", module = "finstack.core.math.solver")]
-/// Hybrid solver that attempts Newton first, then falls back to Brent if needed.
-///
-/// Combines the fast convergence of Newton's method with the robustness of
-/// Brent's bracketing strategy.
-pub struct PyHybridSolver {
-    inner: HybridSolver,
-    tolerance: f64,
-    max_iterations: usize,
-}
-
-#[pymethods]
-impl PyHybridSolver {
-    #[new]
-    #[pyo3(text_signature = "(*, tolerance=1e-12, max_iterations=100)")]
-    /// Construct a hybrid solver with optional tolerance and iteration limits.
-    ///
-    /// Args:
-    ///     tolerance (float, optional): Shared tolerance applied to both Newton and Brent components. Defaults to 1e-12.
-    ///     max_iterations (int, optional): Maximum iterations attempted by each component before giving up. Defaults to 100.
-    pub fn py_new(tolerance: Option<f64>, max_iterations: Option<usize>) -> Self {
-        let mut inner = HybridSolver::new();
-        let tol = tolerance.unwrap_or(1e-12);
-        let max_iter = max_iterations.unwrap_or(100);
-        inner = inner.with_tolerance(tol);
-        inner = inner.with_max_iterations(max_iter);
-        Self {
-            inner,
-            tolerance: tol,
-            max_iterations: max_iter,
-        }
-    }
-
-    #[getter]
-    /// Shared convergence tolerance.
-    ///
-    /// Returns:
-    ///     float: Current tolerance used by both solver stages.
-    pub fn tolerance(&self) -> f64 {
-        self.tolerance
-    }
-
-    #[setter]
-    /// Update the shared tolerance for the hybrid solver.
-    ///
-    /// Args:
-    ///     value (float): New tolerance applied to Newton and Brent phases.
-    pub fn set_tolerance(&mut self, value: f64) {
-        self.inner = std::mem::take(&mut self.inner).with_tolerance(value);
-        self.tolerance = value;
-    }
-
-    #[getter]
-    /// Maximum iterations for both solver components.
-    ///
-    /// Returns:
-    ///     int: Shared iteration limit.
-    pub fn max_iterations(&self) -> usize {
-        self.max_iterations
-    }
-
-    #[setter]
-    /// Set the maximum iterations for both solver components.
-    ///
-    /// Args:
-    ///     value (int): New iteration limit applied to both Newton and Brent phases.
-    pub fn set_max_iterations(&mut self, value: usize) {
-        self.inner = std::mem::take(&mut self.inner).with_max_iterations(value);
-        self.max_iterations = value;
-    }
-
-    #[pyo3(text_signature = "($self, func, initial_guess)")]
-    /// Solve `func(x) = 0` using the hybrid strategy.
-    ///
-    /// Args:
-    ///     func (Callable[[float], float]): Function whose root is sought.
-    ///     initial_guess (float): Initial guess supplied to the Newton phase.
-    ///
-    /// Returns:
-    ///     float: Root approximation.
-    ///
-    /// Raises:
-    ///     ValueError: If neither Newton nor Brent converges.
-    pub fn solve(&self, func: Bound<'_, PyAny>, initial_guess: f64) -> PyResult<f64> {
-        let adapter = CallableAdapter::new(func)?;
-        let closure = adapter.closure();
-        adapter.run_core(
-            || Solver::solve(&self.inner, closure, initial_guess),
-            core_to_py,
-        )
-    }
-
-    /// String representation combining tolerance and iteration settings.
-    pub fn __repr__(&self) -> String {
-        format!(
-            "HybridSolver(tolerance={}, max_iterations={})",
-            self.tolerance, self.max_iterations
-        )
-    }
-}
-
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -395,18 +294,16 @@ pub(crate) fn register<'py>(
     module.setattr(
         "__doc__",
         concat!(
-            "Root-finding solvers from finstack-core (Newton, Brent, hybrid).\n\n",
+            "Root-finding solvers from finstack-core (Newton, Brent).\n\n",
             "Use Newton for fast local convergence when a good initial guess is available;\n",
-            "use Brent for robust bracketing; Hybrid tries Newton first then falls back\n",
-            "to Brent. All solvers accept Python callables and return float roots."
+            "use Brent for robust bracketing. All solvers accept Python callables and return float roots."
         ),
     )?;
 
     module.add_class::<PyNewtonSolver>()?;
     module.add_class::<PyBrentSolver>()?;
-    module.add_class::<PyHybridSolver>()?;
 
-    let exports = ["NewtonSolver", "BrentSolver", "HybridSolver"];
+    let exports = ["NewtonSolver", "BrentSolver"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

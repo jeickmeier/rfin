@@ -15,5 +15,5 @@ pub use integration::{
     JsGaussHermiteQuadrature as GaussHermiteQuadrature,
 };
 pub use solver::{
-    JsBrentSolver as BrentSolver, JsHybridSolver as HybridSolver, JsNewtonSolver as NewtonSolver,
+    JsBrentSolver as BrentSolver, JsNewtonSolver as NewtonSolver,
 };

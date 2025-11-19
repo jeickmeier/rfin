@@ -9,7 +9,7 @@
       "use_parallel": false,
       "random_seed": 42,
       "verbose": false,
-      "solver_kind": "Hybrid",
+      "solver_kind": "Brent",
       "entity_seniority": {},
       "multi_curve": {
         "calibrate_basis": true,
@@ -32,7 +32,7 @@
             "use_parallel": false,
             "random_seed": 42,
             "verbose": false,
-            "solver_kind": "Hybrid",
+            "solver_kind": "Brent",
             "entity_seniority": {},
             "multi_curve": {
               "calibrate_basis": true,
@@ -86,7 +86,7 @@
             "use_parallel": false,
             "random_seed": 42,
             "verbose": false,
-            "solver_kind": "Hybrid",
+            "solver_kind": "Brent",
             "entity_seniority": {},
             "multi_curve": {
               "calibrate_basis": true,

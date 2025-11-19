@@ -21,26 +21,20 @@ pub enum ValidationMode {
 
 /// Solver type selection for calibration.
 ///
-/// For 1D problems (most curve calibrations), Newton, Brent, or Hybrid are used directly.
-/// For multi-dimensional problems, use `create_lm_solver()` or `create_de_solver()` methods
-/// on `CalibrationConfig`. Note that LevenbergMarquardt and DifferentialEvolution variants
-/// automatically fall back to Hybrid for 1D solve_1d() calls.
+/// For 1D problems (most curve calibrations), Newton or Brent are used directly.
+/// For multi-dimensional problems, use `create_lm_solver()` method on `CalibrationConfig`.
+/// Note that LevenbergMarquardt variant automatically falls back to Brent for 1D solve_1d() calls.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 /// Solver Kind enumeration.
 pub enum SolverKind {
     /// Newton-Raphson solver with automatic derivative estimation (1D only)
     Newton,
-    /// Brent's method solver - robust bracketing method (1D only)
-    Brent,
-    /// Hybrid solver: Newton first, Brent fallback (1D only, recommended)
+    /// Brent's method solver - robust bracketing method (1D only, recommended)
     #[default]
-    Hybrid,
+    Brent,
     /// Levenberg-Marquardt for non-linear least squares (multi-dimensional).
-    /// Falls back to Hybrid for 1D problems. Use `create_lm_solver()` for multi-D.
+    /// Falls back to Brent for 1D problems. Use `create_lm_solver()` for multi-D.
     LevenbergMarquardt,
-    /// Differential Evolution for global optimization (multi-dimensional).
-    /// Falls back to Hybrid for 1D problems. Use `create_de_solver()` for multi-D.
-    DifferentialEvolution,
 }
 
 /// Multi-curve calibration configuration
@@ -172,7 +166,7 @@ impl CalibrationConfig {
             use_parallel: false, // Deterministic
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::Hybrid, // Robust hybrid solver
+            solver_kind: SolverKind::Brent, // Robust bracketing solver
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
@@ -209,7 +203,7 @@ impl CalibrationConfig {
             use_parallel: false, // Keep deterministic by default
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::Hybrid,
+            solver_kind: SolverKind::Brent,
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
@@ -268,31 +262,8 @@ impl CalibrationConfig {
             .with_max_iterations(self.max_iterations)
     }
 
-    /// Create a Differential Evolution solver with current config settings.
-    ///
-    /// Returns a configured DifferentialEvolutionSolver for global optimization.
-    /// Useful when the objective function has multiple local minima.
-    pub fn create_de_solver(
-        &self,
-    ) -> finstack_core::math::solver_multi::DifferentialEvolutionSolver {
-        use finstack_core::math::solver_multi::DifferentialEvolutionSolver;
-
-        let mut solver = DifferentialEvolutionSolver::new()
-            .with_tolerance(self.tolerance)
-            .with_max_generations(self.max_iterations);
-
-        if let Some(seed) = self.random_seed {
-            solver = solver.with_seed(seed);
-        }
-
-        solver
-    }
-
     /// Check if configured for multi-dimensional solving
     pub fn is_multi_dimensional(&self) -> bool {
-        matches!(
-            self.solver_kind,
-            SolverKind::LevenbergMarquardt | SolverKind::DifferentialEvolution
-        )
+        matches!(self.solver_kind, SolverKind::LevenbergMarquardt)
     }
 }

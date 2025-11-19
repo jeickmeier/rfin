@@ -2,7 +2,7 @@
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
-use finstack_core::math::solver::{HybridSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
 /// Calculates YTM (Yield to Maturity) for structured credit.
@@ -83,10 +83,9 @@ impl MetricCalculator for YtmCalculator {
             pv - target_value
         };
 
-        // Solve for YTM using hybrid solver (Newton-Raphson + Brent fallback)
-        let solver = HybridSolver::new()
-            .with_tolerance(1e-8)
-            .with_max_iterations(100);
+        // Solve for YTM using Brent solver
+        let solver = BrentSolver::new()
+            .with_tolerance(1e-8);
 
         // Initial guess: 5% is reasonable for structured credit
         let ytm = solver.solve(objective, 0.05)?;

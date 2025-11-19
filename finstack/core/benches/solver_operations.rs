@@ -6,7 +6,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::cashflow::{xirr, xirr_with_daycount};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 use time::Month;
 
 fn benchmark_newton_analytic_vs_fd(c: &mut Criterion) {
@@ -138,7 +138,6 @@ fn benchmark_solver_comparison(c: &mut Criterion) {
 
     let newton = NewtonSolver::new();
     let brent = BrentSolver::new();
-    let hybrid = HybridSolver::new();
 
     group.bench_function("newton_fd", |b| {
         b.iter(|| {
@@ -159,14 +158,6 @@ fn benchmark_solver_comparison(c: &mut Criterion) {
     group.bench_function("brent", |b| {
         b.iter(|| {
             brent
-                .solve(black_box(&f), black_box(1.0))
-                .expect("Should converge")
-        })
-    });
-
-    group.bench_function("hybrid", |b| {
-        b.iter(|| {
-            hybrid
                 .solve(black_box(&f), black_box(1.0))
                 .expect("Should converge")
         })

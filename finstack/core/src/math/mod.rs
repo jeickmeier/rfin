@@ -9,7 +9,6 @@
 //! The [`solver`] module provides multiple root-finding algorithms:
 //! - [`NewtonSolver`]: Fast convergence, supports analytic derivatives via [`solve_with_derivative`](NewtonSolver::solve_with_derivative)
 //! - [`BrentSolver`]: Robust bracketing method, guaranteed convergence
-//! - [`HybridSolver`]: Tries Newton first, falls back to Brent
 //!
 //! **Performance Tip:** When analytic derivatives are available (e.g., for XIRR, implied volatility),
 //! use [`NewtonSolver::solve_with_derivative`] for 2× fewer function evaluations and better numerical stability.
@@ -79,10 +78,8 @@ pub use linalg::{
 };
 pub use random::{box_muller_polar, box_muller_transform, RandomNumberGenerator, SimpleRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
-pub use solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
-pub use solver_multi::{
-    AnalyticalDerivatives, DifferentialEvolutionSolver, LevenbergMarquardtSolver, MultiSolver,
-};
+pub use solver::{BrentSolver, NewtonSolver, Solver};
+pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,
 };

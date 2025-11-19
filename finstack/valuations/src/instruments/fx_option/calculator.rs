@@ -9,7 +9,7 @@ use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
-use finstack_core::math::solver::{HybridSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -222,9 +222,8 @@ impl FxOptionCalculator {
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
 
-        let solver = HybridSolver::new()
-            .with_tolerance(1e-10)
-            .with_max_iterations(100);
+        let solver = BrentSolver::new()
+            .with_tolerance(1e-10);
         let root = solver.solve(f, x0)?;
         Ok(root.exp())
     }

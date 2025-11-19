@@ -84,7 +84,7 @@ pub use crate::Result;
 
 // Math utilities
 pub use crate::math::{
-    solver::{BrentSolver, HybridSolver, NewtonSolver, Solver},
+    solver::{BrentSolver, NewtonSolver, Solver},
     stats::{correlation, covariance, mean, mean_var, variance},
     summation::{kahan_sum, pairwise_sum, stable_sum},
 };

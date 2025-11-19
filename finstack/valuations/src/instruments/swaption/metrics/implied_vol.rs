@@ -7,7 +7,7 @@
 
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::math::solver::{HybridSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::prelude::Result;
 
 /// Implied Volatility calculator for swaptions
@@ -62,10 +62,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         let eps = 1e-8;
         let x0 = (initial_sigma.max(eps)).ln();
 
-        // Try hybrid solver (Newton with Brent fallback)
-        let solver = HybridSolver::new()
-            .with_tolerance(1e-10)
-            .with_max_iterations(100);
+        // Try Brent solver
+        let solver = BrentSolver::new()
+            .with_tolerance(1e-10);
         let implied_x = match solver.solve(f, x0) {
             Ok(root) => root,
             Err(_) => {

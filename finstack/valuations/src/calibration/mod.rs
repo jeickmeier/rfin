@@ -91,7 +91,7 @@ pub fn solve_1d<Fun>(kind: SolverKind, tol: f64, iters: usize, f: Fun, init: f64
 where
     Fun: Fn(f64) -> f64,
 {
-    use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+    use finstack_core::math::{BrentSolver, NewtonSolver, Solver};
 
     match kind {
         SolverKind::Newton => {
@@ -105,17 +105,9 @@ where
             // BrentSolver currently does not expose a max-iteration builder; keep defaults
             solver.solve(f, init)
         }
-        SolverKind::Hybrid => {
-            let solver = HybridSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(iters);
-            solver.solve(f, init)
-        }
-        // For multi-dimensional kinds, fall back to Hybrid for 1D problems
-        SolverKind::LevenbergMarquardt | SolverKind::DifferentialEvolution => {
-            let solver = HybridSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(iters);
+        // For multi-dimensional kinds, fall back to Brent for 1D problems
+        SolverKind::LevenbergMarquardt => {
+            let solver = BrentSolver::new().with_tolerance(tol);
             solver.solve(f, init)
         }
     }

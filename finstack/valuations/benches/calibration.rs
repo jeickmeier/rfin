@@ -616,7 +616,7 @@ fn bench_calibration_solver_comparison(c: &mut Criterion) {
 
     let base_context = MarketContext::new();
 
-    for solver in [SolverKind::Newton, SolverKind::Brent, SolverKind::Hybrid] {
+    for solver in [SolverKind::Newton, SolverKind::Brent] {
         let config = CalibrationConfig {
             solver_kind: solver.clone(),
             tolerance: 1e-8,

@@ -50,9 +50,8 @@ fn test_solver_kind_serialization() {
     let kinds = vec![
         SolverKind::Newton,
         SolverKind::Brent,
-        SolverKind::Hybrid,
+        SolverKind::Brent,
         SolverKind::LevenbergMarquardt,
-        SolverKind::DifferentialEvolution,
     ];
 
     for kind in kinds {
@@ -69,7 +68,7 @@ fn test_calibration_config_serialization() {
         use_parallel: false,
         random_seed: Some(42),
         verbose: true,
-        solver_kind: SolverKind::Hybrid,
+        solver_kind: SolverKind::Brent,
         entity_seniority: {
             let mut map = hashbrown::HashMap::new();
             map.insert("AAPL".to_string(), Seniority::Senior);

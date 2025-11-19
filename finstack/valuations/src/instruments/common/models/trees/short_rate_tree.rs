@@ -213,10 +213,10 @@ impl ShortRateTree {
     /// Implements proper BDT calibration that matches the discount curve at each step
     /// by solving for the drift parameter using state-price recursion and root finding.
     fn calibrate_bdt(&mut self, discount_curve: &dyn Discounting, dt: f64) -> Result<()> {
-        use finstack_core::math::{HybridSolver, Solver};
+        use finstack_core::math::{BrentSolver, Solver};
 
         let sigma = self.config.volatility;
-        let solver = HybridSolver::new();
+        let solver = BrentSolver::new();
 
         // BDT parameters: lognormal rates with constant volatility
         let u = (sigma * dt.sqrt()).exp(); // Up multiplier

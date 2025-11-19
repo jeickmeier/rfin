@@ -1,4 +1,4 @@
-use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
+use finstack_core::math::solver::{BrentSolver, Solver};
 
 #[test]
 fn brent_finds_root_simple_quadratic() {
@@ -10,31 +10,31 @@ fn brent_finds_root_simple_quadratic() {
 }
 
 #[test]
-fn hybrid_solver_handles_derivative_small() {
+fn brent_solver_handles_cubic() {
     // f(x)=x^3 - x, roots at -1, 0, 1 ⇒ 1
     let f = |x: f64| x * x * x - x;
-    let solver = HybridSolver::new().with_tolerance(1e-12);
+    let solver = BrentSolver::new().with_tolerance(1e-12);
     let r = solver.solve(f, 0.85).unwrap(); // Initial guess near root at 1
     assert!((r - 1.0).abs() < 1e-9);
 }
 
 #[test]
-fn hybrid_solver_with_good_newton_guess() {
-    // Simple case where Newton should work well
+fn brent_solver_simple_quadratic() {
+    // Simple case
     let f = |x: f64| x * x - 4.0; // root at x = 2
-    let solver = HybridSolver::new().with_tolerance(1e-12);
+    let solver = BrentSolver::new().with_tolerance(1e-12);
 
     let root = solver.solve(f, 1.8).unwrap();
     assert!((root - 2.0).abs() < 1e-9);
 }
 
 #[test]
-fn hybrid_solver_with_bad_newton_guess() {
-    // Case where Newton might struggle but hybrid should still work
+fn brent_solver_with_distant_guess() {
+    // Case where initial guess is far from root
     let f = |x: f64| x * x * x - x - 2.0; // Cubic with root near 1.5
-    let solver = HybridSolver::new().with_tolerance(1e-12);
+    let solver = BrentSolver::new().with_tolerance(1e-12);
 
-    // Bad initial guess that might cause Newton to diverge
+    // Bad initial guess that would cause Newton to diverge
     let root = solver.solve(f, 100.0).unwrap();
 
     // Verify it's actually a root
@@ -42,7 +42,7 @@ fn hybrid_solver_with_bad_newton_guess() {
 }
 
 #[test]
-fn hybrid_solver_bond_yield() {
+fn brent_solver_bond_yield() {
     // Financial application: yield-to-maturity type calculation
     // Bond price equation: P = Σ C/(1+y)^t where we solve for y given P
     let target_price = 95.0;
@@ -61,8 +61,8 @@ fn hybrid_solver_bond_yield() {
         annuity_pv + principal_pv - target_price
     };
 
-    // Use HybridSolver with good initial guess
-    let solver = HybridSolver::new().with_tolerance(1e-10);
+    // Use BrentSolver
+    let solver = BrentSolver::new().with_tolerance(1e-10);
     let yield_result = solver.solve(f, 0.06).unwrap();
 
     // Verify the yield makes sense (should be around 6-7% for this bond)
@@ -71,10 +71,10 @@ fn hybrid_solver_bond_yield() {
 }
 
 #[test]
-fn hybrid_solver_fallback_to_brent() {
+fn brent_solver_sqrt_function() {
     // Pathological case where derivative is problematic
     let f = |x: f64| (x - 1.5).signum() * (x - 1.5).abs().powf(0.5); // sqrt function with sign
-    let solver = HybridSolver::new().with_tolerance(1e-6);
+    let solver = BrentSolver::new().with_tolerance(1e-6);
 
     let root = solver.solve(f, 2.0).unwrap();
     assert!((root - 1.5).abs() < 1e-6);

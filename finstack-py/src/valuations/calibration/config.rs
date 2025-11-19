@@ -26,9 +26,7 @@ impl PySolverKind {
         match self.inner {
             SolverKind::Newton => 0,
             SolverKind::Brent => 1,
-            SolverKind::Hybrid => 2,
-            SolverKind::LevenbergMarquardt => 3,
-            SolverKind::DifferentialEvolution => 4,
+            SolverKind::LevenbergMarquardt => 2,
         }
     }
 }
@@ -40,11 +38,7 @@ impl PySolverKind {
     #[classattr]
     const BRENT: Self = Self::new(SolverKind::Brent);
     #[classattr]
-    const HYBRID: Self = Self::new(SolverKind::Hybrid);
-    #[classattr]
     const LEVENBERG_MARQUARDT: Self = Self::new(SolverKind::LevenbergMarquardt);
-    #[classattr]
-    const DIFFERENTIAL_EVOLUTION: Self = Self::new(SolverKind::DifferentialEvolution);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -52,12 +46,8 @@ impl PySolverKind {
         match normalize_label(name).as_str() {
             "newton" => Ok(Self::new(SolverKind::Newton)),
             "brent" => Ok(Self::new(SolverKind::Brent)),
-            "hybrid" => Ok(Self::new(SolverKind::Hybrid)),
             "levenberg_marquardt" | "levenbergmarquardt" => {
                 Ok(Self::new(SolverKind::LevenbergMarquardt))
-            }
-            "differential_evolution" | "differentialevolution" => {
-                Ok(Self::new(SolverKind::DifferentialEvolution))
             }
             other => Err(PyKeyError::new_err(format!("Unknown solver kind: {other}"))),
         }
@@ -68,9 +58,7 @@ impl PySolverKind {
         match self.inner {
             SolverKind::Newton => "newton",
             SolverKind::Brent => "brent",
-            SolverKind::Hybrid => "hybrid",
             SolverKind::LevenbergMarquardt => "levenberg_marquardt",
-            SolverKind::DifferentialEvolution => "differential_evolution",
         }
     }
 
