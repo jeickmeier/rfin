@@ -6,13 +6,13 @@ use finstack_core::dates::calendar::business_days::{self, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{self, adjust as core_adjust, BusinessDayConvention};
 use pyo3::basic::CompareOp;
-use std::str::FromStr;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyModule, PyType};
 use pyo3::{Bound, IntoPyObjectExt, PyRef};
 use std::borrow::Cow;
 use std::fmt;
+use std::str::FromStr;
 
 /// Enumerate how dates should adjust relative to a business-day calendar.
 ///

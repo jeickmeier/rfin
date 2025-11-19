@@ -123,7 +123,7 @@ impl PyFxBarrierOption {
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.fx_spot_id(fx_spot_id.to_string());
-        builder = builder.fx_vol_id(fx_vol_id);
+        builder = builder.fx_vol_id(fx_vol_id.into());
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(
                 "Failed to build FxBarrierOption: {e}"

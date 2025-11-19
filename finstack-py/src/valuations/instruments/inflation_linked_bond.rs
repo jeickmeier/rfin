@@ -166,7 +166,7 @@ impl PyInflationLinkedBond {
         builder = builder.stub(StubKind::None);
         builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
         builder = builder.discount_curve_id(discount_curve_id);
-        builder = builder.inflation_index_id(inflation_index_id);
+        builder = builder.inflation_index_id(inflation_index_id.into());
         builder = builder.attributes(Default::default());
 
         let bond = builder.build().map_err(core_to_py)?;

@@ -181,7 +181,7 @@ impl PyEquityOption {
             &params,
             &underlying,
             discount_curve_id,
-            CurveId::new(vol_surface_id),
+            vol_surface_id.into(),
         );
         Ok(Self::new(option))
     }

@@ -453,9 +453,9 @@ impl PyFxOption {
         builder = builder.day_count(finstack_core::dates::DayCount::Act365F);
         builder = builder.notional(amt);
         builder = builder.settlement(settle);
-        builder = builder.domestic_discount_curve_id(dom);
-        builder = builder.foreign_discount_curve_id(for_id);
-        builder = builder.vol_surface_id(vol_surface_id);
+        builder = builder.domestic_discount_curve_id(dom.into());
+        builder = builder.foreign_discount_curve_id(for_id.into());
+        builder = builder.vol_surface_id(vol_surface_id.into());
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder =
@@ -663,8 +663,8 @@ impl PyFxSwap {
         builder = builder.near_date(near);
         builder = builder.far_date(far);
         builder = builder.base_notional(base_notional);
-        builder = builder.domestic_discount_curve_id(domestic);
-        builder = builder.foreign_discount_curve_id(foreign);
+        builder = builder.domestic_discount_curve_id(domestic.into());
+        builder = builder.foreign_discount_curve_id(foreign.into());
         if let Some(rate) = near_rate {
             builder = builder.near_rate(rate);
         }

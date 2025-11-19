@@ -93,7 +93,7 @@ impl PyBasisSwapLeg {
 
         Ok(Self {
             inner: BasisSwapLeg {
-                forward_curve_id: CurveId::new(forward_id),
+                forward_curve_id: forward_id.into(),
                 frequency: freq,
                 day_count: dc,
                 bdc,

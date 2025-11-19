@@ -170,8 +170,8 @@ impl PyCdsTranche {
         builder = builder.day_count(dc);
         builder = builder.business_day_convention(bdc);
         builder = builder.calendar_id_opt(to_optional_string(calendar));
-        builder = builder.discount_curve_id(disc_curve);
-        builder = builder.credit_index_id(credit_curve);
+        builder = builder.discount_curve_id(disc_curve.into());
+        builder = builder.credit_index_id(credit_curve.into());
         builder = builder.side(side_value);
         builder = builder.effective_date_opt(eff);
         builder = builder.attributes(Default::default());
