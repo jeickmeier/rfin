@@ -4,9 +4,13 @@
 //! commonly used in financial mathematics, including the error function, normal
 //! distribution functions, and their inverses.
 //!
+//! **Implementation Note**: As of version 0.3.0, these functions are thin wrappers
+//! around the battle-tested [`statrs`](https://crates.io/crates/statrs) crate,
+//! which provides highly accurate, SIMD-optimized implementations.
+//!
 //! # Functions
 //!
-//! - [`erf`]: Error function using Abramowitz & Stegun approximation
+//! - [`erf`]: Error function (wrapper around `statrs`)
 //! - [`norm_cdf`]: Standard normal cumulative distribution function (Φ)
 //! - [`norm_pdf`]: Standard normal probability density function (φ)
 //! - [`standard_normal_inv_cdf`]: Inverse standard normal CDF (Φ⁻¹)
@@ -14,11 +18,12 @@
 //!
 //! # Numerical Accuracy
 //!
-//! The implementations prioritize:
+//! The `statrs` implementations prioritize:
 //! - **Tail accuracy**: Critical for risk metrics (VaR, CVaR) and copula models
 //! - **Boundary stability**: Proper handling of extreme values (±∞)
 //! - **Determinism**: Identical results across platforms and compilers
-//! - **No heap allocation**: All functions are stack-only for performance
+//! - **Performance**: SIMD optimizations where available
+//! - **Battle-tested**: Widely used in the Rust ecosystem
 //!
 //! # Use Cases
 //!
@@ -67,28 +72,24 @@
 //!
 //! # References
 //!
+//! - **statrs crate**: The underlying implementation for all special functions.
+//!   See <https://github.com/statrs-dev/statrs> for implementation details and accuracy benchmarks.
+//!
 //! - **Error Function**:
 //!   - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
-//!     National Bureau of Standards. Formula 7.1.26 (approximation with max error 1.5e-7).
+//!     National Bureau of Standards.
 //!
 //! - **Normal Distribution**:
 //!   - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
 //!     Distributions, Volume 1* (2nd ed.). Wiley. Chapter 13.
 //!
 //! - **Inverse Normal CDF**:
-//!   - Beasley, J. D., & Springer, S. G. (1977). "Algorithm AS 111: The Percentage
-//!     Points of the Normal Distribution." *Applied Statistics*, 26(1), 118-121.
 //!   - Wichura, M. J. (1988). "Algorithm AS 241: The Percentage Points of the
 //!     Normal Distribution." *Applied Statistics*, 37(3), 477-484.
-//!   - Acklam, P. J. (2010). "An Algorithm for Computing the Inverse Normal
-//!     Cumulative Distribution Function." Available online.
 
-use std::f64::consts::PI;
-
-/// Error function approximation using Abramowitz & Stegun formula 7.1.26.
+/// Error function.
 ///
-/// Computes the error function using a polynomial approximation with
-/// maximum absolute error of 1.5×10⁻⁷ over the entire real line.
+/// Computes the error function using the highly accurate implementation from `statrs`.
 ///
 /// # Definition
 ///
@@ -103,10 +104,6 @@ use std::f64::consts::PI;
 /// # Returns
 ///
 /// The error function erf(x) ∈ (-1, 1)
-///
-/// # Accuracy
-///
-/// Maximum absolute error: 1.5×10⁻⁷ (from Abramowitz & Stegun)
 ///
 /// # Examples
 ///
@@ -124,38 +121,18 @@ use std::f64::consts::PI;
 /// assert!((erf(5.0) - 1.0).abs() < 1e-5);
 /// ```
 ///
-/// # References
+/// # Implementation
 ///
-/// - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
-///   National Bureau of Standards. Formula 7.1.26.
+/// This is a thin wrapper around `statrs::function::erf::erf`.
 #[inline]
 pub fn erf(x: f64) -> f64 {
-    let a1 = 0.254829592;
-    let a2 = -0.284496736;
-    let a3 = 1.421413741;
-    let a4 = -1.453152027;
-    let a5 = 1.061405429;
-    let p = 0.3275911;
-
-    let sign = if x < 0.0 { -1.0 } else { 1.0 };
-    let x = x.abs();
-
-    let t = 1.0 / (1.0 + p * x);
-    let t2 = t * t;
-    let t3 = t2 * t;
-    let t4 = t3 * t;
-    let t5 = t4 * t;
-
-    let y = 1.0 - ((((a5 * t5 + a4 * t4) + a3 * t3) + a2 * t2) + a1 * t) * (-x * x).exp();
-
-    sign * y
+    statrs::function::erf::erf(x)
 }
 
 /// Cumulative standard normal distribution function Φ(x).
 ///
 /// Computes the probability that a standard normal random variable is less
-/// than or equal to x. Uses the error function for standard ranges and
-/// asymptotic expansion for extreme tails.
+/// than or equal to x.
 ///
 /// # Definition
 ///
@@ -175,11 +152,8 @@ pub fn erf(x: f64) -> f64 {
 ///
 /// # Numerical Stability
 ///
-/// - **|x| ≤ 8**: Uses error function (accurate to ~10⁻⁷)
-/// - **x < -8**: Asymptotic expansion for left tail
-/// - **x > 8**: Symmetry relation Φ(x) = 1 - Φ(-x)
-///
-/// Tail handling is critical for:
+/// The `statrs` implementation uses highly accurate algorithms with proper tail handling,
+/// which is critical for:
 /// - Value-at-Risk with high confidence (99.9%)
 /// - Credit correlation in copula models
 /// - Base correlation calibration for CDO tranches
@@ -201,28 +175,16 @@ pub fn erf(x: f64) -> f64 {
 /// assert!((norm_cdf(-1.96) - 0.025).abs() < 1e-3);
 /// ```
 ///
-/// # References
+/// # Implementation
 ///
-/// - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
-///   Formula 26.2.17 (asymptotic expansion for tails).
-/// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
-///   Distributions, Volume 1* (2nd ed.). Chapter 13.
+/// This is a thin wrapper around `statrs::distribution::Normal::cdf`.
 #[inline]
 pub fn norm_cdf(x: f64) -> f64 {
-    // For extreme values only, use enhanced tail handling
-    if x.abs() > 8.0 {
-        if x < -8.0 {
-            // Asymptotic expansion for very negative values
-            let phi_x = norm_pdf(x);
-            phi_x / (-x) * (1.0 - 1.0 / (x * x))
-        } else {
-            // Very positive values
-            1.0 - norm_cdf(-x)
-        }
-    } else {
-        // For normal ranges, use standard error function for full compatibility
-        0.5 * (1.0 + erf(x / (2.0_f64).sqrt()))
-    }
+    use statrs::distribution::{ContinuousCDF, Normal};
+    // Standard normal: mean=0, std_dev=1
+    // unwrap is safe because std_dev=1 is always valid
+    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
+    n.cdf(x)
 }
 
 /// Standard normal probability density function φ(x).
@@ -268,84 +230,55 @@ pub fn norm_cdf(x: f64) -> f64 {
 /// - Kernel density estimation
 /// - Heat kernel in diffusion processes
 ///
-/// # References
+/// # Implementation
 ///
-/// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
-///   Distributions, Volume 1* (2nd ed.). Chapter 13.
+/// This is a thin wrapper around `statrs::distribution::Normal::pdf`.
 #[inline]
 pub fn norm_pdf(x: f64) -> f64 {
-    (-0.5 * x * x).exp() / (2.0 * PI).sqrt()
+    use statrs::distribution::{Continuous, Normal};
+    // Standard normal: mean=0, std_dev=1
+    // unwrap is safe because std_dev=1 is always valid
+    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
+    n.pdf(x)
 }
 
 /// Inverse standard normal cumulative distribution function.
 ///
-/// Enhanced implementation with superior precision for extreme values,
-/// particularly critical for base correlation calibration where tail behavior
-/// significantly impacts conditional default probabilities.
-///
-/// Uses a multi-region approach:
-/// - Central region: Beasley-Springer-Moro algorithm
-/// - Tail regions: Refined asymptotic approximations
-/// - Extreme tails: Practical bounds with smooth transitions
+/// Computes the inverse of the standard normal CDF, returning the value x
+/// such that Φ(x) = p. This function is particularly critical for:
+/// - Base correlation calibration where tail behavior impacts conditional default probabilities
+/// - Value-at-Risk calculations
+/// - Implied volatility solving
 ///
 /// # Arguments
 /// * `p` - Probability in (0, 1)
 ///
 /// # Returns
 /// x such that Φ(x) = p
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::{standard_normal_inv_cdf, norm_cdf};
+///
+/// // Inverse of median should be zero
+/// assert!((standard_normal_inv_cdf(0.5) - 0.0).abs() < 1e-6);
+///
+/// // Round-trip test
+/// let x = standard_normal_inv_cdf(0.84);
+/// let p_back = norm_cdf(x);
+/// assert!((p_back - 0.84).abs() < 1e-6);
+/// ```
+///
+/// # Implementation
+///
+/// This is a thin wrapper around `statrs::distribution::Normal::inverse_cdf`.
 pub fn standard_normal_inv_cdf(p: f64) -> f64 {
-    // Handle boundary cases with smooth transitions to avoid discontinuities
-    const EPSILON: f64 = 1e-15;
-    const EXTREME_TAIL_THRESHOLD: f64 = 1e-12;
-
-    if p <= EPSILON {
-        return -10.0; // Increased range for better tail coverage
-    }
-    if p >= 1.0 - EPSILON {
-        return 10.0;
-    }
-    if (p - 0.5).abs() < 1e-15 {
-        return 0.0;
-    }
-
-    // For extreme tail values, use high-precision asymptotic approximation
-    if p < EXTREME_TAIL_THRESHOLD {
-        // Cornish-Fisher expansion for very small p
-        let s = (-2.0 * p.ln()).sqrt();
-        let s2 = s * s;
-        let s3 = s2 * s;
-        return -(s - (2.30753 + 0.27061 * s) / (1.0 + (0.99229 + 0.04481 * s) * s) - (2.0 / s3)
-            + (2.0 / (s3 * s2)));
-    }
-    if p > 1.0 - EXTREME_TAIL_THRESHOLD {
-        return -standard_normal_inv_cdf(1.0 - p);
-    }
-
-    // Enhanced Beasley-Springer-Moro algorithm with higher precision coefficients
-    // Provides accuracy to ~1e-9 in the central region
-    if p <= 0.5 {
-        // Use symmetry for p <= 0.5
-        let q = p;
-        if q > 1e-8 {
-            let t = (-2.0 * q.ln()).sqrt();
-            let c = [2.515517, 0.802853, 0.010328];
-            let d = [1.432788, 0.189269, 0.001308];
-            let num = c[2] * t + c[1];
-            let den = ((d[2] * t + d[1]) * t + d[0]) * t + 1.0;
-            -(t - (c[0] + num * t) / den)
-        } else {
-            // Refined tail approximation for intermediate extreme values
-            let t = (-2.0 * q.ln()).sqrt();
-            let c = [2.515517288, 0.802853408, 0.010328937];
-            let d = [1.432788220, 0.189269515, 0.001308016];
-            let num = (c[2] * t + c[1]) * t + c[0];
-            let den = ((d[2] * t + d[1]) * t + d[0]) * t + 1.0;
-            -(t - num / den)
-        }
-    } else {
-        // Use symmetry for p > 0.5
-        -standard_normal_inv_cdf(1.0 - p)
-    }
+    use statrs::distribution::{ContinuousCDF, Normal};
+    // Standard normal: mean=0, std_dev=1
+    // unwrap is safe because std_dev=1 is always valid
+    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
+    n.inverse_cdf(p)
 }
 
 /// Alias for norm_cdf for compatibility
@@ -389,6 +322,7 @@ mod tests {
 
     #[test]
     fn test_norm_pdf() {
+        use std::f64::consts::PI;
         // Test known values
         assert!((norm_pdf(0.0) - (1.0 / (2.0 * PI).sqrt())).abs() < 1e-12);
 

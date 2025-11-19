@@ -328,13 +328,19 @@ fn test_el_ordering_by_subordination() {
     let el_frac_mezz = el_mezz / mezzanine.notional.amount();
     let el_frac_senior = el_senior / senior.notional.amount();
 
+    // Note: With statrs providing more accurate normal distribution functions,
+    // very small numerical differences can occur. Use epsilon comparison for near-equal values.
+    const EPSILON: f64 = 1e-10;
+    
     assert!(
-        el_frac_equity >= el_frac_mezz,
-        "Equity EL fraction should be >= mezzanine"
+        el_frac_equity >= el_frac_mezz - EPSILON,
+        "Equity EL fraction should be >= mezzanine: equity={}, mezz={}, diff={}",
+        el_frac_equity, el_frac_mezz, el_frac_equity - el_frac_mezz
     );
     assert!(
-        el_frac_mezz >= el_frac_senior,
-        "Mezzanine EL fraction should be >= senior"
+        el_frac_mezz >= el_frac_senior - EPSILON,
+        "Mezzanine EL fraction should be >= senior: mezz={}, senior={}, diff={}",
+        el_frac_mezz, el_frac_senior, el_frac_mezz - el_frac_senior
     );
 }
 
