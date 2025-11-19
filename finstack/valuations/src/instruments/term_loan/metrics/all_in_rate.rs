@@ -24,12 +24,9 @@ impl MetricCalculator for AllInRateCalculator {
         let as_of = context.as_of;
 
         // Build full cashflow schedule to get outstanding path
-        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
-            loan,
-            market,
-            as_of,
-        )?;
-        
+        let schedule =
+            crate::instruments::term_loan::cashflows::generate_cashflows(loan, market, as_of)?;
+
         // Get outstanding path including notional draws/repays, amortization, and PIK
         let out_path = schedule.outstanding_by_date_including_notional();
 
@@ -47,9 +44,10 @@ impl MetricCalculator for AllInRateCalculator {
         };
 
         // Build coupon dates
-        let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
-            .frequency(loan.pay_freq)
-            .stub_rule(loan.stub);
+        let mut schedule_builder =
+            finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
+                .frequency(loan.pay_freq)
+                .stub_rule(loan.stub);
         if let Some(ref cal_id) = loan.calendar_id {
             schedule_builder = schedule_builder.adjust_with_id(loan.bdc, cal_id);
         }
@@ -70,7 +68,7 @@ impl MetricCalculator for AllInRateCalculator {
                 continue;
             }
             let yf = dc.year_fraction(prev, d, DayCountCtx::default())?;
-            
+
             // Outstanding at start of period
             let outstanding = outstanding_at(prev)?;
 
@@ -81,7 +79,8 @@ impl MetricCalculator for AllInRateCalculator {
                 }
                 crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
                     // Use shared margin helper (includes base spread + covenant step-ups + overrides)
-                    let total_spread = crate::instruments::term_loan::cashflows::margin_bp_at(loan, d);
+                    let total_spread =
+                        crate::instruments::term_loan::cashflows::margin_bp_at(loan, d);
 
                     crate::cashflow::builder::project_floating_rate_simple(
                         prev,

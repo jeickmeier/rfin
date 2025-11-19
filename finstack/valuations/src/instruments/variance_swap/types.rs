@@ -128,7 +128,7 @@ impl VarianceSwap {
         // Check discount curve base date alignment
         let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
         let curve_base = disc.base_date();
-        
+
         if as_of < curve_base {
             return Err(finstack_core::Error::Validation(format!(
                 "VarianceSwap valuation as_of date ({}) is before discount curve '{}' base date ({}). \

@@ -242,16 +242,7 @@ impl PyMonteCarloPathGenerator {
             let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
 
             // Capture initial point
-            let mut initial_point = PathPoint::new(0, 0.0);
-            for (i, &val) in state.iter().enumerate() {
-                let key = match i {
-                    0 => "spot",
-                    1 => "variance",
-                    2 => "credit_spread",
-                    _ => continue,
-                };
-                initial_point.add_var(key.to_string(), val);
-            }
+            let initial_point = PathPoint::with_state(0, 0.0, state.clone().into());
             simulated_path.add_point(initial_point);
 
             // Simulate path
@@ -266,16 +257,7 @@ impl PyMonteCarloPathGenerator {
                 disc.step(process, t, dt, &mut state, &z, &mut work);
 
                 // Capture this point
-                let mut point = PathPoint::new(step + 1, t + dt);
-                for (i, &val) in state.iter().enumerate() {
-                    let key = match i {
-                        0 => "spot",
-                        1 => "variance",
-                        2 => "credit_spread",
-                        _ => continue,
-                    };
-                    point.add_var(key.to_string(), val);
-                }
+                let point = PathPoint::with_state(step + 1, t + dt, state.clone().into());
                 simulated_path.add_point(point);
             }
 

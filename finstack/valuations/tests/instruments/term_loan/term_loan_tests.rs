@@ -140,10 +140,10 @@ fn term_loan_golden_pv_and_metrics() {
     use finstack_core::dates::StubKind;
     use finstack_valuations::instruments::common::traits::Instrument;
     use finstack_valuations::metrics::MetricId;
-    
+
     let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2028, time::Month::January, 1).unwrap();
-    
+
     // Simple fixed-rate bullet term loan for golden test
     let loan = TermLoan::builder()
         .id("TL-GOLDEN".into())
@@ -168,32 +168,46 @@ fn term_loan_golden_pv_and_metrics() {
         .attributes(Default::default())
         .build()
         .unwrap();
-    
+
     let market = mc();
     let as_of = issue;
-    
+
     // Golden PV
     let pv = loan.value(&market, as_of).unwrap();
     // Expected PV for a 3-year 5% coupon bullet loan with discount factors [1.0, 0.97, 0.85]
     // This is a rough golden value; precise computation requires exact schedule and discounting
-    assert!(pv.amount() > 900_000.0 && pv.amount() < 1_100_000.0, "PV sanity check: {}", pv.amount());
-    
+    assert!(
+        pv.amount() > 900_000.0 && pv.amount() < 1_100_000.0,
+        "PV sanity check: {}",
+        pv.amount()
+    );
+
     // Compute metrics (YTM and DV01)
     let metrics = vec![MetricId::Ytm, MetricId::Dv01];
     let result = loan.price_with_metrics(&market, as_of, &metrics).unwrap();
-    
+
     // Verify YTM is computed and reasonable for a 5% fixed-rate loan
     let ytm = result.measures.get("ytm").expect("YTM should be computed");
     assert!(ytm > &0.03 && ytm < &0.10, "YTM sanity check: {}", ytm);
-    
+
     // Verify DV01 is computed
-    let dv01 = result.measures.get("dv01").expect("DV01 should be computed");
-    assert!(dv01.is_finite() && dv01.abs() > 0.0, "DV01 should be non-zero: {}", dv01);
-    
+    let dv01 = result
+        .measures
+        .get("dv01")
+        .expect("DV01 should be computed");
+    assert!(
+        dv01.is_finite() && dv01.abs() > 0.0,
+        "DV01 should be non-zero: {}",
+        dv01
+    );
+
     // Verify holder-view schedule excludes funding legs
     let holder_flows = loan.build_schedule(&market, as_of).unwrap();
     // Should have coupons + final redemption; no negative funding leg
-    assert!(holder_flows.iter().all(|(_, amt)| amt.amount() >= 0.0), "Holder-view flows should all be positive (inflows)");
+    assert!(
+        holder_flows.iter().all(|(_, amt)| amt.amount() >= 0.0),
+        "Holder-view flows should all be positive (inflows)"
+    );
 }
 
 #[test]
@@ -201,10 +215,10 @@ fn term_loan_amortizing_outstanding_path() {
     use finstack_core::dates::BusinessDayConvention;
     use finstack_core::dates::StubKind;
     use finstack_valuations::cashflow::traits::CashflowProvider;
-    
+
     let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
-    
+
     // Amortizing loan with PercentPerPeriod
     let loan = TermLoan::builder()
         .id("TL-AMORT".into())
@@ -229,21 +243,29 @@ fn term_loan_amortizing_outstanding_path() {
         .attributes(Default::default())
         .build()
         .unwrap();
-    
+
     let market = mc();
-    
+
     // Build schedule and verify outstanding path is decreasing (amortization)
     let sched = loan.build_full_schedule(&market, issue).unwrap();
     let out_path = sched.outstanding_by_date_including_notional();
-    
+
     // Verify outstanding starts at notional and decreases over time
     assert!(!out_path.is_empty(), "Outstanding path should have entries");
-    
+
     // First outstanding should be the initial draw
-    assert!(out_path[0].1.amount() > 0.0, "Initial outstanding should be positive");
-    
+    assert!(
+        out_path[0].1.amount() > 0.0,
+        "Initial outstanding should be positive"
+    );
+
     // Outstanding should generally decrease (amortization)
     let first_out = out_path.first().unwrap().1.amount();
     let last_out = out_path.last().unwrap().1.amount();
-    assert!(last_out < first_out, "Outstanding should decrease with amortization: {} -> {}", first_out, last_out);
+    assert!(
+        last_out < first_out,
+        "Outstanding should decrease with amortization: {} -> {}",
+        first_out,
+        last_out
+    );
 }

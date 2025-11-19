@@ -96,6 +96,8 @@ use crate::{
 /// - Real rate curve construction (nominal - breakeven = real)
 /// - Pension liability modeling with inflation indexation
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawInflationCurve", into = "RawInflationCurve"))]
 pub struct InflationCurve {
     id: CurveId,
     base_cpi: f64,
@@ -106,19 +108,75 @@ pub struct InflationCurve {
     interp: Interp,
 }
 
-/// Serializable state of an InflationCurve
+impl Clone for InflationCurve {
+    fn clone(&self) -> Self {
+        let interp = super::common::build_interp(
+            self.interp.style(),
+            self.knots.clone(),
+            self.cpi_levels.clone(),
+            self.interp.extrapolation(),
+        ).expect("Clone should not fail for valid curve");
+
+        Self {
+            id: self.id.clone(),
+            base_cpi: self.base_cpi,
+            knots: self.knots.clone(),
+            cpi_levels: self.cpi_levels.clone(),
+            interp,
+        }
+    }
+}
+
+/// Raw serializable state of an InflationCurve
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InflationCurveState {
-    #[cfg_attr(feature = "serde", serde(flatten))]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawInflationCurve {
+    #[serde(flatten)]
     common_id: super::common::StateId,
     /// Base CPI level at t=0
     pub base_cpi: f64,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     points: super::common::StateKnotPoints,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     interp: super::common::StateInterp,
+}
+
+#[cfg(feature = "serde")]
+impl From<InflationCurve> for RawInflationCurve {
+    fn from(curve: InflationCurve) -> Self {
+        let knot_points: Vec<(f64, f64)> = curve
+            .knots
+            .iter()
+            .copied()
+            .zip(curve.cpi_levels.iter().copied())
+            .collect();
+
+        RawInflationCurve {
+            common_id: super::common::StateId {
+                id: curve.id.to_string(),
+            },
+            base_cpi: curve.base_cpi,
+            points: super::common::StateKnotPoints { knot_points },
+            interp: super::common::StateInterp {
+                interp_style: curve.interp.style(),
+                extrapolation: curve.interp.extrapolation(),
+            },
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawInflationCurve> for InflationCurve {
+    type Error = crate::Error;
+
+    fn try_from(state: RawInflationCurve) -> crate::Result<Self> {
+        InflationCurve::builder(state.common_id.id)
+            .base_cpi(state.base_cpi)
+            .knots(state.points.knot_points)
+            .set_interp(state.interp.interp_style)
+            .build()
+    }
 }
 
 impl InflationCurve {
@@ -259,62 +317,6 @@ impl InflationCurveBuilder {
 // Serialization support
 // -----------------------------------------------------------------------------
 
-#[cfg(feature = "serde")]
-impl InflationCurve {
-    /// Extract serializable state
-    pub fn to_state(&self) -> InflationCurveState {
-        let knot_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .copied()
-            .zip(self.cpi_levels.iter().copied())
-            .collect();
-
-        InflationCurveState {
-            common_id: super::common::StateId {
-                id: self.id.to_string(),
-            },
-            base_cpi: self.base_cpi,
-            points: super::common::StateKnotPoints { knot_points },
-            interp: super::common::StateInterp {
-                interp_style: self.interp.style(),
-                extrapolation: self.interp.extrapolation(),
-            },
-        }
-    }
-
-    /// Create from serialized state
-    pub fn from_state(state: InflationCurveState) -> crate::Result<Self> {
-        // Note: InflationCurveBuilder currently uses default extrapolation.
-        // interp_style is preserved; extrapolation is informational.
-        InflationCurve::builder(state.common_id.id)
-            .base_cpi(state.base_cpi)
-            .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
-            .build()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for InflationCurve {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_state().serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for InflationCurve {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let state = InflationCurveState::deserialize(deserializer)?;
-        InflationCurve::from_state(state).map_err(serde::de::Error::custom)
-    }
-}
 
 // -----------------------------------------------------------------------------
 // Tests

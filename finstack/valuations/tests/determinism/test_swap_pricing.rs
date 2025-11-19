@@ -25,7 +25,8 @@ fn create_test_swap() -> InterestRateSwap {
         start,
         end,
         PayReceive::PayFixed,
-    ).expect("Valid swap construction")
+    )
+    .expect("Valid swap construction")
 }
 
 fn create_test_market(base_date: Date) -> MarketContext {
@@ -215,7 +216,8 @@ fn test_swap_pay_vs_receive_determinism() {
         start,
         end,
         PayReceive::PayFixed,
-    ).expect("Valid swap construction");
+    )
+    .expect("Valid swap construction");
 
     let swap_rec = InterestRateSwap::create_usd_swap(
         "RECEIVE-FIXED".into(),
@@ -224,7 +226,8 @@ fn test_swap_pay_vs_receive_determinism() {
         start,
         end,
         PayReceive::ReceiveFixed,
-    ).expect("Valid swap construction");
+    )
+    .expect("Valid swap construction");
 
     // Price each swap 30 times
     let pay_prices: Vec<f64> = (0..30)

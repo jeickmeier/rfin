@@ -25,10 +25,10 @@ impl CmsOptionMcPricer {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> Result<finstack_core::money::Money> {
-        // CRITICAL: Previously returned 0.0 as placeholder. 
+        // CRITICAL: Previously returned 0.0 as placeholder.
         // Explicitly failing until Hull-White model is fully implemented.
         Err(finstack_core::Error::from(PricingError::model_failure(
-            "CMS Option pricing not yet implemented (Hull-White model required)".to_string()
+            "CMS Option pricing not yet implemented (Hull-White model required)".to_string(),
         )))
     }
 }

@@ -63,8 +63,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let x0 = (initial_sigma.max(eps)).ln();
 
         // Try Brent solver
-        let solver = BrentSolver::new()
-            .with_tolerance(1e-10);
+        let solver = BrentSolver::new().with_tolerance(1e-10);
         let implied_x = match solver.solve(f, x0) {
             Ok(root) => root,
             Err(_) => {

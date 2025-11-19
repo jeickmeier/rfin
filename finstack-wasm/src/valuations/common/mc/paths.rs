@@ -25,10 +25,20 @@ impl JsPathPoint {
 
     #[wasm_bindgen(getter, js_name = stateVars)]
     pub fn state_vars(&self) -> JsValue {
+        use finstack_valuations::instruments::common::mc::paths::state_indices;
         let obj = Object::new();
-        for (key, value) in &self.inner.state_vars {
-            let _ = Reflect::set(&obj, &JsValue::from_str(key), &JsValue::from_f64(*value));
+        
+        // Map state vector indices to named properties
+        if let Some(spot) = self.inner.state.get(state_indices::IDX_SPOT) {
+            let _ = Reflect::set(&obj, &JsValue::from_str("spot"), &JsValue::from_f64(*spot));
         }
+        if let Some(variance) = self.inner.state.get(state_indices::IDX_VARIANCE) {
+            let _ = Reflect::set(&obj, &JsValue::from_str("variance"), &JsValue::from_f64(*variance));
+        }
+        if let Some(credit_spread) = self.inner.state.get(state_indices::IDX_CREDIT_SPREAD) {
+            let _ = Reflect::set(&obj, &JsValue::from_str("credit_spread"), &JsValue::from_f64(*credit_spread));
+        }
+        
         obj.into()
     }
 
@@ -39,7 +49,13 @@ impl JsPathPoint {
 
     #[wasm_bindgen(js_name = getVar)]
     pub fn get_var(&self, key: &str) -> Option<f64> {
-        self.inner.get_var(key)
+        use finstack_valuations::instruments::common::mc::paths::state_indices;
+        match key {
+            "spot" => self.inner.state.get(state_indices::IDX_SPOT).copied(),
+            "variance" => self.inner.state.get(state_indices::IDX_VARIANCE).copied(),
+            "credit_spread" => self.inner.state.get(state_indices::IDX_CREDIT_SPREAD).copied(),
+            _ => None,
+        }
     }
 
     /// Get the spot price (convenience method).

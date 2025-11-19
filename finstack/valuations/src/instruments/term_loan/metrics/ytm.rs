@@ -26,11 +26,11 @@ impl MetricCalculator for YtmCalculator {
 
         let mut flows: Vec<(finstack_core::dates::Date, Money)> =
             Vec::with_capacity(holder_flows.len() + 1);
-        
+
         // Add initial price leg at as_of (negative = outflow for purchase)
         let base_pv = context.base_value;
         flows.push((as_of, Money::new(-base_pv.amount(), base_pv.currency())));
-        
+
         // Add holder-view flows (already filtered for dates > as_of by build_schedule)
         for (date, amount) in holder_flows {
             if date > as_of {

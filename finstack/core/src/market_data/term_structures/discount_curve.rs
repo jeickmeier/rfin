@@ -82,6 +82,8 @@ use crate::{
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve"))]
 pub struct DiscountCurve {
     id: CurveId,
     base: Date,
@@ -98,31 +100,111 @@ pub struct DiscountCurve {
     extrapolation: ExtrapolationPolicy,
 }
 
-/// Serializable state of DiscountCurve
+impl Clone for DiscountCurve {
+    fn clone(&self) -> Self {
+        // Rebuild the interpolator from raw data since Interp might not be Clone
+        // This is expensive but necessary if we want Clone on the main struct
+        // Alternatively, we could make Interp Clone, but for now we rebuild.
+        // Actually, since we have style and extrapolation, we can rebuild.
+        let interp = crate::market_data::term_structures::common::build_interp_input_error(
+            self.style,
+            self.knots.clone(),
+            self.dfs.clone(),
+            self.extrapolation,
+        ).expect("Clone should not fail for valid curve");
+
+        Self {
+            id: self.id.clone(),
+            base: self.base,
+            day_count: self.day_count,
+            knots: self.knots.clone(),
+            dfs: self.dfs.clone(),
+            interp,
+            style: self.style,
+            extrapolation: self.extrapolation,
+        }
+    }
+}
+
+/// Raw serializable state of DiscountCurve
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DiscountCurveState {
-    #[cfg_attr(feature = "serde", serde(flatten))]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDiscountCurve {
+    #[serde(flatten)]
     common_id: super::common::StateId,
     /// Base date
     pub base: Date,
     /// Day count convention for discount time basis
-    #[cfg_attr(feature = "serde", serde(default = "default_day_count"))]
+    #[serde(default = "default_day_count")]
     pub day_count: DayCount,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     points: super::common::StateKnotPoints,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     interp: super::common::StateInterp,
     /// Whether monotonic discount factors were required (deprecated, always true now)
-    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+    #[serde(default = "default_true")]
     pub require_monotonic: bool,
     /// Minimum forward rate floor (if set)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub min_forward_rate: Option<f64>,
     /// Whether non-monotonic DFs are allowed (dangerous override)
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub allow_non_monotonic: bool,
+}
+
+#[cfg(feature = "serde")]
+impl From<DiscountCurve> for RawDiscountCurve {
+    fn from(curve: DiscountCurve) -> Self {
+        let knot_points: Vec<(f64, f64)> = curve
+            .knots
+            .iter()
+            .zip(curve.dfs.iter())
+            .map(|(&t, &df)| (t, df))
+            .collect();
+
+        RawDiscountCurve {
+            common_id: super::common::StateId {
+                id: curve.id.to_string(),
+            },
+            base: curve.base,
+            day_count: curve.day_count,
+            points: super::common::StateKnotPoints { knot_points },
+            interp: super::common::StateInterp {
+                interp_style: curve.style,
+                extrapolation: curve.extrapolation,
+            },
+            require_monotonic: true,
+            min_forward_rate: None, // Can't recover from existing curves easily without storing it
+            allow_non_monotonic: false,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawDiscountCurve> for DiscountCurve {
+    type Error = crate::Error;
+
+    fn try_from(state: RawDiscountCurve) -> crate::Result<Self> {
+        let mut builder = DiscountCurve::builder(state.common_id.id)
+            .base_date(state.base)
+            .day_count(state.day_count)
+            .knots(state.points.knot_points)
+            .set_interp(state.interp.interp_style)
+            .extrapolation(state.interp.extrapolation);
+
+        // Handle legacy require_monotonic field (now always true by default)
+        if !state.require_monotonic || state.allow_non_monotonic {
+            builder = builder.allow_non_monotonic();
+        }
+
+        // Apply forward rate floor if specified
+        if let Some(min_rate) = state.min_forward_rate {
+            builder = builder.with_min_forward_rate(min_rate);
+        }
+
+        builder.build()
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -537,55 +619,6 @@ impl DiscountCurve {
             .build()
     }
 
-    #[cfg(feature = "serde")]
-    /// Extract serializable state
-    pub fn to_state(&self) -> DiscountCurveState {
-        let knot_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.dfs.iter())
-            .map(|(&t, &df)| (t, df))
-            .collect();
-
-        DiscountCurveState {
-            common_id: super::common::StateId {
-                id: self.id.to_string(),
-            },
-            base: self.base,
-            day_count: self.day_count,
-            points: super::common::StateKnotPoints { knot_points },
-            interp: super::common::StateInterp {
-                interp_style: self.style,
-                extrapolation: self.extrapolation,
-            },
-            require_monotonic: true,    // Always true in new version
-            min_forward_rate: None,     // Can't recover from existing curves
-            allow_non_monotonic: false, // Safe default
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    /// Create from serialized state
-    pub fn from_state(state: DiscountCurveState) -> crate::Result<Self> {
-        let mut builder = DiscountCurve::builder(state.common_id.id)
-            .base_date(state.base)
-            .day_count(state.day_count)
-            .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
-            .extrapolation(state.interp.extrapolation);
-
-        // Handle legacy require_monotonic field (now always true by default)
-        if !state.require_monotonic || state.allow_non_monotonic {
-            builder = builder.allow_non_monotonic();
-        }
-
-        // Apply forward rate floor if specified
-        if let Some(min_rate) = state.min_forward_rate {
-            builder = builder.with_min_forward_rate(min_rate);
-        }
-
-        builder.build()
-    }
 }
 
 /// Fluent builder for [`DiscountCurve`].
@@ -844,26 +877,6 @@ impl TermStructure for DiscountCurve {
 // Serialization support
 // -----------------------------------------------------------------------------
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for DiscountCurve {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_state().serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for DiscountCurve {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let state = DiscountCurveState::deserialize(deserializer)?;
-        DiscountCurve::from_state(state).map_err(serde::de::Error::custom)
-    }
-}
 
 // -----------------------------------------------------------------------------
 // Tests

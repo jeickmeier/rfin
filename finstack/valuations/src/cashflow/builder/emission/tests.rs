@@ -99,6 +99,7 @@ mod accrual_context_tests {
             outstanding_fallback,
             Currency::USD,
             None, // No curves: use spread only
+            &[],  // No resolved curves
         )
         .expect("should emit float coupons");
 

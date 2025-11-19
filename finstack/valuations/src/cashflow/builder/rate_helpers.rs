@@ -9,8 +9,10 @@
 //! - Apply floors and caps according to ISDA conventions
 //! - Support gearing/leverage on rates
 //! - Consistent floor/cap ordering: floor(index) → spread → gearing → cap(all-in)
+//!
 
 use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::Result;
 
@@ -87,6 +89,31 @@ pub fn project_floating_rate(
 ) -> Result<f64> {
     // Get forward curve
     let fwd = market.get_forward_ref(index_id)?;
+    project_floating_rate_with_curve(
+        reset_date,
+        reset_period_end,
+        spread_bp,
+        gearing,
+        floor_bp,
+        cap_bp,
+        fwd,
+    )
+}
+
+/// Project floating rate using a resolved forward curve.
+///
+/// Optimized version of `project_floating_rate` that avoids curve lookup.
+/// Useful when projecting rates in a loop where the curve is known.
+#[allow(clippy::too_many_arguments)]
+pub fn project_floating_rate_with_curve(
+    reset_date: Date,
+    reset_period_end: Date,
+    spread_bp: f64,
+    gearing: f64,
+    floor_bp: Option<f64>,
+    cap_bp: Option<f64>,
+    fwd: &ForwardCurve,
+) -> Result<f64> {
     let fwd_dc = fwd.day_count();
     let fwd_base = fwd.base_date();
 
@@ -149,6 +176,28 @@ pub fn project_floating_rate_simple(
 
     project_floating_rate(
         reset_date, period_end, index_id, spread_bp, gearing, floor_bp, cap_bp, market,
+    )
+}
+
+/// Simplified floating rate projection using tenor approximation with resolved curve.
+///
+/// Optimized version of `project_floating_rate_simple` that avoids curve lookup.
+#[allow(clippy::too_many_arguments)]
+pub fn project_floating_rate_simple_with_curve(
+    reset_date: Date,
+    tenor_years: f64,
+    spread_bp: f64,
+    gearing: f64,
+    floor_bp: Option<f64>,
+    cap_bp: Option<f64>,
+    fwd: &ForwardCurve,
+) -> Result<f64> {
+    // Approximate period end from tenor
+    let days = (tenor_years * 365.25) as i64;
+    let period_end = reset_date + time::Duration::days(days);
+
+    project_floating_rate_with_curve(
+        reset_date, period_end, spread_bp, gearing, floor_bp, cap_bp, fwd,
     )
 }
 

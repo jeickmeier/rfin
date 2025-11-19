@@ -20,7 +20,13 @@ fn test_binomial_tree_pricing() {
     let bond = create_standard_convertible();
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0,
@@ -37,7 +43,13 @@ fn test_trinomial_tree_pricing() {
     let bond = create_standard_convertible();
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0,
@@ -54,11 +66,21 @@ fn test_binomial_vs_trinomial_convergence() {
     let bond = create_standard_convertible();
     let market = create_market_context();
 
-    let bin_price =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), dates::base_date()).unwrap();
+    let bin_price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let tri_price =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(100), dates::base_date()).unwrap();
+    let tri_price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(100),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // With sufficient steps, both methods should converge to similar values
     let diff_pct = (bin_price.amount() - tri_price.amount()).abs() / bin_price.amount();
@@ -77,14 +99,29 @@ fn test_binomial_convergence_with_steps() {
     let bond = create_standard_convertible();
     let market = create_market_context();
 
-    let price_20 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(20), dates::base_date()).unwrap();
+    let price_20 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(20),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_50 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_50 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_100 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), dates::base_date()).unwrap();
+    let price_100 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Convergence: difference should decrease with more steps
     let diff_20_50 = (price_20.amount() - price_50.amount()).abs();
@@ -103,14 +140,29 @@ fn test_trinomial_convergence_with_steps() {
     let bond = create_standard_convertible();
     let market = create_market_context();
 
-    let _price_20 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(20), dates::base_date()).unwrap();
+    let _price_20 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(20),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_50 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(50), dates::base_date()).unwrap();
+    let price_50 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_100 =
-        price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(100), dates::base_date()).unwrap();
+    let price_100 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(100),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Convergence: should stabilize with more steps
     let diff_50_100 = (price_50.amount() - price_100.amount()).abs();
@@ -129,7 +181,13 @@ fn test_tree_pricing_with_low_steps() {
     let market = create_market_context();
 
     // Even with few steps, pricing should work
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(5), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(5),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(price.amount() > 0.0, "Should price with low steps");
     assert!(
@@ -144,7 +202,13 @@ fn test_tree_pricing_with_high_steps() {
     let market = create_market_context();
 
     // Should handle many steps without numerical issues
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(200), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(200),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(price.amount() > 0.0, "Should price with high steps");
     assert!(
@@ -159,7 +223,13 @@ fn test_default_tree_type() {
     let market = create_market_context();
 
     // Default tree type should work
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::default(), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::default(),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(price.amount() > 0.0, "Default tree type should work");
 }
@@ -178,6 +248,7 @@ fn test_tree_framework_with_custom_valuator() {
             &self,
             _state: &NodeState,
             continuation_value: f64,
+            _dt: f64,
         ) -> finstack_core::Result<f64> {
             Ok(continuation_value)
         }
@@ -250,11 +321,21 @@ fn test_tree_pricing_consistency_across_scenarios() {
     ];
 
     for (name, market) in scenarios {
-        let bin_price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let bin_price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
-        let tri_price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(50), dates::base_date()).unwrap();
+        let tri_price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Trinomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         // Both should produce reasonable prices
         assert!(
@@ -294,8 +375,13 @@ fn test_tree_stability_with_volatility() {
             market_params::DIV_YIELD,
         );
 
-        let price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         assert!(
             price.amount() > 0.0 && price.amount().is_finite(),
@@ -320,8 +406,13 @@ fn test_tree_monotonicity_with_spot() {
             market_params::DIV_YIELD,
         );
 
-        let price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         assert!(
             price.amount() >= prev_price * 0.95, // Allow small numerical variance
@@ -349,8 +440,13 @@ fn test_tree_monotonicity_with_volatility() {
             market_params::DIV_YIELD,
         );
 
-        let price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         if prev_price > 0.0 {
             assert!(

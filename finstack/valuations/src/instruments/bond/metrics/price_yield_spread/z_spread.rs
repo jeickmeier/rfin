@@ -1,3 +1,4 @@
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};
@@ -152,28 +153,44 @@ impl MetricCalculator for ZSpreadCalculator {
                 context.base_value.amount()
             };
 
-        // Objective: PV_z(z) - target_value_ccy = 0
-        let curves = std::sync::Arc::clone(&context.curves);
+        // OPTIMIZATION: Pre-calculate cashflow times and base discount factors
+        // to avoid repeated date logic and curve lookups inside the solver loop.
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
+        let disc = context.curves.get_discount_ref(&bond.discount_curve_id)?;
         let as_of = context.as_of;
+        let dc = disc.day_count();
+        
+        // Cache (time, df_base, amount) for each future cashflow
+        let cached_flows: Vec<(f64, f64, f64)> = flows
+            .iter()
+            .filter(|(d, _)| *d > as_of)
+            .map(|(d, amt)| {
+                let t = dc
+                    .year_fraction(as_of, *d, DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let df_base_abs = disc.df_on_date_curve(*d);
+                let df_as_of = disc.df_on_date_curve(as_of);
+                let df_base = if df_as_of != 0.0 {
+                    df_base_abs / df_as_of
+                } else {
+                    1.0
+                };
+                (t, df_base, amt.amount())
+            })
+            .collect();
+
+        // Objective: PV_z(z) - target_value_ccy = 0
         let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
 
         let objective = |z: f64| -> f64 {
-            match crate::instruments::bond::pricing::quote_engine::price_from_z_spread(
-                bond, &curves, as_of, z,
-            ) {
-                Ok(pv) => pv - target_value_ccy,
-                Err(e) => {
-                    // Capture the first pricing error and map to a large non-zero residual
-                    let mut slot = pricing_error.borrow_mut();
-                    if slot.is_none() {
-                        *slot = Some(e);
-                    }
-                    drop(slot);
-                    // Use a large residual with deterministic sign so the solver never sees a
-                    // spurious "perfect fit" at the initial guess (0.0 spread).
-                    1e12 * if z >= 0.0 { 1.0 } else { -1.0 }
-                }
+            // Optimized PV calculation using pre-computed flows
+            let mut pv = 0.0;
+            for (t, df_base, amt) in &cached_flows {
+                // Apply Z-spread shift: exp(-z * t)
+                let spread_df = (-z * t).exp();
+                pv += amt * df_base * spread_df;
             }
+            pv - target_value_ccy
         };
 
         // Solve using Brent with a maturity-aware bracket and production-grade

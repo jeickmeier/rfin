@@ -4,9 +4,24 @@
 //! paths for visualization, debugging, and price explanation. Paths can be captured
 //! in full or sampled for efficiency.
 
-use super::traits::state_keys;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::collections::HashMap;
+
+/// Default state variable indices for standard single-asset models.
+///
+/// These constants define the expected layout for common cases (GBM, Heston, etc.).
+/// Multi-asset models should use `PathDataset::process_params.factor_names` to interpret indices.
+pub mod state_indices {
+    /// Spot price (equity/FX) - index 0
+    pub const IDX_SPOT: usize = 0;
+    /// Stochastic variance (Heston, etc.) - index 1
+    pub const IDX_VARIANCE: usize = 1;
+    /// Short rate (Hull-White, etc.) - index 1 (aliases variance in current engine)
+    pub const IDX_SHORT_RATE: usize = 1;
+    /// Credit spread - index 2
+    pub const IDX_CREDIT_SPREAD: usize = 2;
+}
 
 /// Type of cashflow for categorization and analysis.
 ///
@@ -38,6 +53,12 @@ pub enum CashflowType {
 ///
 /// Captures the state at a specific time step, including state variables
 /// and optionally the payoff value at that point.
+///
+/// # State Vector Layout
+///
+/// The `state` vector contains all state variable values in a compact, fixed-size allocation.
+/// For standard single-asset models, see `state_indices` for the expected layout.
+/// For multi-asset models, consult `PathDataset::process_params.factor_names` to interpret indices.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PathPoint {
     /// Time step index (0 = initial, N = final)
@@ -45,7 +66,8 @@ pub struct PathPoint {
     /// Time in years from valuation date
     pub time: f64,
     /// State variables at this point (spot, variance, rate, etc.)
-    pub state_vars: HashMap<String, f64>,
+    /// Indexed by position - see `state_indices` for standard layout
+    pub state: SmallVec<[f64; 8]>,
     /// Optional payoff value at this point (if capture_payoffs is enabled)
     pub payoff_value: Option<f64>,
     /// Typed cashflows generated at this timestep (time, amount, type) tuples
@@ -55,31 +77,26 @@ pub struct PathPoint {
 }
 
 impl PathPoint {
-    /// Create a new path point.
+    /// Create a new path point with empty state.
     pub fn new(step: usize, time: f64) -> Self {
         Self {
             step,
             time,
-            state_vars: HashMap::new(),
+            state: SmallVec::new(),
             payoff_value: None,
             cashflows: Vec::new(),
         }
     }
 
-    /// Create a path point with state variables.
-    pub fn with_vars(step: usize, time: f64, state_vars: HashMap<String, f64>) -> Self {
+    /// Create a path point with the given state vector.
+    pub fn with_state(step: usize, time: f64, state: SmallVec<[f64; 8]>) -> Self {
         Self {
             step,
             time,
-            state_vars,
+            state,
             payoff_value: None,
             cashflows: Vec::new(),
         }
-    }
-
-    /// Add a state variable.
-    pub fn add_var(&mut self, key: String, value: f64) {
-        self.state_vars.insert(key, value);
     }
 
     /// Set payoff value.
@@ -87,24 +104,28 @@ impl PathPoint {
         self.payoff_value = Some(value);
     }
 
-    /// Get a state variable by key.
-    pub fn get_var(&self, key: &str) -> Option<f64> {
-        self.state_vars.get(key).copied()
-    }
-
-    /// Get spot price (convenience method).
+    /// Get spot price (convenience method for standard single-asset models).
+    ///
+    /// Returns the value at `state_indices::IDX_SPOT` if it exists.
+    /// For multi-asset models, use `state` directly with the schema from `PathDataset`.
     pub fn spot(&self) -> Option<f64> {
-        self.get_var(state_keys::SPOT)
+        self.state.get(state_indices::IDX_SPOT).copied()
     }
 
-    /// Get variance (convenience method).
+    /// Get variance (convenience method for standard stochastic volatility models).
+    ///
+    /// Returns the value at `state_indices::IDX_VARIANCE` if it exists.
+    /// For multi-asset models, use `state` directly with the schema from `PathDataset`.
     pub fn variance(&self) -> Option<f64> {
-        self.get_var(state_keys::VARIANCE)
+        self.state.get(state_indices::IDX_VARIANCE).copied()
     }
 
-    /// Get short rate (convenience method).
+    /// Get short rate (convenience method for interest rate models).
+    ///
+    /// Returns the value at `state_indices::IDX_SHORT_RATE` if it exists.
+    /// For multi-asset models, use `state` directly with the schema from `PathDataset`.
     pub fn short_rate(&self) -> Option<f64> {
-        self.get_var(state_keys::SHORT_RATE)
+        self.state.get(state_indices::IDX_SHORT_RATE).copied()
     }
 
     /// Add a cashflow to this point (legacy method, uses Other type).
@@ -432,17 +453,26 @@ impl PathDataset {
         }
     }
 
-    /// Get all state variable keys present in the dataset.
+    /// Get the state variable names from the process metadata.
+    ///
+    /// Returns the factor names if available, otherwise returns generic names
+    /// based on the maximum state dimension found in the dataset.
     pub fn state_var_keys(&self) -> Vec<String> {
-        let mut keys = std::collections::HashSet::new();
-        for path in &self.paths {
-            for point in &path.points {
-                keys.extend(point.state_vars.keys().cloned());
-            }
+        // Use factor names from process metadata if available
+        if !self.process_params.factor_names.is_empty() {
+            return self.process_params.factor_names.clone();
         }
-        let mut sorted_keys: Vec<_> = keys.into_iter().collect();
-        sorted_keys.sort();
-        sorted_keys
+
+        // Otherwise, generate generic names based on max dimension
+        let max_dim = self
+            .paths
+            .iter()
+            .flat_map(|path| path.points.iter())
+            .map(|point| point.state.len())
+            .max()
+            .unwrap_or(0);
+
+        (0..max_dim).map(|i| format!("state_{}", i)).collect()
     }
 }
 
@@ -455,15 +485,18 @@ mod tests {
         let mut point = PathPoint::new(0, 0.0);
         assert_eq!(point.step, 0);
         assert_eq!(point.time, 0.0);
-        assert!(point.state_vars.is_empty());
+        assert!(point.state.is_empty());
         assert!(point.payoff_value.is_none());
         assert!(point.cashflows.is_empty());
 
-        point.add_var("spot".to_string(), 100.0);
-        assert_eq!(point.get_var("spot"), Some(100.0));
+        // Create a point with state
+        let mut state = SmallVec::new();
+        state.push(100.0); // spot
+        let mut point_with_state = PathPoint::with_state(0, 0.0, state);
+        assert_eq!(point_with_state.spot(), Some(100.0));
 
-        point.set_payoff(42.5);
-        assert_eq!(point.payoff_value, Some(42.5));
+        point_with_state.set_payoff(42.5);
+        assert_eq!(point_with_state.payoff_value, Some(42.5));
 
         // Test cashflows
         point.add_cashflow(0.25, 1000.0);
@@ -491,12 +524,14 @@ mod tests {
         assert_eq!(path.path_id, 1);
         assert_eq!(path.num_steps(), 0);
 
-        let mut point1 = PathPoint::new(0, 0.0);
-        point1.add_var("spot".to_string(), 100.0);
+        let mut state1 = SmallVec::new();
+        state1.push(100.0); // spot
+        let point1 = PathPoint::with_state(0, 0.0, state1);
         path.add_point(point1);
 
-        let mut point2 = PathPoint::new(1, 0.1);
-        point2.add_var("spot".to_string(), 102.0);
+        let mut state2 = SmallVec::new();
+        state2.push(102.0); // spot
+        let point2 = PathPoint::with_state(1, 0.1, state2);
         path.add_point(point2);
 
         assert_eq!(path.num_steps(), 2);
@@ -595,26 +630,39 @@ mod tests {
 
     #[test]
     fn test_state_var_keys_extraction() {
-        let process_params = ProcessParams::new("GBM");
+        // Test with factor names in metadata
+        let mut process_params = ProcessParams::new("GBM");
+        process_params.factor_names = vec!["spot".to_string(), "variance".to_string()];
         let mut dataset = PathDataset::new(10, PathSamplingMethod::All, process_params);
 
         let mut path1 = SimulatedPath::new(0);
-        let mut point1 = PathPoint::new(0, 0.0);
-        point1.add_var("spot".to_string(), 100.0);
-        point1.add_var("variance".to_string(), 0.04);
+        let mut state1 = SmallVec::new();
+        state1.push(100.0); // spot
+        state1.push(0.04); // variance
+        let point1 = PathPoint::with_state(0, 0.0, state1);
         path1.add_point(point1);
         dataset.add_path(path1);
 
-        let mut path2 = SimulatedPath::new(1);
-        let mut point2 = PathPoint::new(0, 0.0);
-        point2.add_var("spot".to_string(), 105.0);
-        point2.add_var("short_rate".to_string(), 0.03);
-        path2.add_point(point2);
-        dataset.add_path(path2);
-
         let keys = dataset.state_var_keys();
-        assert!(keys.contains(&"spot".to_string()));
-        assert!(keys.contains(&"variance".to_string()));
-        assert!(keys.contains(&"short_rate".to_string()));
+        assert_eq!(keys.len(), 2);
+        assert_eq!(keys[0], "spot");
+        assert_eq!(keys[1], "variance");
+
+        // Test with no factor names (should generate generic names)
+        let process_params2 = ProcessParams::new("GBM");
+        let mut dataset2 = PathDataset::new(10, PathSamplingMethod::All, process_params2);
+
+        let mut path2 = SimulatedPath::new(0);
+        let mut state2 = SmallVec::new();
+        state2.push(105.0); // state_0
+        state2.push(0.03); // state_1
+        let point2 = PathPoint::with_state(0, 0.0, state2);
+        path2.add_point(point2);
+        dataset2.add_path(path2);
+
+        let keys2 = dataset2.state_var_keys();
+        assert_eq!(keys2.len(), 2);
+        assert_eq!(keys2[0], "state_0");
+        assert_eq!(keys2[1], "state_1");
     }
 }

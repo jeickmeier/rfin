@@ -4,7 +4,7 @@
 //! and utilities for converting between them using analytical approximations.
 
 use crate::math::{norm_cdf, norm_pdf};
-use crate::math::{BrentSolver, NewtonSolver, Solver};
+use crate::math::{BrentSolver, Solver};
 
 /// Volatility quoting convention.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -43,7 +43,7 @@ impl MetricCalculator for YtcCalculator {
             &context.curves,
             as_of,
         )?;
-        
+
         // Use outstanding_by_date_including_notional to get correct principal path
         let out_path = schedule.outstanding_by_date_including_notional();
         let mut outstanding_at = Money::new(0.0, loan.currency);
@@ -54,7 +54,7 @@ impl MetricCalculator for YtcCalculator {
                 break;
             }
         }
-        
+
         // Redemption = outstanding * call price (as percentage of par)
         let redemption = Money::new(
             outstanding_at.amount() * (call.price_pct_of_par / 100.0),

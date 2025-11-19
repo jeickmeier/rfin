@@ -304,7 +304,7 @@ impl TreeValuator for BondValuator {
         Ok(cashflow)
     }
 
-    fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64, dt: f64) -> Result<f64> {
         let step = state.step;
         let coupon = self.coupon_map.get(&step).copied().unwrap_or(0.0);
 
@@ -317,14 +317,10 @@ impl TreeValuator for BondValuator {
             alive_value = alive_value.min(call_price);
         }
 
-        // Default handling: if hazard and dt are present, compute survival/default weighting
-        if let (Some(hazard), Some(dt)) = (
-            state.get_var(
-                super::super::super::common::models::trees::tree_framework::state_keys::HAZARD_RATE,
-            ),
-            state.get_var("dt"),
-        ) {
-            let df = state.get_var("df").unwrap_or(1.0);
+        // Default handling: if hazard rate is present, compute survival/default weighting
+        // Use cached fields instead of hash lookups for performance
+        if let Some(hazard) = state.hazard_rate {
+            let df = state.df.unwrap_or(1.0);
             let p_surv = (-hazard.max(0.0) * dt).exp();
             let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
             let recovery = self
@@ -827,9 +823,11 @@ mod tests {
 
         // Valuator
         let valuator_low =
-            BondValuator::new(bond.clone(), &ctx_low, as_of, time_to_maturity, steps).expect("valuator");
+            BondValuator::new(bond.clone(), &ctx_low, as_of, time_to_maturity, steps)
+                .expect("valuator");
         let valuator_high =
-            BondValuator::new(bond.clone(), &ctx_high, as_of, time_to_maturity, steps).expect("valuator");
+            BondValuator::new(bond.clone(), &ctx_high, as_of, time_to_maturity, steps)
+                .expect("valuator");
 
         // Two-factor rates+credit trees aligned to each hazard curve
         let mut tree_low = RatesCreditTree::new(RatesCreditConfig {

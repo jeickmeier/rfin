@@ -73,14 +73,33 @@ impl SABRCalibrationDerivatives {
         nu: f64,
         rho: f64,
     ) -> (f64, f64, f64, f64) {
-        let f = self.market_data.forward;
-        let k = strike;
+        let f_raw = self.market_data.forward;
+        let k_raw = strike;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
+        // FIX: Handle negative rates for LogNormal SABR (beta ~ 1.0)
+        // If forward or strike <= 0, standard LogNormal fails.
+        // We apply a "virtual shift" if none is provided but rates are negative.
+        let shift = if (beta - 1.0).abs() < 1e-5 && (f_raw <= 0.0 || k_raw <= 0.0) {
+            // Heuristic shift to keep args positive (200bps = 0.02)
+            0.02
+        } else {
+            0.0
+        };
+
+        let f = f_raw + shift;
+        let k = k_raw + shift;
+
+        // Fallback for extreme negative rates where shift wasn't enough
+        if f <= 0.0 || k <= 0.0 {
+            // Return small floor volatility to avoid panic
+            return (0.0001, 0.0, 0.0, 0.0);
+        }
+
         // Handle ATM case
         if (f - k).abs() < 1e-10 {
-            return self.sabr_atm_vol_and_derivatives(alpha, nu, rho);
+            return self.sabr_atm_vol_and_derivatives(alpha, nu, rho, f);
         }
 
         // Pre-compute common terms
@@ -145,8 +164,8 @@ impl SABRCalibrationDerivatives {
     }
 
     /// Compute ATM volatility and derivatives.
-    fn sabr_atm_vol_and_derivatives(&self, alpha: f64, nu: f64, rho: f64) -> (f64, f64, f64, f64) {
-        let f = self.market_data.forward;
+    /// Uses shifted forward 'f' if provided to handle negative rates.
+    fn sabr_atm_vol_and_derivatives(&self, alpha: f64, nu: f64, rho: f64, f: f64) -> (f64, f64, f64, f64) {
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 

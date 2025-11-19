@@ -52,7 +52,7 @@ impl MetricCalculator for YtwCalculator {
                 candidates.push((c.date, redemption));
             }
         }
-        
+
         // Always include maturity redemption of remaining outstanding
         let mut final_out = Money::new(0.0, loan.currency);
         for (d, amt) in &out_path {

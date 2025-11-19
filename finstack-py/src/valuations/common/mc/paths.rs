@@ -104,10 +104,20 @@ impl PyPathPoint {
     /// Get state variables as a dictionary.
     #[getter]
     fn state_vars(&self, py: Python) -> PyResult<Py<PyDict>> {
+        use finstack_valuations::instruments::common::mc::paths::state_indices;
         let dict = PyDict::new(py);
-        for (key, value) in &self.inner.state_vars {
-            dict.set_item(key, value)?;
+        
+        // Map state vector indices to named keys
+        if let Some(spot) = self.inner.state.get(state_indices::IDX_SPOT) {
+            dict.set_item("spot", spot)?;
         }
+        if let Some(variance) = self.inner.state.get(state_indices::IDX_VARIANCE) {
+            dict.set_item("variance", variance)?;
+        }
+        if let Some(credit_spread) = self.inner.state.get(state_indices::IDX_CREDIT_SPREAD) {
+            dict.set_item("credit_spread", credit_spread)?;
+        }
+        
         Ok(dict.into())
     }
 
@@ -119,7 +129,13 @@ impl PyPathPoint {
 
     /// Get a specific state variable by name.
     fn get_var(&self, key: &str) -> Option<f64> {
-        self.inner.get_var(key)
+        use finstack_valuations::instruments::common::mc::paths::state_indices;
+        match key {
+            "spot" => self.inner.state.get(state_indices::IDX_SPOT).copied(),
+            "variance" => self.inner.state.get(state_indices::IDX_VARIANCE).copied(),
+            "credit_spread" => self.inner.state.get(state_indices::IDX_CREDIT_SPREAD).copied(),
+            _ => None,
+        }
     }
 
     /// Get the spot price (convenience method).
@@ -244,7 +260,7 @@ impl PyPathPoint {
             "PathPoint(step={}, time={:.4}, vars={})",
             self.inner.step,
             self.inner.time,
-            self.inner.state_vars.len()
+            self.inner.state.len()
         )
     }
 }
@@ -536,9 +552,9 @@ impl PyPathDataset {
                 payoff_values.push(point.payoff_value);
 
                 // Add state variables
-                for key in &state_keys {
+                for (idx, key) in state_keys.iter().enumerate() {
                     if let Some(col) = state_columns.get_mut(key) {
-                        col.push(point.state_vars.get(key.as_str()).copied());
+                        col.push(point.state.get(idx).copied());
                     }
                 }
             }
@@ -583,11 +599,21 @@ impl PyPathDataset {
         dict.set_item("step", steps)?;
 
         // Add each path as a column
+        // First, find the index of the requested state variable
+        let state_keys = self.inner.state_var_keys();
+        let state_idx = state_keys.iter().position(|k| k == state_var);
+        
         for (idx, path) in self.inner.paths.iter().enumerate() {
             let values: Vec<Option<f64>> = path
                 .points
                 .iter()
-                .map(|p| p.state_vars.get(state_var).copied())
+                .map(|p| {
+                    if let Some(idx) = state_idx {
+                        p.state.get(idx).copied()
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             dict.set_item(format!("path_{}", idx), values)?;
         }

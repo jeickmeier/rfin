@@ -70,20 +70,14 @@ pub(in crate::instruments::irs) fn relative_df(
 ) -> Result<f64> {
     let disc_dc = disc.day_count();
     let base = disc.base_date();
-    
-    let t_as_of = disc_dc.year_fraction(
-        base,
-        as_of,
-        finstack_core::dates::DayCountCtx::default(),
-    )?;
-    let t_target = disc_dc.year_fraction(
-        base,
-        target,
-        finstack_core::dates::DayCountCtx::default(),
-    )?;
-    
+
+    let t_as_of =
+        disc_dc.year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
+    let t_target =
+        disc_dc.year_fraction(base, target, finstack_core::dates::DayCountCtx::default())?;
+
     let df_as_of = disc.df(t_as_of);
-    
+
     // Guard against near-zero discount factors for numerical stability
     if df_as_of.abs() < DF_EPSILON {
         return Err(finstack_core::error::Error::Validation(format!(
@@ -92,7 +86,7 @@ pub(in crate::instruments::irs) fn relative_df(
             df_as_of, DF_EPSILON
         )));
     }
-    
+
     let df_target = disc.df(t_target);
     Ok(df_target / df_as_of)
 }
@@ -319,7 +313,11 @@ impl InterestRateSwap {
             }
 
             // Determine accrual period start: first coupon uses leg start, others use prior coupon date
-            let prev = if idx == 1 { self.float.start } else { dates[idx - 1] };
+            let prev = if idx == 1 {
+                self.float.start
+            } else {
+                dates[idx - 1]
+            };
 
             // Times to period boundaries measured from curve base date.
             // For accrual dates before the base date, clamp to t = 0.0
@@ -345,10 +343,11 @@ impl InterestRateSwap {
             };
 
             // Accrual factor for the coupon period
-            let yf = self
-                .float
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let yf = self.float.dc.year_fraction(
+                prev,
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             // Only call rate_period if t1 < t2 to avoid date ordering errors
             let f = if t2 > t1 {

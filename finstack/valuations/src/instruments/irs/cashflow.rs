@@ -313,4 +313,3 @@ pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> 
         meta: Default::default(),
     })
 }
-

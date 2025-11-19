@@ -29,7 +29,10 @@ impl MetricCalculator for RhoCalculator {
         };
 
         // Create bumped discount curve (+1bp) by modifying knots directly
-        let bump_bp = option.pricing_overrides.rho_bump_decimal.unwrap_or(super::config::DISC_BUMP_BP);
+        let bump_bp = option
+            .pricing_overrides
+            .rho_bump_decimal
+            .unwrap_or(super::config::DISC_BUMP_BP);
         let bumped_disc = disc.try_with_parallel_bump(bump_bp)?;
 
         // Reprice with bumped curve using same model path as instrument pricing

@@ -20,7 +20,13 @@ fn test_voluntary_conversion_policy() {
     let bond = create_convertible_with_policy(ConversionPolicy::Voluntary);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Voluntary conversion should work and price reasonably
     assert!(
@@ -36,7 +42,13 @@ fn test_mandatory_conversion_policy() {
     let bond = create_convertible_with_policy(ConversionPolicy::MandatoryOn(mandatory_date));
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Mandatory conversion should still price successfully
     assert!(
@@ -57,7 +69,13 @@ fn test_window_conversion_policy() {
     });
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(40), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(40),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Window conversion should price successfully
     assert!(
@@ -80,12 +98,21 @@ fn test_window_vs_voluntary_pricing() {
 
     let market = create_market_context();
 
-    let price_voluntary =
-        price_convertible_bond(&bond_voluntary, &market, ConvertibleTreeType::Binomial(50), dates::base_date())
-            .unwrap();
+    let price_voluntary = price_convertible_bond(
+        &bond_voluntary,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_window =
-        price_convertible_bond(&bond_window, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_window = price_convertible_bond(
+        &bond_window,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Voluntary should be worth at least as much as windowed (more flexibility)
     assert!(
@@ -102,7 +129,13 @@ fn test_event_triggered_conversion_qualified_ipo() {
         create_convertible_with_policy(ConversionPolicy::UponEvent(ConversionEvent::QualifiedIpo));
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(30), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(30),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Event-triggered conversion is conservatively disabled in current implementation
     // Should still price successfully as a bond
@@ -120,7 +153,13 @@ fn test_event_triggered_conversion_change_of_control() {
     ));
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(30), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(30),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0 && price.amount().is_finite(),
@@ -139,7 +178,13 @@ fn test_event_triggered_conversion_price_trigger() {
     ));
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(30), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(30),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0 && price.amount().is_finite(),
@@ -154,7 +199,13 @@ fn test_mandatory_conversion_at_maturity() {
     let bond = create_convertible_with_policy(ConversionPolicy::MandatoryOn(maturity));
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Mandatory conversion at maturity should be close to forward conversion value
     let conversion_value =
@@ -182,7 +233,13 @@ fn test_early_conversion_window() {
     });
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(40), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(40),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > bond_params::NOTIONAL * 0.8,
@@ -203,7 +260,13 @@ fn test_late_conversion_window() {
     });
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(40), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(40),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > bond_params::NOTIONAL * 0.8,
@@ -224,13 +287,23 @@ fn test_narrow_conversion_window() {
     });
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Narrow window should be worth less than voluntary
     let bond_voluntary = create_convertible_with_policy(ConversionPolicy::Voluntary);
-    let price_voluntary =
-        price_convertible_bond(&bond_voluntary, &market, ConvertibleTreeType::Binomial(50), dates::base_date())
-            .unwrap();
+    let price_voluntary = price_convertible_bond(
+        &bond_voluntary,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() < price_voluntary.amount() * 1.05,
@@ -261,8 +334,13 @@ fn test_conversion_policy_with_itm_bond() {
 
     for (name, policy) in policies {
         let bond = create_convertible_with_policy(policy);
-        let price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         let conversion_value =
             theoretical_conversion_value(market_params::SPOT_PRICE, bond_params::CONVERSION_RATIO);
@@ -302,8 +380,13 @@ fn test_conversion_policy_with_otm_bond() {
 
     for (name, policy) in policies {
         let bond = create_convertible_with_policy(policy);
-        let price =
-            price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+        let price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(50),
+            dates::base_date(),
+        )
+        .unwrap();
 
         // OTM bonds should be closer to bond floor
         let approx_bond_floor =
@@ -341,7 +424,12 @@ fn test_all_conversion_policies_price_successfully() {
 
     for policy in policies {
         let bond = create_convertible_with_policy(policy);
-        let result = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(30), dates::base_date());
+        let result = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(30),
+            dates::base_date(),
+        );
 
         assert!(
             result.is_ok(),

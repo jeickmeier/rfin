@@ -350,7 +350,9 @@ pub enum AmortizationSpec {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[deprecated(note = "Experimental type not yet implemented. Use CouponType and CovenantSpec::pik_toggles instead.")]
+#[deprecated(
+    note = "Experimental type not yet implemented. Use CouponType and CovenantSpec::pik_toggles instead."
+)]
 pub struct PikSpec {
     /// Fraction of interest paid in kind (0.0 = all cash, 1.0 = all PIK)
     pub fraction_of_interest: rust_decimal::Decimal,
@@ -515,7 +517,9 @@ pub struct TermLoanSpec {
     ///
     /// **Note:** This field is currently experimental and not used in cashflow generation.
     /// Use `DdtlSpec::oid_policy` for active OID support.
-    #[deprecated(note = "Experimental field not yet implemented. Use DdtlSpec::oid_policy instead.")]
+    #[deprecated(
+        note = "Experimental field not yet implemented. Use DdtlSpec::oid_policy instead."
+    )]
     pub oid_eir: Option<OidEirSpec>,
     /// Pricing model overrides (yield, price, etc.)
     pub pricing_overrides: PricingOverrides,

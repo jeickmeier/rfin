@@ -133,6 +133,7 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
 /// # Returns
 ///
 /// All-in coupon rate (index + spread, with floor applied).
+#[allow(dead_code)]
 pub(super) fn project_floating_rate(
     reset_date: finstack_core::dates::Date,
     reset_freq: &finstack_core::dates::Frequency,

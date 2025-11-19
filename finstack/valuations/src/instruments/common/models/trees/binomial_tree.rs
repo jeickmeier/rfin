@@ -219,7 +219,7 @@ impl BinomialTree {
                 })
             }
 
-            fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
+            fn value_at_node(&self, state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
                         let s = state.spot().ok_or(Error::Internal)?;
@@ -263,6 +263,8 @@ impl BinomialTree {
             prob_middle: None,
             interest_rate: market_params.rate,
             barrier: None,
+            custom_state_generator: None,
+            custom_rate_generator: None,
         })
     }
 
@@ -419,7 +421,7 @@ impl BinomialTree {
                     OptionType::Put => (self.strike - s).max(0.0),
                 })
             }
-            fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
+            fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
                 Ok(continuation_value)
             }
         }
@@ -462,6 +464,8 @@ impl BinomialTree {
             prob_middle: None,
             interest_rate: market_params.rate,
             barrier,
+            custom_state_generator: None,
+            custom_rate_generator: None,
         })
     }
 
@@ -527,6 +531,8 @@ impl BinomialTree {
             prob_middle: None,
             interest_rate: r,
             barrier: None,
+            custom_state_generator: None,
+            custom_rate_generator: None,
         })
     }
 }

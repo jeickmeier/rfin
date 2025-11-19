@@ -1013,7 +1013,7 @@ impl CashflowBuilder {
                 .map(|(spec, _, _)| {
                     mkt.get_forward_ref(spec.rate_spec.index_id.as_str())
                         .ok()
-                        .cloned()
+                        .map(|curve| Arc::new(curve.clone()))
                 })
                 .collect()
         } else {

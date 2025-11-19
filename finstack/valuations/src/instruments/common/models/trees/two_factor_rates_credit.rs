@@ -146,7 +146,7 @@ impl TreeModel for RatesCreditTree {
                 vars.insert("node_j", j as f64);
                 vars.insert("time", time_to_maturity);
 
-                let state = NodeState::new(steps, time_to_maturity, vars.clone(), market_context);
+                let state = NodeState::new(steps, time_to_maturity, &vars, market_context);
                 *cell = valuator.value_at_maturity(&state)?;
             }
         }
@@ -172,14 +172,13 @@ impl TreeModel for RatesCreditTree {
                     vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
                     vars.insert(state_keys::HAZARD_RATE, h_t.max(0.0));
                     vars.insert("df", df);
-                    vars.insert("dt", dt);
                     vars.insert("step", k as f64);
                     vars.insert("node_i", i as f64);
                     vars.insert("node_j", j as f64);
                     vars.insert("time", k as f64 * dt);
 
-                    let state = NodeState::new(k, k as f64 * dt, vars.clone(), market_context);
-                    new_values[i][j] = valuator.value_at_node(&state, cont)?;
+                    let state = NodeState::new(k, k as f64 * dt, &vars, market_context);
+                    new_values[i][j] = valuator.value_at_node(&state, cont, dt)?;
                 }
             }
             values = new_values;
@@ -200,7 +199,7 @@ mod tests {
         fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
             Ok(1.0)
         }
-        fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
+        fn value_at_node(&self, _state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
             Ok(continuation_value)
         }
     }

@@ -117,7 +117,6 @@ fn test_off_market_swap_all_metrics() {
     assert!(result.value.amount() < 0.0);
 }
 
-
 #[test]
 fn test_multi_curve_environment() {
     // Test with OIS discount and LIBOR projection

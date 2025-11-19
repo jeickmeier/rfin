@@ -138,7 +138,8 @@ fn quantlib_parity_basic_convertible() {
 
     let market = create_convertible_market(base, spot, volatility, 0.02, risk_free_rate);
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price =
+        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
 
     // QuantLib expectation:
     // Conversion value = 100 * 10 = $1,000
@@ -523,11 +524,20 @@ fn quantlib_parity_callable_convertible() {
 
     let market = create_convertible_market(base, 150.0, 0.25, 0.02, 0.03);
 
-    let plain_price =
-        price_convertible_bond(&plain_bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
-    let callable_price =
-        price_convertible_bond(&callable_bond, &market, ConvertibleTreeType::Binomial(100), base)
-            .unwrap();
+    let plain_price = price_convertible_bond(
+        &plain_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
+    let callable_price = price_convertible_bond(
+        &callable_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation: Callable bond < Plain bond (issuer option reduces value)
     assert!(
@@ -567,11 +577,20 @@ fn quantlib_parity_puttable_convertible() {
     // Use OTM scenario where put is valuable
     let market = create_convertible_market(base, 50.0, 0.25, 0.02, 0.03);
 
-    let plain_price =
-        price_convertible_bond(&plain_bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
-    let puttable_price =
-        price_convertible_bond(&puttable_bond, &market, ConvertibleTreeType::Binomial(100), base)
-            .unwrap();
+    let plain_price = price_convertible_bond(
+        &plain_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
+    let puttable_price = price_convertible_bond(
+        &puttable_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation: Puttable bond >= Plain bond (holder option adds value)
     assert!(
@@ -620,8 +639,13 @@ fn quantlib_parity_zero_coupon_convertible() {
 
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price =
-        price_convertible_bond(&zero_coupon, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price = price_convertible_bond(
+        &zero_coupon,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation:
     // Conversion value = 150 * 10 = $1,500
@@ -653,14 +677,23 @@ fn quantlib_parity_volatility_sensitivity() {
 
     // Low volatility
     let market_low_vol = create_convertible_market(base, spot, 0.10, 0.02, 0.03);
-    let price_low_vol =
-        price_convertible_bond(&bond, &market_low_vol, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price_low_vol = price_convertible_bond(
+        &bond,
+        &market_low_vol,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // High volatility
     let market_high_vol = create_convertible_market(base, spot, 0.40, 0.02, 0.03);
-    let price_high_vol =
-        price_convertible_bond(&bond, &market_high_vol, ConvertibleTreeType::Binomial(100), base)
-            .unwrap();
+    let price_high_vol = price_convertible_bond(
+        &bond,
+        &market_high_vol,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation: Higher vol → higher option value → higher price
     assert!(
@@ -762,7 +795,8 @@ fn quantlib_parity_deep_itm() {
     );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price =
+        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
     let conversion_value = spot * conversion_ratio;
 
     // QuantLib expectation: Deep ITM should price close to conversion value
@@ -801,7 +835,8 @@ fn quantlib_parity_deep_otm() {
     );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price =
+        price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
 
     // QuantLib expectation: Deep OTM should trade closer to bond floor
     // Bond floor (approx): PV of 5% coupons + principal at 3% discount ≈ $1,090
@@ -869,9 +904,13 @@ fn quantlib_parity_mandatory_conversion() {
 
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price =
-        price_convertible_bond(&mandatory_bond, &market, ConvertibleTreeType::Binomial(100), base)
-            .unwrap();
+    let price = price_convertible_bond(
+        &mandatory_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation: Mandatory conversion should price successfully
     // Should be in reasonable range relative to conversion value
@@ -936,8 +975,13 @@ fn quantlib_parity_window_conversion() {
 
     let market = create_convertible_market(base, 150.0, 0.25, 0.02, 0.03);
 
-    let price =
-        price_convertible_bond(&window_bond, &market, ConvertibleTreeType::Binomial(100), base).unwrap();
+    let price = price_convertible_bond(
+        &window_bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        base,
+    )
+    .unwrap();
 
     // QuantLib expectation: Window conversion should price successfully
     // Should be less than voluntary (more restricted)

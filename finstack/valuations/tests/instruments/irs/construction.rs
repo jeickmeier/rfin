@@ -83,7 +83,6 @@ fn test_irs_builder_pattern() {
     assert_eq!(swap.float.freq, Frequency::quarterly());
 }
 
-
 #[test]
 fn test_irs_receive_vs_pay() {
     let start = date!(2024 - 01 - 01);

@@ -34,8 +34,8 @@
 
 use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::dates::Date;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Basis points to decimal conversion factor.
 const BP_TO_DECIMAL: f64 = 1e-4;
@@ -106,10 +106,11 @@ impl MetricCalculator for ParRateCalculator {
                         continue;
                     }
 
-                    let alpha = irs
-                        .fixed
-                        .dc
-                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+                    let alpha = irs.fixed.dc.year_fraction(
+                        prev,
+                        d,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
                     let p = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
                     den += alpha * p;
                     prev = d;
@@ -137,11 +138,7 @@ fn par_rate_forward_based(
     let base = disc.base_date();
 
     // Annuity is sum(yf*df) in years
-    let annuity = ctx
-        .computed
-        .get(&MetricId::Annuity)
-        .copied()
-        .unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
+    let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
     if annuity == 0.0 {
         return Ok(0.0);
     }
@@ -174,26 +171,22 @@ fn par_rate_forward_based(
         let t1 = if prev <= base {
             0.0
         } else {
-            irs.float.dc.year_fraction(
-                base,
-                prev,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
+            irs.float
+                .dc
+                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?
         };
         let t2 = if d <= base {
             0.0
         } else {
-            irs.float.dc.year_fraction(
-                base,
-                d,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
+            irs.float
+                .dc
+                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?
         };
 
-        let yf = irs
-            .float
-            .dc
-            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+        let yf =
+            irs.float
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
         // Only call rate_period if t1 < t2 to avoid date ordering errors
         let f = if t2 > t1 {

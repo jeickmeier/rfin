@@ -98,14 +98,12 @@ use crate::{
 /// - Survival probability S(t) is monotonically decreasing
 /// - Recovery rate ∈ [0, 1] (typically 40% for senior unsecured)
 ///
-/// # Serialization
-///
-/// Use `to_state()` and `from_state()` for persistence.
-///
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<HazardCurve>`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawHazardCurve", into = "RawHazardCurve"))]
 pub struct HazardCurve {
     id: CurveId,
     base: Date,
@@ -129,16 +127,16 @@ pub struct HazardCurve {
     par_spreads_bp: Box<[f64]>,
 }
 
-/// Serializable state of a HazardCurve
+/// Raw serializable state of a HazardCurve
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct HazardCurveState {
-    #[cfg_attr(feature = "serde", serde(flatten))]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawHazardCurve {
+    #[serde(flatten)]
     common_id: super::common::StateId,
     /// Base date
     pub base: Date,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     points: super::common::StateKnotPoints,
     /// Recovery rate
     pub recovery_rate: f64,
@@ -152,6 +150,64 @@ pub struct HazardCurveState {
     pub day_count: DayCount,
     /// Par spread points for reporting
     pub par_points: Vec<(f64, f64)>,
+}
+
+#[cfg(feature = "serde")]
+impl From<HazardCurve> for RawHazardCurve {
+    fn from(curve: HazardCurve) -> Self {
+        let knot_points: Vec<(f64, f64)> = curve
+            .knots
+            .iter()
+            .zip(curve.lambdas.iter())
+            .map(|(&t, &lambda)| (t, lambda))
+            .collect();
+        let par_points: Vec<(f64, f64)> = curve
+            .par_tenors
+            .iter()
+            .zip(curve.par_spreads_bp.iter())
+            .map(|(&t, &spread)| (t, spread))
+            .collect();
+
+        RawHazardCurve {
+            common_id: super::common::StateId {
+                id: curve.id.to_string(),
+            },
+            base: curve.base,
+            points: super::common::StateKnotPoints { knot_points },
+            recovery_rate: curve.recovery_rate,
+            issuer: curve.issuer,
+            seniority: curve.seniority,
+            currency: curve.currency,
+            day_count: curve.day_count,
+            par_points,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawHazardCurve> for HazardCurve {
+    type Error = crate::Error;
+
+    fn try_from(state: RawHazardCurve) -> crate::Result<Self> {
+        let mut builder = HazardCurve::builder(state.common_id.id)
+            .base_date(state.base)
+            .recovery_rate(state.recovery_rate)
+            .day_count(state.day_count)
+            .knots(state.points.knot_points)
+            .par_spreads(state.par_points);
+
+        if let Some(issuer) = state.issuer {
+            builder = builder.issuer(issuer);
+        }
+        if let Some(seniority) = state.seniority {
+            builder = builder.seniority(seniority);
+        }
+        if let Some(currency) = state.currency {
+            builder = builder.currency(currency);
+        }
+
+        builder.build()
+    }
 }
 
 impl HazardCurve {
@@ -353,60 +409,6 @@ impl HazardCurve {
                 }
             }
         }
-    }
-
-    #[cfg(feature = "serde")]
-    /// Extract serializable state
-    pub fn to_state(&self) -> HazardCurveState {
-        let knot_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.lambdas.iter())
-            .map(|(&t, &lambda)| (t, lambda))
-            .collect();
-        let par_points: Vec<(f64, f64)> = self
-            .par_tenors
-            .iter()
-            .zip(self.par_spreads_bp.iter())
-            .map(|(&t, &spread)| (t, spread))
-            .collect();
-
-        HazardCurveState {
-            common_id: super::common::StateId {
-                id: self.id.to_string(),
-            },
-            base: self.base,
-            points: super::common::StateKnotPoints { knot_points },
-            recovery_rate: self.recovery_rate,
-            issuer: self.issuer.clone(),
-            seniority: self.seniority,
-            currency: self.currency,
-            day_count: self.day_count,
-            par_points,
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    /// Create from serialized state
-    pub fn from_state(state: HazardCurveState) -> crate::Result<Self> {
-        let mut builder = HazardCurve::builder(state.common_id.id)
-            .base_date(state.base)
-            .recovery_rate(state.recovery_rate)
-            .day_count(state.day_count)
-            .knots(state.points.knot_points)
-            .par_spreads(state.par_points);
-
-        if let Some(issuer) = state.issuer {
-            builder = builder.issuer(issuer);
-        }
-        if let Some(seniority) = state.seniority {
-            builder = builder.seniority(seniority);
-        }
-        if let Some(currency) = state.currency {
-            builder = builder.currency(currency);
-        }
-
-        builder.build()
     }
 }
 

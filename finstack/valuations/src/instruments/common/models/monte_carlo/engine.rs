@@ -22,6 +22,7 @@ use crate::instruments::common::mc::traits::{
 };
 use finstack_core::currency::Currency;
 use finstack_core::Result;
+use smallvec::SmallVec;
 use std::sync::Mutex;
 
 #[cfg(feature = "parallel")]
@@ -1225,16 +1226,8 @@ impl McEngine {
         let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
 
         // Capture initial point
-        let mut initial_point = PathPoint::new(0, 0.0);
-        for (i, &val) in state.iter().enumerate() {
-            let key = match i {
-                0 => state_keys::SPOT,
-                1 => state_keys::VARIANCE,
-                2 => "credit_spread",
-                _ => continue,
-            };
-            initial_point.add_var(key.to_string(), val);
-        }
+        let initial_state_vec = SmallVec::from_slice(state);
+        let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
         if self.config.path_capture.capture_payoffs {
             // Initial payoff is typically zero, but capture it for completeness
             initial_point.set_payoff(0.0);
@@ -1283,17 +1276,9 @@ impl McEngine {
             // Process payoff event (payoff may add cashflows to path_state)
             payoff.on_event(&mut path_state);
 
-            // Capture this point
-            let mut point = PathPoint::new(step + 1, t + dt);
-            for (i, &val) in state.iter().enumerate() {
-                let key = match i {
-                    0 => state_keys::SPOT,
-                    1 => state_keys::VARIANCE,
-                    2 => "credit_spread",
-                    _ => continue,
-                };
-                point.add_var(key.to_string(), val);
-            }
+            // Capture this point with state vector
+            let state_vec = SmallVec::from_slice(state);
+            let mut point = PathPoint::with_state(step + 1, t + dt, state_vec);
 
             // Transfer cashflows from PathState to PathPoint
             let cashflows = path_state.take_cashflows();

@@ -84,7 +84,7 @@ impl TreeModel for MultiFactorTree {
         let mut vars = initial_vars.clone();
         vars.insert("time", time_to_maturity);
         let terminal_state =
-            NodeState::new(self.config.steps, time_to_maturity, vars, market_context);
+            NodeState::new(self.config.steps, time_to_maturity, &vars, market_context);
         valuator.value_at_maturity(&terminal_state)
     }
 }

@@ -70,7 +70,7 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
-            
+
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
         ]

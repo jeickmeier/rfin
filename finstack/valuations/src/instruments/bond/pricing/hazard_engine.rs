@@ -26,8 +26,8 @@
 
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::error::InputError;
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -35,9 +35,9 @@ use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
 
-use super::discount_engine::BondEngine;
 use super::super::types::Bond;
 use super::super::CashflowSpec;
+use super::discount_engine::BondEngine;
 
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
 ///
@@ -114,10 +114,7 @@ impl HazardBondEngine {
     /// 1. `credit_curve_id` if present.
     /// 2. `discount_curve_id`.
     /// 3. `discount_curve_id` with `-CREDIT` suffix.
-    fn resolve_hazard_curve<'a>(
-        bond: &Bond,
-        market: &'a MarketContext,
-    ) -> Option<&'a HazardCurve> {
+    fn resolve_hazard_curve<'a>(bond: &Bond, market: &'a MarketContext) -> Option<&'a HazardCurve> {
         if let Some(ref credit_id) = bond.credit_curve_id {
             if let Ok(hc) = market.get_hazard_ref(credit_id.as_str()) {
                 return Some(hc);
@@ -128,8 +125,7 @@ impl HazardBondEngine {
             return Some(hc);
         }
 
-        if let Ok(hc) =
-            market.get_hazard_ref(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
+        if let Ok(hc) = market.get_hazard_ref(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
         {
             return Some(hc);
         }
@@ -338,11 +334,13 @@ impl HazardBondEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
     use crate::instruments::bond::CashflowSpec;
     use crate::instruments::common::traits::Attributes;
-    use crate::metrics::{standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId};
-    use crate::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
     use crate::instruments::common::traits::Instrument;
+    use crate::metrics::{
+        standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId,
+    };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Frequency};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -507,11 +505,7 @@ mod tests {
             .expect("CS01 metrics should compute for bond with hazard curve");
 
         // Parallel CS01 should be present (may be zero today depending on Bond::value semantics).
-        let _cs01 = ctx
-            .computed
-            .get(&MetricId::Cs01)
-            .copied()
-            .unwrap_or(0.0);
+        let _cs01 = ctx.computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
 
         // Bucketed CS01 series should be stored with standard bucket count.
         // Bucketed CS01 series is computed via GenericBucketedCs01. For bonds this
@@ -539,13 +533,8 @@ mod tests {
 
         // Use a simple clean price quote; the quote engine should handle bonds
         // with hazard curves present in the MarketContext without error.
-        let quotes = compute_quotes(
-            &bond,
-            &market,
-            issue,
-            BondQuoteInput::CleanPricePct(99.5),
-        )
-        .expect("Quote engine should work for bonds with hazard curves");
+        let quotes = compute_quotes(&bond, &market, issue, BondQuoteInput::CleanPricePct(99.5))
+            .expect("Quote engine should work for bonds with hazard curves");
 
         assert!(
             (quotes.clean_price_pct - 99.5).abs() < 1e-9,
@@ -559,5 +548,3 @@ mod tests {
         );
     }
 }
-
-

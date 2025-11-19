@@ -165,10 +165,11 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 
     for (target_dm, base_bond) in scenarios {
         // Price the FRN at the target DM to obtain a dirty price in currency.
-        let dirty_target = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_dm(
-            &base_bond, &market, as_of, target_dm,
-        )
-        .expect("pricing with target DM should succeed");
+        let dirty_target =
+            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_dm(
+                &base_bond, &market, as_of, target_dm,
+            )
+            .expect("pricing with target DM should succeed");
 
         // Convert to a clean price quote (% of par) assuming valuation on a
         // coupon date (zero accrual).

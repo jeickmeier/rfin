@@ -21,7 +21,13 @@ fn test_callable_convertible_bond() {
     let bond = create_callable_convertible(call_date, 102.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should price successfully with call feature
     assert!(
@@ -38,11 +44,21 @@ fn test_callable_caps_upside() {
     let bond_plain = create_standard_convertible();
     let market = create_market_context();
 
-    let price_callable =
-        price_convertible_bond(&bond_callable, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_callable = price_convertible_bond(
+        &bond_callable,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_plain =
-        price_convertible_bond(&bond_plain, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_plain = price_convertible_bond(
+        &bond_plain,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Callable should be worth less than non-callable (issuer option)
     assert!(
@@ -59,7 +75,13 @@ fn test_puttable_convertible_bond() {
     let bond = create_puttable_convertible(put_date, 98.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should price successfully with put feature
     assert!(
@@ -82,7 +104,13 @@ fn test_puttable_provides_floor() {
         market_params::DIV_YIELD,
     );
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should have put floor support (though discounted to present)
     let put_floor = bond_params::NOTIONAL * (put_price_pct / 100.0);
@@ -107,11 +135,21 @@ fn test_puttable_increases_value() {
         market_params::DIV_YIELD,
     );
 
-    let price_puttable =
-        price_convertible_bond(&bond_puttable, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_puttable = price_convertible_bond(
+        &bond_puttable,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
-    let price_plain =
-        price_convertible_bond(&bond_plain, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_plain = price_convertible_bond(
+        &bond_plain,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Puttable should be worth more than non-puttable (holder option)
     assert!(
@@ -130,7 +168,13 @@ fn test_combined_call_put_convertible() {
     let bond = create_callable_puttable_convertible(call_date, 103.0, put_date, 97.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(60), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(60),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should price successfully with both features
     assert!(
@@ -148,7 +192,13 @@ fn test_combined_call_put_bounded() {
     let bond = create_callable_puttable_convertible(call_date, 103.0, put_date, 97.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(60), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(60),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should be bounded by put floor and call ceiling (approximately)
     let put_floor = bond_params::NOTIONAL * 0.97;
@@ -183,7 +233,13 @@ fn test_multiple_call_dates() {
     bond.call_put = Some(call_put);
 
     let market = create_market_context();
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(60), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(60),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should handle multiple call dates
     assert!(
@@ -214,7 +270,13 @@ fn test_multiple_put_dates() {
     bond.call_put = Some(call_put);
 
     let market = create_market_context();
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(60), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(60),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Should handle multiple put dates
     assert!(
@@ -230,7 +292,13 @@ fn test_call_price_at_par() {
     let bond = create_callable_convertible(call_date, 100.0); // At par
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0,
@@ -245,7 +313,13 @@ fn test_call_price_at_premium() {
     let bond = create_callable_convertible(call_date, 110.0); // At premium
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0,
@@ -260,7 +334,13 @@ fn test_put_price_at_discount() {
     let bond = create_puttable_convertible(put_date, 95.0); // At discount
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() > 0.0,
@@ -290,7 +370,13 @@ fn test_call_before_conversion_window() {
     bond.call_put = Some(call_put);
 
     let market = create_market_context();
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Call before conversion window should work
     assert!(
@@ -321,7 +407,13 @@ fn test_call_during_conversion_window() {
     bond.call_put = Some(call_put);
 
     let market = create_market_context();
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Call during conversion window should work
     assert!(
@@ -337,12 +429,23 @@ fn test_early_call_date() {
     let bond = create_callable_convertible(call_date, 102.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Early call should have more impact
     let bond_plain = create_standard_convertible();
-    let price_plain =
-        price_convertible_bond(&bond_plain, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price_plain = price_convertible_bond(
+        &bond_plain,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     assert!(
         price.amount() < price_plain.amount() * 1.05,
@@ -358,7 +461,13 @@ fn test_late_put_date() {
     let bond = create_puttable_convertible(put_date, 98.0);
     let market = create_market_context();
 
-    let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), dates::base_date()).unwrap();
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(50),
+        dates::base_date(),
+    )
+    .unwrap();
 
     // Late put should still provide some value
     assert!(

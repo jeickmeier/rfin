@@ -235,7 +235,7 @@ impl TreeValuator for ConvertibleBondValuator {
         Ok(conversion_value.max(redemption_value) + final_coupon)
     }
 
-    fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
         let spot = state.spot().ok_or(Error::Internal)?;
 
         // Start with continuation value plus any coupon at this step
@@ -654,8 +654,13 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 
         // Use the provided as_of date for valuation
         // Compute present value using the engine with binomial tree
-        let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::Binomial(100), as_of)
-            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
+        let pv = price_convertible_bond(
+            convertible,
+            market,
+            ConvertibleTreeType::Binomial(100),
+            as_of,
+        )
+        .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(
@@ -750,8 +755,12 @@ mod tests {
         let market_context = create_test_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-        let price =
-            price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50), as_of);
+        let price = price_convertible_bond(
+            &bond,
+            &market_context,
+            ConvertibleTreeType::Binomial(50),
+            as_of,
+        );
 
         assert!(price.is_ok());
         let price = price.expect("should succeed");

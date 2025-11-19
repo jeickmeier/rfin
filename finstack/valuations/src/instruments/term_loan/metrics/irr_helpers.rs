@@ -35,28 +35,28 @@ pub(super) fn solve_irr_to_exercise(
     redemption: Money,
 ) -> finstack_core::Result<f64> {
     use crate::cashflow::traits::CashflowProvider;
-    
+
     // Get holder-view flows (coupons, amortization, positive redemptions only)
     let holder_flows = loan.build_schedule(curves, as_of)?;
-    
+
     let mut flows: Vec<(Date, Money)> = Vec::new();
-    
+
     // Initial price leg (negative = cash outflow for purchase)
     flows.push((
         as_of,
         Money::new(-target_price.amount(), target_price.currency()),
     ));
-    
+
     // Add holder-view flows up to exercise date
     for (date, amount) in holder_flows {
         if date > as_of && date <= exercise_date {
             flows.push((date, amount));
         }
     }
-    
+
     // Add redemption at exercise date
     flows.push((exercise_date, redemption));
-    
+
     crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
 }
 
@@ -85,12 +85,9 @@ pub(super) fn solve_irr_to_date(
     exercise_date: Date,
 ) -> finstack_core::Result<f64> {
     // Build full schedule to get outstanding path
-    let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
-        loan,
-        curves,
-        as_of,
-    )?;
-    
+    let schedule =
+        crate::instruments::term_loan::cashflows::generate_cashflows(loan, curves, as_of)?;
+
     // Get outstanding at exercise date
     let out_path = schedule.outstanding_by_date_including_notional();
     let mut outstanding_at = Money::new(0.0, loan.currency);
@@ -101,8 +98,14 @@ pub(super) fn solve_irr_to_date(
             break;
         }
     }
-    
-    // Use the common helper with outstanding as redemption
-    solve_irr_to_exercise(loan, curves, as_of, target_price, exercise_date, outstanding_at)
-}
 
+    // Use the common helper with outstanding as redemption
+    solve_irr_to_exercise(
+        loan,
+        curves,
+        as_of,
+        target_price,
+        exercise_date,
+        outstanding_at,
+    )
+}

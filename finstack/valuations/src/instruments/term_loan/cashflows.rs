@@ -96,14 +96,14 @@ fn compute_outstanding_at(
     currency: finstack_core::currency::Currency,
 ) -> finstack_core::Result<Money> {
     let mut outstanding = Money::new(0.0, currency);
-    
+
     for event in events {
         // Apply all events up to target_date (forward-looking)
         if event.date <= target_date {
             outstanding = outstanding.checked_add(event.delta)?;
         }
     }
-    
+
     Ok(outstanding)
 }
 
@@ -118,7 +118,7 @@ pub fn generate_cashflows(
     as_of: Date,
 ) -> finstack_core::Result<CashFlowSchedule> {
     let mut flows: Vec<CashFlow> = Vec::new();
-    
+
     // Step 1: Build list of all principal events (draws, sweeps, amortization schedule)
     let mut principal_events: Vec<PrincipalEvent> = Vec::new();
 
@@ -127,7 +127,7 @@ pub fn generate_cashflows(
         .covenants
         .as_ref()
         .and_then(|c| c.draw_stop_dates.iter().min().copied());
-    
+
     if let Some(ddtl) = &loan.ddtl {
         for ev in ddtl.draws.iter() {
             if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {
@@ -138,7 +138,7 @@ pub fn generate_cashflows(
                     continue;
                 }
             }
-            
+
             // Apply OID policy to determine cash inflow
             let mut cash_inflow = ev.amount;
             if let Some(oid) = &ddtl.oid_policy {
@@ -179,7 +179,7 @@ pub fn generate_cashflows(
                     }
                 }
             }
-            
+
             // Funding outflow from lender (negative notional = draw)
             if cash_inflow.amount() != 0.0 {
                 flows.push(CashFlow {
@@ -191,7 +191,7 @@ pub fn generate_cashflows(
                     rate: None,
                 });
             }
-            
+
             // Record principal event: draw increases outstanding
             principal_events.push(PrincipalEvent {
                 date: ev.date,
@@ -204,12 +204,15 @@ pub fn generate_cashflows(
             flows.push(CashFlow {
                 date: loan.issue,
                 reset_date: None,
-                amount: Money::new(-loan.notional_limit.amount(), loan.notional_limit.currency()),
+                amount: Money::new(
+                    -loan.notional_limit.amount(),
+                    loan.notional_limit.currency(),
+                ),
                 kind: CFKind::Notional,
                 accrual_factor: 0.0,
                 rate: None,
             });
-            
+
             // Record principal event: initial draw
             principal_events.push(PrincipalEvent {
                 date: loan.issue,
@@ -217,7 +220,7 @@ pub fn generate_cashflows(
             });
         }
     }
-    
+
     // Upfront fee at issue (if any)
     if let Some(fee) = loan.upfront_fee {
         if fee.amount() > 0.0 {
@@ -231,7 +234,7 @@ pub fn generate_cashflows(
             });
         }
     }
-    
+
     // Step 1b: Add cash sweeps and covenant sweeps to principal events
     if let Some(cov) = &loan.covenants {
         for sweep in &cov.cash_sweeps {
@@ -253,20 +256,21 @@ pub fn generate_cashflows(
             }
         }
     }
-    
+
     // Step 1c: Sort principal events by date for correct ordering
     principal_events.sort_by_key(|e| e.date);
 
     // Build coupon dates using payment frequency, BDC, and calendar
-    let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
-        .frequency(loan.pay_freq)
-        .stub_rule(loan.stub);
-    
+    let mut schedule_builder =
+        finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
+            .frequency(loan.pay_freq)
+            .stub_rule(loan.stub);
+
     // Apply business-day adjustment if calendar is specified
     if let Some(ref cal_id) = loan.calendar_id {
         schedule_builder = schedule_builder.adjust_with_id(loan.bdc, cal_id);
     }
-    
+
     let schedule = schedule_builder.build()?;
     let mut dates: Vec<Date> = schedule.into_iter().collect();
     if dates.first().copied() != Some(loan.issue) {
@@ -384,7 +388,7 @@ pub fn generate_cashflows(
                     limit = sd.new_limit;
                 }
             }
-            
+
             // Calculate fee base according to CommitmentFeeBase enum
             // For Undrawn: sum all draws up to this date (not implemented here, simplified to use outstanding)
             // For CommitmentMinusOutstanding: use limit - outstanding
@@ -455,12 +459,15 @@ pub fn generate_cashflows(
 
         // Amortization spec (compute using current outstanding including PIK just added)
         let current_outstanding = compute_outstanding_at(&principal_events, d, loan.currency)?;
-        
+
         match &loan.amortization {
             super::spec::AmortizationSpec::None => {}
             super::spec::AmortizationSpec::Custom(items) => {
                 for (adt, amt) in items.iter().filter(|(adt, _)| *adt == d) {
-                    let pay = Money::new(amt.amount().min(current_outstanding.amount()), loan.currency);
+                    let pay = Money::new(
+                        amt.amount().min(current_outstanding.amount()),
+                        loan.currency,
+                    );
                     if pay.amount() > 0.0 {
                         flows.push(CashFlow {
                             date: *adt,
@@ -508,8 +515,8 @@ pub fn generate_cashflows(
                         .filter(|&&dt| dt >= d && dt <= *end)
                         .count()
                         .max(1);
-                    let pay_amt =
-                        (current_outstanding.amount() / (remaining as f64)).min(current_outstanding.amount());
+                    let pay_amt = (current_outstanding.amount() / (remaining as f64))
+                        .min(current_outstanding.amount());
                     let pay = Money::new(pay_amt, loan.currency);
                     if pay.amount() > 0.0 {
                         flows.push(CashFlow {
@@ -534,7 +541,8 @@ pub fn generate_cashflows(
     }
 
     // Final redemption of remaining principal at maturity (positive = inflow to lender)
-    let final_outstanding = compute_outstanding_at(&principal_events, loan.maturity, loan.currency)?;
+    let final_outstanding =
+        compute_outstanding_at(&principal_events, loan.maturity, loan.currency)?;
     if final_outstanding.amount() > 0.0 {
         flows.push(CashFlow {
             date: loan.maturity,
@@ -560,7 +568,7 @@ pub fn generate_cashflows(
     let schedule = CashFlowSchedule {
         flows,
         notional: Notional::par(0.0, loan.currency), // Funding-leg modelling: initial = 0
-        day_count: loan.day_count, // Use instrument's day-count convention
+        day_count: loan.day_count,                   // Use instrument's day-count convention
         meta: crate::cashflow::builder::schedule::CashflowMeta::default(),
     };
     Ok(schedule)

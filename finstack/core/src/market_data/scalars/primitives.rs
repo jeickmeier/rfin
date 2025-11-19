@@ -145,6 +145,8 @@ pub enum MarketScalar {
 /// assert!(interpolated > 3.7 && interpolated < 3.9);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawScalarTimeSeries", into = "RawScalarTimeSeries"))]
 pub struct ScalarTimeSeries {
     id: CurveId,
     currency: Option<Currency>,
@@ -390,10 +392,11 @@ impl ScalarTimeSeries {
     }
 }
 
-/// Serializable state of a ScalarTimeSeries
+/// Raw serializable state of a ScalarTimeSeries
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct ScalarTimeSeriesState {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawScalarTimeSeries {
     /// Series identifier
     pub id: String,
     /// Optional currency
@@ -405,21 +408,24 @@ pub struct ScalarTimeSeriesState {
 }
 
 #[cfg(feature = "serde")]
-impl ScalarTimeSeries {
-    /// Extract serializable state
-    pub fn to_state(&self) -> Result<ScalarTimeSeriesState> {
-        let observations = self.observations();
+impl From<ScalarTimeSeries> for RawScalarTimeSeries {
+    fn from(series: ScalarTimeSeries) -> Self {
+        let observations = series.observations();
 
-        Ok(ScalarTimeSeriesState {
-            id: self.id.to_string(),
-            currency: self.currency,
+        RawScalarTimeSeries {
+            id: series.id.to_string(),
+            currency: series.currency,
             observations,
-            interpolation: self.interpolation,
-        })
+            interpolation: series.interpolation,
+        }
     }
+}
 
-    /// Create from serialized state
-    pub fn from_state(state: ScalarTimeSeriesState) -> Result<Self> {
+#[cfg(feature = "serde")]
+impl TryFrom<RawScalarTimeSeries> for ScalarTimeSeries {
+    type Error = crate::Error;
+
+    fn try_from(state: RawScalarTimeSeries) -> Result<Self> {
         Self::new(state.id, state.observations, state.currency)
             .map(|s| s.with_interpolation(state.interpolation))
     }

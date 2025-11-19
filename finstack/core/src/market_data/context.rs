@@ -183,13 +183,13 @@ impl CurveStorage {
 /// market data snapshots.
 pub enum CurveState {
     /// Discount curve state
-    Discount(crate::market_data::term_structures::discount_curve::DiscountCurveState),
+    Discount(crate::market_data::term_structures::discount_curve::DiscountCurve),
     /// Forward curve state
-    Forward(crate::market_data::term_structures::forward_curve::ForwardCurveState),
+    Forward(crate::market_data::term_structures::forward_curve::ForwardCurve),
     /// Hazard curve state
-    Hazard(crate::market_data::term_structures::hazard_curve::HazardCurveState),
+    Hazard(crate::market_data::term_structures::hazard_curve::HazardCurve),
     /// Inflation curve state
-    Inflation(crate::market_data::term_structures::inflation::InflationCurveState),
+    Inflation(crate::market_data::term_structures::inflation::InflationCurve),
     /// Base correlation curve state
     BaseCorrelation(crate::market_data::term_structures::base_correlation::BaseCorrelationCurve),
 }
@@ -199,29 +199,23 @@ impl CurveStorage {
     /// Convert to serializable state
     pub fn to_state(&self) -> crate::Result<CurveState> {
         Ok(match self {
-            Self::Discount(curve) => CurveState::Discount(curve.to_state()),
-            Self::Forward(curve) => CurveState::Forward(curve.to_state()),
-            Self::Hazard(curve) => CurveState::Hazard(curve.to_state()),
-            Self::Inflation(curve) => CurveState::Inflation(curve.to_state()),
+            Self::Discount(curve) => CurveState::Discount((**curve).clone()),
+            Self::Forward(curve) => CurveState::Forward((**curve).clone()),
+            Self::Hazard(curve) => CurveState::Hazard((**curve).clone()),
+            Self::Inflation(curve) => CurveState::Inflation((**curve).clone()),
             Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
         })
     }
 
     /// Reconstruct from serializable state
     pub fn from_state(state: CurveState) -> crate::Result<Self> {
-        use crate::market_data::term_structures::{
-            discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
-            inflation::InflationCurve,
-        };
         use std::sync::Arc;
 
         Ok(match state {
-            CurveState::Discount(s) => Self::Discount(Arc::new(
-                DiscountCurve::from_state(s).map_err(|_| crate::Error::Internal)?,
-            )),
-            CurveState::Forward(s) => Self::Forward(Arc::new(ForwardCurve::from_state(s)?)),
-            CurveState::Hazard(s) => Self::Hazard(Arc::new(HazardCurve::from_state(s)?)),
-            CurveState::Inflation(s) => Self::Inflation(Arc::new(InflationCurve::from_state(s)?)),
+            CurveState::Discount(c) => Self::Discount(Arc::new(c)),
+            CurveState::Forward(c) => Self::Forward(Arc::new(c)),
+            CurveState::Hazard(c) => Self::Hazard(Arc::new(c)),
+            CurveState::Inflation(c) => Self::Inflation(Arc::new(c)),
             CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
         })
     }
@@ -291,13 +285,13 @@ pub struct MarketContextState {
     /// All curves (discount, forward, hazard, inflation, base correlation)
     pub curves: Vec<CurveState>,
     /// Volatility surfaces
-    pub surfaces: Vec<crate::market_data::surfaces::vol_surface::VolSurfaceState>,
+    pub surfaces: Vec<crate::market_data::surfaces::vol_surface::VolSurface>,
     /// Market scalars and prices
     pub prices: std::collections::BTreeMap<String, crate::market_data::scalars::MarketScalar>,
     /// Generic time series
-    pub series: Vec<crate::market_data::scalars::ScalarTimeSeriesState>,
+    pub series: Vec<crate::market_data::scalars::ScalarTimeSeries>,
     /// Inflation indices
-    pub inflation_indices: Vec<crate::market_data::scalars::InflationIndexState>,
+    pub inflation_indices: Vec<crate::market_data::scalars::InflationIndex>,
     /// Credit index aggregates (references curves by ID)
     pub credit_indices: Vec<CreditIndexState>,
     /// Collateral CSA mappings
@@ -315,7 +309,7 @@ impl From<&MarketContext> for MarketContextState {
             .collect();
 
         // Convert all surfaces
-        let surfaces: Vec<_> = ctx.surfaces.values().map(|surf| surf.to_state()).collect();
+        let surfaces: Vec<_> = ctx.surfaces.values().map(|surf| (**surf).clone()).collect();
 
         // Convert prices (CurveId → String)
         let prices: std::collections::BTreeMap<String, _> = ctx
@@ -328,14 +322,14 @@ impl From<&MarketContext> for MarketContextState {
         let series: Vec<_> = ctx
             .series
             .values()
-            .filter_map(|s| s.to_state().ok())
+            .cloned()
             .collect();
 
         // Convert inflation indices
         let inflation_indices: Vec<_> = ctx
             .inflation_indices
             .values()
-            .filter_map(|idx| idx.to_state().ok())
+            .map(|idx| (**idx).clone())
             .collect();
 
         // Convert credit indices (extract IDs from Arc references)
@@ -393,9 +387,7 @@ impl TryFrom<MarketContextState> for MarketContext {
         }
 
         // Reconstruct all surfaces
-        for surface_state in state.surfaces {
-            let surface =
-                crate::market_data::surfaces::vol_surface::VolSurface::from_state(surface_state)?;
+        for surface in state.surfaces {
             ctx.surfaces.insert(surface.id().clone(), Arc::new(surface));
         }
 
@@ -405,14 +397,12 @@ impl TryFrom<MarketContextState> for MarketContext {
         }
 
         // Reconstruct series
-        for series_state in state.series {
-            let series = crate::market_data::scalars::ScalarTimeSeries::from_state(series_state)?;
+        for series in state.series {
             ctx.series.insert(series.id().clone(), series);
         }
 
         // Reconstruct inflation indices
-        for idx_state in state.inflation_indices {
-            let idx = crate::market_data::scalars::InflationIndex::from_state(idx_state)?;
+        for idx in state.inflation_indices {
             let id = CurveId::from(idx.id.clone());
             ctx.inflation_indices.insert(id, Arc::new(idx));
         }

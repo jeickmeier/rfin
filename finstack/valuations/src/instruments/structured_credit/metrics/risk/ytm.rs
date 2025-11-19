@@ -84,8 +84,7 @@ impl MetricCalculator for YtmCalculator {
         };
 
         // Solve for YTM using Brent solver
-        let solver = BrentSolver::new()
-            .with_tolerance(1e-8);
+        let solver = BrentSolver::new().with_tolerance(1e-8);
 
         // Initial guess: 5% is reasonable for structured credit
         let ytm = solver.solve(objective, 0.05)?;

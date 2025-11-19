@@ -54,7 +54,10 @@ pub use builder::CashflowBuilder;
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
 pub use date_generation::{build_dates, PeriodSchedule};
-pub use rate_helpers::{project_floating_rate, project_floating_rate_simple};
+pub use rate_helpers::{
+    project_floating_rate, project_floating_rate_simple, project_floating_rate_simple_with_curve,
+    project_floating_rate_with_curve,
+};
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,

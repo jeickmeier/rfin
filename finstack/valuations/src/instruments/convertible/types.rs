@@ -241,7 +241,13 @@ impl ConvertibleBond {
         bump_size: Option<f64>,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
-        pricer::calculate_convertible_greeks(self, curves, tree_type.unwrap_or_default(), bump_size, as_of)
+        pricer::calculate_convertible_greeks(
+            self,
+            curves,
+            tree_type.unwrap_or_default(),
+            bump_size,
+            as_of,
+        )
     }
 
     /// Calculate delta of this convertible bond

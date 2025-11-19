@@ -93,6 +93,8 @@ use crate::{
 ///
 /// Immutable after construction; safe to share via `Arc<ForwardCurve>`.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawForwardCurve", into = "RawForwardCurve"))]
 pub struct ForwardCurve {
     id: CurveId,
     base: Date,
@@ -109,12 +111,34 @@ pub struct ForwardCurve {
     interp: Interp,
 }
 
-/// Serializable state of ForwardCurve
+impl Clone for ForwardCurve {
+    fn clone(&self) -> Self {
+        let interp = super::common::build_interp(
+            self.interp.style(),
+            self.knots.clone(),
+            self.forwards.clone(),
+            self.interp.extrapolation(),
+        ).expect("Clone should not fail for valid curve");
+
+        Self {
+            id: self.id.clone(),
+            base: self.base,
+            reset_lag: self.reset_lag,
+            day_count: self.day_count,
+            tenor: self.tenor,
+            knots: self.knots.clone(),
+            forwards: self.forwards.clone(),
+            interp,
+        }
+    }
+}
+
+/// Raw serializable state of ForwardCurve
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ForwardCurveState {
-    #[cfg_attr(feature = "serde", serde(flatten))]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawForwardCurve {
+    #[serde(flatten)]
     common_id: super::common::StateId,
     /// Base date
     pub base: Date,
@@ -124,10 +148,53 @@ pub struct ForwardCurveState {
     pub day_count: DayCount,
     /// Index tenor in years
     pub tenor: f64,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     points: super::common::StateKnotPoints,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     interp: super::common::StateInterp,
+}
+
+#[cfg(feature = "serde")]
+impl From<ForwardCurve> for RawForwardCurve {
+    fn from(curve: ForwardCurve) -> Self {
+        let knot_points: Vec<(f64, f64)> = curve
+            .knots
+            .iter()
+            .zip(curve.forwards.iter())
+            .map(|(&t, &fwd)| (t, fwd))
+            .collect();
+
+        RawForwardCurve {
+            common_id: super::common::StateId {
+                id: curve.id.to_string(),
+            },
+            base: curve.base,
+            reset_lag: curve.reset_lag,
+            day_count: curve.day_count,
+            tenor: curve.tenor,
+            points: super::common::StateKnotPoints { knot_points },
+            interp: super::common::StateInterp {
+                interp_style: curve.interp.style(),
+                extrapolation: curve.interp.extrapolation(),
+            },
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawForwardCurve> for ForwardCurve {
+    type Error = crate::Error;
+
+    fn try_from(state: RawForwardCurve) -> crate::Result<Self> {
+        ForwardCurve::builder(state.common_id.id, state.tenor)
+            .base_date(state.base)
+            .reset_lag(state.reset_lag)
+            .day_count(state.day_count)
+            .knots(state.points.knot_points)
+            .set_interp(state.interp.interp_style)
+            .extrapolation(state.interp.extrapolation)
+            .build()
+    }
 }
 
 impl ForwardCurve {
@@ -202,44 +269,6 @@ impl ForwardCurve {
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
         (self.rate(t1) + self.rate(t2)) * 0.5
-    }
-
-    #[cfg(feature = "serde")]
-    /// Extract serializable state
-    pub fn to_state(&self) -> ForwardCurveState {
-        let knot_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.forwards.iter())
-            .map(|(&t, &fwd)| (t, fwd))
-            .collect();
-
-        ForwardCurveState {
-            common_id: super::common::StateId {
-                id: self.id.to_string(),
-            },
-            base: self.base,
-            reset_lag: self.reset_lag,
-            day_count: self.day_count,
-            tenor: self.tenor,
-            points: super::common::StateKnotPoints { knot_points },
-            interp: super::common::StateInterp {
-                interp_style: self.interp.style(),
-                extrapolation: self.interp.extrapolation(),
-            },
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    /// Create from serialized state
-    pub fn from_state(state: ForwardCurveState) -> crate::Result<Self> {
-        ForwardCurve::builder(state.common_id.id, state.tenor)
-            .base_date(state.base)
-            .reset_lag(state.reset_lag)
-            .day_count(state.day_count)
-            .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
-            .build()
     }
 
     /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
@@ -442,26 +471,6 @@ impl TermStructure for ForwardCurve {
 // Serialization support
 // -----------------------------------------------------------------------------
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for ForwardCurve {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_state().serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ForwardCurve {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let state = ForwardCurveState::deserialize(deserializer)?;
-        ForwardCurve::from_state(state).map_err(serde::de::Error::custom)
-    }
-}
 
 // -----------------------------------------------------------------------------
 // Tests

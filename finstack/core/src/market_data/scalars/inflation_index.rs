@@ -263,6 +263,8 @@ impl Default for InflationLag {
 ///   - Hurd, M., & Relleen, J. (2006). "Estimating the Inflation Risk Premium."
 ///     Bank of England Quarterly Bulletin, Q2 2006.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawInflationIndex", into = "RawInflationIndex"))]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,
@@ -426,10 +428,11 @@ impl InflationIndex {
     }
 }
 
-/// Serializable state of an InflationIndex
+/// Raw serializable state of an InflationIndex
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InflationIndexState {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawInflationIndex {
     /// Unique identifier
     pub id: String,
     /// Currency
@@ -445,23 +448,26 @@ pub struct InflationIndexState {
 }
 
 #[cfg(feature = "serde")]
-impl InflationIndex {
-    /// Extract serializable state
-    pub fn to_state(&self) -> crate::Result<InflationIndexState> {
-        let observations = self.observations();
+impl From<InflationIndex> for RawInflationIndex {
+    fn from(index: InflationIndex) -> Self {
+        let observations = index.observations();
 
-        Ok(InflationIndexState {
-            id: self.id.to_owned(),
-            currency: self.currency,
+        RawInflationIndex {
+            id: index.id.to_owned(),
+            currency: index.currency,
             observations,
-            interpolation: self.interpolation,
-            lag: self.lag,
-            seasonality: self.seasonality,
-        })
+            interpolation: index.interpolation,
+            lag: index.lag,
+            seasonality: index.seasonality,
+        }
     }
+}
 
-    /// Create from serialized state
-    pub fn from_state(state: InflationIndexState) -> crate::Result<Self> {
+#[cfg(feature = "serde")]
+impl TryFrom<RawInflationIndex> for InflationIndex {
+    type Error = crate::Error;
+
+    fn try_from(state: RawInflationIndex) -> crate::Result<Self> {
         let mut index = Self::new(state.id, state.observations, state.currency)?
             .with_interpolation(state.interpolation)
             .with_lag(state.lag);

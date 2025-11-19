@@ -158,10 +158,18 @@ impl InterestRateSwap {
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
                 stub: StubKind::None,
-                start: Date::from_calendar_date(2024, time::Month::January, 1)
-                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example start date: {}", e)))?,
-                end: Date::from_calendar_date(2029, time::Month::January, 1)
-                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example end date: {}", e)))?,
+                start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
+                    finstack_core::error::Error::Validation(format!(
+                        "Invalid example start date: {}",
+                        e
+                    ))
+                })?,
+                end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
+                    finstack_core::error::Error::Validation(format!(
+                        "Invalid example end date: {}",
+                        e
+                    ))
+                })?,
                 par_method: None,
                 compounding_simple: true,
             })
@@ -175,10 +183,18 @@ impl InterestRateSwap {
                 calendar_id: None,
                 stub: StubKind::None,
                 reset_lag_days: 2,
-                start: Date::from_calendar_date(2024, time::Month::January, 1)
-                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example start date: {}", e)))?,
-                end: Date::from_calendar_date(2029, time::Month::January, 1)
-                    .map_err(|e| finstack_core::error::Error::Validation(format!("Invalid example end date: {}", e)))?,
+                start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
+                    finstack_core::error::Error::Validation(format!(
+                        "Invalid example start date: {}",
+                        e
+                    ))
+                })?,
+                end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
+                    finstack_core::error::Error::Validation(format!(
+                        "Invalid example end date: {}",
+                        e
+                    ))
+                })?,
                 compounding: Default::default(),
             })
             .build()
@@ -229,7 +245,6 @@ impl InterestRateSwap {
             .float(float)
             .build()
     }
-
 }
 
 // Explicit trait implementations for modern instrument style
@@ -343,8 +358,7 @@ mod tests {
 
         let start =
             Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid test date");
-        let end =
-            Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid test date");
+        let end = Date::from_calendar_date(2029, time::Month::January, 1).expect("Valid test date");
 
         let swap = InterestRateSwap::create_swap_with_config(
             InstrumentId::new("IRS-TEST-USD"),
@@ -354,7 +368,8 @@ mod tests {
             end,
             PayReceive::PayFixed,
             config,
-        ).expect("Valid test swap construction");
+        )
+        .expect("Valid test swap construction");
 
         let sched = IRSScheduleConfig::usd_isda_standard();
 

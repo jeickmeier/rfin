@@ -424,8 +424,7 @@ impl CdsOptionPricer {
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
 
-        let solver = BrentSolver::new()
-            .with_tolerance(1e-10);
+        let solver = BrentSolver::new().with_tolerance(1e-10);
         let root = solver.solve(f, x0)?;
         Ok(root.exp())
     }

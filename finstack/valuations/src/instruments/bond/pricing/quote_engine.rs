@@ -18,7 +18,7 @@ use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::sync::Arc; 
+use std::sync::Arc;
 
 /// Convert payment frequency to approximate periods per year.
 ///
@@ -135,7 +135,7 @@ pub fn fixed_leg_annuity(
     schedule: &[Date],
 ) -> finstack_core::Result<f64> {
     use finstack_core::dates::DayCountCtx;
-    
+
     if schedule.len() < 2 {
         return Ok(0.0);
     }
@@ -517,11 +517,7 @@ pub fn price_from_oas(
     // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
     let disc_dc = discount_curve.day_count();
-    let time_to_maturity = disc_dc.year_fraction(
-        as_of,
-        bond.maturity,
-        DayCountCtx::default(),
-    )?;
+    let time_to_maturity = disc_dc.year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
@@ -754,7 +750,7 @@ pub fn compute_quotes(
 /// (`ISpread = YTM - par_swap_rate`) using the same convention as the
 /// `ISpreadCalculator` (annual Act/Act proxy fixed leg by default).
 fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
-    use finstack_core::dates::{DayCount, DayCountCtx, Frequency, StubKind, ScheduleBuilder};
+    use finstack_core::dates::{DayCount, DayCountCtx, Frequency, ScheduleBuilder, StubKind};
 
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
 
@@ -765,7 +761,7 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
         .build()?
         .into_iter()
         .collect();
-    
+
     if dates.len() < 2 {
         return Ok(0.0);
     }
@@ -827,13 +823,13 @@ fn price_from_asw_market(
     let mut builder = ScheduleBuilder::new(as_of, bond.maturity)
         .frequency(freq)
         .stub_rule(stub);
-    
+
     if let Some(id) = calendar_id {
         if let Some(cal) = calendar_by_id(id) {
             builder = builder.adjust_with(bdc, cal);
         }
     }
-    
+
     let sched: Vec<Date> = builder.build()?.into_iter().collect();
     if sched.len() < 2 {
         return Ok(0.0);

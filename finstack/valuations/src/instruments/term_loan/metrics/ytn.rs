@@ -43,7 +43,13 @@ macro_rules! define_ytn {
                     return Ok(0.0);
                 }
 
-                solve_irr_to_date(loan, &context.curves, as_of, context.base_value, exercise_date)
+                solve_irr_to_date(
+                    loan,
+                    &context.curves,
+                    as_of,
+                    context.base_value,
+                    exercise_date,
+                )
             }
         }
     };

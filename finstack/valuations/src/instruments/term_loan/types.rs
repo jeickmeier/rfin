@@ -356,15 +356,16 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
         use finstack_core::cashflow::primitives::CFKind;
-        
+
         // Get full internal schedule
-        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
-        
+        let schedule =
+            crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
+
         // Filter to holder-view: only contractual inflows to a long lender
         // Include: coupons, amortization, positive notional redemptions
         // Exclude: funding legs (negative notional draws), PIK capitalization
         let mut flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> = Vec::new();
-        
+
         for cf in &schedule.flows {
             match cf.kind {
                 // Include coupons and interest flows as-is (holder receives them)
@@ -383,10 +384,10 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
                 _ => {}
             }
         }
-        
+
         // Sort by date for deterministic ordering
         flows.sort_by_key(|(d, _)| *d);
-        
+
         Ok(flows)
     }
 

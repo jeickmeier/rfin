@@ -45,8 +45,9 @@ use crate::{
 use ndarray::Array2;
 
 /// Volatility surface defined on expiry × strike grid.
-///
-/// Note: Use `to_state()` and `from_state()` for serialization.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "RawVolSurface", into = "RawVolSurface"))]
 pub struct VolSurface {
     id: CurveId,
     expiries: Box<[f64]>,
@@ -54,11 +55,11 @@ pub struct VolSurface {
     vols: Array2<f64>, // shape: (expiries.len(), strikes.len())
 }
 
-/// Serializable state of a VolSurface
+/// Raw serializable state of a VolSurface
 #[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct VolSurfaceState {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawVolSurface {
     /// Surface identifier
     pub id: String,
     /// Expiry times in years
@@ -67,6 +68,33 @@ pub struct VolSurfaceState {
     pub strikes: Vec<f64>,
     /// Volatility values in row-major order
     pub vols_row_major: Vec<f64>,
+}
+
+#[cfg(feature = "serde")]
+impl From<VolSurface> for RawVolSurface {
+    fn from(surface: VolSurface) -> Self {
+        let vols_flat: Vec<f64> = surface.vols.iter().copied().collect();
+        RawVolSurface {
+            id: surface.id.to_string(),
+            expiries: surface.expiries.to_vec(),
+            strikes: surface.strikes.to_vec(),
+            vols_row_major: vols_flat,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawVolSurface> for VolSurface {
+    type Error = crate::Error;
+
+    fn try_from(state: RawVolSurface) -> crate::Result<Self> {
+        Self::from_grid(
+            &state.id,
+            &state.expiries,
+            &state.strikes,
+            &state.vols_row_major,
+        )
+    }
 }
 
 impl VolSurface {
@@ -192,29 +220,6 @@ impl VolSurface {
     /// Grid shape as (n_expiries, n_strikes).
     pub fn grid_shape(&self) -> (usize, usize) {
         (self.expiries.len(), self.strikes.len())
-    }
-
-    #[cfg(feature = "serde")]
-    /// Extract serializable state
-    pub fn to_state(&self) -> VolSurfaceState {
-        let vols_flat: Vec<f64> = self.vols.iter().copied().collect();
-        VolSurfaceState {
-            id: self.id.to_string(),
-            expiries: self.expiries.to_vec(),
-            strikes: self.strikes.to_vec(),
-            vols_row_major: vols_flat,
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    /// Create from serialized state
-    pub fn from_state(state: VolSurfaceState) -> crate::Result<Self> {
-        Self::from_grid(
-            &state.id,
-            &state.expiries,
-            &state.strikes,
-            &state.vols_row_major,
-        )
     }
 
     /// Create a new volatility surface with a single point bumped.

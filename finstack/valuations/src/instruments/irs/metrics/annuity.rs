@@ -75,10 +75,11 @@ impl MetricCalculator for AnnuityCalculator {
                 continue;
             }
 
-            let yf = irs
-                .fixed
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let yf = irs.fixed.dc.year_fraction(
+                prev,
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             // Use shared helper - handles epsilon validation and relative DF calculation
             let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;

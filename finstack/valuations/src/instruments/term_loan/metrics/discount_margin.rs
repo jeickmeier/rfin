@@ -37,10 +37,10 @@ impl DiscountMarginCalculator {
         dm_bp: f64,
     ) -> finstack_core::Result<f64> {
         use crate::instruments::term_loan::types::RateSpec;
-        
+
         // Clone loan and adjust spread
         let mut loan_with_dm = loan.clone();
-        
+
         match &mut loan_with_dm.rate {
             RateSpec::Floating(spec) => {
                 // Add DM (in bp) to base spread
@@ -51,14 +51,14 @@ impl DiscountMarginCalculator {
                 return Ok(0.0);
             }
         }
-        
+
         // Re-price using full cashflow engine and pricer
         let pv = crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(
             &loan_with_dm,
             curves,
             as_of,
         )?;
-        
+
         Ok(pv.amount())
     }
 }
@@ -66,7 +66,7 @@ impl DiscountMarginCalculator {
 impl MetricCalculator for DiscountMarginCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
-        
+
         // If not floating, DM = 0.0
         if let crate::instruments::term_loan::types::RateSpec::Fixed { .. } = loan.rate {
             return Ok(0.0);
@@ -94,7 +94,7 @@ impl MetricCalculator for DiscountMarginCalculator {
             .with_initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
 
         let dm_bp = solver.solve(objective, 0.0)?;
-        
+
         // Return DM as decimal (bp / 10000)
         Ok(dm_bp * 1e-4)
     }

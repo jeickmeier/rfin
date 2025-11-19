@@ -94,7 +94,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (DirtyPrice, DirtyPriceCalculator),
             (CleanPrice, CleanPriceCalculator),
             (Ytm, YtmCalculator),
-            (Ytw, YtwCalculator),  
+            (Ytw, YtwCalculator),
 
             (DurationMac, MacaulayDurationCalculator),
             (DurationMod, ModifiedDurationCalculator),
@@ -109,14 +109,14 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
 
-            // Theta is now registered universally in metrics::standard_registry()    
+            // Theta is now registered universally in metrics::standard_registry()
 
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),            
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
 
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::Bond,

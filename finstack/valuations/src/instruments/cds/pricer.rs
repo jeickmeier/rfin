@@ -15,9 +15,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
@@ -271,14 +271,7 @@ impl CDSPricer {
                 self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv)
             }
             IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => {
-                self.accrual_on_default_adaptive(
-                    spread,
-                    t_start,
-                    t_end,
-                    period_length,
-                    disc,
-                    surv,
-                )
+                self.accrual_on_default_adaptive(spread, t_start, t_end, period_length, disc, surv)
             }
             IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
                 spread,
@@ -517,6 +510,22 @@ impl CDSPricer {
     }
 
     /// Calculate par spread (bps) that sets NPV to zero
+    ///
+    /// # ISDA Standard Par Spread Definition
+    ///
+    /// By default (when `par_spread_uses_full_premium = false`), this implements
+    /// the **ISDA standard definition**:
+    ///
+    /// ```text
+    /// Par Spread = Protection_PV / Risky_Annuity
+    /// ```
+    ///
+    /// where `Risky_Annuity` is the sum of `DF(t) * SP(t) * YearFrac` across
+    /// coupon periods, **excluding** accrual-on-default from the denominator.
+    ///
+    /// When `par_spread_uses_full_premium = true`, the denominator includes the
+    /// full premium leg PV (with accrual-on-default) per basis point. This is
+    /// an opt-in feature for specialized use cases.
     pub fn par_spread(
         &self,
         cds: &CreditDefaultSwap,
@@ -525,8 +534,12 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
+        
+        // FIX: Strict ISDA Standard Par Spread
+        // Default behavior (par_spread_uses_full_premium = false) uses Risky Annuity only.
+        // This excludes accrual-on-default from the denominator per ISDA convention.
         let denom = if self.config.par_spread_uses_full_premium {
-            // Compute premium PV per 1bp including AoD
+            // Opt-in: Compute full premium PV per 1bp including AoD
             let base_date = disc.base_date();
             let schedule = self.generate_schedule(cds, as_of)?;
             let mut ann = 0.0;
@@ -546,11 +559,15 @@ impl CDSPricer {
             }
             ann
         } else {
+            // ISDA Standard: Risky Annuity (sum of DF * SP * YearFrac)
             self.risky_annuity(cds, disc, surv, as_of)?
         };
+        
         if denom.abs() < 1e-12 {
             return Err(finstack_core::Error::Internal);
         }
+        
+        // Result in Basis Points
         Ok(protection_pv.amount() / (denom * cds.notional.amount()) * 10000.0)
     }
 
@@ -790,9 +807,11 @@ impl CDSBootstrapper {
         // Objective function: ParSpread(h) - TargetSpread = 0
         let objective = |h: f64| -> f64 {
             // Create temp hazard curve with flat rate h
-            // Note: We handle errors inside by returning NaN to solver or panicking 
+            // Note: We handle errors inside by returning NaN to solver or panicking
             // (BrentSolver requires infallible closure, so we assume creation succeeds for valid h)
-            let surv = self.create_flat_hazard_curve(h, cds).expect("Hazard curve creation failed");
+            let surv = self
+                .create_flat_hazard_curve(h, cds)
+                .expect("Hazard curve creation failed");
             match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
                 Ok(spread) => spread - target_spread_bps,
                 Err(_) => f64::NAN, // Signal invalid region to solver
@@ -802,7 +821,7 @@ impl CDSBootstrapper {
         // Initial guess using credit triangle approximation: h ~ S / (1-R)
         let initial_guess = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
         let bracket_min = 1e-5; // 0.1 bp hazard
-        let bracket_max = 1.0;  // 100% hazard
+        let bracket_max = 1.0; // 100% hazard
 
         let solver = BrentSolver {
             tolerance: self.config.bootstrap_tolerance,
