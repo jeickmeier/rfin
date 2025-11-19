@@ -276,6 +276,13 @@ pub fn generate_cashflows(
     // Step 2: Interest and fees per period end (using time-dependent outstanding)
     let dc = loan.day_count;
     let mut prev = dates[0];
+
+    // Resolve forward curve once if floating rate
+    let fwd_curve = match &loan.rate {
+        super::types::RateSpec::Floating(spec) => Some(market.get_forward_ref(&spec.index_id)?),
+        _ => None,
+    };
+
     for &d in dates.iter().skip(1) {
         if d <= as_of {
             prev = d;
@@ -292,16 +299,19 @@ pub fn generate_cashflows(
             super::types::RateSpec::Floating(spec) => {
                 // Use centralized projection with total margin (base + step-ups + overrides)
                 let total_spread = margin_bp_at(loan, d);
-                crate::cashflow::builder::project_floating_rate_simple(
-                    prev,
-                    yf,
-                    spec.index_id.as_str(),
-                    total_spread,
-                    spec.gearing,
-                    spec.floor_bp,
-                    spec.cap_bp,
-                    market,
-                )?
+                if let Some(fwd) = fwd_curve {
+                    crate::cashflow::builder::project_floating_rate_simple_with_curve(
+                        prev,
+                        yf,
+                        total_spread,
+                        spec.gearing,
+                        spec.floor_bp,
+                        spec.cap_bp,
+                        fwd,
+                    )?
+                } else {
+                    unreachable!("Forward curve resolved before loop for floating rate");
+                }
             }
         };
 

@@ -153,6 +153,28 @@ pub(super) fn project_floating_rate(
     )
 }
 
+/// Project floating rate for revolving credit facility using resolved curve.
+///
+/// Optimized version of `project_floating_rate` that avoids curve lookup.
+pub(super) fn project_floating_rate_with_curve(
+    reset_date: finstack_core::dates::Date,
+    reset_freq: &finstack_core::dates::Frequency,
+    spread_bp: f64,
+    floor_bp: Option<f64>,
+    fwd: &finstack_core::market_data::term_structures::ForwardCurve,
+    attrs: &Attributes,
+) -> Result<f64> {
+    // Compute reset period end using facility calendar
+    let reset_end = compute_reset_period_end(reset_date, reset_freq, attrs)?;
+
+    // Delegate to centralized projection (revolving credit doesn't use caps or gearing)
+    crate::cashflow::builder::project_floating_rate_with_curve(
+        reset_date, reset_end, spread_bp, 1.0, // gearing = 1.0
+        floor_bp, None, // revolving credit doesn't use caps
+        fwd,
+    )
+}
+
 /// Apply a draw/repay event to current balance with commitment limit validation.
 ///
 /// Updates the balance by adding (draw) or subtracting (repayment) the event amount.

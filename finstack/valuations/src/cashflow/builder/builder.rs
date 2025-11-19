@@ -49,7 +49,9 @@ use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::InputError;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use std::sync::Arc;
 
 use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
@@ -254,6 +256,7 @@ fn process_one_date(
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
     curves: Option<&finstack_core::market_data::MarketContext>,
+    resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<BuildState> {
     // Coupons
     let (pik_f, mut fixed_flows) = emit_fixed_coupons_on(
@@ -270,6 +273,7 @@ fn process_one_date(
         state.outstanding,
         ctx.ccy,
         curves,
+        resolved_curves,
     )?;
     let pik_to_add = pik_f + pik_fl;
     state.flows.append(&mut fixed_flows);
@@ -1002,9 +1006,23 @@ impl CashflowBuilder {
             fixed_fees: &fixed_fees,
         };
 
+        // Resolve curves upfront
+        let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
+            float_schedules
+                .iter()
+                .map(|(spec, _, _)| {
+                    mkt.get_forward_ref(spec.rate_spec.index_id.as_str())
+                        .ok()
+                        .cloned()
+                })
+                .collect()
+        } else {
+            vec![None; float_schedules.len()]
+        };
+
         // 6) Fold over dates producing flows deterministically
         for &d in dates.iter().skip(1) {
-            state = process_one_date(d, state, &ctx, &amort_setup, curves)?;
+            state = process_one_date(d, state, &ctx, &amort_setup, curves, &resolved_curves)?;
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)

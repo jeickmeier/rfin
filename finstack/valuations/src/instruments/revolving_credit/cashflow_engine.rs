@@ -191,6 +191,18 @@ impl<'a> CashflowEngine<'a> {
             (self.payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2,
         );
 
+        // Resolve forward curve once if floating rate
+        let fwd_curve = match &self.facility.base_rate_spec {
+            BaseRateSpec::Floating(spec) => {
+                if let Some(market) = self.market {
+                    market.get_forward_ref(&spec.index_id).ok()
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
         for i in 0..(self.payment_dates.len() - 1) {
             let period_start = self.payment_dates[i];
             let period_end = self.payment_dates[i + 1];
@@ -292,15 +304,14 @@ impl<'a> CashflowEngine<'a> {
                     }
                     BaseRateSpec::Floating(spec) => {
                         let mut coupon_rate = spec.spread_bp * 1e-4;
-                        if let Some(market) = self.market {
+                        if let Some(fwd) = fwd_curve {
                             if let Some(reset_d) = sub_reset_date {
-                                if let Ok(rate) = super::utils::project_floating_rate(
+                                if let Ok(rate) = super::utils::project_floating_rate_with_curve(
                                     reset_d,
                                     &spec.reset_freq,
-                                    spec.index_id.as_str(),
                                     spec.spread_bp,
                                     spec.floor_bp,
-                                    market,
+                                    fwd,
                                     &self.facility.attributes,
                                 ) {
                                     coupon_rate = rate;

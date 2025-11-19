@@ -3,7 +3,9 @@
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use std::sync::Arc;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
@@ -89,12 +91,15 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    curves: Option<&finstack_core::market_data::MarketContext>,
+    _curves: Option<&finstack_core::market_data::MarketContext>,
+    resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;
     let mut new_flows: Vec<CashFlow> = Vec::new();
 
-    for (spec, _dates, prev_map) in float_schedules {
+    for ((spec, _dates, prev_map), resolved_curve) in
+        float_schedules.iter().zip(resolved_curves.iter())
+    {
         if let Some(prev) = prev_map.get(&d).copied() {
             let base_out = *outstanding_after
                 .get(&prev)
@@ -126,17 +131,16 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
             )?;
 
             // Compute total rate using centralized projection with floor/cap support
-            let total_rate = if let Some(ctx) = curves {
+            let total_rate = if let Some(fwd) = resolved_curve {
                 // Use centralized floating rate projection
-                match super::super::rate_helpers::project_floating_rate(
+                match super::super::rate_helpers::project_floating_rate_with_curve(
                     reset_date,
                     d, // Use payment date as period end approximation
-                    spec.rate_spec.index_id.as_str(),
                     spec.rate_spec.spread_bp,
                     spec.rate_spec.gearing,
                     spec.rate_spec.floor_bp,
                     spec.rate_spec.cap_bp,
-                    ctx,
+                    fwd,
                 ) {
                     Ok(rate) => rate,
                     Err(_) => {

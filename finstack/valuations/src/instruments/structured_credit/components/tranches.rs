@@ -151,15 +151,14 @@ impl TrancheCoupon {
                 let tenor = fwd.tenor();
                 let period_end_approx = date + time::Duration::days((tenor * 365.25) as i64);
 
-                crate::cashflow::builder::project_floating_rate(
+                crate::cashflow::builder::project_floating_rate_with_curve(
                     date,
                     period_end_approx,
-                    spec.index_id.as_str(),
                     spec.spread_bp,
                     spec.gearing,
                     spec.floor_bp,
                     spec.cap_bp,
-                    context,
+                    fwd,
                 )
                 .unwrap_or(spec.spread_bp / 10_000.0)
             }
