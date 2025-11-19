@@ -7,7 +7,6 @@
 
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
-use finstack_core::progress::ProgressReporter;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
@@ -98,9 +97,6 @@ pub struct CalibrationConfig {
     /// Explanation options (opt-in detailed trace)
     #[serde(skip)]
     pub explain: ExplainOpts,
-    /// Progress reporter for long-running calibrations (opt-in)
-    #[serde(skip)]
-    pub progress: ProgressReporter,
     /// Runtime validation mode (warnings vs errors). Feature `strict_validation` may still harden checks.
     pub validation_mode: ValidationMode,
 }
@@ -118,7 +114,6 @@ impl Default for CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
-            progress: ProgressReporter::default(), // Disabled by default (zero overhead)
             validation_mode: ValidationMode::Warn,
         }
     }
@@ -146,29 +141,6 @@ impl CalibrationConfig {
     /// Set custom explanation options.
     pub fn with_explain_opts(mut self, opts: ExplainOpts) -> Self {
         self.explain = opts;
-        self
-    }
-
-    /// Enable progress reporting with a callback.
-    ///
-    /// The callback will be invoked periodically during calibration to report progress.
-    /// Useful for long-running calibrations with many instruments.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use finstack_valuations::calibration::CalibrationConfig;
-    /// use finstack_core::progress::ProgressReporter;
-    /// use std::sync::Arc;
-    ///
-    /// let reporter = ProgressReporter::with_callback(Arc::new(|current, total, msg| {
-    ///     println!("{}: {}/{}", msg, current, total);
-    /// }));
-    ///
-    /// let config = CalibrationConfig::default().with_progress(reporter);
-    /// ```
-    pub fn with_progress(mut self, reporter: ProgressReporter) -> Self {
-        self.progress = reporter;
         self
     }
 
@@ -205,7 +177,6 @@ impl CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
-            progress: ProgressReporter::default(),
             validation_mode: ValidationMode::Warn,
         }
     }
@@ -243,7 +214,6 @@ impl CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
-            progress: ProgressReporter::default(),
             validation_mode: ValidationMode::Warn,
         }
     }
@@ -281,7 +251,6 @@ impl CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),
-            progress: ProgressReporter::default(),
             validation_mode: ValidationMode::Warn,
         }
     }

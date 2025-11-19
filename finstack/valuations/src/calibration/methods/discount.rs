@@ -129,12 +129,6 @@ impl DiscountCurveCalibrator {
             None
         };
 
-        // Report initial progress
-        let total_quotes = sorted_quotes.len();
-        self.config
-            .progress
-            .report(0, total_quotes, "Starting calibration");
-
         for (idx, quote) in sorted_quotes.iter().enumerate() {
             let maturity_date = quote.maturity_date();
             // Use instrument-specific day count for curve time at this knot
@@ -456,13 +450,6 @@ impl DiscountCurveCalibrator {
                     self.config.explain.max_entries,
                 );
             }
-
-            // Report progress
-            self.config.progress.report(
-                idx + 1,
-                total_quotes,
-                &format!("Calibrated {} instruments", idx + 1),
-            );
         }
 
         // Build final discount curve with configured interpolation
@@ -508,11 +495,6 @@ impl DiscountCurveCalibrator {
         if let Some(explanation) = trace {
             report = report.with_explanation(explanation);
         }
-
-        // Report completion
-        self.config
-            .progress
-            .report_force(total_quotes, total_quotes, "Calibration complete");
 
         Ok((curve, report))
     }

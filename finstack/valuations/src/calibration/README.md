@@ -235,7 +235,6 @@ CalibrationConfig {
     multi_curve: MultiCurveConfig,
     use_fd_sabr_gradients: bool, // FD vs analytical for SABR
     explain: ExplainOpts,        // Explanation tracing
-    progress: ProgressReporter,  // Progress callbacks
     validation_mode: ValidationMode,
 }
 ```
@@ -711,24 +710,16 @@ if report.iterations >= report.results_meta.max_iterations {
 }
 ```
 
-### Example 7: Progress Reporting and Explanation
+### Example 7: Explanation Tracing
 
 ```rust
 use finstack_valuations::calibration::{
     DiscountCurveCalibrator, CalibrationConfig, Calibrator
 };
-use finstack_core::progress::ProgressReporter;
 use finstack_core::explain::ExplainOpts;
-use std::sync::Arc;
-
-// Set up progress callback
-let reporter = ProgressReporter::with_callback(Arc::new(|current, total, msg| {
-    println!("[{}/{}] {}", current, total, msg);
-}));
 
 // Enable explanation tracing
 let config = CalibrationConfig::default()
-    .with_progress(reporter)
     .with_explain();  // Enable detailed trace
 
 let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
@@ -737,11 +728,6 @@ let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::US
 // ... define quotes ...
 
 let (curve, report) = calibrator.calibrate(&quotes, &MarketContext::new())?;
-
-// Progress will print during calibration:
-// [1/5] Calibrating deposit at 2025-01-16
-// [2/5] Calibrating swap at 2025-04-15
-// ...
 
 // Inspect explanation trace
 if let Some(trace) = &report.explanation {

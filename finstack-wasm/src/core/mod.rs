@@ -6,7 +6,6 @@ pub mod explain;
 pub mod market_data;
 pub mod math;
 pub mod money;
-pub mod progress;
 
 pub(crate) mod common;
 pub(crate) mod error;

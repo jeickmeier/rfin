@@ -82,7 +82,6 @@ fn test_calibration_config_serialization() {
         },
         use_fd_sabr_gradients: false,
         explain: finstack_core::explain::ExplainOpts::default(),
-        progress: finstack_core::progress::ProgressReporter::default(),
         ..CalibrationConfig::default()
     };
 
@@ -610,7 +609,6 @@ fn test_complex_calibration_workflow_serialization() {
         },
         use_fd_sabr_gradients: true,
         explain: finstack_core::explain::ExplainOpts::default(),
-        progress: finstack_core::progress::ProgressReporter::default(),
         ..CalibrationConfig::default()
     };
 

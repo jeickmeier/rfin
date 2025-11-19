@@ -54,8 +54,6 @@ pub mod prelude;
 
 /// Explainability infrastructure (opt-in tracing)
 pub mod explain;
-/// Progress reporting for long-running operations
-pub mod progress;
 
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
