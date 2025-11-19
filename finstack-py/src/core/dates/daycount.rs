@@ -1,7 +1,7 @@
 use super::calendar::PyCalendar;
 use super::schedule::PyFrequency;
 use crate::core::common::labels::normalize_label;
-use crate::core::error::{calendar_not_found, core_to_py};
+use crate::errors::{calendar_not_found, core_to_py};
 use crate::core::utils::py_to_date;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{

@@ -1,9 +1,9 @@
 use crate::core::common::args::DayCountArg;
-// use crate::core::error::core_to_py; // not used in this module currently
+// use crate::errors::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, PyInstrumentType,
+    frequency_from_payments_per_year, PyInstrumentType,
 };
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
@@ -11,6 +11,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
     if let Some(bound) = dc {
@@ -103,15 +104,15 @@ impl PyInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&end_date)?;
-        let disc = extract_curve_id(&discount_curve)?;
-        let fwd = extract_curve_id(&forward_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = vol_surface.extract::<&str>()?;
         let option = InterestRateOption::new_cap(
             id,
             amt,
@@ -177,15 +178,15 @@ impl PyInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&end_date)?;
-        let disc = extract_curve_id(&discount_curve)?;
-        let fwd = extract_curve_id(&forward_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = vol_surface.extract::<&str>()?;
         let option = InterestRateOption::new_floor(
             id,
             amt,

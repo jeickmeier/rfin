@@ -1,5 +1,5 @@
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};

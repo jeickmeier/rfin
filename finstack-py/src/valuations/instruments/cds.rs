@@ -1,6 +1,6 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::cds::{CreditDefaultSwap, PayReceive};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Pay/receive indicator for CDS premium leg.
 ///
@@ -394,12 +395,12 @@ fn construct_cds(
     recovery_rate: Option<f64>,
     settlement_delay: Option<u16>,
 ) -> PyResult<PyCreditDefaultSwap> {
-    let id = extract_instrument_id(&instrument_id)?;
+    let id = InstrumentId::new(instrument_id.extract::<&str>()?);
     let amt = extract_money(&notional)?;
     let start = py_to_date(&start_date)?;
     let end = py_to_date(&maturity)?;
-    let disc = extract_curve_id(&discount_curve)?;
-    let credit = extract_curve_id(&credit_curve)?;
+    let disc = CurveId::new(discount_curve.extract::<&str>()?);
+    let credit = credit_curve.extract::<&str>()?;
 
     let builder_result = match side {
         PayReceive::PayFixed => {

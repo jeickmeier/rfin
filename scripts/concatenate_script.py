@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
 include_paths = [
-    "finstack/core/tests/",
+    "finstack/valuations/tests/",
 ]
 
 # Option to strip Rust comments (helps conserve tokens)

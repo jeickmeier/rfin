@@ -232,6 +232,23 @@ impl core::fmt::Display for BusinessDayConvention {
     }
 }
 
+impl core::str::FromStr for BusinessDayConvention {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Normalize: trim, lowercase, replace hyphens with underscores
+        let normalized = s.trim().to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "unadjusted" => Ok(BusinessDayConvention::Unadjusted),
+            "following" => Ok(BusinessDayConvention::Following),
+            "modified_following" | "modifiedfollowing" => Ok(BusinessDayConvention::ModifiedFollowing),
+            "preceding" => Ok(BusinessDayConvention::Preceding),
+            "modified_preceding" | "modifiedpreceding" => Ok(BusinessDayConvention::ModifiedPreceding),
+            _ => Err(format!("Unknown business day convention: {}", s)),
+        }
+    }
+}
+
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
 ///
 /// Returns an error if no business day is found within 100 days of the input date.

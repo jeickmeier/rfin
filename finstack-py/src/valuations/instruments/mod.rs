@@ -84,238 +84,59 @@ pub(crate) struct InstrumentHandle {
     pub instrument_type: InstrumentType,
 }
 
-// No generic constructor; map each wrapper explicitly to its inner instrument
+// Macro to reduce boilerplate in instrument extraction
+macro_rules! try_extract {
+    ($value:expr, $py_type:ty, $inst_type:expr) => {
+        if let Ok(obj) = $value.extract::<PyRef<$py_type>>() {
+            return Ok(InstrumentHandle {
+                instrument: Box::new(obj.inner.clone()),
+                instrument_type: $inst_type,
+            });
+        }
+    };
+}
 
 /// Downcast a Python instrument wrapper into a core instrument reference.
 pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<InstrumentHandle> {
-    if let Ok(obj) = value.extract::<PyRef<PyBond>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Bond,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyDeposit>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Deposit,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyBasisSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::BasisSwap,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyForwardRateAgreement>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::FRA,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyInterestRateOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CapFloor,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyInterestRateFuture>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::InterestRateFuture,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyInterestRateSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::IRS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyFxSpot>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::FxSpot,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyFxOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::FxOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyFxSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::FxSwap,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyEquity>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Equity,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyEquityOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::EquityOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyConvertibleBond>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Convertible,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PySwaption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Swaption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyEquityTotalReturnSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::TRS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyFiIndexTotalReturnSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::TRS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyVarianceSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::VarianceSwap,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCreditDefaultSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CDS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCdsIndex>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CDSIndex,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCdsOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CDSOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCdsTranche>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CDSTranche,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyRepo>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Repo,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyInflationLinkedBond>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::InflationLinkedBond,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyInflationSwap>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::InflationSwap,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyStructuredCredit>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::StructuredCredit,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyPrivateMarketsFund>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::PrivateMarketsFund,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyBasket>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Basket,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyAsianOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::AsianOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyAutocallable>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::Autocallable,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyBarrierOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::BarrierOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCliquetOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CliquetOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCmsOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CmsOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyFxBarrierOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::FxBarrierOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyLookbackOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::LookbackOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyQuantoOption>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::QuantoOption,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyRangeAccrual>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::RangeAccrual,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyRevolvingCredit>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::RevolvingCredit,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyTermLoan>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::TermLoan,
-        });
-    }
+    try_extract!(value, PyBond, InstrumentType::Bond);
+    try_extract!(value, PyDeposit, InstrumentType::Deposit);
+    try_extract!(value, PyBasisSwap, InstrumentType::BasisSwap);
+    try_extract!(value, PyForwardRateAgreement, InstrumentType::FRA);
+    try_extract!(value, PyInterestRateOption, InstrumentType::CapFloor);
+    try_extract!(value, PyInterestRateFuture, InstrumentType::InterestRateFuture);
+    try_extract!(value, PyInterestRateSwap, InstrumentType::IRS);
+    try_extract!(value, PyFxSpot, InstrumentType::FxSpot);
+    try_extract!(value, PyFxOption, InstrumentType::FxOption);
+    try_extract!(value, PyFxSwap, InstrumentType::FxSwap);
+    try_extract!(value, PyEquity, InstrumentType::Equity);
+    try_extract!(value, PyEquityOption, InstrumentType::EquityOption);
+    try_extract!(value, PyConvertibleBond, InstrumentType::Convertible);
+    try_extract!(value, PySwaption, InstrumentType::Swaption);
+    try_extract!(value, PyEquityTotalReturnSwap, InstrumentType::TRS);
+    try_extract!(value, PyFiIndexTotalReturnSwap, InstrumentType::TRS);
+    try_extract!(value, PyVarianceSwap, InstrumentType::VarianceSwap);
+    try_extract!(value, PyCreditDefaultSwap, InstrumentType::CDS);
+    try_extract!(value, PyCdsIndex, InstrumentType::CDSIndex);
+    try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
+    try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
+    try_extract!(value, PyRepo, InstrumentType::Repo);
+    try_extract!(value, PyInflationLinkedBond, InstrumentType::InflationLinkedBond);
+    try_extract!(value, PyInflationSwap, InstrumentType::InflationSwap);
+    try_extract!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
+    try_extract!(value, PyPrivateMarketsFund, InstrumentType::PrivateMarketsFund);
+    try_extract!(value, PyBasket, InstrumentType::Basket);
+    try_extract!(value, PyAsianOption, InstrumentType::AsianOption);
+    try_extract!(value, PyAutocallable, InstrumentType::Autocallable);
+    try_extract!(value, PyBarrierOption, InstrumentType::BarrierOption);
+    try_extract!(value, PyCliquetOption, InstrumentType::CliquetOption);
+    try_extract!(value, PyCmsOption, InstrumentType::CmsOption);
+    try_extract!(value, PyFxBarrierOption, InstrumentType::FxBarrierOption);
+    try_extract!(value, PyLookbackOption, InstrumentType::LookbackOption);
+    try_extract!(value, PyQuantoOption, InstrumentType::QuantoOption);
+    try_extract!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
+    try_extract!(value, PyRevolvingCredit, InstrumentType::RevolvingCredit);
+    try_extract!(value, PyTermLoan, InstrumentType::TermLoan);
+    
     Err(PyTypeError::new_err(
         "Unsupported instrument type; construct instruments from finstack.valuations",
     ))

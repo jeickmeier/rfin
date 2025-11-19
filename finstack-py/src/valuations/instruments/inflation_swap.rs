@@ -1,7 +1,7 @@
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use pyo3::exceptions::PyValueError;
@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
     match label {
@@ -106,11 +107,11 @@ impl PyInflationSwap {
         lag_override: Option<&str>,
         inflation_curve: Option<&str>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&maturity)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
         let side_value = parse_side(side)?;
         let dc = if let Some(name) = day_count {
             match crate::core::common::labels::normalize_label(name).as_str() {

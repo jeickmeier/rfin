@@ -1,4 +1,4 @@
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::utils::py_to_date;
 use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
@@ -16,6 +16,7 @@ use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
+use rayon::prelude::*;
 use std::sync::Arc;
 
 /// Default pricing date used when no explicit `as_of` parameter is provided.
@@ -113,6 +114,62 @@ impl PyPricerRegistry {
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
+    }
+
+    #[pyo3(signature = (instruments, model, market, as_of=None), text_signature = "(self, instruments, model, market, as_of=None)")]
+    /// Price a batch of instruments in parallel.
+    ///
+    /// Args:
+    ///     instruments: List of instruments to price.
+    ///     model: Pricing model key or name.
+    ///     market: Market context.
+    ///     as_of: Optional valuation date.
+    ///
+    /// Returns:
+    ///     list[ValuationResult]: List of results in the same order as instruments.
+    fn price_batch(
+        &self,
+        py: Python<'_>,
+        instruments: Vec<Bound<'_, PyAny>>,
+        model: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Vec<PyValuationResult>> {
+        let ModelKeyArg(model_key) = model.extract()?;
+
+        let as_of_date = match as_of {
+            Some(date) => py_to_date(&date)?,
+            None => default_pricing_date(),
+        };
+
+        // Extract all instruments to Rust types (InstrumentHandle)
+        // This must be done while holding GIL
+        let mut handles = Vec::with_capacity(instruments.len());
+        for inst in instruments {
+            let handle = extract_instrument(&inst)?;
+            handles.push(handle);
+        }
+
+        // Release GIL and process in parallel
+        let results: Result<Vec<_>, _> = py.allow_threads(|| {
+            handles
+                .par_iter()
+                .map(|handle| {
+                    self.inner
+                        .price_with_registry(
+                            handle.instrument.as_ref(),
+                            model_key,
+                            &market.inner,
+                            as_of_date,
+                        )
+                })
+                .collect()
+        });
+
+        match results {
+            Ok(vec) => Ok(vec.into_iter().map(PyValuationResult::new).collect()),
+            Err(e) => Err(pricing_error_to_py(e)),
+        }
     }
 
     #[pyo3(signature = (instrument, model, market, metrics, as_of=None), text_signature = "(self, instrument, model, market, metrics, as_of=None)")]

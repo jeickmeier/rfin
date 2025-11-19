@@ -4,7 +4,7 @@
 //! `ScalarTimeSeries` for dated observations with configurable interpolation.
 //! Use `SeriesInterpolation` to control step vs linear behavior between points.
 use crate::core::currency::PyCurrency;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::PyMoney;
 use crate::core::utils::py_to_date;
 use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};

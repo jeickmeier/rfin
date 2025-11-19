@@ -8,7 +8,7 @@
 // use crate::core::currency::extract_currency; // replaced by CurrencyArg
 use crate::core::common::args::{CurrencyArg, RoundingModeArg};
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::core::error::unknown_rounding_mode;
+use crate::errors::unknown_rounding_mode;
 use finstack_core::config::{FinstackConfig, RoundingMode};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyTypeError;

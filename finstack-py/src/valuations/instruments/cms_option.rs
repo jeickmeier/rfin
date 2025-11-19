@@ -1,11 +1,11 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id};
 use finstack_valuations::instruments::cms_option::CmsOption;
 use finstack_valuations::instruments::OptionType;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// CMS option instrument.
 #[pyclass(module = "finstack.valuations.instruments", name = "CmsOption", frozen)]
@@ -57,9 +57,9 @@ impl PyCmsOption {
         use crate::core::common::labels::normalize_label;
         use finstack_core::dates::DayCount;
 
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
 
         // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();
@@ -83,7 +83,7 @@ impl PyCmsOption {
             }
         };
 
-        let vol_surface_id = vol_surface.map(|v| extract_curve_id(&v).ok()).flatten();
+        let vol_surface_id = vol_surface.and_then(|v| v.extract::<&str>().ok().map(|s| CurveId::new(s)));
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);

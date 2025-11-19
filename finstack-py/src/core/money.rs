@@ -7,12 +7,12 @@
 //! supported for ergonomics and interoperability with Python code.
 use crate::core::config::PyFinstackConfig;
 use crate::core::currency::{extract_currency, PyCurrency};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use finstack_core::money::Money;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyTuple, PyType};
+use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyType};
 use pyo3::{Bound, IntoPyObjectExt};
 use std::fmt;
 
@@ -382,17 +382,7 @@ pub(crate) fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
         return Ok(mny.inner);
     }
 
-    if let Ok(tuple) = value.downcast::<PyTuple>() {
-        if tuple.len() == 2 {
-            let amount_item = tuple.get_item(0)?;
-            let amount = amount_item.extract::<f64>()?;
-            let ccy_item = tuple.get_item(1)?;
-            let ccy = extract_currency(&ccy_item)?;
-            return Ok(Money::new(amount, ccy));
-        }
-    }
-
     Err(PyTypeError::new_err(
-        "Expected Money instance or (amount, currency) tuple",
+        "Expected Money instance",
     ))
 }

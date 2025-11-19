@@ -1,5 +1,5 @@
 use crate::core::currency::PyCurrency;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::PyMoney;
 use crate::core::utils::date_to_py;
 use crate::valuations::common::PyInstrumentType;

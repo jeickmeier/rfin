@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 
 use super::callable::CallableAdapter;
 

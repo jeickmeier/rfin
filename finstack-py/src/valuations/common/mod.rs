@@ -1,6 +1,5 @@
 use crate::core::common::labels::normalize_label;
 use crate::core::common::pycmp::richcmp_eq_ne;
-use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::pricer::{InstrumentType, ModelKey, PricerKey, PricingError};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
@@ -444,25 +443,6 @@ pub(crate) fn pricing_error_to_py(err: PricingError) -> PyErr {
     }
 }
 
-/// Parse a curve identifier from a Python object (string expected).
-pub(crate) fn extract_curve_id(value: &Bound<'_, PyAny>) -> PyResult<CurveId> {
-    if let Ok(id) = value.extract::<&str>() {
-        return Ok(CurveId::new(id));
-    }
-    Err(PyTypeError::new_err(
-        "Expected curve identifier string (e.g. 'USD-OIS')",
-    ))
-}
-
-/// Parse an instrument identifier from a Python object (string expected).
-pub(crate) fn extract_instrument_id(value: &Bound<'_, PyAny>) -> PyResult<InstrumentId> {
-    if let Ok(id) = value.extract::<&str>() {
-        return Ok(InstrumentId::new(id));
-    }
-    Err(PyTypeError::new_err(
-        "Expected instrument identifier string",
-    ))
-}
 
 /// Convert an optional string to owned String.
 pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
@@ -525,8 +505,6 @@ pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    use crate::core::common::reexport::reexport_from_submodule;
-
     let module = PyModule::new(py, "common")?;
     module.setattr(
         "__doc__",
@@ -541,9 +519,6 @@ pub(crate) fn register<'py>(
 
     // Register Monte Carlo submodule
     let mc_exports = mc::register(py, &module)?;
-
-    // Re-export mc classes at the common module level for convenience
-    reexport_from_submodule(&module, "mc", &mc_exports)?;
 
     // Combine all exports
     let mut all_exports = vec!["InstrumentType", "ModelKey", "PricerKey"];

@@ -1,6 +1,6 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::common::parameters::OptionType;
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_settlement(label: Option<&str>) -> PyResult<SwaptionSettlement> {
     match label {
@@ -221,13 +222,13 @@ fn construct_swaption(
     settlement: Option<&str>,
     payer: bool,
 ) -> PyResult<PySwaption> {
-    let id = extract_instrument_id(&instrument_id)?;
+    let id = InstrumentId::new(instrument_id.extract::<&str>()?);
     let amt = extract_money(&notional)?;
     let expiry_date = py_to_date(&expiry)?;
     let start = py_to_date(&swap_start)?;
     let end = py_to_date(&swap_end)?;
-    let disc = extract_curve_id(&discount_curve)?;
-    let fwd = extract_curve_id(&forward_curve)?;
+    let disc = CurveId::new(discount_curve.extract::<&str>()?);
+    let fwd = CurveId::new(forward_curve.extract::<&str>()?);
     let exercise_style = parse_exercise(exercise)?;
     let settlement_type = parse_settlement(settlement)?;
 
@@ -237,7 +238,7 @@ fn construct_swaption(
         SwaptionParams::receiver(amt, strike, expiry_date, start, end)
     };
 
-    let vol_surface_id = extract_curve_id(&vol_surface)?;
+    let vol_surface_id = vol_surface.extract::<&str>()?;
 
     let mut swaption = if payer {
         Swaption::new_payer(id.clone(), &params, disc, fwd, vol_surface_id)

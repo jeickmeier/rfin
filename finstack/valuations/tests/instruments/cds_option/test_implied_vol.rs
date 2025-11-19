@@ -98,10 +98,11 @@ fn test_implied_vol_moneyness_independence() {
         // For far OTM/ITM strikes, tolerance is slightly relaxed
         // Note: statrs provides more accurate implementations than custom approximations,
         // causing slight differences in numerical precision for edge cases
+        // Updated tolerance to account for small differences introduced by ISDA Standard Model
         let tolerance = if !(150.0..=220.0).contains(&strike) {
-            1e-5
+            1.5e-5
         } else {
-            2e-6
+            3e-6
         };
         assert_approx_eq(
             solved_iv,

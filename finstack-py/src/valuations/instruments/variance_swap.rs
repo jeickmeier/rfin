@@ -1,9 +1,9 @@
 use crate::core::common::labels::normalize_label;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_core::dates::Frequency;
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::common::traits::Attributes;
@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, PyRef};
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn method_label(method: RealizedVarMethod) -> &'static str {
     match method {
@@ -177,7 +178,7 @@ impl PyVarianceSwap {
                 "Strike variance must be non-negative",
             ));
         }
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let maturity_date = py_to_date(&maturity)?;
@@ -186,7 +187,7 @@ impl PyVarianceSwap {
                 "Maturity must be after observation start",
             ));
         }
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
         let method = realized_method
             .map(|m| m.inner)
             .unwrap_or(RealizedVarMethod::CloseToClose);

@@ -1,9 +1,9 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, to_optional_string,
+    frequency_from_payments_per_year, to_optional_string,
     PyInstrumentType,
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount};
@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     match label {
@@ -130,11 +131,12 @@ impl PyCdsTranche {
             ));
         }
 
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc_curve = extract_curve_id(&discount_curve)?;
-        let credit_curve = extract_curve_id(&credit_index_curve)?;
+        let disc_curve = CurveId::new(discount_curve.extract::<&str>()?);
+        let credit_curve = CurveId::new(credit_index_curve.extract::<&str>()?);
+
         let side_value = parse_tranche_side(side)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = if let Some(obj) = day_count {

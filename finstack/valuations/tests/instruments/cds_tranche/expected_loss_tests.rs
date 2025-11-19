@@ -229,7 +229,7 @@ fn test_hetero_spa_matches_homogeneous_when_issuers_identical() {
     assert_relative_eq(
         el_hetero,
         el_homo,
-        0.02,
+        0.0001,
         "Hetero SPA should match homogeneous when issuers identical",
     );
 }

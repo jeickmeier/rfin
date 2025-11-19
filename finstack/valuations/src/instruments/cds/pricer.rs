@@ -33,6 +33,8 @@ pub enum IntegrationMethod {
     AdaptiveSimpson,
     /// ISDA standard integration with exact points
     IsdaExact,
+    /// ISDA Standard Model (analytical integration over piecewise constant rates)
+    IsdaStandardModel,
 }
 
 /// Configuration for CDS pricing
@@ -80,7 +82,7 @@ impl CDSPricerConfig {
             include_accrual: true,
             exact_daycount: true,
             tolerance: NUMERICAL_TOLERANCE,
-            integration_method: IntegrationMethod::IsdaExact,
+            integration_method: IntegrationMethod::IsdaStandardModel,
             use_isda_coupon_dates: true,
             par_spread_uses_full_premium: false,
             gl_order: 8,
@@ -200,6 +202,9 @@ impl CDSPricer {
             IntegrationMethod::IsdaExact => {
                 self.protection_leg_isda_exact(t_start, t_end, recovery, delay_years, disc, surv)?
             }
+            IntegrationMethod::IsdaStandardModel => {
+                self.protection_leg_isda_standard_model(t_start, t_end, recovery, delay_years, disc, surv)?
+            }
         };
 
         Ok(Money::new(
@@ -274,6 +279,14 @@ impl CDSPricer {
                 self.accrual_on_default_adaptive(spread, t_start, t_end, period_length, disc, surv)
             }
             IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
+                spread,
+                t_start,
+                t_end,
+                period_length,
+                disc,
+                surv,
+            ),
+            IntegrationMethod::IsdaStandardModel => self.accrual_on_default_isda_standard_model(
                 spread,
                 t_start,
                 t_end,
@@ -364,6 +377,71 @@ impl CDSPricer {
             let df = disc.df(t);
             accrual_pv += spread * accrual_fraction * default_prob * df * dt;
         }
+        Ok(accrual_pv)
+    }
+
+    fn accrual_on_default_isda_standard_model(
+        &self,
+        spread: f64,
+        t_start: f64,
+        _t_end: f64,
+        period_length: f64,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+    ) -> Result<f64> {
+        let steps = isda::STANDARD_INTEGRATION_POINTS;
+        let dt = period_length / steps as f64;
+        let mut accrual_pv = 0.0;
+        
+        for i in 0..steps {
+            let t1 = t_start + i as f64 * dt;
+            let t2 = t1 + dt;
+            let sp1 = if t1 >= 0.0 { surv.sp(t1) } else { 1.0 };
+            let sp2 = surv.sp(t2);
+            
+            if sp1 > 0.0 && sp2 < sp1 {
+                // Calculate piecewise constant hazard rate
+                let hazard_rate = -(sp2 / sp1).ln() / dt;
+                
+                // Get discount factors at both ends
+                let df1 = disc.df(t1);
+                let df2 = disc.df(t2);
+                
+                // Calculate piecewise constant interest rate
+                let interest_rate = if df1 > 0.0 && df2 > 0.0 && df2 < df1 {
+                    -(df2 / df1).ln() / dt
+                } else {
+                    0.0
+                };
+                
+                // ISDA Standard Model analytical integration for accrual on default:
+                // We need ∫[t1,t2] (t - t_start) * D(t) * λ * S(t) dt
+                // where D(t) = D(t1) * exp(-r*(t-t1)) and S(t) = S(t1) * exp(-λ*(t-t1))
+                // 
+                // Let τ = t - t1, then the integral becomes:
+                // D(t1) * S(t1) * ∫[0,dt] (t_start - t1 + τ) * exp(-(r+λ)*τ) * λ dτ
+                // = D(t1) * S(t1) * λ * [(t1 - t_start) * I0 + I1]
+                // where I0 = ∫exp(-(r+λ)*τ)dτ and I1 = ∫τ*exp(-(r+λ)*τ)dτ
+                
+                let lambda_plus_r = hazard_rate + interest_rate;
+                
+                if lambda_plus_r.abs() > 1e-10 {
+                    let exp_term = (-lambda_plus_r * dt).exp();
+                    // I0 = [1 - exp(-k*dt)] / k
+                    let i0 = (1.0 - exp_term) / lambda_plus_r;
+                    // I1 = [1 - exp(-k*dt)*(1 + k*dt)] / k^2
+                    let i1 = (1.0 - exp_term * (1.0 + lambda_plus_r * dt)) / (lambda_plus_r * lambda_plus_r);
+                    
+                    accrual_pv += spread * df1 * sp1 * hazard_rate * ((t1 - t_start) * i0 + i1);
+                } else {
+                    // Fallback: midpoint approximation for very small rates
+                    let t_mid = (t1 + t2) * 0.5;
+                    let accrued_time = t_mid - t_start;
+                    accrual_pv += spread * accrued_time * (sp1 - sp2) * df1;
+                }
+            }
+        }
+        
         Ok(accrual_pv)
     }
 
@@ -473,6 +551,62 @@ impl CDSPricer {
                 }
             }
         }
+        Ok(integral * lgd)
+    }
+
+    fn protection_leg_isda_standard_model(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+    ) -> Result<f64> {
+        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
+            return Err(Error::Internal);
+        }
+        let lgd = 1.0 - recovery;
+        let steps_per_period = isda::STANDARD_INTEGRATION_POINTS;
+        let dt = (t_end - t_start) / steps_per_period as f64;
+        let mut integral = 0.0;
+        
+        for i in 0..steps_per_period {
+            let t1 = t_start + i as f64 * dt;
+            let t2 = t1 + dt;
+            let sp1 = surv.sp(t1);
+            let sp2 = surv.sp(t2);
+            
+            if sp1 > sp2 && sp1 > 0.0 {
+                // Calculate piecewise constant hazard rate for this interval
+                let hazard_rate = -(sp2 / sp1).ln() / dt;
+                
+                // Get discount factors at both ends
+                let df1 = disc.df(t1 + delay_years);
+                let df2 = disc.df(t2 + delay_years);
+                
+                // Calculate piecewise constant interest rate
+                let interest_rate = if df1 > 0.0 && df2 > 0.0 && df2 < df1 {
+                    -(df2 / df1).ln() / dt
+                } else {
+                    0.0
+                };
+                
+                // ISDA Standard Model analytical integration:
+                // For piecewise constant hazard (λ) and interest (r) rates:
+                // ∫[t1,t2] D(t) * (-dS(t)) dt = D(t1) * S(t1) * [λ/(λ+r)] * [1 - exp(-(λ+r)*Δt)]
+                let lambda_plus_r = hazard_rate + interest_rate;
+                
+                if lambda_plus_r.abs() > 1e-10 {
+                    let exp_term = (-lambda_plus_r * dt).exp();
+                    integral += df1 * sp1 * (hazard_rate / lambda_plus_r) * (1.0 - exp_term);
+                } else {
+                    // Fallback to simple approximation when rates are very small
+                    integral += df1 * sp1 * hazard_rate * dt;
+                }
+            }
+        }
+        
         Ok(integral * lgd)
     }
 

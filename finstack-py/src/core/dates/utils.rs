@@ -8,11 +8,6 @@ use finstack_core::dates::utils as core_utils;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use time::Date;
-
-fn to_time_date(days: i32) -> Date {
-    core_utils::days_since_epoch_to_date(days)
-}
 
 /// Add a number of calendar months to a date (preserving end-of-month logic).
 ///
@@ -130,7 +125,7 @@ fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
 ///     Date corresponding to the epoch offset.
 #[pyfunction(name = "days_since_epoch_to_date", text_signature = "(days)")]
 fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<PyObject> {
-    let date = to_time_date(days);
+    let date = core_utils::days_since_epoch_to_date(days);
     date_to_py(py, date)
 }
 

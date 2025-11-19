@@ -1,7 +1,7 @@
-// use crate::core::error::core_to_py; // not used directly
+// use crate::errors::core_to_py; // not used directly
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use crate::valuations::instruments::cds::normalize_cds_side;
 use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::cds::{CDSConvention, PayReceive};
@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::InstrumentId;
 
 /// CDS index instrument binding exposing a simplified constructor.
 ///
@@ -106,12 +107,12 @@ impl PyCdsIndex {
         recovery_rate: Option<f64>,
         index_factor: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&maturity)?;
-        let disc_curve = extract_curve_id(&discount_curve)?;
-        let credit_curve_id = extract_curve_id(&credit_curve)?;
+        let disc_curve = discount_curve.extract::<&str>()?;
+        let credit_curve_id = credit_curve.extract::<&str>()?;
         let side_value = normalize_cds_side(side.unwrap_or("pay_protection"))?;
         let recovery = recovery_rate.unwrap_or(isda::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
@@ -127,7 +128,7 @@ impl PyCdsIndex {
         let construction =
             CDSIndexConstructionParams::new(notional_money, side_value, CDSConvention::IsdaNa);
         let credit_params =
-            CreditParams::new(index_name.to_string(), recovery, credit_curve_id.clone());
+            CreditParams::new(index_name.to_string(), recovery, credit_curve_id);
 
         let index = CDSIndex::new_standard(
             id,

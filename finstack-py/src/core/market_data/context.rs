@@ -12,7 +12,7 @@ use super::term_structures::{
     PyBaseCorrelationCurve, PyCreditIndexData, PyDiscountCurve, PyForwardCurve, PyHazardCurve,
     PyInflationCurve,
 };
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
 use pyo3::prelude::*;
@@ -33,8 +33,7 @@ use std::collections::HashMap;
 ///     Mutable aggregation container shared across valuation routines.
 #[pyclass(
     module = "finstack.core.market_data",
-    name = "MarketContext",
-    unsendable
+    name = "MarketContext"
 )]
 #[derive(Clone, Default)]
 pub struct PyMarketContext {

@@ -1,4 +1,4 @@
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::utils::py_to_date;
 use finstack_core::cashflow::xirr as core_xirr;
 use pyo3::prelude::*;

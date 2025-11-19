@@ -1,4 +1,4 @@
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
     PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,

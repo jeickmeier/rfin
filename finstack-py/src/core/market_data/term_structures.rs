@@ -1,8 +1,10 @@
 use super::interp::{parse_extrapolation, parse_interp};
-use crate::core::common::args::{DayCountArg, ExtrapolationPolicyArg, InterpStyleArg};
+use crate::core::common::args::{
+    extract_float_pairs, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg,
+};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
@@ -70,8 +72,7 @@ fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
 ///     Curve object exposing discount factor, zero rate, and forward helpers.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "DiscountCurve",
-    unsendable
+    name = "DiscountCurve"
 )]
 #[derive(Clone)]
 pub struct PyDiscountCurve {
@@ -114,13 +115,14 @@ impl PyDiscountCurve {
     fn ctor(
         id: &str,
         base_date: Bound<'_, PyAny>,
-        knots: Vec<(f64, f64)>,
+        knots: Bound<'_, PyAny>,
         day_count: Option<Bound<'_, PyAny>>,
         interp: Option<Bound<'_, PyAny>>,
         extrapolation: Option<Bound<'_, PyAny>>,
         require_monotonic: bool,
     ) -> PyResult<Self> {
-        if knots.len() < 2 {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.len() < 2 {
             return Err(PyValueError::new_err(
                 "knots must contain at least two (time, df) pairs",
             ));
@@ -164,7 +166,7 @@ impl PyDiscountCurve {
         };
         let mut builder = DiscountCurve::builder(id)
             .base_date(base)
-            .knots(knots)
+            .knots(knots_vec)
             .set_interp(style)
             .extrapolation(extra);
         if let Some(dc) = parse_day_count(day_count)? {
@@ -320,8 +322,7 @@ impl PyDiscountCurve {
 ///     Forward curve wrapper with ``rate`` evaluation helpers.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "ForwardCurve",
-    unsendable
+    name = "ForwardCurve"
 )]
 #[derive(Clone)]
 pub struct PyForwardCurve {
@@ -342,18 +343,19 @@ impl PyForwardCurve {
     fn ctor(
         id: &str,
         tenor_years: f64,
-        knots: Vec<(f64, f64)>,
+        knots: Bound<'_, PyAny>,
         base_date: Option<Bound<'_, PyAny>>,
         reset_lag: Option<i32>,
         day_count: Option<Bound<'_, PyAny>>,
         interp: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        if knots.len() < 2 {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.len() < 2 {
             return Err(PyValueError::new_err(
                 "knots must contain at least two (time, rate) pairs",
             ));
         }
-        let mut builder = ForwardCurve::builder(id, tenor_years).knots(knots);
+        let mut builder = ForwardCurve::builder(id, tenor_years).knots(knots_vec);
         if let Some(date_obj) = base_date {
             let d = py_to_date(&date_obj)?;
             builder = builder.base_date(d);
@@ -502,8 +504,7 @@ impl PyForwardCurve {
 ///     Hazard curve wrapper offering survival and default probability methods.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "HazardCurve",
-    unsendable
+    name = "HazardCurve"
 )]
 #[derive(Clone)]
 pub struct PyHazardCurve {
@@ -537,7 +538,7 @@ impl PyHazardCurve {
     fn ctor(
         id: &str,
         base_date: Bound<'_, PyAny>,
-        knots: Vec<(f64, f64)>,
+        knots: Bound<'_, PyAny>,
         recovery_rate: Option<f64>,
         day_count: Option<Bound<'_, PyAny>>,
         issuer: Option<&str>,
@@ -545,13 +546,14 @@ impl PyHazardCurve {
         currency: Option<PyRef<PyCurrency>>,
         par_points: Option<Vec<(f64, f64)>>,
     ) -> PyResult<Self> {
-        if knots.is_empty() {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.is_empty() {
             return Err(PyValueError::new_err(
                 "knots must contain at least one (time, hazard) pair",
             ));
         }
         let base = py_to_date(&base_date)?;
-        let mut builder = HazardCurve::builder(id).base_date(base).knots(knots);
+        let mut builder = HazardCurve::builder(id).base_date(base).knots(knots_vec);
         if let Some(rr) = recovery_rate {
             builder = builder.recovery_rate(rr);
         }
@@ -695,8 +697,7 @@ impl PyHazardCurve {
 ///     Inflation curve wrapper exposing CPI and inflation rate calculations.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "InflationCurve",
-    unsendable
+    name = "InflationCurve"
 )]
 #[derive(Clone)]
 pub struct PyInflationCurve {
@@ -717,10 +718,11 @@ impl PyInflationCurve {
     fn ctor(
         id: &str,
         base_cpi: f64,
-        knots: Vec<(f64, f64)>,
+        knots: Bound<'_, PyAny>,
         interp: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        if knots.is_empty() {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.is_empty() {
             return Err(PyValueError::new_err("knots must not be empty"));
         }
         let style = match interp {
@@ -743,7 +745,7 @@ impl PyInflationCurve {
         };
         let builder = InflationCurve::builder(id)
             .base_cpi(base_cpi)
-            .knots(knots)
+            .knots(knots_vec)
             .set_interp(style);
         let curve =
             Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
@@ -838,8 +840,7 @@ impl PyInflationCurve {
 ///     Base correlation wrapper capable of interpolating tranche correlations.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "BaseCorrelationCurve",
-    unsendable
+    name = "BaseCorrelationCurve"
 )]
 #[derive(Clone)]
 pub struct PyBaseCorrelationCurve {
@@ -856,8 +857,9 @@ impl PyBaseCorrelationCurve {
 impl PyBaseCorrelationCurve {
     /// Instantiate a base correlation curve from `(detachment, correlation)` points.
     #[new]
-    fn ctor(id: &str, points: Vec<(f64, f64)>) -> PyResult<Self> {
-        if points.len() < 2 {
+    fn ctor(id: &str, points: Bound<'_, PyAny>) -> PyResult<Self> {
+        let points_vec = extract_float_pairs(&points)?;
+        if points_vec.len() < 2 {
             return Err(PyValueError::new_err(
                 "points must contain at least two entries",
             ));
@@ -865,7 +867,7 @@ impl PyBaseCorrelationCurve {
         let curve = Python::with_gil(|py| {
             py.allow_threads(|| {
                 BaseCorrelationCurve::builder(id)
-                    .points(points)
+                    .points(points_vec)
                     .build()
                     .map_err(core_to_py)
             })
@@ -938,8 +940,7 @@ impl PyBaseCorrelationCurve {
 ///     Bundle of credit index market data.
 #[pyclass(
     module = "finstack.core.market_data.term_structures",
-    name = "CreditIndexData",
-    unsendable
+    name = "CreditIndexData"
 )]
 #[derive(Clone)]
 pub struct PyCreditIndexData {

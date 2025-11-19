@@ -1,7 +1,7 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_core::types::CurveId;
+use crate::valuations::common::{PyInstrumentType};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use pyo3::prelude::*;
@@ -67,7 +67,7 @@ impl PyEquityOption {
         notional: Bound<'_, PyAny>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
         let contract = contract_size.unwrap_or(1.0);
@@ -109,7 +109,7 @@ impl PyEquityOption {
         notional: Bound<'_, PyAny>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
         let contract = contract_size.unwrap_or(1.0);
@@ -158,11 +158,11 @@ impl PyEquityOption {
         use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
         use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
 
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let vol_surface_id = vol_surface.extract::<&str>()?;
 
         let mut underlying =
             EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
@@ -180,8 +180,8 @@ impl PyEquityOption {
             id.into_string(),
             &params,
             &underlying,
-            CurveId::new(discount_curve_id.as_str()),
-            CurveId::new(vol_surface_id.as_str()),
+            discount_curve_id,
+            CurveId::new(vol_surface_id),
         );
         Ok(Self::new(option))
     }

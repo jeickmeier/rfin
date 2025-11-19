@@ -2,7 +2,7 @@ use super::config::{PyCalibrationConfig, PyMultiCurveConfig};
 use super::quote::{PyCreditQuote, PyInflationQuote, PyRatesQuote, PyVolQuote};
 use super::report::PyCalibrationReport;
 use crate::core::common::args::{CurrencyArg, DayCountArg, InterpStyleArg};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
@@ -23,6 +23,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 use std::sync::Arc;
+use finstack_core::types::CurveId;
 
 fn parse_seniority(label: &str) -> PyResult<Seniority> {
     label
@@ -716,8 +717,7 @@ impl PyBaseCorrelationCalibrator {
     /// Returns:
     ///     BaseCorrelationCalibrator: Updated calibrator
     fn with_discount_curve_id(&self, discount_curve_id: Bound<'_, PyAny>) -> PyResult<Self> {
-        use crate::valuations::common::extract_curve_id;
-        let curve_id = extract_curve_id(&discount_curve_id)?;
+        let curve_id = CurveId::new(discount_curve_id.extract::<&str>()?);
         Ok(Self::new(
             self.inner.clone().with_discount_curve_id(curve_id),
         ))

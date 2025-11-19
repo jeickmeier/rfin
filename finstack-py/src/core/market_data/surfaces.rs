@@ -4,7 +4,7 @@
 //! are interpolated across the supplied grid; helpers return either raw values,
 //! checked values (error on out-of-bounds), or clamped values. Use this when
 //! pricing options or any model requiring a volatility surface.
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -31,8 +31,7 @@ use std::sync::Arc;
 ///     Surface wrapper with interpolation helpers.
 #[pyclass(
     module = "finstack.core.market_data.surfaces",
-    name = "VolSurface",
-    unsendable
+    name = "VolSurface"
 )]
 #[derive(Clone)]
 pub struct PyVolSurface {

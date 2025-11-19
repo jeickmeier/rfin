@@ -24,7 +24,6 @@ pub use term_structures::{
     PyInflationCurve,
 };
 
-use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -40,31 +39,24 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let mut exports: Vec<&str> = Vec::new();
 
     let interp_exports = interp::register(py, &module)?;
-    reexport_from_submodule(&module, "interp", &interp_exports)?;
     exports.extend(interp_exports.iter().copied());
 
     let term_exports = term_structures::register(py, &module)?;
-    reexport_from_submodule(&module, "term_structures", &term_exports)?;
     exports.extend(term_exports.iter().copied());
 
     let surface_exports = surfaces::register(py, &module)?;
-    reexport_from_submodule(&module, "surfaces", &surface_exports)?;
     exports.extend(surface_exports.iter().copied());
 
     let scalar_exports = scalars::register(py, &module)?;
-    reexport_from_submodule(&module, "scalars", &scalar_exports)?;
     exports.extend(scalar_exports.iter().copied());
 
     let dividend_exports = dividends::register(py, &module)?;
-    reexport_from_submodule(&module, "dividends", &dividend_exports)?;
     exports.extend(dividend_exports.iter().copied());
 
     let fx_exports = fx::register(py, &module)?;
-    reexport_from_submodule(&module, "fx", &fx_exports)?;
     exports.extend(fx_exports.iter().copied());
 
     let context_exports = context::register(py, &module)?;
-    reexport_from_submodule(&module, "context", &context_exports)?;
     exports.extend(context_exports.iter().copied());
 
     let mut uniq = HashSet::new();

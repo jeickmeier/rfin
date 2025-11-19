@@ -5,7 +5,7 @@
 //! module provides the canonical way to identify currencies via codes or
 //! numeric identifiers. The module also re-exports every known currency by code
 //! for ergonomic access (e.g., `finstack.core.currency.USD`).
-use crate::core::error::unknown_currency;
+use crate::errors::unknown_currency;
 use finstack_core::currency::Currency;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};

@@ -1,10 +1,10 @@
 use crate::core::currency::PyCurrency;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::PyScheduleParams;
-use crate::valuations::common::{extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
 use finstack_valuations::instruments::common::parameters::underlying::{
@@ -19,6 +19,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::InstrumentId;
 
 fn parse_curve_id(label: &Bound<'_, PyAny>, context: &str) -> PyResult<String> {
     if let Ok(value) = label.extract::<&str>() {
@@ -304,7 +305,7 @@ impl PyEquityTotalReturnSwap {
         side: PyTrsSide,
         initial_level: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
 
         let inner = EquityTotalReturnSwap {
@@ -442,7 +443,7 @@ impl PyFiIndexTotalReturnSwap {
         side: PyTrsSide,
         initial_level: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
 
         let inner = FIIndexTotalReturnSwap {

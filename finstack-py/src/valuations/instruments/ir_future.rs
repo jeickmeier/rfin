@@ -1,8 +1,8 @@
 use crate::core::common::args::DayCountArg;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::py_to_date;
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
     match label {
@@ -82,14 +83,14 @@ impl PyInterestRateFuture {
         delivery_months: Option<u8>,
         convexity_adjustment: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let expiry_date = py_to_date(&expiry)?;
         let fixing = py_to_date(&fixing_date)?;
         let start = py_to_date(&period_start)?;
         let end = py_to_date(&period_end)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
-        let forward_curve_id = extract_curve_id(&forward_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>()?);
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value

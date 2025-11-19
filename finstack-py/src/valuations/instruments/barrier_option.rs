@@ -1,12 +1,12 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id};
 use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierType};
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Barrier type for barrier options.
 #[pyclass(
@@ -137,11 +137,11 @@ impl PyBarrierOption {
         use crate::core::common::labels::normalize_label;
         use finstack_core::dates::DayCount;
 
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
 
         let opt_type = match normalize_label(option_type).as_str() {
             "call" => OptionType::Call,

@@ -28,6 +28,7 @@ hashbrown = "0.14"
 # Needed for Month enum used in Date bindings
 time = { version = "0.3", default-features = false }
 strum = { workspace = true }
+rayon = "1.11.0"
 
 [features]
 default = ["scenarios"]

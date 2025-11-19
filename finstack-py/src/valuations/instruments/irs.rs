@@ -1,9 +1,9 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::intern_calendar_id_opt;
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Pay/receive direction for swap fixed-leg cashflows.
 #[pyclass(
@@ -137,7 +138,7 @@ impl PyInterestRateSwap {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
@@ -181,7 +182,7 @@ impl PyInterestRateSwap {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
@@ -273,12 +274,12 @@ impl PyInterestRateSwap {
     ) -> PyResult<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
-        let forward_curve_id = extract_curve_id(&forward_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>()?);
 
         let side_value = side
             .parse::<PayReceive>()

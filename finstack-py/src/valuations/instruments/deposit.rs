@@ -1,13 +1,14 @@
 use crate::core::common::args::DayCountArg;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::deposit::Deposit;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Money-market deposit with simple interest accrual.
 ///
@@ -66,12 +67,12 @@ impl PyDeposit {
         discount_curve: Bound<'_, PyAny>,
         quote_rate: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
         let DayCountArg(dc) = day_count.extract()?;
-        let disc = extract_curve_id(&discount_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
         Deposit::builder()
             .id(id)
             .notional(amt)

@@ -224,6 +224,71 @@ fn map_input_error(err: InputError) -> PyErr {
     }
 }
 
+// =============================================================================
+// Helper Functions (previously in core/error.rs)
+// =============================================================================
+
+/// Create a `ValueError` for an unknown ISO currency code.
+///
+/// Parameters
+/// ----------
+/// code : &str
+///     Three-letter ISO currency code provided by the user.
+///
+/// Returns
+/// -------
+/// PyErr
+///     `ValueError` describing the unknown currency.
+pub(crate) fn unknown_currency(code: &str) -> PyErr {
+    ParameterError::new_err(format!("Unknown currency code: {code}"))
+}
+
+/// Create a `ValueError` for an unknown rounding mode name.
+///
+/// Parameters
+/// ----------
+/// name : &str
+///     Rounding mode identifier supplied by the user.
+///
+/// Returns
+/// -------
+/// PyErr
+///     `ValueError` describing the invalid rounding mode.
+pub(crate) fn unknown_rounding_mode(name: &str) -> PyErr {
+    ParameterError::new_err(format!("Unknown rounding mode: {name}"))
+}
+
+/// Create a `ValueError` for an unknown business-day convention name.
+///
+/// Parameters
+/// ----------
+/// name : &str
+///     Business-day convention identifier supplied by the user.
+///
+/// Returns
+/// -------
+/// PyErr
+///     `ValueError` describing the invalid convention.
+pub(crate) fn unknown_business_day_convention(name: &str) -> PyErr {
+    ParameterError::new_err(format!("Unknown business day convention: {name}"))
+}
+
+/// Create a `KeyError` for a missing calendar identifier.
+///
+/// Parameters
+/// ----------
+/// id : &str
+///     Calendar id/code that could not be resolved.
+///
+/// Returns
+/// -------
+/// PyErr
+///     `KeyError` describing the missing calendar.
+pub(crate) fn calendar_not_found(id: &str) -> PyErr {
+    use pyo3::exceptions::PyKeyError;
+    PyKeyError::new_err(format!("Calendar not found: {id}"))
+}
+
 /// Legacy mapping for backward compatibility with existing code.
 ///
 /// New code should use `map_error` instead.

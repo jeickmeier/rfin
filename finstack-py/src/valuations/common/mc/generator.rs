@@ -1,7 +1,7 @@
 //! Python bindings for standalone Monte Carlo path generation.
 
 use super::paths::PyPathDataset;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
 use finstack_valuations::instruments::common::mc::paths::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,

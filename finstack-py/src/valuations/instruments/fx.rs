@@ -1,10 +1,10 @@
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::intern_calendar_id_opt;
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// FX spot instrument exchanging base currency for quote currency.
 ///
@@ -84,7 +85,7 @@ impl PyFxSpot {
         bdc: Option<Bound<'_, PyAny>>,
         calendar: Option<&str>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let mut inst = FxSpot::new(id, base, quote);
@@ -311,12 +312,12 @@ impl PyFxOption {
         notional: Bound<'_, PyAny>,
         vol_surface: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = vol_surface.extract::<&str>()?;
         Ok(Self::new(FxOption::european_call(
             id,
             base,
@@ -369,12 +370,12 @@ impl PyFxOption {
         notional: Bound<'_, PyAny>,
         vol_surface: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = vol_surface.extract::<&str>()?;
         Ok(Self::new(FxOption::european_put(
             id,
             base,
@@ -418,14 +419,15 @@ impl PyFxOption {
         vol_surface: Bound<'_, PyAny>,
         settlement: Option<&str>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
-        let dom = extract_curve_id(&domestic_curve)?;
-        let for_id = extract_curve_id(&foreign_curve)?;
-        let vol_surface_id = extract_curve_id(&vol_surface)?;
+        let dom = CurveId::new(domestic_curve.extract::<&str>()?);
+        let for_id = CurveId::new(foreign_curve.extract::<&str>()?);
+        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
+
 
         let settle = match settlement
             .map(crate::core::common::labels::normalize_label)
@@ -644,14 +646,15 @@ impl PyFxSwap {
         near_rate: Option<f64>,
         far_rate: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let base_notional = extract_money(&notional)?;
         let near = py_to_date(&near_date)?;
         let far = py_to_date(&far_date)?;
-        let domestic = extract_curve_id(&domestic_curve)?;
-        let foreign = extract_curve_id(&foreign_curve)?;
+        let domestic = CurveId::new(domestic_curve.extract::<&str>()?);
+        let foreign = CurveId::new(foreign_curve.extract::<&str>()?);
+
 
         let mut builder = FxSwap::builder();
         builder = builder.id(id);

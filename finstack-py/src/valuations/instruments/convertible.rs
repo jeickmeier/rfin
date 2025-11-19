@@ -1,9 +1,9 @@
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::{PyFixedCouponSpec, PyFloatingCouponSpec};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::common::traits::Attributes;
@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_call_put_schedule(
     calls: Option<Vec<(Bound<'_, PyAny>, f64)>>,
@@ -379,11 +380,11 @@ impl PyConvertibleBond {
         fixed_coupon: Option<&PyFixedCouponSpec>,
         floating_coupon: Option<&PyFloatingCouponSpec>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
 
         if fixed_coupon.is_some() && floating_coupon.is_some() {
             return Err(PyValueError::new_err(

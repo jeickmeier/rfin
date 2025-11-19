@@ -1,13 +1,14 @@
 use crate::core::common::args::DayCountArg;
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::fra::ForwardRateAgreement;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Forward Rate Agreement binding exposing standard FRA parameters.
 ///
@@ -96,13 +97,13 @@ impl PyForwardRateAgreement {
         reset_lag: Option<i32>,
         pay_fixed: Option<bool>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let fixing = py_to_date(&fixing_date)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&end_date)?;
-        let disc = extract_curve_id(&discount_curve)?;
-        let fwd = extract_curve_id(&forward_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
         let day_count_value = if let Some(dc_obj) = day_count {
             let DayCountArg(dc) = dc_obj.extract()?;
             dc

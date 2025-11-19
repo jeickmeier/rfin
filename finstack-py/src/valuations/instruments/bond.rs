@@ -1,13 +1,14 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Fixed-income bond instrument with convenience constructors.
 #[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]
@@ -64,11 +65,11 @@ impl PyBond {
         maturity: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc = extract_curve_id(&discount_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
         Ok(Self::new(Bond::fixed(
             id,
             amt,
@@ -107,7 +108,7 @@ impl PyBond {
         issue: Bound<'_, PyAny>,
         maturity: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
@@ -147,11 +148,11 @@ impl PyBond {
         maturity: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc = extract_curve_id(&discount_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
         Ok(Self::new(Bond::fixed(
             id,
             amt,
@@ -218,11 +219,11 @@ impl PyBond {
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc = extract_curve_id(&discount_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
 
         // Build the cashflow_spec from the provided parameters
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
@@ -242,7 +243,7 @@ impl PyBond {
 
         let cashflow_spec = if let Some(fwd) = forward_curve {
             // Floating-rate bond
-            let forward_curve_id = extract_curve_id(&fwd)?;
+            let forward_curve_id = CurveId::new(fwd.extract::<&str>()?);
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
@@ -327,7 +328,7 @@ impl PyBond {
         builder
             .build()
             .map(Self::new)
-            .map_err(crate::core::error::core_to_py)
+            .map_err(crate::errors::core_to_py)
     }
 
     #[classmethod]
@@ -358,15 +359,15 @@ impl PyBond {
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
-        let disc = extract_curve_id(&discount_curve)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
         let mut bond = finstack_valuations::instruments::bond::Bond::from_cashflows(
             id,
             schedule.inner_clone(),
             disc,
             quoted_clean,
         )
-        .map_err(crate::core::error::core_to_py)?;
+        .map_err(crate::errors::core_to_py)?;
 
         if let Some(fwd) = forward_curve {
             // Update cashflow_spec to floating if forward curve is provided
@@ -374,7 +375,7 @@ impl PyBond {
                 CouponType, FloatingCouponSpec, FloatingRateSpec,
             };
 
-            let forward_curve_id = extract_curve_id(&fwd)?;
+            let forward_curve_id = CurveId::new(fwd.extract::<&str>()?);
             let freq = bond.cashflow_spec.frequency();
             let dc = bond.cashflow_spec.day_count();
 
@@ -415,12 +416,12 @@ impl PyBond {
         forward_curve: Bound<'_, PyAny>,
         margin_bp: f64,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc = extract_curve_id(&discount_curve)?;
-        let fwd = extract_curve_id(&forward_curve)?;
+        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
 
         use finstack_core::dates::{DayCount, Frequency};
 

@@ -1,11 +1,12 @@
 use crate::core::common::args::BusinessDayConventionArg;
-use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::core::error::{calendar_not_found, core_to_py, unknown_business_day_convention};
+use crate::core::common::pycmp::richcmp_eq_ne;
+use crate::errors::{calendar_not_found, core_to_py, unknown_business_day_convention};
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::dates::calendar::business_days::{self, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{self, adjust as core_adjust, BusinessDayConvention};
 use pyo3::basic::CompareOp;
+use std::str::FromStr;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyModule, PyType};
@@ -328,24 +329,9 @@ pub(crate) fn register<'py>(
 }
 
 fn parse_business_day_convention(name: &str) -> PyResult<PyBusinessDayConvention> {
-    match normalize_label(name).as_str() {
-        "unadjusted" => Ok(PyBusinessDayConvention::new(
-            BusinessDayConvention::Unadjusted,
-        )),
-        "following" => Ok(PyBusinessDayConvention::new(
-            BusinessDayConvention::Following,
-        )),
-        "modified_following" => Ok(PyBusinessDayConvention::new(
-            BusinessDayConvention::ModifiedFollowing,
-        )),
-        "preceding" => Ok(PyBusinessDayConvention::new(
-            BusinessDayConvention::Preceding,
-        )),
-        "modified_preceding" => Ok(PyBusinessDayConvention::new(
-            BusinessDayConvention::ModifiedPreceding,
-        )),
-        other => Err(unknown_business_day_convention(other)),
-    }
+    BusinessDayConvention::from_str(name)
+        .map(PyBusinessDayConvention::new)
+        .map_err(|_| unknown_business_day_convention(name))
 }
 
 fn extract_business_day_convention(value: &Bound<'_, PyAny>) -> PyResult<BusinessDayConvention> {

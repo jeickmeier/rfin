@@ -1,6 +1,6 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{PyInstrumentType};
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::InstrumentId;
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
@@ -105,12 +106,12 @@ impl PyCdsOption {
         index_factor: Option<f64>,
         forward_adjust_bp: Option<f64>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let notional_money = extract_money(&notional)?;
         let expiry_date = py_to_date(&expiry)?;
         let cds_maturity_date = py_to_date(&cds_maturity)?;
-        let discount = extract_curve_id(&discount_curve)?;
-        let credit = extract_curve_id(&credit_curve)?;
+        let discount = discount_curve.extract::<&str>()?;
+        let credit = credit_curve.extract::<&str>()?;
         let option_type_value = parse_option_type(option_type)?;
         let recovery =
             recovery_rate.unwrap_or(finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR);
@@ -135,12 +136,12 @@ impl PyCdsOption {
             option_params = option_params.with_forward_spread_adjust_bp(adj);
         }
 
-        let credit_params = CreditParams::new("CDS_OPTION", recovery, credit.clone());
+        let credit_params = CreditParams::new("CDS_OPTION", recovery, credit);
         let option = CdsOption::new(
             id,
             &option_params,
             &credit_params,
-            discount.as_str(),
+            discount,
             vol_surface,
         );
         Ok(Self::new(option))

@@ -3,7 +3,6 @@ mod distributions;
 mod integration;
 mod solver;
 
-use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -26,15 +25,12 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let mut exports: Vec<&str> = Vec::new();
 
     let dist_exports = distributions::register(py, &module)?;
-    reexport_from_submodule(&module, "distributions", &dist_exports)?;
     exports.extend(dist_exports.iter().copied());
 
     let integration_exports = integration::register(py, &module)?;
-    reexport_from_submodule(&module, "integration", &integration_exports)?;
     exports.extend(integration_exports.iter().copied());
 
     let solver_exports = solver::register(py, &module)?;
-    reexport_from_submodule(&module, "solver", &solver_exports)?;
     exports.extend(solver_exports.iter().copied());
 
     exports = {

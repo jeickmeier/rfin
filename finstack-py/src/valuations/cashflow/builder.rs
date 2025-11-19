@@ -1,5 +1,5 @@
 use crate::core::dates::periods::{PyPeriod, PyPeriodPlan};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;

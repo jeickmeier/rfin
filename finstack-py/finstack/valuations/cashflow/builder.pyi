@@ -314,11 +314,17 @@ class CashFlowSchedule:
         """List of cashflows in the schedule."""
         ...
 
-    def to_dataframe(self) -> Dict[str, Any]:
-        """Convert the schedule into a dict-of-arrays suitable for constructing a Polars DataFrame.
+    def to_dataframe(
+        self,
+        market: Optional[MarketContext] = None,
+        discount_curve_id: Optional[str] = None,
+        as_of: Optional[date | str] = None,
+    ) -> "polars.DataFrame":
+        """Convert the schedule into a Polars DataFrame.
 
-        Returns a Python dict with keys: "date", "kind", "amount", "accrual_factor",
-        "reset_date", and "outstanding". Amounts and outstanding are numeric floats.
+        Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount",
+        "accrual_factor", "reset_date", "outstanding", "rate", and optionally
+        "outstanding_undrawn" (if facility limit exists), "discount_factor", "pv" (if market provided).
         """
         ...
 

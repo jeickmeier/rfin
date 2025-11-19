@@ -185,8 +185,11 @@ fn test_bond_price_zero_coupon() {
     assert!(pv.amount() < 1000.0);
 
     // Expected: 1000 * exp(-0.05 * 5) = 778.8007...
-    // Actual implementation may differ slightly due to curve interpolation
-    // and discrete payment timing. Tolerance tightened from 50.0 to 1.0.
+    // Note: The test curve is constructed using continuous compounding (exp),
+    // so the expected value uses the same logic. This validates that the
+    // pricing engine correctly retrieves the discount factor from the curve.
+    // Market standard zero-coupon bonds may use discrete compounding (e.g. simple interest),
+    // which would require a curve constructed with those conventions.
     let expected = 1000.0 * (-0.05 * 5.0_f64).exp();
     assert!(
         (pv.amount() - expected).abs() < 1.0,

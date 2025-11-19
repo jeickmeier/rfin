@@ -50,6 +50,26 @@ class PricerRegistry:
         """
         ...
 
+    def price_batch(
+        self,
+        instruments: List[Any],
+        model: Any,
+        market: MarketContext,
+        as_of: Any = None,
+    ) -> List[ValuationResult]:
+        """Price a batch of instruments in parallel.
+
+        Args:
+            instruments: List of instruments to price.
+            model: Pricing model key or name.
+            market: Market context.
+            as_of: Optional valuation date.
+
+        Returns:
+            list[ValuationResult]: List of results in the same order as instruments.
+        """
+        ...
+
     def price_with_metrics(
         self, instrument: Any, model: Any, market: MarketContext, metrics: List[Any]
     ) -> ValuationResult:

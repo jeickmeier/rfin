@@ -1,9 +1,9 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::error::core_to_py;
+use crate::errors::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, to_optional_string, PyInstrumentType,
+    to_optional_string, PyInstrumentType,
 };
 use finstack_core::dates::BusinessDayConvention;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use finstack_core::types::{CurveId, InstrumentId};
 
 fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
     match label {
@@ -149,11 +150,11 @@ impl PyRepo {
         calendar: Option<&str>,
         triparty: Option<bool>,
     ) -> PyResult<Self> {
-        let id = extract_instrument_id(&instrument_id)?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let cash = extract_money(&cash_amount)?;
         let start = py_to_date(&start_date)?;
         let maturity_date = py_to_date(&maturity)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
         let repo_type_value = parse_repo_type(repo_type)?;
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
