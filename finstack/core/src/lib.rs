@@ -70,6 +70,9 @@ pub mod types;
 /// Foundational cashflow primitives and discounting helpers.
 pub mod cashflow;
 
+/// Volatility conventions and conversion utilities.
+pub mod volatility;
+
 // Re-export main error type for convenience
 pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].

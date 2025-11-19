@@ -5,7 +5,7 @@
 //! - Various ATM strike conventions
 //! - SABR model calibration per expiry
 //! - Accurate swap annuity calculations
-
+//!
 use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
@@ -16,6 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::types::CurveId;
+use finstack_core::volatility::{convert_volatility, VolatilityConvention};
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -42,6 +43,18 @@ pub enum SwaptionVolConvention {
         /// Shift amount for negative rate handling
         shift: f64,
     },
+}
+
+impl From<SwaptionVolConvention> for VolatilityConvention {
+    fn from(val: SwaptionVolConvention) -> Self {
+        match val {
+            SwaptionVolConvention::Normal => VolatilityConvention::Normal,
+            SwaptionVolConvention::Lognormal => VolatilityConvention::Lognormal,
+            SwaptionVolConvention::ShiftedLognormal { shift } => {
+                VolatilityConvention::ShiftedLognormal { shift }
+            }
+        }
+    }
 }
 
 /// ATM strike convention for swaptions.
@@ -314,165 +327,14 @@ impl SwaptionVolCalibrator {
         forward_rate: f64,
         time_to_expiry: f64,
     ) -> f64 {
-        // For robust cross-convention conversion, equate option prices
-        // under a unit annuity using Bachelier (normal) and Black (lognormal)
-        // models. This avoids off-ATM distortions of simple ratios.
-        use crate::calibration::{solve_1d, SolverKind};
-        use finstack_core::math::{norm_cdf, norm_pdf};
-
-        // Helper: Bachelier (normal) call price with unit annuity
-        fn bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
-            if t <= 0.0 {
-                return (forward - strike).max(0.0);
-            }
-            if sigma_n <= 0.0 {
-                return (forward - strike).max(0.0);
-            }
-            let st = sigma_n * t.sqrt();
-            if st <= 0.0 {
-                return (forward - strike).max(0.0);
-            }
-            let d = (forward - strike) / st;
-            (forward - strike) * norm_cdf(d) + st * norm_pdf(d)
-        }
-
-        // Helper: Black (lognormal) call price with unit annuity
-        fn black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
-            if t <= 0.0 {
-                return (forward - strike).max(0.0);
-            }
-            if sigma <= 0.0 || forward <= 0.0 || strike <= 0.0 {
-                return (forward - strike).max(0.0);
-            }
-            let st = sigma * t.sqrt();
-            let d1 = ((forward / strike).ln() + 0.5 * st * st) / st;
-            let d2 = d1 - st;
-            forward * norm_cdf(d1) - strike * norm_cdf(d2)
-        }
-
-        // Helper: Black with shift (for shifted lognormal)
-        fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
-            black_price(forward + shift, strike + shift, sigma, t)
-        }
-
-        // Early returns for identical convention (including same shift)
-        if std::mem::discriminant(&from_convention) == std::mem::discriminant(&to_convention) {
-            // If both are shifted, check shift equality
-            if let (
-                SwaptionVolConvention::ShiftedLognormal { shift: s1 },
-                SwaptionVolConvention::ShiftedLognormal { shift: s2 },
-            ) = (from_convention, to_convention)
-            {
-                if (s1 - s2).abs() < 1e-12 {
-                    return vol;
-                }
-            } else {
-                return vol;
-            }
-        }
-
-        // Preserve fast ATM analytic mapping for Normal <-> Lognormal
-        if let (SwaptionVolConvention::Normal, SwaptionVolConvention::Lognormal) =
-            (from_convention, to_convention)
-        {
-            if forward_rate.abs() > self.market_conventions.zero_threshold {
-                return vol / forward_rate;
-            } else {
-                return vol;
-            }
-        }
-        if let (SwaptionVolConvention::Lognormal, SwaptionVolConvention::Normal) =
-            (from_convention, to_convention)
-        {
-            return vol * forward_rate;
-        }
-
-        // Compute price under source convention with unit annuity
-        let price_from = match from_convention {
-            SwaptionVolConvention::Normal => {
-                bachelier_price(forward_rate, forward_rate, vol, time_to_expiry)
-            }
-            SwaptionVolConvention::Lognormal => {
-                black_price(forward_rate, forward_rate, vol, time_to_expiry)
-            }
-            SwaptionVolConvention::ShiftedLognormal { shift } => {
-                black_shifted_price(forward_rate, forward_rate, vol, time_to_expiry, shift)
-            }
-        };
-
-        // General-strike conversion: use the actual forward_rate as strike for ATM
-        // For non-ATM strikes elsewhere in code, the caller provides strike-specific vols.
-        // We preserve that behavior by using K = F here.
-        let f = forward_rate;
-        let t = time_to_expiry.max(0.0);
-
-        // Invert price to target convention by solving for sigma
-        let objective = |sigma: f64| -> f64 {
-            let sigma_pos = sigma.abs();
-            let p = match to_convention {
-                SwaptionVolConvention::Normal => bachelier_price(f, f, sigma_pos, t),
-                SwaptionVolConvention::Lognormal => black_price(f, f, sigma_pos, t),
-                SwaptionVolConvention::ShiftedLognormal { shift } => {
-                    black_shifted_price(f, f, sigma_pos, t, shift)
-                }
-            };
-            p - price_from
-        };
-
-        // Initial guesses derived from simple ATM approximations
-        let mut guess = match (from_convention, to_convention) {
-            (SwaptionVolConvention::Normal, SwaptionVolConvention::Lognormal) => {
-                if f.abs() > self.market_conventions.zero_threshold {
-                    vol / f
-                } else {
-                    vol
-                }
-            }
-            (SwaptionVolConvention::Lognormal, SwaptionVolConvention::Normal) => vol * f,
-            (SwaptionVolConvention::Normal, SwaptionVolConvention::ShiftedLognormal { shift }) => {
-                if (f + shift).abs() > self.market_conventions.zero_threshold {
-                    vol / (f + shift)
-                } else {
-                    vol
-                }
-            }
-            (SwaptionVolConvention::ShiftedLognormal { shift }, SwaptionVolConvention::Normal) => {
-                vol * (f + shift)
-            }
-            (
-                SwaptionVolConvention::Lognormal,
-                SwaptionVolConvention::ShiftedLognormal { shift },
-            ) => {
-                if (f + shift).abs() > self.market_conventions.zero_threshold {
-                    vol * f / (f + shift)
-                } else {
-                    vol
-                }
-            }
-            (
-                SwaptionVolConvention::ShiftedLognormal { shift },
-                SwaptionVolConvention::Lognormal,
-            ) => {
-                if f.abs() > self.market_conventions.zero_threshold {
-                    vol * (f + shift) / f
-                } else {
-                    vol
-                }
-            }
-            _ => vol,
-        };
-        if !guess.is_finite() || guess <= 0.0 {
-            guess = (vol.abs() + 1e-6).max(1e-6);
-        }
-
-        // Solve with a robust 1D solver
-        let solved = solve_1d(SolverKind::Brent, 1e-8, 100, objective, guess).unwrap_or(guess);
-        let out = solved.abs();
-        if out.is_finite() && out > 0.0 {
-            out
-        } else {
-            vol
-        }
+        convert_volatility(
+            vol,
+            from_convention.into(),
+            to_convention.into(),
+            forward_rate,
+            time_to_expiry,
+            self.market_conventions.zero_threshold,
+        )
     }
 
     /// Determine ATM strike based on convention.
