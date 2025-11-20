@@ -176,7 +176,8 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let delta = pricer.delta(self, fwd_bp, sigma, t);
+        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
+        let delta = pricer.delta(self, fwd_bp, risky_annuity, sigma, t);
         Ok(delta * self.notional.amount())
     }
 
@@ -219,7 +220,8 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let gamma = pricer.gamma(self, fwd_bp, sigma, t);
+        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
+        let gamma = pricer.gamma(self, fwd_bp, risky_annuity, sigma, t);
         Ok(gamma * self.notional.amount())
     }
 
@@ -262,7 +264,8 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let vega = pricer.vega(self, fwd_bp, sigma, t);
+        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
+        let vega = pricer.vega(self, fwd_bp, risky_annuity, sigma, t);
         Ok(vega * self.notional.amount())
     }
 
@@ -309,7 +312,8 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let theta = pricer.theta(self, fwd_bp, r, sigma, t);
+        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
+        let theta = pricer.theta(self, fwd_bp, risky_annuity, r, sigma, t);
         Ok(theta * self.notional.amount())
     }
 

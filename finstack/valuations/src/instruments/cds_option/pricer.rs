@@ -87,8 +87,8 @@ impl CdsOptionPricer {
         // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
         let risky_annuity = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
 
-        // Discount factor to option expiry
-        let df_expiry = disc.df(t);
+        // Discount factor to option expiry (NOT used in pricing as risky_annuity is already PV)
+        // let df_expiry = disc.df(t);
 
         // Volatility (use override if present, else surface)
         let sigma = if let Some(vol) = option.pricing_overrides.implied_volatility {
@@ -100,10 +100,10 @@ impl CdsOptionPricer {
         };
 
         // Price using Black-style on spreads
+        // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
         self.credit_option_price(
             option,
             forward_spread_bp,
-            df_expiry,
             risky_annuity,
             sigma,
             t,
@@ -120,6 +120,20 @@ impl CdsOptionPricer {
         let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
         let disc = curves.get_discount_ref(&option.discount_curve_id)?;
         self.forward_spread_from_pricer(option, disc, hazard, as_of)
+    }
+
+    /// Convenience method: compute the risky annuity (PV of 1bp spread) from option expiry to underlying maturity.
+    ///
+    /// Returns the Present Value (at `as_of`) of the annuity.
+    pub fn risky_annuity(
+        &self,
+        option: &CdsOption,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<f64> {
+        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
+        let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
+        self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)
     }
 }
 
@@ -156,11 +170,13 @@ impl CdsOptionPricer {
     }
 
     /// Black-on-spreads price for CDS option.
+    ///
+    /// Note: `risky_annuity` should be the Present Value (at pricing date) of the annuity.
+    /// The formula does not apply an additional discount factor.
     pub fn credit_option_price(
         &self,
         option: &CdsOption,
         forward_spread_bp: f64,
-        df: f64,
         risky_annuity: f64,
         sigma: f64,
         t: f64,
@@ -196,14 +212,12 @@ impl CdsOptionPricer {
         let value = match option.option_type {
             OptionType::Call => {
                 scale
-                    * df
                     * risky_annuity
                     * option.notional.amount()
                     * (forward * norm_cdf(d1) - strike * norm_cdf(d2))
             }
             OptionType::Put => {
                 scale
-                    * df
                     * risky_annuity
                     * option.notional.amount()
                     * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1))
@@ -214,24 +228,34 @@ impl CdsOptionPricer {
     }
 
     /// Delta for CDS option w.r.t. forward spread (per unit notional and bp basis handled by caller).
-    pub fn delta(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
+    ///
+    /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
+    pub fn delta(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
             1.0
         };
+        // Delta is effectively A * Delta_Black
         if t <= 0.0 || sigma <= 0.0 {
             return match option.option_type {
                 OptionType::Call => {
                     if forward_spread_bp > option.strike_spread_bp {
-                        scale
+                        scale * risky_annuity
                     } else {
                         0.0
                     }
                 }
                 OptionType::Put => {
                     if forward_spread_bp < option.strike_spread_bp {
-                        -scale
+                        -scale * risky_annuity
                     } else {
                         0.0
                     }
@@ -245,13 +269,20 @@ impl CdsOptionPricer {
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         match option.option_type {
-            OptionType::Call => scale * norm_cdf(d1),
-            OptionType::Put => -scale * norm_cdf(-d1),
+            OptionType::Call => scale * risky_annuity * norm_cdf(d1),
+            OptionType::Put => -scale * risky_annuity * norm_cdf(-d1),
         }
     }
 
     /// Gamma per bp of spread.
-    pub fn gamma(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
+    pub fn gamma(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -266,11 +297,18 @@ impl CdsOptionPricer {
             return 0.0;
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        scale * norm_pdf(d1) / (forward * self.config.bp_per_unit * sigma * t.sqrt())
+        scale * risky_annuity * norm_pdf(d1) / (forward * self.config.bp_per_unit * sigma * t.sqrt())
     }
 
     /// Vega per 1% vol change.
-    pub fn vega(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
+    pub fn vega(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -289,7 +327,7 @@ impl CdsOptionPricer {
         } else {
             0.0
         };
-        scale * forward * self.config.bp_per_unit * norm_pdf(d1) * t.sqrt() / 100.0
+        scale * risky_annuity * forward * self.config.bp_per_unit * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     /// Theta per year, rate-sensitive term uses r provided by caller.
@@ -297,6 +335,7 @@ impl CdsOptionPricer {
         &self,
         option: &CdsOption,
         forward_spread_bp: f64,
+        risky_annuity: f64,
         r: f64,
         sigma: f64,
         t: f64,
@@ -317,16 +356,24 @@ impl CdsOptionPricer {
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
         let sqrt_t = t.sqrt();
+        
+        // Theta = dV/dt.
+        // V = A * Black
+        // dV/dt = dA/dt * Black + A * dBlack/dt
+        // Currently we only implement the dBlack/dt part (Standard Theta).
+        // dA/dt is usually ignored or handled via Theta-decay of A separately (Theta due to annuity time decay).
+        // We will scale the Black Theta by A.
+        
         match option.option_type {
             OptionType::Call => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
-                scale * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
+                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
             }
             OptionType::Put => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
-                scale * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
+                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
             }
         }
     }
@@ -396,11 +443,11 @@ impl CdsOptionPricer {
 
         // Risky annuity from expiry to maturity
         let ra = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
-        let df_expiry = disc.df(t);
+        // df_expiry not needed as ra is already PV
 
         // Objective in log-σ space to keep σ>0
         let price_for_sigma = |sigma: f64| -> f64 {
-            match self.credit_option_price(option, fwd_bp, df_expiry, ra, sigma, t) {
+            match self.credit_option_price(option, fwd_bp, ra, sigma, t) {
                 Ok(m) => m.amount(),
                 Err(_) => f64::NAN,
             }

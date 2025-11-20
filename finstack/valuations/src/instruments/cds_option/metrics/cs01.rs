@@ -63,8 +63,9 @@ impl MetricCalculator for Cs01Calculator {
 
         let cs01 = if let Some(delta) = delta_opt {
             if delta != 0.0 {
-                // If we have a valid delta, use it: CS01 = Delta × Notional × Duration × 1bp
-                delta.abs() * cds_option.notional.amount() * cds_duration * ONE_BASIS_POINT
+                // Delta is dV/dSpread (Dollar Value change for 100% spread change).
+                // CS01 is dV/dSpread * 1bp (0.0001).
+                delta.abs() * ONE_BASIS_POINT
             } else {
                 // Delta is zero, fall back to approximation
                 use_approximation(
