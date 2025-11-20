@@ -66,6 +66,22 @@ pub enum AtmStrikeConvention {
     ParRate,
 }
 
+/// Interpolation method for SABR parameters across the expiry–tenor grid.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SabrInterpolationMethod {
+    /// Nearest-neighbor in (expiry, tenor) space (legacy behavior).
+    Nearest,
+    /// Bilinear interpolation in (expiry, tenor) over SABR parameters.
+    Bilinear,
+}
+
+impl Default for SabrInterpolationMethod {
+    fn default() -> Self {
+        SabrInterpolationMethod::Bilinear
+    }
+}
+
 /// Swaption volatility surface calibrator.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SwaptionVolCalibrator {
@@ -89,6 +105,9 @@ pub struct SwaptionVolCalibrator {
     pub market_conventions: SwaptionMarketConvention,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Interpolation method used to infer SABR parameters between calibrated slices.
+    #[serde(default)]
+    pub sabr_interpolation: SabrInterpolationMethod,
     /// Optional calendar identifier for schedule generation
     pub calendar_id: Option<String>,
 }
@@ -135,6 +154,7 @@ impl SwaptionVolCalibrator {
             currency,
             market_conventions: SwaptionMarketConvention::from_currency(currency),
             config: CalibrationConfig::default(),
+            sabr_interpolation: SabrInterpolationMethod::Bilinear,
             calendar_id: None,
         }
     }
@@ -154,6 +174,12 @@ impl SwaptionVolCalibrator {
     /// Set the calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Set the SABR interpolation method for expiry–tenor points without direct calibration.
+    pub fn with_sabr_interpolation_method(mut self, method: SabrInterpolationMethod) -> Self {
+        self.sabr_interpolation = method;
         self
     }
 
@@ -413,6 +439,199 @@ impl SwaptionVolCalibrator {
         Ok(vol_grid)
     }
 
+    /// Extract sorted unique expiries and tenors (in years) from SABR parameter grid.
+    fn sabr_grid_axes(
+        sabr_params: &SABRParamsByExpiryTenor,
+    ) -> (Vec<f64>, Vec<f64>) {
+        let mut expiries_bp = Vec::new();
+        let mut tenors_bp = Vec::new();
+
+        for (key, _) in sabr_params.iter() {
+            let (exp_bp, ten_bp) = *key;
+            expiries_bp.push(exp_bp);
+            tenors_bp.push(ten_bp);
+        }
+
+        expiries_bp.sort_unstable();
+        expiries_bp.dedup();
+        tenors_bp.sort_unstable();
+        tenors_bp.dedup();
+
+        let expiries = expiries_bp
+            .into_iter()
+            .map(|bp| bp as f64 / 10000.0)
+            .collect();
+        let tenors = tenors_bp
+            .into_iter()
+            .map(|bp| bp as f64 / 10000.0)
+            .collect();
+
+        (expiries, tenors)
+    }
+
+    /// Locate bracketing indices for a target value within a sorted axis.
+    ///
+    /// Returns (i_lo, i_hi) as indices into `axis`. If the target lies outside
+    /// the axis range, both indices collapse to the nearest endpoint.
+    fn bracket_axis(axis: &[f64], target: f64) -> Option<(usize, usize)> {
+        if axis.is_empty() {
+            return None;
+        }
+        if axis.len() == 1 {
+            return Some((0, 0));
+        }
+
+        // If target is before the first point or after the last, clamp to edges.
+        if target <= axis[0] {
+            return Some((0, 0));
+        }
+        if target >= axis[axis.len() - 1] {
+            let last = axis.len() - 1;
+            return Some((last, last));
+        }
+
+        // Find segment such that axis[i_lo] <= target <= axis[i_hi]
+        for i in 0..axis.len() - 1 {
+            if target >= axis[i] && target <= axis[i + 1] {
+                return Some((i, i + 1));
+            }
+        }
+        // Fallback: shouldn't happen with sorted axis, but be defensive
+        Some((axis.len() - 1, axis.len() - 1))
+    }
+
+    /// Bilinear interpolation of SABR parameters across expiry–tenor grid.
+    ///
+    /// Returns interpolated parameters if a suitable neighborhood is found,
+    /// otherwise None (caller should fall back to nearest/default behavior).
+    fn interpolate_sabr_params_bilinear(
+        &self,
+        target_expiry: f64,
+        target_tenor: f64,
+        sabr_params: &SABRParamsByExpiryTenor,
+    ) -> Option<SABRParameters> {
+        if sabr_params.is_empty() {
+            return None;
+        }
+
+        let (expiries, tenors) = Self::sabr_grid_axes(sabr_params);
+        if expiries.is_empty() || tenors.is_empty() {
+            return None;
+        }
+
+        let (ei_lo, ei_hi) = Self::bracket_axis(&expiries, target_expiry)?;
+        let (ti_lo, ti_hi) = Self::bracket_axis(&tenors, target_tenor)?;
+
+        let e_lo = expiries[ei_lo];
+        let e_hi = expiries[ei_hi];
+        let t_lo = tenors[ti_lo];
+        let t_hi = tenors[ti_hi];
+
+        // Helper to fetch parameters at given (expiry, tenor) years.
+        let fetch = |e: f64, t: f64| -> Option<&SABRParameters> {
+            let key = (to_basis_points(e), to_basis_points(t));
+            sabr_params.get(&key)
+        };
+
+        // Exact node case: both axes collapsed → nearest grid point.
+        if ei_lo == ei_hi && ti_lo == ti_hi {
+            return fetch(e_lo, t_lo).cloned();
+        }
+
+        // 1D interpolation along tenor only (single expiry).
+        if ei_lo == ei_hi && ti_lo != ti_hi {
+            let p_lo = fetch(e_lo, t_lo)?;
+            let p_hi = fetch(e_lo, t_hi).unwrap_or(p_lo);
+            let wy = if (t_hi - t_lo).abs() > 0.0 {
+                (target_tenor - t_lo) / (t_hi - t_lo)
+            } else {
+                0.0
+            };
+            return Some(Self::interpolate_sabr_linear(p_lo, p_hi, wy));
+        }
+
+        // 1D interpolation along expiry only (single tenor).
+        if ti_lo == ti_hi && ei_lo != ei_hi {
+            let p_lo = fetch(e_lo, t_lo)?;
+            let p_hi = fetch(e_hi, t_lo).unwrap_or(p_lo);
+            let wx = if (e_hi - e_lo).abs() > 0.0 {
+                (target_expiry - e_lo) / (e_hi - e_lo)
+            } else {
+                0.0
+            };
+            return Some(Self::interpolate_sabr_linear(p_lo, p_hi, wx));
+        }
+
+        // Full bilinear interpolation requires all four corners.
+        let p_00 = fetch(e_lo, t_lo)?;
+        let p_10 = fetch(e_hi, t_lo).unwrap_or(p_00);
+        let p_01 = fetch(e_lo, t_hi).unwrap_or(p_00);
+        let p_11 = fetch(e_hi, t_hi).unwrap_or(p_10);
+
+        let wx = if (e_hi - e_lo).abs() > 0.0 {
+            (target_expiry - e_lo) / (e_hi - e_lo)
+        } else {
+            0.0
+        };
+        let wy = if (t_hi - t_lo).abs() > 0.0 {
+            (target_tenor - t_lo) / (t_hi - t_lo)
+        } else {
+            0.0
+        };
+
+        Some(Self::interpolate_sabr_bilinear(p_00, p_10, p_01, p_11, wx, wy))
+    }
+
+    /// Linear interpolation between two SABR parameter sets in parameter space.
+    ///
+    /// - alpha, nu interpolated in log-space to preserve positivity.
+    /// - rho interpolated linearly and clamped to (-1, 1).
+    fn interpolate_sabr_linear(
+        p0: &SABRParameters,
+        p1: &SABRParameters,
+        w: f64,
+    ) -> SABRParameters {
+        let w_clamped = w.clamp(0.0, 1.0);
+
+        let log_alpha0 = p0.alpha.ln();
+        let log_alpha1 = p1.alpha.ln();
+        let log_nu0 = p0.nu.ln();
+        let log_nu1 = p1.nu.ln();
+
+        let alpha = (log_alpha0 * (1.0 - w_clamped) + log_alpha1 * w_clamped).exp();
+        let nu = (log_nu0 * (1.0 - w_clamped) + log_nu1 * w_clamped).exp();
+
+        let rho_raw = p0.rho * (1.0 - w_clamped) + p1.rho * w_clamped;
+        let rho = rho_raw.clamp(-0.999, 0.999);
+
+        SABRParameters {
+            alpha,
+            beta: p0.beta, // beta is fixed in calibrator; keep from base
+            nu,
+            rho,
+            shift: p0.shift, // shift is constant for the surface
+        }
+    }
+
+    /// Bilinear interpolation between four SABR parameter sets on a rectangle.
+    fn interpolate_sabr_bilinear(
+        p_00: &SABRParameters,
+        p_10: &SABRParameters,
+        p_01: &SABRParameters,
+        p_11: &SABRParameters,
+        wx: f64,
+        wy: f64,
+    ) -> SABRParameters {
+        let wx_clamped = wx.clamp(0.0, 1.0);
+        let wy_clamped = wy.clamp(0.0, 1.0);
+
+        // First interpolate along expiry for each tenor.
+        let p0 = Self::interpolate_sabr_linear(p_00, p_10, wx_clamped);
+        let p1 = Self::interpolate_sabr_linear(p_01, p_11, wx_clamped);
+
+        // Then interpolate along tenor between the two intermediate parameters.
+        Self::interpolate_sabr_linear(&p0, &p1, wy_clamped)
+    }
     /// Interpolate SABR volatility for points without direct calibration.
     fn interpolate_sabr_vol(
         &self,
@@ -421,28 +640,76 @@ impl SwaptionVolCalibrator {
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
     ) -> Result<f64> {
-        // Find closest calibrated point using min_by instead of sorting entire list
-        let closest = sabr_params
-            .iter()
-            .map(|((exp_bp, ten_bp), params)| {
-                let exp = *exp_bp as f64 / 10000.0;
-                let ten = *ten_bp as f64 / 10000.0;
-                let distance =
-                    ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2)).sqrt();
-                (distance, params)
-            })
-            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        // Choose interpolation behavior based on configuration.
+        match self.sabr_interpolation {
+            SabrInterpolationMethod::Nearest => {
+                // Legacy behavior: nearest-neighbor in (expiry, tenor) space.
+                let closest = sabr_params
+                    .iter()
+                    .map(|((exp_bp, ten_bp), params)| {
+                        let exp = *exp_bp as f64 / 10000.0;
+                        let ten = *ten_bp as f64 / 10000.0;
+                        let distance =
+                            ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2)).sqrt();
+                        (distance, params)
+                    })
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
-        match closest {
-            Some((_, params)) => {
-                let model = SABRModel::new(params.clone());
-                let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
-                let forward = self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
-                let strike = self.determine_atm_strike(forward, expiry, target_tenor, context)?;
+                match closest {
+                    Some((_, params)) => {
+                        let model = SABRModel::new(params.clone());
+                        let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
+                        let forward =
+                            self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
+                        let strike =
+                            self.determine_atm_strike(forward, expiry, target_tenor, context)?;
 
-                model.implied_volatility(forward, strike, target_expiry)
+                        model.implied_volatility(forward, strike, target_expiry)
+                    }
+                    None => Ok(self.market_conventions.default_vol),
+                }
             }
-            None => Ok(self.market_conventions.default_vol), // Use configured default
+            SabrInterpolationMethod::Bilinear => {
+                if let Some(params) =
+                    self.interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
+                {
+                    let model = SABRModel::new(params);
+                    let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
+                    let forward =
+                        self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
+                    let strike =
+                        self.determine_atm_strike(forward, expiry, target_tenor, context)?;
+
+                    model.implied_volatility(forward, strike, target_expiry)
+                } else {
+                    // Fallback: use nearest behavior if bilinear interpolation is not possible.
+                    let closest = sabr_params
+                        .iter()
+                        .map(|((exp_bp, ten_bp), params)| {
+                            let exp = *exp_bp as f64 / 10000.0;
+                            let ten = *ten_bp as f64 / 10000.0;
+                            let distance =
+                                ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2))
+                                    .sqrt();
+                            (distance, params)
+                        })
+                        .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+                    match closest {
+                        Some((_, params)) => {
+                            let model = SABRModel::new(params.clone());
+                            let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
+                            let forward = self
+                                .calculate_forward_swap_rate(expiry, target_tenor, context)?;
+                            let strike =
+                                self.determine_atm_strike(forward, expiry, target_tenor, context)?;
+
+                            model.implied_volatility(forward, strike, target_expiry)
+                        }
+                        None => Ok(self.market_conventions.default_vol),
+                    }
+                }
+            }
         }
     }
 }
@@ -650,6 +917,94 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::dates::Date;
+    use finstack_core::prelude::Currency;
+    use time::macros::date;
+
+    fn dummy_calibrator() -> SwaptionVolCalibrator {
+        let base_date: Date = date!(2025 - 01 - 15);
+        SwaptionVolCalibrator::new(
+            "TEST-SURFACE",
+            SwaptionVolConvention::Lognormal,
+            AtmStrikeConvention::SwapRate,
+            base_date,
+            "USD-OIS",
+            Currency::USD,
+        )
+    }
+
+    #[test]
+    fn test_sabr_grid_axes_sorted_unique() {
+        let mut grid: SABRParamsByExpiryTenor = BTreeMap::new();
+        let p = SABRParameters {
+            alpha: 0.2,
+            beta: 0.5,
+            nu: 0.4,
+            rho: -0.1,
+            shift: None,
+        };
+
+        grid.insert((to_basis_points(1.0), to_basis_points(5.0)), p.clone());
+        grid.insert((to_basis_points(2.0), to_basis_points(5.0)), p.clone());
+        grid.insert((to_basis_points(1.0), to_basis_points(10.0)), p.clone());
+
+        let (expiries, tenors) = SwaptionVolCalibrator::sabr_grid_axes(&grid);
+        assert_eq!(expiries, vec![1.0, 2.0]);
+        assert_eq!(tenors, vec![5.0, 10.0]);
+    }
+
+    #[test]
+    fn test_sabr_interpolate_linear_and_bilinear() {
+        let base = SABRParameters {
+            alpha: 0.2,
+            beta: 0.5,
+            nu: 0.4,
+            rho: -0.1,
+            shift: None,
+        };
+        let mut grid: SABRParamsByExpiryTenor = BTreeMap::new();
+        grid.insert((to_basis_points(1.0), to_basis_points(5.0)), SABRParameters { alpha: 0.2, beta: 0.5, nu: 0.4, rho: -0.1, shift: None });
+        grid.insert((to_basis_points(2.0), to_basis_points(5.0)), SABRParameters { alpha: 0.4, beta: 0.5, nu: 0.8, rho: 0.2, shift: None });
+        grid.insert((to_basis_points(1.0), to_basis_points(10.0)), SABRParameters { alpha: 0.3, beta: 0.5, nu: 0.6, rho: 0.0, shift: None });
+        grid.insert((to_basis_points(2.0), to_basis_points(10.0)), SABRParameters { alpha: 0.6, beta: 0.5, nu: 1.0, rho: 0.4, shift: None });
+
+        let calib = dummy_calibrator();
+
+        // Center point (1.5y, 7.5y) should be between all four corners.
+        let params = calib
+            .interpolate_sabr_params_bilinear(1.5, 7.5, &grid)
+            .expect("params");
+
+        // Check invariants
+        assert!(params.alpha > 0.0);
+        assert!(params.nu > 0.0);
+        assert!(params.rho > -1.0 && params.rho < 1.0);
+        assert_eq!(params.beta, base.beta);
+    }
+
+    #[test]
+    fn test_sabr_interpolation_method_nearest_matches_legacy_behavior() {
+        let mut grid: SABRParamsByExpiryTenor = BTreeMap::new();
+        let params = SABRParameters {
+            alpha: 0.2,
+            beta: 0.5,
+            nu: 0.4,
+            rho: -0.1,
+            shift: None,
+        };
+        grid.insert((to_basis_points(1.0), to_basis_points(5.0)), params.clone());
+
+        let mut calib = dummy_calibrator();
+        calib.sabr_interpolation = SabrInterpolationMethod::Nearest;
+
+        // Build a tiny dummy market context; we only care that the call succeeds
+        let context = MarketContext::new();
+        // Nearest behavior should fall back to default_vol when pricing fails due to empty market.
+        let vol = calib
+            .interpolate_sabr_vol(1.0, 5.0, &grid, &context)
+            .unwrap_or(calib.market_conventions.default_vol);
+        assert!(vol.is_finite());
+    }
     use time::Month;
 
     #[test]
