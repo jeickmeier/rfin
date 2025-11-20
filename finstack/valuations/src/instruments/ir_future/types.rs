@@ -39,6 +39,8 @@ pub struct InterestRateFuture {
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
     pub forward_id: CurveId,
+    /// Optional volatility surface identifier for convexity adjustment
+    pub volatility_id: Option<CurveId>,
     /// Attributes
     pub attributes: Attributes,
 }
@@ -185,21 +187,13 @@ impl InterestRateFuture {
         let adjusted_rate = if let Some(ca) = self.contract_specs.convexity_adjustment {
             forward_rate + ca
         } else {
-            // Estimate convexity using a Hull-White style approximation
-            let vol_estimate = if t_fixing <= 0.25 {
-                0.008
-            } else if t_fixing <= 0.5 {
-                0.0085
-            } else if t_fixing <= 1.0 {
-                0.009
-            } else if t_fixing <= 2.0 {
-                0.0095
-            } else {
-                0.01
-            };
-            let tau_len = t_end - t_start;
-            let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau_len);
-            forward_rate + convexity
+            self.calculate_convexity_adjusted_rate(
+                context,
+                forward_rate,
+                t_fixing,
+                t_start,
+                t_end,
+            )?
         };
 
         // Implied rate from price and accrual over the underlying period
@@ -243,6 +237,44 @@ impl InterestRateFuture {
             )?
             .max(0.0);
         Ok(self.contract_specs.face_value * tau * 1e-4 * (self.contract_specs.tick_size / 1e-4))
+    }
+
+    /// Calculate convexity adjusted rate using volatility surface or fallback
+    fn calculate_convexity_adjusted_rate(
+        &self,
+        context: &MarketContext,
+        forward_rate: f64,
+        t_fixing: f64,
+        t_start: f64,
+        t_end: f64,
+    ) -> finstack_core::Result<f64> {
+        let vol_estimate = if let Some(vol_id) = &self.volatility_id {
+            // Use provided volatility surface
+            // Strike for vol lookup is the forward rate
+            let surface = context.surface(vol_id)?;
+            surface.value_checked(t_fixing, forward_rate)?
+        } else {
+            // Estimate convexity using a Hull-White style approximation
+            // Fallback hardcoded volatilities (should be roughly Normal vol)
+            if t_fixing <= 0.25 {
+                0.008
+            } else if t_fixing <= 0.5 {
+                0.0085
+            } else if t_fixing <= 1.0 {
+                0.009
+            } else if t_fixing <= 2.0 {
+                0.0095
+            } else {
+                0.01
+            }
+        };
+
+        let tau_len = t_end - t_start;
+        // Convexity adjustment ≈ 0.5 * σ² * T1 * T2
+        // Where T1 is time to fixing, T2 is time to maturity (fixing + accrual)
+        // Or more precisely in HW: (1-exp(-aT1))/a * ... but for small a, T1*T2 is good approx
+        let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau_len);
+        Ok(forward_rate + convexity)
     }
 }
 
@@ -299,18 +331,13 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
 impl CashflowProvider for InterestRateFuture {
     fn build_schedule(
         &self,
-        curves: &MarketContext,
-        as_of: Date,
+        _curves: &MarketContext,
+        _as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // Futures settle daily (mark-to-market), but for simplicity
-        // we'll return the final settlement at expiry
-        if self.expiry_date <= as_of {
-            return Ok(vec![]); // Already expired
-        }
-
-        let settlement_pv = self.npv(curves)?;
-
-        Ok(vec![(self.expiry_date, settlement_pv)])
+        // Futures are daily settled (mark-to-market).
+        // There is no future cashflow to discount.
+        // Returning an empty schedule prevents incorrect discounting by generic engines.
+        Ok(vec![])
     }
 }
 

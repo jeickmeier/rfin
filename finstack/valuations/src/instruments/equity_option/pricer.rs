@@ -6,9 +6,12 @@
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
 
-use crate::instruments::common::models::{d1, d2};
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common::models::d1;
+use crate::instruments::common::models::d2;
+use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
+use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity_option::types::EquityOption;
+use crate::instruments::ExerciseStyle;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -34,7 +37,44 @@ pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<M
         ));
     }
 
-    let unit_price = price_bs_unit(spot, inst.strike.amount(), r, q, sigma, t, inst.option_type);
+    // Dispatch based on exercise style
+    let unit_price = match inst.exercise_style {
+        ExerciseStyle::European => {
+            price_bs_unit(spot, inst.strike.amount(), r, q, sigma, t, inst.option_type)
+        }
+        ExerciseStyle::American => {
+            // Use Leisen-Reimer tree for American options
+            // 201 steps gives good accuracy/performance trade-off (~10c precision)
+            let tree = BinomialTree::leisen_reimer(201);
+            let params = OptionMarketParams {
+                spot,
+                strike: inst.strike.amount(),
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
+            tree.price_american(&params)?
+        }
+        ExerciseStyle::Bermudan => {
+             // Bermudan not fully supported in this simplified path, fall back to American (conservative)
+             // or error. American is a safe upper bound for Bermudan.
+             // Ideally we would need the exercise schedule.
+             let tree = BinomialTree::leisen_reimer(201);
+             let params = OptionMarketParams {
+                spot,
+                strike: inst.strike.amount(),
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
+            tree.price_american(&params)?
+        }
+    };
+
     Ok(Money::new(
         unit_price * inst.contract_size,
         inst.strike.currency(),
@@ -169,54 +209,125 @@ pub fn compute_greeks(
         });
     }
 
-    let d1 = d1(spot, inst.strike.amount(), r, sigma, t, q);
-    let d2 = d2(spot, inst.strike.amount(), r, sigma, t, q);
-    let exp_q_t = (-q * t).exp();
-    let exp_r_t = (-r * t).exp();
-    let sqrt_t = t.sqrt();
-    let pdf_d1 = finstack_core::math::norm_pdf(d1);
-    let cdf_d1 = finstack_core::math::norm_cdf(d1);
-    let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
-    let cdf_d2 = finstack_core::math::norm_cdf(d2);
-    let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
+    match inst.exercise_style {
+        ExerciseStyle::European => {
+            // Analytical Black-Scholes Greeks
+            let d1 = d1(spot, inst.strike.amount(), r, sigma, t, q);
+            let d2 = d2(spot, inst.strike.amount(), r, sigma, t, q);
+            let exp_q_t = (-q * t).exp();
+            let exp_r_t = (-r * t).exp();
+            let sqrt_t = t.sqrt();
+            let pdf_d1 = finstack_core::math::norm_pdf(d1);
+            let cdf_d1 = finstack_core::math::norm_cdf(d1);
+            let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
+            let cdf_d2 = finstack_core::math::norm_cdf(d2);
+            let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
 
-    let delta_unit = match inst.option_type {
-        OptionType::Call => exp_q_t * cdf_d1,
-        OptionType::Put => -exp_q_t * cdf_m_d1,
-    };
-    let gamma_unit = if sigma <= 0.0 {
-        0.0
-    } else {
-        exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
-    };
-    let vega_unit = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
-    let theta_unit = match inst.option_type {
-        OptionType::Call => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-            let term2 = q * spot * cdf_d1 * exp_q_t;
-            let term3 = -r * inst.strike.amount() * exp_r_t * cdf_d2;
-            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-        }
-        OptionType::Put => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-            let term2 = -q * spot * cdf_m_d1 * exp_q_t;
-            let term3 = r * inst.strike.amount() * exp_r_t * cdf_m_d2;
-            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-        }
-    };
-    let rho_unit = match inst.option_type {
-        OptionType::Call => inst.strike.amount() * t * exp_r_t * cdf_d2 / ONE_PERCENT,
-        OptionType::Put => -inst.strike.amount() * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
-    };
+            let delta_unit = match inst.option_type {
+                OptionType::Call => exp_q_t * cdf_d1,
+                OptionType::Put => -exp_q_t * cdf_m_d1,
+            };
+            let gamma_unit = if sigma <= 0.0 {
+                0.0
+            } else {
+                exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
+            };
+            let vega_unit = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
+            let theta_unit = match inst.option_type {
+                OptionType::Call => {
+                    let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
+                    let term2 = q * spot * cdf_d1 * exp_q_t;
+                    let term3 = -r * inst.strike.amount() * exp_r_t * cdf_d2;
+                    (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
+                }
+                OptionType::Put => {
+                    let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
+                    let term2 = -q * spot * cdf_m_d1 * exp_q_t;
+                    let term3 = r * inst.strike.amount() * exp_r_t * cdf_m_d2;
+                    (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
+                }
+            };
+            let rho_unit = match inst.option_type {
+                OptionType::Call => inst.strike.amount() * t * exp_r_t * cdf_d2 / ONE_PERCENT,
+                OptionType::Put => -inst.strike.amount() * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
+            };
 
-    let scale = inst.contract_size;
-    Ok(EquityOptionGreeks {
-        delta: delta_unit * scale,
-        gamma: gamma_unit * scale,
-        vega: vega_unit * scale,
-        theta: theta_unit * scale,
-        rho: rho_unit * scale,
-    })
+            let scale = inst.contract_size;
+            Ok(EquityOptionGreeks {
+                delta: delta_unit * scale,
+                gamma: gamma_unit * scale,
+                vega: vega_unit * scale,
+                theta: theta_unit * scale,
+                rho: rho_unit * scale,
+            })
+        }
+        _ => {
+            // American/Bermudan: Use Tree with Finite Differences
+            let tree = BinomialTree::leisen_reimer(201);
+            let params = OptionMarketParams {
+                spot,
+                strike: inst.strike.amount(),
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
+
+            // Helper to price
+            let price_fn = |p: &OptionMarketParams| -> Result<f64> {
+                tree.price_american(p)
+            };
+
+            let base_price = price_fn(&params)?;
+
+            // Delta & Gamma (1% spot bump)
+            let h_s = spot * 0.01;
+            let mut p_up = params.clone();
+            p_up.spot += h_s;
+            let price_up = price_fn(&p_up)?;
+            let mut p_dn = params.clone();
+            p_dn.spot -= h_s;
+            let price_dn = price_fn(&p_dn)?;
+
+            let delta_unit = (price_up - price_dn) / (2.0 * h_s);
+            let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
+
+            // Vega (1% vol bump)
+            let h_v = 0.01;
+            let mut p_v = params.clone();
+            p_v.volatility += h_v;
+            let price_v = price_fn(&p_v)?;
+            let vega_unit = price_v - base_price;
+
+            // Rho (1% rate bump)
+            let h_r = 0.01;
+            let mut p_r = params.clone();
+            p_r.rate += h_r;
+            let price_r = price_fn(&p_r)?;
+            let rho_unit = price_r - base_price;
+
+            // Theta (1 day bump)
+            let dt = 1.0 / 365.25;
+            let theta_unit = if t > dt {
+                let mut p_t = params.clone();
+                p_t.time_to_expiry -= dt;
+                let price_t = price_fn(&p_t)?;
+                price_t - base_price // change per day
+            } else {
+                0.0
+            };
+
+            let scale = inst.contract_size;
+            Ok(EquityOptionGreeks {
+                delta: delta_unit * scale,
+                gamma: gamma_unit * scale,
+                vega: vega_unit * scale,
+                theta: theta_unit * scale,
+                rho: rho_unit * scale,
+            })
+        }
+    }
 }
 
 /// Unit greeks (per share, not scaled by contract size).

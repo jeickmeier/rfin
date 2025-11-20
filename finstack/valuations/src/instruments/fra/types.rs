@@ -329,4 +329,77 @@ mod tests {
             pv.amount()
         );
     }
+
+    #[test]
+    #[cfg(feature = "slow")]
+    fn fra_par_rate_metric() {
+        // Build simple flat curves
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = DiscountCurve::builder("DISC")
+            .base_date(base)
+            .knots([(0.0, 1.0), (5.0, 0.78)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("FRA builder should succeed in test");
+
+        let fwd_rate = 0.05;
+        let fwd = ForwardCurve::builder("FWD-3M", 0.25)
+            .base_date(base)
+            .knots([(0.0, fwd_rate), (5.0, fwd_rate)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("FRA builder should succeed in test");
+
+        let ctx = MarketContext::new()
+            .insert_discount(disc)
+            .insert_forward(fwd);
+
+        let start = base + time::Duration::days(90);
+        let end = base + time::Duration::days(180);
+        let fixing = start - time::Duration::days(2);
+        
+        let fra = ForwardRateAgreement::builder()
+            .id("FRA-TEST".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .fixing_date(fixing)
+            .start_date(start)
+            .end_date(end)
+            .fixed_rate(0.04) // Different from market rate
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .reset_lag(2)
+            .discount_curve_id("DISC".into())
+            .forward_id("FWD-3M".into())
+            .pay_fixed(true)
+            .build()
+            .expect("Builder failed");
+
+        use std::sync::Arc;
+        use crate::instruments::common::traits::Instrument;
+        use crate::metrics::{MetricCalculator, MetricContext};
+        use crate::instruments::fra::metrics::FraParRateCalculator;
+
+        // Wrap in Arc for metric context
+        let fra_arc = Arc::new(fra);
+        let ctx_arc = Arc::new(ctx);
+        
+        // Calculate base PV
+        let base_pv = fra_arc.value(&ctx_arc, base).expect("PV calculation failed");
+
+        let calc = FraParRateCalculator;
+        let mut m_ctx = MetricContext::new(
+            fra_arc as Arc<dyn Instrument>,
+            ctx_arc,
+            base,
+            base_pv,
+        );
+        
+        let par_rate = calc.calculate(&mut m_ctx).expect("Par rate calculation failed");
+        
+        assert!(
+            (par_rate - fwd_rate).abs() < 1e-10,
+            "Par rate {} should equal forward rate {}", 
+            par_rate, 
+            fwd_rate
+        );
+    }
 }

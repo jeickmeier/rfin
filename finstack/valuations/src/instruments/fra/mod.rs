@@ -21,10 +21,10 @@
 //! Payoff = N × τ × (Rate_realized - Rate_fixed) / (1 + Rate_realized × τ)
 //! ```
 //!
-//! Present value from valuation date:
+//! Present value from valuation date (assuming standard settlement at start):
 //!
 //! ```text
-//! PV = N × τ × (F - K) × DF(start)
+//! PV = N × τ × (F - K) / (1 + F × τ) × DF(start)
 //! ```
 //!
 //! where:
@@ -33,6 +33,9 @@
 //! - F = forward rate from curves
 //! - K = FRA rate (fixed rate)
 //! - DF(start) = discount factor to settlement
+//!
+//! Note: The term `1 / (1 + F × τ)` is the convexity/settlement adjustment 
+//! characteristic of standard FRAs settled at the start of the period.
 //!
 //! # Market Conventions
 //!

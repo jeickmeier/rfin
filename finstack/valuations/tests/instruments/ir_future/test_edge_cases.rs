@@ -252,9 +252,12 @@ fn test_cashflow_active() {
 
     let cashflows = future.build_schedule(&market, as_of).unwrap();
 
-    // Should have one cashflow at expiry
-    assert_eq!(cashflows.len(), 1, "Active future should have one cashflow");
-    assert_eq!(cashflows[0].0, start, "Cashflow should be at expiry date");
+    // Futures are daily settled, so standard discounting schedule is empty
+    // The value is returned directly by npv() / value()
+    assert!(
+        cashflows.is_empty(),
+        "Active future should have no discountable cashflows (daily settled)"
+    );
 }
 
 #[test]

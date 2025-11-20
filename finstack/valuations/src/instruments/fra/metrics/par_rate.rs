@@ -19,44 +19,28 @@ impl MetricCalculator for FraParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
-        // Base date for time mapping (consistent with engine and IRS metrics)
-        let disc = context
-            .curves
-            .get_discount_ref(fra.discount_curve_id.as_str())?;
-        let base = disc.base_date();
+        // Forward rate over [t_start, t_end]
+        let fwd = context.curves.get_forward_ref(fra.forward_id.as_str())?;
 
-        // Compute start/end times and guard zero-length periods
-        let t_start = fra
-            .day_count
+        // Times must be calculated using the forward curve's basis
+        let fwd_base = fwd.base_date();
+        let fwd_dc = fwd.day_count();
+
+        let t_start = fwd_dc
             .year_fraction(
-                base,
+                fwd_base,
                 fra.start_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        let t_end = fra
-            .day_count
+        let t_end = fwd_dc
             .year_fraction(
-                base,
+                fwd_base,
                 fra.end_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(t_start);
 
-        let tau = fra
-            .day_count
-            .year_fraction(
-                fra.start_date,
-                fra.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-        if tau == 0.0 {
-            return Ok(0.0);
-        }
-
-        // Forward rate over [t_start, t_end]
-        let fwd = context.curves.get_forward_ref(fra.forward_id.as_str())?;
         Ok(fwd.rate_period(t_start, t_end))
     }
 }
