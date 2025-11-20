@@ -136,7 +136,7 @@ fn test_equity_forward_price() {
 
     // Add discount curve (5% interest rate)
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let curve = build_flat_curve(0.05, base_date, "USD-OIS");
+    let curve = build_flat_curve(0.05, base_date, "USD");
 
     let market = MarketContext::new()
         .insert_discount(curve)
@@ -159,7 +159,7 @@ fn test_equity_forward_value() {
         .with_shares(10.0);
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let curve = build_flat_curve(0.04, base_date, "USD-OIS");
+    let curve = build_flat_curve(0.04, base_date, "USD");
     let market = MarketContext::new().insert_discount(curve);
 
     let pricer = EquityPricer;
@@ -188,7 +188,7 @@ fn test_simple_equity_pricer_price_dyn() {
         .with_price(150.0);
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let curve = build_flat_curve(0.05, base_date, "USD-OIS");
+    let curve = build_flat_curve(0.05, base_date, "USD");
     let market = MarketContext::new().insert_discount(curve);
 
     let pricer = SimpleEquityDiscountingPricer::new();
@@ -301,7 +301,7 @@ fn test_equity_forward_price_zero_rates() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD).with_price(100.0);
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let curve = build_flat_curve(0.0, base_date, "USD-OIS");
+    let curve = build_flat_curve(0.0, base_date, "USD");
     let market = MarketContext::new().insert_discount(curve);
 
     let pricer = EquityPricer;
@@ -318,7 +318,7 @@ fn test_equity_forward_price_high_dividend() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD).with_price(100.0);
 
     let base_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let curve = build_flat_curve(0.05, base_date, "USD-OIS");
+    let curve = build_flat_curve(0.05, base_date, "USD");
 
     // High dividend yield (10%) exceeds risk-free rate
     let market = MarketContext::new()

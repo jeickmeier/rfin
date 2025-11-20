@@ -88,9 +88,24 @@ where
 
     // Parallel bump the entire hazard curve (convert bp to decimal)
     let bump_decimal = bump_bp * 1e-4;
-    let bumped_hazard = hazard.with_hazard_shift(bump_decimal)?;
+    let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+
+    // Restore original ID so it overwrites correctly in MarketContext
+    // hazard.with_hazard_shift() changes the ID to a temp one
+    let bumped_hazard = temp_bumped
+        .to_builder_with_id(hazard_id.clone())
+        .build()
+        .map_err(|_| finstack_core::Error::Internal)?;
+
     let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-    let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+    
+    // CS01 is PV change per 1bp
+    // If bump_bp is not 1.0, scale result to 1bp equivalent
+    let cs01 = if bump_bp.abs() > 1e-10 {
+        (pv_bumped.amount() - base_pv.amount()) / bump_bp
+    } else {
+        0.0
+    };
 
     Ok(cs01)
 }
@@ -113,10 +128,25 @@ where
 
     // Parallel bump the entire hazard curve
     let bump_decimal = bump_bp * 1e-4;
-    let bumped_hazard = hazard.with_hazard_shift(bump_decimal)?;
+    let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+
+    // Restore original ID so it overwrites correctly in MarketContext
+    // hazard.with_hazard_shift() changes the ID to a temp one
+    let bumped_hazard = temp_bumped
+        .to_builder_with_id(hazard_id.clone())
+        .build()
+        .map_err(|_| finstack_core::Error::Internal)?;
+
     let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
     let pv_bumped = revalue_with_context(&temp_ctx)?;
-    let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+    
+    // CS01 is PV change per 1bp
+    // If bump_bp is not 1.0, scale result to 1bp equivalent
+    let cs01 = if bump_bp.abs() > 1e-10 {
+        (pv_bumped.amount() - base_pv.amount()) / bump_bp
+    } else {
+        0.0
+    };
 
     Ok(cs01)
 }
@@ -150,8 +180,12 @@ where
         let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
 
         let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-        // CS01 is PV change per 1bp, so divide by 10,000 to normalize
-        let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // CS01 is PV change per 1bp, so divide by bump_bp to normalize
+        let cs01 = if bump_bp.abs() > 1e-10 {
+            (pv_bumped.amount() - base_pv.amount()) / bump_bp
+        } else {
+            0.0
+        };
         series.push((label, cs01));
     }
 
@@ -186,7 +220,12 @@ where
         // Create new MarketContext with bumped hazard
         let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
-        let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // CS01 is PV change per 1bp, so divide by bump_bp to normalize
+        let cs01 = if bump_bp.abs() > 1e-10 {
+            (pv_bumped.amount() - base_pv.amount()) / bump_bp
+        } else {
+            0.0
+        };
         series.push((label, cs01));
     }
 

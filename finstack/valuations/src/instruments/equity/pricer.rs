@@ -62,7 +62,7 @@ impl EquityPricer {
     /// F(t) = S0 × exp((r - q) × t)
     ///
     /// - S0 resolved via `price_per_share` (respects instrument overrides)
-    /// - r pulled from discount curve "{CURRENCY}-OIS" zero rate
+    /// - r pulled from discount curve configured on instrument
     /// - q from `dividend_yield` (0.0 when absent)
     pub fn forward_price_per_share(
         &self,
@@ -73,8 +73,8 @@ impl EquityPricer {
     ) -> Result<Money> {
         let s0 = self.price_per_share(inst, curves, as_of)?;
         let dy = self.dividend_yield(inst, curves)?;
-        let discount_id = format!("{}-OIS", inst.currency);
-        let disc = curves.get_discount_ref(&discount_id)?;
+        // Use configured discount curve ID
+        let disc = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, inst.currency))

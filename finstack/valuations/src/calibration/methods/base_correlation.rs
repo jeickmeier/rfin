@@ -326,7 +326,7 @@ impl BaseCorrelationCalibrator {
         let id = finstack_core::types::InstrumentId::new(format!(
             "CALIB_TRANCHE_{:.1}_{:.1}",
             attach_pct, detach_pct
-        ));
+        ).replace('.', "_"));
         CdsTranche::builder()
             .id(id)
             .index_name(self.index_id.to_owned())
@@ -344,6 +344,8 @@ impl BaseCorrelationCalibrator {
             .credit_index_id(finstack_core::types::CurveId::new(self.index_id.to_owned()))
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)
+            .accumulated_loss(0.0)
+            .standard_imm_dates(false)
             .build()
     }
 }

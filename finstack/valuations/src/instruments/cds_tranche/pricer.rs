@@ -1148,18 +1148,29 @@ impl CDSTranchePricer {
             Err(_) => return Ok(0.0),
         };
 
+        // Determine effective valuation date (handling settlement lag matches price_tranche)
+        let valuation_date = if tranche.effective_date.is_none() {
+             if let Some(_cal_id) = &tranche.calendar_id {
+                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
+             } else {
+                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
+             }
+        } else {
+            as_of
+        };
+
         // Premium PV per 1 basis point of running coupon
         let mut unit_tranche = tranche.clone();
         unit_tranche.running_coupon_bp = 1.0;
         let premium_per_bp =
-            self.calculate_premium_leg_pv(&unit_tranche, index_data, discount_curve, as_of)?;
+            self.calculate_premium_leg_pv(&unit_tranche, index_data, discount_curve, valuation_date)?;
 
         if premium_per_bp.abs() < self.params.numerical_tolerance {
             return Ok(0.0);
         }
 
         let protection_pv =
-            self.calculate_protection_leg_pv(tranche, index_data, discount_curve, as_of)?;
+            self.calculate_protection_leg_pv(tranche, index_data, discount_curve, valuation_date)?;
 
         Ok(protection_pv / premium_per_bp)
     }

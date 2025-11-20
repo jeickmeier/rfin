@@ -215,39 +215,18 @@ impl Equity {
 
     /// Calculate the net present value of this equity position
     ///
-    /// For equities with dividend yield, this applies discounting to account for carry:
-    /// PV = Spot * exp(-q * t) where q is dividend yield and t is time to horizon
+    /// For spot equities, this is simply Spot Price * Shares.
+    /// Any dividend adjustments or forward pricing should be handled via specific metrics
+    /// or forward instrument types.
     pub fn npv(
         &self,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         let spot_px = self.price_per_share(curves, as_of)?;
-        let dy = self.dividend_yield(curves)?;
-
-        // If no dividend yield, return spot value
-        if dy == 0.0 {
-            return Ok(Money::new(
-                spot_px.amount() * self.effective_shares(),
-                self.currency,
-            ));
-        }
-
-        // Apply dividend discounting for carry calculation
-        // Use a fixed horizon from the base date to create theta effect
-        // This creates a forward-looking valuation that changes over time
-        let base_date = curves
-            .get_discount_ref(self.discount_curve_id.as_str())?
-            .base_date();
-        let days_to_horizon = (as_of - base_date).whole_days() as f64;
-        let t = days_to_horizon / 365.0; // Time from base date to valuation date
-
-        // Apply dividend accrual: PV = Spot * exp(q * t)
-        // As time progresses, dividends accrue, creating positive theta for long positions
-        let discounted_px = spot_px.amount() * (dy * t).exp();
-
+        
         Ok(Money::new(
-            discounted_px * self.effective_shares(),
+            spot_px.amount() * self.effective_shares(),
             self.currency,
         ))
     }
@@ -312,8 +291,8 @@ impl Equity {
     ) -> finstack_core::Result<Money> {
         let s0 = self.price_per_share(market, as_of)?;
         let dy = self.dividend_yield(market)?;
-        let discount_id = format!("{}-OIS", self.currency);
-        let disc = market.get_discount_ref(&discount_id)?;
+        // Use configured discount curve ID
+        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, self.currency))
