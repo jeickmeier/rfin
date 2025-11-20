@@ -21,10 +21,13 @@ pub struct CDSTrancheParams {
     pub maturity: Date,
     /// Running coupon in basis points
     pub running_coupon_bp: f64,
+    /// Accumulated realized loss as fraction of original portfolio notional [0.0, 1.0]
+    pub accumulated_loss: f64,
 }
 
 impl CDSTrancheParams {
     /// Create new CDS tranche parameters
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         index_name: impl Into<String>,
         series: u16,
@@ -42,7 +45,14 @@ impl CDSTrancheParams {
             notional,
             maturity,
             running_coupon_bp,
+            accumulated_loss: 0.0,
         }
+    }
+
+    /// Set the accumulated loss
+    pub fn with_accumulated_loss(mut self, loss: f64) -> Self {
+        self.accumulated_loss = loss;
+        self
     }
 
     /// Create equity tranche parameters (0-3% typically)

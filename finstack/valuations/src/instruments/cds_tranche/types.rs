@@ -82,6 +82,10 @@ pub struct CdsTranche {
     pub side: TrancheSide,
     /// Optional effective date for schedule anchoring (if None, uses as_of date)
     pub effective_date: Option<Date>,
+    /// Accumulated realized loss as fraction of original portfolio notional
+    pub accumulated_loss: f64,
+    /// Whether to enforce standard IMM dates (20th of Mar, Jun, Sep, Dec)
+    pub standard_imm_dates: bool,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -148,6 +152,49 @@ impl CdsTranche {
             credit_index_id: credit_index_id.into(),
             side,
             effective_date: None,
+            accumulated_loss: tranche_params.accumulated_loss,
+            standard_imm_dates: false,
+            attributes: Attributes::new(),
+        }
+    }
+
+    /// Create a standard CDS tranche with IMM dates and market conventions
+    #[allow(clippy::too_many_arguments)]
+    pub fn standard(
+        id: impl Into<InstrumentId>,
+        tranche_params: &CDSTrancheParams,
+        discount_curve_id: impl Into<CurveId>,
+        credit_index_id: impl Into<CurveId>,
+        side: TrancheSide,
+    ) -> Self {
+        use crate::cashflow::builder::ScheduleParams;
+        let sched = ScheduleParams {
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+        };
+        
+        Self {
+            id: id.into(),
+            index_name: tranche_params.index_name.to_owned(),
+            series: tranche_params.series,
+            attach_pct: tranche_params.attach_pct,
+            detach_pct: tranche_params.detach_pct,
+            notional: tranche_params.notional,
+            maturity: tranche_params.maturity,
+            running_coupon_bp: tranche_params.running_coupon_bp,
+            payment_frequency: sched.freq,
+            day_count: sched.dc,
+            business_day_convention: sched.bdc,
+            calendar_id: None,
+            discount_curve_id: discount_curve_id.into(),
+            credit_index_id: credit_index_id.into(),
+            side,
+            effective_date: None,
+            accumulated_loss: tranche_params.accumulated_loss,
+            standard_imm_dates: true,
             attributes: Attributes::new(),
         }
     }
