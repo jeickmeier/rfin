@@ -7,7 +7,7 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::parameters::market::OptionType;
-use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
+use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};
 use finstack_valuations::instruments::PricingOverrides;
 use time::macros::date;
 
@@ -81,6 +81,7 @@ pub fn create_standard_payer_swaption(
         day_count: DayCount::Act360,
         exercise: SwaptionExercise::European,
         settlement: SwaptionSettlement::Physical,
+        vol_model: VolatilityModel::Black,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_SWAPTION_VOL".into(),

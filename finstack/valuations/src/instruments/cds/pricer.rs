@@ -691,11 +691,11 @@ impl CDSPricer {
                 let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
                 let sp = surv.sp(t_end);
                 let df = disc.df(t_end);
-                let per_bp = 1e-4;
-                // coupon part per bp
-                ann += per_bp * accrual * sp * df;
-                // AoD part per bp in this period
-                ann += self.calculate_accrual_on_default(per_bp, t_start, t_end, disc, surv)?;
+                let unit_spread = 1.0;
+                // coupon part per unit spread
+                ann += unit_spread * accrual * sp * df;
+                // AoD part per unit spread in this period
+                ann += self.calculate_accrual_on_default(unit_spread, t_start, t_end, disc, surv)?;
             }
             ann
         } else {

@@ -116,8 +116,12 @@ impl Pricer for SwaptionLsmcPricer {
             })?;
 
         // For now, delegate to existing pricer
-        // TODO: Implement full LSMC pricing with Bermudan exercise
-        // This requires building the swap schedule and using the LSMC payoff
+        // TODO: Implement full LSMC pricing for Bermudan swaptions.
+        // This requires:
+        // 1. Constructing the underlying swap schedule with all coupon dates.
+        // 2. Simulating interest rate paths (e.g., Hull-White 1F/2F or LMM).
+        // 3. Implementing Longstaff-Schwartz regression to estimate continuation value.
+        // 4. Handling exercise opportunities at each reset date.
         let pv = swaption
             .value(market, as_of)
             .map_err(|e| PricingError::model_failure(e.to_string()))?;

@@ -1,4 +1,4 @@
-//! Swaption instruments with Black (1976) and SABR volatility models.
+//! Swaption instruments with Black (1976), Normal (Bachelier), and SABR volatility models.
 //!
 //! Swaptions are options on interest rate swaps, giving the holder the right
 //! (but not obligation) to enter into a swap at a predetermined fixed rate.
@@ -20,33 +20,35 @@
 //!
 //! # Settlement Types
 //!
-//! - **Physical**: Deliver the underlying swap upon exercise
-//! - **Cash**: Cash settlement based on swap present value
+//! - **Physical**: Deliver the underlying swap upon exercise (uses Physical Annuity)
+//! - **Cash**: Cash settlement based on swap present value (uses Par Yield Annuity)
 //!
-//! # Pricing Model: Black (1976)
+//! # Pricing Models
+//!
+//! ## Black (1976) - Lognormal
 //!
 //! European swaptions are priced using Black (1976) model for options on
-//! forward swap rates:
+//! forward swap rates. Requires positive rates.
 //!
 //! **Payer Swaption:**
 //! ```text
 //! V_payer = A(0,T) · [S · N(d₁) - K · N(d₂)]
 //! ```
 //!
-//! **Receiver Swaption:**
+//! ## Bachelier - Normal
+//!
+//! European swaptions priced using Normal model, suitable for negative rates.
+//!
+//! **Payer Swaption:**
 //! ```text
-//! V_receiver = A(0,T) · [K · N(-d₂) - S · N(-d₁)]
+//! V_payer = A(0,T) · [(S - K) · N(d) + σ√T · n(d)]
 //! ```
 //!
 //! where:
 //! ```text
-//! d₁ = [ln(S/K) + 0.5σ²T] / (σ√T)
-//! d₂ = d₁ - σ√T
-//! A(0,T) = Σ τᵢ · DF(t_i)  (swap annuity)
-//! S = forward swap rate
-//! K = strike rate
-//! σ = implied volatility
-//! T = time to expiration
+//! d = (S - K) / (σ√T)
+//! n(x) = standard normal PDF
+//! N(x) = standard normal CDF
 //! ```
 //!
 //! # SABR Volatility Interpolation
@@ -81,10 +83,10 @@
 //!
 //! # Implementation Notes
 //!
-//! - European swaptions use Black (1976) with implied volatility lookup
-//! - Bermudan swaptions require tree-based or LSM pricing
+//! - European swaptions use Black (1976) or Bachelier (Normal)
+//! - Bermudan swaptions require tree-based or LSM pricing (stubbed)
 //! - Volatility interpolation via SABR model when enabled
-//! - Settlement conventions affect discount factor adjustments
+//! - Settlement conventions affect discount factor adjustments (Physical vs Cash Annuity)
 //!
 //! # Examples
 //!
@@ -97,6 +99,7 @@
 //! - [`SwaptionSettlement`] for settlement type
 //! - [`metrics`] for swaption risk metrics
 //! - [`SimpleSwaptionBlackPricer`] for Black model pricer
+//! - [`types::VolatilityModel`] for selecting Black vs Normal
 
 /// Swaption risk metrics (delta, vega, theta, rho)
 pub mod metrics;
@@ -104,7 +107,7 @@ pub mod metrics;
 pub mod parameters;
 /// Swaption pricer implementation using Black (1976) model
 pub mod pricer;
-mod types;
+pub mod types;
 
 pub use pricer::SimpleSwaptionBlackPricer;
-pub use types::{Swaption, SwaptionExercise, SwaptionSettlement};
+pub use types::{Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};

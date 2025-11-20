@@ -1,11 +1,11 @@
 //! Delta calculator for swaptions.
 //!
-//! Computes cash delta using Black model greeks with forward swap rate and
+//! Computes cash delta using Black or Normal model greeks with forward swap rate and
 //! underlying swap annuity. Uses SABR-implied vol if parameters are set,
 //! otherwise uses the volatility surface or an override from `PricingOverrides`.
 
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::swaption::Swaption;
+use crate::instruments::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
@@ -25,7 +25,7 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         let forward = option.forward_swap_rate(disc, context.as_of)?;
-        let annuity = option.swap_annuity(disc, context.as_of)?;
+        let annuity = option.annuity(disc, context.as_of, forward)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::common::models::SABRModel::new(sabr.clone());
@@ -39,13 +39,27 @@ impl MetricCalculator for DeltaCalculator {
                 .value_clamped(t, option.strike_rate)
         };
 
-        // Use centralized Black76 helper for forward-based pricing
-        use crate::instruments::common::models::d1_black76;
-        let d1 = d1_black76(forward, option.strike_rate, sigma, t);
-
-        let delta = match option.option_type {
-            OptionType::Call => finstack_core::math::norm_cdf(d1),
-            OptionType::Put => -finstack_core::math::norm_cdf(-d1),
+        let delta = match option.vol_model {
+            VolatilityModel::Black => {
+                if forward <= 0.0 {
+                     // Black model undefined for negative rates, return 0 delta or error
+                     return Ok(0.0);
+                }
+                use crate::instruments::common::models::d1_black76;
+                let d1 = d1_black76(forward, option.strike_rate, sigma, t);
+                match option.option_type {
+                    OptionType::Call => finstack_core::math::norm_cdf(d1),
+                    OptionType::Put => -finstack_core::math::norm_cdf(-d1),
+                }
+            },
+            VolatilityModel::Normal => {
+                use crate::instruments::common::models::volatility::normal::d_bachelier;
+                let d = d_bachelier(forward, option.strike_rate, sigma, t);
+                match option.option_type {
+                    OptionType::Call => finstack_core::math::norm_cdf(d),
+                    OptionType::Put => -finstack_core::math::norm_cdf(-d),
+                }
+            }
         };
 
         // Scale by notional and annuity for cash delta

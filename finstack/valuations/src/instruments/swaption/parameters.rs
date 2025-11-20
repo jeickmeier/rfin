@@ -28,6 +28,8 @@ pub struct SwaptionParams {
     pub float_freq: Option<Frequency>,
     /// Optional override: day count convention for year fractions
     pub day_count: Option<DayCount>,
+    /// Optional override: volatility model
+    pub vol_model: Option<crate::instruments::swaption::types::VolatilityModel>,
 }
 
 impl SwaptionParams {
@@ -49,6 +51,7 @@ impl SwaptionParams {
             fixed_freq: None,
             float_freq: None,
             day_count: None,
+            vol_model: None,
         }
     }
 
@@ -70,6 +73,7 @@ impl SwaptionParams {
             fixed_freq: None,
             float_freq: None,
             day_count: None,
+            vol_model: None,
         }
     }
 
@@ -88,6 +92,12 @@ impl SwaptionParams {
     /// Override day count convention
     pub fn with_day_count(mut self, dc: DayCount) -> Self {
         self.day_count = Some(dc);
+        self
+    }
+
+    /// Override volatility model
+    pub fn with_vol_model(mut self, model: crate::instruments::swaption::types::VolatilityModel) -> Self {
+        self.vol_model = Some(model);
         self
     }
 }

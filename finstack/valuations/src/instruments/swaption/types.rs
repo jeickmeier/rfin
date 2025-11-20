@@ -21,6 +21,26 @@ use finstack_core::{Error, Result};
 
 use super::parameters::SwaptionParams;
 
+/// Volatility model for pricing
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum VolatilityModel {
+    /// Black (Lognormal) model (1976)
+    #[default]
+    Black,
+    /// Bachelier (Normal) model
+    Normal,
+}
+
+impl std::fmt::Display for VolatilityModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VolatilityModel::Black => write!(f, "black"),
+            VolatilityModel::Normal => write!(f, "normal"),
+        }
+    }
+}
+
 /// Swaption settlement type
 /// Swaption settlement method
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -117,6 +137,9 @@ pub struct Swaption {
     pub exercise: SwaptionExercise,
     /// Settlement method (physical or cash)
     pub settlement: SwaptionSettlement,
+    /// Volatility model (Black or Normal)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub vol_model: VolatilityModel,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating rate projections
@@ -152,6 +175,7 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Cash,
+            vol_model: VolatilityModel::Black,
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_id: CurveId::new("USD-SOFR-3M"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
@@ -188,6 +212,7 @@ impl Swaption {
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
+            vol_model: Default::default(),
         };
         if let Some(f) = params.fixed_freq {
             s.fixed_freq = f;
@@ -228,6 +253,7 @@ impl Swaption {
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
+            vol_model: Default::default(),
         };
         if let Some(f) = params.fixed_freq {
             s.fixed_freq = f;
@@ -251,12 +277,15 @@ impl Swaption {
     // Pricing Methods (moved from engine for direct access)
     // ============================================================================
 
-    /// Compute instrument NPV dispatching to SABR or Black as configured on the instrument.
+    /// Compute instrument NPV dispatching to SABR, Black, or Normal as configured.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
+        
+        // 1. SABR model (if enabled) overrides basic model choice
         if self.sabr_params.is_some() {
             return self.price_sabr(disc, as_of);
         }
+
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
@@ -264,10 +293,14 @@ impl Swaption {
         } else {
             vol_surface.value_clamped(time_to_expiry, self.strike_rate)
         };
-        self.price_black(disc, vol, as_of)
+
+        match self.vol_model {
+            VolatilityModel::Black => self.price_black(disc, vol, as_of),
+            VolatilityModel::Normal => self.price_normal(disc, vol, as_of),
+        }
     }
 
-    /// Black (lognormal) model PV using forward swap rate and annuity.
+    /// Black (lognormal) model PV.
     pub fn price_black(
         &self,
         disc: &dyn Discounting,
@@ -279,11 +312,19 @@ impl Swaption {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
         let forward_rate = self.forward_swap_rate(disc, as_of)?;
-        let annuity = self.swap_annuity(disc, as_of)?;
+        let annuity = self.annuity(disc, as_of, forward_rate)?;
 
         // Use stable handling if volatility is near zero
         if volatility <= 0.0 || !volatility.is_finite() {
-            return Ok(Money::new(0.0, self.notional.currency()));
+            // Intrinsic value
+            let val = match self.option_type {
+                OptionType::Call => (forward_rate - self.strike_rate).max(0.0),
+                OptionType::Put => (self.strike_rate - forward_rate).max(0.0),
+            };
+            return Ok(Money::new(
+                val * annuity * self.notional.amount(),
+                self.notional.currency(),
+            ));
         }
 
         // Use centralized Black76 helpers for forward-based pricing
@@ -309,7 +350,41 @@ impl Swaption {
         ))
     }
 
-    /// SABR-implied volatility PV via Black price.
+    /// Bachelier (normal) model PV.
+    pub fn price_normal(
+        &self,
+        disc: &dyn Discounting,
+        volatility: f64,
+        as_of: Date,
+    ) -> Result<Money> {
+        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        if time_to_expiry <= 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+        
+        let forward_rate = self.forward_swap_rate(disc, as_of)?;
+        let annuity = self.annuity(disc, as_of, forward_rate)?;
+
+        use crate::instruments::common::models::volatility::normal::bachelier_price;
+        
+        let value = bachelier_price(
+            self.option_type,
+            forward_rate,
+            self.strike_rate,
+            volatility,
+            time_to_expiry,
+            annuity
+        );
+
+        Ok(Money::new(
+            value * self.notional.amount(),
+            self.notional.currency(),
+        ))
+    }
+
+    /// SABR-implied volatility PV via Black price (default).
+    /// Note: If SABR is calibrated to Normal vols, this needs to be adjusted to use price_normal.
+    /// Current implementation assumes SABR -> Lognormal Vol.
     pub fn price_sabr(&self, disc: &dyn Discounting, as_of: Date) -> Result<Money> {
         let params: &SABRParameters = self.sabr_params.as_ref().ok_or(Error::Internal)?;
         let model = SABRModel::new(params.clone());
@@ -318,6 +393,7 @@ impl Swaption {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
         let forward_rate = self.forward_swap_rate(disc, as_of)?;
+        // TODO: Check if SABR model supports Normal vol output. Assuming Lognormal for now.
         let sabr_vol = model.implied_volatility(forward_rate, self.strike_rate, time_to_expiry)?;
         self.price_black(disc, sabr_vol, as_of)
     }
@@ -328,7 +404,17 @@ impl Swaption {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
-    /// Discounted fixed-leg PV01 (annuity) of the underlying swap schedule.
+    /// Calculate annuity based on settlement type.
+    /// Physical -> PV01 of swap
+    /// Cash -> Cash Annuity (Par Yield)
+    pub fn annuity(&self, disc: &dyn Discounting, as_of: Date, forward_rate: f64) -> Result<f64> {
+        match self.settlement {
+            SwaptionSettlement::Physical => self.swap_annuity(disc, as_of),
+            SwaptionSettlement::Cash => self.cash_annuity(forward_rate),
+        }
+    }
+
+    /// Discounted fixed-leg PV01 (annuity) of the underlying swap schedule (Physical Settlement).
     pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         let mut annuity = 0.0;
         let sched = crate::cashflow::builder::build_dates(
@@ -354,6 +440,31 @@ impl Swaption {
         Ok(annuity)
     }
 
+    /// Cash settlement annuity (Par Yield approximation).
+    /// A = (1 - (1 + S/m)^(-N)) / S
+    /// where S = forward rate, m = frequency, N = number of payments
+    pub fn cash_annuity(&self, forward_rate: f64) -> Result<f64> {
+        let freq_per_year = match self.fixed_freq {
+            Frequency::Months(m) if m > 0 => 12.0 / (m as f64),
+            Frequency::Days(d) if d > 0 => 365.0 / (d as f64),
+            _ => return Err(Error::Validation("Invalid frequency in cash annuity".into())),
+        };
+
+        if forward_rate.abs() < 1e-8 {
+             // L'Hopital's limit for S -> 0: A = N/m (sum of accruals)
+             // We need number of periods.
+             let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+             let periods = freq_per_year * tenor;
+             return Ok(periods / freq_per_year);
+        }
+
+        let tenor_years = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+        let n_periods = tenor_years * freq_per_year;
+        
+        let df_swap = (1.0 + forward_rate / freq_per_year).powf(-n_periods);
+        Ok((1.0 - df_swap) / forward_rate)
+    }
+
     /// Forward par swap rate implied by discount factors and annuity.
     pub fn forward_swap_rate(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         let t_start = self.year_fraction(as_of, self.swap_start, self.day_count)?;
@@ -361,6 +472,9 @@ impl Swaption {
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
         let annuity = self.swap_annuity(disc, as_of)?;
+        if annuity.abs() < 1e-10 {
+            return Ok(0.0);
+        }
         Ok((df_start - df_end) / annuity)
     }
 }

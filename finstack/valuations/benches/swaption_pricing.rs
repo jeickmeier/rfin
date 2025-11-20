@@ -40,6 +40,7 @@ fn create_swaption(expiry_months: i64, swap_tenor_years: i32) -> Swaption {
         fixed_freq: Some(Frequency::semi_annual()),
         float_freq: Some(Frequency::quarterly()),
         day_count: Some(DayCount::Thirty360),
+        vol_model: None,
     };
 
     Swaption::new_payer(

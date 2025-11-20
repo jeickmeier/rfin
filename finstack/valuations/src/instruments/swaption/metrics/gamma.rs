@@ -1,10 +1,10 @@
 //! Gamma calculator for swaptions.
 //!
-//! Computes cash gamma using Black model gamma with forward swap rate and
+//! Computes cash gamma using Black or Normal model gamma with forward swap rate and
 //! underlying swap annuity. Uses SABR-implied vol if parameters are set,
 //! otherwise uses the volatility surface or an override from `PricingOverrides`.
 
-use crate::instruments::swaption::Swaption;
+use crate::instruments::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
@@ -24,7 +24,7 @@ impl MetricCalculator for GammaCalculator {
         }
 
         let forward = option.forward_swap_rate(disc, context.as_of)?;
-        let annuity = option.swap_annuity(disc, context.as_of)?;
+        let annuity = option.annuity(disc, context.as_of, forward)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::common::models::SABRModel::new(sabr.clone());
@@ -38,14 +38,26 @@ impl MetricCalculator for GammaCalculator {
                 .value_clamped(t, option.strike_rate)
         };
 
-        if sigma <= 0.0 || forward <= 0.0 {
+        if sigma <= 0.0 {
             return Ok(0.0);
         }
 
-        // Use centralized Black76 helper for forward-based pricing
-        use crate::instruments::common::models::d1_black76;
-        let d1 = d1_black76(forward, option.strike_rate, sigma, t);
-        let gamma = finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
+        let gamma = match option.vol_model {
+            VolatilityModel::Black => {
+                 if forward <= 0.0 {
+                     0.0
+                 } else {
+                     use crate::instruments::common::models::d1_black76;
+                     let d1 = d1_black76(forward, option.strike_rate, sigma, t);
+                     finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt())
+                 }
+            },
+            VolatilityModel::Normal => {
+                use crate::instruments::common::models::volatility::normal::d_bachelier;
+                let d = d_bachelier(forward, option.strike_rate, sigma, t);
+                finstack_core::math::norm_pdf(d) / (sigma * t.sqrt())
+            }
+        };
 
         // Scale by notional and annuity for cash gamma
         Ok(gamma * option.notional.amount() * annuity)
