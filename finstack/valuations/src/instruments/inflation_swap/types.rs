@@ -67,6 +67,10 @@ pub struct InflationSwap {
     /// Optional contract-level lag override (if set, overrides index lag)
     #[builder(optional)]
     pub lag_override: Option<InflationLag>,
+    /// Explicit Base CPI (reference index level at start).
+    /// If not provided, it will be looked up/calculated from start date.
+    #[builder(optional)]
+    pub base_cpi: Option<f64>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -95,7 +99,17 @@ impl InflationSwap {
             .expect("Example InflationSwap construction should not fail")
     }
 
-    fn projected_index_ratio(
+    pub(crate) fn lagged_maturity_date(&self, default_lag: InflationLag) -> Date {
+        let lag_policy = self.lag_override.unwrap_or(default_lag);
+        match lag_policy {
+            InflationLag::None => self.maturity,
+            InflationLag::Months(m) => finstack_core::dates::add_months(self.maturity, -(m as i32)),
+            InflationLag::Days(d) => self.maturity - time::Duration::days(d as i64),
+            _ => self.maturity,
+        }
+    }
+
+    pub(crate) fn projected_index_ratio(
         &self,
         curves: &MarketContext,
         discount_base: Date,
@@ -103,7 +117,9 @@ impl InflationSwap {
         let inflation_index = curves.inflation_index_ref(self.inflation_index_id.as_str());
         let inflation_curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
 
-        let i_start = if let Some(index) = inflation_index {
+        let i_start = if let Some(base) = self.base_cpi {
+            base
+        } else if let Some(index) = inflation_index {
             index.value_on(self.start)?
         } else {
             let t_start = DayCount::Act365F
@@ -124,20 +140,13 @@ impl InflationSwap {
             return Err(finstack_core::error::InputError::NonPositiveValue.into());
         }
 
-        let lag_policy = if let Some(override_lag) = self.lag_override {
-            override_lag
-        } else if let Some(index) = inflation_index {
+        let default_lag = if let Some(index) = inflation_index {
             index.lag()
         } else {
             InflationLag::None
         };
 
-        let lagged_maturity = match lag_policy {
-            InflationLag::None => self.maturity,
-            InflationLag::Months(m) => finstack_core::dates::add_months(self.maturity, -(m as i32)),
-            InflationLag::Days(d) => self.maturity - time::Duration::days(d as i64),
-            _ => self.maturity,
-        };
+        let lagged_maturity = self.lagged_maturity_date(default_lag);
 
         let t_maturity_infl = DayCount::Act365F
             .year_fraction(

@@ -72,10 +72,12 @@ impl FxBarrierCall {
             strike,
             barrier,
             barrier_type,
+            crate::instruments::OptionType::Call,
+            None,
             notional,
             maturity_step,
             sigma,
-            dt,
+            dt * maturity_step as f64,
             use_gobet_miri,
         );
 

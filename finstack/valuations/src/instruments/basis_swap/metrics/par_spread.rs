@@ -46,6 +46,8 @@ impl MetricCalculator for ParSpreadCalculator {
             frequency: swap.primary_leg.frequency,
             day_count: swap.primary_leg.day_count,
             bdc: swap.primary_leg.bdc,
+            payment_lag_days: swap.primary_leg.payment_lag_days,
+            reset_lag_days: swap.primary_leg.reset_lag_days,
             spread: 0.0,
         };
         let schedule = swap.leg_schedule(&primary_leg_no_spread);

@@ -209,6 +209,7 @@ fn test_time_mapping_with_quarterly_coupons() {
         issue,
         maturity,
         discount_curve_id: "USD-OIS".into(),
+        credit_curve_id: None,
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,

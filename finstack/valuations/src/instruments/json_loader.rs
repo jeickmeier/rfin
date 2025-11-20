@@ -777,6 +777,8 @@ mod tests {
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0005,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         };
 
         let reference_leg = BasisSwapLeg {
@@ -785,6 +787,8 @@ mod tests {
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
         };
 
         let swap = BasisSwap::new(

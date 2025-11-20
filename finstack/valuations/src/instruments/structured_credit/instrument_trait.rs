@@ -21,11 +21,13 @@ struct PeriodFlows {
     interest_collections: Money,
     prepayments: Money,
     defaults: Money,
+    #[allow(dead_code)]
     recoveries: Money,
 }
 
 impl PeriodFlows {
     /// Total cash available for distribution
+    #[allow(dead_code)]
     fn total_cash(&self) -> finstack_core::Result<Money> {
         let principal = self.prepayments.checked_add(self.recoveries)?;
         self.interest_collections.checked_add(principal)
@@ -126,6 +128,7 @@ pub(crate) trait StructuredCreditInstrument {
     fn calculate_period_interest_collections(
         &self,
         pay_date: Date,
+        prev_date: Option<Date>,
         months_per_period: f64,
         context: &MarketContext,
     ) -> finstack_core::Result<Money> {
@@ -134,6 +137,7 @@ pub(crate) trait StructuredCreditInstrument {
         let mut interest_collections = Money::new(0.0, base_ccy);
 
         for asset in &pool.assets {
+            // Determine asset rate
             let asset_rate = if let Some(idx) = &asset.index_id {
                 match context.get_forward_ref(idx.as_str()) {
                     Ok(fwd) => {
@@ -156,8 +160,19 @@ pub(crate) trait StructuredCreditInstrument {
                 asset.rate
             };
 
+            // Calculate accrual factor based on asset day count or fallback
+            let accrual_factor = if let (Some(prev), Some(dc)) = (prev_date, asset.day_count) {
+                dc.year_fraction(
+                    prev,
+                    pay_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?
+            } else {
+                months_per_period / 12.0
+            };
+
             let ir = Money::new(
-                asset.balance.amount() * asset_rate * (months_per_period / 12.0),
+                asset.balance.amount() * asset_rate * accrual_factor,
                 base_ccy,
             );
             interest_collections = interest_collections.checked_add(ir)?;
@@ -254,6 +269,8 @@ pub(crate) trait StructuredCreditInstrument {
                 .build()?;
 
         // Simulate period-by-period
+        let mut prev_date = Some(dates_closing_date);
+
         for pay_date in schedule.dates {
             if pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD {
                 break;
@@ -263,7 +280,10 @@ pub(crate) trait StructuredCreditInstrument {
 
             // Step 1: Calculate pool cashflows for the period
             let interest_collections =
-                self.calculate_period_interest_collections(pay_date, months_per_period, context)?;
+                self.calculate_period_interest_collections(pay_date, prev_date, months_per_period, context)?;
+
+            // Update prev_date for next iteration
+            prev_date = Some(pay_date);
 
             let (prepay_amt, default_amt, recovery_amt) = self
                 .calculate_period_prepayments_and_defaults(
@@ -273,6 +293,25 @@ pub(crate) trait StructuredCreditInstrument {
                     months_per_period,
                 )?;
 
+            // Reinvestment Logic:
+            // If in reinvestment period, retain principal (prepay + recoveries) to buy new assets.
+            // We assume reinvestment at Par (maintaining pool balance), so we don't pass principal to waterfall.
+            // Note: Defaults reduce the pool balance permanently by the loss amount (Default - Recovery).
+            let is_reinvestment_active = if let Some(period) = &pool.reinvestment_period {
+                pay_date <= period.end_date
+            } else {
+                false
+            };
+
+            let (principal_available_for_waterfall, _reinvested_amount) = if is_reinvestment_active {
+                 // In reinvestment, we keep principal collections.
+                 // Available for waterfall is only interest (plus maybe some specialized leakage, ignored here).
+                 (Money::new(0.0, base_ccy), prepay_amt.checked_add(recovery_amt)?)
+            } else {
+                 // Not reinvesting, all principal goes to waterfall
+                 (prepay_amt.checked_add(recovery_amt)?, Money::new(0.0, base_ccy))
+            };
+
             let period_flows = PeriodFlows {
                 interest_collections,
                 prepayments: prepay_amt,
@@ -280,11 +319,11 @@ pub(crate) trait StructuredCreditInstrument {
                 recoveries: recovery_amt,
             };
 
-            let total_cash = period_flows.total_cash()?;
+            let total_cash_for_waterfall = interest_collections.checked_add(principal_available_for_waterfall)?;
 
             // Step 2: Run waterfall to distribute cash
             let waterfall_result = waterfall_engine.execute_waterfall(
-                total_cash,
+                total_cash_for_waterfall,
                 period_flows.interest_collections,
                 pay_date,
                 tranches,
@@ -343,9 +382,24 @@ pub(crate) trait StructuredCreditInstrument {
             }
 
             // Step 4: Update pool balance
-            pool_outstanding = pool_outstanding
-                .checked_sub(period_flows.prepayments)?
-                .checked_sub(period_flows.defaults)?;
+            // If reinvestment is active, we "bought" new assets with the reinvested amount.
+            // So pool balance only decreases by the net loss from defaults.
+            // Balance_New = Balance_Old - Prepay - Defaults + Reinvested
+            // Since Reinvested = Prepay + Recoveries
+            // Balance_New = Balance_Old - Prepay - Defaults + Prepay + Recoveries
+            // Balance_New = Balance_Old - Defaults + Recoveries
+            // Balance_New = Balance_Old - (Defaults - Recoveries) -> Loss Amount
+            
+            if is_reinvestment_active {
+                 // During reinvestment, we only lose the actual realized losses
+                 let loss_amount = default_amt.checked_sub(recovery_amt).unwrap_or(Money::new(0.0, base_ccy));
+                 pool_outstanding = pool_outstanding.checked_sub(loss_amount)?;
+            } else {
+                 // Normal amortization: balance reduces by prepays and defaults
+                 pool_outstanding = pool_outstanding
+                    .checked_sub(period_flows.prepayments)?
+                    .checked_sub(period_flows.defaults)?;
+            }
         }
 
         // Final step: update final balances and detailed flows in results

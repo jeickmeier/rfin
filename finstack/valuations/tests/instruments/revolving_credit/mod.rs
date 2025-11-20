@@ -28,3 +28,4 @@ pub mod mc;
 // pub mod metrics;
 // mod pricing;
 // pub mod validation;
+mod test_pricing_review;

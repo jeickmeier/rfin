@@ -389,17 +389,35 @@ pub fn generate_cashflows(
                 }
             }
 
+            // Calculate cumulative draws up to this date to determine remaining availability.
+            // Use the same filtering logic as draw generation (availability window + draw stop).
+            let mut cumulative_drawn_amt = 0.0;
+            for ev in &ddtl.draws {
+                // Must match draw generation filter logic exactly
+                if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {
+                    continue;
+                }
+                if let Some(ds) = draw_stop {
+                    if ev.date >= ds {
+                        continue;
+                    }
+                }
+                // Draw counts if it happened on or before current date
+                if ev.date <= d {
+                    cumulative_drawn_amt += ev.amount.amount();
+                }
+            }
+
             // Calculate fee base according to CommitmentFeeBase enum
-            // For Undrawn: sum all draws up to this date (not implemented here, simplified to use outstanding)
-            // For CommitmentMinusOutstanding: use limit - outstanding
-            // Note: Both converge to the same value when all draws are fully captured in outstanding
+            // For Undrawn: Limit - Cumulative Draws (non-revolving term loan standard)
+            // For CommitmentMinusOutstanding: Limit - Outstanding (revolver standard)
             let undrawn = match ddtl.fee_base {
                 super::spec::CommitmentFeeBase::Undrawn => {
-                    // Simplified: use limit - outstanding
-                    // In a full implementation, this would track total drawn vs outstanding separately
-                    (limit.amount() - outstanding.amount()).max(0.0)
+                    // Standard Term Loan: Undrawn reduces permanently by draws
+                    (limit.amount() - cumulative_drawn_amt).max(0.0)
                 }
                 super::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
+                    // Revolver-style: Undrawn restores upon repayment
                     (limit.amount() - outstanding.amount()).max(0.0)
                 }
             };

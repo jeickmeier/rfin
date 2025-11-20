@@ -47,5 +47,5 @@ pub mod metrics;
 pub mod pricer;
 mod types;
 
-pub use pricer::SimpleFxSpotDiscountingPricer;
+pub use pricer::FxSpotPricer;
 pub use types::FxSpot;

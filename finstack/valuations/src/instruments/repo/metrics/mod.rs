@@ -161,7 +161,8 @@ mod tests {
 
         let calculator = required_collateral::RequiredCollateralCalculator;
         let value = calculator.calculate(&mut context).expect("should succeed");
-        assert!((value - 1_020_000.0).abs() < 1e-6);
+        // 1_000_000 / (1 - 0.02) = 1,020,408.16...
+        assert!((value - 1_020_408.16).abs() < 1.0);
     }
 
     #[test]
@@ -249,8 +250,9 @@ mod tests {
         let cov = *res
             .get(&MetricId::CollateralCoverage)
             .expect("should succeed");
-        // 1020 / 1,020,000 = 0.001
-        assert!((cov - 0.001).abs() < 1e-6);
+        // 1020 / 1,020,408.16 ≈ 0.0009996
+        let expected = 1020.0 / 1_020_408.16;
+        assert!((cov - expected).abs() < 1e-9);
     }
 
     #[test]

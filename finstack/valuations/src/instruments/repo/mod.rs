@@ -38,6 +38,7 @@
 //!
 //! ```text
 //! Cash_lent = Collateral_value × (1 - Haircut%)
+//! Collateral_value = Cash_lent / (1 - Haircut%)
 //! ```
 //!
 //! Typical haircuts:

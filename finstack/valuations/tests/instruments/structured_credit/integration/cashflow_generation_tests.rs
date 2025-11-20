@@ -39,6 +39,7 @@ fn create_test_pool() -> AssetPool {
 
     for i in 0..5 {
         let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
+            day_count: Some(finstack_core::dates::DayCount::Act360),
             id: InstrumentId::new(format!("LOAN_{}", i)),
             asset_type: AssetType::FirstLienLoan {
                 industry: Some(format!("Industry_{}", i % 3)),

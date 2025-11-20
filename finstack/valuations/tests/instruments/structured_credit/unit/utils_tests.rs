@@ -165,6 +165,7 @@ fn test_reinvestment_manager_selects_cheapest_first() {
 
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let base_asset = PoolAsset {
+        day_count: Some(finstack_core::dates::DayCount::Act360),
         id: "BASE".to_string().into(),
         asset_type: AssetType::FirstLienLoan { industry: None },
         balance: Money::new(100.0, Currency::USD),

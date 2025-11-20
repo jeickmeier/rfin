@@ -481,6 +481,10 @@ pub struct TermLoanSpec {
     pub id: InstrumentId,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Optional credit curve ID for hazard rate / credit risk calculations.
+    ///
+    /// If not provided, defaults to `discount_curve_id` (risky discounting).
+    pub credit_curve_id: Option<CurveId>,
     /// Loan currency
     pub currency: Currency,
     /// Loan issue/origination date
@@ -513,15 +517,7 @@ pub struct TermLoanSpec {
     pub ddtl: Option<DdtlSpec>,
     /// Optional covenant-driven events
     pub covenants: Option<CovenantSpec>,
-    /// Optional OID with EIR amortization
-    ///
-    /// **Note:** This field is currently experimental and not used in cashflow generation.
-    /// Use `DdtlSpec::oid_policy` for active OID support.
-    #[deprecated(
-        note = "Experimental field not yet implemented. Use DdtlSpec::oid_policy instead."
-    )]
-    pub oid_eir: Option<OidEirSpec>,
-    /// Pricing model overrides (yield, price, etc.)
+    /// Pricing overrides (yield, price, etc.)
     pub pricing_overrides: PricingOverrides,
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,

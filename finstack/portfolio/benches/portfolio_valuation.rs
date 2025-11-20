@@ -883,6 +883,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             issue: base,
             maturity: maturity_5y(),
             discount_curve_id: "USD-OIS".into(),
+            credit_curve_id: None,
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,

@@ -739,6 +739,8 @@ impl DiscountCurveCalibrator {
                     frequency: *primary_freq,
                     day_count: *primary_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
+                    payment_lag_days: 0,
+                    reset_lag_days: 0,
                     spread: *spread_bp / 10_000.0, // Convert bp to decimal
                 };
 
@@ -747,6 +749,8 @@ impl DiscountCurveCalibrator {
                     frequency: *reference_freq,
                     day_count: *reference_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
+                    payment_lag_days: 0,
+                    reset_lag_days: 0,
                     spread: 0.0,
                 };
 

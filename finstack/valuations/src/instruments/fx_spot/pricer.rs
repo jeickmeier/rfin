@@ -4,23 +4,31 @@ use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
-/// Simplified FX Spot discounting pricer that calls the instrument's own methods.
-pub struct SimpleFxSpotDiscountingPricer;
+/// FX Spot pricer.
+///
+/// Computes the value of an FX Spot position in the quote currency.
+/// Value = Notional (Base) * Spot Rate (Base/Quote).
+///
+/// Note: This pricer currently returns the undiscounted spot value (Cash Position).
+/// If the instrument has a future settlement date, strictly speaking it should be discounted,
+/// but for standard Spot handling (T+2) it is often treated as cash-equivalent or
+/// the user supplies a present-valued Spot Rate.
+pub struct FxSpotPricer;
 
-impl SimpleFxSpotDiscountingPricer {
+impl FxSpotPricer {
     /// Create a new FX spot pricer
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for SimpleFxSpotDiscountingPricer {
+impl Default for FxSpotPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Pricer for SimpleFxSpotDiscountingPricer {
+impl Pricer for FxSpotPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting)
     }
@@ -63,7 +71,7 @@ mod tests {
     fn test_fx_spot_pricing_with_valid_data() {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -80,7 +88,7 @@ mod tests {
     fn test_fx_spot_pricing_error_propagation() {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -102,7 +110,7 @@ mod tests {
             FxSpot::new("USDJPY".into(), Currency::USD, Currency::JPY).with_rate(110.0);
 
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -128,7 +136,7 @@ mod tests {
             FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate(0.0);
 
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -153,7 +161,7 @@ mod tests {
     fn test_fx_spot_pricing_date_handling() {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -178,7 +186,7 @@ mod tests {
         ];
 
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -197,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_pricer_key() {
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let key = pricer.key();
 
         // Verify the pricer key is correctly configured
@@ -209,7 +217,7 @@ mod tests {
     fn test_fx_spot_error_message_quality() {
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -234,7 +242,7 @@ mod tests {
         // Test that pricing is consistent across multiple calls
         let fx_spot = create_test_fx_spot();
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 
@@ -260,7 +268,7 @@ mod tests {
             FxSpot::new("TEST2".into(), Currency::JPY, Currency::USD).with_rate(10000.0);
 
         let market = MarketContext::new();
-        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let pricer = FxSpotPricer::new();
         let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
             .expect("Valid test date");
 

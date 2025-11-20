@@ -175,6 +175,10 @@ impl FxSwap {
             1.0
         };
 
+        // Settlement checks
+        let include_near = self.near_date >= as_of;
+        let include_far = self.far_date >= as_of;
+
         // Resolve model spot from FX matrix if available; otherwise fall back to contract near rate
         let model_spot = if let Some(fx) = curves.fx.as_ref() {
             (**fx)
@@ -192,7 +196,15 @@ impl FxSwap {
 
         // Contract rates default to model when not provided explicitly
         let contract_spot = self.near_rate.unwrap_or(model_spot);
-        let model_fwd = model_spot * df_for_far / df_dom_far;
+        
+        // Calculate model forward only if far leg is active or needed
+        // We use a safe fallback if df_dom_far is zero or very small to avoid NaN, 
+        // though in practice DFs shouldn't be zero.
+        let model_fwd = if df_dom_far.abs() > 1e-12 {
+            model_spot * df_for_far / df_dom_far
+        } else {
+            model_spot // Fallback, though unlikely to be used if far date is past
+        };
         let contract_fwd = self.far_rate.unwrap_or(model_fwd);
 
         // Currency safety
@@ -224,11 +236,24 @@ impl FxSwap {
         };
 
         // Foreign leg PV in base currency, then convert to quote currency
-        let pv_foreign_leg_base = n_base * df_for_near - n_base * df_for_far;
+        // Only include flows that have not settled
+        let mut pv_foreign_leg_base = 0.0;
+        if include_near {
+            pv_foreign_leg_base += n_base * df_for_near;
+        }
+        if include_far {
+            pv_foreign_leg_base -= n_base * df_for_far;
+        }
         let pv_foreign_dom = pv_foreign_leg_base * model_spot;
 
         // Domestic leg PV in quote currency using contract rates
-        let pv_dom_leg = -n_base * contract_spot * df_dom_near + n_base * contract_fwd * df_dom_far;
+        let mut pv_dom_leg = 0.0;
+        if include_near {
+            pv_dom_leg += -n_base * contract_spot * df_dom_near;
+        }
+        if include_far {
+            pv_dom_leg += n_base * contract_fwd * df_dom_far;
+        }
 
         // Sum domestic and converted foreign legs
         let total_pv = pv_foreign_dom + pv_dom_leg;

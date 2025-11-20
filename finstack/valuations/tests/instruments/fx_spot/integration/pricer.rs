@@ -3,13 +3,13 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::MarketContext, money::Money};
 use finstack_valuations::{
-    instruments::{common::traits::Instrument, fx_spot::SimpleFxSpotDiscountingPricer},
+    instruments::{common::traits::Instrument, fx_spot::FxSpotPricer},
     pricer::{InstrumentType, ModelKey, Pricer},
 };
 
 #[test]
 fn test_pricer_key() {
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let key = pricer.key();
 
     assert_eq!(key.instrument, InstrumentType::FxSpot);
@@ -19,7 +19,7 @@ fn test_pricer_key() {
 #[test]
 fn test_pricer_price_dyn() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
@@ -33,7 +33,7 @@ fn test_pricer_price_dyn() {
 
 #[test]
 fn test_pricer_with_various_instruments() {
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let market = MarketContext::new();
 
     let instruments: Vec<Box<dyn Instrument>> = vec![
@@ -64,7 +64,7 @@ fn test_pricer_with_various_instruments() {
 // #[test]
 // fn test_pricer_wrong_instrument_type_fails() {
 //     // Test that the pricer rejects wrong instrument types
-//     let pricer = SimpleFxSpotDiscountingPricer::new();
+//     let pricer = FxSpotPricer::new();
 //     let market = MarketContext::new();
 //
 //     // TODO: Create a different instrument type properly
@@ -73,7 +73,7 @@ fn test_pricer_with_various_instruments() {
 
 #[test]
 fn test_pricer_default_constructor() {
-    let pricer = SimpleFxSpotDiscountingPricer;
+    let pricer = FxSpotPricer;
     let key = pricer.key();
 
     assert_eq!(key.instrument, InstrumentType::FxSpot);
@@ -82,7 +82,7 @@ fn test_pricer_default_constructor() {
 #[test]
 fn test_pricer_consistent_with_instrument_value() {
     let fx = eurusd_with_notional(2_500_000.0, 1.22);
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
@@ -106,7 +106,7 @@ fn test_pricer_with_fx_matrix() {
     let fx = sample_eurusd()
         .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let market = market_with_fx_matrix(); // EUR/USD = 1.20
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
@@ -124,7 +124,7 @@ fn test_pricer_with_fx_matrix() {
 #[test]
 fn test_pricer_valuation_result_structure() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
-    let pricer = SimpleFxSpotDiscountingPricer::new();
+    let pricer = FxSpotPricer::new();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();

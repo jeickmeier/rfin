@@ -12,17 +12,29 @@
 //!
 //! # Pricing
 //!
-//! Inflation-linked bonds are priced using real discount curves:
+//! Inflation-linked bonds are priced using the **Nominal Pricing Method** (Fisher Equation):
 //!
 //! ```text
-//! PV = Σ [C × I(t) × DF_real(t)] + I(T) × DF_real(T) × Principal
+//! PV = Σ [CF_nom(t) × DF_nom(t)]
 //! ```
 //!
 //! where:
-//! - C = real coupon rate
-//! - I(t) = index ratio at time t
-//! - DF_real(t) = real discount factor
-//! - T = maturity
+//! - `CF_nom(t) = CF_real × IndexRatio(t)` (Projected Nominal Cashflow)
+//! - `DF_nom(t)` = Nominal Discount Factor from the discount curve
+//!
+//! The `discount_curve_id` should point to a **Nominal** discount curve (e.g., USD-OIS or specialized Nominal curve).
+//!
+//! ## Real Yield
+//!
+//! The `real_yield` method calculates the internal rate of return of the **Real (Unadjusted) Cashflows**
+//! against the **Real Price**:
+//!
+//! ```text
+//! Real Price (Dirty) = Quoted Real Clean Price + Real Accrued Interest
+//! Real Price = Σ [CF_real(t) × (1 + y)^-(t)]
+//! ```
+//!
+//! This aligns with standard market quoting conventions (e.g., TIPS).
 //!
 //! # Index Ratio Calculation
 //!

@@ -17,7 +17,31 @@ pub struct FxDeltaCalculator;
 impl MetricCalculator for FxDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let fx_swap: &FxSwap = context.instrument_as()?;
+        let curves = context.curves.clone();
         let as_of = context.as_of;
+
+        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
+
+        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
+        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+
+        let normalize = |df: f64, df_base: f64| -> f64 {
+            if df_base != 0.0 {
+                df / df_base
+            } else {
+                1.0
+            }
+        };
+
+        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
+        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
+        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
+        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+
+        // Settlement checks
+        let include_near = fx_swap.near_date >= as_of;
+        let include_far = fx_swap.far_date >= as_of;
 
         // Get current FX spot rate
         let fx_matrix = context.curves.fx.as_ref().ok_or_else(|| {
@@ -34,32 +58,53 @@ impl MetricCalculator for FxDeltaCalculator {
             ))?
             .rate;
 
-        // Bump spot rate by 1%
-        let rate_bump = current_rate * bump_sizes::SPOT;
-        let bumped_rate = current_rate + rate_bump;
+        // Helper to calculate PV for a given spot rate
+        let calculate_pv = |spot: f64| -> f64 {
+            // Recompute near/far rates with bumped spot when not fixed
+            let near_rate = fx_swap.near_rate.unwrap_or(spot);
+            
+            // Model forward logic
+            let model_fwd = if df_dom_far.abs() > 1e-12 {
+                spot * df_for_far / df_dom_far
+            } else {
+                spot
+            };
+            
+            let far_rate = fx_swap.far_rate.unwrap_or(model_fwd);
+            let base_amt = fx_swap.base_notional.amount();
+            
+            let mut pv_for_leg = 0.0;
+            if include_near {
+                pv_for_leg += base_amt * df_for_near;
+            }
+            if include_far {
+                pv_for_leg -= base_amt * df_for_far;
+            }
 
-        // Create bumped market context
-        // For FX swaps, we need to bump the FX matrix
-        // Since FxMatrix is complex, we'll create a new swap with bumped rates
-        // Note: FxSwap uses near_rate and far_rate if provided, otherwise computes from spot
-        let mut fx_swap_up = fx_swap.clone();
-        // Bump near rate if not fixed
-        if fx_swap.near_rate.is_none() {
-            fx_swap_up.near_rate = Some(bumped_rate);
-        }
-        // Far rate will be recomputed from bumped spot in npv()
+            let mut pv_dom_leg = 0.0;
+            if include_near {
+                pv_dom_leg -= base_amt * near_rate * df_dom_near;
+            }
+            if include_far {
+                pv_dom_leg += base_amt * far_rate * df_dom_far;
+            }
 
-        let pv_up = fx_swap_up.npv(context.curves.as_ref(), as_of)?.amount();
+            // Convert foreign leg to domestic at the bumped spot
+            pv_for_leg * spot + pv_dom_leg
+        };
 
-        // Also compute down scenario for symmetric finite difference
-        let bumped_rate_down = current_rate - rate_bump;
-        let mut fx_swap_down = fx_swap.clone();
-        if fx_swap.near_rate.is_none() {
-            fx_swap_down.near_rate = Some(bumped_rate_down);
-        }
-        let pv_down = fx_swap_down.npv(context.curves.as_ref(), as_of)?.amount();
+        // Central finite difference
+        let rate_bump_amt = current_rate * bump_sizes::SPOT; // e.g. 1% of spot
+        let pv_up = calculate_pv(current_rate + rate_bump_amt);
+        let pv_down = calculate_pv(current_rate - rate_bump_amt);
 
-        // FX Delta = (PV_up - PV_down) / (2 * bump_size)
+        // FX Delta = (PV_up - PV_down) / (2 * bump_pct) ??
+        // Note: bump_sizes::SPOT is the percentage (e.g. 0.01).
+        // If we divide by (2 * bump_sizes::SPOT), we get the sensitivity to a 100% move (linearized), scaled by 1%.
+        // Or rather: Delta = dPV/dS * S.
+        // (PV_up - PV_down) / (2 * dS) * S = (PV_up - PV_down) / (2 * S * pct) * S = (PV_up - PV_down) / (2 * pct).
+        // The code divides by `2.0 * bump_sizes::SPOT`. This matches the definition of "Change in PV for 1% move" (if result is roughly PV * 1%).
+        
         let fx_delta = (pv_up - pv_down) / (2.0 * bump_sizes::SPOT);
 
         Ok(fx_delta)

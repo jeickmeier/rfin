@@ -31,8 +31,12 @@ pub struct ConvertibleBond {
     pub issue: Date,
     /// Maturity date.
     pub maturity: Date,
-    /// Discount curve identifier for the debt component.
+    /// Discount curve identifier for the debt component (risk-free or funding).
     pub discount_curve_id: CurveId,
+    /// Credit curve identifier for risky discounting (bond floor).
+    /// If not provided, falls back to discount_curve_id (implies no credit spread).
+    #[builder(optional)]
+    pub credit_curve_id: Option<CurveId>,
     /// Conversion terms for equity conversion.
     pub conversion: ConversionSpec,
     /// Optional underlying equity identifier (ticker or instrument id).
@@ -148,6 +152,7 @@ impl ConvertibleBond {
                     .expect("Valid example date"),
             )
             .discount_curve_id(CurveId::new("USD-IG"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT-BBB")))
             .conversion(ConversionSpec {
                 ratio: Some(25.0),
                 price: None,
@@ -360,8 +365,13 @@ impl crate::instruments::common::pricing::HasDiscountCurve for ConvertibleBond {
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for ConvertibleBond {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
+        let builder = crate::instruments::common::traits::InstrumentCurves::builder();
+        let builder = builder.discount(self.discount_curve_id.clone());
+        let builder = if let Some(credit_curve) = &self.credit_curve_id {
+            builder.discount(credit_curve.clone())
+        } else {
+            builder
+        };
+        builder.build()
     }
 }

@@ -49,9 +49,21 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         let disc = context.get_discount_ref(self.trs.financing.discount_curve_id.as_str())?;
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
+
+        // Price return component (Forward Price change)
+        // F_t = S_0 * e^{(r-q)t}
         let fwd_start = initial_level * df_start.recip() * (-self.div_yield * t_start).exp();
         let fwd_end = initial_level * df_end.recip() * (-self.div_yield * t_end).exp();
-        Ok((fwd_end - fwd_start) / fwd_start)
+        let price_return = (fwd_end - fwd_start) / fwd_start;
+
+        // Dividend return component (Income)
+        // Approx: q * dt
+        // For a Total Return Swap, we pay Price Change + Dividends.
+        // This simplistic model assumes 100% dividend pass-through (Gross Return).
+        let dt = t_end - t_start;
+        let dividend_return = self.div_yield * dt;
+
+        Ok(price_return + dividend_return)
     }
 }
 

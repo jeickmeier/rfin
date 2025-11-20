@@ -219,6 +219,9 @@ pub struct TermLoan {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
 
+    /// Optional credit curve identifier (defaults to discount_curve_id if None)
+    pub credit_curve_id: Option<CurveId>,
+
     /// Amortization specification
     pub amortization: AmortizationSpec,
 
@@ -283,6 +286,7 @@ impl TermLoan {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
             .amortization(super::spec::AmortizationSpec::PercentPerPeriod { bp: 250 }) // 2.5% per period
             .coupon_type(crate::cashflow::builder::specs::CouponType::Cash)
             .upfront_fee_opt(None)
@@ -414,15 +418,18 @@ impl crate::instruments::common::pricing::HasDiscountCurve for TermLoan {
 // hazard/credit curve exists in the market data if they request CS01 metrics.
 impl crate::metrics::HasCreditCurve for TermLoan {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
+        self.credit_curve_id.as_ref().unwrap_or(&self.discount_curve_id)
     }
 }
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for TermLoan {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
+        let mut builder = crate::instruments::common::traits::InstrumentCurves::builder();
+        builder = builder.discount(self.discount_curve_id.clone());
+        if let Some(cc) = &self.credit_curve_id {
+            builder = builder.credit(cc.clone());
+        }
+        builder.build()
     }
 }

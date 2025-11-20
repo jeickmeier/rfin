@@ -658,6 +658,7 @@ fn test_pool_negative_days_remaining_term() {
 fn test_pool_asset_type_classification() {
     // Arrange & Act
     let first_lien = PoolAsset {
+        day_count: Some(finstack_core::dates::DayCount::Act360),
         id: "L1".to_string().into(),
         asset_type: AssetType::FirstLienLoan {
             industry: Some("Tech".to_string()),

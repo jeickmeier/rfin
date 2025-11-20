@@ -38,7 +38,13 @@ impl MetricCalculator for YtmCalculator {
             }
         }
 
+        // Convert flows to (Date, f64) for XIRR
+        let flows_f64: Vec<(finstack_core::dates::Date, f64)> = flows
+            .iter()
+            .map(|(d, m)| (*d, m.amount()))
+            .collect();
+
         // Solve IRR using the loan's day-count convention
-        crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
+        finstack_core::cashflow::xirr::xirr_with_daycount(&flows_f64, loan.day_count, None)
     }
 }

@@ -13,7 +13,7 @@ use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::barrier::BarrierCall;
+use crate::instruments::common::models::monte_carlo::payoff::barrier::BarrierOptionPayoff;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
 #[cfg(feature = "mc")]
@@ -134,10 +134,12 @@ impl BarrierOptionMcPricer {
 
         // Create payoff
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
-        let payoff = BarrierCall::new(
+        let payoff = BarrierOptionPayoff::new(
             inst.strike.amount(),
             inst.barrier.amount(),
             mc_barrier_type,
+            inst.option_type,
+            inst.rebate.map(|m| m.amount()),
             inst.notional.amount(),
             maturity_step,
             sigma,
@@ -247,10 +249,12 @@ impl BarrierOptionMcPricer {
         let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
-        let payoff = BarrierCall::new(
+        let payoff = BarrierOptionPayoff::new(
             inst.strike.amount(),
             inst.barrier.amount(),
             mc_barrier_type,
+            inst.option_type,
+            inst.rebate.map(|m| m.amount()),
             inst.notional.amount(),
             maturity_step,
             sigma,
@@ -356,7 +360,8 @@ pub fn npv_with_lrm_greeks(
 // ========================= ANALYTICAL PRICER =========================
 
 use crate::instruments::common::models::closed_form::barrier::{
-    barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
+    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
+    BarrierType as AnalyticalBarrierType,
 };
 
 /// Helper to collect inputs for barrier option pricing.
@@ -473,8 +478,23 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             ),
         };
 
+        let rebate_val = if let Some(rebate) = barrier_opt.rebate {
+            barrier_rebate_continuous(
+                spot,
+                barrier_opt.barrier.amount(),
+                rebate.amount(),
+                t,
+                r,
+                q,
+                sigma,
+                analytical_barrier_type,
+            )
+        } else {
+            0.0
+        };
+
         let pv = Money::new(
-            price * barrier_opt.notional.amount(),
+            (price + rebate_val) * barrier_opt.notional.amount(),
             barrier_opt.strike.currency(),
         );
         Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))

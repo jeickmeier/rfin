@@ -108,6 +108,7 @@ impl JsConvertibleBond {
             issue: issue.inner(),
             maturity: maturity.inner(),
             discount_curve_id: curve_id_from_str(discount_curve),
+            credit_curve_id: None,
             conversion: conversion.inner.clone(),
             underlying_equity_id,
             call_put: None,

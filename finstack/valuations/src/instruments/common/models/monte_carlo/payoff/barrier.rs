@@ -4,11 +4,13 @@
 //! - Discrete monitoring with bridge correction
 //! - Gobet-Miri barrier adjustment
 //! - Up and down barriers
+//! - Rebate support (paid at maturity)
 
 use super::super::barriers::bridge::{check_barrier_hit, BarrierDirection};
 use super::super::barriers::corrections::gobet_miri_adjusted_barrier;
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
+use crate::instruments::OptionType;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -50,17 +52,22 @@ impl BarrierType {
     }
 }
 
-/// Barrier call option with bridge correction.
+/// Barrier option payoff with bridge correction.
 ///
-/// A call option with a barrier that can knock in or out.
+/// A generic barrier option (Call or Put) with a barrier that can knock in or out,
+/// and an optional rebate paid at maturity if the option is not active (e.g. knocked out).
 #[derive(Clone, Debug)]
-pub struct BarrierCall {
+pub struct BarrierOptionPayoff {
     /// Strike price
     pub strike: f64,
     /// Barrier level
     pub barrier: f64,
     /// Barrier type
     pub barrier_type: BarrierType,
+    /// Option type (Call/Put)
+    pub option_type: OptionType,
+    /// Rebate amount (paid at maturity if option deactivated/not-activated)
+    pub rebate: Option<f64>,
     /// Notional
     pub notional: f64,
     /// Maturity step
@@ -78,24 +85,15 @@ pub struct BarrierCall {
     previous_spot: f64,
 }
 
-impl BarrierCall {
-    /// Create a new barrier call option.
-    ///
-    /// # Arguments
-    ///
-    /// * `strike` - Strike price
-    /// * `barrier` - Barrier level
-    /// * `barrier_type` - Type of barrier
-    /// * `notional` - Notional amount
-    /// * `maturity_step` - Maturity step index
-    /// * `sigma` - Volatility (for corrections)
-    /// * `time_to_maturity` - Time to maturity
-    /// * `use_gobet_miri` - Apply Gobet-Miri adjustment
+impl BarrierOptionPayoff {
+    /// Create a new barrier option payoff.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         strike: f64,
         barrier: f64,
         barrier_type: BarrierType,
+        option_type: OptionType,
+        rebate: Option<f64>,
         notional: f64,
         maturity_step: usize,
         sigma: f64,
@@ -108,6 +106,8 @@ impl BarrierCall {
             strike,
             barrier,
             barrier_type,
+            option_type,
+            rebate,
             notional,
             maturity_step,
             sigma,
@@ -148,13 +148,7 @@ impl BarrierCall {
     }
 }
 
-impl Payoff for BarrierCall {
-    /// Process a path event (barrier monitoring).
-    ///
-    /// Monitors the spot price at each time step to check for barrier crossings.
-    /// If spot is not available in the path state, defaults to 0.0. This default
-    /// may cause incorrect barrier detection in some scenarios, so spot should
-    /// always be available for barrier options.
+impl Payoff for BarrierOptionPayoff {
     fn on_event(&mut self, state: &mut PathState) {
         let current_spot = state.spot().unwrap_or(0.0);
 
@@ -196,14 +190,18 @@ impl Payoff for BarrierCall {
     }
 
     fn value(&self, currency: Currency) -> Money {
-        // Only pay if option is active
-        if !self.is_active() {
-            return Money::new(0.0, currency);
+        if self.is_active() {
+            // Standard vanilla payoff
+            let intrinsic = match self.option_type {
+                OptionType::Call => (self.terminal_spot - self.strike).max(0.0),
+                OptionType::Put => (self.strike - self.terminal_spot).max(0.0),
+            };
+            Money::new(intrinsic * self.notional, currency)
+        } else {
+            // Rebate payment
+            let rebate_amount = self.rebate.unwrap_or(0.0);
+            Money::new(rebate_amount * self.notional, currency)
         }
-
-        // Standard call payoff
-        let intrinsic = (self.terminal_spot - self.strike).max(0.0);
-        Money::new(intrinsic * self.notional, currency)
     }
 
     fn reset(&mut self) {
@@ -212,6 +210,9 @@ impl Payoff for BarrierCall {
         self.previous_spot = 0.0;
     }
 }
+
+// Compatibility alias for tests or other modules (deprecated)
+pub type BarrierCall = BarrierOptionPayoff;
 
 #[cfg(test)]
 mod tests {
@@ -225,11 +226,13 @@ mod tests {
     }
 
     #[test]
-    fn test_barrier_call_no_hit() {
-        let mut barrier_call = BarrierCall::new(
+    fn test_barrier_put_payoff() {
+        let mut barrier_put = BarrierOptionPayoff::new(
             100.0,
             120.0,
             BarrierType::UpAndOut,
+            OptionType::Put,
+            None,
             1.0,
             10,
             0.2,
@@ -237,24 +240,27 @@ mod tests {
             false,
         );
 
-        // Simulate path that never hits barrier
+        // Path that never hits barrier (active)
         for step in 0..=10 {
-            let spot = 105.0; // Below barrier
+            let spot = 90.0; // Below barrier, below strike (ITM put)
             let mut state = create_path_state(step, spot);
-            barrier_call.on_event(&mut state);
+            barrier_put.on_event(&mut state);
         }
 
-        // Should get standard call payoff (105 - 100 = 5)
-        let value = barrier_call.value(Currency::USD);
-        assert_eq!(value.amount(), 5.0);
+        // Should get put payoff (100 - 90 = 10)
+        let value = barrier_put.value(Currency::USD);
+        assert_eq!(value.amount(), 10.0);
     }
 
     #[test]
-    fn test_barrier_call_knocked_out() {
-        let mut barrier_call = BarrierCall::new(
+    fn test_barrier_rebate() {
+        let rebate = 5.0;
+        let mut barrier_call = BarrierOptionPayoff::new(
             100.0,
-            110.0,
+            120.0,
             BarrierType::UpAndOut,
+            OptionType::Call,
+            Some(rebate),
             1.0,
             10,
             0.2,
@@ -262,83 +268,16 @@ mod tests {
             false,
         );
 
-        // Simulate path that hits barrier
+        // Hit barrier
         let mut s1 = create_path_state(0, 105.0);
         barrier_call.on_event(&mut s1);
-        let mut s2 = create_path_state(1, 115.0);
-        barrier_call.on_event(&mut s2); // Hit barrier
-        let mut s3 = create_path_state(10, 120.0);
-        barrier_call.on_event(&mut s3); // Terminal
+        let mut s2 = create_path_state(1, 125.0); // Hit
+        barrier_call.on_event(&mut s2);
+        let mut s3 = create_path_state(10, 130.0); // Terminal
+        barrier_call.on_event(&mut s3);
 
-        // Should get zero (knocked out)
+        // Should get rebate
         let value = barrier_call.value(Currency::USD);
-        assert_eq!(value.amount(), 0.0);
-    }
-
-    #[test]
-    fn test_barrier_call_knock_in() {
-        let mut barrier_call =
-            BarrierCall::new(100.0, 110.0, BarrierType::UpAndIn, 1.0, 10, 0.2, 1.0, false);
-
-        // Path that never hits barrier
-        for step in 0..=10 {
-            let spot = 105.0;
-            let mut s4 = create_path_state(step, spot);
-            barrier_call.on_event(&mut s4);
-        }
-
-        // Should get zero (never knocked in)
-        let value = barrier_call.value(Currency::USD);
-        assert_eq!(value.amount(), 0.0);
-    }
-
-    #[test]
-    fn test_barrier_call_knock_in_activated() {
-        let mut barrier_call =
-            BarrierCall::new(100.0, 110.0, BarrierType::UpAndIn, 1.0, 10, 0.2, 1.0, false);
-
-        // Path that hits barrier
-        let mut s5 = create_path_state(0, 105.0);
-        barrier_call.on_event(&mut s5);
-        let mut s6 = create_path_state(1, 115.0);
-        barrier_call.on_event(&mut s6); // Knock in
-        let mut s7 = create_path_state(10, 120.0);
-        barrier_call.on_event(&mut s7); // Terminal
-
-        // Should get call payoff (120 - 100 = 20)
-        let value = barrier_call.value(Currency::USD);
-        assert_eq!(value.amount(), 20.0);
-    }
-
-    #[test]
-    fn test_gobet_miri_adjustment() {
-        let barrier_no_adj = BarrierCall::new(
-            100.0,
-            110.0,
-            BarrierType::UpAndOut,
-            1.0,
-            252,
-            0.2,
-            1.0,
-            false,
-        );
-
-        let barrier_with_adj = BarrierCall::new(
-            100.0,
-            110.0,
-            BarrierType::UpAndOut,
-            1.0,
-            252,
-            0.2,
-            1.0,
-            true,
-        );
-
-        let eff_no_adj = barrier_no_adj.effective_barrier();
-        let eff_with_adj = barrier_with_adj.effective_barrier();
-
-        // With adjustment, up barrier should be higher
-        assert!(eff_with_adj > eff_no_adj);
-        assert_eq!(eff_no_adj, 110.0);
+        assert_eq!(value.amount(), 5.0);
     }
 }

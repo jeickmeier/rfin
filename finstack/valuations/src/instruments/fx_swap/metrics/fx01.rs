@@ -22,10 +22,25 @@ impl MetricCalculator for FX01 {
         let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        let df_dom_near = domestic_disc.df_on_date_curve(fx_swap.near_date);
-        let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);
-        let df_for_near = foreign_disc.df_on_date_curve(fx_swap.near_date);
-        let df_for_far = foreign_disc.df_on_date_curve(fx_swap.far_date);
+        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
+        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+
+        let normalize = |df: f64, df_base: f64| -> f64 {
+            if df_base != 0.0 {
+                df / df_base
+            } else {
+                1.0
+            }
+        };
+
+        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
+        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
+        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
+        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+
+        // Settlement checks
+        let include_near = fx_swap.near_date >= as_of;
+        let include_far = fx_swap.far_date >= as_of;
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
@@ -50,11 +65,29 @@ impl MetricCalculator for FX01 {
         let near_rate = fx_swap.near_rate.unwrap_or(bumped_spot);
         let far_rate = fx_swap
             .far_rate
-            .unwrap_or(bumped_spot * df_for_far / df_dom_far);
+            .unwrap_or(if df_dom_far.abs() > 1e-12 {
+                bumped_spot * df_for_far / df_dom_far
+            } else {
+                bumped_spot
+            });
 
         let base_amt = fx_swap.base_notional.amount();
-        let pv_for_leg = base_amt * df_for_near - base_amt * df_for_far;
-        let pv_dom_leg = -base_amt * near_rate * df_dom_near + base_amt * far_rate * df_dom_far;
+        
+        let mut pv_for_leg = 0.0;
+        if include_near {
+            pv_for_leg += base_amt * df_for_near;
+        }
+        if include_far {
+            pv_for_leg -= base_amt * df_for_far;
+        }
+
+        let mut pv_dom_leg = 0.0;
+        if include_near {
+            pv_dom_leg -= base_amt * near_rate * df_dom_near;
+        }
+        if include_far {
+            pv_dom_leg += base_amt * far_rate * df_dom_far;
+        }
 
         let bumped_pv = pv_for_leg * bumped_spot + pv_dom_leg;
         Ok(bumped_pv - original_pv.amount())

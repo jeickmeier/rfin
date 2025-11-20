@@ -161,6 +161,12 @@ pub struct BasisSwapLeg {
     pub bdc: BusinessDayConvention,
     /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points)
     pub spread: f64,
+    /// Payment lag in business days (default: 0)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub payment_lag_days: i32,
+    /// Reset lag in business days (default: 0)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub reset_lag_days: i32,
 }
 
 /// Specification for CDS premium legs

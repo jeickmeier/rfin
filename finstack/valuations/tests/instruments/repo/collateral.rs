@@ -109,7 +109,7 @@ fn test_required_collateral_with_haircut() {
     let required = repo.required_collateral_value();
 
     // 1,000,000 * (1 + 0.02) = 1,020,000
-    assert_money_approx_eq(required, Money::new(1_020_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(required.unwrap(), Money::new(1_020_000.0, Currency::USD), 1.0);
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn test_required_collateral_high_haircut() {
     let required = repo.required_collateral_value();
 
     // 1,000,000 * (1 + 0.20) = 1,200,000
-    assert_money_approx_eq(required, Money::new(1_200_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(required.unwrap(), Money::new(1_200_000.0, Currency::USD), 1.0);
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn test_required_collateral_zero_haircut() {
 
     let required = repo.required_collateral_value();
 
-    assert_money_approx_eq(required, Money::new(1_000_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(required.unwrap(), Money::new(1_000_000.0, Currency::USD), 1.0);
 }
 
 #[test]

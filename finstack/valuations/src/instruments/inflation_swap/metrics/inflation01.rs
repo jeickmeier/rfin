@@ -16,33 +16,21 @@ impl MetricCalculator for Inflation01Calculator {
             .get_discount_ref(s.discount_curve_id.as_str())?;
         let base = disc.base_date();
 
+        // Get Index Ratio using central logic
+        let index_ratio = s.projected_index_ratio(&context.curves, base)?;
+
+        // Calculate T (time to lagged maturity) for sensitivity
+        // We need default lag from index if not overridden
         let inflation_index = context
             .curves
-            .inflation_index_ref(s.inflation_index_id.as_str())
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "inflation_index".to_string(),
-                })
-            })?;
+            .inflation_index_ref(s.inflation_index_id.as_str());
+        
+        let default_lag = inflation_index
+            .map(|i| i.lag())
+            .unwrap_or(finstack_core::market_data::scalars::inflation_index::InflationLag::None);
+        
+        let lagged_maturity = s.lagged_maturity_date(default_lag);
 
-        let inflation_curve = context
-            .curves
-            .get_inflation_ref(s.inflation_index_id.as_str())?;
-
-        let i_start = inflation_index.value_on(s.start)?;
-
-        // Align maturity CPI with discount base and apply index lag
-        let lag_policy = s.lag_override.unwrap_or(inflation_index.lag());
-        let lagged_maturity = match lag_policy {
-            finstack_core::market_data::scalars::inflation_index::InflationLag::None => s.maturity,
-            finstack_core::market_data::scalars::inflation_index::InflationLag::Months(m) => {
-                finstack_core::dates::add_months(s.maturity, -(m as i32))
-            }
-            finstack_core::market_data::scalars::inflation_index::InflationLag::Days(d) => {
-                s.maturity - time::Duration::days(d as i64)
-            }
-            _ => s.maturity,
-        };
         let t_maturity = DayCount::Act365F
             .year_fraction(
                 base,
@@ -50,7 +38,6 @@ impl MetricCalculator for Inflation01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
-        let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         let t_discount = DayCount::Act365F
             .year_fraction(
@@ -62,7 +49,7 @@ impl MetricCalculator for Inflation01Calculator {
         let df = disc.df(t_discount);
 
         let inflation_sensitivity =
-            s.notional.amount() * (i_maturity_projected / i_start) * df * t_maturity * 0.0001;
+            s.notional.amount() * index_ratio * df * t_maturity * 0.0001;
 
         let signed_sensitivity = match s.side {
             PayReceiveInflation::PayFixed => inflation_sensitivity,

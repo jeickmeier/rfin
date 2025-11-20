@@ -258,6 +258,7 @@ mod tests {
             recovery_amount: None,
             purchase_price: Some(Money::new(95.0, Currency::USD)),
             acquisition_date: None,
+            day_count: Some(finstack_core::dates::DayCount::Act360),
         };
 
         let b = PoolAsset {

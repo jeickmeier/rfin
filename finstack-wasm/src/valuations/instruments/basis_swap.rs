@@ -39,6 +39,8 @@ impl JsBasisSwapLeg {
                 day_count: dc,
                 bdc,
                 spread: spread.unwrap_or(0.0),
+                payment_lag_days: 0,
+                reset_lag_days: 0,
             },
         })
     }

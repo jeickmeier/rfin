@@ -301,14 +301,24 @@ impl Repo {
     }
 
     /// Calculate required collateral value including haircut.
-    pub fn required_collateral_value(&self) -> Money {
-        self.cash_amount * (1.0 + self.haircut)
+    ///
+    /// Formula: `Cash_lent = Collateral_value * (1 - Haircut)`
+    /// Therefore: `Collateral_value = Cash_lent / (1 - Haircut)`
+    pub fn required_collateral_value(&self) -> Result<Money> {
+        if self.haircut >= 1.0 {
+            return Err(Error::Input(finstack_core::error::InputError::Invalid));
+        }
+        let factor = 1.0 - self.haircut;
+        if factor <= 0.0 {
+             return Err(Error::Input(finstack_core::error::InputError::Invalid));
+        }
+        Ok(self.cash_amount / factor)
     }
 
     /// Check if the repo is adequately collateralized.
     pub fn is_adequately_collateralized(&self, context: &MarketContext) -> Result<bool> {
         let collateral_value = self.collateral.market_value(context)?;
-        let required_value = self.required_collateral_value();
+        let required_value = self.required_collateral_value()?;
 
         // Ensure same currency for comparison
         if collateral_value.currency() != required_value.currency() {
@@ -323,11 +333,22 @@ impl Repo {
 
     /// Compute present value of the repo using curves in the market context.
     ///
-    /// NPV = PV(total_repayment) - initial_cash_outflow
-    /// where total_repayment = principal + interest, and discounting is
-    /// performed off the configured discount curve.
+    /// Returns the PV of future cashflows.
+    ///
+    /// If `as_of <= start_date`:
+    ///   PV = PV(repayment) - PV(initial_outflow)
+    ///
+    /// If `start_date < as_of < maturity`:
+    ///   PV = PV(repayment)
+    ///
+    /// If `as_of >= maturity`:
+    ///   PV = 0 (assumes settled)
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc_curve = context.get_discount_ref(self.discount_curve_id.as_str())?;
+
+        if as_of >= self.maturity {
+            return Ok(Money::new(0.0, self.cash_amount.currency()));
+        }
 
         // Total repayment at maturity (principal + interest)
         let total_repayment = self.total_repayment()?;
@@ -350,32 +371,38 @@ impl Repo {
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
-        let t_start = disc_dc
-            .year_fraction(
-                disc_curve.base_date(),
-                self.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
 
         let df_maturity_abs = disc_curve.df(t_maturity);
-        let df_start_abs = disc_curve.df(t_start);
 
         let df_maturity = if df_as_of != 0.0 {
             df_maturity_abs / df_as_of
         } else {
             1.0
         };
-        let df_start = if df_as_of != 0.0 {
-            df_start_abs / df_as_of
-        } else {
-            1.0
-        };
 
-        // Present value of inflow at maturity minus PV of initial cash outflow at start
+        // PV of inflow at maturity
         let pv_in = total_repayment * df_maturity;
-        let pv_out = self.cash_amount * df_start;
-        pv_in.checked_sub(pv_out)
+
+        // If start date is in the future (or today), subtract initial outflow
+        if as_of <= self.start_date {
+             let t_start = disc_dc
+                .year_fraction(
+                    disc_curve.base_date(),
+                    self.start_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            let df_start_abs = disc_curve.df(t_start);
+            let df_start = if df_as_of != 0.0 {
+                df_start_abs / df_as_of
+            } else {
+                1.0
+            };
+            let pv_out = self.cash_amount * df_start;
+            return pv_in.checked_sub(pv_out);
+        }
+
+        Ok(pv_in)
     }
 
     /// Calculate repo interest amount.
@@ -505,8 +532,9 @@ mod tests {
             date(2025, 2, 1),
             "USD-OIS",
         );
-        let req = repo.required_collateral_value();
-        assert!((req.amount() - 1_020_000.0).abs() < 1e-6);
+        let req = repo.required_collateral_value().expect("Required collateral value calculation should succeed in test");
+        // 1_000_000 / (1 - 0.02) = 1_020_408.16
+        assert!((req.amount() - 1_020_408.16).abs() < 1e-2);
     }
 
     #[test]

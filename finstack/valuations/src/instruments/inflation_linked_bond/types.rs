@@ -416,8 +416,92 @@ impl InflationLinkedBond {
         Ok(flows)
     }
 
+    /// Calculate real accrued interest at the given date
+    fn accrued_real_interest(&self, as_of: Date) -> Result<f64> {
+        // Reconstruct the date schedule
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue,
+            self.maturity,
+            self.freq,
+            self.stub,
+            self.bdc,
+            self.calendar_id.as_deref(),
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
+
+        // Find the active period
+        // Dates array includes issue date at [0] and subsequent coupon dates
+        for window in dates.windows(2) {
+            let start = window[0];
+            let end = window[1];
+            
+            if start <= as_of && as_of < end {
+                // Found the active period
+                let total_yf = self.dc.year_fraction(start, end, DayCountCtx::default())?;
+                let elapsed_yf = self.dc.year_fraction(start, as_of, DayCountCtx::default())?;
+                
+                if total_yf <= 0.0 {
+                    return Ok(0.0);
+                }
+                
+                // Real coupon amount for the full period
+                let full_coupon = self.notional.amount() * self.real_coupon * total_yf;
+                
+                // Linear accrual: Coupon * (elapsed / total)
+                // Note: This matches standard bond accrual for fixed coupons.
+                // If we need exact day-based fraction (e.g. Act/Act), year_fraction handles it roughly,
+                // but strictly generic accrual uses Coupon * (AccrualDays / PeriodDays).
+                // For Act/Act, year_fraction(start, as_of) / year_fraction(start, end) is the standard ratio.
+                return Ok(full_coupon * (elapsed_yf / total_yf));
+            }
+        }
+
+        // If we are past maturity or before issue
+        Ok(0.0)
+    }
+
+    /// Build unadjusted real cashflow schedule (no inflation indexation)
+    pub fn build_real_schedule(&self, _as_of: Date) -> Result<DatedFlows> {
+        // Base coupon dates via shared builder
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue,
+            self.maturity,
+            self.freq,
+            self.stub,
+            self.bdc,
+            self.calendar_id.as_deref(),
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(vec![]);
+        }
+
+        let mut flows = Vec::with_capacity(dates.len());
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let year_frac = self
+                .dc
+                .year_fraction(prev, d, DayCountCtx::default())?
+                .max(0.0);
+            let base_amount = self.notional.amount() * self.real_coupon * year_frac;
+            // No inflation adjustment
+            flows.push((d, Money::new(base_amount, self.notional.currency())));
+            prev = d;
+        }
+
+        // Principal repayment at maturity (unadjusted real principal)
+        // Note: Deflation protection applies to the final payment in nominal terms,
+        // but Real Yield is typically defined on the base real flows.
+        flows.push((self.maturity, self.notional));
+
+        Ok(flows)
+    }
+
     /// Calculate real yield (yield in real terms, before inflation)
-    pub fn real_yield(&self, clean_price: f64, curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub fn real_yield(&self, clean_price: f64, _curves: &MarketContext, as_of: Date) -> Result<f64> {
         use crate::instruments::bond::pricing::quote_engine::YieldCompounding;
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
@@ -425,20 +509,20 @@ impl InflationLinkedBond {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        // Build real cashflows (already inflation-adjusted amounts at payment dates)
-        // Note: Here we approximate by using the instrument schedule with ILB cash amounts;
-        // accrued real interest is small relative to coupon accuracy. A future enhancement can
-        // compute real accrued to convert clean→dirty precisely.
-        let flows = self.build_schedule(curves, as_of)?;
+        // 1. Build real cashflows (unadjusted for inflation)
+        let flows = self.build_real_schedule(as_of)?;
         if flows.is_empty() {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
 
-        // Convert clean price (per 100) to Money in instrument currency
-        let target_price = Money::new(
-            clean_price / 100.0 * self.notional.amount(),
-            self.notional.currency(),
-        );
+        // 2. Calculate Real Accrued Interest
+        // Needed to convert Clean Real Price -> Dirty Real Price
+        let real_accrued = self.accrued_real_interest(as_of)?;
+
+        // 3. Calculate Target Dirty Real Price
+        // Price is per 100 notional.
+        let target_dirty_price_val = (clean_price / 100.0 * self.notional.amount()) + real_accrued;
+        let target_price = Money::new(target_dirty_price_val, self.notional.currency());
 
         let spec = YtmPricingSpec {
             day_count: self.dc,
@@ -447,8 +531,10 @@ impl InflationLinkedBond {
             compounding: YieldCompounding::Street,
             frequency: self.freq,
         };
-        // Solve yield that matches the target price to PV of flows on (as_of)
+        
+        // 4. Solve yield that matches the target real price to PV of real flows
         let y = solve_ytm(&flows, as_of, target_price, spec)?;
+        
         // Clamp extreme values to avoid explosive outputs
         Ok(y.clamp(-0.99, 2.0))
     }

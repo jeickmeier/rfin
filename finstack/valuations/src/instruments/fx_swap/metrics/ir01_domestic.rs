@@ -21,35 +21,43 @@ impl MetricCalculator for DomesticIR01 {
         let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        // Bump domestic curve by 1bp: df_bumped(t) = df(t) * exp(-bp * t)
-        let bump = 0.0001;
-        let df_dom_near_b = {
-            let base = domestic_disc.base_date();
-            let t = domestic_disc
-                .day_count()
-                .year_fraction(
-                    base,
-                    fx_swap.near_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            domestic_disc.df_on_date_curve(fx_swap.near_date) * (-bump * t).exp()
-        };
-        let df_dom_far_b = {
-            let base = domestic_disc.base_date();
-            let t = domestic_disc
-                .day_count()
-                .year_fraction(
-                    base,
-                    fx_swap.far_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            domestic_disc.df_on_date_curve(fx_swap.far_date) * (-bump * t).exp()
+        // Settlement checks
+        let include_near = fx_swap.near_date >= as_of;
+        let include_far = fx_swap.far_date >= as_of;
+
+        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
+        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+
+        let normalize = |df: f64, df_base: f64| -> f64 {
+            if df_base != 0.0 {
+                df / df_base
+            } else {
+                1.0
+            }
         };
 
-        let df_for_near = foreign_disc.df_on_date_curve(fx_swap.near_date);
-        let df_for_far = foreign_disc.df_on_date_curve(fx_swap.far_date);
+        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
+        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
+        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
+        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+
+        // Bump domestic curve by 1bp relative to as_of
+        // df_bumped(as_of, t) = df(as_of, t) * exp(-bump * t_from_as_of)
+        let bump = 0.0001;
+        
+        let t_near = domestic_disc.day_count().year_fraction(
+            as_of,
+            fx_swap.near_date,
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0);
+        let df_dom_near_b = df_dom_near * (-bump * t_near).exp();
+
+        let t_far = domestic_disc.day_count().year_fraction(
+            as_of,
+            fx_swap.far_date,
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0);
+        let df_dom_far_b = df_dom_far * (-bump * t_far).exp();
 
         // Resolve near rate at as_of
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
@@ -71,14 +79,35 @@ impl MetricCalculator for DomesticIR01 {
         };
 
         // Far rate uses bumped domestic df in parity
+        // Only needed if not fixed
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
-            None => near_rate * df_for_far / df_dom_far_b,
+            None => {
+                 if df_dom_far_b.abs() > 1e-12 {
+                     near_rate * df_for_far / df_dom_far_b
+                 } else {
+                     near_rate
+                 }
+            }
         };
 
         let base_amt = fx_swap.base_notional.amount();
-        let pv_for_leg = base_amt * df_for_near - base_amt * df_for_far; // unchanged in base
-        let pv_dom_leg = -base_amt * near_rate * df_dom_near_b + base_amt * far_rate * df_dom_far_b;
+        
+        let mut pv_for_leg = 0.0;
+        if include_near {
+            pv_for_leg += base_amt * df_for_near;
+        }
+        if include_far {
+            pv_for_leg -= base_amt * df_for_far;
+        }
+
+        let mut pv_dom_leg = 0.0;
+        if include_near {
+            pv_dom_leg -= base_amt * near_rate * df_dom_near_b;
+        }
+        if include_far {
+            pv_dom_leg += base_amt * far_rate * df_dom_far_b;
+        }
 
         // Convert base leg to quote at spot
         let spot = (**fx_matrix)

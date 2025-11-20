@@ -68,7 +68,7 @@ fn test_extremely_high_haircut() {
     let required = repo.required_collateral_value();
 
     // 1M * (1 + 0.50) = 1.5M
-    assert_money_approx_eq(required, Money::new(1_500_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(required.unwrap(), Money::new(1_500_000.0, Currency::USD), 1.0);
 }
 
 #[test]

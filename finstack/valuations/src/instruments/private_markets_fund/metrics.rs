@@ -13,13 +13,26 @@ impl MetricCalculator for LpIrrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
-        let lp_flows = ledger.lp_cashflows();
 
-        if lp_flows.len() < 2 {
+        // Get historical LP flows
+        let mut flows: Vec<(Date, Money)> = ledger
+            .lp_cashflows()
+            .into_iter()
+            .filter(|(d, _)| *d <= context.as_of)
+            .collect();
+
+        // Add Residual NAV as a terminal positive flow at as_of date
+        // This aligns IRR with TVPI (mark-to-market performance)
+        let nav = context.base_value;
+        if nav.amount().abs() > 1e-6 {
+            flows.push((context.as_of, nav));
+        }
+
+        if flows.len() < 2 {
             return Ok(0.0);
         }
 
-        calculate_irr(&lp_flows, pe.spec.irr_basis)
+        calculate_irr(&flows, pe.spec.irr_basis)
     }
 }
 
@@ -76,6 +89,7 @@ impl MetricCalculator for MoicLpCalculator {
             .iter()
             .filter(|e| {
                 e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                    && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
             .sum();
@@ -88,7 +102,7 @@ impl MetricCalculator for MoicLpCalculator {
                     e.kind,
                     crate::instruments::private_markets_fund::FundEventKind::Distribution
                         | crate::instruments::private_markets_fund::FundEventKind::Proceeds
-                )
+                ) && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
             .sum();
@@ -114,11 +128,17 @@ impl MetricCalculator for DpiLpCalculator {
             .iter()
             .filter(|e| {
                 e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                    && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
             .sum();
 
-        let total_lp_distributions: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_lp_distributions: f64 = ledger
+            .rows
+            .iter()
+            .filter(|r| r.date <= context.as_of)
+            .map(|r| r.to_lp.amount())
+            .sum();
 
         if total_contributions <= 1e-6 {
             return Ok(0.0);
@@ -141,25 +161,28 @@ impl MetricCalculator for TvpiLpCalculator {
             .iter()
             .filter(|e| {
                 e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                    && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
             .sum();
 
-        // TVPI = (Distributions + Residual NAV) / Contributions
-        // For simplicity, assume residual NAV = unreturned capital
-        let total_lp_distributions: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
-
-        let residual_nav = ledger
+        // TVPI = (Realized Distributions + Residual NAV) / Contributions
+        let realized_lp_distributions: f64 = ledger
             .rows
-            .last()
-            .map(|r| r.lp_unreturned.amount())
-            .unwrap_or(0.0);
+            .iter()
+            .filter(|r| r.date <= context.as_of)
+            .map(|r| r.to_lp.amount())
+            .sum();
+
+        // Use the base_value (pricing result) as the NAV / Residual Value.
+        // This correctly captures the NPV of future flows or the explicit valuation.
+        let residual_nav = context.base_value.amount();
 
         if total_contributions <= 1e-6 {
             return Ok(0.0);
         }
 
-        Ok((total_lp_distributions + residual_nav) / total_contributions)
+        Ok((realized_lp_distributions + residual_nav) / total_contributions)
     }
 }
 

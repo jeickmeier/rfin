@@ -403,6 +403,7 @@ impl PyConvertibleBond {
             issue: issue_date,
             maturity: maturity_date,
             discount_curve_id,
+            credit_curve_id: None,
             conversion: conversion.inner.clone(),
             underlying_equity_id: underlying_equity_id.map(|s| s.to_string()),
             call_put,

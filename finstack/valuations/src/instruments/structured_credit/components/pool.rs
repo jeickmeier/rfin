@@ -47,6 +47,8 @@ pub struct PoolAsset {
     pub purchase_price: Option<Money>,
     /// Acquisition date
     pub acquisition_date: Option<Date>,
+    /// Day count convention for interest calculation
+    pub day_count: Option<DayCount>,
 }
 
 impl PoolAsset {
@@ -75,6 +77,16 @@ impl PoolAsset {
                 .quoted_clean_price
                 .map(|p| bond.notional * p),
             acquisition_date: Some(bond.issue),
+            day_count: match &bond.cashflow_spec {
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
+                crate::instruments::bond::CashflowSpec::Floating(spec) => Some(spec.rate_spec.dc),
+                // For amortizing, we look at the base spec
+                crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                    crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
+                    crate::instruments::bond::CashflowSpec::Floating(spec) => Some(spec.rate_spec.dc),
+                    _ => None,
+                },
+            },
         }
     }
 
@@ -123,6 +135,7 @@ impl PoolAsset {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: None,
+            day_count: Some(DayCount::Act360), // Standard for loans
         }
     }
 
@@ -150,6 +163,7 @@ impl PoolAsset {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: None,
+            day_count: Some(DayCount::Thirty360), // Standard for US bonds
         }
     }
 
@@ -168,6 +182,12 @@ impl PoolAsset {
     /// Set obligor identifier
     pub fn with_obligor(mut self, obligor_id: impl Into<String>) -> Self {
         self.obligor_id = Some(obligor_id.into());
+        self
+    }
+
+    /// Set day count convention
+    pub fn with_day_count(mut self, day_count: DayCount) -> Self {
+        self.day_count = Some(day_count);
         self
     }
 

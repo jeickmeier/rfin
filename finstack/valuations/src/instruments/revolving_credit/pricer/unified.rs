@@ -19,7 +19,7 @@ use crate::cashflow::builder::CashFlowSchedule;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 
 use super::super::cashflow_engine::{
@@ -61,9 +61,23 @@ pub struct EnhancedMonteCarloResult {
 ///
 /// Handles both deterministic and stochastic pricing using a single implementation.
 /// Stochastic pricing generates paths and applies deterministic pricing to each path.
-pub struct RevolvingCreditPricer;
+pub struct RevolvingCreditPricer {
+    model: ModelKey,
+}
+
+impl Default for RevolvingCreditPricer {
+    fn default() -> Self {
+        Self {
+            model: ModelKey::Discounting,
+        }
+    }
+}
 
 impl RevolvingCreditPricer {
+    /// Create a new pricer instance with specified model.
+    pub fn new(model: ModelKey) -> Self {
+        Self { model }
+    }
     /// Price a single path (deterministic or from MC).
     ///
     /// This is the core pricing logic used for both modes:
@@ -136,6 +150,133 @@ impl RevolvingCreditPricer {
             let df = disc_curve.df(t);
             let survival = survival_probs.get(i).copied().unwrap_or(1.0);
             total_pv += cf.amount.amount() * df * survival;
+        }
+
+        // Add Recovery Leg PV (Recovery Value upon default)
+        // PV_rec = Sum [ Exposure(t) * RecoveryRate * DF(t) * ProbDefault(t-1, t) ]
+        if facility.recovery_rate > 0.0 {
+            // Determine grid points (payment dates) for integration
+            let grid_dates = if let Some(ref path_data) = path_schedule.path_data {
+                path_data.payment_dates.clone()
+            } else {
+                super::super::utils::build_payment_dates(facility, false)?
+            };
+
+            // Filter grid dates to future only
+            let future_grid: Vec<Date> = grid_dates.into_iter().filter(|&d| d > as_of).collect();
+
+            if !future_grid.is_empty() {
+                // Compute survival at grid dates
+                let survival_at_grid = if let Some(ref path_data) = path_schedule.path_data {
+                    Self::compute_dynamic_survival_at_dates(
+                        &path_data.credit_spread_path,
+                        &path_data.time_points,
+                        &path_data.payment_dates,
+                        &future_grid,
+                        facility.recovery_rate,
+                        facility.commitment_date,
+                    )?
+                } else if let Some(ref hazard_id) = facility.hazard_curve_id {
+                    let hazard = market.get_hazard_ref(hazard_id.as_str())?;
+                    hazard.survival_at_dates(&future_grid)?
+                } else {
+                    vec![1.0; future_grid.len()]
+                };
+
+                // Compute Exposure at grid dates
+                let exposure_at_grid = if let Some(ref path_data) = path_schedule.path_data {
+                    // For stochastic, map grid dates to path data
+                    let mut exposures = Vec::with_capacity(future_grid.len());
+                    for &date in &future_grid {
+                        if let Some(idx) = path_data.payment_dates.iter().position(|&d| d == date) {
+                            exposures.push(
+                                path_data.utilization_path[idx]
+                                    * facility.commitment_amount.amount(),
+                            );
+                        } else {
+                            // Fallback: if date not found in path (unlikely if grid came from path), use 0
+                            exposures.push(0.0);
+                        }
+                    }
+                    exposures
+                } else {
+                    // For deterministic, simulate balance evolution
+                    let mut exposures = Vec::with_capacity(future_grid.len());
+                    for &date in &future_grid {
+                        let bal = super::super::cashflow_engine::calculate_drawn_balance_at_date(
+                            facility, date,
+                        )?;
+                        exposures.push(bal.amount());
+                    }
+                    exposures
+                };
+
+                // Get initial state at as_of
+                let mut prev_sp = if let Some(ref path_data) = path_schedule.path_data {
+                    Self::compute_dynamic_survival_at_dates(
+                        &path_data.credit_spread_path,
+                        &path_data.time_points,
+                        &path_data.payment_dates,
+                        &[as_of],
+                        facility.recovery_rate,
+                        facility.commitment_date,
+                    )?[0]
+                } else if let Some(ref hazard_id) = facility.hazard_curve_id {
+                    let hazard = market.get_hazard_ref(hazard_id.as_str())?;
+                    let t = hazard.day_count().year_fraction(
+                        hazard.base_date(),
+                        as_of,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
+                    hazard.sp(t)
+                } else {
+                    1.0
+                };
+
+                let mut prev_exposure = if let Some(ref _path_data) = path_schedule.path_data {
+                    // For stochastic start, assume as_of matches path start or use initial drawn
+                    if as_of <= facility.commitment_date {
+                        facility.drawn_amount.amount()
+                    } else {
+                        // If pricing mid-path, technically need path state at as_of.
+                        // For simplicity/performance in this fix, use initial drawn if before path start,
+                        // or interpolate if possible. 
+                        // Given path_data covers the whole life, we can look up.
+                        // Simplification: Use first grid point's exposure or current drawn
+                        facility.drawn_amount.amount()
+                    }
+                } else {
+                    super::super::cashflow_engine::calculate_drawn_balance_at_date(facility, as_of)?
+                        .amount()
+                };
+
+                // Integrate over intervals
+                for i in 0..future_grid.len() {
+                    let curr_date = future_grid[i];
+                    let curr_sp = survival_at_grid[i];
+                    let curr_exposure = exposure_at_grid[i];
+
+                    let prob_default = (prev_sp - curr_sp).max(0.0);
+
+                    // Discount at end of period (conservative)
+                    let t_df = disc_dc.year_fraction(
+                        disc_curve.base_date(),
+                        curr_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
+                    let df = disc_curve.df(t_df);
+
+                    // Exposure Average
+                    let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
+
+                    let recovery_flow =
+                        exposure_avg * facility.recovery_rate * df * prob_default;
+                    total_pv += recovery_flow;
+
+                    prev_sp = curr_sp;
+                    prev_exposure = curr_exposure;
+                }
+            }
         }
 
         // Add upfront fee if applicable
@@ -401,7 +542,7 @@ impl RevolvingCreditPricer {
 
 impl Pricer for RevolvingCreditPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting)
+        PricerKey::new(InstrumentType::RevolvingCredit, self.model)
     }
 
     fn price_dyn(
@@ -409,22 +550,36 @@ impl Pricer for RevolvingCreditPricer {
         instrument: &dyn Instrument,
         market: &MarketContext,
         as_of: Date,
-    ) -> std::result::Result<ValuationResult, PricingError> {
-        // Type-safe downcasting
-        let facility = instrument
-            .as_any()
-            .downcast_ref::<RevolvingCredit>()
-            .ok_or_else(|| {
-                PricingError::type_mismatch(InstrumentType::RevolvingCredit, instrument.key())
-            })?;
+    ) -> PricingResult<ValuationResult> {
+        use crate::pricer::expect_inst;
+        
+        let facility: &RevolvingCredit = expect_inst(instrument, InstrumentType::RevolvingCredit)?;
 
-        // Use the provided as_of date for valuation
-        // Price using unified interface
-        let pv = Self::price(facility, market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+        // Route to appropriate pricing method based on model
+        let result_pv = match self.model {
+            ModelKey::Discounting => {
+                // For discounting, we use the unified price method which handles 
+                // deterministic specs (and errs on stochastic if MC not enabled/used)
+                Self::price(facility, market, as_of)?
+            }
+            #[cfg(feature = "mc")]
+            ModelKey::MonteCarloGBM => {
+                // For MC, we ensure we're using the MC path
+                let enhanced = Self::price_with_paths(facility, market, as_of)?;
+                enhanced.mc_result.estimate.mean
+            }
+            _ => {
+                return Err(PricingError::ModelFailure(format!(
+                    "Unsupported model for RevolvingCredit: {}",
+                    self.model
+                )));
+            }
+        };
 
-        // Return stamped result
-        Ok(ValuationResult::stamped(facility.id(), as_of, pv))
+        // Wrap in ValuationResult
+        let mut result = ValuationResult::stamped(facility.id.as_str(), as_of, result_pv);
+        result.measures.insert("model".to_string(), self.model.to_string().parse().unwrap_or(0.0)); // Just tagging
+        Ok(result)
     }
 }
 

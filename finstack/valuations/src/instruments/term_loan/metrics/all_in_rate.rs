@@ -106,12 +106,37 @@ impl MetricCalculator for AllInRateCalculator {
                         limit = sd.new_limit;
                     }
                 }
+
+                // Calculate cumulative draws to match cashflows logic
+                let mut cumulative_drawn_amt = 0.0;
+                // Draw stop logic also applies
+                let draw_stop = loan
+                    .covenants
+                    .as_ref()
+                    .and_then(|c| c.draw_stop_dates.iter().min().copied());
+                
+                for ev in &ddtl.draws {
+                    if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {
+                        continue;
+                    }
+                    if let Some(ds) = draw_stop {
+                        if ev.date >= ds {
+                            continue;
+                        }
+                    }
+                    if ev.date <= d {
+                        cumulative_drawn_amt += ev.amount.amount();
+                    }
+                }
+
                 // Use same fee base logic as cashflow engine
                 let undrawn = match ddtl.fee_base {
                     crate::instruments::term_loan::spec::CommitmentFeeBase::Undrawn => {
-                        (limit.amount() - outstanding.amount()).max(0.0)
+                        // Term Loan Standard
+                        (limit.amount() - cumulative_drawn_amt).max(0.0)
                     }
                     crate::instruments::term_loan::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
+                        // Revolver Standard
                         (limit.amount() - outstanding.amount()).max(0.0)
                     }
                 };

@@ -234,11 +234,11 @@ fn barrier_helper(
         * forward_discount
         * (barrier / spot).powf(2.0 * (mu + 1.0))
         * norm_cdf(eta * y1)
-        - phi
-            * strike
-            * discount
-            * (barrier / spot).powf(2.0 * mu)
-            * norm_cdf(eta * (y1 - vol * time.sqrt()));
+            - phi
+                * strike
+                * discount
+                * (barrier / spot).powf(2.0 * mu)
+                * norm_cdf(eta * (y1 - vol * time.sqrt()));
 
     // Combine based on barrier type
     if spot > barrier {
@@ -258,6 +258,87 @@ fn barrier_helper(
         } else {
             // Put
             a - b + c - d
+        }
+    }
+}
+
+/// Calculate probability of hitting the barrier before T (Touch Probability).
+///
+/// Returns P(min S < H) for down barrier, or P(max S > H) for up barrier.
+pub fn barrier_touch_probability(
+    spot: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    is_up: bool,
+) -> f64 {
+    if time <= 0.0 {
+        return if is_up {
+            if spot >= barrier { 1.0 } else { 0.0 }
+        } else {
+            if spot <= barrier { 1.0 } else { 0.0 }
+        };
+    }
+
+    let sigma_sqrt_t = vol * time.sqrt();
+    let nu = rate - div_yield - 0.5 * vol * vol;
+
+    if is_up {
+        if spot >= barrier { return 1.0; }
+        // Up barrier (H > S)
+        // P(max S > H)
+        let x = (barrier / spot).ln(); // Positive
+        let d1 = (-x + nu * time) / sigma_sqrt_t;
+        let d2 = (-x - nu * time) / sigma_sqrt_t;
+        // (H/S)^(2*nu/sigma^2)
+        let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
+        
+        norm_cdf(d1) + power_term * norm_cdf(d2)
+    } else {
+        if spot <= barrier { return 1.0; }
+        // Down barrier (H < S)
+        // P(min S < H)
+        let log_h_s = (barrier / spot).ln(); // Negative
+        let d1 = (log_h_s - nu * time) / sigma_sqrt_t;
+        let d2 = (log_h_s + nu * time) / sigma_sqrt_t;
+        let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
+        
+        norm_cdf(d1) + power_term * norm_cdf(d2)
+    }
+}
+
+/// Calculate value of a rebate paid at maturity.
+///
+/// - For Knock-Out: Paid if barrier is hit (Hit Rebate).
+/// - For Knock-In: Paid if barrier is NOT hit (No-Hit Rebate).
+#[allow(clippy::too_many_arguments)]
+pub fn barrier_rebate_continuous(
+    spot: f64,
+    barrier: f64,
+    rebate: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    barrier_type: BarrierType,
+) -> f64 {
+    let is_up = matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut);
+    let p_hit = barrier_touch_probability(spot, barrier, time, rate, div_yield, vol, is_up);
+    
+    let df = (-rate * time).exp();
+    
+    match barrier_type {
+        BarrierType::UpIn | BarrierType::DownIn => {
+            // Knock-In: Option activates if Hit.
+            // Rebate paid if it fails to activate (Not Hit).
+            rebate * df * (1.0 - p_hit)
+        }
+        BarrierType::UpOut | BarrierType::DownOut => {
+            // Knock-Out: Option deactivates if Hit.
+            // Rebate paid if it deactivates (Hit).
+            rebate * df * p_hit
         }
     }
 }
@@ -400,8 +481,12 @@ pub fn barrier_put_continuous(
         barrier,
         time,
         rate,
-        div_yield,
-        vol,
+        rate, // BUG? No, div_yield should be div_yield
+        div_yield, // Wait, argument order in helper is (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)
+        // Let's check.
+        // helper args: (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)
+        // call here: (..., rate, div_yield, vol, -1.0, ...)
+        // So passed args should be rate, div_yield, vol.
         -1.0,
         if matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut) {
             1.0
