@@ -381,18 +381,6 @@ impl CreditDefaultSwap {
         pricer.risky_pv01(self, disc, surv, as_of)
     }
 
-    /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
-    pub fn cs01(&self, market: &MarketContext) -> finstack_core::Result<f64> {
-        let pricer = CDSPricer::new();
-        pricer.cs01(
-            self,
-            market,
-            market
-                .get_discount_ref(&self.premium.discount_curve_id)?
-                .base_date(),
-        )
-    }
-
     /// Calculate the net present value of this CDS
     pub fn npv(
         &self,

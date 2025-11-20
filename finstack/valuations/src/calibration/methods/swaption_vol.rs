@@ -67,19 +67,14 @@ pub enum AtmStrikeConvention {
 }
 
 /// Interpolation method for SABR parameters across the expiry–tenor grid.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SabrInterpolationMethod {
     /// Nearest-neighbor in (expiry, tenor) space (legacy behavior).
     Nearest,
     /// Bilinear interpolation in (expiry, tenor) over SABR parameters.
+    #[default]
     Bilinear,
-}
-
-impl Default for SabrInterpolationMethod {
-    fn default() -> Self {
-        SabrInterpolationMethod::Bilinear
-    }
 }
 
 /// Swaption volatility surface calibrator.

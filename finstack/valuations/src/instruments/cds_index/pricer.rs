@@ -178,20 +178,49 @@ impl CDSIndexPricer {
 
     /// CS01 (approximate) aggregated by pricing mode.
     pub fn cs01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
-                pricer.cs01(&cds, curves, as_of)
+                self.compute_cds_cs01(&cds, curves, as_of)
             }
             IndexPricing::Constituents => {
                 let mut sum = 0.0;
                 for cds in self.constituent_cdss(index)? {
-                    sum += pricer.cs01(&cds, curves, as_of)?;
+                    sum += self.compute_cds_cs01(&cds, curves, as_of)?;
                 }
                 Ok(sum)
             }
         }
+    }
+
+    fn compute_cds_cs01(
+        &self,
+        cds: &CreditDefaultSwap,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
+        use finstack_core::market_data::bumps::BumpSpec;
+        use hashbrown::HashMap;
+
+        let credit_id = &cds.protection.credit_curve_id;
+        let discount_id = &cds.premium.discount_curve_id;
+
+        // Base PV
+        let pricer = CDSPricer::with_config(self.config.cds_config.clone());
+        let disc = curves.get_discount_ref(discount_id)?;
+        let surv = curves.get_hazard_ref(credit_id)?;
+        let base_pv = pricer.npv(cds, disc, surv, as_of)?.amount();
+
+        // Bump
+        let mut bumps = HashMap::new();
+        bumps.insert(credit_id.clone(), BumpSpec::parallel_bp(1.0));
+        let bumped_curves = curves.bump(bumps)?;
+
+        let bumped_disc = bumped_curves.get_discount_ref(discount_id)?;
+        let bumped_surv = bumped_curves.get_hazard_ref(credit_id)?;
+        let bumped_pv = pricer.npv(cds, bumped_disc, bumped_surv, as_of)?.amount();
+
+        Ok(bumped_pv - base_pv)
     }
 
     // ----- internals -----

@@ -775,21 +775,6 @@ impl CDSPricer {
         Ok(risky_annuity * cds.notional.amount() / 10000.0)
     }
 
-    /// CS01 via risky PV01 approximation
-    pub fn cs01(
-        &self,
-        cds: &CreditDefaultSwap,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<f64> {
-        let disc = curves.get_discount_ref(&cds.premium.discount_curve_id)?;
-        let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
-        let base_npv = self.npv(cds, disc, surv, as_of)?;
-        let risky_pv01 = self.risky_pv01(cds, disc, surv, as_of)?;
-        let bumped_npv = Money::new(risky_pv01, cds.notional.currency());
-        Ok((bumped_npv.amount() - base_npv.amount()).abs())
-    }
-
     /// Instrument NPV from the perspective of `PayReceive`
     pub fn npv(
         &self,
@@ -895,20 +880,32 @@ impl CDSBootstrapper {
         disc: &dyn Discounting,
         base_date: Date,
     ) -> Result<HazardCurve> {
-        let mut hazard_rates = Vec::new();
+        let mut knots = Vec::new();
         let mut par_spreads = Vec::new();
         let pricer = CDSPricer::with_config(self.config.clone());
 
-        for &(tenor, spread_bps) in cds_spreads {
+        // Sort spreads by tenor to ensure correct bootstrapping order
+        let mut sorted_spreads = cds_spreads.to_vec();
+        sorted_spreads.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        for &(tenor, spread_bps) in &sorted_spreads {
             let cds = self.create_synthetic_cds(base_date, tenor, spread_bps, recovery_rate)?;
-            let hazard_rate = self.solve_for_hazard_rate(&cds, disc, spread_bps, &pricer)?;
-            hazard_rates.push((tenor, hazard_rate));
+            let hazard_rate = self.solve_for_hazard_rate(
+                &cds,
+                disc,
+                spread_bps,
+                &pricer,
+                &knots,
+                tenor,
+                base_date,
+            )?;
+            knots.push((tenor, hazard_rate));
             par_spreads.push((tenor, spread_bps));
         }
 
         HazardCurve::builder("BOOTSTRAPPED")
             .base_date(base_date)
-            .knots(hazard_rates)
+            .knots(knots)
             .recovery_rate(recovery_rate)
             .par_spreads(par_spreads)
             .build()
@@ -937,20 +934,22 @@ impl CDSBootstrapper {
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn solve_for_hazard_rate(
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discounting,
         target_spread_bps: f64,
         pricer: &CDSPricer,
+        existing_knots: &[(f64, f64)],
+        current_tenor: f64,
+        base_date: Date,
     ) -> Result<f64> {
         // Objective function: ParSpread(h) - TargetSpread = 0
         let objective = |h: f64| -> f64 {
-            // Create temp hazard curve with flat rate h
-            // Note: We handle errors inside by returning NaN to solver or panicking
-            // (BrentSolver requires infallible closure, so we assume creation succeeds for valid h)
+            // Create temp hazard curve with existing knots + trial point
             let surv = self
-                .create_flat_hazard_curve(h, cds)
+                .create_temp_hazard_curve(existing_knots, current_tenor, h, base_date, cds.protection.recovery_rate)
                 .expect("Hazard curve creation failed");
             match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
                 Ok(spread) => spread - target_spread_bps,
@@ -959,7 +958,13 @@ impl CDSBootstrapper {
         };
 
         // Initial guess using credit triangle approximation: h ~ S / (1-R)
-        let initial_guess = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
+        // Or use the last bootstrapped hazard rate if available
+        let initial_guess = if let Some(&(_, last_h)) = existing_knots.last() {
+            last_h
+        } else {
+            target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate)
+        };
+
         let bracket_min = 1e-5; // 0.1 bp hazard
         let bracket_max = 1.0; // 100% hazard
 
@@ -972,15 +977,21 @@ impl CDSBootstrapper {
         solver.solve(objective, initial_guess.clamp(bracket_min, bracket_max))
     }
 
-    fn create_flat_hazard_curve(
+    fn create_temp_hazard_curve(
         &self,
-        hazard_rate: f64,
-        cds: &CreditDefaultSwap,
+        existing_knots: &[(f64, f64)],
+        current_tenor: f64,
+        current_rate: f64,
+        base_date: Date,
+        recovery_rate: f64,
     ) -> Result<HazardCurve> {
+        let mut knots = existing_knots.to_vec();
+        knots.push((current_tenor, current_rate));
+        
         HazardCurve::builder("TEMP")
-            .base_date(cds.premium.start)
-            .recovery_rate(cds.protection.recovery_rate)
-            .knots(vec![(1.0, hazard_rate), (10.0, hazard_rate)])
+            .base_date(base_date)
+            .recovery_rate(recovery_rate)
+            .knots(knots)
             .build()
     }
 }

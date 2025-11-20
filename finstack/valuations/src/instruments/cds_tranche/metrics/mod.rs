@@ -13,7 +13,6 @@
 //! - Correlation01 (per 1% correlation change)
 
 mod correlation01;
-mod cs01;
 mod expected_loss;
 mod jump_to_default;
 mod par_spread;
@@ -57,7 +56,9 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "CDSTranche",
         metrics: [
-            (Cs01, cs01::Cs01Calculator),
+            (Cs01, crate::metrics::GenericParallelCs01::<
+                crate::instruments::CdsTranche,
+            >::default()),
             (ParSpread, par_spread::ParSpreadCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),

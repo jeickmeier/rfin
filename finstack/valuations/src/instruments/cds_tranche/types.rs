@@ -192,12 +192,6 @@ impl CdsTranche {
         pricer.calculate_jump_to_default(self, curves, as_of)
     }
 
-    /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads)
-    pub fn cs01(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let pricer = pricer::CDSTranchePricer::new();
-        pricer.calculate_cs01(self, curves, as_of)
-    }
-
     /// Calculate correlation delta (sensitivity to correlation changes)
     pub fn correlation_delta(
         &self,

@@ -21,6 +21,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::cds_tranche::parameters::CDSTrancheParams;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::metrics::{GenericParallelCs01, MetricCalculator, MetricContext};
 use std::sync::Arc;
 use time::Month;
 
@@ -227,7 +228,19 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
     let tranche = create_tranche(3.0, 7.0, 5);
 
     group.bench_function("cs01", |b| {
-        b.iter(|| tranche.cs01(black_box(&market), black_box(as_of)));
+        b.iter(|| {
+            // Use generic CS01 calculator via MetricContext
+            let base_pv = tranche.npv(black_box(&market), black_box(as_of)).unwrap();
+            let mut context = MetricContext::new(
+                Arc::new(tranche.clone()),
+                Arc::new(market.clone()),
+                as_of,
+                base_pv,
+            );
+            GenericParallelCs01::<CdsTranche>::default()
+                .calculate(&mut context)
+                .unwrap()
+        });
     });
 
     group.finish();
@@ -285,7 +298,18 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
     group.bench_function("all_metrics", |b| {
         b.iter(|| {
             let _npv = tranche.npv(black_box(&market), black_box(as_of));
-            let _cs01 = tranche.cs01(black_box(&market), black_box(as_of));
+            
+            // CS01 via generic calculator
+            let _base_pv = *_npv.as_ref().unwrap();
+            let mut context = MetricContext::new(
+                Arc::new(tranche.clone()),
+                Arc::new(market.clone()),
+                as_of,
+                _base_pv,
+            );
+            let _cs01 = GenericParallelCs01::<CdsTranche>::default()
+                .calculate(&mut context);
+
             let _corr_delta = tranche.correlation_delta(black_box(&market), black_box(as_of));
             let _jtd = tranche.jump_to_default(black_box(&market), black_box(as_of));
             let _par = tranche.par_spread(black_box(&market), black_box(as_of));

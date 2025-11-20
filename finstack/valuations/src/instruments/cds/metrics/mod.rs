@@ -7,13 +7,12 @@
 //! Exposed metrics:
 //! - Par spread (bps)
 //! - Risky PV01
-//! - CS01 (approximate)
+//! - CS01
 //! - Protection leg PV
 //! - Premium leg PV
 //! - Expected loss
 //! - Jump to default
 
-mod cs01;
 mod cs_gamma;
 mod expected_loss;
 mod jump_to_default;
@@ -49,7 +48,9 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
         instrument: "CDS",
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
-            (Cs01, cs01::Cs01Calculator),
+            (Cs01, crate::metrics::GenericParallelCs01::<
+                crate::instruments::CreditDefaultSwap,
+            >::default()),
             (CsGamma, cs_gamma::CsGammaCalculator),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
