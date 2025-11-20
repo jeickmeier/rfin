@@ -1152,9 +1152,6 @@ mod tests {
 
     #[test]
     fn test_fra_repricing_under_bootstrap() {
-        use crate::instruments::fra::ForwardRateAgreement;
-        // (no additional imports)
-
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let config = CalibrationConfig::conservative();
         let calibrator =
@@ -1180,83 +1177,26 @@ mod tests {
             },
         ];
 
-        // No seed forward curve needed - calibration will derive from discount curve
+        // In the multi-curve framework, discount curves must be calibrated with
+        // OIS-suitable instruments only. FRAs require a forward curve
+        // calibrated via `ForwardCurveCalibrator`, not `DiscountCurveCalibrator`.
         let base_context = MarketContext::new();
-        let (curve, report) = calibrator
-            .calibrate(&quotes, &base_context)
-            .expect("FRA calibration should succeed");
+        let result = calibrator.calibrate(&quotes, &base_context);
 
-        // Check calibration report
-        assert!(report.success, "Calibration should succeed: {:?}", report);
-        assert!(
-            report.max_residual < 1e-5,
-            "Calibration residual too large: {:.2e}",
-            report.max_residual
-        );
-
-        // Derive forward curve from the calibrated discount curve
-        // This matches single-curve framework where forward = discount-derived
-        let fwd = curve
-            .to_forward_curve("USD-SOFR", 0.25)
-            .expect("Forward curve derivation should succeed in test");
-        let ctx = base_context.insert_discount(curve).insert_forward(fwd);
-
-        // Construct FRA matching the quote, notional $1,000,000
-        let fra = ForwardRateAgreement::builder()
-            .id("FRA-3x6".to_string().into())
-            .notional(Money::new(1_000_000.0, Currency::USD))
-            .fixing_date(base_date + time::Duration::days(88))
-            .start_date(base_date + time::Duration::days(90))
-            .end_date(base_date + time::Duration::days(180))
-            .fixed_rate(0.0470)
-            .day_count(DayCount::Act360)
-            .reset_lag(2)
-            .discount_curve_id("USD-OIS".into())
-            .forward_id("USD-SOFR".into())
-            .pay_fixed(false)
-            .build()
-            .expect("FRA builder should succeed with valid test data");
-
-        let pv = fra
-            .value(&ctx, base_date)
-            .expect("FRA valuation should succeed in test");
-
-        // Debug: check if curves are consistent
-        let fwd_rate = ctx
-            .get_forward_ref("USD-SOFR")
-            .expect("Forward curve should exist in test context")
-            .rate_period(
-                fra.day_count
-                    .year_fraction(
-                        base_date,
-                        fra.start_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .expect("Year fraction calculation should succeed"),
-                fra.day_count
-                    .year_fraction(
-                        base_date,
-                        fra.end_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .expect("Year fraction calculation should succeed"),
-            );
-
-        // Note: FRA calibration in single-curve framework with sequential bootstrap has limitations.
-        // The forward rate depends on both start and end discount factors, but the start factor
-        // is already fixed by the preceding deposit. This limits our ability to match the FRA quote exactly.
-        // For production use, consider multi-curve framework or global optimization.
-        //
-        // Tolerance: $300 per $1M notional (roughly 3bp for 90-day FRA)
-        let tolerance = 300.0;
-        assert!(
-            pv.amount().abs() <= tolerance,
-            "FRA PV too large: ${:.2} (expected <= ${:.0} on $1M notional)\nForward rate: {:.4}%, Fixed rate: {:.4}%\nNote: Single-curve sequential bootstrap has limitations for FRA calibration",
-            pv.amount(),
-            tolerance,
-            fwd_rate * 100.0,
-            fra.fixed_rate * 100.0
-        );
+        match result {
+            Ok(_) => panic!(
+                "DiscountCurveCalibrator should reject FRA quotes in multi-curve framework; \
+                 use ForwardCurveCalibrator for FRAs instead."
+            ),
+            Err(err) => {
+                let msg = format!("{err}");
+                assert!(
+                    msg.contains("DiscountCurveCalibrator received non-OIS instrument")
+                        && msg.contains("Please calibrate forward curves separately using ForwardCurveCalibrator"),
+                    "Unexpected error message for FRA quote in discount calibration: {msg}"
+                );
+            }
+        }
     }
 
     #[test]

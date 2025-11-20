@@ -74,6 +74,29 @@ impl SABRCalibrationDerivatives {
         nu: f64,
         rho: f64,
     ) -> (f64, f64, f64, f64) {
+        // When configured for finite-difference gradients, use the actual
+        // SABRModel-based volatility for both the base value and the
+        // perturbations so that the derivatives are consistent with the
+        // calibration objective.
+        if self.use_fd {
+            let base_vol = self.sabr_vol_fd(strike, alpha, nu, rho);
+
+            // Central finite differences for better accuracy
+            let eps = 1e-6;
+
+            let d_vol_d_alpha = (self.sabr_vol_fd(strike, alpha + eps, nu, rho)
+                - self.sabr_vol_fd(strike, alpha - eps, nu, rho))
+                / (2.0 * eps);
+            let d_vol_d_nu = (self.sabr_vol_fd(strike, alpha, nu + eps, rho)
+                - self.sabr_vol_fd(strike, alpha, nu - eps, rho))
+                / (2.0 * eps);
+            let d_vol_d_rho = (self.sabr_vol_fd(strike, alpha, nu, rho + eps)
+                - self.sabr_vol_fd(strike, alpha, nu, rho - eps))
+                / (2.0 * eps);
+
+            return (base_vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho);
+        }
+
         let f_raw = self.market_data.forward;
         let k_raw = strike;
         let t = self.market_data.time_to_expiry;
@@ -129,22 +152,12 @@ impl SABRCalibrationDerivatives {
 
         let vol = term1 * x * term2_base;
 
-        // Compute derivatives (analytical or finite-difference)
-        if self.use_fd {
-            // Finite-difference gradients for higher accuracy
-            let eps = 1e-6;
-            let d_vol_d_alpha = (self.sabr_vol_fd(strike, alpha + eps, nu, rho) - vol) / eps;
-            let d_vol_d_nu = (self.sabr_vol_fd(strike, alpha, nu + eps, rho) - vol) / eps;
-            let d_vol_d_rho = (self.sabr_vol_fd(strike, alpha, nu, rho + eps) - vol) / eps;
-            (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
-        } else {
-            // Analytical approximations (faster)
-            let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
-            let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
-            let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
-            let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
-            (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
-        }
+        // Analytical approximations (faster)
+        let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
+        let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
+        let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
+        let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
+        (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
     }
 
     /// Compute SABR volatility only (for finite differences).
@@ -470,7 +483,9 @@ mod tests {
             shift: None,
         };
 
-        let deriv_provider = SABRCalibrationDerivatives::new(market_data.clone());
+        // Use finite-difference backed derivatives so that the gradient matches
+        // the objective used in calibration (SABRModel-based volatilities).
+        let deriv_provider = SABRCalibrationDerivatives::new_with_fd(market_data.clone());
 
         // Compute analytical gradient
         let params = vec![0.15, 0.3, -0.1];
@@ -537,7 +552,9 @@ mod tests {
             shift: None,
         };
 
-        let deriv_provider = SABRCalibrationDerivatives::new(market_data.clone());
+        // Use finite-difference backed derivatives for consistency with the
+        // SABRModel-based objective used in calibration.
+        let deriv_provider = SABRCalibrationDerivatives::new_with_fd(market_data.clone());
 
         // Compute analytical gradient
         let params = vec![0.15, 0.3, -0.1];

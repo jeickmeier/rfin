@@ -4,11 +4,12 @@
 //! to estimate factor contributions without full repricing. Supports both first-order
 //! (linear) and second-order (convexity) terms for improved accuracy.
 //!
-//! # Algorithm (Enhanced with Second-Order)
+//! # Algorithm (Enhanced with Second-Order and Bucketed Metrics)
 //!
 //! 1. **Carry**: Theta × time_period
 //! 2. **RatesCurves**:
-//!    - First-order: DV01 × Δr (or BucketedDV01 × Δr_i)
+//!    - Per-curve (if BucketedDv01 available): Σ(DV01_i × Δr_i) for each curve i
+//!    - Fallback (aggregate DV01): DV01 × avg(Δr_i)
 //!    - Second-order: ½ × Convexity × (Δr)² (if available)
 //! 3. **CreditCurves**:
 //!    - First-order: CS01 × Δs
@@ -30,8 +31,9 @@
 //! # Advantages (Enhanced)
 //!
 //! - Fast: Still no additional repricing required
-//! - More accurate: Second-order reduces residual from ~18% to <5%
-//! - Graceful degradation: Works with or without second-order metrics
+//! - More accurate: Per-curve bucketed DV01 eliminates basis risk errors
+//! - Second-order terms reduce residual from ~18% to <5%
+//! - Graceful degradation: Works with or without bucketed/second-order metrics
 //! - Convenient: Works with already-computed ValuationResults
 //!
 //! # Disadvantages
@@ -50,26 +52,80 @@ use finstack_core::market_data::diff::{
     measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod,
 };
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
+use hashbrown::HashMap;
 use std::sync::Arc;
+
+/// Extract per-curve bucketed DV01 sensitivities from ValuationResult measures.
+///
+/// Bucketed DV01 metrics are stored with composite keys like:
+/// - `"bucketed_dv01::USD-OIS"` for per-curve total DV01
+/// - `"bucketed_dv01"` for the primary curve (if single curve instrument)
+///
+/// This function parses these keys and returns a mapping of CurveId → DV01.
+///
+/// # Arguments
+///
+/// * `measures` - Measures from ValuationResult containing flattened bucketed metrics
+/// * `curve_ids` - List of discount curves required by the instrument
+///
+/// # Returns
+///
+/// HashMap mapping each curve ID to its total DV01 sensitivity.
+fn extract_bucketed_dv01_per_curve(
+    measures: &indexmap::IndexMap<String, f64>,
+    curve_ids: &[CurveId],
+) -> HashMap<CurveId, f64> {
+    let mut result = HashMap::new();
+    
+    // Pattern 1: Explicit per-curve keys "bucketed_dv01::{curve_id}"
+    for curve_id in curve_ids {
+        let key = format!("bucketed_dv01::{}", curve_id.as_str());
+        if let Some(&dv01) = measures.get(&key) {
+            result.insert(curve_id.clone(), dv01);
+        }
+    }
+    
+    // Pattern 2: For single-curve instruments, check the base key
+    if result.is_empty() && curve_ids.len() == 1 {
+        if let Some(&dv01) = measures.get("bucketed_dv01") {
+            result.insert(curve_ids[0].clone(), dv01);
+        }
+    }
+    
+    result
+}
 
 /// Perform metrics-based P&L attribution for an instrument.
 ///
 /// Uses linear approximation with pre-computed risk metrics. Fast but less
 /// accurate than full repricing for large market moves.
 ///
+/// # Bucketed DV01 Support
+///
+/// This function now prioritizes bucketed DV01 (per-curve sensitivities) over
+/// aggregate DV01 for rates attribution:
+///
+/// - **If BucketedDv01 is available**: Computes PnL = Σ(DV01_i × Δr_i) per curve,
+///   eliminating basis risk approximation errors.
+/// - **Fallback**: Uses aggregate DV01 × avg(Δr_i) with a warning note.
+///
+/// To get the most accurate rates attribution, include `MetricId::BucketedDv01`
+/// in your metrics request when computing valuations.
+///
 /// # Arguments
 ///
 /// * `instrument` - Instrument to attribute
 /// * `market_t0` - Market context at T₀ (for measuring market shifts)
 /// * `market_t1` - Market context at T₁ (for measuring market shifts)
-/// * `val_t0` - Valuation result at T₀ (with metrics)
+/// * `val_t0` - Valuation result at T₀ (with metrics, ideally including BucketedDv01)
 /// * `val_t1` - Valuation result at T₁ (with metrics)
 /// * `as_of_t0` - Valuation date at T₀
 /// * `as_of_t1` - Valuation date at T₁
 ///
 /// # Returns
 ///
-/// P&L attribution using linear approximation.
+/// P&L attribution using linear approximation with per-curve bucketed metrics.
 ///
 /// # Errors
 ///
@@ -83,8 +139,14 @@ use std::sync::Arc;
 /// use finstack_valuations::attribution::attribute_pnl_metrics_based;
 /// use finstack_valuations::metrics::MetricId;
 ///
-/// // Compute valuations with metrics
-/// let metrics = vec![MetricId::Theta, MetricId::Dv01, MetricId::Cs01, MetricId::Vega];
+/// // Compute valuations with bucketed metrics for best accuracy
+/// let metrics = vec![
+///     MetricId::Theta,
+///     MetricId::Dv01,
+///     MetricId::BucketedDv01,  // ← Include for per-curve rates attribution
+///     MetricId::Cs01,
+///     MetricId::Vega
+/// ];
 /// let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics)?;
 /// let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics)?;
 ///
@@ -143,22 +205,52 @@ pub fn attribute_pnl_metrics_based(
     //
     // METRIC DEFINITION:
     // - DV01: Dollar value of 1 basis point ($ / bp)
-    // - Formula: DV01 × Δr (where Δr is rate shift in basis points)
+    // - BucketedDv01: Per-curve DV01 sensitivities
+    // - Formula: PnL = Σ(DV01_i × Shift_i) for each curve i
     //
-    // NOTE: Current implementation uses aggregate DV01 and average curve shift,
-    // which ignores basis risk and curve-specific effects. For more accurate
-    // attribution, use bucketed DV01 metrics (DV01 per curve) if available.
-    //
-    // Ideal formula: PnL = Σ(DV01_i × Shift_i) for each curve i
-    // Current formula: PnL = DV01_total × avg(Shift_i)
-    if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
-        // DV01 is per 1bp move - measure actual curve shifts
-        let curve_ids = instrument.required_discount_curves();
-
+    // This implementation uses bucketed DV01 (per-curve) if available,
+    // otherwise falls back to aggregate DV01 with average shift.
+    
+    // Try to extract bucketed DV01 per curve
+    let curve_ids = instrument.required_discount_curves();
+    let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, &curve_ids);
+    
+    let has_bucketed = !bucketed_dv01.is_empty();
+    let mut rates_pnl = 0.0;
+    let mut curves_with_data = 0;
+    let mut total_shift_for_convexity = 0.0;
+    
+    if has_bucketed {
+        // Use bucketed DV01: sum per-curve contributions
+        for curve_id in &curve_ids {
+            if let Some(&dv01_for_curve) = bucketed_dv01.get(curve_id) {
+                if let Ok(shift) = measure_discount_curve_shift(
+                    curve_id.as_str(),
+                    market_t0,
+                    market_t1,
+                    TenorSamplingMethod::Standard,
+                ) {
+                    rates_pnl += dv01_for_curve * shift;
+                    total_shift_for_convexity += shift;
+                    curves_with_data += 1;
+                }
+            }
+        }
+        
+        attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
+        
+        if curves_with_data > 0 {
+            attribution.meta.notes.push(format!(
+                "Rates attribution computed using bucketed DV01 across {} curves",
+                curves_with_data
+            ));
+        }
+    } else if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
+        // Fallback: use aggregate DV01 with average shift
         let mut total_shift = 0.0;
         let mut curve_count = 0;
 
-        for curve_id in curve_ids {
+        for curve_id in &curve_ids {
             if let Ok(shift) = measure_discount_curve_shift(
                 curve_id.as_str(),
                 market_t0,
@@ -176,26 +268,31 @@ pub fn attribute_pnl_metrics_based(
             0.0
         };
 
-        let rates_amount = dv01 * avg_shift;
-        attribution.rates_curves_pnl = Money::new(rates_amount, val_t1.value.currency());
+        rates_pnl = dv01 * avg_shift;
+        total_shift_for_convexity = avg_shift;
+        curves_with_data = curve_count;
+        
+        attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
         // Add note about averaging limitation
         if curve_count > 1 {
             attribution.meta.notes.push(format!(
-                "Rates attribution uses average shift across {} curves; \
-                 consider using bucketed DV01 metrics for better accuracy",
+                "Rates attribution uses aggregate DV01 with average shift across {} curves; \
+                 provide BucketedDv01 metric for more accurate per-curve attribution",
                 curve_count
             ));
         }
+    }
 
-        // 2b. Rates curves convexity (second-order)
-        // For Bond: check Convexity; for IRS: check IrConvexity
-        // Prioritize non-zero convexity metric
-        //
-        // METRIC DEFINITION:
-        // - Convexity/IrConvexity: Percentage metric (dimensionless)
-        // - Formula: ½ × P₀ × Convexity × (Δr)²
-        // - Δr must be in decimal (e.g., 0.0001 for 1bp)
+    // 2b. Rates curves convexity (second-order)
+    // For Bond: check Convexity; for IRS: check IrConvexity
+    // Prioritize non-zero convexity metric
+    //
+    // METRIC DEFINITION:
+    // - Convexity/IrConvexity: Percentage metric (dimensionless)
+    // - Formula: ½ × P₀ × Convexity × (Δr)²
+    // - Δr must be in decimal (e.g., 0.0001 for 1bp)
+    if curves_with_data > 0 {
         let rc = RoundingContext::default();
         let convexity_opt = val_t0
             .measures
@@ -211,7 +308,8 @@ pub fn attribute_pnl_metrics_based(
         if let Some(&convexity) = convexity_opt {
             // Convexity term: ½ × P × Convexity × (Δr)²
             // where P is the instrument value/price
-            // avg_shift is in basis points, convert to decimal before squaring
+            // Use average shift for convexity calculation
+            let avg_shift = total_shift_for_convexity / curves_with_data as f64;
             let shift_decimal = avg_shift / 10_000.0;
             let p0 = val_t0.value.amount();
             let convexity_pnl = 0.5 * p0 * convexity * shift_decimal * shift_decimal;
@@ -539,5 +637,79 @@ mod tests {
         // Test that they're distinct from existing metrics
         assert_ne!(MetricId::IrConvexity.as_str(), MetricId::Convexity.as_str());
         assert_ne!(MetricId::CsGamma.as_str(), MetricId::Gamma.as_str());
+    }
+
+    #[test]
+    fn test_extract_bucketed_dv01_per_curve() {
+        use finstack_core::types::CurveId;
+        
+        // Test with explicit per-curve keys
+        let mut measures = IndexMap::new();
+        measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
+        measures.insert("bucketed_dv01::USD-SOFR".to_string(), -50.0);
+        measures.insert("bucketed_dv01::EUR-OIS".to_string(), -75.0);
+        
+        let curve_ids = vec![
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR"),
+            CurveId::new("EUR-OIS"),
+        ];
+        
+        let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
+        
+        assert_eq!(bucketed.len(), 3);
+        assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
+        assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), Some(&-50.0));
+        assert_eq!(bucketed.get(&CurveId::new("EUR-OIS")), Some(&-75.0));
+    }
+
+    #[test]
+    fn test_extract_bucketed_dv01_single_curve() {
+        use finstack_core::types::CurveId;
+        
+        // Test with single curve using base key
+        let mut measures = IndexMap::new();
+        measures.insert("bucketed_dv01".to_string(), -250.0);
+        
+        let curve_ids = vec![CurveId::new("USD-OIS")];
+        
+        let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
+        
+        assert_eq!(bucketed.len(), 1);
+        assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-250.0));
+    }
+
+    #[test]
+    fn test_extract_bucketed_dv01_empty() {
+        use finstack_core::types::CurveId;
+        
+        // Test with no bucketed metrics
+        let measures = IndexMap::new();
+        let curve_ids = vec![CurveId::new("USD-OIS")];
+        
+        let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
+        
+        assert_eq!(bucketed.len(), 0);
+    }
+
+    #[test]
+    fn test_extract_bucketed_dv01_partial_coverage() {
+        use finstack_core::types::CurveId;
+        
+        // Test with some curves having bucketed metrics and others not
+        let mut measures = IndexMap::new();
+        measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
+        // USD-SOFR is missing
+        
+        let curve_ids = vec![
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR"),
+        ];
+        
+        let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
+        
+        assert_eq!(bucketed.len(), 1);
+        assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
+        assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), None);
     }
 }
