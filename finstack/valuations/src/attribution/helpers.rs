@@ -151,12 +151,6 @@ pub fn compute_pnl_with_fx(
     val_t1_converted.checked_sub(val_t0_converted)
 }
 
-/// Clone a MarketContext (cheap operation due to Arc-based storage).
-#[inline]
-pub fn clone_market(market: &MarketContext) -> MarketContext {
-    market.clone()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

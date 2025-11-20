@@ -231,49 +231,59 @@ pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
 ///
 /// # Returns
 ///
-/// New market context with replaced rates curves.
-///
-/// Note: This creates a new market with only the snapshot curves plus
-/// non-rates curves from the original market. A future enhancement could
-/// preserve all other curve types.
+/// New market context with replaced rates curves while preserving all other data.
 pub fn restore_rates_curves(
     market: &MarketContext,
     snapshot: &RatesCurvesSnapshot,
 ) -> MarketContext {
-    // Start with a new empty market
-    let mut new_market = MarketContext::new();
+    // Clone the market to preserve all data, then rebuild with updated curves
+    let mut temp_market = MarketContext::new();
 
     // Copy non-rates curves (credit, inflation, correlations)
     for curve_id in market.curve_ids() {
         // Copy hazard curves
         if let Ok(hazard) = market.get_hazard(curve_id) {
-            new_market.insert_hazard_mut(hazard);
+            temp_market.insert_hazard_mut(hazard);
         }
         // Copy inflation curves
         else if let Ok(inflation) = market.get_inflation(curve_id) {
-            new_market.insert_inflation_mut(inflation);
+            temp_market.insert_inflation_mut(inflation);
         }
         // Copy base correlation curves
         else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            new_market.insert_base_correlation_mut(base_corr);
+            temp_market.insert_base_correlation_mut(base_corr);
         }
     }
 
     // Insert snapshot rates curves
     for (_id, curve) in &snapshot.discount_curves {
-        new_market.insert_discount_mut(Arc::clone(curve));
+        temp_market.insert_discount_mut(Arc::clone(curve));
     }
     for (_id, curve) in &snapshot.forward_curves {
-        new_market.insert_forward_mut(Arc::clone(curve));
+        temp_market.insert_forward_mut(Arc::clone(curve));
     }
 
-    // Copy other market data (FX, surfaces, etc.)
+    // Copy other market data (FX, surfaces, scalars) from original market
     if let Some(fx) = &market.fx {
-        new_market.insert_fx_mut(Arc::clone(fx));
+        temp_market.insert_fx_mut(Arc::clone(fx));
     }
-    new_market.surfaces = market.surfaces.clone();
+    temp_market.surfaces = market.surfaces.clone();
 
-    new_market
+    // Copy all scalar data (CRITICAL: this was missing before!)
+    for (id, price) in market.prices_iter() {
+        temp_market.set_price_mut(id.clone(), price.clone());
+    }
+    for (_id, series) in market.series_iter() {
+        temp_market.set_series_mut(series.clone());
+    }
+    for (id, index) in market.inflation_indices_iter() {
+        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in market.dividends_iter() {
+        temp_market.set_dividends_mut(Arc::clone(schedule));
+    }
+
+    temp_market
 }
 
 /// Replace credit curves in a market context with curves from a snapshot.
@@ -285,46 +295,60 @@ pub fn restore_rates_curves(
 ///
 /// # Returns
 ///
-/// New market context with replaced credit curves.
+/// New market context with replaced credit curves while preserving all other data.
 pub fn restore_credit_curves(
     market: &MarketContext,
     snapshot: &CreditCurvesSnapshot,
 ) -> MarketContext {
-    // Start with a new empty market
-    let mut new_market = MarketContext::new();
+    // Clone the market to preserve all data, then rebuild with updated curves
+    let mut temp_market = MarketContext::new();
 
     // Copy non-credit curves
     for curve_id in market.curve_ids() {
         // Copy discount curves
         if let Ok(discount) = market.get_discount(curve_id) {
-            new_market.insert_discount_mut(discount);
+            temp_market.insert_discount_mut(discount);
         }
         // Copy forward curves
         else if let Ok(forward) = market.get_forward(curve_id) {
-            new_market.insert_forward_mut(forward);
+            temp_market.insert_forward_mut(forward);
         }
         // Copy inflation curves
         else if let Ok(inflation) = market.get_inflation(curve_id) {
-            new_market.insert_inflation_mut(inflation);
+            temp_market.insert_inflation_mut(inflation);
         }
         // Copy base correlation curves
         else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            new_market.insert_base_correlation_mut(base_corr);
+            temp_market.insert_base_correlation_mut(base_corr);
         }
     }
 
     // Insert snapshot hazard curves
     for (_id, curve) in &snapshot.hazard_curves {
-        new_market.insert_hazard_mut(Arc::clone(curve));
+        temp_market.insert_hazard_mut(Arc::clone(curve));
     }
 
-    // Copy other market data
+    // Copy other market data (FX, surfaces, scalars)
     if let Some(fx) = &market.fx {
-        new_market.insert_fx_mut(Arc::clone(fx));
+        temp_market.insert_fx_mut(Arc::clone(fx));
     }
-    new_market.surfaces = market.surfaces.clone();
+    temp_market.surfaces = market.surfaces.clone();
 
-    new_market
+    // Copy all scalar data (CRITICAL: this was missing before!)
+    for (id, price) in market.prices_iter() {
+        temp_market.set_price_mut(id.clone(), price.clone());
+    }
+    for (_id, series) in market.series_iter() {
+        temp_market.set_series_mut(series.clone());
+    }
+    for (id, index) in market.inflation_indices_iter() {
+        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in market.dividends_iter() {
+        temp_market.set_dividends_mut(Arc::clone(schedule));
+    }
+
+    temp_market
 }
 
 /// Replace inflation curves in a market context with curves from a snapshot.
@@ -336,39 +360,53 @@ pub fn restore_credit_curves(
 ///
 /// # Returns
 ///
-/// New market context with replaced inflation curves.
+/// New market context with replaced inflation curves while preserving all other data.
 pub fn restore_inflation_curves(
     market: &MarketContext,
     snapshot: &InflationCurvesSnapshot,
 ) -> MarketContext {
-    // Start with a new empty market
-    let mut new_market = MarketContext::new();
+    // Clone the market to preserve all data, then rebuild with updated curves
+    let mut temp_market = MarketContext::new();
 
     // Copy non-inflation curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            new_market.insert_discount_mut(discount);
+            temp_market.insert_discount_mut(discount);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            new_market.insert_forward_mut(forward);
+            temp_market.insert_forward_mut(forward);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            new_market.insert_hazard_mut(hazard);
+            temp_market.insert_hazard_mut(hazard);
         } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            new_market.insert_base_correlation_mut(base_corr);
+            temp_market.insert_base_correlation_mut(base_corr);
         }
     }
 
     // Insert snapshot inflation curves
     for (_id, curve) in &snapshot.inflation_curves {
-        new_market.insert_inflation_mut(Arc::clone(curve));
+        temp_market.insert_inflation_mut(Arc::clone(curve));
     }
 
-    // Copy other market data
+    // Copy other market data (FX, surfaces, scalars)
     if let Some(fx) = &market.fx {
-        new_market.insert_fx_mut(Arc::clone(fx));
+        temp_market.insert_fx_mut(Arc::clone(fx));
     }
-    new_market.surfaces = market.surfaces.clone();
+    temp_market.surfaces = market.surfaces.clone();
 
-    new_market
+    // Copy all scalar data (CRITICAL: this was missing before!)
+    for (id, price) in market.prices_iter() {
+        temp_market.set_price_mut(id.clone(), price.clone());
+    }
+    for (_id, series) in market.series_iter() {
+        temp_market.set_series_mut(series.clone());
+    }
+    for (id, index) in market.inflation_indices_iter() {
+        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in market.dividends_iter() {
+        temp_market.set_dividends_mut(Arc::clone(schedule));
+    }
+
+    temp_market
 }
 
 /// Replace correlation curves in a market context with curves from a snapshot.
@@ -380,39 +418,53 @@ pub fn restore_inflation_curves(
 ///
 /// # Returns
 ///
-/// New market context with replaced correlation curves.
+/// New market context with replaced correlation curves while preserving all other data.
 pub fn restore_correlations(
     market: &MarketContext,
     snapshot: &CorrelationsSnapshot,
 ) -> MarketContext {
-    // Start with a new empty market
-    let mut new_market = MarketContext::new();
+    // Clone the market to preserve all data, then rebuild with updated curves
+    let mut temp_market = MarketContext::new();
 
     // Copy non-correlation curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            new_market.insert_discount_mut(discount);
+            temp_market.insert_discount_mut(discount);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            new_market.insert_forward_mut(forward);
+            temp_market.insert_forward_mut(forward);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            new_market.insert_hazard_mut(hazard);
+            temp_market.insert_hazard_mut(hazard);
         } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            new_market.insert_inflation_mut(inflation);
+            temp_market.insert_inflation_mut(inflation);
         }
     }
 
     // Insert snapshot base correlation curves
     for (_id, curve) in &snapshot.base_correlation_curves {
-        new_market.insert_base_correlation_mut(Arc::clone(curve));
+        temp_market.insert_base_correlation_mut(Arc::clone(curve));
     }
 
-    // Copy other market data
+    // Copy other market data (FX, surfaces, scalars)
     if let Some(fx) = &market.fx {
-        new_market.insert_fx_mut(Arc::clone(fx));
+        temp_market.insert_fx_mut(Arc::clone(fx));
     }
-    new_market.surfaces = market.surfaces.clone();
+    temp_market.surfaces = market.surfaces.clone();
 
-    new_market
+    // Copy all scalar data (CRITICAL: this was missing before!)
+    for (id, price) in market.prices_iter() {
+        temp_market.set_price_mut(id.clone(), price.clone());
+    }
+    for (_id, series) in market.series_iter() {
+        temp_market.set_series_mut(series.clone());
+    }
+    for (id, index) in market.inflation_indices_iter() {
+        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in market.dividends_iter() {
+        temp_market.set_dividends_mut(Arc::clone(schedule));
+    }
+
+    temp_market
 }
 
 /// Replace FX matrix in a market context.

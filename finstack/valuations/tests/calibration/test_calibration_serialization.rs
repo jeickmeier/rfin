@@ -541,6 +541,7 @@ fn test_sabr_market_data_serialization() {
         strikes: vec![90.0, 95.0, 100.0, 105.0, 110.0],
         market_vols: vec![0.22, 0.21, 0.20, 0.21, 0.22],
         beta: 0.5,
+        shift: None,
     };
 
     let restored = roundtrip_json(&market_data);

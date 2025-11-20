@@ -656,6 +656,7 @@ impl SABRCalibrator {
             strikes: strikes.to_vec(),
             market_vols: market_vols.to_vec(),
             beta,
+            shift: None,
         };
 
         // Create derivatives provider (with or without FD gradients)

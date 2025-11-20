@@ -257,10 +257,14 @@ fn apply_factor_to_t1(
                             )?;
                             return Ok((current_market.clone(), factor_pnl));
                         }
-                        Err(_e) => {
-                            // Note: Would need to store this in attribution.meta.notes
-                            // but we don't have mutable access to attribution here
-                            // Return zero P&L for now
+                        Err(e) => {
+                            // Repricing failed - log warning since we can't access attribution.meta.notes from here
+                            tracing::warn!(
+                                error = %e,
+                                factor = ?factor,
+                                instrument_id = %instrument.id(),
+                                "Waterfall attribution: repricing with T₁ model parameters failed, returning zero P&L"
+                            );
                             return Ok((
                                 current_market.clone(),
                                 Money::new(0.0, current_val.currency()),
@@ -268,9 +272,14 @@ fn apply_factor_to_t1(
                         }
                     }
                 }
-                Err(_e) => {
-                    // If modification fails, return zero P&L
-                    // Note would be recorded if we had access to attribution
+                Err(e) => {
+                    // Parameter modification failed - log warning since we can't access attribution.meta.notes from here
+                    tracing::warn!(
+                        error = %e,
+                        factor = ?factor,
+                        instrument_id = %instrument.id(),
+                        "Waterfall attribution: model parameter modification failed, returning zero P&L"
+                    );
                     return Ok((
                         current_market.clone(),
                         Money::new(0.0, current_val.currency()),

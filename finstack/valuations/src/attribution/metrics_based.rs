@@ -129,6 +129,10 @@ pub fn attribute_pnl_metrics_based(
     let time_period_days = (as_of_t1 - as_of_t0).whole_days() as f64;
 
     // 1. Carry attribution (Theta)
+    //
+    // METRIC DEFINITION:
+    // - Theta: Dollar P&L per day ($ / day)
+    // - Formula: Theta × Δt (where Δt is time period in days)
     if let Some(theta) = val_t0.measures.get(MetricId::Theta.as_str()) {
         // Theta is typically quoted per day, so multiply by days
         let carry_amount = theta * time_period_days;
@@ -136,6 +140,17 @@ pub fn attribute_pnl_metrics_based(
     }
 
     // 2. Rates curves attribution (DV01)
+    //
+    // METRIC DEFINITION:
+    // - DV01: Dollar value of 1 basis point ($ / bp)
+    // - Formula: DV01 × Δr (where Δr is rate shift in basis points)
+    //
+    // NOTE: Current implementation uses aggregate DV01 and average curve shift,
+    // which ignores basis risk and curve-specific effects. For more accurate
+    // attribution, use bucketed DV01 metrics (DV01 per curve) if available.
+    //
+    // Ideal formula: PnL = Σ(DV01_i × Shift_i) for each curve i
+    // Current formula: PnL = DV01_total × avg(Shift_i)
     if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
         // DV01 is per 1bp move - measure actual curve shifts
         let curve_ids = instrument.required_discount_curves();
@@ -164,9 +179,23 @@ pub fn attribute_pnl_metrics_based(
         let rates_amount = dv01 * avg_shift;
         attribution.rates_curves_pnl = Money::new(rates_amount, val_t1.value.currency());
 
+        // Add note about averaging limitation
+        if curve_count > 1 {
+            attribution.meta.notes.push(format!(
+                "Rates attribution uses average shift across {} curves; \
+                 consider using bucketed DV01 metrics for better accuracy",
+                curve_count
+            ));
+        }
+
         // 2b. Rates curves convexity (second-order)
         // For Bond: check Convexity; for IRS: check IrConvexity
         // Prioritize non-zero convexity metric
+        //
+        // METRIC DEFINITION:
+        // - Convexity/IrConvexity: Percentage metric (dimensionless)
+        // - Formula: ½ × P₀ × Convexity × (Δr)²
+        // - Δr must be in decimal (e.g., 0.0001 for 1bp)
         let rc = RoundingContext::default();
         let convexity_opt = val_t0
             .measures
@@ -195,6 +224,17 @@ pub fn attribute_pnl_metrics_based(
     }
 
     // 3. Credit curves attribution (CS01)
+    //
+    // METRIC DEFINITION:
+    // - CS01: Dollar value of 1 basis point credit spread change ($ / bp)
+    // - Formula: CS01 × Δs (where Δs is spread shift in basis points)
+    //
+    // NOTE: Current implementation uses aggregate CS01 and average spread shift,
+    // which ignores name-specific credit effects. For more accurate attribution,
+    // use bucketed CS01 metrics (CS01 per curve) if available.
+    //
+    // Ideal formula: PnL = Σ(CS01_i × Shift_i) for each curve i
+    // Current formula: PnL = CS01_total × avg(Shift_i)
     if let Some(cs01) = val_t0.measures.get(MetricId::Cs01.as_str()) {
         // CS01 is per 1bp spread move - measure actual spread shifts
         let curve_ids = instrument.required_hazard_curves();
@@ -223,7 +263,21 @@ pub fn attribute_pnl_metrics_based(
         let credit_amount = cs01 * avg_shift;
         attribution.credit_curves_pnl = Money::new(credit_amount, val_t1.value.currency());
 
+        // Add note about averaging limitation
+        if curve_count > 1 {
+            attribution.meta.notes.push(format!(
+                "Credit attribution uses average shift across {} curves; \
+                 consider using bucketed CS01 metrics for better accuracy",
+                curve_count
+            ));
+        }
+
         // 3b. Credit curves gamma (second-order)
+        //
+        // METRIC DEFINITION:
+        // - CS-Gamma: Dollar gamma ($ per bp²) - similar to bond convexity but in dollar terms
+        // - Formula: ½ × CS-Gamma × (Δs)²
+        // - Δs must be in decimal (e.g., 0.0001 for 1bp)
         if let Some(cs_gamma) = val_t0.measures.get(MetricId::CsGamma.as_str()) {
             // CS-Gamma term: ½ × CS-Gamma × (Δs)²
             // avg_shift is in basis points, convert to decimal
@@ -238,6 +292,10 @@ pub fn attribute_pnl_metrics_based(
     }
 
     // 4. FX attribution (FX01 or FX Delta)
+    //
+    // METRIC DEFINITION:
+    // - FX01: Dollar value of 1% FX rate change ($ / %)
+    // - Formula: FX01 × Δfx (where Δfx is FX rate change in %)
     if let Some(fx01) = val_t0.measures.get(MetricId::Fx01.as_str()) {
         // FX01 × spot change
         if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
@@ -250,6 +308,10 @@ pub fn attribute_pnl_metrics_based(
     }
 
     // 5. Volatility attribution (Vega)
+    //
+    // METRIC DEFINITION:
+    // - Vega: Dollar value of 1 percentage point volatility change ($ / vol point)
+    // - Formula: Vega × Δσ (where Δσ is in percentage points, e.g., 1.0 for 1% vol change)
     if let Some(vega) = val_t0.measures.get(MetricId::Vega.as_str()) {
         // Vega × vol change (in percentage points)
         if let Some(surface_id) = instrument.vol_surface_id() {
@@ -313,10 +375,13 @@ pub fn attribute_pnl_metrics_based(
     // Ignore error as notes will be populated
     let _ = attribution.compute_residual();
 
-    // Metadata
+    // Metadata - use reasonable tolerances for metrics-based attribution
+    // Note: Metrics-based attribution is inherently approximate, so larger residuals are expected
     attribution.meta.num_repricings = 0; // Metrics-based doesn't reprice
-    attribution.meta.tolerance_abs = 10.0; // Expect larger residual for metrics-based
-    attribution.meta.tolerance_pct = 1.0; // 1%
+    attribution.meta.tolerance_abs = 10.0; // $10 absolute tolerance
+    attribution.meta.tolerance_pct = 1.0;  // 1% relative tolerance
+
+    // Note: For tighter tolerances, consider using waterfall or parallel attribution methods
 
     Ok(attribution)
 }

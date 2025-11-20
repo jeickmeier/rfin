@@ -282,6 +282,7 @@ impl JsSABRMarketData {
             strikes,
             market_vols,
             beta,
+            shift: None, // Default to None, could be exposed in future if needed
         }))
     }
 

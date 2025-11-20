@@ -4,8 +4,6 @@
 //! model parameters (alpha, nu, rho), significantly accelerating calibration.
 
 use super::sabr_model_params::SABRModelParams;
-#[cfg(test)]
-use crate::instruments::common::models::SABRParameters;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +20,9 @@ pub struct SABRMarketData {
     pub market_vols: Vec<f64>,
     /// Fixed beta parameter
     pub beta: f64,
+    /// Optional shift for handling negative rates in lognormal SABR (beta ≈ 1.0)
+    /// Default: 0.02 (200 basis points) if None and rates are negative
+    pub shift: Option<f64>,
 }
 
 /// Analytical derivatives provider for SABR calibration.
@@ -82,10 +83,10 @@ impl SABRCalibrationDerivatives {
         // If forward or strike <= 0, standard LogNormal fails.
         // We apply a "virtual shift" if none is provided but rates are negative.
         let shift = if (beta - 1.0).abs() < 1e-5 && (f_raw <= 0.0 || k_raw <= 0.0) {
-            // Heuristic shift to keep args positive (200bps = 0.02)
-            0.02
+            // Use configured shift, or default heuristic shift (200bps = 0.02)
+            self.market_data.shift.unwrap_or(0.02)
         } else {
-            0.0
+            self.market_data.shift.unwrap_or(0.0)
         };
 
         let f = f_raw + shift;
@@ -109,8 +110,10 @@ impl SABRCalibrationDerivatives {
         let x = if z.abs() < 1e-10 {
             1.0 // Limit as z -> 0
         } else {
+            // Correct Hagan et al. (2002) formula:
+            // x(z) = ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
             let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
-            z / ((1.0 - rho + sqrt_term) / 2.0).ln()
+            ((sqrt_term + z - rho) / (1.0 - rho)).ln()
         };
 
         // Main volatility formula components
@@ -163,6 +166,55 @@ impl SABRCalibrationDerivatives {
         .unwrap_or(0.0)
     }
 
+    /// Compute derivative of x with respect to z.
+    ///
+    /// x(z, ρ) = ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
+    ///
+    /// dx/dz = 1/(√(1-2ρz+z²)) * ((-2ρ+2z)/(2√(1-2ρz+z²)) + 1) / ((√(1-2ρz+z²) + z - ρ) / (1-ρ))
+    ///       = (1-ρ) * ((-ρ+z)/√(1-2ρz+z²) + 1) / (√(1-2ρz+z²) + z - ρ)
+    fn dx_dz(&self, z: f64, rho: f64) -> f64 {
+        let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
+        let numerator = -rho + z + sqrt_term;
+        let denominator = sqrt_term * (sqrt_term + z - rho);
+        
+        if denominator.abs() < 1e-14 {
+            return 0.0;
+        }
+        
+        (1.0 - rho) * numerator / denominator
+    }
+
+    /// Compute derivative of x with respect to rho.
+    ///
+    /// x(z, ρ) = ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
+    ///
+    /// dx/dρ = derivative of the log term
+    fn dx_drho(&self, z: f64, rho: f64) -> f64 {
+        let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
+        let arg = (sqrt_term + z - rho) / (1.0 - rho);
+        
+        if arg <= 0.0 || (1.0 - rho).abs() < 1e-14 {
+            return 0.0;
+        }
+        
+        // d/dρ of ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
+        // = 1/arg * d/dρ of arg
+        // = 1/arg * [(1-ρ)*(-z/√(...) - 1) - (√(...) + z - ρ)*(-1)] / (1-ρ)²
+        
+        let d_sqrt_d_rho = -z / sqrt_term;
+        let d_numerator_d_rho = d_sqrt_d_rho - 1.0;
+        let d_denominator_d_rho = -1.0;
+        
+        let numerator = sqrt_term + z - rho;
+        let denominator = 1.0 - rho;
+        
+        // Quotient rule: (d_num * denom - num * d_denom) / denom²
+        let d_arg_d_rho = (d_numerator_d_rho * denominator - numerator * d_denominator_d_rho) 
+            / (denominator * denominator);
+        
+        d_arg_d_rho / arg
+    }
+
     /// Compute ATM volatility and derivatives.
     /// Uses shifted forward 'f' if provided to handle negative rates.
     fn sabr_atm_vol_and_derivatives(
@@ -204,9 +256,11 @@ impl SABRCalibrationDerivatives {
     }
 
     /// Partial derivative with respect to alpha.
+    ///
+    /// Complete chain rule implementation including dx/dα.
     fn d_vol_d_alpha_impl(
         &self,
-        _strike: f64,
+        strike: f64,
         sabr_params: &SABRModelParams,
         _vol: f64,
         x: f64,
@@ -216,62 +270,127 @@ impl SABRCalibrationDerivatives {
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
-        let f_power = f.powf(1.0 - beta);
+        let f_mid = (f * strike).sqrt();
+        let log_fk = (f / strike).ln();
+        let f_power = f_mid.powf(1.0 - beta);
 
-        // Direct differentiation of the SABR formula
-        let d_term1_d_alpha = 1.0 / f_power;
+        // term1 = alpha / (f_mid_power * denom)
+        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let term1 = sabr_params.alpha / (f_power * denom);
+
+        // d_term1/d_alpha = 1 / (f_power * denom)
+        let d_term1_d_alpha = 1.0 / (f_power * denom);
+
+        // d_term2/d_alpha
         let d_term2_d_alpha = t
-            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha)
-                / (24.0 * f.powf(2.0 * (1.0 - beta)))
+            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha) / (24.0 * f_mid.powf(2.0 * (1.0 - beta)))
                 + (sabr_params.rho * beta * sabr_params.nu) / (4.0 * f_power));
 
-        // For simplicity, assume x is approximately constant w.r.t. alpha for small changes
-        d_term1_d_alpha * x * term2 + (sabr_params.alpha / f_power) * x * d_term2_d_alpha
+        // Compute dx/d_alpha using chain rule
+        // z = (nu/alpha) * f_mid^(1-beta) * log(f/k)
+        // dz/d_alpha = -nu/alpha^2 * f_mid^(1-beta) * log(f/k) = -z/alpha
+        let z = (sabr_params.nu / sabr_params.alpha) * f_mid.powf(1.0 - beta) * log_fk;
+        let dx_d_alpha = if z.abs() < 1e-10 {
+            0.0 // Derivative is zero at z=0 limit
+        } else {
+            let dz_d_alpha = -z / sabr_params.alpha;
+            self.dx_dz(z, sabr_params.rho) * dz_d_alpha
+        };
+
+        // Apply product rule: d(term1 * x * term2)/d_alpha
+        d_term1_d_alpha * x * term2 + term1 * dx_d_alpha * term2 + term1 * x * d_term2_d_alpha
     }
 
     /// Partial derivative with respect to nu (vol of vol).
+    ///
+    /// Complete chain rule implementation including dx/dν.
     fn d_vol_d_nu_impl(
         &self,
-        _strike: f64,
+        strike: f64,
         sabr_params: &SABRModelParams,
         _vol: f64,
         x: f64,
-        _term2: f64,
+        term2: f64,
     ) -> f64 {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
-        let f_power = f.powf(1.0 - beta);
+        let f_mid = (f * strike).sqrt();
+        let log_fk = (f / strike).ln();
+        let f_power = f_mid.powf(1.0 - beta);
 
+        // term1 = alpha / (f_mid_power * denom)
+        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let term1 = sabr_params.alpha / (f_power * denom);
+
+        // d_term1/d_nu = 0 (term1 doesn't depend on nu)
+
+        // d_term2/d_nu
         let d_term2_d_nu = t
             * ((sabr_params.rho * beta * sabr_params.alpha) / (4.0 * f_power)
                 + (2.0 - 3.0 * sabr_params.rho * sabr_params.rho) * 2.0 * sabr_params.nu / 24.0);
 
-        // Simplified: assume x changes negligibly with nu for small perturbations
-        (sabr_params.alpha / f_power) * x * d_term2_d_nu
+        // Compute dx/d_nu using chain rule
+        // z = (nu/alpha) * f_mid^(1-beta) * log(f/k)
+        // dz/d_nu = (1/alpha) * f_mid^(1-beta) * log(f/k) = z/nu
+        let z = (sabr_params.nu / sabr_params.alpha) * f_mid.powf(1.0 - beta) * log_fk;
+        let dx_d_nu = if z.abs() < 1e-10 {
+            0.0 // Derivative is zero at z=0 limit
+        } else {
+            let dz_d_nu = z / sabr_params.nu;
+            self.dx_dz(z, sabr_params.rho) * dz_d_nu
+        };
+
+        // Apply product rule: d(term1 * x * term2)/d_nu
+        // d_term1/d_nu = 0, so first term vanishes
+        term1 * dx_d_nu * term2 + term1 * x * d_term2_d_nu
     }
 
     /// Partial derivative with respect to rho (correlation).
+    ///
+    /// Complete chain rule implementation including dx/dρ.
     fn d_vol_d_rho_impl(
         &self,
-        _strike: f64,
+        strike: f64,
         sabr_params: &SABRModelParams,
         _vol: f64,
         x: f64,
-        _term2: f64,
+        term2: f64,
     ) -> f64 {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
-        let f_power = f.powf(1.0 - beta);
+        let f_mid = (f * strike).sqrt();
+        let log_fk = (f / strike).ln();
+        let f_power = f_mid.powf(1.0 - beta);
 
+        // term1 = alpha / (f_mid_power * denom)
+        let denom = 1.0 + log_fk * log_fk / 24.0 + log_fk.powi(4) / 1920.0;
+        let term1 = sabr_params.alpha / (f_power * denom);
+
+        // d_term1/d_rho = 0 (term1 doesn't depend on rho)
+
+        // d_term2/d_rho
         let d_term2_d_rho = t
             * ((beta * sabr_params.nu * sabr_params.alpha) / (4.0 * f_power)
                 - 6.0 * sabr_params.rho * sabr_params.nu * sabr_params.nu / 24.0);
 
-        (sabr_params.alpha / f_power) * x * d_term2_d_rho
+        // Compute dx/d_rho using chain rule
+        // z = (nu/alpha) * f_mid^(1-beta) * log(f/k)
+        // dz/d_rho = 0 (z doesn't depend on rho)
+        // But x(z, rho) depends on rho directly
+        let z = (sabr_params.nu / sabr_params.alpha) * f_mid.powf(1.0 - beta) * log_fk;
+        let dx_d_rho = if z.abs() < 1e-10 {
+            0.0 // Derivative is zero at z=0 limit
+        } else {
+            self.dx_drho(z, sabr_params.rho)
+        };
+
+        // Apply product rule: d(term1 * x * term2)/d_rho
+        // d_term1/d_rho = 0, so first term vanishes
+        term1 * dx_d_rho * term2 + term1 * x * d_term2_d_rho
     }
 }
 
@@ -323,6 +442,7 @@ mod tests {
             strikes: vec![100.0], // ATM
             market_vols: vec![0.20],
             beta: 0.5,
+            shift: None,
         };
 
         let deriv_provider = SABRCalibrationDerivatives::new(market_data);
@@ -347,6 +467,7 @@ mod tests {
             strikes: vec![90.0, 100.0, 110.0],
             market_vols: vec![0.22, 0.20, 0.21],
             beta: 0.5,
+            shift: None,
         };
 
         let deriv_provider = SABRCalibrationDerivatives::new(market_data.clone());
@@ -356,37 +477,20 @@ mod tests {
         let mut analytical_grad = vec![0.0; 3];
         deriv_provider.gradient(&params, &mut analytical_grad);
 
-        // Compute numerical gradient for comparison
+        // Compute numerical gradient using ACTUAL SABR formula
         let eps = 1e-6;
         let mut numerical_grad = [0.0; 3];
 
-        // Helper to compute objective
+        // Helper to compute objective using ACTUAL SABR implementation
         let objective = |p: &[f64]| -> f64 {
             let alpha = p[0];
             let nu = p[1];
             let rho = p[2];
 
-            let _sabr_params = SABRParameters {
-                alpha,
-                beta: market_data.beta,
-                nu,
-                rho,
-                shift: None,
-            };
-
-            // Simplified objective for testing
+            // Use actual SABR volatility calculation via sabr_vol_fd
             let mut sum_sq = 0.0;
             for (i, &strike) in market_data.strikes.iter().enumerate() {
-                // Use simplified SABR formula for testing
-                let model_vol = if (market_data.forward - strike).abs() < 1e-10 {
-                    // ATM approximation
-                    alpha / market_data.forward.powf(1.0 - market_data.beta)
-                } else {
-                    // Simplified off-ATM (not exact SABR)
-                    alpha / market_data.forward.powf(1.0 - market_data.beta)
-                        * (1.0 + 0.1 * nu * market_data.time_to_expiry)
-                };
-
+                let model_vol = deriv_provider.sabr_vol_fd(strike, alpha, nu, rho);
                 let residual = model_vol - market_data.market_vols[i];
                 sum_sq += residual * residual;
             }
@@ -403,21 +507,84 @@ mod tests {
             numerical_grad[i] = (objective(&params_plus) - objective(&params_minus)) / (2.0 * eps);
         }
 
-        // Compare gradients (with relaxed tolerance due to simplified formula)
+        // Compare gradients with proper tolerance
         for i in 0..3 {
-            let rel_error =
-                ((analytical_grad[i] - numerical_grad[i]) / numerical_grad[i].max(1e-10)).abs();
+            let abs_diff = (analytical_grad[i] - numerical_grad[i]).abs();
+            let rel_error = if numerical_grad[i].abs() > 1e-10 {
+                abs_diff / numerical_grad[i].abs()
+            } else {
+                abs_diff
+            };
 
-            if rel_error >= 1.0 {
-                tracing::debug!(
-                    component = i,
-                    analytical = analytical_grad[i],
-                    numerical = numerical_grad[i],
-                    rel_error,
-                    "SABR gradient differs; expected with simplified formula; skipping"
-                );
-                return;
+            // Expect good agreement between analytical and numerical gradients
+            assert!(
+                rel_error < 0.01 || abs_diff < 1e-6,
+                "Gradient component {} differs: analytical={}, numerical={}, rel_error={}",
+                i, analytical_grad[i], numerical_grad[i], rel_error
+            );
+        }
+    }
+
+    #[test]
+    fn test_gradient_otm_strikes() {
+        // Test with out-of-the-money strikes
+        let market_data = SABRMarketData {
+            forward: 100.0,
+            time_to_expiry: 1.0,
+            strikes: vec![80.0, 120.0],
+            market_vols: vec![0.25, 0.23],
+            beta: 0.5,
+            shift: None,
+        };
+
+        let deriv_provider = SABRCalibrationDerivatives::new(market_data.clone());
+
+        // Compute analytical gradient
+        let params = vec![0.15, 0.3, -0.1];
+        let mut analytical_grad = vec![0.0; 3];
+        deriv_provider.gradient(&params, &mut analytical_grad);
+
+        // Compute numerical gradient
+        let eps = 1e-6;
+        let mut numerical_grad = [0.0; 3];
+
+        let objective = |p: &[f64]| -> f64 {
+            let alpha = p[0];
+            let nu = p[1];
+            let rho = p[2];
+
+            let mut sum_sq = 0.0;
+            for (i, &strike) in market_data.strikes.iter().enumerate() {
+                let model_vol = deriv_provider.sabr_vol_fd(strike, alpha, nu, rho);
+                let residual = model_vol - market_data.market_vols[i];
+                sum_sq += residual * residual;
             }
+            sum_sq
+        };
+
+        for i in 0..3 {
+            let mut params_plus = params.clone();
+            let mut params_minus = params.clone();
+            params_plus[i] += eps;
+            params_minus[i] -= eps;
+
+            numerical_grad[i] = (objective(&params_plus) - objective(&params_minus)) / (2.0 * eps);
+        }
+
+        // Compare gradients
+        for i in 0..3 {
+            let abs_diff = (analytical_grad[i] - numerical_grad[i]).abs();
+            let rel_error = if numerical_grad[i].abs() > 1e-10 {
+                abs_diff / numerical_grad[i].abs()
+            } else {
+                abs_diff
+            };
+
+            assert!(
+                rel_error < 0.01 || abs_diff < 1e-6,
+                "OTM gradient component {} differs: analytical={}, numerical={}, rel_error={}",
+                i, analytical_grad[i], numerical_grad[i], rel_error
+            );
         }
     }
 }
