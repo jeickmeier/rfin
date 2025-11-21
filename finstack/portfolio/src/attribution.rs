@@ -275,7 +275,7 @@ pub fn attribute_portfolio_pnl(
                 let fx_matrix = market_t1.fx.as_ref().ok_or_else(|| {
                     PortfolioError::MissingMarketData("FX matrix not available".to_string())
                 })?;
-                let query = FxQuery::new(money.currency(), base_ccy, portfolio.as_of);
+                let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
                 let rate_result =
                     fx_matrix
                         .rate(query)

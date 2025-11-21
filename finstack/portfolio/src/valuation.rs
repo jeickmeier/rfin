@@ -319,7 +319,21 @@ fn value_single_position(
 
     let value_native = valuation_result.value;
 
-    // Scale by quantity if needed (for most instruments, returns unit value)
+    // Scale by quantity.
+    //
+    // NOTE: The `quantity` is applied as a scalar multiplier to the instrument's
+    // value.
+    //
+    // - If PositionUnit::Units: `quantity` is the number of units.
+    // - If PositionUnit::Notional: `quantity` is the notional amount.
+    //   WARNING: If the Instrument::price() returns the Total PV of a defined
+    //   notional (e.g. a Bond with 1M face), setting `quantity` to the notional
+    //   amount (1M) will result in squared notional (1M * 1M). In this case,
+    //   `quantity` should be 1.0 (or normalized).
+    //
+    // Market standard is for `Instrument::price` to return Unit Price, but
+    // some OTC instruments return Total PV. The portfolio framework enforces
+    // `scaled = price * quantity` regardless of unit type.
     let scaled_native = value_native * position.quantity;
 
     // Convert to base currency
