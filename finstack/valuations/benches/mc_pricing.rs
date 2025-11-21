@@ -19,7 +19,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian
     AsianCall, AveragingMethod,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::{
-    BarrierCall, BarrierType,
+    BarrierOptionPayoff, BarrierType,
 };
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
@@ -104,7 +104,7 @@ fn bench_asian_options(c: &mut Criterion) {
 fn bench_barrier_options(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_barrier");
 
-    let barrier = BarrierCall::new(
+    let barrier = BarrierOptionPayoff::new(
         100.0,
         120.0,
         BarrierType::UpAndOut,

@@ -211,9 +211,6 @@ impl Payoff for BarrierOptionPayoff {
     }
 }
 
-/// Compatibility alias for tests or other modules (deprecated)
-pub type BarrierCall = BarrierOptionPayoff;
-
 #[cfg(test)]
 mod tests {
     use super::*;

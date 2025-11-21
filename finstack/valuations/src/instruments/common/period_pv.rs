@@ -129,7 +129,6 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// ```ignore
     /// let pv_map = bond.periodized_pv(&quarters, &market, base, DayCount::Act365F)?;
     /// ```
-    #[allow(deprecated)]
     fn periodized_pv(
         &self,
         periods: &[Period],
@@ -147,8 +146,10 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
 
         // Use aggregation directly on filtered flows
-        use crate::cashflow::aggregation::pv_by_period;
-        Ok(pv_by_period(&flows, periods, disc, base, dc))
+        use crate::cashflow::aggregation::pv_by_period_with_ctx;
+        use finstack_core::dates::DayCountCtx;
+
+        pv_by_period_with_ctx(&flows, periods, disc, base, dc, DayCountCtx::default())
     }
 
     /// Compute present values aggregated by period with optional credit adjustment.
@@ -191,7 +192,6 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///     DayCount::Act365F,
     /// )?;
     /// ```
-    #[allow(deprecated)]
     fn periodized_pv_credit_adjusted(
         &self,
         periods: &[Period],

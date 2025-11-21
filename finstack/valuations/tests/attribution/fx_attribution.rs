@@ -169,6 +169,7 @@ fn test_waterfall_attribution_sum_equality() {
         as_of_t1,
         &config,
         default_waterfall_order(),
+        false, // strict validation off
     )
     .unwrap();
 
@@ -248,6 +249,7 @@ fn test_waterfall_factor_ordering_sensitivity() {
         as_of_t1,
         &config,
         order1,
+        false, // strict validation off
     )
     .unwrap();
 
@@ -262,6 +264,7 @@ fn test_waterfall_factor_ordering_sensitivity() {
         as_of_t1,
         &config,
         order2,
+        false, // strict validation off
     )
     .unwrap();
 

@@ -3,7 +3,7 @@
 //! Extends the barrier framework for FX options, including quanto barriers
 //! where the barrier and/or payoff are in different currencies.
 
-use super::barrier::{BarrierCall, BarrierType};
+use super::barrier::{BarrierOptionPayoff, BarrierType};
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
@@ -11,7 +11,7 @@ use finstack_core::money::Money;
 
 /// FX barrier call option with quanto support.
 ///
-/// Similar to `BarrierCall` but designed for FX markets with optional quanto
+/// Similar to `BarrierOptionPayoff` but designed for FX markets with optional quanto
 /// adjustments for correlation between FX rate and domestic/foreign rates.
 ///
 /// # FX Barrier Types
@@ -29,7 +29,7 @@ use finstack_core::money::Money;
 #[derive(Clone, Debug)]
 pub struct FxBarrierCall {
     /// Underlying barrier call (reuses existing infrastructure)
-    inner: BarrierCall,
+    inner: BarrierOptionPayoff,
     /// Domestic currency (settlement currency)
     pub domestic_currency: Currency,
     /// Foreign currency (underlying currency)
@@ -68,7 +68,7 @@ impl FxBarrierCall {
         foreign_currency: Currency,
         quanto_adjustment: f64,
     ) -> Self {
-        let inner = BarrierCall::new(
+        let inner = BarrierOptionPayoff::new(
             strike,
             barrier,
             barrier_type,

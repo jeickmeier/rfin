@@ -4,63 +4,21 @@
 //! These conversions apply to both prepayment rates (CPR↔SMM) and
 //! default rates (CDR↔MDR), as they use identical mathematical formulas.
 
-/// Convert annual rate to monthly rate.
-///
-/// Works for both CPR→SMM and CDR→MDR conversions.
-///
-/// # Formula
-///
-/// `monthly = 1 - (1 - annual)^(1/12)`
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::cashflow::builder::credit_rates::annual_to_monthly;
-///
-/// // Convert 6% CPR to SMM
-/// let cpr = 0.06;
-/// let smm = annual_to_monthly(cpr);
-/// assert!((smm - 0.005143).abs() < 0.0001); // Approximately 0.5143% monthly
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "use cpr_to_smm (hazard-style CPR→SMM) instead; not for interest-rate compounding"
-)]
-pub fn annual_to_monthly(annual_rate: f64) -> f64 {
-    1.0 - (1.0 - annual_rate).powf(1.0 / 12.0)
-}
-
-/// Convert monthly rate to annual rate.
-///
-/// Works for both SMM→CPR and MDR→CDR conversions.
-///
-/// # Formula
-///
-/// `annual = 1 - (1 - monthly)^12`
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::cashflow::builder::credit_rates::{annual_to_monthly, monthly_to_annual};
-///
-/// // Roundtrip conversion
-/// let cpr = 0.06;
-/// let smm = annual_to_monthly(cpr);
-/// let cpr_back = monthly_to_annual(smm);
-/// assert!((cpr - cpr_back).abs() < 1e-10);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "use smm_to_cpr (hazard-style SMM→CPR) instead; not for interest-rate compounding"
-)]
-pub fn monthly_to_annual(monthly_rate: f64) -> f64 {
-    1.0 - (1.0 - monthly_rate).powi(12)
-}
-
 /// Convert annual CPR (constant prepayment rate) to monthly SMM (single monthly mortality).
 ///
 /// Uses the standard relationship:
 /// `SMM = 1 - (1 - CPR)^(1/12)`.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::cashflow::builder::credit_rates::cpr_to_smm;
+///
+/// // Convert 6% CPR to SMM
+/// let cpr = 0.06;
+/// let smm = cpr_to_smm(cpr);
+/// assert!((smm - 0.005143).abs() < 0.0001); // Approximately 0.5143% monthly
+/// ```
 pub fn cpr_to_smm(cpr: f64) -> f64 {
     if cpr == 0.0 {
         return 0.0;
@@ -70,6 +28,21 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
 
 /// Convert monthly SMM to annual CPR.
 ///
+/// # Formula
+///
+/// `annual = 1 - (1 - monthly)^12`
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+///
+/// // Roundtrip conversion
+/// let cpr = 0.06;
+/// let smm = cpr_to_smm(cpr);
+/// let cpr_back = smm_to_cpr(smm);
+/// assert!((cpr - cpr_back).abs() < 1e-10);
+/// ```
 pub fn smm_to_cpr(smm: f64) -> f64 {
     if smm == 0.0 {
         return 0.0;

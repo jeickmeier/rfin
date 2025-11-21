@@ -331,84 +331,6 @@ pub enum AmortizationSpec {
     Custom(Vec<(Date, Money)>),
 }
 
-/// Payment-in-kind (PIK) interest specification.
-///
-/// # Experimental / Not Implemented
-///
-/// **This type is currently NOT used in cashflow generation and exists for future extensibility.**
-///
-/// PIK behavior is controlled via:
-/// - `TermLoanSpec::coupon_type` (CouponType enum: Cash, PIK, or Split)
-/// - `CovenantSpec::pik_toggles` (dynamic PIK toggles by date)
-///
-/// This spec is reserved for more advanced PIK features such as:
-/// - PIK interest rate differentials (higher rate when PIK is active)
-/// - Complex PIK fraction schedules
-/// - PIK with partial payment-in-kind triggers
-///
-/// Do not use this type in production specifications until it is fully integrated.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[deprecated(
-    note = "Experimental type not yet implemented. Use CouponType and CovenantSpec::pik_toggles instead."
-)]
-pub struct PikSpec {
-    /// Fraction of interest paid in kind (0.0 = all cash, 1.0 = all PIK)
-    pub fraction_of_interest: rust_decimal::Decimal,
-    /// Toggle schedule: (date, PIK enabled) pairs
-    pub toggle_schedule: Vec<(Date, bool)>,
-}
-
-/// Method for determining OID effective interest rate (EIR).
-///
-/// # Experimental / Not Implemented
-///
-/// **This type is currently NOT used in cashflow generation.**
-///
-/// Controls whether the effective interest rate for OID amortization
-/// is solved iteratively or explicitly provided.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[deprecated(note = "Experimental type not yet implemented. Use DdtlSpec::oid_policy instead.")]
-pub enum OidEirMethod {
-    /// Solve for EIR iteratively (IRR calculation)
-    SolveEIR,
-    /// Use explicitly provided effective interest rate
-    ExplicitRate(rust_decimal::Decimal),
-}
-
-/// Original Issue Discount (OID) with effective interest rate amortization.
-///
-/// # Experimental / Not Implemented
-///
-/// **This type is currently NOT used in cashflow generation and exists for future extensibility.**
-///
-/// OID handling is currently supported via `DdtlSpec::oid_policy`, which provides:
-/// - Withheld proceeds (reduced cash at draw)
-/// - Separate fee tracking
-///
-/// This spec is reserved for more sophisticated OID amortization features:
-/// - Effective interest rate (EIR) method with accrual schedules
-/// - Capitalized OID increasing outstanding principal
-/// - Integration with GAAP/IFRS amortization requirements
-///
-/// Do not use this type in production specifications until it is fully integrated.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[deprecated(note = "Experimental type not yet implemented. Use DdtlSpec::oid_policy instead.")]
-#[allow(deprecated)] // Allow deprecated types in deprecated struct (eir_method uses OidEirMethod)
-pub struct OidEirSpec {
-    /// Total OID amount (discount from par)
-    pub amount: Money,
-    /// Frequency for OID accrual
-    pub accrual_frequency: Frequency,
-    /// Method for determining effective interest rate
-    pub eir_method: OidEirMethod,
-}
-
 /// Complete term loan specification with covenant and DDTL features.
 ///
 /// Comprehensive specification for institutional term loans including:
@@ -465,7 +387,7 @@ pub struct OidEirSpec {
 ///     upfront_fee: None,
 ///     ddtl: None,
 ///     covenants: None,
-///     oid_eir: None,
+///     // oid_eir: None, // Deprecated field removed
 ///     pricing_overrides: PricingOverrides::default(),
 ///     call_schedule: None,
 /// };
@@ -475,7 +397,6 @@ pub struct OidEirSpec {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[allow(deprecated)] // Allow deprecated types in deprecated fields (oid_eir uses OidEirSpec)
 pub struct TermLoanSpec {
     /// Unique instrument identifier
     pub id: InstrumentId,

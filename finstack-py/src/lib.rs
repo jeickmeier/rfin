@@ -41,8 +41,10 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     core::config::register(py, &core_mod)?;
     core::money::register(py, &core_mod)?;
     core::dates::register(py, &core_mod)?;
+    core::explain::register(py, &core_mod)?;
     core::market_data::register(py, &core_mod)?;
     core::math::register(py, &core_mod)?;
+    core::volatility::register(py, &core_mod)?;
 
     let expr_mod = PyModule::new(py, "expr")?;
     expr_mod.setattr(
@@ -59,8 +61,10 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "config",
             "money",
             "dates",
+            "explain",
             "market_data",
             "math",
+            "volatility",
             "expr",
         ],
     )?;
@@ -75,8 +79,10 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         "config",
         "money",
         "dates",
+        "explain",
         "market_data",
         "math",
+        "volatility",
         "expr",
     ] {
         if let Ok(sub) = core_mod.getattr(name) {
@@ -166,8 +172,10 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "config",
             "money",
             "dates",
+            "explain",
             "market_data",
             "math",
+            "volatility",
             "expr",
             "valuations",
             "statements",

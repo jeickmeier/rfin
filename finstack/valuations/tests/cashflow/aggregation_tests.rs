@@ -1,15 +1,13 @@
 //! Integration tests for cashflow aggregation.
 
-#![allow(deprecated)]
-
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, Period, PeriodId};
 use finstack_core::market_data::traits::{Discounting, Survival, TermStructure};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::aggregation::{
-    aggregate_by_period, aggregate_cashflows_precise_checked, pv_by_period,
-    pv_by_period_credit_adjusted, pv_by_period_with_ctx,
+    aggregate_by_period, aggregate_cashflows_precise_checked, pv_by_period_credit_adjusted_with_ctx,
+    pv_by_period_with_ctx,
 };
 use time::Month;
 
@@ -337,7 +335,9 @@ fn pv_by_period_sum_matches_npv() {
         df_const: 0.95, // Flat 5% discount
     };
 
-    let pv_map = pv_by_period(&flows, &periods, &curve, base, DayCount::Act365F);
+    let pv_map =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
+            .expect("PV calculation should succeed");
 
     // Q1 should have PV = 100 * 0.95 = 95
     let q1_pv = pv_map
@@ -376,7 +376,9 @@ fn pv_by_period_respects_boundaries() {
         df_const: 1.0,
     };
 
-    let pv_map = pv_by_period(&flows, &periods, &curve, base, DayCount::Act365F);
+    let pv_map =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
+            .expect("PV calculation should succeed");
 
     // Should be in Q2, not Q1
     assert!(pv_map.get(&PeriodId::quarter(2025, 1)).is_none());
@@ -403,7 +405,9 @@ fn pv_by_period_multi_currency_separation() {
         df_const: 0.95,
     };
 
-    let pv_map = pv_by_period(&flows, &periods, &curve, base, DayCount::Act365F);
+    let pv_map =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
+            .expect("PV calculation should succeed");
 
     let q1 = pv_map
         .get(&PeriodId::quarter(2025, 1))
@@ -431,14 +435,16 @@ fn test_pv_by_period_credit_adjusted() {
         sp_const: 0.90, // 90% survival probability
     };
 
-    let pv_map = pv_by_period_credit_adjusted(
+    let pv_map = pv_by_period_credit_adjusted_with_ctx(
         &flows,
         &periods,
         &disc_curve,
         Some(&hazard_curve),
         base,
         DayCount::Act365F,
-    );
+        DayCountCtx::default(),
+    )
+    .expect("PV calculation should succeed");
 
     // PV should be 100 * 0.95 * 0.90 = 85.5
     let q1_pv = pv_map

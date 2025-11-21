@@ -182,6 +182,7 @@ pub fn attribute_portfolio_pnl(
                     portfolio.as_of,
                     config,
                     order.clone(),
+                    false,
                 )
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),

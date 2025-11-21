@@ -13,14 +13,14 @@
 //! 6. **Correlations**: Restore T₀ base correlation curves, reprice → correlation P&L
 //! 7. **Fx**: Restore T₀ FX matrix, reprice → fx P&L
 //! 8. **Volatility**: Restore T₀ vol surfaces, reprice → vol P&L
-//! 9. **ModelParameters**: Restore T₀ model parameters, reprice → model params P&L (TODO)
+//! 9. **ModelParameters**: Restore T₀ model parameters, reprice → model params P&L
 //! 10. **MarketScalars**: Restore T₀ market scalars, reprice → scalars P&L
 //! 11. **Residual**: total_pnl - sum(all attributed factors)
 //!
 //! # Notes
 //!
 //! - Factors are isolated independently, so cross-effects appear in residual
-//! - Model parameters attribution requires instrument-specific support (TODO)
+//! - Model parameters attribution requires instrument-specific support (see model_params.rs)
 
 use crate::attribution::factors::*;
 use crate::attribution::helpers::*;

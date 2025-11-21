@@ -137,6 +137,7 @@ fn test_attribution_config_roundtrip() {
         tolerance_abs: Some(0.01),
         tolerance_pct: Some(0.001),
         metrics: Some(vec!["theta".to_string(), "dv01".to_string()]),
+        strict_validation: Some(false),
     };
 
     let json = serde_json::to_string(&config).unwrap();

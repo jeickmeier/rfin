@@ -72,6 +72,7 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 /// * `as_of_t1` - Valuation date at T₁
 /// * `config` - Finstack configuration
 /// * `factor_order` - Ordered list of factors to apply
+/// * `strict_validation` - If true, propagate errors instead of soft failures
 ///
 /// # Returns
 ///
@@ -83,6 +84,7 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 /// - Pricing fails at any step
 /// - Currency conversion fails
 /// - Factor order is empty
+/// - (If strict_validation) Model parameter modification/repricing fails
 ///
 /// # Examples
 ///
@@ -99,11 +101,13 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 ///     as_of_t1,
 ///     &config,
 ///     default_waterfall_order(),
+///     true, // Strict validation
 /// )?;
 ///
 /// // Residual should be minimal
 /// assert!(attribution.residual_within_tolerance(0.01, 1.0));
 /// ```
+#[allow(clippy::too_many_arguments)]
 pub fn attribute_pnl_waterfall(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
@@ -112,6 +116,7 @@ pub fn attribute_pnl_waterfall(
     as_of_t1: Date,
     _config: &FinstackConfig,
     factor_order: Vec<AttributionFactor>,
+    strict_validation: bool,
 ) -> Result<PnlAttribution> {
     if factor_order.is_empty() {
         return Err(Error::Validation(
@@ -155,6 +160,7 @@ pub fn attribute_pnl_waterfall(
             &factor,
             current_val,
             &mut num_repricings,
+            strict_validation,
         )?;
 
         // Record factor P&L
@@ -218,6 +224,7 @@ pub fn attribute_pnl_waterfall(
 /// * `factor` - Factor to apply
 /// * `current_val` - Current valuation
 /// * `num_repricings` - Counter for total repricings
+/// * `strict_validation` - If true, propagate errors instead of soft failures
 ///
 /// # Returns
 ///
@@ -232,6 +239,7 @@ fn apply_factor_to_t1(
     factor: &AttributionFactor,
     current_val: Money,
     num_repricings: &mut usize,
+    strict_validation: bool,
 ) -> Result<(MarketContext, Money)> {
     // For ModelParameters, we need to modify the instrument, not the market
     if matches!(factor, AttributionFactor::ModelParameters) {
@@ -258,6 +266,9 @@ fn apply_factor_to_t1(
                             return Ok((current_market.clone(), factor_pnl));
                         }
                         Err(e) => {
+                            if strict_validation {
+                                return Err(e);
+                            }
                             // Repricing failed - log warning since we can't access attribution.meta.notes from here
                             tracing::warn!(
                                 error = %e,
@@ -273,6 +284,9 @@ fn apply_factor_to_t1(
                     }
                 }
                 Err(e) => {
+                    if strict_validation {
+                        return Err(e);
+                    }
                     // Parameter modification failed - log warning since we can't access attribution.meta.notes from here
                     tracing::warn!(
                         error = %e,
@@ -465,6 +479,7 @@ mod tests {
             as_of_t1,
             &config,
             vec![],
+            false, // strict validation off
         );
 
         assert!(result.is_err());

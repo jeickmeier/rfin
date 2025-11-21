@@ -114,6 +114,9 @@ pub struct AttributionConfig {
     /// If not provided, a default set will be used
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metrics: Option<Vec<String>>,
+    /// Strict validation mode (if true, errors during attribution will propagate instead of being logged)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strict_validation: Option<bool>,
 }
 
 impl AttributionSpec {
@@ -131,6 +134,13 @@ impl AttributionSpec {
 
         // Get config (use defaults if not provided)
         let config = FinstackConfig::default();
+
+        // Determine strict validation
+        let strict_validation = self
+            .config
+            .as_ref()
+            .and_then(|c| c.strict_validation)
+            .unwrap_or(false);
 
         // Execute attribution based on method
         let mut attribution = match &self.method {
@@ -151,6 +161,7 @@ impl AttributionSpec {
                 self.as_of_t1,
                 &config,
                 order.clone(),
+                strict_validation,
             )?,
 
             AttributionMethod::MetricsBased => {
@@ -339,12 +350,14 @@ mod tests {
             tolerance_abs: Some(0.01),
             tolerance_pct: Some(0.001),
             metrics: None,
+            strict_validation: Some(true),
         };
 
         let json =
             serde_json::to_value(&config).expect("JSON value conversion should succeed in test");
         assert!(json.get("tolerance_abs").is_some());
         assert!(json.get("tolerance_pct").is_some());
+        assert!(json.get("strict_validation").is_some());
         // metrics should not be present when None
         assert!(json.get("metrics").is_none());
     }

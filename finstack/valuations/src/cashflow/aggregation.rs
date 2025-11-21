@@ -173,44 +173,6 @@ pub fn aggregate_cashflows_precise_checked(
 // Pre-Period PV Aggregation
 // =============================================================================
 
-/// Currency-preserving aggregation of cashflow present values by period.
-///
-/// Groups cashflows by time period and computes the present value of each
-/// cashflow discounted back to the base date. Returns a map:
-/// `PeriodId -> (Currency -> Money)` where Money represents the sum of PVs
-/// for that period and currency.
-///
-/// # Arguments
-/// * `flows` - Dated cashflows to aggregate
-/// * `periods` - Period definitions with start/end boundaries
-/// * `disc` - Discount curve for present value calculation
-/// * `base` - Base date for discounting (typically valuation date)
-/// * `dc` - Day count convention for year fraction calculation
-///
-/// # Returns
-/// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-/// are omitted from the result.
-///
-/// # Deprecated
-/// Use [`pv_by_period_with_ctx`] to handle day-count errors properly.
-#[deprecated(note = "Use pv_by_period_with_ctx to handle day-count errors")]
-pub fn pv_by_period(
-    flows: &[crate::cashflow::DatedFlow],
-    periods: &[Period],
-    disc: &dyn Discounting,
-    base: Date,
-    dc: DayCount,
-) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
-    // Forward to checked version with default context.
-    // Note: Swallows errors to maintain backward compatibility with the legacy
-    // implementation, though the legacy implementation swallowed errors per-flow.
-    // This strict fail-on-error behavior is safer but different.
-    // For true legacy behavior emulation we would need per-flow error swallowing.
-    // Given this is deprecated, moving to strict checked behavior is preferred.
-    let ctx = DayCountCtx::default();
-    pv_by_period_with_ctx(flows, periods, disc, base, dc, ctx).unwrap_or_default()
-}
-
 /// Currency-preserving aggregation of cashflow present values by period with explicit day-count context.
 ///
 /// Like [`pv_by_period`], but accepts a `DayCountCtx` to support conventions
@@ -293,42 +255,6 @@ fn pv_by_period_sorted_checked(
         out.insert(p.id, per_ccy);
     }
     Ok(out)
-}
-
-/// Currency-preserving aggregation of cashflow present values by period with credit adjustment.
-///
-/// Similar to `pv_by_period`, but optionally applies credit risk adjustment via a hazard curve.
-/// When a hazard curve is provided, the PV is computed as: `amount * df(t) * sp(t)` where
-/// `df(t)` is the rates discount factor and `sp(t)` is the survival probability.
-///
-/// Uses default `DayCountCtx`. For full control, use [`pv_by_period_credit_adjusted_with_ctx`].
-///
-/// # Arguments
-/// * `flows` - Dated cashflows to aggregate
-/// * `periods` - Period definitions with start/end boundaries
-/// * `disc` - Discount curve for rates discounting
-/// * `hazard` - Optional hazard curve for credit adjustment
-/// * `base` - Base date for discounting (typically valuation date)
-/// * `dc` - Day count convention for year fraction calculation
-///
-/// # Returns
-/// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows are omitted.
-///
-/// # Deprecated
-/// Use [`pv_by_period_credit_adjusted_with_ctx`] to handle day-count errors properly.
-#[deprecated(note = "Use pv_by_period_credit_adjusted_with_ctx to handle day-count errors")]
-pub fn pv_by_period_credit_adjusted(
-    flows: &[crate::cashflow::DatedFlow],
-    periods: &[Period],
-    disc: &dyn Discounting,
-    hazard: Option<&dyn Survival>,
-    base: Date,
-    dc: DayCount,
-) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
-    // Forward to checked version with default context.
-    let ctx = DayCountCtx::default();
-    pv_by_period_credit_adjusted_with_ctx(flows, periods, disc, hazard, base, dc, ctx)
-        .unwrap_or_default()
 }
 
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and explicit context.

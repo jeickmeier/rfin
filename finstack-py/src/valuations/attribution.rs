@@ -442,6 +442,7 @@ pub fn attribute_pnl(
             date_t1,
             &config,
             order,
+            false,
         )
         .map_err(map_error)?,
 

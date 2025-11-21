@@ -35,7 +35,7 @@ pub mod prelude {
         geometric_asian_call_closed_form, AsianCall, AsianPut, AveragingMethod,
     };
     #[cfg(feature = "mc")]
-    pub use super::payoff::barrier::{BarrierCall, BarrierType};
+    pub use super::payoff::barrier::{BarrierOptionPayoff, BarrierType};
     #[cfg(feature = "mc")]
     pub use super::payoff::basket::{
         margrabe_exchange_option, BasketCall, BasketPut, BasketType, ExchangeOption,
