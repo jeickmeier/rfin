@@ -1,6 +1,6 @@
 use finstack_valuations::calibration::CalibrationReport;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule};
+use pyo3::types::{IntoPyDict, PyDict, PyModule};
 use pyo3::Bound;
 use pythonize::pythonize;
 
@@ -138,6 +138,52 @@ impl PyCalibrationReport {
             "CalibrationReport(success={}, iterations={}, max_residual={:.6})",
             self.inner.success, self.inner.iterations, self.inner.max_residual
         )
+    }
+
+    /// Extract Jacobian sensitivity matrix as a Pandas DataFrame.
+    ///
+    /// Returns a DataFrame with:
+    /// - Rows: Instrument IDs
+    /// - Columns: Curve point times
+    /// - Values: Sensitivities (∂curve_point/∂instrument_quote)
+    ///
+    /// Returns None if explainability was not enabled during calibration.
+    fn explain(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+        // Check if explanation exists
+        let trace = match &self.inner.explanation {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+
+        // Find the Jacobian entry
+        let jacobian = trace.entries.iter().find_map(|entry| match entry {
+            finstack_core::explain::TraceEntry::Jacobian {
+                row_labels,
+                col_labels,
+                sensitivity_matrix,
+            } => Some((row_labels, col_labels, sensitivity_matrix)),
+            _ => None,
+        });
+
+        let (row_labels, col_labels, matrix) = match jacobian {
+            Some(j) => j,
+            None => return Ok(None),
+        };
+
+        // Import pandas
+        let pd = py.import("pandas")?;
+
+        // Convert sensitivity_matrix to Python list of lists
+        let py_matrix: Vec<Vec<f64>> = matrix.clone();
+
+        // Create DataFrame: pd.DataFrame(data, index=row_labels, columns=col_labels)
+        let df = pd.call_method(
+            "DataFrame",
+            (py_matrix,),
+            Some(&[("index", row_labels), ("columns", col_labels)].into_py_dict(py)?),
+        )?;
+
+        Ok(Some(df.into()))
     }
 }
 

@@ -14,3 +14,6 @@ mod test_swaption_vol_calibration;
 
 #[path = "calibration/test_calibration_repricing.rs"]
 mod test_calibration_repricing;
+
+#[path = "calibration/test_explainability.rs"]
+mod test_explainability;
