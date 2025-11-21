@@ -18,11 +18,9 @@
 //! println!("{}", report.to_string());
 //! ```
 
-pub mod debt;
 pub mod summary;
 pub mod tables;
 
-pub use debt::{print_debt_summary, DebtSummaryReport};
 pub use summary::{CreditAssessmentReport, PLSummaryReport};
 pub use tables::{Alignment, TableBuilder};
 

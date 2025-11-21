@@ -334,25 +334,7 @@ impl AliasRegistry {
         available_nodes: &IndexSet<String>,
         max_suggestions: usize,
     ) -> String {
-        let normalized_input = normalize_string(input);
-
-        // Calculate similarity scores
-        let mut scores: Vec<(f64, String)> = available_nodes
-            .iter()
-            .map(|node| {
-                let score = jaro_winkler(&normalized_input, &normalize_string(node));
-                (score, node.clone())
-            })
-            .collect();
-
-        // Sort by score (descending)
-        scores.sort_by(|a, b| {
-            b.0.partial_cmp(&a.0)
-                .expect("Jaro-Winkler scores should be comparable (no NaN)")
-        });
-
-        // Take top N suggestions
-        scores
+        calculate_scores(input, available_nodes)
             .into_iter()
             .take(max_suggestions)
             .map(|(_, name)| name)
@@ -375,11 +357,9 @@ fn normalize_string(s: &str) -> String {
         .collect()
 }
 
-/// Fuzzy match input against candidates using Jaro-Winkler similarity.
-fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Option<String> {
+/// Calculate similarity scores for input against candidates.
+fn calculate_scores(input: &str, candidates: &IndexSet<String>) -> Vec<(f64, String)> {
     let normalized_input = normalize_string(input);
-
-    // Calculate similarity scores with all candidates
     let mut scores: Vec<(f64, String)> = candidates
         .iter()
         .map(|c| {
@@ -388,16 +368,19 @@ fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Op
         })
         .collect();
 
-    // Find best match above threshold
     scores.sort_by(|a, b| {
         b.0.partial_cmp(&a.0)
             .expect("Jaro-Winkler scores should be comparable (no NaN)")
     });
-
     scores
-        .first()
-        .filter(|(score, _)| *score >= threshold)
-        .map(|(_, name)| name.clone())
+}
+
+/// Fuzzy match input against candidates using Jaro-Winkler similarity.
+fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Option<String> {
+    calculate_scores(input, candidates)
+        .into_iter()
+        .find(|(score, _)| *score >= threshold)
+        .map(|(_, name)| name)
 }
 
 /// Calculate Jaro-Winkler similarity between two strings.

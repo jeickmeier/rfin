@@ -5,8 +5,8 @@ use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::types::SensitivityScenario;
 use finstack_statements::analysis::{
-    generate_tornado_chart, ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode,
-    SensitivityResult, TornadoEntry,
+    ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode,
+    SensitivityResult,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
@@ -354,87 +354,6 @@ impl PySensitivityAnalyzer {
     }
 }
 
-/// Entry in a tornado chart.
-#[pyclass(module = "finstack.statements.analysis", name = "TornadoEntry", frozen)]
-pub struct PyTornadoEntry {
-    inner: TornadoEntry,
-}
-
-#[pymethods]
-impl PyTornadoEntry {
-    #[new]
-    #[pyo3(signature = (parameter_id, downside_impact, upside_impact))]
-    /// Create a tornado entry.
-    ///
-    /// Parameters
-    /// ----------
-    /// parameter_id : str
-    ///     Parameter identifier
-    /// downside_impact : float
-    ///     Impact of low value
-    /// upside_impact : float
-    ///     Impact of high value
-    ///
-    /// Returns
-    /// -------
-    /// TornadoEntry
-    ///     Tornado entry
-    fn new(parameter_id: String, downside_impact: f64, upside_impact: f64) -> Self {
-        Self {
-            inner: TornadoEntry::new(parameter_id, downside_impact, upside_impact),
-        }
-    }
-
-    #[getter]
-    fn parameter_id(&self) -> String {
-        self.inner.parameter_id.clone()
-    }
-
-    #[getter]
-    fn downside_impact(&self) -> f64 {
-        self.inner.downside_impact
-    }
-
-    #[getter]
-    fn upside_impact(&self) -> f64 {
-        self.inner.upside_impact
-    }
-
-    #[getter]
-    fn swing(&self) -> f64 {
-        self.inner.swing
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "TornadoEntry(param='{}', swing={:.2})",
-            self.inner.parameter_id, self.inner.swing
-        )
-    }
-}
-
-#[pyfunction]
-#[pyo3(signature = (result, metric))]
-/// Generate tornado chart data from sensitivity results.
-///
-/// Parameters
-/// ----------
-/// result : SensitivityResult
-///     Sensitivity analysis results
-/// metric : str
-///     Target metric identifier
-///
-/// Returns
-/// -------
-/// list[TornadoEntry]
-///     Tornado entries sorted by swing magnitude
-fn py_generate_tornado_chart(result: &PySensitivityResult, metric: &str) -> Vec<PyTornadoEntry> {
-    generate_tornado_chart(&result.inner, metric)
-        .into_iter()
-        .map(|entry| PyTornadoEntry { inner: entry })
-        .collect()
-}
-
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -451,8 +370,6 @@ pub(crate) fn register<'py>(
     module.add_class::<PySensitivityScenario>()?;
     module.add_class::<PySensitivityResult>()?;
     module.add_class::<PySensitivityAnalyzer>()?;
-    module.add_class::<PyTornadoEntry>()?;
-    module.add_function(wrap_pyfunction!(py_generate_tornado_chart, &module)?)?;
 
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
@@ -464,7 +381,5 @@ pub(crate) fn register<'py>(
         "SensitivityScenario",
         "SensitivityResult",
         "SensitivityAnalyzer",
-        "TornadoEntry",
-        "generate_tornado_chart",
     ])
 }

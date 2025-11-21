@@ -12,6 +12,7 @@ use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
+use serde::Deserialize;
 use std::sync::Arc;
 
 /// Aggregate cashflows from instruments by period using valuations infrastructure.
@@ -194,7 +195,7 @@ pub fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
         DebtInstrumentSpec::Bond {
             id,
             spec: json_spec,
-        } => serde_json::from_value(json_spec.clone())
+        } => Bond::deserialize(json_spec)
             .map_err(|e| crate::error::Error::build(format!(
                 "Failed to deserialize bond '{}': {}. Ensure the JSON spec matches the Bond structure.",
                 id, e
@@ -217,7 +218,7 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
         DebtInstrumentSpec::Swap {
             id,
             spec: json_spec,
-        } => serde_json::from_value(json_spec.clone())
+        } => InterestRateSwap::deserialize(json_spec)
             .map_err(|e| crate::error::Error::build(format!(
                 "Failed to deserialize swap '{}': {}. Ensure the JSON spec matches the InterestRateSwap structure.",
                 id, e
@@ -240,7 +241,7 @@ pub fn build_term_loan_from_spec(spec: &DebtInstrumentSpec) -> Result<TermLoan> 
         DebtInstrumentSpec::TermLoan {
             id,
             spec: json_spec,
-        } => serde_json::from_value(json_spec.clone())
+        } => TermLoan::deserialize(json_spec)
             .map_err(|e| crate::error::Error::build(format!(
                 "Failed to deserialize term loan '{}': {}. Ensure the JSON spec matches the TermLoan structure.",
                 id, e
@@ -287,38 +288,36 @@ pub fn build_any_instrument_from_spec(
             // Try to deserialize as known types in order of likelihood
 
             // Try as Bond first (most common)
-            if let Ok(bond) = serde_json::from_value::<Bond>(json_spec.clone()) {
+            if let Ok(bond) = Bond::deserialize(json_spec) {
                 return Ok(Arc::new(bond));
             }
 
             // Try as InterestRateSwap
-            if let Ok(swap) = serde_json::from_value::<InterestRateSwap>(json_spec.clone()) {
+            if let Ok(swap) = InterestRateSwap::deserialize(json_spec) {
                 return Ok(Arc::new(swap));
             }
 
             // Try as TermLoan (bank debt)
-            if let Ok(term_loan) = serde_json::from_value::<TermLoan>(json_spec.clone()) {
+            if let Ok(term_loan) = TermLoan::deserialize(json_spec) {
                 return Ok(Arc::new(term_loan));
             }
 
             // Try as Deposit (cash management)
-            if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(
-                json_spec.clone(),
+            if let Ok(deposit) = finstack_valuations::instruments::Deposit::deserialize(
+                json_spec,
             ) {
                 return Ok(Arc::new(deposit));
             }
 
             // Try as FRA (forward rate hedge)
-            if let Ok(fra) = serde_json::from_value::<
-                finstack_valuations::instruments::ForwardRateAgreement,
-            >(json_spec.clone())
+            if let Ok(fra) = finstack_valuations::instruments::ForwardRateAgreement::deserialize(json_spec)
             {
                 return Ok(Arc::new(fra));
             }
 
             // Try as Repo (repurchase agreement)
             if let Ok(repo) =
-                serde_json::from_value::<finstack_valuations::instruments::Repo>(json_spec.clone())
+                finstack_valuations::instruments::Repo::deserialize(json_spec)
             {
                 return Ok(Arc::new(repo));
             }

@@ -17,7 +17,6 @@ nom = "7"
 polars = { version = "0.51", optional = true, default-features = false }
 
 [dev-dependencies]
-indexmap = { version = "2", features = ["serde"] }
 time = { version = "0.3", features = ["macros"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"

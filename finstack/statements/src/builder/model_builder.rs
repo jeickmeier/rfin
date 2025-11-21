@@ -905,25 +905,6 @@ impl ModelBuilder<Ready> {
         self
     }
 
-    // Internal helper to resolve node IDs through alias registry
-    #[allow(dead_code)]
-    fn resolve_node_id(&self, input: &str) -> String {
-        if let Some(registry) = &self.alias_registry {
-            // Try exact alias match
-            if let Some(canonical) = registry.normalize(input) {
-                return canonical;
-            }
-
-            // Try fuzzy match against available nodes
-            let available: IndexSet<String> = self.nodes.keys().cloned().collect();
-            if let Some(matched) = registry.normalize_fuzzy(input, &available) {
-                return matched;
-            }
-        }
-
-        // No match - return original
-        input.to_string()
-    }
 }
 
 #[cfg(test)]

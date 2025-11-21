@@ -1,9 +1,8 @@
 //! Reports module bindings for financial models.
 
 use crate::statements::evaluator::PyResults;
-use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::reports::{
-    print_debt_summary, Alignment, CreditAssessmentReport, DebtSummaryReport, PLSummaryReport,
+    Alignment, CreditAssessmentReport, PLSummaryReport,
     Report, TableBuilder,
 };
 use pyo3::prelude::*;
@@ -291,105 +290,6 @@ impl PyCreditAssessmentReport {
     }
 }
 
-/// Debt summary report.
-#[pyclass(module = "finstack.statements.reports", name = "DebtSummaryReport")]
-pub struct PyDebtSummaryReport {
-    model: PyFinancialModelSpec,
-    results: PyResults,
-    as_of: finstack_core::dates::PeriodId,
-}
-
-#[pymethods]
-impl PyDebtSummaryReport {
-    #[new]
-    #[pyo3(signature = (model, results, as_of))]
-    /// Create a new debt summary report.
-    ///
-    /// Parameters
-    /// ----------
-    /// model : FinancialModelSpec
-    ///     Financial model
-    /// results : Results
-    ///     Evaluation results
-    /// as_of : PeriodId
-    ///     Period for report
-    ///
-    /// Returns
-    /// -------
-    /// DebtSummaryReport
-    ///     Report instance
-    fn new(
-        model: &PyFinancialModelSpec,
-        results: &PyResults,
-        as_of: &crate::core::dates::periods::PyPeriodId,
-    ) -> Self {
-        Self {
-            model: model.clone(),
-            results: results.clone(),
-            as_of: as_of.inner,
-        }
-    }
-
-    #[pyo3(signature = ())]
-    /// Convert report to string format.
-    ///
-    /// Returns
-    /// -------
-    /// str
-    ///     Formatted report
-    fn to_string(&self) -> String {
-        let report = DebtSummaryReport::new(&self.model.inner, &self.results.inner, self.as_of);
-        report.to_string()
-    }
-
-    #[pyo3(signature = ())]
-    /// Convert report to Markdown format.
-    ///
-    /// Returns
-    /// -------
-    /// str
-    ///     Markdown formatted report
-    fn to_markdown(&self) -> String {
-        let report = DebtSummaryReport::new(&self.model.inner, &self.results.inner, self.as_of);
-        report.to_markdown()
-    }
-
-    #[pyo3(signature = ())]
-    /// Print report to stdout.
-    fn print(&self) {
-        let report = DebtSummaryReport::new(&self.model.inner, &self.results.inner, self.as_of);
-        report.print();
-    }
-
-    fn __repr__(&self) -> String {
-        format!("DebtSummaryReport(as_of={})", self.as_of)
-    }
-
-    fn __str__(&self) -> String {
-        self.to_string()
-    }
-}
-
-#[pyfunction]
-#[pyo3(signature = (model, results, as_of))]
-/// Convenience function to print debt summary.
-///
-/// Parameters
-/// ----------
-/// model : FinancialModelSpec
-///     Financial model
-/// results : Results
-///     Evaluation results
-/// as_of : PeriodId
-///     Period for report
-fn py_print_debt_summary(
-    model: &PyFinancialModelSpec,
-    results: &PyResults,
-    as_of: &crate::core::dates::periods::PyPeriodId,
-) {
-    print_debt_summary(&model.inner, &results.inner, as_of.inner);
-}
-
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -401,8 +301,6 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTableBuilder>()?;
     module.add_class::<PyPLSummaryReport>()?;
     module.add_class::<PyCreditAssessmentReport>()?;
-    module.add_class::<PyDebtSummaryReport>()?;
-    module.add_function(wrap_pyfunction!(py_print_debt_summary, &module)?)?;
 
     parent.add_submodule(&module)?;
     parent.setattr("reports", &module)?;
@@ -412,7 +310,5 @@ pub(crate) fn register<'py>(
         "TableBuilder",
         "PLSummaryReport",
         "CreditAssessmentReport",
-        "DebtSummaryReport",
-        "print_debt_summary",
     ])
 }
