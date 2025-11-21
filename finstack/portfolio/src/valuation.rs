@@ -89,6 +89,7 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
         MetricId::Gamma,
         MetricId::Vega,
         MetricId::Rho,
+        MetricId::Pv01,
     ]
 }
 
@@ -334,6 +335,10 @@ fn value_single_position(
     // Market standard is for `Instrument::price` to return Unit Price, but
     // some OTC instruments return Total PV. The portfolio framework enforces
     // `scaled = price * quantity` regardless of unit type.
+    //
+    // IMPORTANT: If the instrument pricing model returns Total PV (e.g. for
+    // a bespoke swap where notional is baked in), the Position quantity MUST
+    // be set to 1.0 to avoid double-scaling.
     let scaled_native = value_native * position.quantity;
 
     // Convert to base currency

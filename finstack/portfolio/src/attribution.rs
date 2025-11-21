@@ -197,23 +197,36 @@ pub fn attribute_portfolio_pnl(
 
     // Attribute each position
     for position in &portfolio.positions {
-        // Perform instrument-level attribution
-        let pos_attr = match method {
-            AttributionMethod::Parallel => attribute_pnl_parallel(
-                &position.instrument,
-                market_t0,
-                market_t1,
-                as_of_t0,
-                as_of_t1,
-                config,
-            )
-            .map_err(|e| PortfolioError::ValuationError {
-                position_id: position.position_id.clone(),
-                message: format!("Attribution failed: {}", e),
-            })?,
+        // Perform instrument-level attribution and get T0 value
+        let (mut pos_attr, val_t0_native_unit) = match method {
+            AttributionMethod::Parallel => {
+                let attr = attribute_pnl_parallel(
+                    &position.instrument,
+                    market_t0,
+                    market_t1,
+                    as_of_t0,
+                    as_of_t1,
+                    config,
+                )
+                .map_err(|e| PortfolioError::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution failed: {}", e),
+                })?;
+
+                // Get T0 value for FX revaluation (on principal)
+                let val_t0 = position
+                    .instrument
+                    .value(market_t0, as_of_t0)
+                    .map_err(|e| PortfolioError::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: format!("Attribution T0 valuation failed: {}", e),
+                    })?;
+
+                (attr, val_t0)
+            }
 
             AttributionMethod::Waterfall(ref order) => {
-                finstack_valuations::attribution::attribute_pnl_waterfall(
+                let attr = finstack_valuations::attribution::attribute_pnl_waterfall(
                     &position.instrument,
                     market_t0,
                     market_t1,
@@ -226,7 +239,18 @@ pub fn attribute_portfolio_pnl(
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution failed: {}", e),
-                })?
+                })?;
+
+                // Get T0 value for FX revaluation (on principal)
+                let val_t0 = position
+                    .instrument
+                    .value(market_t0, as_of_t0)
+                    .map_err(|e| PortfolioError::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: format!("Attribution T0 valuation failed: {}", e),
+                    })?;
+
+                (attr, val_t0)
             }
 
             AttributionMethod::MetricsBased => {
@@ -251,7 +275,7 @@ pub fn attribute_portfolio_pnl(
                         message: format!("Attribution T1 valuation failed: {}", e),
                     })?;
 
-                attribute_pnl_metrics_based(
+                let attr = attribute_pnl_metrics_based(
                     &position.instrument,
                     market_t0,
                     market_t1,
@@ -263,9 +287,15 @@ pub fn attribute_portfolio_pnl(
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution failed: {}", e),
-                })?
+                })?;
+
+                (attr, val_t0.value)
             }
         };
+
+        // Scale attribution and T0 value by position quantity
+        pos_attr.scale(position.quantity);
+        let val_t0_native = val_t0_native_unit * position.quantity;
 
         // Convert each factor to base currency
         let convert = |money: Money| -> Result<Money> {
@@ -373,17 +403,41 @@ pub fn attribute_portfolio_pnl(
                     to: base_ccy,
                 })?;
 
+            // 1. Translation of P&L Flow: (Pnl_Native * R1) - (Pnl_Native * R0)
             let pnl_amount = pos_attr.total_pnl.amount();
             let base_t0 = Money::new(pnl_amount * rate_t0.rate, base_ccy);
             let base_t1 = Money::new(pnl_amount * rate_t1.rate, base_ccy);
 
-            let translation = base_t1
+            let translation_of_pnl = base_t1
                 .checked_sub(base_t0)
+                .map_err(PortfolioError::Core)?;
+
+            // 2. Revaluation of Opening Principal: Val_T0_Native * (R1 - R0)
+            // This captures the FX risk on the principal amount held.
+            let principal_amount = val_t0_native.amount();
+            let principal_base_t0 = Money::new(principal_amount * rate_t0.rate, base_ccy);
+            let principal_base_t1 = Money::new(principal_amount * rate_t1.rate, base_ccy);
+
+            let translation_of_principal = principal_base_t1
+                .checked_sub(principal_base_t0)
+                .map_err(PortfolioError::Core)?;
+
+            // Total FX Translation P&L
+            let total_translation = translation_of_pnl
+                .checked_add(translation_of_principal)
                 .map_err(PortfolioError::Core)?;
 
             portfolio_attr.fx_translation_pnl = portfolio_attr
                 .fx_translation_pnl
-                .checked_add(translation)
+                .checked_add(total_translation)
+                .map_err(PortfolioError::Core)?;
+
+            // Add principal translation to total portfolio P&L
+            // (Note: translation_of_pnl is already included because we added
+            // total_pnl_base = Pnl_Native * R1 above)
+            portfolio_attr.total_pnl = portfolio_attr
+                .total_pnl
+                .checked_add(translation_of_principal)
                 .map_err(PortfolioError::Core)?;
         }
 

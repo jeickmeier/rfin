@@ -427,6 +427,70 @@ impl PnlAttribution {
         attr
     }
 
+    /// Scale all attribution values by a factor.
+    ///
+    /// Useful for scaling per-unit attribution to position quantity.
+    pub fn scale(&mut self, factor: f64) {
+        self.total_pnl *= factor;
+        self.carry *= factor;
+        self.rates_curves_pnl *= factor;
+        self.credit_curves_pnl *= factor;
+        self.inflation_curves_pnl *= factor;
+        self.correlations_pnl *= factor;
+        self.fx_pnl *= factor;
+        self.vol_pnl *= factor;
+        self.model_params_pnl *= factor;
+        self.market_scalars_pnl *= factor;
+        self.residual *= factor;
+
+        // Scale details if present
+        if let Some(d) = &mut self.rates_detail {
+            for v in d.by_curve.values_mut() { *v *= factor; }
+            for v in d.by_tenor.values_mut() { *v *= factor; }
+            d.discount_total *= factor;
+            d.forward_total *= factor;
+        }
+
+        if let Some(d) = &mut self.credit_detail {
+            for v in d.by_curve.values_mut() { *v *= factor; }
+            for v in d.by_tenor.values_mut() { *v *= factor; }
+        }
+
+        if let Some(d) = &mut self.inflation_detail {
+            for v in d.by_curve.values_mut() { *v *= factor; }
+            if let Some(bt) = &mut d.by_tenor {
+                for v in bt.values_mut() { *v *= factor; }
+            }
+        }
+
+        if let Some(d) = &mut self.correlations_detail {
+            for v in d.by_curve.values_mut() { *v *= factor; }
+        }
+
+        if let Some(d) = &mut self.fx_detail {
+            for v in d.by_pair.values_mut() { *v *= factor; }
+        }
+
+        if let Some(d) = &mut self.vol_detail {
+            for v in d.by_surface.values_mut() { *v *= factor; }
+        }
+
+        if let Some(d) = &mut self.model_params_detail {
+            if let Some(v) = &mut d.prepayment { *v *= factor; }
+            if let Some(v) = &mut d.default_rate { *v *= factor; }
+            if let Some(v) = &mut d.recovery_rate { *v *= factor; }
+            if let Some(v) = &mut d.conversion_ratio { *v *= factor; }
+            for v in d.other.values_mut() { *v *= factor; }
+        }
+
+        if let Some(d) = &mut self.scalars_detail {
+            for v in d.dividends.values_mut() { *v *= factor; }
+            for v in d.inflation.values_mut() { *v *= factor; }
+            for v in d.equity_prices.values_mut() { *v *= factor; }
+            for v in d.commodity_prices.values_mut() { *v *= factor; }
+        }
+    }
+
     /// Validate that all factor currencies match total_pnl currency.
     ///
     /// # Returns

@@ -97,10 +97,6 @@ const SUMMABLE_METRICS: &[&str] = &[
     "pv_float",
     "pv_primary",
     "pv_reference",
-    "duration_mac",
-    "duration_mod",
-    "spread_duration",
-    "real_duration",
 ];
 
 /// Check if a metric can be summed across positions.
@@ -290,6 +286,11 @@ mod tests {
         assert!(is_summable("delta"));
         assert!(!is_summable("ytm"));
         assert!(!is_summable("duration"));
+        
+        // Test bucketed/composite keys
+        assert!(is_summable("bucketed_dv01::2y"));
+        assert!(is_summable("bucketed_cs01::AAA::5y"));
+        assert!(!is_summable("unknown::2y"));
     }
 
     #[test]
