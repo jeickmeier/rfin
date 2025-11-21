@@ -34,10 +34,22 @@ impl MetricCalculator for FxDeltaCalculator {
             }
         };
 
-        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
-        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
-        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
-        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+        let df_dom_near = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_dom,
+        );
+        let df_dom_far = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_dom,
+        );
+        let df_for_near = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_for,
+        );
+        let df_for_far = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_for,
+        );
 
         // Settlement checks
         let include_near = fx_swap.near_date >= as_of;
@@ -62,17 +74,17 @@ impl MetricCalculator for FxDeltaCalculator {
         let calculate_pv = |spot: f64| -> f64 {
             // Recompute near/far rates with bumped spot when not fixed
             let near_rate = fx_swap.near_rate.unwrap_or(spot);
-            
+
             // Model forward logic
             let model_fwd = if df_dom_far.abs() > 1e-12 {
                 spot * df_for_far / df_dom_far
             } else {
                 spot
             };
-            
+
             let far_rate = fx_swap.far_rate.unwrap_or(model_fwd);
             let base_amt = fx_swap.base_notional.amount();
-            
+
             let mut pv_for_leg = 0.0;
             if include_near {
                 pv_for_leg += base_amt * df_for_near;
@@ -104,7 +116,7 @@ impl MetricCalculator for FxDeltaCalculator {
         // Or rather: Delta = dPV/dS * S.
         // (PV_up - PV_down) / (2 * dS) * S = (PV_up - PV_down) / (2 * S * pct) * S = (PV_up - PV_down) / (2 * pct).
         // The code divides by `2.0 * bump_sizes::SPOT`. This matches the definition of "Change in PV for 1% move" (if result is roughly PV * 1%).
-        
+
         let fx_delta = (pv_up - pv_down) / (2.0 * bump_sizes::SPOT);
 
         Ok(fx_delta)

@@ -22,7 +22,11 @@ use pyo3::{Bound, PyRef};
 /// -------
 /// VolatilityConvention
 ///     Convention descriptor.
-#[pyclass(name = "VolatilityConvention", module = "finstack.core.volatility", frozen)]
+#[pyclass(
+    name = "VolatilityConvention",
+    module = "finstack.core.volatility",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyVolatilityConvention {
     pub(crate) inner: VolatilityConvention,
@@ -102,7 +106,10 @@ impl PyVolatilityConvention {
 /// -------
 /// float
 ///     Option price.
-#[pyfunction(name = "bachelier_price", text_signature = "(forward, strike, sigma_n, t)")]
+#[pyfunction(
+    name = "bachelier_price",
+    text_signature = "(forward, strike, sigma_n, t)"
+)]
 pub fn py_bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
     bachelier_price(forward, strike, sigma_n, t)
 }
@@ -154,13 +161,7 @@ pub fn py_black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
     name = "black_shifted_price",
     text_signature = "(forward, strike, sigma, t, shift)"
 )]
-pub fn py_black_shifted_price(
-    forward: f64,
-    strike: f64,
-    sigma: f64,
-    t: f64,
-    shift: f64,
-) -> f64 {
+pub fn py_black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
     black_shifted_price(forward, strike, sigma, t, shift)
 }
 
@@ -235,4 +236,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

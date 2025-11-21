@@ -5,8 +5,8 @@ use finstack_core::dates::{create_date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
 use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
+use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
 use time::Month;
 
 #[test]
@@ -44,13 +44,8 @@ fn test_jacobian_not_computed_by_default() {
         },
     ];
 
-    let calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    );
+    let calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS");
 
     let (_curve, report) = calibrator.calibrate(&quotes, &context).unwrap();
 
@@ -94,14 +89,9 @@ fn test_jacobian_computed_when_enabled() {
     // Enable explanation
     let config = CalibrationConfig::default().with_explain();
 
-    let calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    )
-    .with_config(config);
+    let calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
+            .with_config(config);
 
     let (_curve, report) = calibrator.calibrate(&quotes, &context).unwrap();
 
@@ -178,22 +168,16 @@ fn test_jacobian_sensitivities_nonzero() {
 
     let config = CalibrationConfig::default().with_explain();
 
-    let calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    )
-    .with_config(config);
+    let calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
+            .with_config(config);
 
     let (_curve, report) = calibrator.calibrate(&quotes, &context).unwrap();
 
     let trace = report.explanation.unwrap();
     let jacobian = trace.entries.iter().find_map(|entry| match entry {
         finstack_core::explain::TraceEntry::Jacobian {
-            sensitivity_matrix,
-            ..
+            sensitivity_matrix, ..
         } => Some(sensitivity_matrix),
         _ => None,
     });

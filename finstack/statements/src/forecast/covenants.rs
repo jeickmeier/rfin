@@ -48,7 +48,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
             4 => Month::December,
             _ => Month::December, // Should not happen for valid quarters
         };
-        
+
         // Simple end of month approximation (30th or 31st)
         // Using 28th to be safe for Feb if we ever supported monthly, but for quarters 30 is fine
         // except for Q1 which is March 31.
@@ -61,7 +61,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
 
         Date::from_calendar_date(period.year, month, day).unwrap_or(
             Date::from_calendar_date(period.year, Month::December, 31)
-                .expect("December 31 should always be a valid date")
+                .expect("December 31 should always be a valid date"),
         )
     }
 }
@@ -100,13 +100,13 @@ pub fn forecast_breaches(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_valuations::covenants::engine::{CovenantEngine, CovenantSpec, Covenant};
-    use finstack_valuations::covenants::engine::CovenantType;
-    use finstack_valuations::metrics::MetricId;
-    use finstack_core::dates::{Date, Frequency};
-    use time::Month;
     use crate::evaluator::{Results, ResultsMeta};
+    use finstack_core::dates::{Date, Frequency};
+    use finstack_valuations::covenants::engine::CovenantType;
+    use finstack_valuations::covenants::engine::{Covenant, CovenantEngine, CovenantSpec};
+    use finstack_valuations::metrics::MetricId;
     use indexmap::IndexMap;
+    use time::Month;
 
     #[test]
     fn test_forecast_breaches_concrete() {
@@ -126,7 +126,7 @@ mod tests {
         // 2. Setup Results (Forecast)
         let p1 = PeriodId::quarter(2025, 1);
         let p2 = PeriodId::quarter(2025, 2);
-        
+
         let mut nodes = IndexMap::new();
         let mut net_debt_ebitda = IndexMap::new();
         net_debt_ebitda.insert(p1, 3.0); // Pass
@@ -142,14 +142,14 @@ mod tests {
 
         // 3. Run Forecast
         let config = CovenantForecastConfig::default();
-        let breaches = forecast_breaches(&results, &engine, None, config)
-            .expect("Forecast should succeed");
+        let breaches =
+            forecast_breaches(&results, &engine, None, config).expect("Forecast should succeed");
 
         // 4. Verify
         assert_eq!(breaches.len(), 1);
         assert_eq!(breaches[0].covenant_id, "Debt/EBITDA ≤ 4.00x");
         assert_eq!(breaches[0].projected_value, 4.5);
-        
+
         // Verify date approximation (Q2 2025 -> June 30)
         let expected_date = Date::from_calendar_date(2025, Month::June, 30)
             .expect("June 30, 2025 should be a valid date");

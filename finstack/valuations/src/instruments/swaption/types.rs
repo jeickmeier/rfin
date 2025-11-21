@@ -280,7 +280,7 @@ impl Swaption {
     /// Compute instrument NPV dispatching to SABR, Black, or Normal as configured.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
-        
+
         // 1. SABR model (if enabled) overrides basic model choice
         if self.sabr_params.is_some() {
             return self.price_sabr(disc, as_of);
@@ -361,19 +361,19 @@ impl Swaption {
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        
+
         let forward_rate = self.forward_swap_rate(disc, as_of)?;
         let annuity = self.annuity(disc, as_of, forward_rate)?;
 
         use crate::instruments::common::models::volatility::normal::bachelier_price;
-        
+
         let value = bachelier_price(
             self.option_type,
             forward_rate,
             self.strike_rate,
             volatility,
             time_to_expiry,
-            annuity
+            annuity,
         );
 
         Ok(Money::new(
@@ -447,20 +447,24 @@ impl Swaption {
         let freq_per_year = match self.fixed_freq {
             Frequency::Months(m) if m > 0 => 12.0 / (m as f64),
             Frequency::Days(d) if d > 0 => 365.0 / (d as f64),
-            _ => return Err(Error::Validation("Invalid frequency in cash annuity".into())),
+            _ => {
+                return Err(Error::Validation(
+                    "Invalid frequency in cash annuity".into(),
+                ))
+            }
         };
 
         if forward_rate.abs() < 1e-8 {
-             // L'Hopital's limit for S -> 0: A = N/m (sum of accruals)
-             // We need number of periods.
-             let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
-             let periods = freq_per_year * tenor;
-             return Ok(periods / freq_per_year);
+            // L'Hopital's limit for S -> 0: A = N/m (sum of accruals)
+            // We need number of periods.
+            let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+            let periods = freq_per_year * tenor;
+            return Ok(periods / freq_per_year);
         }
 
         let tenor_years = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
         let n_periods = tenor_years * freq_per_year;
-        
+
         let df_swap = (1.0 + forward_rate / freq_per_year).powf(-n_periods);
         Ok((1.0 - df_swap) / forward_rate)
     }

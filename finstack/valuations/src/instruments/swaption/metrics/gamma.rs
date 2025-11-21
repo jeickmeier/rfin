@@ -44,14 +44,14 @@ impl MetricCalculator for GammaCalculator {
 
         let gamma = match option.vol_model {
             VolatilityModel::Black => {
-                 if forward <= 0.0 {
-                     0.0
-                 } else {
-                     use crate::instruments::common::models::d1_black76;
-                     let d1 = d1_black76(forward, option.strike_rate, sigma, t);
-                     finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt())
-                 }
-            },
+                if forward <= 0.0 {
+                    0.0
+                } else {
+                    use crate::instruments::common::models::d1_black76;
+                    let d1 = d1_black76(forward, option.strike_rate, sigma, t);
+                    finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt())
+                }
+            }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
                 let d = d_bachelier(forward, option.strike_rate, sigma, t);

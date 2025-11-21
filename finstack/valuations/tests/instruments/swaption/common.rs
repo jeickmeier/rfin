@@ -7,7 +7,9 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::parameters::market::OptionType;
-use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};
+use finstack_valuations::instruments::swaption::{
+    Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
+};
 use finstack_valuations::instruments::PricingOverrides;
 use time::macros::date;
 

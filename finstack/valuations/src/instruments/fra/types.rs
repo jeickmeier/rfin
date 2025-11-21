@@ -361,7 +361,7 @@ mod tests {
         let start = base + time::Duration::days(90);
         let end = base + time::Duration::days(180);
         let fixing = start - time::Duration::days(2);
-        
+
         let fra = ForwardRateAgreement::builder()
             .id("FRA-TEST".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -377,32 +377,31 @@ mod tests {
             .build()
             .expect("Builder failed");
 
-        use std::sync::Arc;
         use crate::instruments::common::traits::Instrument;
-        use crate::metrics::{MetricCalculator, MetricContext};
         use crate::instruments::fra::metrics::FraParRateCalculator;
+        use crate::metrics::{MetricCalculator, MetricContext};
+        use std::sync::Arc;
 
         // Wrap in Arc for metric context
         let fra_arc = Arc::new(fra);
         let ctx_arc = Arc::new(ctx);
-        
+
         // Calculate base PV
-        let base_pv = fra_arc.value(&ctx_arc, base).expect("PV calculation failed");
+        let base_pv = fra_arc
+            .value(&ctx_arc, base)
+            .expect("PV calculation failed");
 
         let calc = FraParRateCalculator;
-        let mut m_ctx = MetricContext::new(
-            fra_arc as Arc<dyn Instrument>,
-            ctx_arc,
-            base,
-            base_pv,
-        );
-        
-        let par_rate = calc.calculate(&mut m_ctx).expect("Par rate calculation failed");
-        
+        let mut m_ctx = MetricContext::new(fra_arc as Arc<dyn Instrument>, ctx_arc, base, base_pv);
+
+        let par_rate = calc
+            .calculate(&mut m_ctx)
+            .expect("Par rate calculation failed");
+
         assert!(
             (par_rate - fwd_rate).abs() < 1e-10,
-            "Par rate {} should equal forward rate {}", 
-            par_rate, 
+            "Par rate {} should equal forward rate {}",
+            par_rate,
             fwd_rate
         );
     }

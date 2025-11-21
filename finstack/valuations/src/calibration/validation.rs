@@ -95,7 +95,7 @@ impl CurveValidator for DiscountCurve {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // Check forward rate positivity
         let times = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
 
@@ -143,7 +143,7 @@ impl CurveValidator for DiscountCurve {
         if !config.check_monotonicity {
             return Ok(());
         }
-        
+
         // Discount factors must be monotonically decreasing
         let mut prev_df = 1.0;
 
@@ -193,7 +193,8 @@ impl CurveValidator for DiscountCurve {
             let rate = self.zero(t);
 
             // Allow slightly negative rates but not too extreme
-            if rate < config.min_forward_rate * 5.0 { // e.g. -5% if min_forward is -1%
+            if rate < config.min_forward_rate * 5.0 {
+                // e.g. -5% if min_forward is -1%
                 return Err(Error::Validation(format!(
                     "Zero rate {:.2}% too negative at t={} in {}",
                     rate * 100.0,
@@ -223,7 +224,7 @@ impl CurveValidator for ForwardCurve {
         if !config.check_arbitrage && !config.check_forward_positivity {
             return Ok(());
         }
-        
+
         // Forward rates should be positive (with small tolerance for negative rates)
         for &t in FWD_ARBI_POINTS {
             let fwd = self.rate(t);
@@ -246,7 +247,7 @@ impl CurveValidator for ForwardCurve {
         if !config.check_monotonicity {
             return Ok(());
         }
-        
+
         // Forward curves don't have strict monotonicity requirements
         // but we check for reasonable smoothness
         let test_points = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
@@ -310,7 +311,7 @@ impl CurveValidator for HazardCurve {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // Check hazard rates are non-negative using survival probability
         for &t in HAZARD_ARBI_POINTS {
             // Get hazard rate from survival probability derivative
@@ -352,7 +353,7 @@ impl CurveValidator for HazardCurve {
         if !config.check_monotonicity {
             return Ok(());
         }
-        
+
         // Survival probabilities must be monotonically decreasing
         let mut prev_sp = 1.0;
 
@@ -418,7 +419,7 @@ impl CurveValidator for InflationCurve {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // CPI levels should be positive
         for &t in INFL_ARBI_POINTS {
             let cpi = self.cpi(t);
@@ -440,7 +441,7 @@ impl CurveValidator for InflationCurve {
         if !config.check_monotonicity {
             return Ok(());
         }
-        
+
         // CPI doesn't need to be strictly monotonic (deflation is possible)
         // but check for reasonable growth rates
         let base_cpi = self.cpi(0.0);
@@ -506,7 +507,7 @@ impl CurveValidator for BaseCorrelationCurve {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // Base correlations should be monotonically increasing with detachment
         let detachment_points = self.detachment_points();
         let correlations = self.correlations();
@@ -584,7 +585,7 @@ impl SurfaceValidator for VolSurface {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // Total variance (σ²T) must be monotonically increasing with time to prevent calendar arbitrage.
         // This is a fundamental no-arbitrage condition: longer-dated options must have at least
         // as much total variance as shorter-dated options at the same strike.
@@ -632,7 +633,7 @@ impl SurfaceValidator for VolSurface {
         if !config.check_arbitrage {
             return Ok(());
         }
-        
+
         // Check convexity of total variance in strike dimension.
         // Proper butterfly arbitrage check requires that total variance (σ²T) is convex in strike,
         // which prevents risk-free arbitrage via butterfly spreads.

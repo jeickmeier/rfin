@@ -162,11 +162,7 @@ pub(crate) trait StructuredCreditInstrument {
 
             // Calculate accrual factor based on asset day count or fallback
             let accrual_factor = if let (Some(prev), Some(dc)) = (prev_date, asset.day_count) {
-                dc.year_fraction(
-                    prev,
-                    pay_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?
+                dc.year_fraction(prev, pay_date, finstack_core::dates::DayCountCtx::default())?
             } else {
                 months_per_period / 12.0
             };
@@ -279,8 +275,12 @@ pub(crate) trait StructuredCreditInstrument {
             let seasoning_months = months_between(dates_closing_date, pay_date);
 
             // Step 1: Calculate pool cashflows for the period
-            let interest_collections =
-                self.calculate_period_interest_collections(pay_date, prev_date, months_per_period, context)?;
+            let interest_collections = self.calculate_period_interest_collections(
+                pay_date,
+                prev_date,
+                months_per_period,
+                context,
+            )?;
 
             // Update prev_date for next iteration
             prev_date = Some(pay_date);
@@ -303,13 +303,20 @@ pub(crate) trait StructuredCreditInstrument {
                 false
             };
 
-            let (principal_available_for_waterfall, _reinvested_amount) = if is_reinvestment_active {
-                 // In reinvestment, we keep principal collections.
-                 // Available for waterfall is only interest (plus maybe some specialized leakage, ignored here).
-                 (Money::new(0.0, base_ccy), prepay_amt.checked_add(recovery_amt)?)
+            let (principal_available_for_waterfall, _reinvested_amount) = if is_reinvestment_active
+            {
+                // In reinvestment, we keep principal collections.
+                // Available for waterfall is only interest (plus maybe some specialized leakage, ignored here).
+                (
+                    Money::new(0.0, base_ccy),
+                    prepay_amt.checked_add(recovery_amt)?,
+                )
             } else {
-                 // Not reinvesting, all principal goes to waterfall
-                 (prepay_amt.checked_add(recovery_amt)?, Money::new(0.0, base_ccy))
+                // Not reinvesting, all principal goes to waterfall
+                (
+                    prepay_amt.checked_add(recovery_amt)?,
+                    Money::new(0.0, base_ccy),
+                )
             };
 
             let period_flows = PeriodFlows {
@@ -319,7 +326,8 @@ pub(crate) trait StructuredCreditInstrument {
                 recoveries: recovery_amt,
             };
 
-            let total_cash_for_waterfall = interest_collections.checked_add(principal_available_for_waterfall)?;
+            let total_cash_for_waterfall =
+                interest_collections.checked_add(principal_available_for_waterfall)?;
 
             // Step 2: Run waterfall to distribute cash
             let waterfall_result = waterfall_engine.execute_waterfall(
@@ -389,14 +397,16 @@ pub(crate) trait StructuredCreditInstrument {
             // Balance_New = Balance_Old - Prepay - Defaults + Prepay + Recoveries
             // Balance_New = Balance_Old - Defaults + Recoveries
             // Balance_New = Balance_Old - (Defaults - Recoveries) -> Loss Amount
-            
+
             if is_reinvestment_active {
-                 // During reinvestment, we only lose the actual realized losses
-                 let loss_amount = default_amt.checked_sub(recovery_amt).unwrap_or(Money::new(0.0, base_ccy));
-                 pool_outstanding = pool_outstanding.checked_sub(loss_amount)?;
+                // During reinvestment, we only lose the actual realized losses
+                let loss_amount = default_amt
+                    .checked_sub(recovery_amt)
+                    .unwrap_or(Money::new(0.0, base_ccy));
+                pool_outstanding = pool_outstanding.checked_sub(loss_amount)?;
             } else {
-                 // Normal amortization: balance reduces by prepays and defaults
-                 pool_outstanding = pool_outstanding
+                // Normal amortization: balance reduces by prepays and defaults
+                pool_outstanding = pool_outstanding
                     .checked_sub(period_flows.prepayments)?
                     .checked_sub(period_flows.defaults)?;
             }

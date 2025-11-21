@@ -437,19 +437,21 @@ impl InflationLinkedBond {
         for window in dates.windows(2) {
             let start = window[0];
             let end = window[1];
-            
+
             if start <= as_of && as_of < end {
                 // Found the active period
                 let total_yf = self.dc.year_fraction(start, end, DayCountCtx::default())?;
-                let elapsed_yf = self.dc.year_fraction(start, as_of, DayCountCtx::default())?;
-                
+                let elapsed_yf = self
+                    .dc
+                    .year_fraction(start, as_of, DayCountCtx::default())?;
+
                 if total_yf <= 0.0 {
                     return Ok(0.0);
                 }
-                
+
                 // Real coupon amount for the full period
                 let full_coupon = self.notional.amount() * self.real_coupon * total_yf;
-                
+
                 // Linear accrual: Coupon * (elapsed / total)
                 // Note: This matches standard bond accrual for fixed coupons.
                 // If we need exact day-based fraction (e.g. Act/Act), year_fraction handles it roughly,
@@ -501,7 +503,12 @@ impl InflationLinkedBond {
     }
 
     /// Calculate real yield (yield in real terms, before inflation)
-    pub fn real_yield(&self, clean_price: f64, _curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub fn real_yield(
+        &self,
+        clean_price: f64,
+        _curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
         use crate::instruments::bond::pricing::quote_engine::YieldCompounding;
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
@@ -531,10 +538,10 @@ impl InflationLinkedBond {
             compounding: YieldCompounding::Street,
             frequency: self.freq,
         };
-        
+
         // 4. Solve yield that matches the target real price to PV of real flows
         let y = solve_ytm(&flows, as_of, target_price, spec)?;
-        
+
         // Clamp extreme values to avoid explosive outputs
         Ok(y.clamp(-0.99, 2.0))
     }

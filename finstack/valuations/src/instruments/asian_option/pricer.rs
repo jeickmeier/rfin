@@ -11,6 +11,8 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::estimate::Estimate;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
@@ -20,8 +22,6 @@ use crate::instruments::common::models::monte_carlo::payoff::asian::{AsianCall, 
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::estimate::Estimate;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::results::MoneyEstimate;
 #[cfg(feature = "mc")]
@@ -65,7 +65,7 @@ impl AsianOptionMcPricer {
 
         if t <= 0.0 {
             // Expired: use realized average
-             let average = if hist_count > 0 {
+            let average = if hist_count > 0 {
                 match inst.averaging_method {
                     crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
                         hist_sum / hist_count as f64
@@ -282,21 +282,28 @@ impl AsianOptionMcPricer {
                 // Actually, if we are seasoned, we can't use the analytical control variate unless we implement the adjustment.
                 // If hist_count > 0, we should probably disable CV or implement the adjustment.
                 // For now, let's disable CV if seasoned to avoid wrong adjustment.
-                
+
                 if hist_count > 0 {
                     // Fallback to plain MC if seasoned (CV disabled)
-                     MoneyEstimate::from_estimate(Estimate {
-                        mean: mean_x,
-                        stderr: (var_x / n as f64).sqrt(),
-                        ci_95: (mean_x - 1.96 * (var_x / n as f64).sqrt(), mean_x + 1.96 * (var_x / n as f64).sqrt()),
-                        num_paths: n,
-                        std_dev: None,
-                        median: None,
-                        percentile_25: None,
-                        percentile_75: None,
-                        min: None,
-                        max: None,
-                     }, inst.strike.currency()).mean
+                    MoneyEstimate::from_estimate(
+                        Estimate {
+                            mean: mean_x,
+                            stderr: (var_x / n as f64).sqrt(),
+                            ci_95: (
+                                mean_x - 1.96 * (var_x / n as f64).sqrt(),
+                                mean_x + 1.96 * (var_x / n as f64).sqrt(),
+                            ),
+                            num_paths: n,
+                            std_dev: None,
+                            median: None,
+                            percentile_25: None,
+                            percentile_75: None,
+                            min: None,
+                            max: None,
+                        },
+                        inst.strike.currency(),
+                    )
+                    .mean
                 } else {
                     let control_analytical = geometric_asian_call(
                         spot,
@@ -398,18 +405,25 @@ impl AsianOptionMcPricer {
                 let cov_xy = covariance(&xs, &ys);
 
                 if hist_count > 0 {
-                     MoneyEstimate::from_estimate(Estimate {
-                        mean: mean_x,
-                        stderr: (var_x / n as f64).sqrt(),
-                        ci_95: (mean_x - 1.96 * (var_x / n as f64).sqrt(), mean_x + 1.96 * (var_x / n as f64).sqrt()),
-                        num_paths: n,
-                        std_dev: None,
-                        median: None,
-                        percentile_25: None,
-                        percentile_75: None,
-                        min: None,
-                        max: None,
-                     }, inst.strike.currency()).mean
+                    MoneyEstimate::from_estimate(
+                        Estimate {
+                            mean: mean_x,
+                            stderr: (var_x / n as f64).sqrt(),
+                            ci_95: (
+                                mean_x - 1.96 * (var_x / n as f64).sqrt(),
+                                mean_x + 1.96 * (var_x / n as f64).sqrt(),
+                            ),
+                            num_paths: n,
+                            std_dev: None,
+                            median: None,
+                            percentile_25: None,
+                            percentile_75: None,
+                            min: None,
+                            max: None,
+                        },
+                        inst.strike.currency(),
+                    )
+                    .mean
                 } else {
                     let control_analytical = geometric_asian_put(
                         spot,
@@ -500,7 +514,7 @@ impl AsianOptionMcPricer {
         let t = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-        
+
         let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
 
         if t <= 0.0 {
@@ -517,7 +531,7 @@ impl AsianOptionMcPricer {
                     }
                 }
             } else {
-                 let spot_scalar = curves.price(&inst.spot_id)?;
+                let spot_scalar = curves.price(&inst.spot_id)?;
                 match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
@@ -527,8 +541,11 @@ impl AsianOptionMcPricer {
                 crate::instruments::OptionType::Call => (average - inst.strike.amount()).max(0.0),
                 crate::instruments::OptionType::Put => (inst.strike.amount() - average).max(0.0),
             };
-            
-            return Ok((Money::new(intrinsic * inst.notional.amount(), inst.strike.currency()), None));
+
+            return Ok((
+                Money::new(intrinsic * inst.notional.amount(), inst.strike.currency()),
+                None,
+            ));
         }
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
@@ -585,7 +602,7 @@ impl AsianOptionMcPricer {
                 fixing_steps.push(clamped);
             }
         }
-        
+
         fixing_steps.sort();
         fixing_steps.dedup();
 
@@ -829,12 +846,12 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
                 // Fallback if no fixings recorded (unlikely for expired option)
                 spot
             };
-            
+
             let intrinsic = match asian.option_type {
                 crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
                 crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
             };
-             return Ok(ValuationResult::stamped(
+            return Ok(ValuationResult::stamped(
                 asian.id(),
                 as_of,
                 Money::new(intrinsic * asian.notional.amount(), asian.strike.currency()),
@@ -843,7 +860,10 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
 
         // Seasoned Geometric Analytical not fully supported yet
         if count > 0 {
-             return Err(PricingError::model_failure("Seasoned Geometric Asian not supported in Analytical pricer. Use Monte Carlo.".to_string()));
+            return Err(PricingError::model_failure(
+                "Seasoned Geometric Asian not supported in Analytical pricer. Use Monte Carlo."
+                    .to_string(),
+            ));
         }
 
         let price = match asian.option_type {
@@ -899,14 +919,14 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
 
         let (sum, _, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();
-        
+
         if t <= 0.0 {
-             let average = if count > 0 { sum / count as f64 } else { spot };
-             let intrinsic = match asian.option_type {
+            let average = if count > 0 { sum / count as f64 } else { spot };
+            let intrinsic = match asian.option_type {
                 crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
                 crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
             };
-             return Ok(ValuationResult::stamped(
+            return Ok(ValuationResult::stamped(
                 asian.id(),
                 as_of,
                 Money::new(intrinsic * asian.notional.amount(), asian.strike.currency()),
@@ -915,55 +935,65 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
 
         let future_fixings = total_fixings.saturating_sub(count);
         if future_fixings == 0 {
-             // Deterministic case (all fixings past, but not expired?)
-             let average = sum / total_fixings as f64;
-             let payoff = match asian.option_type {
+            // Deterministic case (all fixings past, but not expired?)
+            let average = sum / total_fixings as f64;
+            let payoff = match asian.option_type {
                 crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
                 crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
-             };
-             // Discount to present
-             let disc_curve = market.get_discount_ref(asian.discount_curve_id.as_str())
-                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
-             let df = disc_curve.df(t); // approx discount using t (time to expiry)
-             return Ok(ValuationResult::stamped(asian.id(), as_of, Money::new(payoff * df * asian.notional.amount(), asian.strike.currency())));
+            };
+            // Discount to present
+            let disc_curve = market
+                .get_discount_ref(asian.discount_curve_id.as_str())
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            let df = disc_curve.df(t); // approx discount using t (time to expiry)
+            return Ok(ValuationResult::stamped(
+                asian.id(),
+                as_of,
+                Money::new(
+                    payoff * df * asian.notional.amount(),
+                    asian.strike.currency(),
+                ),
+            ));
         }
 
         let n = total_fixings as f64;
         let m = future_fixings as f64;
         let k = asian.strike.amount();
-        
+
         let numerator = n * k - sum;
         let k_eff = numerator / m;
         let scale = m / n;
 
         let price = if k_eff < 0.0 {
-             match asian.option_type {
-                 crate::instruments::OptionType::Call => {
-                     // Deep ITM: PV(Avg) - PV(K)
-                     // PV(Avg) = (Sum + Sum(PV(F_i))) / N * DF_T ??
-                     // No, Payoff paid at T.
-                     // E[Payoff] = 1/N (Sum + Sum(E[S_i])) - K
-                     // PV = DF_T * ( 1/N (Sum + Sum(F_i)) - K )
-                     // F_i = S * exp((r-q)*t_i)
-                     // This requires iterating future fixings.
-                     // For simplicity in this review fix, we can error or approximate.
-                     // But let's try to be correct.
-                     let mut sum_fwd = 0.0;
-                     for date in &asian.fixing_dates {
-                         if *date > as_of {
-                              let t_i = asian.day_count.year_fraction(as_of, *date, DayCountCtx::default())
-                                  .map_err(|e| PricingError::model_failure(e.to_string()))?;
-                              sum_fwd += spot * ((r - q) * t_i).exp();
-                         }
-                     }
-                     let expected_avg = (sum + sum_fwd) / n;
-                     let df = (-r * t).exp();
-                     (expected_avg - k).max(0.0) * df
-                 },
-                 crate::instruments::OptionType::Put => 0.0,
-             }
+            match asian.option_type {
+                crate::instruments::OptionType::Call => {
+                    // Deep ITM: PV(Avg) - PV(K)
+                    // PV(Avg) = (Sum + Sum(PV(F_i))) / N * DF_T ??
+                    // No, Payoff paid at T.
+                    // E[Payoff] = 1/N (Sum + Sum(E[S_i])) - K
+                    // PV = DF_T * ( 1/N (Sum + Sum(F_i)) - K )
+                    // F_i = S * exp((r-q)*t_i)
+                    // This requires iterating future fixings.
+                    // For simplicity in this review fix, we can error or approximate.
+                    // But let's try to be correct.
+                    let mut sum_fwd = 0.0;
+                    for date in &asian.fixing_dates {
+                        if *date > as_of {
+                            let t_i = asian
+                                .day_count
+                                .year_fraction(as_of, *date, DayCountCtx::default())
+                                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                            sum_fwd += spot * ((r - q) * t_i).exp();
+                        }
+                    }
+                    let expected_avg = (sum + sum_fwd) / n;
+                    let df = (-r * t).exp();
+                    (expected_avg - k).max(0.0) * df
+                }
+                crate::instruments::OptionType::Put => 0.0,
+            }
         } else {
-             let unscaled = match asian.option_type {
+            let unscaled = match asian.option_type {
                 crate::instruments::OptionType::Call => {
                     arithmetic_asian_call_tw(spot, k_eff, t, r, q, sigma, future_fixings)
                 }

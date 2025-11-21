@@ -166,7 +166,7 @@ impl Payoff for AutocallablePayoff {
                 // Check if we're at this observation date (within epsilon)
                 // We strictly check equality, not >=, because state.time advances past dates
                 let is_at_obs_date = (state.time - obs_date).abs() < 1e-6;
-                
+
                 if is_at_obs_date {
                     let barrier_level = self.initial_spot * self.autocall_barriers[idx];
                     if spot >= barrier_level {
@@ -264,7 +264,7 @@ mod tests {
             1.2, // Cap level
             100_000.0,
             Currency::USD,
-            100.0, // Initial spot
+            100.0,                    // Initial spot
             vec![1.0, 1.0, 1.0, 1.0], // df_ratios
         );
 

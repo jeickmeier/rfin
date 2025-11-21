@@ -4,16 +4,16 @@
 //! DCF (Discounted Cash Flow) valuation, allowing direct valuation of companies
 //! from forecast models.
 
+use crate::error::Result;
 use crate::evaluator::Evaluator;
 use crate::types::FinancialModelSpec;
 use finstack_core::currency::Currency;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
-use finstack_valuations::instruments::dcf::{DiscountedCashFlow, TerminalValueSpec};
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use crate::error::Result;
+use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::dcf::{DiscountedCashFlow, TerminalValueSpec};
 use serde_json::json;
 
 /// Corporate valuation result containing DCF outputs.
@@ -133,7 +133,9 @@ pub fn evaluate_dcf_with_trace(
     };
 
     // Determine valuation date (first period start)
-    let valuation_date = model.periods.first()
+    let valuation_date = model
+        .periods
+        .first()
         .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
         .start;
 
@@ -155,7 +157,8 @@ pub fn evaluate_dcf_with_trace(
 
     // Calculate valuation
     let market = MarketContext::new(); // DCF doesn't need market curves
-    let equity_value = dcf.value(&market, valuation_date)
+    let equity_value = dcf
+        .value(&market, valuation_date)
         .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
 
     // Calculate components for result
@@ -250,9 +253,8 @@ pub fn evaluate_dcf_with_trace(
         trace.push(
             TraceEntry::ComputationStep {
                 name: "exit_multiple_sensitivity".to_string(),
-                description:
-                    "Sensitivity of enterprise value to terminal exit multiple (+/- 1.0x)"
-                        .to_string(),
+                description: "Sensitivity of enterprise value to terminal exit multiple (+/- 1.0x)"
+                    .to_string(),
                 metadata: Some(json!({
                     "terminal_metric": terminal_metric,
                     "multiple_base": multiple,
@@ -284,13 +286,12 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
     // Try to find currency from metadata or default to USD
     if let Some(currency_meta) = model.meta.get("currency") {
         if let Some(currency_str) = currency_meta.as_str() {
-            return currency_str.parse::<Currency>()
-                .map_err(|_| crate::error::Error::Eval(
-                    format!("Invalid currency: {}", currency_str)
-                ));
+            return currency_str.parse::<Currency>().map_err(|_| {
+                crate::error::Error::Eval(format!("Invalid currency: {}", currency_str))
+            });
         }
     }
-    
+
     // Default to USD if not specified
     Ok(Currency::USD)
 }
@@ -305,16 +306,20 @@ fn calculate_net_debt_from_model(
     results: &crate::evaluator::Results,
 ) -> Result<f64> {
     // Get the last period (most recent balance sheet)
-    let last_period = model.periods.last()
+    let last_period = model
+        .periods
+        .last()
         .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?;
 
     // Try to find total debt
-    let total_debt = results.get("total_debt", &last_period.id)
+    let total_debt = results
+        .get("total_debt", &last_period.id)
         .or_else(|| results.get("debt", &last_period.id))
         .unwrap_or(0.0);
 
     // Try to find cash
-    let cash = results.get("cash", &last_period.id)
+    let cash = results
+        .get("cash", &last_period.id)
         .or_else(|| results.get("cash_and_equivalents", &last_period.id))
         .unwrap_or(0.0);
 
@@ -333,12 +338,27 @@ mod tests {
         let model = ModelBuilder::new("test-corp")
             .periods("2025Q1..Q4", None)
             .expect("valid periods")
-            .value("ufcf", &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
-            ])
+            .value(
+                "ufcf",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 3),
+                        AmountOrScalar::scalar(120_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 4),
+                        AmountOrScalar::scalar(130_000.0),
+                    ),
+                ],
+            )
             .build()
             .expect("valid model");
 
@@ -348,11 +368,11 @@ mod tests {
             TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
             "ufcf",
             Some(50_000.0),
-        ).expect("DCF evaluation should succeed");
+        )
+        .expect("DCF evaluation should succeed");
 
         // Should have positive equity value
         assert!(result.equity_value.amount() > 0.0);
         assert_eq!(result.equity_value.currency(), Currency::USD);
     }
 }
-

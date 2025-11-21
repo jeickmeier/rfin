@@ -904,7 +904,6 @@ impl ModelBuilder<Ready> {
         self.alias_registry = Some(registry);
         self
     }
-
 }
 
 #[cfg(test)]

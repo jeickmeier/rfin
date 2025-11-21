@@ -286,7 +286,7 @@ mod tests {
         assert!(is_summable("delta"));
         assert!(!is_summable("ytm"));
         assert!(!is_summable("duration"));
-        
+
         // Test bucketed/composite keys
         assert!(is_summable("bucketed_dv01::2y"));
         assert!(is_summable("bucketed_cs01::AAA::5y"));

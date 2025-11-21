@@ -8,9 +8,9 @@ use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::prelude::*;
 use finstack_valuations::attribution::{
-    attribute_pnl_parallel, attribute_pnl_metrics_based, AttributionMethod, CorrelationsAttribution,
-    CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution, PnlAttribution,
-    RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, AttributionMethod,
+    CorrelationsAttribution, CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution,
+    PnlAttribution, RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
 };
 use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
@@ -408,9 +408,7 @@ pub fn attribute_portfolio_pnl(
             let base_t0 = Money::new(pnl_amount * rate_t0.rate, base_ccy);
             let base_t1 = Money::new(pnl_amount * rate_t1.rate, base_ccy);
 
-            let translation_of_pnl = base_t1
-                .checked_sub(base_t0)
-                .map_err(PortfolioError::Core)?;
+            let translation_of_pnl = base_t1.checked_sub(base_t0).map_err(PortfolioError::Core)?;
 
             // 2. Revaluation of Opening Principal: Val_T0_Native * (R1 - R0)
             // This captures the FX risk on the principal amount held.

@@ -695,7 +695,8 @@ impl CDSPricer {
                 // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
                 // AoD part per unit spread in this period
-                ann += self.calculate_accrual_on_default(unit_spread, t_start, t_end, disc, surv)?;
+                ann +=
+                    self.calculate_accrual_on_default(unit_spread, t_start, t_end, disc, surv)?;
             }
             ann
         } else {
@@ -890,15 +891,8 @@ impl CDSBootstrapper {
 
         for &(tenor, spread_bps) in &sorted_spreads {
             let cds = self.create_synthetic_cds(base_date, tenor, spread_bps, recovery_rate)?;
-            let hazard_rate = self.solve_for_hazard_rate(
-                &cds,
-                disc,
-                spread_bps,
-                &pricer,
-                &knots,
-                tenor,
-                base_date,
-            )?;
+            let hazard_rate = self
+                .solve_for_hazard_rate(&cds, disc, spread_bps, &pricer, &knots, tenor, base_date)?;
             knots.push((tenor, hazard_rate));
             par_spreads.push((tenor, spread_bps));
         }
@@ -949,7 +943,13 @@ impl CDSBootstrapper {
         let objective = |h: f64| -> f64 {
             // Create temp hazard curve with existing knots + trial point
             let surv = self
-                .create_temp_hazard_curve(existing_knots, current_tenor, h, base_date, cds.protection.recovery_rate)
+                .create_temp_hazard_curve(
+                    existing_knots,
+                    current_tenor,
+                    h,
+                    base_date,
+                    cds.protection.recovery_rate,
+                )
                 .expect("Hazard curve creation failed");
             match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
                 Ok(spread) => spread - target_spread_bps,
@@ -987,7 +987,7 @@ impl CDSBootstrapper {
     ) -> Result<HazardCurve> {
         let mut knots = existing_knots.to_vec();
         knots.push((current_tenor, current_rate));
-        
+
         HazardCurve::builder("TEMP")
             .base_date(base_date)
             .recovery_rate(recovery_rate)

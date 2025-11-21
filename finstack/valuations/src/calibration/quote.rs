@@ -354,5 +354,6 @@ impl Default for FutureSpecs {
 
 /// Standard OIS index tokens used for identifying OIS instruments.
 pub const STANDARD_OIS_INDICES: &[&str] = &[
-    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA", "CORRA", "AONIA", "SARON", "SORA",
+    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA", "CORRA", "AONIA", "SARON",
+    "SORA",
 ];

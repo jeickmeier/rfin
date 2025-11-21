@@ -51,7 +51,7 @@
 //!     upfront_fee: None,
 //!     ddtl: None,
 //!     covenants: None,
-//!     oid_eir: None,
+//!     credit_curve_id: None,
 //!     pricing_overrides: PricingOverrides::default(),
 //!     call_schedule: None,
 //! };
@@ -387,7 +387,7 @@ pub enum AmortizationSpec {
 ///     upfront_fee: None,
 ///     ddtl: None,
 ///     covenants: None,
-///     // oid_eir: None, // Deprecated field removed
+///     // credit_curve_id: None, // Deprecated field removed
 ///     pricing_overrides: PricingOverrides::default(),
 ///     call_schedule: None,
 /// };

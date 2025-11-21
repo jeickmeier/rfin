@@ -189,11 +189,11 @@ impl SABRCalibrationDerivatives {
         let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
         let numerator = -rho + z + sqrt_term;
         let denominator = sqrt_term * (sqrt_term + z - rho);
-        
+
         if denominator.abs() < 1e-14 {
             return 0.0;
         }
-        
+
         (1.0 - rho) * numerator / denominator
     }
 
@@ -205,26 +205,26 @@ impl SABRCalibrationDerivatives {
     fn dx_drho(&self, z: f64, rho: f64) -> f64 {
         let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
         let arg = (sqrt_term + z - rho) / (1.0 - rho);
-        
+
         if arg <= 0.0 || (1.0 - rho).abs() < 1e-14 {
             return 0.0;
         }
-        
+
         // d/dρ of ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
         // = 1/arg * d/dρ of arg
         // = 1/arg * [(1-ρ)*(-z/√(...) - 1) - (√(...) + z - ρ)*(-1)] / (1-ρ)²
-        
+
         let d_sqrt_d_rho = -z / sqrt_term;
         let d_numerator_d_rho = d_sqrt_d_rho - 1.0;
         let d_denominator_d_rho = -1.0;
-        
+
         let numerator = sqrt_term + z - rho;
         let denominator = 1.0 - rho;
-        
+
         // Quotient rule: (d_num * denom - num * d_denom) / denom²
-        let d_arg_d_rho = (d_numerator_d_rho * denominator - numerator * d_denominator_d_rho) 
+        let d_arg_d_rho = (d_numerator_d_rho * denominator - numerator * d_denominator_d_rho)
             / (denominator * denominator);
-        
+
         d_arg_d_rho / arg
     }
 
@@ -296,7 +296,8 @@ impl SABRCalibrationDerivatives {
 
         // d_term2/d_alpha
         let d_term2_d_alpha = t
-            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha) / (24.0 * f_mid.powf(2.0 * (1.0 - beta)))
+            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha)
+                / (24.0 * f_mid.powf(2.0 * (1.0 - beta)))
                 + (sabr_params.rho * beta * sabr_params.nu) / (4.0 * f_power));
 
         // Compute dx/d_alpha using chain rule
@@ -535,7 +536,10 @@ mod tests {
             assert!(
                 rel_error < 0.01 || abs_diff < 1e-6,
                 "Gradient component {} differs: analytical={}, numerical={}, rel_error={}",
-                i, analytical_grad[i], numerical_grad[i], rel_error
+                i,
+                analytical_grad[i],
+                numerical_grad[i],
+                rel_error
             );
         }
     }
@@ -600,7 +604,10 @@ mod tests {
             assert!(
                 rel_error < 0.01 || abs_diff < 1e-6,
                 "OTM gradient component {} differs: analytical={}, numerical={}, rel_error={}",
-                i, analytical_grad[i], numerical_grad[i], rel_error
+                i,
+                analytical_grad[i],
+                numerical_grad[i],
+                rel_error
             );
         }
     }

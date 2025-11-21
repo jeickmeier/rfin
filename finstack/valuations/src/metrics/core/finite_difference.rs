@@ -59,7 +59,7 @@ pub mod bump_sizes {
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
-/// let mut context = MarketContext::new(as_of);
+/// let mut context = MarketContext::new();
 ///
 /// // Add a spot price
 /// context.add_price("AAPL", MarketScalar::Unitless(150.0));
@@ -138,7 +138,7 @@ pub fn bump_scalar_price(
 ///     .knots(vec![(0.0, 1.0), (1.0, 0.96), (5.0, 0.85)])
 ///     .build()?;
 ///
-/// let context = MarketContext::new(as_of).insert_discount(curve);
+/// let context = MarketContext::new().insert_discount(curve);
 ///
 /// // Bump the curve by 1bp (0.0001)
 /// let bumped = bump_discount_curve_parallel(&context, &curve_id, 0.0001)?;
@@ -189,7 +189,7 @@ pub fn bump_discount_curve_parallel(
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
-/// let context = MarketContext::new(as_of);
+/// let context = MarketContext::new();
 /// // Assume context has a volatility surface "AAPL-VOL"
 ///
 /// // Scale the surface up by 1% (for vega calculation)

@@ -3,7 +3,7 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::aggregation::{pv_by_period_with_ctx, pv_by_period_credit_adjusted_with_ctx};
+use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_with_ctx, pv_by_period_with_ctx};
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -400,7 +400,13 @@ impl CashFlowSchedule {
             .map(|arc| arc.as_ref() as &dyn Survival);
 
         pv_by_period_credit_adjusted_with_ctx(
-            &flows, periods, disc, hazard, base, dc, DayCountCtx::default(),
+            &flows,
+            periods,
+            disc,
+            hazard,
+            base,
+            dc,
+            DayCountCtx::default(),
         )
     }
 

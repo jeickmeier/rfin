@@ -3,25 +3,25 @@
 #[cfg(feature = "mc")]
 use crate::instruments::cliquet_option::types::{CliquetOption, CliquetPayoffType};
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::paths::ProcessParams;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::metadata::ProcessMetadata;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::paths::ProcessParams;
+use crate::instruments::common::mc::rng::philox::PhiloxRng;
+#[cfg(feature = "mc")]
+use crate::instruments::common::mc::time_grid::TimeGrid;
+#[cfg(feature = "mc")]
+use crate::instruments::common::mc::traits::Discretization;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::traits::StochasticProcess;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::traits::Discretization;
+use crate::instruments::common::models::monte_carlo::engine::{McEngine, McEngineConfig};
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::cliquet::{
     CliquetCallPayoff, CliquetPayoffType as McPayoffType,
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
-#[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::engine::{McEngine, McEngineConfig};
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::time_grid::TimeGrid;
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
@@ -120,11 +120,11 @@ impl Discretization<PiecewiseGbmProcess> for PiecewiseExactGbm {
     ) {
         let idx = process.times.partition_point(|&time| time < t);
         let idx = idx.min(process.times.len() - 1);
-        
+
         let r = process.rs[idx];
         let q = process.qs[idx];
         let sigma = process.sigmas[idx];
-        
+
         // S(t+dt) = S(t) * exp( (r - q - 0.5*sigma^2)*dt + sigma*sqrt(dt)*Z )
         let drift = (r - q - 0.5 * sigma * sigma) * dt;
         let diffusion = sigma * dt.sqrt() * z[0];
@@ -175,10 +175,10 @@ impl CliquetOptionMcPricer {
         // Get curves
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-        
+
         // Optional dividend yield
         let div_yield = if let Some(div_id) = &inst.div_yield_id {
-             match curves.price(div_id.as_str()) {
+            match curves.price(div_id.as_str()) {
                 Ok(ms) => match ms {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
@@ -200,35 +200,54 @@ impl CliquetOptionMcPricer {
         let mut prev_var = 0.0;
 
         // Combine reset dates into a sorted list of times including maturity
-        let mut check_points: Vec<f64> = inst.reset_dates.iter()
-            .map(|d| inst.day_count.year_fraction(as_of, *d, DayCountCtx::default()).unwrap_or(0.0))
+        let mut check_points: Vec<f64> = inst
+            .reset_dates
+            .iter()
+            .map(|d| {
+                inst.day_count
+                    .year_fraction(as_of, *d, DayCountCtx::default())
+                    .unwrap_or(0.0)
+            })
             .filter(|&t| t > 0.0)
             .collect();
-        check_points.sort_by(|a, b| a.partial_cmp(b).expect("Time fractions should be comparable (no NaN)"));
+        check_points.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("Time fractions should be comparable (no NaN)")
+        });
         check_points.dedup();
-        
+
         // Ensure we cover up to t if not in reset dates
         if let Some(&last) = check_points.last() {
-             if last < t - 1e-6 {
-                 check_points.push(t);
-             }
+            if last < t - 1e-6 {
+                check_points.push(t);
+            }
         } else {
             check_points.push(t);
         }
 
         for &curr_t in &check_points {
-            if curr_t <= prev_t { continue; }
-            
+            if curr_t <= prev_t {
+                continue;
+            }
+
             // Forward Rate
             // df(prev_t) / df(curr_t) = exp(r * (curr_t - prev_t))
             // r = ln(df_prev / df_curr) / dt
-            let t_prev_curve = disc_curve.day_count().year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())? + prev_t;
-            let t_curr_curve = disc_curve.day_count().year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())? + curr_t;
-            
+            let t_prev_curve = disc_curve.day_count().year_fraction(
+                disc_curve.base_date(),
+                as_of,
+                DayCountCtx::default(),
+            )? + prev_t;
+            let t_curr_curve = disc_curve.day_count().year_fraction(
+                disc_curve.base_date(),
+                as_of,
+                DayCountCtx::default(),
+            )? + curr_t;
+
             let df_prev = disc_curve.df(t_prev_curve);
             let df_curr = disc_curve.df(t_curr_curve);
             let dt = curr_t - prev_t;
-            
+
             let fwd_r = if dt > 1e-6 && df_curr > 0.0 {
                 (df_prev / df_curr).ln() / dt
             } else {
@@ -242,24 +261,29 @@ impl CliquetOptionMcPricer {
             // Actually, we need F(0, curr_t) for the volatility lookup at curr_t
             // This is the standard ATM Forward Volatility.
             let forward_price = if df_curr > 0.0 {
-                initial_spot * (-div_yield * curr_t).exp() / df_curr * disc_curve.df(disc_curve.day_count().year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())?)
+                initial_spot * (-div_yield * curr_t).exp() / df_curr
+                    * disc_curve.df(disc_curve.day_count().year_fraction(
+                        disc_curve.base_date(),
+                        as_of,
+                        DayCountCtx::default(),
+                    )?)
             } else {
                 initial_spot
             };
 
             let vol_curr = vol_surface.value_clamped(curr_t, forward_price);
             let var_curr = vol_curr * vol_curr * curr_t;
-            
+
             let fwd_var = var_curr - prev_var;
             let fwd_sigma = if fwd_var > 0.0 && dt > 1e-6 {
                 (fwd_var / dt).sqrt()
             } else {
-                 vol_curr
+                vol_curr
             };
 
             times.push(curr_t);
             rs.push(fwd_r);
-            qs.push(div_yield); 
+            qs.push(div_yield);
             sigmas.push(fwd_sigma);
 
             prev_t = curr_t;
@@ -337,7 +361,7 @@ impl CliquetOptionMcPricer {
             antithetic: self.config.antithetic,
         };
         let engine = McEngine::new(engine_config);
-        
+
         let rng = PhiloxRng::new(seed);
         let disc = PiecewiseExactGbm::new();
         let initial_state = vec![initial_spot];

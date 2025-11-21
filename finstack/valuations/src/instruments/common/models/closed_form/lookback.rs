@@ -145,19 +145,14 @@ pub fn fixed_strike_lookback_put(
     // Seasoned Case: Decomposition
     // Payoff = K - S_min_final = (K - S_min) + (S_min - S_min_final)
     // Value = PV(K - S_min) + Value(Unseasoned Lookback Put with Strike = S_min)
-    
+
     let intrinsic_pv = (strike - s_min) * (-rate * time).exp();
-    
+
     // Value of the option to lower the minimum further below s_min
     // This is effectively an unseasoned lookback put with strike = s_min
     let unseasoned_val = fixed_strike_lookback_put(
-        spot, 
-        s_min, // New strike is current minimum
-        time, 
-        rate, 
-        div_yield, 
-        vol, 
-        spot // Unseasoned
+        spot, s_min, // New strike is current minimum
+        time, rate, div_yield, vol, spot, // Unseasoned
     );
 
     (intrinsic_pv + unseasoned_val).max(0.0)

@@ -9,15 +9,15 @@
 //! and project forward for a specified number of periods.
 
 mod backtesting;
-mod deterministic;
 pub mod covenants;
+mod deterministic;
 mod override_method;
 mod statistical;
 mod timeseries;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
-pub use deterministic::{curve_pct, forward_fill, growth_pct};
 pub use covenants::forecast_breaches;
+pub use deterministic::{curve_pct, forward_fill, growth_pct};
 pub use override_method::apply_override;
 pub use statistical::{lognormal_forecast, normal_forecast};
 pub use timeseries::{seasonal_forecast, timeseries_forecast};

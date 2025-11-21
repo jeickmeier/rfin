@@ -23,9 +23,7 @@ impl Pricer for DcfPricer {
         let dcf = instrument
             .as_any()
             .downcast_ref::<DiscountedCashFlow>()
-            .ok_or_else(|| {
-                PricingError::type_mismatch(InstrumentType::DCF, instrument.key())
-            })?;
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::DCF, instrument.key()))?;
 
         let equity_value = dcf
             .npv(market, as_of)
@@ -34,5 +32,3 @@ impl Pricer for DcfPricer {
         Ok(ValuationResult::stamped(dcf.id(), as_of, equity_value))
     }
 }
-
-

@@ -224,7 +224,7 @@ impl Equity {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         let spot_px = self.price_per_share(curves, as_of)?;
-        
+
         Ok(Money::new(
             spot_px.amount() * self.effective_shares(),
             self.currency,

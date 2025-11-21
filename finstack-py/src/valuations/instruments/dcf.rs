@@ -50,15 +50,9 @@ fn evaluate_dcf_py(
 
     let dict = PyDict::new(_py);
     dict.set_item("equity_value", PyMoney::new(result.equity_value))?;
-    dict.set_item(
-        "enterprise_value",
-        PyMoney::new(result.enterprise_value),
-    )?;
+    dict.set_item("enterprise_value", PyMoney::new(result.enterprise_value))?;
     dict.set_item("net_debt", PyMoney::new(result.net_debt))?;
-    dict.set_item(
-        "terminal_value_pv",
-        PyMoney::new(result.terminal_value_pv),
-    )?;
+    dict.set_item("terminal_value_pv", PyMoney::new(result.terminal_value_pv))?;
 
     Ok(dict.into())
 }
@@ -75,5 +69,3 @@ pub(crate) fn register<'py>(
     )?;
     Ok(vec!["evaluate_dcf"])
 }
-
-

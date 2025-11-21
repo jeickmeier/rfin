@@ -300,15 +300,15 @@ impl HazardCurveCalibrator {
 
         // Validate the calibrated hazard curve
         use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        curve
-            .validate(&ValidationConfig::default())
-            .map_err(|e| finstack_core::Error::Calibration {
+        curve.validate(&ValidationConfig::default()).map_err(|e| {
+            finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated hazard curve for {} failed validation: {}",
                     self.entity, e
                 ),
                 category: "hazard_curve_validation".to_string(),
-            })?;
+            }
+        })?;
 
         let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
             .with_metadata("entity", self.entity.clone())

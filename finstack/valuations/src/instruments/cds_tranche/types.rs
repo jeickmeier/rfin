@@ -175,7 +175,7 @@ impl CdsTranche {
             calendar_id: None,
             stub: StubKind::ShortFront,
         };
-        
+
         Self {
             id: id.into(),
             index_name: tranche_params.index_name.to_owned(),

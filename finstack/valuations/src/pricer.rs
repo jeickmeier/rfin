@@ -821,9 +821,11 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     // Revolving Credit
     registry.register_pricer(
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
-        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::Discounting,
-        )),
+        Box::new(
+            crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
+                ModelKey::Discounting,
+            ),
+        ),
     );
     // Term Loan (including DDTL)
     registry.register_pricer(
@@ -833,9 +835,11 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     #[cfg(feature = "mc")]
     registry.register_pricer(
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::MonteCarloGBM,
-        )),
+        Box::new(
+            crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
+                ModelKey::MonteCarloGBM,
+            ),
+        ),
     );
 
     // Asian Option

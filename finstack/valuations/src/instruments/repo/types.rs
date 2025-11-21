@@ -310,7 +310,7 @@ impl Repo {
         }
         let factor = 1.0 - self.haircut;
         if factor <= 0.0 {
-             return Err(Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(Error::Input(finstack_core::error::InputError::Invalid));
         }
         Ok(self.cash_amount / factor)
     }
@@ -385,7 +385,7 @@ impl Repo {
 
         // If start date is in the future (or today), subtract initial outflow
         if as_of <= self.start_date {
-             let t_start = disc_dc
+            let t_start = disc_dc
                 .year_fraction(
                     disc_curve.base_date(),
                     self.start_date,
@@ -536,7 +536,9 @@ mod tests {
             date(2025, 2, 1),
             "USD-OIS",
         );
-        let req = repo.required_collateral_value().expect("Required collateral value calculation should succeed in test");
+        let req = repo
+            .required_collateral_value()
+            .expect("Required collateral value calculation should succeed in test");
         // 1_000_000 / (1 - 0.02) = 1_020_408.16
         assert!((req.amount() - 1_020_408.16).abs() < 1e-2);
     }

@@ -122,12 +122,7 @@ pub fn apply_time_roll_forward(
         if let Some(instruments) = ctx.instruments.as_ref() {
             calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, days)?
         } else {
-            (
-                Vec::new(),
-                Vec::new(),
-                IndexMap::new(),
-                IndexMap::new(),
-            )
+            (Vec::new(), Vec::new(), IndexMap::new(), IndexMap::new())
         };
 
     Ok(RollForwardReport {
@@ -159,14 +154,12 @@ fn calculate_instrument_pnl(
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
     _days: i64,
-) -> Result<
-    (
-        Vec<(String, IndexMap<Currency, Money>)>,
-        Vec<(String, IndexMap<Currency, Money>)>,
-        IndexMap<Currency, Money>,
-        IndexMap<Currency, Money>,
-    ),
-> {
+) -> Result<(
+    Vec<(String, IndexMap<Currency, Money>)>,
+    Vec<(String, IndexMap<Currency, Money>)>,
+    IndexMap<Currency, Money>,
+    IndexMap<Currency, Money>,
+)> {
     let mut instrument_carry: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
     let mut instrument_mv_change: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
     let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
@@ -213,7 +206,12 @@ fn calculate_instrument_pnl(
         instrument_mv_change.push((inst_id, mv_change_by_ccy));
     }
 
-    Ok((instrument_carry, instrument_mv_change, total_carry, total_mv_change))
+    Ok((
+        instrument_carry,
+        instrument_mv_change,
+        total_carry,
+        total_mv_change,
+    ))
 }
 
 /// Collect cashflows for an instrument during a period, grouped by currency.

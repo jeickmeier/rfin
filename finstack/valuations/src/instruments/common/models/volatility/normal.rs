@@ -35,14 +35,18 @@ pub fn bachelier_price(
 ) -> f64 {
     if t <= 0.0 {
         return match option_type {
-            crate::instruments::common::parameters::OptionType::Call => (forward - strike).max(0.0) * annuity,
-            crate::instruments::common::parameters::OptionType::Put => (strike - forward).max(0.0) * annuity,
+            crate::instruments::common::parameters::OptionType::Call => {
+                (forward - strike).max(0.0) * annuity
+            }
+            crate::instruments::common::parameters::OptionType::Put => {
+                (strike - forward).max(0.0) * annuity
+            }
         };
     }
 
     let d = d_bachelier(forward, strike, sigma, t);
     let disc_vol = sigma * t.sqrt();
-    
+
     let term1 = (forward - strike) * norm_cdf(d);
     let term2 = disc_vol * norm_pdf(d);
 
@@ -60,4 +64,3 @@ pub fn bachelier_price(
         }
     }
 }
-

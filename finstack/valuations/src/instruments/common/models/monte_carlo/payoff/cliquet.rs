@@ -298,8 +298,17 @@ mod tests {
     #[test]
     fn test_cliquet_reset() {
         let reset_dates = vec![0.0, 0.25];
-        let mut cliquet =
-            CliquetCallPayoff::new(reset_dates, 0.10, 0.0, 0.30, 0.0, 1.0, Currency::USD, 100.0, CliquetPayoffType::Additive);
+        let mut cliquet = CliquetCallPayoff::new(
+            reset_dates,
+            0.10,
+            0.0,
+            0.30,
+            0.0,
+            1.0,
+            Currency::USD,
+            100.0,
+            CliquetPayoffType::Additive,
+        );
 
         cliquet.reset_spots = vec![110.0];
         cliquet.next_reset_idx = 1;

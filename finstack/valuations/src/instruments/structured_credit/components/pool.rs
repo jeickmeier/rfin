@@ -81,11 +81,15 @@ impl PoolAsset {
                 crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
                 crate::instruments::bond::CashflowSpec::Floating(spec) => Some(spec.rate_spec.dc),
                 // For amortizing, we look at the base spec
-                crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
-                    crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
-                    crate::instruments::bond::CashflowSpec::Floating(spec) => Some(spec.rate_spec.dc),
-                    _ => None,
-                },
+                crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => {
+                    match base.as_ref() {
+                        crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
+                        crate::instruments::bond::CashflowSpec::Floating(spec) => {
+                            Some(spec.rate_spec.dc)
+                        }
+                        _ => None,
+                    }
+                }
             },
         }
     }

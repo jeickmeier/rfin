@@ -68,7 +68,11 @@ fn test_extremely_high_haircut() {
     let required = repo.required_collateral_value();
 
     // Required collateral = Cash / (1 - haircut) = 1M / (1 - 0.50) = 2M
-    assert_money_approx_eq(required.unwrap(), Money::new(2_000_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(
+        required.unwrap(),
+        Money::new(2_000_000.0, Currency::USD),
+        1.0,
+    );
 }
 
 #[test]

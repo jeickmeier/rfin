@@ -5,8 +5,7 @@ use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::types::SensitivityScenario;
 use finstack_statements::analysis::{
-    ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode,
-    SensitivityResult,
+    ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode, SensitivityResult,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};

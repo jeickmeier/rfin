@@ -285,8 +285,9 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::FxBarrierOption, instrument.key())
             })?;
 
-        let (fx_spot, r_dom, r_for, sigma, t) = collect_fx_barrier_inputs(fx_barrier, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let (fx_spot, r_dom, r_for, sigma, t) =
+            collect_fx_barrier_inputs(fx_barrier, market, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(

@@ -11,7 +11,7 @@
 //! For reconciliation workflows requiring sum-then-round semantics, compute
 //! PVs in f64, sum, then construct `Money` from the final result.
 
-use finstack_core::cashflow::{CashFlow, CFKind};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::money::Money;
 use finstack_core::types::Currency;
@@ -349,9 +349,13 @@ pub fn pv_by_period_credit_adjusted_detailed(
             let t = if d == date_ctx.base {
                 0.0
             } else if d > date_ctx.base {
-                date_ctx.dc.year_fraction(date_ctx.base, d, date_ctx.dc_ctx)?
+                date_ctx
+                    .dc
+                    .year_fraction(date_ctx.base, d, date_ctx.dc_ctx)?
             } else {
-                -date_ctx.dc.year_fraction(d, date_ctx.base, date_ctx.dc_ctx)?
+                -date_ctx
+                    .dc
+                    .year_fraction(d, date_ctx.base, date_ctx.dc_ctx)?
             };
 
             // Get discount factor

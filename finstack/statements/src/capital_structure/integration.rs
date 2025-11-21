@@ -303,22 +303,19 @@ pub fn build_any_instrument_from_spec(
             }
 
             // Try as Deposit (cash management)
-            if let Ok(deposit) = finstack_valuations::instruments::Deposit::deserialize(
-                json_spec,
-            ) {
+            if let Ok(deposit) = finstack_valuations::instruments::Deposit::deserialize(json_spec) {
                 return Ok(Arc::new(deposit));
             }
 
             // Try as FRA (forward rate hedge)
-            if let Ok(fra) = finstack_valuations::instruments::ForwardRateAgreement::deserialize(json_spec)
+            if let Ok(fra) =
+                finstack_valuations::instruments::ForwardRateAgreement::deserialize(json_spec)
             {
                 return Ok(Arc::new(fra));
             }
 
             // Try as Repo (repurchase agreement)
-            if let Ok(repo) =
-                finstack_valuations::instruments::Repo::deserialize(json_spec)
-            {
+            if let Ok(repo) = finstack_valuations::instruments::Repo::deserialize(json_spec) {
                 return Ok(Arc::new(repo));
             }
 

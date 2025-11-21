@@ -36,27 +36,45 @@ impl MetricCalculator for DomesticIR01 {
             }
         };
 
-        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
-        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
-        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
-        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+        let df_dom_near = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_dom,
+        );
+        let df_dom_far = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_dom,
+        );
+        let df_for_near = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_for,
+        );
+        let df_for_far = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_for,
+        );
 
         // Bump domestic curve by 1bp relative to as_of
         // df_bumped(as_of, t) = df(as_of, t) * exp(-bump * t_from_as_of)
         let bump = 0.0001;
-        
-        let t_near = domestic_disc.day_count().year_fraction(
-            as_of,
-            fx_swap.near_date,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
+
+        let t_near = domestic_disc
+            .day_count()
+            .year_fraction(
+                as_of,
+                fx_swap.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_dom_near_b = df_dom_near * (-bump * t_near).exp();
 
-        let t_far = domestic_disc.day_count().year_fraction(
-            as_of,
-            fx_swap.far_date,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
+        let t_far = domestic_disc
+            .day_count()
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_dom_far_b = df_dom_far * (-bump * t_far).exp();
 
         // Resolve near rate at as_of
@@ -83,16 +101,16 @@ impl MetricCalculator for DomesticIR01 {
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
             None => {
-                 if df_dom_far_b.abs() > 1e-12 {
-                     near_rate * df_for_far / df_dom_far_b
-                 } else {
-                     near_rate
-                 }
+                if df_dom_far_b.abs() > 1e-12 {
+                    near_rate * df_for_far / df_dom_far_b
+                } else {
+                    near_rate
+                }
             }
         };
 
         let base_amt = fx_swap.base_notional.amount();
-        
+
         let mut pv_for_leg = 0.0;
         if include_near {
             pv_for_leg += base_amt * df_for_near;

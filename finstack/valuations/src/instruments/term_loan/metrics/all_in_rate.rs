@@ -114,7 +114,7 @@ impl MetricCalculator for AllInRateCalculator {
                     .covenants
                     .as_ref()
                     .and_then(|c| c.draw_stop_dates.iter().min().copied());
-                
+
                 for ev in &ddtl.draws {
                     if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {
                         continue;

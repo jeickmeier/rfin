@@ -4,10 +4,10 @@
 //! - [`TerminalValueSpec`] for Gordon Growth and Exit Multiple terminals
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
+use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -165,11 +165,7 @@ impl Instrument for DiscountedCashFlow {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv(market, as_of)
     }
 
@@ -213,16 +209,18 @@ impl CurveDependencies for DiscountedCashFlow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::{MetricContext, MetricId};
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::{term_structures::discount_curve::DiscountCurve, MarketContext};
+    use finstack_core::market_data::{
+        term_structures::discount_curve::DiscountCurve, MarketContext,
+    };
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
-    use crate::metrics::{MetricContext, MetricId};
 
     fn build_simple_dcf_gordon() -> DiscountedCashFlow {
-        let valuation_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("valid test valuation date");
+        let valuation_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid test valuation date");
         let cf_date =
             Date::from_calendar_date(2026, Month::January, 1).expect("valid test cashflow date");
 
@@ -261,8 +259,8 @@ mod tests {
 
     #[test]
     fn exit_multiple_terminal_value_matches_product() {
-        let valuation_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("valid test valuation date");
+        let valuation_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid test valuation date");
         let cf_date =
             Date::from_calendar_date(2026, Month::January, 1).expect("valid test cashflow date");
 
@@ -322,8 +320,8 @@ mod tests {
 
     #[test]
     fn npv_errors_when_wacc_not_greater_than_growth() {
-        let valuation_date = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("valid test valuation date");
+        let valuation_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid test valuation date");
         let cf_date =
             Date::from_calendar_date(2026, Month::January, 1).expect("valid test cashflow date");
 
@@ -344,7 +342,10 @@ mod tests {
         let as_of = valuation_date;
 
         let result = dcf.npv(&market, as_of);
-        assert!(result.is_err(), "expected validation error when WACC <= growth");
+        assert!(
+            result.is_err(),
+            "expected validation error when WACC <= growth"
+        );
     }
 
     #[test]
@@ -365,11 +366,7 @@ mod tests {
 
     fn build_flat_discount_curve(id: &CurveId, as_of: Date, rate: f64) -> DiscountCurve {
         // Simple flat discount curve with a few knots approximating exp(-r t)
-        let knots = [
-            (0.0, 1.0),
-            (1.0, (-rate).exp()),
-            (5.0, (-rate * 5.0).exp()),
-        ];
+        let knots = [(0.0, 1.0), (1.0, (-rate).exp()), (5.0, (-rate * 5.0).exp())];
 
         DiscountCurve::builder(id.clone())
             .base_date(as_of)
@@ -390,18 +387,13 @@ mod tests {
     ) -> MetricContext {
         let base_value = dcf.value(&market, as_of).expect("base value");
         let instrument: std::sync::Arc<dyn Instrument> = std::sync::Arc::new(dcf);
-        MetricContext::new(
-            instrument,
-            std::sync::Arc::new(market),
-            as_of,
-            base_value,
-        )
+        MetricContext::new(instrument, std::sync::Arc::new(market), as_of, base_value)
     }
 
     #[test]
     fn dcf_theta_metric_computes() {
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("valid test date for theta");
+        let as_of =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid test date for theta");
         let mut dcf = build_simple_dcf_gordon();
         dcf.valuation_date = as_of;
 
@@ -423,8 +415,8 @@ mod tests {
 
     #[test]
     fn dcf_dv01_metric_computes_and_is_reasonable() {
-        let as_of = Date::from_calendar_date(2025, Month::January, 1)
-            .expect("valid test date for dv01");
+        let as_of =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid test date for dv01");
         let mut dcf = build_simple_dcf_gordon();
         dcf.valuation_date = as_of;
 
@@ -473,5 +465,3 @@ mod tests {
         );
     }
 }
-
-

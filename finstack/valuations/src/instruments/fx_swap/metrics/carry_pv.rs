@@ -24,7 +24,10 @@ impl MetricCalculator for CarryPv {
         let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
         let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
 
-        let calc_df = |curve: &finstack_core::market_data::term_structures::DiscountCurve, date: finstack_core::dates::Date, df_as_of: f64| -> f64 {
+        let calc_df = |curve: &finstack_core::market_data::term_structures::DiscountCurve,
+                       date: finstack_core::dates::Date,
+                       df_as_of: f64|
+         -> f64 {
             if df_as_of != 0.0 {
                 curve.df_on_date_curve(date) / df_as_of
             } else {

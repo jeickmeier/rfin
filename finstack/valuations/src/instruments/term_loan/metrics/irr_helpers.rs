@@ -59,10 +59,7 @@ pub(super) fn solve_irr_to_exercise(
     flows.push((exercise_date, redemption));
 
     // Convert flows to (Date, f64) for XIRR
-    let flows_f64: Vec<(Date, f64)> = flows
-        .iter()
-        .map(|(d, m)| (*d, m.amount()))
-        .collect();
+    let flows_f64: Vec<(Date, f64)> = flows.iter().map(|(d, m)| (*d, m.amount())).collect();
 
     xirr_with_daycount(&flows_f64, loan.day_count, None)
 }

@@ -34,7 +34,7 @@
 //! - K = FRA rate (fixed rate)
 //! - DF(start) = discount factor to settlement
 //!
-//! Note: The term `1 / (1 + F × τ)` is the convexity/settlement adjustment 
+//! Note: The term `1 / (1 + F × τ)` is the convexity/settlement adjustment
 //! characteristic of standard FRAs settled at the start of the period.
 //!
 //! # Market Conventions

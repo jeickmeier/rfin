@@ -7,8 +7,8 @@
 //!
 //! This represents the dollar value attributed to the convexity adjustment.
 
-use crate::instruments::cms_option::types::CmsOption;
 use crate::instruments::cms_option::pricer::CmsOptionPricer;
+use crate::instruments::cms_option::types::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -23,12 +23,14 @@ impl MetricCalculator for ConvexityAdjustmentRiskCalculator {
 
         // Reprice with zero convexity
         let pricer = CmsOptionPricer::new();
-        let linear_pv = pricer.price_internal_with_convexity(
-            option,
-            &context.curves,
-            as_of,
-            0.0 // No convexity
-        )?.amount();
+        let linear_pv = pricer
+            .price_internal_with_convexity(
+                option,
+                &context.curves,
+                as_of,
+                0.0, // No convexity
+            )?
+            .amount();
 
         // Risk is the difference
         Ok(base_pv - linear_pv)

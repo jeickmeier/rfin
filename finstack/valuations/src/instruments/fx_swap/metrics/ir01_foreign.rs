@@ -36,26 +36,44 @@ impl MetricCalculator for ForeignIR01 {
             }
         };
 
-        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
-        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
-        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
-        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+        let df_dom_near = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_dom,
+        );
+        let df_dom_far = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_dom,
+        );
+        let df_for_near = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_for,
+        );
+        let df_for_far = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_for,
+        );
 
         // Bump foreign curve by 1bp relative to as_of
         let bump = 0.0001;
 
-        let t_near = foreign_disc.day_count().year_fraction(
-            as_of,
-            fx_swap.near_date,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
+        let t_near = foreign_disc
+            .day_count()
+            .year_fraction(
+                as_of,
+                fx_swap.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_for_near_b = df_for_near * (-bump * t_near).exp();
 
-        let t_far = foreign_disc.day_count().year_fraction(
-            as_of,
-            fx_swap.far_date,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
+        let t_far = foreign_disc
+            .day_count()
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_for_far_b = df_for_far * (-bump * t_far).exp();
 
         // Resolve near rate at as_of
@@ -91,7 +109,7 @@ impl MetricCalculator for ForeignIR01 {
         };
 
         let base_amt = fx_swap.base_notional.amount();
-        
+
         let mut pv_for_leg = 0.0;
         if include_near {
             pv_for_leg += base_amt * df_for_near_b;
@@ -99,7 +117,7 @@ impl MetricCalculator for ForeignIR01 {
         if include_far {
             pv_for_leg -= base_amt * df_for_far_b;
         }
-        
+
         let mut pv_dom_leg = 0.0;
         if include_near {
             pv_dom_leg -= base_amt * near_rate * df_dom_near;

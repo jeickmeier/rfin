@@ -234,11 +234,11 @@ fn barrier_helper(
         * forward_discount
         * (barrier / spot).powf(2.0 * (mu + 1.0))
         * norm_cdf(eta * y1)
-            - phi
-                * strike
-                * discount
-                * (barrier / spot).powf(2.0 * mu)
-                * norm_cdf(eta * (y1 - vol * time.sqrt()));
+        - phi
+            * strike
+            * discount
+            * (barrier / spot).powf(2.0 * mu)
+            * norm_cdf(eta * (y1 - vol * time.sqrt()));
 
     // Combine based on barrier type
     if spot > barrier {
@@ -276,7 +276,11 @@ pub fn barrier_touch_probability(
 ) -> f64 {
     if time <= 0.0 {
         return if is_up {
-            if spot >= barrier { 1.0 } else { 0.0 }
+            if spot >= barrier {
+                1.0
+            } else {
+                0.0
+            }
         } else if spot <= barrier {
             1.0
         } else {
@@ -288,7 +292,9 @@ pub fn barrier_touch_probability(
     let nu = rate - div_yield - 0.5 * vol * vol;
 
     if is_up {
-        if spot >= barrier { return 1.0; }
+        if spot >= barrier {
+            return 1.0;
+        }
         // Up barrier (H > S)
         // P(max S > H)
         let x = (barrier / spot).ln(); // Positive
@@ -296,17 +302,19 @@ pub fn barrier_touch_probability(
         let d2 = (-x - nu * time) / sigma_sqrt_t;
         // (H/S)^(2*nu/sigma^2)
         let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
-        
+
         norm_cdf(d1) + power_term * norm_cdf(d2)
     } else {
-        if spot <= barrier { return 1.0; }
+        if spot <= barrier {
+            return 1.0;
+        }
         // Down barrier (H < S)
         // P(min S < H)
         let log_h_s = (barrier / spot).ln(); // Negative
         let d1 = (log_h_s - nu * time) / sigma_sqrt_t;
         let d2 = (log_h_s + nu * time) / sigma_sqrt_t;
         let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
-        
+
         norm_cdf(d1) + power_term * norm_cdf(d2)
     }
 }
@@ -328,9 +336,9 @@ pub fn barrier_rebate_continuous(
 ) -> f64 {
     let is_up = matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut);
     let p_hit = barrier_touch_probability(spot, barrier, time, rate, div_yield, vol, is_up);
-    
+
     let df = (-rate * time).exp();
-    
+
     match barrier_type {
         BarrierType::UpIn | BarrierType::DownIn => {
             // Knock-In: Option activates if Hit.
@@ -483,7 +491,7 @@ pub fn barrier_put_continuous(
         barrier,
         time,
         rate,
-        rate, // BUG? No, div_yield should be div_yield
+        rate,      // BUG? No, div_yield should be div_yield
         div_yield, // Wait, argument order in helper is (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)
         // Let's check.
         // helper args: (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)

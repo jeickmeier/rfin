@@ -265,21 +265,21 @@ impl PathDependentPricer {
                         // Re-structure:
                         // engine_config consumes time_grid.
                         // We can clone time_grid before creating config if needed.
-                        
+
                         // Actually, let's just clone the grid at start since we need it multiple places in this complex block
                         // But time_grid was moved into price_with_grid.
                         // We can clone it.
-                        
+
                         // Easier: Clone passed time_grid before creating engine.
                         // But I already created engine above.
                         // Let's fix the structure.
-                        
+
                         // For this specific refactor, to avoid massive diff, I will just copy the body and use `time_grid` variable.
                         // But `time_grid` is moved into `McEngineConfig`.
                         // TimeGrid implements Clone.
-                        
+
                         // I will provide the implementation below correctly.
-                         let mut rng_clone = rng.clone();
+                        let mut rng_clone = rng.clone();
                         let time_grid_ref = &engine.config().time_grid;
                         let cfg = AntitheticConfig {
                             num_pairs: self.config.num_paths / 2,

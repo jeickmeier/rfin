@@ -42,8 +42,8 @@ impl MetricCalculator for DeltaCalculator {
         let delta = match option.vol_model {
             VolatilityModel::Black => {
                 if forward <= 0.0 {
-                     // Black model undefined for negative rates, return 0 delta or error
-                     return Ok(0.0);
+                    // Black model undefined for negative rates, return 0 delta or error
+                    return Ok(0.0);
                 }
                 use crate::instruments::common::models::d1_black76;
                 let d1 = d1_black76(forward, option.strike_rate, sigma, t);
@@ -51,7 +51,7 @@ impl MetricCalculator for DeltaCalculator {
                     OptionType::Call => finstack_core::math::norm_cdf(d1),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d1),
                 }
-            },
+            }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
                 let d = d_bachelier(forward, option.strike_rate, sigma, t);

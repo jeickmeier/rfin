@@ -39,10 +39,8 @@ impl MetricCalculator for YtmCalculator {
         }
 
         // Convert flows to (Date, f64) for XIRR
-        let flows_f64: Vec<(finstack_core::dates::Date, f64)> = flows
-            .iter()
-            .map(|(d, m)| (*d, m.amount()))
-            .collect();
+        let flows_f64: Vec<(finstack_core::dates::Date, f64)> =
+            flows.iter().map(|(d, m)| (*d, m.amount())).collect();
 
         // Solve IRR using the loan's day-count convention
         finstack_core::cashflow::xirr::xirr_with_daycount(&flows_f64, loan.day_count, None)

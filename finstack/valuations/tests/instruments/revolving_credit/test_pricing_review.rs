@@ -16,27 +16,27 @@ fn test_pricing_recovery_consistency() {
     // the Recovery Leg for credit risk pricing.
     //
     // Expected behavior: When a loan pays risk-free + spread, and the spread
-    // correctly compensates for credit risk (including recovery), the loan 
+    // correctly compensates for credit risk (including recovery), the loan
     // should price close to Par (100%).
     //
     // Implementation: The pricer now includes both:
     // 1. Survival PV: Cashflows discounted with survival probability
     // 2. Recovery PV: Expected recovery value from defaults
     // This ensures proper market-standard pricing.
-    
+
     // Scenario: 1-year fully drawn facility (bullet loan behavior).
     // Risk-free rate (r) = 5%.
     // Market Spread (s) = 2% (200 bps).
     // Recovery Rate (R) = 40%.
     // Coupon = r + s = 7%.
-    
+
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-    
+
     // 1. Create Facility
     let commitment = Money::new(10_000_000.0, Currency::USD);
     let drawn = commitment; // Fully drawn
-    
+
     let facility = RevolvingCredit::builder()
         .id("TEST-RCF".into())
         .commitment_amount(commitment)
@@ -61,13 +61,10 @@ fn test_pricing_recovery_consistency() {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
-        .knots(vec![
-            (0.0, 1.0),
-            (10.0, (-r * 10.0).exp())
-        ])
+        .knots(vec![(0.0, 1.0), (10.0, (-r * 10.0).exp())])
         .build()
         .unwrap();
-    
+
     // Hazard Curve: h = s / (1-R) = 0.02 / 0.6 = 0.033333
     let hazard_rate = 0.02 / 0.60;
     let hazard_curve = HazardCurve::builder("BORROWER-HAZARD")
@@ -84,24 +81,25 @@ fn test_pricing_recovery_consistency() {
     // 3. Price
     let pv = facility.value(&market, as_of).unwrap();
     let price_pct = pv.amount() / commitment.amount();
-    
+
     // Theoretical Market Par with continuous discounting: 1.07 * exp(-(0.05+0.02)) = 0.997661
     // Actual implementation uses numerical integration for recovery leg (trapezoidal),
     // yielding ~0.997237 (within 4.3bps of theoretical continuous par).
     // We accept this difference as numerical approximation error.
     let expected_market = 0.997237;
-    
+
     // Assert current behavior matches the FIX (recovery leg implemented)
     assert!(
-        (price_pct - expected_market).abs() < 1e-5, 
-        "Price should match Market Par (approx). Got {:.6}, Expected {:.6}.", 
-        price_pct, 
+        (price_pct - expected_market).abs() < 1e-5,
+        "Price should match Market Par (approx). Got {:.6}, Expected {:.6}.",
+        price_pct,
         expected_market
     );
-    
+
     // Also verify it's reasonably close to par
-    assert!(price_pct > 0.99 && price_pct < 1.01, 
-        "A properly priced loan paying r+s should be near par. Got {:.6}", 
+    assert!(
+        price_pct > 0.99 && price_pct < 1.01,
+        "A properly priced loan paying r+s should be near par. Got {:.6}",
         price_pct
     );
 }

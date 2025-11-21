@@ -41,7 +41,7 @@ impl MetricCalculator for VannaCalculator {
         let vol_bump_size = current_vol * vol_bump_pct;
 
         // Two-point finite difference for Vanna = ∂Δ/∂σ
-        
+
         // 1. Delta at (σ+Δσ)
         let curves_vol_up = {
             let vol_bumped = vol_surface.bump_point(t, option.strike, vol_bump_pct)?;

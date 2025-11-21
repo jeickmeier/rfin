@@ -230,7 +230,7 @@ impl CDSTranchePricer {
 
         // Check if tranche is already wiped out
         if tranche.accumulated_loss >= tranche.detach_pct / 100.0 {
-             return Ok(Money::new(0.0, tranche.notional.currency()));
+            return Ok(Money::new(0.0, tranche.notional.currency()));
         }
 
         // Get the credit index data
@@ -242,14 +242,18 @@ impl CDSTranchePricer {
         // Determine effective valuation date (handling settlement lag if needed)
         // Standard CDS settlement is T+1
         let valuation_date = if tranche.effective_date.is_none() {
-             // Simple T+1 approximation if no calendar. 
-             // In a real system, we'd use the relevant holiday calendar.
-             if let Some(_cal_id) = &tranche.calendar_id {
-                 // Use calendar if available (not implemented here, defaulting to next day)
-                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
-             } else {
-                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
-             }
+            // Simple T+1 approximation if no calendar.
+            // In a real system, we'd use the relevant holiday calendar.
+            if let Some(_cal_id) = &tranche.calendar_id {
+                // Use calendar if available (not implemented here, defaulting to next day)
+                as_of.next_day().ok_or(finstack_core::Error::from(
+                    finstack_core::error::InputError::Invalid,
+                ))?
+            } else {
+                as_of.next_day().ok_or(finstack_core::Error::from(
+                    finstack_core::error::InputError::Invalid,
+                ))?
+            }
         } else {
             as_of
         };
@@ -259,8 +263,12 @@ impl CDSTranchePricer {
         let pv_premium =
             self.calculate_premium_leg_pv(tranche, index_data_arc, discount_curve, valuation_date)?;
 
-        let pv_protection =
-            self.calculate_protection_leg_pv(tranche, index_data_arc, discount_curve, valuation_date)?;
+        let pv_protection = self.calculate_protection_leg_pv(
+            tranche,
+            index_data_arc,
+            discount_curve,
+            valuation_date,
+        )?;
 
         // Net present value depends on the side
         let net_pv = match tranche.side {
@@ -272,25 +280,29 @@ impl CDSTranchePricer {
     }
 
     /// Calculate effective attachment/detachment points given accumulated losses.
-    /// 
+    ///
     /// Returns (effective_attach, effective_detach, survival_factor)
     /// where survival_factor is (1 - L).
     fn calculate_effective_structure(&self, tranche: &CdsTranche) -> (f64, f64, f64) {
         let l = tranche.accumulated_loss;
         let attach = tranche.attach_pct / 100.0;
         let detach = tranche.detach_pct / 100.0;
-        
+
         if l >= 1.0 - 1e-9 {
-             return (0.0, 0.0, 0.0);
+            return (0.0, 0.0, 0.0);
         }
-        
+
         let survival_factor = 1.0 - l;
-        
+
         let eff_attach = (attach - l).max(0.0) / survival_factor;
         let eff_detach = (detach - l).max(0.0) / survival_factor;
-        
+
         // Clamp to [0, 1] (eff_detach can be > 1 theoretically if L is huge but we check L >= D before)
-        (eff_attach.clamp(0.0, 1.0), eff_detach.clamp(0.0, 1.0), survival_factor)
+        (
+            eff_attach.clamp(0.0, 1.0),
+            eff_detach.clamp(0.0, 1.0),
+            survival_factor,
+        )
     }
 
     /// Calculate expected tranche loss using the base correlation approach.
@@ -305,7 +317,7 @@ impl CDSTranchePricer {
         maturity: Date,
     ) -> Result<f64> {
         let (eff_attach, eff_detach, survival_factor) = self.calculate_effective_structure(tranche);
-        
+
         // If effective width is zero, no loss
         if eff_detach <= eff_attach {
             return Ok(0.0);
@@ -313,8 +325,12 @@ impl CDSTranchePricer {
 
         // Get correlations for ORIGINAL attachment and detachment points
         // Base correlation is sticky to the original structure
-        let corr_attach = index_data.base_correlation_curve.correlation(tranche.attach_pct);
-        let corr_detach = index_data.base_correlation_curve.correlation(tranche.detach_pct);
+        let corr_attach = index_data
+            .base_correlation_curve
+            .correlation(tranche.attach_pct);
+        let corr_detach = index_data
+            .base_correlation_curve
+            .correlation(tranche.detach_pct);
 
         // Apply enhanced correlation boundary handling for numerical stability
         let corr_attach = self.smooth_correlation_boundary(corr_attach);
@@ -323,11 +339,19 @@ impl CDSTranchePricer {
         // Calculate expected losses for equity tranches [0, A_eff] and [0, D_eff]
         // Note: These inputs to calculate_equity_tranche_loss are now in "Effective %" terms
         // but correlations are from "Original %" terms.
-        let el_to_attach =
-            self.calculate_equity_tranche_loss(eff_attach * 100.0, corr_attach, index_data, maturity)?;
+        let el_to_attach = self.calculate_equity_tranche_loss(
+            eff_attach * 100.0,
+            corr_attach,
+            index_data,
+            maturity,
+        )?;
 
-        let el_to_detach =
-            self.calculate_equity_tranche_loss(eff_detach * 100.0, corr_detach, index_data, maturity)?;
+        let el_to_detach = self.calculate_equity_tranche_loss(
+            eff_detach * 100.0,
+            corr_detach,
+            index_data,
+            maturity,
+        )?;
 
         // The [A_eff, D_eff] tranche loss as a fraction of CURRENT portfolio
         let current_portfolio_loss_fraction = (el_to_detach - el_to_attach).max(0.0);
@@ -336,10 +360,12 @@ impl CDSTranchePricer {
         // Loss = CurrentPortFrac * CurrentPortNotional
         // CurrentPortNotional = OrigPortNotional * (1 - L)
         // OrigPortNotional = TrancheNotional / (D_orig - A_orig)
-        
+
         let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
-        if orig_width <= 1e-9 { return Ok(0.0); }
-        
+        if orig_width <= 1e-9 {
+            return Ok(0.0);
+        }
+
         let orig_port_notional = tranche.notional.amount() / orig_width;
         let loss_amount = current_portfolio_loss_fraction * orig_port_notional * survival_factor;
 
@@ -362,8 +388,12 @@ impl CDSTranchePricer {
         }
 
         // Get correlations for ORIGINAL points
-        let corr_attach = index_data.base_correlation_curve.correlation(tranche.attach_pct);
-        let corr_detach = index_data.base_correlation_curve.correlation(tranche.detach_pct);
+        let corr_attach = index_data
+            .base_correlation_curve
+            .correlation(tranche.attach_pct);
+        let corr_detach = index_data
+            .base_correlation_curve
+            .correlation(tranche.detach_pct);
 
         // Apply enhanced correlation boundary handling
         let corr_attach = self.smooth_correlation_boundary(corr_attach);
@@ -378,17 +408,20 @@ impl CDSTranchePricer {
 
         // Loss on current portfolio
         let current_portfolio_loss_fraction = (el_to_detach - el_to_attach).max(0.0);
-        
+
         // Scale to original tranche notional fraction
         // Fraction = (CurrentLossFrac * (1-L)) / OrigWidth
         let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
-        if orig_width <= 1e-9 { return Ok(0.0); }
-        
-        let tranche_loss_fraction = (current_portfolio_loss_fraction * survival_factor) / orig_width;
+        if orig_width <= 1e-9 {
+            return Ok(0.0);
+        }
+
+        let tranche_loss_fraction =
+            (current_portfolio_loss_fraction * survival_factor) / orig_width;
 
         // Add prior realized loss to get Total Cumulative Loss
         let prior_loss = self.calculate_prior_tranche_loss(tranche);
-        
+
         Ok((tranche_loss_fraction + prior_loss).clamp(0.0, 1.0))
     }
 
@@ -1054,9 +1087,11 @@ impl CDSTranchePricer {
         let attach = tranche.attach_pct / 100.0;
         let detach = tranche.detach_pct / 100.0;
         let width = detach - attach;
-        
-        if width <= 1e-9 { return 0.0; }
-        
+
+        if width <= 1e-9 {
+            return 0.0;
+        }
+
         // Fraction of tranche already wiped out
         let loss_in_tranche = (l - attach).clamp(0.0, width);
         loss_in_tranche / width
@@ -1076,8 +1111,8 @@ impl CDSTranchePricer {
                 current = next_cds_date(current);
                 // Ensure we don't go past maturity (next_cds_date can go past if close)
                 if current > tranche.maturity {
-                     out.push(tranche.maturity);
-                     break;
+                    out.push(tranche.maturity);
+                    break;
                 }
                 out.push(current);
             }
@@ -1150,11 +1185,15 @@ impl CDSTranchePricer {
 
         // Determine effective valuation date (handling settlement lag matches price_tranche)
         let valuation_date = if tranche.effective_date.is_none() {
-             if let Some(_cal_id) = &tranche.calendar_id {
-                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
-             } else {
-                 as_of.next_day().ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
-             }
+            if let Some(_cal_id) = &tranche.calendar_id {
+                as_of.next_day().ok_or(finstack_core::Error::from(
+                    finstack_core::error::InputError::Invalid,
+                ))?
+            } else {
+                as_of.next_day().ok_or(finstack_core::Error::from(
+                    finstack_core::error::InputError::Invalid,
+                ))?
+            }
         } else {
             as_of
         };
@@ -1162,8 +1201,12 @@ impl CDSTranchePricer {
         // Premium PV per 1 basis point of running coupon
         let mut unit_tranche = tranche.clone();
         unit_tranche.running_coupon_bp = 1.0;
-        let premium_per_bp =
-            self.calculate_premium_leg_pv(&unit_tranche, index_data, discount_curve, valuation_date)?;
+        let premium_per_bp = self.calculate_premium_leg_pv(
+            &unit_tranche,
+            index_data,
+            discount_curve,
+            valuation_date,
+        )?;
 
         if premium_per_bp.abs() < self.params.numerical_tolerance {
             return Ok(0.0);
@@ -2066,12 +2109,13 @@ mod tests {
         tranche.series = 42;
         tranche.accumulated_loss = 0.0;
         tranche.standard_imm_dates = true;
-        
+
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // 1. Price with no prior loss
-        let pv_clean = model.price_tranche(&tranche, &market_ctx, as_of)
+        let pv_clean = model
+            .price_tranche(&tranche, &market_ctx, as_of)
             .expect("Pricing clean tranche")
             .amount();
 
@@ -2079,19 +2123,21 @@ mod tests {
         // Remaining tranche is effectively [0, (3-1)/(1-0.01)] = [0, 2.02%] on surviving portfolio
         // Outstanding notional starts at 2/3 of original
         tranche.accumulated_loss = 0.01;
-        let pv_loss = model.price_tranche(&tranche, &market_ctx, as_of)
+        let pv_loss = model
+            .price_tranche(&tranche, &market_ctx, as_of)
             .expect("Pricing tranche with loss")
             .amount();
 
         // The PV should be different
         assert!(pv_loss != pv_clean, "Realized loss should impact PV");
-        
+
         // 3. Price with 4% realized loss (tranche wiped out)
         tranche.accumulated_loss = 0.04;
-        let pv_wiped = model.price_tranche(&tranche, &market_ctx, as_of)
+        let pv_wiped = model
+            .price_tranche(&tranche, &market_ctx, as_of)
             .expect("Pricing wiped tranche")
             .amount();
-            
+
         assert_eq!(pv_wiped, 0.0, "Wiped out tranche should have 0 PV");
     }
 }

@@ -226,24 +226,27 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             .ok_or(Error::Input(InputError::NotFound {
                 id: "spot price".to_string(),
             }))?;
-        let volatility = *initial_vars
-            .get("volatility")
-            .ok_or(Error::Input(InputError::NotFound {
-                id: "volatility".to_string(),
-            }))?;
-        let risk_free_rate = *initial_vars
-            .get("interest_rate")
-            .ok_or(Error::Input(InputError::NotFound {
-                id: "interest_rate".to_string(),
-            }))?;
-        let dividend_yield = *initial_vars
-            .get("dividend_yield")
-            .ok_or(Error::Input(InputError::NotFound {
-                id: "dividend_yield".to_string(),
-            }))?;
+        let volatility =
+            *initial_vars
+                .get("volatility")
+                .ok_or(Error::Input(InputError::NotFound {
+                    id: "volatility".to_string(),
+                }))?;
+        let risk_free_rate =
+            *initial_vars
+                .get("interest_rate")
+                .ok_or(Error::Input(InputError::NotFound {
+                    id: "interest_rate".to_string(),
+                }))?;
+        let dividend_yield =
+            *initial_vars
+                .get("dividend_yield")
+                .ok_or(Error::Input(InputError::NotFound {
+                    id: "dividend_yield".to_string(),
+                }))?;
 
         let dt = self.time_to_maturity / self.steps as f64;
-        
+
         // Use EvolutionParams to get tree factors
         // Note: We use CRR for Binomial, standard for Trinomial
         // For TZ, we need separate discount factors for risk-free and risky rates
@@ -263,13 +266,13 @@ impl<'a> TsiveriotisZhangEngine<'a> {
         // State tracking: (Total Value, Cash Component)
         // Cash Component is the value of the liability if it were not convertible.
         // It is subject to credit risk.
-        
+
         // Initialize terminal nodes
         let mut values: Vec<(f64, f64)> = Vec::with_capacity(2 * self.steps + 1);
-        
+
         // Helper to get spot at (step, node)
         let get_spot = |step: usize, node: usize| -> f64 {
-             match tree_type {
+            match tree_type {
                 ConvertibleTreeType::Binomial(_) => {
                     let ups = node as i32;
                     let downs = step as i32 - node as i32;
@@ -291,25 +294,30 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
         for i in 0..num_nodes {
             let node_spot = get_spot(self.steps, i);
-            
+
             // At maturity:
             // Conversion Value = Ratio * Spot
             let conversion_val = node_spot * self.valuator.conversion_ratio;
-            
+
             // Redemption Value = Face + Coupon
-            let coupon = self.valuator.coupon_map.get(&self.steps).copied().unwrap_or(0.0);
+            let coupon = self
+                .valuator
+                .coupon_map
+                .get(&self.steps)
+                .copied()
+                .unwrap_or(0.0);
             let redemption_val = self.valuator.face_value + coupon;
-            
+
             // Decision: Max(Conversion, Redemption)
             // If Converted: Cash Component = 0 (it's all equity)
             // If Redeemed: Cash Component = Redemption Value (it's all debt)
-            
+
             let (total_val, cash_val) = if conversion_val > redemption_val {
                 (conversion_val, 0.0)
             } else {
                 (redemption_val, redemption_val)
             };
-            
+
             values.push((total_val, cash_val));
         }
 
@@ -318,21 +326,21 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             let _next_num_nodes = values.len();
             // In binomial: step N has N+1 nodes. step N-1 has N nodes.
             // In trinomial: step N has 2N+1 nodes. step N-1 has 2N-1 nodes.
-            
+
             let current_num_nodes = match tree_type {
                 ConvertibleTreeType::Binomial(_) => step + 1,
                 ConvertibleTreeType::Trinomial(_) => 2 * step + 1,
             };
-            
+
             let mut next_values = Vec::with_capacity(current_num_nodes);
-            
+
             for i in 0..current_num_nodes {
                 // Calculate expected values
                 let (exp_total, exp_cash) = match tree_type {
                     ConvertibleTreeType::Binomial(_) => {
-                        let (v_up, c_up) = values[i+1];
+                        let (v_up, c_up) = values[i + 1];
                         let (v_down, c_down) = values[i];
-                        
+
                         (
                             params.prob_up * v_up + params.prob_down * v_down,
                             params.prob_up * c_up + params.prob_down * c_down,
@@ -340,10 +348,10 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                     }
                     ConvertibleTreeType::Trinomial(_) => {
                         // Child indices: up=i+2, mid=i+1, down=i
-                        let (v_up, c_up) = values[i+2];
-                        let (v_mid, c_mid) = values[i+1];
+                        let (v_up, c_up) = values[i + 2];
+                        let (v_mid, c_mid) = values[i + 1];
                         let (v_down, c_down) = values[i];
-                        
+
                         let pm = params.prob_middle.unwrap_or(0.0);
                         (
                             params.prob_up * v_up + pm * v_mid + params.prob_down * v_down,
@@ -355,12 +363,12 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                 // Discounting (The TZ Magic)
                 // Cash component discounted at risky rate
                 // Equity component (Total - Cash) discounted at risk-free rate
-                
+
                 let equity_part = (exp_total - exp_cash) * df_rf;
                 let cash_part = exp_cash * df_risky;
                 let mut continuation_total = equity_part + cash_part;
                 let mut continuation_cash = cash_part;
-                
+
                 // Add coupons at this node
                 let coupon = self.valuator.coupon_map.get(&step).copied().unwrap_or(0.0);
                 continuation_total += coupon;
@@ -368,45 +376,45 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
                 // Node decision logic
                 let node_spot = get_spot(step, i);
-                
+
                 // 1. Conversion
                 let conversion_val = node_spot * self.valuator.conversion_ratio;
-                
+
                 // Check conversion allowed
                 let can_convert = self.valuator.conversion_allowed(step);
-                
+
                 let mut final_total = continuation_total;
                 let mut final_cash = continuation_cash;
-                
+
                 if can_convert && conversion_val > final_total {
                     final_total = conversion_val;
                     final_cash = 0.0; // Converted to equity
                 }
-                
+
                 // 2. Call (Issuer minimizes value)
                 if let Some(call_price) = self.valuator.call_price_at_step(step) {
                     if final_total > call_price {
                         // Issuer calls
                         final_total = call_price;
                         // If called, it's redeemed in cash
-                        
+
                         let val_if_called = if can_convert {
                             conversion_val.max(call_price)
                         } else {
                             call_price
                         };
-                        
+
                         if final_total > val_if_called {
-                             final_total = val_if_called;
-                             if final_total == conversion_val {
-                                 final_cash = 0.0;
-                             } else {
-                                 final_cash = final_total; // Redeemed in cash
-                             }
+                            final_total = val_if_called;
+                            if final_total == conversion_val {
+                                final_cash = 0.0;
+                            } else {
+                                final_cash = final_total; // Redeemed in cash
+                            }
                         }
                     }
                 }
-                
+
                 // 3. Put (Holder maximizes value)
                 if let Some(put_price) = self.valuator.put_price_at_step(step) {
                     if final_total < put_price {
@@ -414,7 +422,7 @@ impl<'a> TsiveriotisZhangEngine<'a> {
                         final_cash = final_total; // Put back for cash
                     }
                 }
-                
+
                 next_values.push((final_total, final_cash));
             }
             values = next_values;
@@ -422,19 +430,19 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
         Ok(values[0])
     }
-    
+
     // Greeks calculation helper
     fn calculate_greeks(
         &self,
         initial_vars: StateVariables,
         tree_type: ConvertibleTreeType,
-        bump_size: Option<f64>
+        bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
-        
+
         // Base price
         let (base_price, _) = self.price(initial_vars.clone(), tree_type)?;
-        
+
         let mut greeks = TreeGreeks {
             price: base_price,
             delta: 0.0,
@@ -443,24 +451,24 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             theta: 0.0,
             rho: 0.0,
         };
-        
+
         if let Some(&spot) = initial_vars.get("spot") {
-             let h = bump * spot;
-             
-             // Up
-             let mut vars_up = initial_vars.clone();
-             vars_up.insert("spot", spot + h);
-             let (price_up, _) = self.price(vars_up, tree_type)?;
-             
-             // Down
-             let mut vars_down = initial_vars.clone();
-             vars_down.insert("spot", spot - h);
-             let (price_down, _) = self.price(vars_down, tree_type)?;
-             
-             greeks.delta = (price_up - price_down) / (2.0 * h);
-             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
+            let h = bump * spot;
+
+            // Up
+            let mut vars_up = initial_vars.clone();
+            vars_up.insert("spot", spot + h);
+            let (price_up, _) = self.price(vars_up, tree_type)?;
+
+            // Down
+            let mut vars_down = initial_vars.clone();
+            vars_down.insert("spot", spot - h);
+            let (price_down, _) = self.price(vars_down, tree_type)?;
+
+            greeks.delta = (price_up - price_down) / (2.0 * h);
+            greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
         }
-        
+
         // Vega
         if let Some(&vol) = initial_vars.get("volatility") {
             let h = 0.01;
@@ -469,7 +477,7 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             let (price_vol_up, _) = self.price(vars_vol_up, tree_type)?;
             greeks.vega = price_vol_up - base_price;
         }
-        
+
         // Rho
         if let Some(&rate) = initial_vars.get("interest_rate") {
             let h = 0.0001;
@@ -478,13 +486,13 @@ impl<'a> TsiveriotisZhangEngine<'a> {
             let (price_rate_up, _) = self.price(vars_rate_up, tree_type)?;
             greeks.rho = price_rate_up - base_price;
         }
-        
+
         // Theta
         let dt_bump = 1.0 / 365.25;
         if self.time_to_maturity > dt_bump {
             // Skip theta for now
         }
-        
+
         Ok(greeks)
     }
 }
@@ -495,7 +503,10 @@ fn extract_equity_state(
     ctx: &MarketContext,
     as_of: Date,
 ) -> Result<(f64, f64, f64, f64, f64, f64)> {
-    let underlying_id = bond.underlying_equity_id.as_deref().ok_or(Error::Internal)?;
+    let underlying_id = bond
+        .underlying_equity_id
+        .as_deref()
+        .ok_or(Error::Internal)?;
 
     // Get spot price
     let spot_price = ctx.price(underlying_id)?;
@@ -528,7 +539,7 @@ fn extract_equity_state(
     } else {
         0.0
     };
-    
+
     // Extract credit spread
     let credit_spread = if let Some(credit_id) = &bond.credit_curve_id {
         if credit_id == &bond.discount_curve_id {
@@ -717,7 +728,7 @@ pub fn price_convertible_bond(
         steps,
         time_to_maturity: inputs.time_to_maturity,
     };
-    
+
     let (pv_amount, _) = engine.price(initial_vars, tree_type)?;
 
     Ok(Money::new(pv_amount, bond.notional.currency()))
@@ -762,7 +773,7 @@ pub fn calculate_convertible_greeks(
         steps,
         time_to_maturity: inputs.time_to_maturity,
     };
-    
+
     engine.calculate_greeks(initial_vars, tree_type, bump_size)
 }
 

@@ -213,10 +213,7 @@ mod tests {
         let mut model = ModelBuilder::new("test")
             .periods("2025Q1..Q1", None)
             .expect("valid period")
-            .value(
-                "revenue",
-                &[(period, AmountOrScalar::scalar(100_000.0))],
-            )
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
             .compute("profit_margin", "0.15")
             .expect("valid formula")
             .compute("net_income", "revenue * profit_margin")
@@ -246,10 +243,7 @@ mod tests {
         let mut model = ModelBuilder::new("test")
             .periods("2025Q1..Q1", None)
             .expect("valid period")
-            .value(
-                "revenue",
-                &[(period, AmountOrScalar::scalar(100_000.0))],
-            )
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
             .compute("cogs", "revenue * 0.6")
             .expect("valid formula")
             .compute("gross_profit", "revenue - cogs")
@@ -326,7 +320,9 @@ mod tests {
 
         // Verify the solution by evaluating
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model).expect("evaluation should succeed");
+        let results = evaluator
+            .evaluate(&model)
+            .expect("evaluation should succeed");
         let coverage = results
             .get("interest_coverage", &q4)
             .expect("should have value");
@@ -339,10 +335,7 @@ mod tests {
         let mut model = ModelBuilder::new("test")
             .periods("2025Q1..Q1", None)
             .expect("valid period")
-            .value(
-                "revenue",
-                &[(period, AmountOrScalar::scalar(100_000.0))],
-            )
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
             .build()
             .expect("valid model");
 
@@ -365,10 +358,7 @@ mod tests {
         let mut model = ModelBuilder::new("test")
             .periods("2025Q1..Q1", None)
             .expect("valid period")
-            .value(
-                "revenue",
-                &[(period, AmountOrScalar::scalar(100_000.0))],
-            )
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
             .build()
             .expect("valid model");
 
@@ -385,4 +375,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

@@ -350,16 +350,16 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
             // Validate the calibrated inflation curve
             use crate::calibration::validation::{CurveValidator, ValidationConfig};
-            curve
-                .validate(&ValidationConfig::default())
-                .map_err(|e| finstack_core::Error::Calibration {
+            curve.validate(&ValidationConfig::default()).map_err(|e| {
+                finstack_core::Error::Calibration {
                     message: format!(
                         "Calibrated inflation curve {} failed validation: {}",
                         self.curve_id.as_str(),
                         e
                     ),
                     category: "inflation_curve_validation".to_string(),
-                })?;
+                }
+            })?;
 
             let report =
                 CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())

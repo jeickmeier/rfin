@@ -292,7 +292,7 @@ pub fn forecast_breaches_generic<MTS: ModelTimeSeries>(
             // Check for breach (headroom < 0) or high probability of breach
             let is_breach = headroom < 0.0;
             let prob = forecast.breach_probability[i];
-            
+
             // We report if it's a deterministic breach OR if there's a non-zero probability in stochastic mode
             if is_breach || (config.stochastic && prob > 0.0) {
                 breaches.push(FutureBreach {

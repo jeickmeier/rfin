@@ -6,8 +6,8 @@ use finstack_core::market_data::traits::{Discounting, Survival, TermStructure};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::aggregation::{
-    aggregate_by_period, aggregate_cashflows_precise_checked, pv_by_period_credit_adjusted_with_ctx,
-    pv_by_period_with_ctx,
+    aggregate_by_period, aggregate_cashflows_precise_checked,
+    pv_by_period_credit_adjusted_with_ctx, pv_by_period_with_ctx,
 };
 use time::Month;
 
@@ -206,9 +206,8 @@ fn pv_with_ctx_sum_matches_direct_calculation() {
         bus_basis: None,
     };
 
-    let pv_map =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-            .expect("PV by period calculation should succeed in test");
+    let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+        .expect("PV by period calculation should succeed in test");
 
     // Sum of period PVs
     let sum_pv: f64 = pv_map
@@ -281,9 +280,8 @@ fn pv_by_period_deterministic_multi_currency() {
         bus_basis: None,
     };
 
-    let pv_map =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
-            .expect("PV by period calculation should succeed in test");
+    let pv_map = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+        .expect("PV by period calculation should succeed in test");
 
     // Q1 should have both USD and EUR
     let q1 = pv_map
@@ -335,9 +333,15 @@ fn pv_by_period_sum_matches_npv() {
         df_const: 0.95, // Flat 5% discount
     };
 
-    let pv_map =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
-            .expect("PV calculation should succeed");
+    let pv_map = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("PV calculation should succeed");
 
     // Q1 should have PV = 100 * 0.95 = 95
     let q1_pv = pv_map
@@ -376,9 +380,15 @@ fn pv_by_period_respects_boundaries() {
         df_const: 1.0,
     };
 
-    let pv_map =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
-            .expect("PV calculation should succeed");
+    let pv_map = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("PV calculation should succeed");
 
     // Should be in Q2, not Q1
     assert!(pv_map.get(&PeriodId::quarter(2025, 1)).is_none());
@@ -405,9 +415,15 @@ fn pv_by_period_multi_currency_separation() {
         df_const: 0.95,
     };
 
-    let pv_map =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, DayCountCtx::default())
-            .expect("PV calculation should succeed");
+    let pv_map = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("PV calculation should succeed");
 
     let q1 = pv_map
         .get(&PeriodId::quarter(2025, 1))

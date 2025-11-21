@@ -30,7 +30,7 @@ pub struct CmsOption {
     pub notional: Money,
     /// Day count convention for the option accrual
     pub day_count: finstack_core::dates::DayCount,
-    
+
     // --- Underlying Swap Conventions ---
     /// Fixed leg frequency of the underlying swap
     pub swap_fixed_freq: finstack_core::dates::Frequency,

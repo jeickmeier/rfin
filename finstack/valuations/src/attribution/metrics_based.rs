@@ -77,7 +77,7 @@ fn extract_bucketed_dv01_per_curve(
     curve_ids: &[CurveId],
 ) -> HashMap<CurveId, f64> {
     let mut result = HashMap::new();
-    
+
     // Pattern 1: Explicit per-curve keys "bucketed_dv01::{curve_id}"
     for curve_id in curve_ids {
         let key = format!("bucketed_dv01::{}", curve_id.as_str());
@@ -85,14 +85,14 @@ fn extract_bucketed_dv01_per_curve(
             result.insert(curve_id.clone(), dv01);
         }
     }
-    
+
     // Pattern 2: For single-curve instruments, check the base key
     if result.is_empty() && curve_ids.len() == 1 {
         if let Some(&dv01) = measures.get("bucketed_dv01") {
             result.insert(curve_ids[0].clone(), dv01);
         }
     }
-    
+
     result
 }
 
@@ -210,16 +210,16 @@ pub fn attribute_pnl_metrics_based(
     //
     // This implementation uses bucketed DV01 (per-curve) if available,
     // otherwise falls back to aggregate DV01 with average shift.
-    
+
     // Try to extract bucketed DV01 per curve
     let curve_ids = instrument.required_discount_curves();
     let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, &curve_ids);
-    
+
     let has_bucketed = !bucketed_dv01.is_empty();
     let mut rates_pnl = 0.0;
     let mut curves_with_data = 0;
     let mut total_shift_for_convexity = 0.0;
-    
+
     if has_bucketed {
         // Use bucketed DV01: sum per-curve contributions
         for curve_id in &curve_ids {
@@ -236,9 +236,9 @@ pub fn attribute_pnl_metrics_based(
                 }
             }
         }
-        
+
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
-        
+
         if curves_with_data > 0 {
             attribution.meta.notes.push(format!(
                 "Rates attribution computed using bucketed DV01 across {} curves",
@@ -271,7 +271,7 @@ pub fn attribute_pnl_metrics_based(
         rates_pnl = dv01 * avg_shift;
         total_shift_for_convexity = avg_shift;
         curves_with_data = curve_count;
-        
+
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
         // Add note about averaging limitation
@@ -477,7 +477,7 @@ pub fn attribute_pnl_metrics_based(
     // Note: Metrics-based attribution is inherently approximate, so larger residuals are expected
     attribution.meta.num_repricings = 0; // Metrics-based doesn't reprice
     attribution.meta.tolerance_abs = 10.0; // $10 absolute tolerance
-    attribution.meta.tolerance_pct = 1.0;  // 1% relative tolerance
+    attribution.meta.tolerance_pct = 1.0; // 1% relative tolerance
 
     // Note: For tighter tolerances, consider using waterfall or parallel attribution methods
 
@@ -642,21 +642,21 @@ mod tests {
     #[test]
     fn test_extract_bucketed_dv01_per_curve() {
         use finstack_core::types::CurveId;
-        
+
         // Test with explicit per-curve keys
         let mut measures = IndexMap::new();
         measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
         measures.insert("bucketed_dv01::USD-SOFR".to_string(), -50.0);
         measures.insert("bucketed_dv01::EUR-OIS".to_string(), -75.0);
-        
+
         let curve_ids = vec![
             CurveId::new("USD-OIS"),
             CurveId::new("USD-SOFR"),
             CurveId::new("EUR-OIS"),
         ];
-        
+
         let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
-        
+
         assert_eq!(bucketed.len(), 3);
         assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
         assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), Some(&-50.0));
@@ -666,15 +666,15 @@ mod tests {
     #[test]
     fn test_extract_bucketed_dv01_single_curve() {
         use finstack_core::types::CurveId;
-        
+
         // Test with single curve using base key
         let mut measures = IndexMap::new();
         measures.insert("bucketed_dv01".to_string(), -250.0);
-        
+
         let curve_ids = vec![CurveId::new("USD-OIS")];
-        
+
         let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
-        
+
         assert_eq!(bucketed.len(), 1);
         assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-250.0));
     }
@@ -682,32 +682,29 @@ mod tests {
     #[test]
     fn test_extract_bucketed_dv01_empty() {
         use finstack_core::types::CurveId;
-        
+
         // Test with no bucketed metrics
         let measures = IndexMap::new();
         let curve_ids = vec![CurveId::new("USD-OIS")];
-        
+
         let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
-        
+
         assert_eq!(bucketed.len(), 0);
     }
 
     #[test]
     fn test_extract_bucketed_dv01_partial_coverage() {
         use finstack_core::types::CurveId;
-        
+
         // Test with some curves having bucketed metrics and others not
         let mut measures = IndexMap::new();
         measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
         // USD-SOFR is missing
-        
-        let curve_ids = vec![
-            CurveId::new("USD-OIS"),
-            CurveId::new("USD-SOFR"),
-        ];
-        
+
+        let curve_ids = vec![CurveId::new("USD-OIS"), CurveId::new("USD-SOFR")];
+
         let bucketed = extract_bucketed_dv01_per_curve(&measures, &curve_ids);
-        
+
         assert_eq!(bucketed.len(), 1);
         assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
         assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), None);

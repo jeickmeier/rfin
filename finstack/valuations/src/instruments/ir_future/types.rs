@@ -187,13 +187,7 @@ impl InterestRateFuture {
         let adjusted_rate = if let Some(ca) = self.contract_specs.convexity_adjustment {
             forward_rate + ca
         } else {
-            self.calculate_convexity_adjusted_rate(
-                context,
-                forward_rate,
-                t_fixing,
-                t_start,
-                t_end,
-            )?
+            self.calculate_convexity_adjusted_rate(context, forward_rate, t_fixing, t_start, t_end)?
         };
 
         // Implied rate from price and accrual over the underlying period

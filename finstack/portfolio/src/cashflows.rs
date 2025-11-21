@@ -162,8 +162,7 @@ pub fn aggregate_cashflows(
             let mut scaled: DatedFlows = Vec::with_capacity(flows.len());
 
             for (date, money) in flows {
-                let scaled_money =
-                    Money::new(money.amount() * position.quantity, money.currency());
+                let scaled_money = Money::new(money.amount() * position.quantity, money.currency());
                 all_flows.push((date, scaled_money));
                 scaled.push((date, scaled_money));
             }
@@ -182,15 +181,14 @@ pub fn aggregate_cashflows(
     for (date, money) in all_flows {
         let per_ccy = by_date.entry(date).or_default();
         let ccy = money.currency();
-        let entry = per_ccy
-            .entry(ccy)
-            .or_insert_with(|| Money::new(0.0, ccy));
-        *entry = entry
-            .checked_add(money)
-            .map_err(PortfolioError::Core)?;
+        let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
+        *entry = entry.checked_add(money).map_err(PortfolioError::Core)?;
     }
 
-    Ok(PortfolioCashflows { by_date, by_position })
+    Ok(PortfolioCashflows {
+        by_date,
+        by_position,
+    })
 }
 
 /// Collapse a multi-currency cashflow ladder into base currency by date.
@@ -209,26 +207,23 @@ pub fn collapse_cashflows_to_base_by_date(
 
         for (ccy, money) in per_ccy {
             if *ccy == base_ccy {
-                total = total
-                    .checked_add(*money)
-                    .map_err(PortfolioError::Core)?;
+                total = total.checked_add(*money).map_err(PortfolioError::Core)?;
             } else {
                 let fx_matrix = market.fx.as_ref().ok_or_else(|| {
                     PortfolioError::MissingMarketData("FX matrix not available".to_string())
                 })?;
 
                 let query = FxQuery::new(*ccy, base_ccy, *date);
-                let rate_result = fx_matrix.rate(query).map_err(|_| {
-                    PortfolioError::FxConversionFailed {
-                        from: *ccy,
-                        to: base_ccy,
-                    }
-                })?;
+                let rate_result =
+                    fx_matrix
+                        .rate(query)
+                        .map_err(|_| PortfolioError::FxConversionFailed {
+                            from: *ccy,
+                            to: base_ccy,
+                        })?;
 
                 let converted = Money::new(money.amount() * rate_result.rate, base_ccy);
-                total = total
-                    .checked_add(converted)
-                    .map_err(PortfolioError::Core)?;
+                total = total.checked_add(converted).map_err(PortfolioError::Core)?;
             }
         }
 
@@ -256,10 +251,7 @@ pub fn cashflows_to_base_by_period(
 
     for (date, amount) in by_date_base {
         // Find the first period containing this date: [start, end]
-        if let Some(period) = periods
-            .iter()
-            .find(|p| date >= p.start && date <= p.end)
-        {
+        if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
             let entry = by_period
                 .entry(period.id)
                 .or_insert_with(|| Money::new(0.0, base_ccy));
@@ -398,13 +390,8 @@ mod tests {
             is_actual: true,
         }];
 
-        let buckets = cashflows_to_base_by_period(
-            &ladder,
-            &market,
-            Currency::USD,
-            &periods,
-        )
-        .expect("bucketed cashflows");
+        let buckets = cashflows_to_base_by_period(&ladder, &market, Currency::USD, &periods)
+            .expect("bucketed cashflows");
 
         // There should be at most one entry for the defined period
         assert!(buckets.by_period.len() <= 1);
@@ -417,5 +404,3 @@ mod tests {
         }
     }
 }
-
-

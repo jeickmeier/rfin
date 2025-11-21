@@ -96,7 +96,10 @@ impl SwaptionParams {
     }
 
     /// Override volatility model
-    pub fn with_vol_model(mut self, model: crate::instruments::swaption::types::VolatilityModel) -> Self {
+    pub fn with_vol_model(
+        mut self,
+        model: crate::instruments::swaption::types::VolatilityModel,
+    ) -> Self {
         self.vol_model = Some(model);
         self
     }

@@ -30,7 +30,7 @@ impl MetricCalculator for DeltaCalculator {
         let bump_bp = 1.0;
         let mut bumps = HashMap::new();
         bumps.insert(curve_to_bump.clone(), BumpSpec::parallel_bp(bump_bp));
-        
+
         let curves_bumped = context.curves.bump(bumps)?;
 
         // Reprice

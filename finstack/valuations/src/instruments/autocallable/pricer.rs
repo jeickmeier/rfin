@@ -186,24 +186,24 @@ impl AutocallableMcPricer {
 
         let mut grid_times = Vec::with_capacity(num_steps + observation_times.len() + 1);
         grid_times.push(0.0);
-        
+
         // Add uniform steps
         let dt = t / num_steps as f64;
         for i in 1..=num_steps {
             grid_times.push(i as f64 * dt);
         }
-        
+
         // Add observation times (ensure we visit exact dates)
         for &obs_t in &observation_times {
             if obs_t > 1e-10 && obs_t <= t {
                 grid_times.push(obs_t);
             }
         }
-        
+
         // Sort and dedup
         grid_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         grid_times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-        
+
         let time_grid = TimeGrid::from_times(grid_times)?;
 
         let mut config = self.config.clone();

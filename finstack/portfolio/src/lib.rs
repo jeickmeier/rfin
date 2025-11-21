@@ -76,10 +76,10 @@ pub mod scenarios;
 // Re-export key types
 pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
 pub use builder::PortfolioBuilder;
+pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
 pub use error::{PortfolioError, Result};
 pub use grouping::{aggregate_by_attribute, group_by_attribute};
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
-pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
 pub use portfolio::Portfolio;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResults;

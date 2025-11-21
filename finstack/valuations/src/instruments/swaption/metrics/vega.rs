@@ -47,7 +47,7 @@ impl MetricCalculator for VegaCalculator {
                     let d1 = d1_black76(forward, option.strike_rate, sigma, t);
                     forward * finstack_core::math::norm_pdf(d1) * t.sqrt()
                 }
-            },
+            }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
                 let d = d_bachelier(forward, option.strike_rate, sigma, t);

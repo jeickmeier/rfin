@@ -196,9 +196,9 @@ impl FxSwap {
 
         // Contract rates default to model when not provided explicitly
         let contract_spot = self.near_rate.unwrap_or(model_spot);
-        
+
         // Calculate model forward only if far leg is active or needed
-        // We use a safe fallback if df_dom_far is zero or very small to avoid NaN, 
+        // We use a safe fallback if df_dom_far is zero or very small to avoid NaN,
         // though in practice DFs shouldn't be zero.
         let model_fwd = if df_dom_far.abs() > 1e-12 {
             model_spot * df_for_far / df_dom_far

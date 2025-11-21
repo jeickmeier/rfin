@@ -58,55 +58,52 @@ impl CmsOptionPricer {
             }
 
             // 1. Calculate Forward Swap Rate
-            let swap_start = fixing_date; 
+            let swap_start = fixing_date;
             let swap_tenor_months = (inst.cms_tenor * 12.0).round() as i32;
-            let swap_end = add_months(swap_start, swap_tenor_months); 
+            let swap_end = add_months(swap_start, swap_tenor_months);
 
             // Calculate annuity and forward rate
-            let (forward_swap_rate, _) = self.calculate_forward_swap_rate(
-                inst,
-                curves,
-                as_of,
-                swap_start,
-                swap_end,
-            )?;
+            let (forward_swap_rate, _) =
+                self.calculate_forward_swap_rate(inst, curves, as_of, swap_start, swap_end)?;
 
             // 2. Calculate Convexity Adjustment
-            let time_to_fixing = inst.day_count.year_fraction(as_of, fixing_date, DayCountCtx::default())?;
-            
+            let time_to_fixing =
+                inst.day_count
+                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+
             // Get volatility
             let vol = if let Some(surface) = vol_surface {
-                 surface.value_clamped(time_to_fixing, inst.strike_rate)
+                surface.value_clamped(time_to_fixing, inst.strike_rate)
             } else {
-                0.20 
+                0.20
             };
 
             // Convexity adjustment
             let raw_convexity_adj = if time_to_fixing > 0.0 {
-                 #[cfg(feature = "mc")]
-                 {
-                     ForwardSwapRate::convexity_adjustment(
-                        vol,
-                        time_to_fixing,
-                        inst.cms_tenor
-                    )
-                 }
-                 #[cfg(not(feature = "mc"))]
-                 {
-                     0.0 // Convexity adjustment requires MC module utilities
-                 }
+                #[cfg(feature = "mc")]
+                {
+                    ForwardSwapRate::convexity_adjustment(vol, time_to_fixing, inst.cms_tenor)
+                }
+                #[cfg(not(feature = "mc"))]
+                {
+                    0.0 // Convexity adjustment requires MC module utilities
+                }
             } else {
                 0.0
             };
-            
+
             let convexity_adj = raw_convexity_adj * convexity_scale;
             let adjusted_rate = forward_swap_rate + convexity_adj;
 
             // 3. Black Price
             let option_val = if time_to_fixing <= 0.0 {
                 match inst.option_type {
-                    crate::instruments::OptionType::Call => (forward_swap_rate - inst.strike_rate).max(0.0),
-                    crate::instruments::OptionType::Put => (inst.strike_rate - forward_swap_rate).max(0.0),
+                    crate::instruments::OptionType::Call => {
+                        (forward_swap_rate - inst.strike_rate).max(0.0)
+                    }
+                    crate::instruments::OptionType::Put => {
+                        (inst.strike_rate - forward_swap_rate).max(0.0)
+                    }
                 }
             } else {
                 self.black_price(
@@ -119,15 +116,22 @@ impl CmsOptionPricer {
             };
 
             // 4. Discount to present
-            let df_pay = discount_curve.df(inst.day_count.year_fraction(as_of, payment_date, DayCountCtx::default())?);
-            
+            let df_pay = discount_curve.df(inst.day_count.year_fraction(
+                as_of,
+                payment_date,
+                DayCountCtx::default(),
+            )?);
+
             let period_pv = option_val * accrual_fraction * df_pay;
             total_pv += period_pv;
         }
 
-        Ok(Money::new(total_pv * inst.notional.amount(), inst.notional.currency()))
+        Ok(Money::new(
+            total_pv * inst.notional.amount(),
+            inst.notional.currency(),
+        ))
     }
-    
+
     fn price_internal(
         &self,
         inst: &CmsOption,
@@ -144,9 +148,10 @@ impl CmsOptionPricer {
         as_of: Date,
         start: Date,
         end: Date,
-    ) -> Result<(f64, f64)> { // Returns (rate, annuity)
+    ) -> Result<(f64, f64)> {
+        // Returns (rate, annuity)
         let disc = market.get_discount_ref(inst.discount_curve_id.as_ref())?;
-        
+
         // Calculate Annuity (Fixed Leg)
         let sched_fixed = crate::cashflow::builder::build_dates(
             start,
@@ -156,13 +161,19 @@ impl CmsOptionPricer {
             BusinessDayConvention::ModifiedFollowing,
             None,
         );
-        
+
         let mut annuity = 0.0;
         let mut prev_date = start;
         for &d in &sched_fixed.dates {
-            if d == start { continue; }
-            let accrual = inst.swap_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
-            let t_pay = inst.day_count.year_fraction(as_of, d, DayCountCtx::default())?;
+            if d == start {
+                continue;
+            }
+            let accrual =
+                inst.swap_day_count
+                    .year_fraction(prev_date, d, DayCountCtx::default())?;
+            let t_pay = inst
+                .day_count
+                .year_fraction(as_of, d, DayCountCtx::default())?;
             let df = disc.df(t_pay);
             annuity += accrual * df;
             prev_date = d;
@@ -173,12 +184,19 @@ impl CmsOptionPricer {
         }
 
         // Check if single curve or dual curve
-        let forward_curve_id = inst.forward_curve_id.as_ref().unwrap_or(&inst.discount_curve_id);
-        
+        let forward_curve_id = inst
+            .forward_curve_id
+            .as_ref()
+            .unwrap_or(&inst.discount_curve_id);
+
         if forward_curve_id == &inst.discount_curve_id {
             // Single Curve Optimization
-            let t_start = inst.day_count.year_fraction(as_of, start, DayCountCtx::default())?;
-            let t_end = inst.day_count.year_fraction(as_of, end, DayCountCtx::default())?;
+            let t_start = inst
+                .day_count
+                .year_fraction(as_of, start, DayCountCtx::default())?;
+            let t_end = inst
+                .day_count
+                .year_fraction(as_of, end, DayCountCtx::default())?;
             let df_start = disc.df(t_start);
             let df_end = disc.df(t_end);
             let rate = (df_start - df_end) / annuity;
@@ -194,24 +212,32 @@ impl CmsOptionPricer {
                 BusinessDayConvention::ModifiedFollowing,
                 None,
             );
-            
+
             let mut pv_float = 0.0;
             let mut prev_date = start;
             for &d in &sched_float.dates {
-                if d == start { continue; }
+                if d == start {
+                    continue;
+                }
                 // Floating accrual (usually Act/360 or similar, using swap_day_count here)
                 // NOTE: Should ideally have separate float day count, but using swap_day_count for now
-                let accrual = inst.swap_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
-                let t_prev = inst.day_count.year_fraction(as_of, prev_date, DayCountCtx::default())?;
-                let t_curr = inst.day_count.year_fraction(as_of, d, DayCountCtx::default())?;
-                
+                let accrual =
+                    inst.swap_day_count
+                        .year_fraction(prev_date, d, DayCountCtx::default())?;
+                let t_prev =
+                    inst.day_count
+                        .year_fraction(as_of, prev_date, DayCountCtx::default())?;
+                let t_curr = inst
+                    .day_count
+                    .year_fraction(as_of, d, DayCountCtx::default())?;
+
                 let fwd_rate = fwd_curve.rate_period(t_prev, t_curr);
                 let df = disc.df(t_curr);
-                
+
                 pv_float += fwd_rate * accrual * df;
                 prev_date = d;
             }
-            
+
             let rate = pv_float / annuity;
             Ok((rate, annuity))
         }
@@ -231,16 +257,18 @@ impl CmsOptionPricer {
                 crate::instruments::OptionType::Put => (strike - forward).max(0.0),
             };
         }
-        
+
         let d1 = d1_black76(forward, strike, vol, t);
         let d2 = d2_black76(forward, strike, vol, t);
-        
+
         match option_type {
             crate::instruments::OptionType::Call => {
-                forward * finstack_core::math::norm_cdf(d1) - strike * finstack_core::math::norm_cdf(d2)
+                forward * finstack_core::math::norm_cdf(d1)
+                    - strike * finstack_core::math::norm_cdf(d2)
             }
             crate::instruments::OptionType::Put => {
-                strike * finstack_core::math::norm_cdf(-d2) - forward * finstack_core::math::norm_cdf(-d1)
+                strike * finstack_core::math::norm_cdf(-d2)
+                    - forward * finstack_core::math::norm_cdf(-d1)
             }
         }
     }

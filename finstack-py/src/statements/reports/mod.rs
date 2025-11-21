@@ -2,8 +2,7 @@
 
 use crate::statements::evaluator::PyResults;
 use finstack_statements::reports::{
-    Alignment, CreditAssessmentReport, PLSummaryReport,
-    Report, TableBuilder,
+    Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyModule;

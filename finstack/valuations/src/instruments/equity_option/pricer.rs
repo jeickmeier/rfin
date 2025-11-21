@@ -58,11 +58,11 @@ pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<M
             tree.price_american(&params)?
         }
         ExerciseStyle::Bermudan => {
-             // Bermudan not fully supported in this simplified path, fall back to American (conservative)
-             // or error. American is a safe upper bound for Bermudan.
-             // Ideally we would need the exercise schedule.
-             let tree = BinomialTree::leisen_reimer(201);
-             let params = OptionMarketParams {
+            // Bermudan not fully supported in this simplified path, fall back to American (conservative)
+            // or error. American is a safe upper bound for Bermudan.
+            // Ideally we would need the exercise schedule.
+            let tree = BinomialTree::leisen_reimer(201);
+            let params = OptionMarketParams {
                 spot,
                 strike: inst.strike.amount(),
                 rate: r,
@@ -275,9 +275,7 @@ pub fn compute_greeks(
             };
 
             // Helper to price
-            let price_fn = |p: &OptionMarketParams| -> Result<f64> {
-                tree.price_american(p)
-            };
+            let price_fn = |p: &OptionMarketParams| -> Result<f64> { tree.price_american(p) };
 
             let base_price = price_fn(&params)?;
 

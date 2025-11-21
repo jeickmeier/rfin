@@ -493,15 +493,20 @@ impl PyFinancialModelSpec {
         update_model: bool,
     ) -> PyResult<f64> {
         // Parse target period
-        let target_period_id: finstack_core::dates::PeriodId = target_period
-            .parse()
-            .map_err(|e| PyValueError::new_err(format!("Invalid target period '{}': {}", target_period, e)))?;
+        let target_period_id: finstack_core::dates::PeriodId =
+            target_period.parse().map_err(|e| {
+                PyValueError::new_err(format!("Invalid target period '{}': {}", target_period, e))
+            })?;
 
         // Parse driver period (default to target period if None)
         let driver_period_str = driver_period.unwrap_or(target_period);
-        let driver_period_id: finstack_core::dates::PeriodId = driver_period_str
-            .parse()
-            .map_err(|e| PyValueError::new_err(format!("Invalid driver period '{}': {}", driver_period_str, e)))?;
+        let driver_period_id: finstack_core::dates::PeriodId =
+            driver_period_str.parse().map_err(|e| {
+                PyValueError::new_err(format!(
+                    "Invalid driver period '{}': {}",
+                    driver_period_str, e
+                ))
+            })?;
 
         // Call the Rust implementation
         finstack_statements::analysis::goal_seek(

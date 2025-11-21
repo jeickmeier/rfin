@@ -111,7 +111,11 @@ fn test_required_collateral_with_haircut() {
     // 1,000,000 / (1 - 0.05) = 1,052,631.58 (Repo::term uses rate as haircut? No, Repo::term defaults haircut to 0.02)
     // Repo::term implementation: haircut(0.02)
     // 1,000,000 / (1 - 0.02) = 1,020,408.16
-    assert_money_approx_eq(required.unwrap(), Money::new(1_020_408.16, Currency::USD), 1.0);
+    assert_money_approx_eq(
+        required.unwrap(),
+        Money::new(1_020_408.16, Currency::USD),
+        1.0,
+    );
 }
 
 #[test]
@@ -139,7 +143,11 @@ fn test_required_collateral_high_haircut() {
     let required = repo.required_collateral_value();
 
     // 1,000,000 / (1 - 0.20) = 1,250,000
-    assert_money_approx_eq(required.unwrap(), Money::new(1_250_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(
+        required.unwrap(),
+        Money::new(1_250_000.0, Currency::USD),
+        1.0,
+    );
 }
 
 #[test]
@@ -166,7 +174,11 @@ fn test_required_collateral_zero_haircut() {
 
     let required = repo.required_collateral_value();
 
-    assert_money_approx_eq(required.unwrap(), Money::new(1_000_000.0, Currency::USD), 1.0);
+    assert_money_approx_eq(
+        required.unwrap(),
+        Money::new(1_000_000.0, Currency::USD),
+        1.0,
+    );
 }
 
 #[test]

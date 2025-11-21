@@ -106,5 +106,3 @@ pub fn register_dcf_metrics(registry: &mut MetricRegistry) {
         ]
     }
 }
-
-

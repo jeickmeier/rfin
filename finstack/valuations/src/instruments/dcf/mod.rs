@@ -84,4 +84,3 @@ pub mod pricer;
 mod types;
 
 pub use types::{DiscountedCashFlow, TerminalValueSpec};
-

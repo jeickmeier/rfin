@@ -101,13 +101,7 @@ impl CdsOptionPricer {
 
         // Price using Black-style on spreads
         // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
-        self.credit_option_price(
-            option,
-            forward_spread_bp,
-            risky_annuity,
-            sigma,
-            t,
-        )
+        self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)
     }
 
     /// Convenience method: compute the forward spread in bp at the underlying CDS maturity.
@@ -297,7 +291,8 @@ impl CdsOptionPricer {
             return 0.0;
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        scale * risky_annuity * norm_pdf(d1) / (forward * self.config.bp_per_unit * sigma * t.sqrt())
+        scale * risky_annuity * norm_pdf(d1)
+            / (forward * self.config.bp_per_unit * sigma * t.sqrt())
     }
 
     /// Vega per 1% vol change.
@@ -356,24 +351,26 @@ impl CdsOptionPricer {
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
         let sqrt_t = t.sqrt();
-        
+
         // Theta = dV/dt.
         // V = A * Black
         // dV/dt = dA/dt * Black + A * dBlack/dt
         // Currently we only implement the dBlack/dt part (Standard Theta).
         // dA/dt is usually ignored or handled via Theta-decay of A separately (Theta due to annuity time decay).
         // We will scale the Black Theta by A.
-        
+
         match option.option_type {
             OptionType::Call => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
-                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
+                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit
+                    / self.config.theta_days_per_year
             }
             OptionType::Put => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
-                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
+                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit
+                    / self.config.theta_days_per_year
             }
         }
     }

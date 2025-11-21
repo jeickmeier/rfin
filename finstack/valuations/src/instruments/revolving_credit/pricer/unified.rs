@@ -240,7 +240,7 @@ impl RevolvingCreditPricer {
                     } else {
                         // If pricing mid-path, technically need path state at as_of.
                         // For simplicity/performance in this fix, use initial drawn if before path start,
-                        // or interpolate if possible. 
+                        // or interpolate if possible.
                         // Given path_data covers the whole life, we can look up.
                         // Simplification: Use first grid point's exposure or current drawn
                         facility.drawn_amount.amount()
@@ -283,8 +283,7 @@ impl RevolvingCreditPricer {
                     // Exposure Average
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
 
-                    let recovery_flow =
-                        exposure_avg * facility.recovery_rate * df * prob_default;
+                    let recovery_flow = exposure_avg * facility.recovery_rate * df * prob_default;
                     total_pv += recovery_flow;
 
                     prev_sp = curr_sp;
@@ -567,13 +566,13 @@ impl Pricer for RevolvingCreditPricer {
         as_of: Date,
     ) -> PricingResult<ValuationResult> {
         use crate::pricer::expect_inst;
-        
+
         let facility: &RevolvingCredit = expect_inst(instrument, InstrumentType::RevolvingCredit)?;
 
         // Route to appropriate pricing method based on model
         let result_pv = match self.model {
             ModelKey::Discounting => {
-                // For discounting, we use the unified price method which handles 
+                // For discounting, we use the unified price method which handles
                 // deterministic specs (and errs on stochastic if MC not enabled/used)
                 Self::price(facility, market, as_of)?
             }
@@ -593,7 +592,10 @@ impl Pricer for RevolvingCreditPricer {
 
         // Wrap in ValuationResult
         let mut result = ValuationResult::stamped(facility.id.as_str(), as_of, result_pv);
-        result.measures.insert("model".to_string(), self.model.to_string().parse().unwrap_or(0.0)); // Just tagging
+        result.measures.insert(
+            "model".to_string(),
+            self.model.to_string().parse().unwrap_or(0.0),
+        ); // Just tagging
         Ok(result)
     }
 }

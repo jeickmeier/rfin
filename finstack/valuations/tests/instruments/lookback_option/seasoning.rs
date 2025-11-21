@@ -5,14 +5,16 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::lookback_option::types::{LookbackOptionBuilder, LookbackType};
 use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::lookback_option::types::{
+    LookbackOptionBuilder, LookbackType,
+};
 use time::Month;
 
 // Helper to avoid clone issues with builder
 fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
     let expiry = Date::from_calendar_date(as_of.year() + 1, as_of.month(), as_of.day()).unwrap();
-    
+
     LookbackOptionBuilder::new()
         .id(InstrumentId::new("TEST-LOOKBACK"))
         .underlying_ticker("SPX".to_string())
@@ -32,22 +34,22 @@ fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
 
 fn create_test_market(as_of: Date) -> MarketContext {
     let mut market = MarketContext::new();
-    
+
     // Discount curve: flat 5%
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
-        .knots([
-            (0.0, 1.0),
-            (10.0, (-0.05 * 10.0_f64).exp()),
-        ])
+        .knots([(0.0, 1.0), (10.0, (-0.05 * 10.0_f64).exp())])
         .build()
         .unwrap();
-        
+
     market = market.insert_discount(curve);
 
     // Spot price: 100.0
-    market = market.insert_price("SPX-SPOT", finstack_core::market_data::scalars::MarketScalar::Price(Money::new(100.0, Currency::USD)));
+    market = market.insert_price(
+        "SPX-SPOT",
+        finstack_core::market_data::scalars::MarketScalar::Price(Money::new(100.0, Currency::USD)),
+    );
 
     // Vol surface: flat 20%
     use finstack_core::market_data::surfaces::VolSurface;
@@ -56,11 +58,15 @@ fn create_test_market(as_of: Date) -> MarketContext {
         &[0.0, 10.0],
         &[0.0, 10000.0],
         &[0.20, 0.20, 0.20, 0.20],
-    ).unwrap();
+    )
+    .unwrap();
     market = market.insert_surface(surface);
 
     // Div yield: flat 0%
-    market = market.insert_price("SPX-DIV", finstack_core::market_data::scalars::MarketScalar::Unitless(0.0));
+    market = market.insert_price(
+        "SPX-DIV",
+        finstack_core::market_data::scalars::MarketScalar::Unitless(0.0),
+    );
 
     market
 }
@@ -74,7 +80,7 @@ fn test_fixed_strike_call_seasoning() {
     // Strike = 100, Spot = 100
     // Payoff = max(S_max - K, 0)
     // Unseasoned: S_max = Spot = 100 -> Payoff at t=0 is 0.
-    
+
     // 1. Unseasoned (default)
     let unseasoned = get_base_builder(as_of)
         .observed_max_opt(None)
@@ -97,7 +103,10 @@ fn test_fixed_strike_call_seasoning() {
     let pv_seasoned_high = seasoned_high.value(&market, as_of).unwrap().amount();
     println!("Seasoned High PV: {}", pv_seasoned_high);
 
-    assert!(pv_seasoned_high > pv_unseasoned, "Seasoned high max should have higher value");
+    assert!(
+        pv_seasoned_high > pv_unseasoned,
+        "Seasoned high max should have higher value"
+    );
 
     // 3. Seasoned with Low Max (e.g., 80)
     // Current Spot = 100. Max so far = 80.
@@ -112,7 +121,10 @@ fn test_fixed_strike_call_seasoning() {
     println!("Seasoned Low PV: {}", pv_seasoned_low);
 
     // Use small epsilon for float comparison
-    assert!((pv_seasoned_low - pv_unseasoned).abs() < 1e-10, "Seasoned low max should equal unseasoned (effective max is spot)");
+    assert!(
+        (pv_seasoned_low - pv_unseasoned).abs() < 1e-10,
+        "Seasoned low max should equal unseasoned (effective max is spot)"
+    );
 }
 
 #[test]
@@ -144,7 +156,10 @@ fn test_floating_strike_put_seasoning() {
         .unwrap();
     let pv_seasoned_high = seasoned_high.value(&market, as_of).unwrap().amount();
 
-    assert!(pv_seasoned_high > pv_unseasoned, "Seasoned high max should increase Floating Put value");
+    assert!(
+        pv_seasoned_high > pv_unseasoned,
+        "Seasoned high max should increase Floating Put value"
+    );
 }
 
 #[test]
@@ -173,9 +188,12 @@ fn test_fixed_strike_put_seasoning() {
         .unwrap();
     let pv_seasoned_low = seasoned_low.value(&market, as_of).unwrap().amount();
 
-    assert!(pv_seasoned_low > pv_unseasoned, "Seasoned low min should increase Fixed Put value");
+    assert!(
+        pv_seasoned_low > pv_unseasoned,
+        "Seasoned low min should increase Fixed Put value"
+    );
 
-     // 3. Seasoned High (Min = 120)
+    // 3. Seasoned High (Min = 120)
     // Effective Min = min(120, 100) = 100.
     // Should be equal to unseasoned.
     let seasoned_high = get_base_builder(as_of)
@@ -186,5 +204,8 @@ fn test_fixed_strike_put_seasoning() {
         .unwrap();
     let pv_seasoned_high = seasoned_high.value(&market, as_of).unwrap().amount();
 
-    assert!((pv_seasoned_high - pv_unseasoned).abs() < 1e-10, "Seasoned high min should equal unseasoned (effective min is spot)");
+    assert!(
+        (pv_seasoned_high - pv_unseasoned).abs() < 1e-10,
+        "Seasoned high min should equal unseasoned (effective min is spot)"
+    );
 }

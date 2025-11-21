@@ -418,7 +418,9 @@ impl crate::instruments::common::pricing::HasDiscountCurve for TermLoan {
 // hazard/credit curve exists in the market data if they request CS01 metrics.
 impl crate::metrics::HasCreditCurve for TermLoan {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.credit_curve_id.as_ref().unwrap_or(&self.discount_curve_id)
+        self.credit_curve_id
+            .as_ref()
+            .unwrap_or(&self.discount_curve_id)
     }
 }
 

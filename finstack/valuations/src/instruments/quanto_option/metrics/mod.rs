@@ -9,11 +9,11 @@ mod correlation01;
 mod delta;
 // mod dv01; // removed - using GenericParallelDv01
 #[cfg(feature = "mc")]
+mod foreign_rho;
+#[cfg(feature = "mc")]
 mod fx_delta;
 #[cfg(feature = "mc")]
 mod fx_vega;
-#[cfg(feature = "mc")]
-mod foreign_rho;
 #[cfg(feature = "mc")]
 mod gamma;
 #[cfg(feature = "mc")]

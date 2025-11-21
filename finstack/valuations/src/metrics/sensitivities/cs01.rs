@@ -4,15 +4,15 @@
 //! depend on hazard curves. Results are stored into `MetricContext` via structured
 //! series using stable composite keys.
 
-use crate::metrics::{MetricContext, MetricId};
 use crate::calibration::methods::hazard_curve::HazardCurveCalibrator;
-use crate::calibration::CreditQuote;
 use crate::calibration::Calibrator;
+use crate::calibration::CreditQuote;
+use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, Currency};
+use finstack_core::types::{Currency, CurveId};
 use std::sync::Arc;
 
 /// Standard credit key-rate buckets in years used for CS01.
@@ -51,7 +51,7 @@ fn bump_hazard_curve_spreads(
 ) -> finstack_core::Result<HazardCurve> {
     // Check if we have necessary data for re-calibration
     let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
-    
+
     let Some(discount_id) = discount_id else {
         // Fallback to hazard rate shift (Model Sensitivity)
         let bump_decimal = bump_bp * 1e-4;
@@ -79,28 +79,31 @@ fn bump_hazard_curve_spreads(
                 .map_err(|_| finstack_core::Error::Internal);
         }
     }
-    
+
     // Construct CreditQuotes from par points with bumps applied
     let base_date = hazard.base_date();
     let currency = hazard.currency().unwrap_or(Currency::USD); // Default or error?
     let recovery = hazard.recovery_rate();
     let seniority = hazard.seniority.unwrap_or(Seniority::Senior);
-    let issuer = hazard.issuer().map(|s| s.to_string()).unwrap_or_else(|| "UNKNOWN".to_string());
+    let issuer = hazard
+        .issuer()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
 
     let mut quotes = Vec::new();
-    
+
     for (tenor_years, spread_bp) in par_points {
         let maturity_days = (tenor_years * 365.25).round() as i64;
         let maturity = base_date + time::Duration::days(maturity_days);
-        
+
         let mut bumped_spread = spread_bp;
-        
+
         // Apply bump
         if let Some(bucket_t) = bucket_year {
             // Key-rate bump: strictly bucketed or distributed?
             // Standard key-rate bump usually applies to the specific par instrument
             // matching the bucket. Here we map tenor points to buckets.
-            // For simplicity/standard practice: 
+            // For simplicity/standard practice:
             // If bucket_year matches tenor_years (approx), bump it.
             // Or we could define "buckets" as the par points themselves.
             // Since we passed in `bucket_year` from `standard_credit_cs01_buckets`,
@@ -109,15 +112,16 @@ fn bump_hazard_curve_spreads(
             // If the curve has points at 3Y, 5Y, 7Y, and we request 5Y bucket sensitivity,
             // we bump the 5Y quote.
             // If we request 4Y bucket sensitivity (no point), we might interpolate or do nothing.
-            // 
+            //
             // Current logic receives `bucket_times_years` from caller.
             // For bootstrapping consistency, we should bump the par point closest to the bucket?
             // Or assumes the caller passed `par_tenors` as buckets?
-            
+
             // Strategy: Bump the par point if it matches the requested bucket within tolerance.
             // If `bucket_year` is not one of the par tenors, this might result in zero sensitivity
             // for that bucket, which is correct for a bootstrapped curve (local dependency).
-            if (tenor_years - bucket_t).abs() < 0.1 { // 0.1 year tolerance
+            if (tenor_years - bucket_t).abs() < 0.1 {
+                // 0.1 year tolerance
                 bumped_spread += bump_bp;
             }
         } else {
@@ -145,7 +149,7 @@ fn bump_hazard_curve_spreads(
     );
 
     let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
-    
+
     // Restore original ID to ensure it overrides correctly in MarketContext
     let final_curve = new_curve
         .to_builder_with_id(hazard.id().clone())
@@ -183,7 +187,7 @@ where
         .map_err(|_| finstack_core::Error::Internal)?;
 
     let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-    
+
     let cs01 = if bump_bp.abs() > 1e-10 {
         (pv_bumped.amount() - base_pv.amount()) / bump_bp
     } else {
@@ -259,17 +263,11 @@ where
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
 
     // Bump spreads and re-calibrate
-    let bumped_hazard = bump_hazard_curve_spreads(
-        hazard, 
-        base_ctx, 
-        discount_id, 
-        bump_bp, 
-        None
-    )?;
+    let bumped_hazard = bump_hazard_curve_spreads(hazard, base_ctx, discount_id, bump_bp, None)?;
 
     let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
     let pv_bumped = revalue_with_context(&temp_ctx)?;
-    
+
     // CS01 is PV change per 1bp
     let cs01 = if bump_bp.abs() > 1e-10 {
         (pv_bumped.amount() - base_pv.amount()) / bump_bp
@@ -309,22 +307,17 @@ where
 
         // Bump spread at key rate (bucket t)
         // Note: bump_hazard_curve_spreads handles the logic of finding the matching par point
-        let bumped_hazard = bump_hazard_curve_spreads(
-            hazard,
-            base_ctx,
-            discount_id,
-            bump_bp,
-            Some(t)
-        )?;
+        let bumped_hazard =
+            bump_hazard_curve_spreads(hazard, base_ctx, discount_id, bump_bp, Some(t))?;
 
         // Optimization: If the curve is identical (no bump applied because no matching par point),
         // we can skip revaluation.
         // However, comparing curves is hard. bump_hazard_curve_spreads creates a new curve anyway.
         // For correctness, we reprice. Ideally we'd check if we actually bumped anything.
-        
+
         let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
-        
+
         let cs01 = if bump_bp.abs() > 1e-10 {
             (pv_bumped.amount() - base_pv.amount()) / bump_bp
         } else {
@@ -427,8 +420,8 @@ fn with_key_rate_hazard_bump(
 
 // ===== Generic Calculators =====
 
-use crate::instruments::common::traits::Instrument;
 use crate::instruments::common::pricing::HasDiscountCurve;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 
@@ -510,8 +503,14 @@ where
             inst_arc.value(temp_ctx, as_of)
         };
 
-        let total =
-            compute_key_rate_cs01_series_with_context(context, &hazard_id, Some(&discount_id), buckets, 1.0, reval)?;
+        let total = compute_key_rate_cs01_series_with_context(
+            context,
+            &hazard_id,
+            Some(&discount_id),
+            buckets,
+            1.0,
+            reval,
+        )?;
 
         Ok(total)
     }

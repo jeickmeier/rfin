@@ -49,7 +49,12 @@ fn test_real_yield_premium_bond() {
     // Assert - yield should be positive and reasonable
     // Premium pricing for ILBs is complex due to inflation adjustments
     // For a premium bond (price > 100), yield should be less than coupon
-    assert!(y < ilb.real_coupon, "Premium bond should have yield < coupon, got yield={}, coupon={}", y, ilb.real_coupon);
+    assert!(
+        y < ilb.real_coupon,
+        "Premium bond should have yield < coupon, got yield={}, coupon={}",
+        y,
+        ilb.real_coupon
+    );
     assert!(y > -0.05, "Yield should be reasonable, got {}", y);
     assert!(y < 0.15);
 }

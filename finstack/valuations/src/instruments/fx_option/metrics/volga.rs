@@ -46,7 +46,7 @@ impl MetricCalculator for VolgaCalculator {
         }
 
         // Two-point finite difference for Volga = ∂Vega/∂σ * 0.01
-        
+
         // 1. Vega at (σ+Δσ)
         let curves_vol_up = {
             let vol_bumped = vol_surface.bump_point(t, option.strike, vol_bump_pct)?;

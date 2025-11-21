@@ -435,9 +435,7 @@ impl SwaptionVolCalibrator {
     }
 
     /// Extract sorted unique expiries and tenors (in years) from SABR parameter grid.
-    fn sabr_grid_axes(
-        sabr_params: &SABRParamsByExpiryTenor,
-    ) -> (Vec<f64>, Vec<f64>) {
+    fn sabr_grid_axes(sabr_params: &SABRParamsByExpiryTenor) -> (Vec<f64>, Vec<f64>) {
         let mut expiries_bp = Vec::new();
         let mut tenors_bp = Vec::new();
 
@@ -574,18 +572,16 @@ impl SwaptionVolCalibrator {
             0.0
         };
 
-        Some(Self::interpolate_sabr_bilinear(p_00, p_10, p_01, p_11, wx, wy))
+        Some(Self::interpolate_sabr_bilinear(
+            p_00, p_10, p_01, p_11, wx, wy,
+        ))
     }
 
     /// Linear interpolation between two SABR parameter sets in parameter space.
     ///
     /// - alpha, nu interpolated in log-space to preserve positivity.
     /// - rho interpolated linearly and clamped to (-1, 1).
-    fn interpolate_sabr_linear(
-        p0: &SABRParameters,
-        p1: &SABRParameters,
-        w: f64,
-    ) -> SABRParameters {
+    fn interpolate_sabr_linear(p0: &SABRParameters, p1: &SABRParameters, w: f64) -> SABRParameters {
         let w_clamped = w.clamp(0.0, 1.0);
 
         let log_alpha0 = p0.alpha.ln();
@@ -683,9 +679,9 @@ impl SwaptionVolCalibrator {
                         .map(|((exp_bp, ten_bp), params)| {
                             let exp = *exp_bp as f64 / 10000.0;
                             let ten = *ten_bp as f64 / 10000.0;
-                            let distance =
-                                ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2))
-                                    .sqrt();
+                            let distance = ((exp - target_expiry).powi(2)
+                                + (ten - target_tenor).powi(2))
+                            .sqrt();
                             (distance, params)
                         })
                         .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -694,8 +690,8 @@ impl SwaptionVolCalibrator {
                         Some((_, params)) => {
                             let model = SABRModel::new(params.clone());
                             let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
-                            let forward = self
-                                .calculate_forward_swap_rate(expiry, target_tenor, context)?;
+                            let forward =
+                                self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
                             let strike =
                                 self.determine_atm_strike(forward, expiry, target_tenor, context)?;
 
@@ -958,10 +954,46 @@ mod tests {
             shift: None,
         };
         let mut grid: SABRParamsByExpiryTenor = BTreeMap::new();
-        grid.insert((to_basis_points(1.0), to_basis_points(5.0)), SABRParameters { alpha: 0.2, beta: 0.5, nu: 0.4, rho: -0.1, shift: None });
-        grid.insert((to_basis_points(2.0), to_basis_points(5.0)), SABRParameters { alpha: 0.4, beta: 0.5, nu: 0.8, rho: 0.2, shift: None });
-        grid.insert((to_basis_points(1.0), to_basis_points(10.0)), SABRParameters { alpha: 0.3, beta: 0.5, nu: 0.6, rho: 0.0, shift: None });
-        grid.insert((to_basis_points(2.0), to_basis_points(10.0)), SABRParameters { alpha: 0.6, beta: 0.5, nu: 1.0, rho: 0.4, shift: None });
+        grid.insert(
+            (to_basis_points(1.0), to_basis_points(5.0)),
+            SABRParameters {
+                alpha: 0.2,
+                beta: 0.5,
+                nu: 0.4,
+                rho: -0.1,
+                shift: None,
+            },
+        );
+        grid.insert(
+            (to_basis_points(2.0), to_basis_points(5.0)),
+            SABRParameters {
+                alpha: 0.4,
+                beta: 0.5,
+                nu: 0.8,
+                rho: 0.2,
+                shift: None,
+            },
+        );
+        grid.insert(
+            (to_basis_points(1.0), to_basis_points(10.0)),
+            SABRParameters {
+                alpha: 0.3,
+                beta: 0.5,
+                nu: 0.6,
+                rho: 0.0,
+                shift: None,
+            },
+        );
+        grid.insert(
+            (to_basis_points(2.0), to_basis_points(10.0)),
+            SABRParameters {
+                alpha: 0.6,
+                beta: 0.5,
+                nu: 1.0,
+                rho: 0.4,
+                shift: None,
+            },
+        );
 
         let calib = dummy_calibrator();
 

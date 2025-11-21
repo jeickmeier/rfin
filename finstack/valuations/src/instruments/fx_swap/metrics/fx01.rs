@@ -33,10 +33,22 @@ impl MetricCalculator for FX01 {
             }
         };
 
-        let df_dom_near = normalize(domestic_disc.df_on_date_curve(fx_swap.near_date), df_as_of_dom);
-        let df_dom_far = normalize(domestic_disc.df_on_date_curve(fx_swap.far_date), df_as_of_dom);
-        let df_for_near = normalize(foreign_disc.df_on_date_curve(fx_swap.near_date), df_as_of_for);
-        let df_for_far = normalize(foreign_disc.df_on_date_curve(fx_swap.far_date), df_as_of_for);
+        let df_dom_near = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_dom,
+        );
+        let df_dom_far = normalize(
+            domestic_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_dom,
+        );
+        let df_for_near = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.near_date),
+            df_as_of_for,
+        );
+        let df_for_far = normalize(
+            foreign_disc.df_on_date_curve(fx_swap.far_date),
+            df_as_of_for,
+        );
 
         // Settlement checks
         let include_near = fx_swap.near_date >= as_of;
@@ -63,16 +75,14 @@ impl MetricCalculator for FX01 {
 
         // Recompute near/far rates with bumped spot when not fixed
         let near_rate = fx_swap.near_rate.unwrap_or(bumped_spot);
-        let far_rate = fx_swap
-            .far_rate
-            .unwrap_or(if df_dom_far.abs() > 1e-12 {
-                bumped_spot * df_for_far / df_dom_far
-            } else {
-                bumped_spot
-            });
+        let far_rate = fx_swap.far_rate.unwrap_or(if df_dom_far.abs() > 1e-12 {
+            bumped_spot * df_for_far / df_dom_far
+        } else {
+            bumped_spot
+        });
 
         let base_amt = fx_swap.base_notional.amount();
-        
+
         let mut pv_for_leg = 0.0;
         if include_near {
             pv_for_leg += base_amt * df_for_near;

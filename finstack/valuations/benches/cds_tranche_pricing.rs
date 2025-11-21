@@ -298,7 +298,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
     group.bench_function("all_metrics", |b| {
         b.iter(|| {
             let _npv = tranche.npv(black_box(&market), black_box(as_of));
-            
+
             // CS01 via generic calculator
             let _base_pv = *_npv.as_ref().unwrap();
             let mut context = MetricContext::new(
@@ -307,8 +307,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
                 as_of,
                 _base_pv,
             );
-            let _cs01 = GenericParallelCs01::<CdsTranche>::default()
-                .calculate(&mut context);
+            let _cs01 = GenericParallelCs01::<CdsTranche>::default().calculate(&mut context);
 
             let _corr_delta = tranche.correlation_delta(black_box(&market), black_box(as_of));
             let _jtd = tranche.jump_to_default(black_box(&market), black_box(as_of));

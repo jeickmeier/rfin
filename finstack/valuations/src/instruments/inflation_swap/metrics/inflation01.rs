@@ -24,11 +24,11 @@ impl MetricCalculator for Inflation01Calculator {
         let inflation_index = context
             .curves
             .inflation_index_ref(s.inflation_index_id.as_str());
-        
+
         let default_lag = inflation_index
             .map(|i| i.lag())
             .unwrap_or(finstack_core::market_data::scalars::inflation_index::InflationLag::None);
-        
+
         let lagged_maturity = s.lagged_maturity_date(default_lag);
 
         let t_maturity = DayCount::Act365F
@@ -48,8 +48,7 @@ impl MetricCalculator for Inflation01Calculator {
             .unwrap_or(0.0);
         let df = disc.df(t_discount);
 
-        let inflation_sensitivity =
-            s.notional.amount() * index_ratio * df * t_maturity * 0.0001;
+        let inflation_sensitivity = s.notional.amount() * index_ratio * df * t_maturity * 0.0001;
 
         let signed_sensitivity = match s.side {
             PayReceiveInflation::PayFixed => inflation_sensitivity,

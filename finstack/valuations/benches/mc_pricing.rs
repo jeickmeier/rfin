@@ -21,7 +21,6 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::{
     BarrierOptionPayoff, BarrierType,
 };
-use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::european::{
     EuropeanPricer, EuropeanPricerConfig,
@@ -32,6 +31,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::pricer::lsmc:
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+use finstack_valuations::instruments::OptionType;
 
 fn bench_european_gbm(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_european_gbm");

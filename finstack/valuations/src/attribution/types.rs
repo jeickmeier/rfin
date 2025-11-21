@@ -445,49 +445,85 @@ impl PnlAttribution {
 
         // Scale details if present
         if let Some(d) = &mut self.rates_detail {
-            for v in d.by_curve.values_mut() { *v *= factor; }
-            for v in d.by_tenor.values_mut() { *v *= factor; }
+            for v in d.by_curve.values_mut() {
+                *v *= factor;
+            }
+            for v in d.by_tenor.values_mut() {
+                *v *= factor;
+            }
             d.discount_total *= factor;
             d.forward_total *= factor;
         }
 
         if let Some(d) = &mut self.credit_detail {
-            for v in d.by_curve.values_mut() { *v *= factor; }
-            for v in d.by_tenor.values_mut() { *v *= factor; }
+            for v in d.by_curve.values_mut() {
+                *v *= factor;
+            }
+            for v in d.by_tenor.values_mut() {
+                *v *= factor;
+            }
         }
 
         if let Some(d) = &mut self.inflation_detail {
-            for v in d.by_curve.values_mut() { *v *= factor; }
+            for v in d.by_curve.values_mut() {
+                *v *= factor;
+            }
             if let Some(bt) = &mut d.by_tenor {
-                for v in bt.values_mut() { *v *= factor; }
+                for v in bt.values_mut() {
+                    *v *= factor;
+                }
             }
         }
 
         if let Some(d) = &mut self.correlations_detail {
-            for v in d.by_curve.values_mut() { *v *= factor; }
+            for v in d.by_curve.values_mut() {
+                *v *= factor;
+            }
         }
 
         if let Some(d) = &mut self.fx_detail {
-            for v in d.by_pair.values_mut() { *v *= factor; }
+            for v in d.by_pair.values_mut() {
+                *v *= factor;
+            }
         }
 
         if let Some(d) = &mut self.vol_detail {
-            for v in d.by_surface.values_mut() { *v *= factor; }
+            for v in d.by_surface.values_mut() {
+                *v *= factor;
+            }
         }
 
         if let Some(d) = &mut self.model_params_detail {
-            if let Some(v) = &mut d.prepayment { *v *= factor; }
-            if let Some(v) = &mut d.default_rate { *v *= factor; }
-            if let Some(v) = &mut d.recovery_rate { *v *= factor; }
-            if let Some(v) = &mut d.conversion_ratio { *v *= factor; }
-            for v in d.other.values_mut() { *v *= factor; }
+            if let Some(v) = &mut d.prepayment {
+                *v *= factor;
+            }
+            if let Some(v) = &mut d.default_rate {
+                *v *= factor;
+            }
+            if let Some(v) = &mut d.recovery_rate {
+                *v *= factor;
+            }
+            if let Some(v) = &mut d.conversion_ratio {
+                *v *= factor;
+            }
+            for v in d.other.values_mut() {
+                *v *= factor;
+            }
         }
 
         if let Some(d) = &mut self.scalars_detail {
-            for v in d.dividends.values_mut() { *v *= factor; }
-            for v in d.inflation.values_mut() { *v *= factor; }
-            for v in d.equity_prices.values_mut() { *v *= factor; }
-            for v in d.commodity_prices.values_mut() { *v *= factor; }
+            for v in d.dividends.values_mut() {
+                *v *= factor;
+            }
+            for v in d.inflation.values_mut() {
+                *v *= factor;
+            }
+            for v in d.equity_prices.values_mut() {
+                *v *= factor;
+            }
+            for v in d.commodity_prices.values_mut() {
+                *v *= factor;
+            }
         }
     }
 

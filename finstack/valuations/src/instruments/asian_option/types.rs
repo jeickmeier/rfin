@@ -236,25 +236,24 @@ mod tests {
             Date::from_calendar_date(2024, Month::February, 1).expect("valid date"),
             Date::from_calendar_date(2024, Month::March, 1).expect("valid date"),
         ];
-        
+
         let mut asian = AsianOption::example();
         asian.fixing_dates = fixings.clone();
-        
+
         // No history
-        let (sum, _log_prod, count) = asian.accumulated_state(Date::from_calendar_date(2024, Month::April, 1).expect("valid date"));
+        let (sum, _log_prod, count) = asian.accumulated_state(
+            Date::from_calendar_date(2024, Month::April, 1).expect("valid date"),
+        );
         assert_eq!(sum, 0.0);
         assert_eq!(count, 0);
 
         // Add history
-        asian.past_fixings = vec![
-            (fixings[0], 100.0),
-            (fixings[1], 105.0),
-        ];
+        asian.past_fixings = vec![(fixings[0], 100.0), (fixings[1], 105.0)];
 
         // Check at date between Feb and Mar
         let as_of = Date::from_calendar_date(2024, Month::February, 15).expect("valid date");
         let (sum, log_prod, count) = asian.accumulated_state(as_of);
-        
+
         assert_eq!(sum, 205.0);
         assert_eq!(count, 2);
         assert!((log_prod - (100.0f64.ln() + 105.0f64.ln())).abs() < 1e-10);
@@ -266,4 +265,3 @@ mod tests {
         assert_eq!(count_early, 1);
     }
 }
-

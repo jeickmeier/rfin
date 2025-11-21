@@ -370,25 +370,21 @@ impl ForwardCurveCalibrator {
 
         // Validate the calibrated forward curve
         use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        curve
-            .validate(&ValidationConfig::default())
-            .map_err(|e| finstack_core::Error::Calibration {
+        curve.validate(&ValidationConfig::default()).map_err(|e| {
+            finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated forward curve {} failed validation: {}",
                     self.fwd_curve_id.as_str(),
                     e
                 ),
                 category: "forward_curve_validation".to_string(),
-            })?;
+            }
+        })?;
 
         // Calculate Jacobian if explanation is enabled
         if let Some(t) = &mut trace {
-            let jacobian_entry = self.calculate_jacobian(
-                &sorted_quotes,
-                &curve,
-                base_context,
-                solver,
-            )?;
+            let jacobian_entry =
+                self.calculate_jacobian(&sorted_quotes, &curve, base_context, solver)?;
             t.push(jacobian_entry, self.config.explain.max_entries);
         }
 
@@ -457,9 +453,9 @@ impl ForwardCurveCalibrator {
 
             // 3. Calculate sensitivities
             let mut row_sensitivities = Vec::with_capacity(base_knots.len());
-            
+
             // Match knots by time (assuming same grid structure, which should hold for small bumps)
-            // If the grid changes (e.g. adaptive knots), this simple mapping might fail, 
+            // If the grid changes (e.g. adaptive knots), this simple mapping might fail,
             // but for standard bootstrapping the knot times are determined by quote maturities.
             for (j, base_rate) in base_knots.iter().enumerate() {
                 if j < bumped_curve.knots().len() {
