@@ -1,16 +1,14 @@
 //! Python bindings for risk ladder calculations (KRD, CS01, etc.).
 //!
-//! Exposes bucketed risk metrics in DataFrame-friendly format.
+//! Exposes risk ladder calculations by delegating to Rust `finstack-valuations`
+//! metrics (no pricing logic implemented in Python).
 
 use crate::core::market_data::PyMarketContext;
 use crate::core::utils as core_utils;
-use finstack_core::market_data::bumps::BumpSpec;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::metrics::standard_ir_dv01_buckets;
+use finstack_valuations::metrics::MetricId;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
-use std::sync::Arc;
 
 /// Compute Key Rate Duration (KRD) DV01 ladder for a bond.
 ///
@@ -22,8 +20,10 @@ use std::sync::Arc;
 /// * `bond` - Bond instrument to analyze
 /// * `market` - Market context with discount curve
 /// * `as_of` - Valuation date  
-/// * `buckets_years` - Optional list of tenor points in years (default: standard buckets)
-/// * `bump_bp` - Parallel shift size in basis points (default: 1.0)
+/// * `buckets_years` - Optional list of tenor points in years (currently ignored; bucket
+///   configuration is controlled in the Rust metrics layer).
+/// * `bump_bp` - Parallel shift size in basis points (currently ignored; bump size is
+///   controlled via pricing overrides in the Rust metrics layer).
 ///
 /// # Returns
 ///
@@ -52,6 +52,7 @@ use std::sync::Arc;
 /// ```
 #[pyfunction]
 #[pyo3(signature = (bond, market, as_of, buckets_years=None, bump_bp=None))]
+#[allow(unused_variables)]
 pub fn krd_dv01_ladder(
     py: Python<'_>,
     bond: Bound<'_, PyAny>,
@@ -62,87 +63,35 @@ pub fn krd_dv01_ladder(
 ) -> PyResult<PyObject> {
     // Convert Python types to Rust types
     let as_of_date = core_utils::py_to_date(&as_of)?;
-    let buckets = buckets_years.unwrap_or_else(standard_ir_dv01_buckets);
-    let bump = bump_bp.unwrap_or(1.0);
 
     // Extract instrument
     let bond_handle = super::instruments::extract_instrument(&bond)?;
-    let instrument: Arc<dyn Instrument> = Arc::from(bond_handle.instrument);
+    let instrument = bond_handle.instrument;
 
-    // Call Rust helper function
-    let ladder =
-        compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    // Use registered BucketedDv01 metric in Rust; this currently returns a single
+    // scalar representing the total bucketed DV01. Full per-bucket ladders are
+    // computed inside the metrics layer using `MetricContext`.
+    let metrics = vec![MetricId::BucketedDv01];
+    let result = instrument
+        .price_with_metrics(&market.inner, as_of_date, &metrics)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-    // Convert to Python dict format
-    let bucket_labels: Vec<String> = ladder.iter().map(|(label, _)| label.clone()).collect();
-    let dv01_values: Vec<f64> = ladder.iter().map(|(_, value)| *value).collect();
+    let total = *result
+        .measures
+        .get(MetricId::BucketedDv01.as_str())
+        .ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Bucketed DV01 metric not available for this instrument",
+            )
+        })?;
 
+    // For now, expose a single 'total' bucket; when a Rust API for per-bucket
+    // ladders is available we can extend this without changing the Python shape.
     let dict = PyDict::new(py);
-    dict.set_item("buckets", bucket_labels)?;
-    dict.set_item("dv01", dv01_values)?;
+    dict.set_item("buckets", vec!["total"])?;
+    dict.set_item("dv01", vec![total])?;
 
     Ok(dict.into())
-}
-
-/// Compute key-rate DV01 ladder using Rust bumping infrastructure.
-///
-/// This is a type-erased helper that works with trait objects.
-fn compute_key_rate_dv01_ladder(
-    instrument: &Arc<dyn Instrument>,
-    market: &finstack_core::market_data::MarketContext,
-    as_of: finstack_core::dates::Date,
-    buckets: &[f64],
-    bump_bp: f64,
-) -> finstack_core::Result<Vec<(String, f64)>> {
-    use finstack_core::types::CurveId;
-    use hashbrown::HashMap;
-
-    // Calculate base PV
-    let base_pv = instrument.value(market, as_of)?;
-
-    // Collect all discount curves from market
-    let discount_curve_ids: Vec<CurveId> = market
-        .curves_of_type("Discount")
-        .map(|(id, _)| id.clone())
-        .collect();
-
-    if discount_curve_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    // Calculate DV01 for each bucket
-    let mut results = Vec::new();
-
-    for &time_years in buckets {
-        let label = format_bucket_label(time_years);
-
-        // Create key-rate bump for all discount curves
-        let mut bumps = HashMap::new();
-        for curve_id in &discount_curve_ids {
-            bumps.insert(curve_id.clone(), BumpSpec::key_rate_bp(time_years, bump_bp));
-        }
-
-        // Apply bumps and reprice
-        let bumped_market = market.bump(bumps)?;
-        let bumped_pv = instrument.value(&bumped_market, as_of)?;
-
-        // Calculate sensitivity
-        let dv01 = (bumped_pv.amount() - base_pv.amount()) / bump_bp;
-
-        results.push((label, dv01));
-    }
-
-    Ok(results)
-}
-
-/// Generate bucket label from years (e.g., 0.25 -> "3m", 5.0 -> "5y").
-fn format_bucket_label(years: f64) -> String {
-    if years < 1.0 {
-        format!("{:.0}m", (years * 12.0).round())
-    } else {
-        format!("{:.0}y", years)
-    }
 }
 
 /// Compute CS01 ladder for a bond.
@@ -154,8 +103,8 @@ fn format_bucket_label(years: f64) -> String {
 /// * `bond` - Bond instrument to analyze
 /// * `market` - Market context with credit/hazard curves
 /// * `as_of` - Valuation date
-/// * `buckets_years` - Optional list of tenor points in years
-/// * `bump_bp` - Parallel shift size in basis points (default: 1.0)
+/// * `buckets_years` - Optional list of tenor points in years (currently ignored).
+/// * `bump_bp` - Parallel shift size in basis points (currently ignored).
 ///
 /// # Returns
 ///
@@ -167,6 +116,7 @@ fn format_bucket_label(years: f64) -> String {
 /// calculation requires dedicated credit curve infrastructure (hazard rates).
 #[pyfunction]
 #[pyo3(signature = (bond, market, as_of, buckets_years=None, bump_bp=None))]
+#[allow(unused_variables)]
 pub fn cs01_ladder(
     py: Python<'_>,
     bond: Bound<'_, PyAny>,
@@ -177,26 +127,30 @@ pub fn cs01_ladder(
 ) -> PyResult<PyObject> {
     // Convert Python types to Rust types
     let as_of_date = core_utils::py_to_date(&as_of)?;
-    let buckets = buckets_years.unwrap_or_else(standard_ir_dv01_buckets);
-    let bump = bump_bp.unwrap_or(1.0);
 
     // Extract instrument
     let bond_handle = super::instruments::extract_instrument(&bond)?;
-    let instrument: Arc<dyn Instrument> = Arc::from(bond_handle.instrument);
+    let instrument = bond_handle.instrument;
 
-    // Call Rust helper function
-    // TODO: Implement proper credit curve bumping when hazard rate infrastructure is ready
-    let ladder =
-        compute_key_rate_dv01_ladder(&instrument, &market.inner, as_of_date, &buckets, bump)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    // Use registered BucketedCs01 metric in Rust; as with DV01, this currently
+    // exposes a total scalar at the ValuationResult level.
+    let metrics = vec![MetricId::BucketedCs01];
+    let result = instrument
+        .price_with_metrics(&market.inner, as_of_date, &metrics)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-    // Convert to Python dict format
-    let bucket_labels: Vec<String> = ladder.iter().map(|(label, _)| label.clone()).collect();
-    let cs01_values: Vec<f64> = ladder.iter().map(|(_, value)| *value).collect();
+    let total = *result
+        .measures
+        .get(MetricId::BucketedCs01.as_str())
+        .ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Bucketed CS01 metric not available for this instrument",
+            )
+        })?;
 
     let dict = PyDict::new(py);
-    dict.set_item("buckets", bucket_labels)?;
-    dict.set_item("cs01", cs01_values)?;
+    dict.set_item("buckets", vec!["total"])?;
+    dict.set_item("cs01", vec![total])?;
 
     Ok(dict.into())
 }
