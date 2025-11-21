@@ -38,6 +38,8 @@ pub struct QuantoOption {
     pub day_count: finstack_core::dates::DayCount,
     /// Discount curve ID (domestic currency)
     pub discount_curve_id: CurveId,
+    /// Discount curve ID (foreign currency)
+    pub foreign_discount_curve_id: CurveId,
     /// Equity spot price identifier
     pub spot_id: String,
     /// Equity volatility surface ID
@@ -66,6 +68,7 @@ impl crate::instruments::common::traits::CurveDependencies for QuantoOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
+            .discount(self.foreign_discount_curve_id.clone())
             .build()
     }
 }
@@ -89,6 +92,7 @@ impl QuantoOption {
             .correlation(-0.2)
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("JPY-OIS"))
             .spot_id("NKY-SPOT".to_string())
             .vol_surface_id(CurveId::new("NKY-VOL"))
             .div_yield_id_opt(Some("NKY-DIV".to_string()))

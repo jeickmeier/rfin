@@ -54,7 +54,7 @@ impl QuantoOptionMcPricer {
         }
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-        let r_dom = disc_curve.zero(t);
+        let _r_dom = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
             as_of,
@@ -68,8 +68,9 @@ impl QuantoOptionMcPricer {
             1.0
         };
 
-        // Get foreign rate (could be different curve)
-        let r_for = r_dom; // Simplified: assume same for now
+        // Get foreign rate
+        let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let r_for = for_curve.zero(t);
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {
@@ -97,11 +98,16 @@ impl QuantoOptionMcPricer {
             let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
             fx_vol_surface.value_clamped(t, 1.0) // Use spot FX rate of 1.0 as reference
         } else {
-            0.12 // Default FX vol if not provided
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound {
+                    id: "fx_vol_id".to_string(),
+                },
+            ));
         };
 
-        // Compute quanto adjustment
-        let quanto_adjustment = QuantoCallPayoff::compute_quanto_adjustment(
+        // Compute quanto-adjusted drift
+        // Note: compute_quanto_adjustment returns the full drift: r_for - q - rho * sigma_equity * sigma_fx
+        let adjusted_drift = QuantoCallPayoff::compute_quanto_adjustment(
             r_for,
             q,
             inst.correlation,
@@ -109,8 +115,6 @@ impl QuantoOptionMcPricer {
             sigma_fx,
         );
 
-        // Create GBM process with quanto-adjusted drift
-        let adjusted_drift = r_for - q - quanto_adjustment + r_for;
         let gbm_params = GbmParams::new(adjusted_drift, q, sigma_equity);
         let process = GbmProcess::new(gbm_params);
 
@@ -124,7 +128,7 @@ impl QuantoOptionMcPricer {
                     inst.notional.amount(),
                     inst.domestic_currency,
                     inst.foreign_currency,
-                    quanto_adjustment,
+                    adjusted_drift,
                 );
                 let pricer = EuropeanPricer::new(self.config.clone());
                 pricer.price(
@@ -143,7 +147,7 @@ impl QuantoOptionMcPricer {
                     inst.notional.amount(),
                     inst.domestic_currency,
                     inst.foreign_currency,
-                    quanto_adjustment,
+                    adjusted_drift,
                 );
                 let pricer = EuropeanPricer::new(self.config.clone());
                 pricer.price(
@@ -224,9 +228,9 @@ fn collect_quanto_inputs(
     let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
-    // For simplicity, use same rate curve for foreign rate
-    // In production, would fetch from separate curve
-    let r_for = r_dom;
+    // Get foreign rate
+    let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+    let r_for = for_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.spot_id)?;
     let spot = match spot_scalar {
@@ -254,7 +258,11 @@ fn collect_quanto_inputs(
         let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
         fx_vol_surface.value_clamped(t, 1.0)
     } else {
-        0.12 // Default FX vol
+        return Err(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound {
+                id: "fx_vol_id".to_string(),
+            },
+        ));
     };
 
     Ok((spot, r_dom, r_for, q, sigma_equity, sigma_fx, t))

@@ -58,6 +58,8 @@ pub fn lrm_delta(
 /// ```text
 /// ∂ln(p)/∂σ = (W_T² - T) / (σ √T)
 /// ```
+///
+/// Returns Vega scaled by 0.01 (sensitivity per 1% volatility change).
 pub fn lrm_vega(
     payoffs: &[f64],
     wiener_terminals: &[f64],
@@ -72,7 +74,8 @@ pub fn lrm_vega(
         let w_t = wiener_terminals[i];
         let score = (w_t * w_t - time_to_maturity) / (volatility * sqrt_t);
         let vega_contribution = discount_factor * payoff * score;
-        stats.update(vega_contribution);
+        // Scale by 0.01 to represent sensitivity per 1% vol change
+        stats.update(vega_contribution * 0.01);
     }
 
     (stats.mean(), stats.stderr())

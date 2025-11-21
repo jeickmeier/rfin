@@ -57,6 +57,8 @@ pub struct AutocallablePayoff {
     pub currency: Currency,
     /// Initial spot price
     pub initial_spot: f64,
+    /// Discount factor ratios (DF(t_obs) / DF(t_mat)) for correcting early cashflow PV
+    pub df_ratios: Vec<f64>,
 
     // State variables (tracked during path simulation)
     /// Index of observation date when autocalled (None if not autocalled)
@@ -90,6 +92,7 @@ impl AutocallablePayoff {
     /// * `notional` - Notional amount
     /// * `currency` - Currency
     /// * `initial_spot` - Initial spot price S_0
+    /// * `df_ratios` - Discount factor ratios DF(T_obs)/DF(T_mat) for each observation date
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         observation_dates: Vec<f64>,
@@ -102,6 +105,7 @@ impl AutocallablePayoff {
         notional: f64,
         currency: Currency,
         initial_spot: f64,
+        df_ratios: Vec<f64>,
     ) -> Self {
         assert_eq!(
             observation_dates.len(),
@@ -112,6 +116,11 @@ impl AutocallablePayoff {
             observation_dates.len(),
             coupons.len(),
             "Observation dates and coupons must have same length"
+        );
+        assert_eq!(
+            observation_dates.len(),
+            df_ratios.len(),
+            "Observation dates and discount factor ratios must have same length"
         );
 
         // Verify observation dates are sorted
@@ -133,6 +142,7 @@ impl AutocallablePayoff {
             notional,
             currency,
             initial_spot,
+            df_ratios,
             autocalled_at: None,
             min_spot_observed: f64::INFINITY,
             max_spot_observed: f64::NEG_INFINITY,
@@ -153,12 +163,17 @@ impl Payoff for AutocallablePayoff {
         // Check autocall at observation dates
         if self.autocalled_at.is_none() {
             for (idx, &obs_date) in self.observation_dates.iter().enumerate() {
-                // Check if we're at or past this observation date and barrier is hit
-                // Barriers are ratios relative to initial spot, so multiply by initial_spot
-                let is_at_obs_date = state.time >= obs_date || (state.time - obs_date).abs() < 1e-6;
-                let barrier_level = self.initial_spot * self.autocall_barriers[idx];
-                if is_at_obs_date && spot >= barrier_level {
-                    self.autocalled_at = Some(idx);
+                // Check if we're at this observation date (within epsilon)
+                // We strictly check equality, not >=, because state.time advances past dates
+                let is_at_obs_date = (state.time - obs_date).abs() < 1e-6;
+                
+                if is_at_obs_date {
+                    let barrier_level = self.initial_spot * self.autocall_barriers[idx];
+                    if spot >= barrier_level {
+                        self.autocalled_at = Some(idx);
+                    }
+                    // Since we found the matching date, no need to check others
+                    // (Assuming dates are distinct and time steps align)
                     break;
                 }
             }
@@ -188,7 +203,12 @@ impl Payoff for AutocallablePayoff {
         if let Some(idx) = self.autocalled_at {
             let coupon = self.coupons[idx];
             // Return coupon + principal
-            return Money::new((coupon + 1.0) * self.notional, currency);
+            // Adjust for discounting: The engine applies DF(T_mat), but we want DF(T_obs)
+            // value * DF(T_mat) = Payoff * DF(T_obs)
+            // value = Payoff * (DF(T_obs) / DF(T_mat))
+            let payoff = (coupon + 1.0) * self.notional;
+            let adjusted_payoff = payoff * self.df_ratios[idx];
+            return Money::new(adjusted_payoff, currency);
         }
 
         // Final payoff (not autocalled)
@@ -245,6 +265,7 @@ mod tests {
             100_000.0,
             Currency::USD,
             100.0, // Initial spot
+            vec![1.0, 1.0, 1.0, 1.0], // df_ratios
         );
 
         assert_eq!(payoff.observation_dates.len(), 4);
@@ -269,6 +290,7 @@ mod tests {
             100_000.0,
             Currency::USD,
             100.0,
+            vec![1.0, 1.0],
         );
 
         // Simulate first observation date with spot above barrier
@@ -301,6 +323,7 @@ mod tests {
             100_000.0,
             Currency::USD,
             100.0,
+            vec![1.0],
         );
 
         // Not autocalled, final spot is below initial
@@ -341,6 +364,7 @@ mod tests {
             100_000.0,
             Currency::USD,
             100.0,
+            vec![1.0],
         );
 
         let mut state = PathState::new(10, 0.25);

@@ -13,6 +13,8 @@ mod fx_delta;
 #[cfg(feature = "mc")]
 mod fx_vega;
 #[cfg(feature = "mc")]
+mod foreign_rho;
+#[cfg(feature = "mc")]
 mod gamma;
 #[cfg(feature = "mc")]
 mod rho;
@@ -42,6 +44,7 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
                 (Gamma, gamma::GammaCalculator),
                 (Vega, vega::VegaCalculator),
                 (Rho, rho::RhoCalculator),
+                (ForeignRho, foreign_rho::ForeignRhoCalculator),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

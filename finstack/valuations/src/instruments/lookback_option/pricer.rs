@@ -330,9 +330,53 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             ));
         }
 
-        // For now, assume spot_min = spot_max = spot (option just started)
-        // In production, these would come from path history or market data
-        let spot_extremum = spot;
+        // Determine current extremum based on option type
+        let spot_extremum = match lookback.lookback_type {
+            LookbackType::FixedStrike => match lookback.option_type {
+                crate::instruments::OptionType::Call => {
+                    // Fixed Strike Call: Payoff = max(S_max - K, 0)
+                    // Need max(observed_max, current_spot)
+                    let obs_max = lookback
+                        .observed_max
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    obs_max.max(spot)
+                }
+                crate::instruments::OptionType::Put => {
+                    // Fixed Strike Put: Payoff = max(K - S_min, 0)
+                    // Need min(observed_min, current_spot)
+                    let obs_min = lookback
+                        .observed_min
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    obs_min.min(spot)
+                }
+            },
+            LookbackType::FloatingStrike => match lookback.option_type {
+                crate::instruments::OptionType::Call => {
+                    // Floating Strike Call: Payoff = S_T - S_min
+                    // Need min(observed_min, current_spot)
+                    let obs_min = lookback
+                        .observed_min
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    obs_min.min(spot)
+                }
+                crate::instruments::OptionType::Put => {
+                    // Floating Strike Put: Payoff = S_max - S_T
+                    // Need max(observed_max, current_spot)
+                    let obs_max = lookback
+                        .observed_max
+                        .as_ref()
+                        .map(|m| m.amount())
+                        .unwrap_or(spot);
+                    obs_max.max(spot)
+                }
+            },
+        };
 
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {

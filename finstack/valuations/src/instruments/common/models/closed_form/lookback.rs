@@ -142,11 +142,25 @@ pub fn fixed_strike_lookback_put(
         return (vanilla_put * 1.3).max(0.0);
     }
 
-    // For general case, use vanilla as lower bound
-    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / vol_sqrt_t;
-    let d2 = d1 - vol_sqrt_t;
+    // Seasoned Case: Decomposition
+    // Payoff = K - S_min_final = (K - S_min) + (S_min - S_min_final)
+    // Value = PV(K - S_min) + Value(Unseasoned Lookback Put with Strike = S_min)
+    
+    let intrinsic_pv = (strike - s_min) * (-rate * time).exp();
+    
+    // Value of the option to lower the minimum further below s_min
+    // This is effectively an unseasoned lookback put with strike = s_min
+    let unseasoned_val = fixed_strike_lookback_put(
+        spot, 
+        s_min, // New strike is current minimum
+        time, 
+        rate, 
+        div_yield, 
+        vol, 
+        spot // Unseasoned
+    );
 
-    strike * (-rate * time).exp() * norm_cdf(-d2) - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    (intrinsic_pv + unseasoned_val).max(0.0)
 }
 
 /// Price a floating-strike lookback call option (continuous monitoring).

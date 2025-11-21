@@ -70,6 +70,8 @@ pub fn pathwise_delta_put(
 ///
 /// Vega involves differentiating the Brownian motion with respect to σ.
 ///
+/// Returns Vega scaled by 0.01 (sensitivity per 1% volatility change).
+///
 /// # Arguments
 ///
 /// * `terminal_spots` - Terminal spot prices
@@ -103,7 +105,8 @@ pub fn pathwise_vega(
             let ds_dsigma = s_t * (w / sqrt_t - volatility * sqrt_t) / volatility;
 
             let vega_contribution = discount_factor * ds_dsigma;
-            stats.update(vega_contribution);
+            // Scale by 0.01 to represent sensitivity per 1% vol change
+            stats.update(vega_contribution * 0.01);
         } else {
             stats.update(0.0);
         }

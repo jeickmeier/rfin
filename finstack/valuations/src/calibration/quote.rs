@@ -102,10 +102,9 @@ impl RatesQuote {
                     .split(|c: char| !c.is_ascii_alphanumeric())
                     .map(|s| s.to_string())
                     .collect();
-                let ois_tokens = [
-                    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA",
-                ];
-                tokens.iter().any(|t| ois_tokens.contains(&t.as_str()))
+                STANDARD_OIS_INDICES
+                    .iter()
+                    .any(|&ois| tokens.iter().any(|t| t == ois))
             }
             _ => false,
         }
@@ -275,3 +274,8 @@ impl Default for FutureSpecs {
         }
     }
 }
+
+/// Standard OIS index tokens used for identifying OIS instruments.
+pub const STANDARD_OIS_INDICES: &[&str] = &[
+    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA", "CORRA", "AONIA", "SARON", "SORA",
+];

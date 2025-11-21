@@ -21,6 +21,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::{
     BarrierCall, BarrierType,
 };
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::european::{
     EuropeanPricer, EuropeanPricerConfig,
@@ -107,6 +108,8 @@ fn bench_barrier_options(c: &mut Criterion) {
         100.0,
         120.0,
         BarrierType::UpAndOut,
+        OptionType::Call,
+        None,
         1.0,
         252,
         0.2,

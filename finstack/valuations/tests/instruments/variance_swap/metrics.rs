@@ -166,7 +166,7 @@ fn test_realized_variance_matches_series_calculation() {
 
     // Assert - RealizedVarianceCalculator uses frequency-based annualization
     let annualization_factor = match swap.observation_freq.days() {
-        Some(1) => 365.0,
+        Some(1) => 252.0,
         Some(7) => 52.0,
         _ => match swap.observation_freq.months() {
             Some(1) => 12.0,

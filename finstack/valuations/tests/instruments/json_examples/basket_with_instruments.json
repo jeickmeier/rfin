@@ -35,6 +35,8 @@
                 "credit_curve_id": null,
                 "pricing_overrides": {
                   "quoted_clean_price": null,
+                  "rho_bump_decimal": null,
+                  "vega_bump_decimal": null,
                   "implied_volatility": null,
                   "quoted_spread_bp": null,
                   "upfront_payment": null,
@@ -47,6 +49,7 @@
                   "rate_bump_bp": null
                 },
                 "call_put": null,
+                "accrual_method": "Linear",
                 "attributes": {
                   "tags": [],
                   "meta": {}

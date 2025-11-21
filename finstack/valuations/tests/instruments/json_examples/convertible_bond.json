@@ -11,6 +11,7 @@
       "issue": "2024-01-15",
       "maturity": "2029-01-15",
       "discount_curve_id": "USD-IG",
+      "credit_curve_id": "USD-CREDIT-BBB",
       "conversion": {
         "ratio": 25.0,
         "price": null,

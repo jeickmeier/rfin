@@ -12,24 +12,31 @@ use finstack_core::money::Money;
 ///
 /// A cliquet option accumulates returns over multiple periods with periodic resets.
 /// At each reset date, the strike is reset to the current spot, and returns
-/// are accumulated subject to local and global caps.
+/// are accumulated subject to local and global caps/floors.
 ///
 /// # Payoff Structure
 ///
-/// Total payoff = Σ max(min(S_i/S_{i-1} - 1, local_cap), 0) capped at global_cap
+/// Period Return R_i = S_i / S_{i-1} - 1
+/// Capped/Floored R_i^* = min(max(R_i, local_floor), local_cap)
+///
+/// Total Payoff = Notional × min(max(Σ R_i^*, global_floor), global_cap)
 ///
 /// where:
 /// - S_i is spot at reset date i
-/// - local_cap is maximum return per period
-/// - global_cap is maximum total return
+/// - local_cap/local_floor are limits per period
+/// - global_cap/global_floor are limits on total return
 #[derive(Clone, Debug)]
 pub struct CliquetCallPayoff {
     /// Reset dates (time in years, must be sorted)
     pub reset_dates: Vec<f64>,
-    /// Local cap per period (e.g., 0.10 for 10% max per period)
+    /// Local cap per period (e.g., 0.05 for 5% max per period)
     pub local_cap: f64,
-    /// Global cap on total return (e.g., 0.30 for 30% max total)
+    /// Local floor per period (e.g., 0.0 for 0% min per period)
+    pub local_floor: f64,
+    /// Global cap on total return (e.g., 0.20 for 20% max total)
     pub global_cap: f64,
+    /// Global floor on total return (e.g., 0.0 for 0% min total)
+    pub global_floor: f64,
     /// Notional amount
     pub notional: f64,
     /// Currency
@@ -44,6 +51,18 @@ pub struct CliquetCallPayoff {
     accumulated_return: f64,
     /// Index of next reset date to check
     next_reset_idx: usize,
+    /// Payoff type (Additive or Multiplicative)
+    pub payoff_type: CliquetPayoffType,
+}
+
+/// Cliquet payoff aggregation type.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CliquetPayoffType {
+    /// Additive: Sum of period returns
+    #[default]
+    Additive,
+    /// Multiplicative: Product of (1 + period returns) - 1
+    Multiplicative,
 }
 
 impl CliquetCallPayoff {
@@ -52,18 +71,25 @@ impl CliquetCallPayoff {
     /// # Arguments
     ///
     /// * `reset_dates` - Dates when strike resets (must be sorted, includes initial date)
-    /// * `local_cap` - Maximum return per period (e.g., 0.10 for 10%)
-    /// * `global_cap` - Maximum total return (e.g., 0.30 for 30%)
+    /// * `local_cap` - Maximum return per period (e.g., 0.05)
+    /// * `local_floor` - Minimum return per period (e.g., 0.0)
+    /// * `global_cap` - Maximum total return (e.g., 0.20)
+    /// * `global_floor` - Minimum total return (e.g., 0.0)
     /// * `notional` - Notional amount
     /// * `currency` - Currency
     /// * `initial_spot` - Initial spot price S_0
+    /// * `payoff_type` - Additive or Multiplicative aggregation
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         reset_dates: Vec<f64>,
         local_cap: f64,
+        local_floor: f64,
         global_cap: f64,
+        global_floor: f64,
         notional: f64,
         currency: Currency,
         initial_spot: f64,
+        payoff_type: CliquetPayoffType,
     ) -> Self {
         // Verify reset dates are sorted
         for i in 1..reset_dates.len() {
@@ -73,43 +99,69 @@ impl CliquetCallPayoff {
             );
         }
 
-        assert!(local_cap > 0.0, "Local cap must be positive");
-        assert!(global_cap > 0.0, "Global cap must be positive");
-        assert!(global_cap >= local_cap, "Global cap should be >= local cap");
+        // Basic validation
+        assert!(local_cap >= local_floor, "Local cap must be >= local floor");
+        assert!(
+            global_cap >= global_floor,
+            "Global cap must be >= global floor"
+        );
 
         Self {
             reset_dates,
             local_cap,
+            local_floor,
             global_cap,
+            global_floor,
             notional,
             currency,
             initial_spot,
             reset_spots: Vec::new(),
             accumulated_return: 0.0,
             next_reset_idx: 0,
+            payoff_type,
         }
     }
 
     /// Compute cliquet return from reset spots.
     ///
-    /// Returns accumulated return subject to local and global caps.
+    /// Returns accumulated return subject to local and global caps/floors.
     fn compute_return(&self) -> f64 {
         if self.reset_spots.is_empty() {
             return 0.0;
         }
 
-        let mut total_return = 0.0;
-        let mut prev_spot = self.initial_spot;
+        match self.payoff_type {
+            CliquetPayoffType::Additive => {
+                let mut total_return = 0.0;
+                let mut prev_spot = self.initial_spot;
 
-        for &spot in &self.reset_spots {
-            // Period return: min(max(S_i/S_{i-1} - 1, 0), local_cap)
-            let period_return = ((spot / prev_spot - 1.0).max(0.0)).min(self.local_cap);
-            total_return += period_return;
-            prev_spot = spot;
+                for &spot in &self.reset_spots {
+                    // Period return: S_i / S_{i-1} - 1
+                    let raw_return = spot / prev_spot - 1.0;
+                    // Apply local floor and cap
+                    let period_return = raw_return.max(self.local_floor).min(self.local_cap);
+                    total_return += period_return;
+                    prev_spot = spot;
+                }
+
+                // Apply global floor and cap
+                total_return.max(self.global_floor).min(self.global_cap)
+            }
+            CliquetPayoffType::Multiplicative => {
+                let mut total_growth = 1.0;
+                let mut prev_spot = self.initial_spot;
+
+                for &spot in &self.reset_spots {
+                    let raw_return = spot / prev_spot - 1.0;
+                    let period_return = raw_return.max(self.local_floor).min(self.local_cap);
+                    total_growth *= 1.0 + period_return;
+                    prev_spot = spot;
+                }
+
+                let total_return = total_growth - 1.0;
+                total_return.max(self.global_floor).min(self.global_cap)
+            }
         }
-
-        // Apply global cap
-        total_return.min(self.global_cap)
     }
 }
 
@@ -153,15 +205,20 @@ mod tests {
         let cliquet = CliquetCallPayoff::new(
             reset_dates,
             0.10, // 10% local cap
+            0.0,  // 0% local floor
             0.30, // 30% global cap
+            0.0,  // 0% global floor
             100_000.0,
             Currency::USD,
             100.0,
+            CliquetPayoffType::Additive,
         );
 
         assert_eq!(cliquet.reset_dates.len(), 5);
         assert_eq!(cliquet.local_cap, 0.10);
+        assert_eq!(cliquet.local_floor, 0.0);
         assert_eq!(cliquet.global_cap, 0.30);
+        assert_eq!(cliquet.global_floor, 0.0);
     }
 
     #[test]
@@ -170,10 +227,13 @@ mod tests {
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
             0.10, // 10% local cap
+            0.0,  // 0% local floor
             0.30, // 30% global cap
+            0.0,  // 0% global floor
             1.0,
             Currency::USD,
             100.0,
+            CliquetPayoffType::Additive,
         );
 
         // Simulate resets: 100 -> 110 -> 115
@@ -187,23 +247,28 @@ mod tests {
     }
 
     #[test]
-    fn test_cliquet_local_cap() {
-        let reset_dates = vec![0.0, 0.25];
+    fn test_cliquet_local_cap_floor() {
+        let reset_dates = vec![0.0, 0.25, 0.5];
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
-            0.10, // 10% local cap
-            0.30, // 30% global cap
+            0.10,  // 10% local cap
+            -0.05, // -5% local floor
+            0.30,  // 30% global cap
+            -0.20, // -20% global floor
             1.0,
             Currency::USD,
             100.0,
+            CliquetPayoffType::Additive,
         );
 
-        // Simulate large jump: 100 -> 150 (50% return, but capped at 10%)
-        cliquet.reset_spots = vec![150.0];
+        // Simulate: 100 -> 150 (hit cap) -> 100 (drop 33%, hit floor)
+        cliquet.reset_spots = vec![150.0, 100.0];
 
         let return_val = cliquet.compute_return();
-        // Period 1: min(max(150/100 - 1, 0), 0.10) = min(0.50, 0.10) = 0.10
-        assert!((return_val - 0.10).abs() < 1e-10);
+        // Period 1: 150/100 - 1 = 0.50 -> capped at 0.10
+        // Period 2: 100/150 - 1 = -0.333... -> floored at -0.05
+        // Total: 0.10 - 0.05 = 0.05
+        assert!((return_val - 0.05).abs() < 1e-10);
     }
 
     #[test]
@@ -212,10 +277,13 @@ mod tests {
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
             0.10, // 10% local cap
+            0.0,  // 0% local floor
             0.30, // 30% global cap
+            0.0,  // 0% global floor
             1.0,
             Currency::USD,
             100.0,
+            CliquetPayoffType::Additive,
         );
 
         // Simulate 4 periods each hitting local cap: 4 * 10% = 40%, but capped at 30%
@@ -231,7 +299,7 @@ mod tests {
     fn test_cliquet_reset() {
         let reset_dates = vec![0.0, 0.25];
         let mut cliquet =
-            CliquetCallPayoff::new(reset_dates, 0.10, 0.30, 1.0, Currency::USD, 100.0);
+            CliquetCallPayoff::new(reset_dates, 0.10, 0.0, 0.30, 0.0, 1.0, Currency::USD, 100.0, CliquetPayoffType::Additive);
 
         cliquet.reset_spots = vec![110.0];
         cliquet.next_reset_idx = 1;

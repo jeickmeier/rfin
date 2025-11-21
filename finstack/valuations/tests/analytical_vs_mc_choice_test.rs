@@ -35,6 +35,7 @@ mod choice_tests {
             div_yield_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            past_fixings: vec![],
         };
 
         // Methods available:

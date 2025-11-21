@@ -5,10 +5,14 @@
 //! series using stable composite keys.
 
 use crate::metrics::{MetricContext, MetricId};
+use crate::calibration::methods::hazard_curve::HazardCurveCalibrator;
+use crate::calibration::CreditQuote;
+use crate::calibration::Calibrator;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, Currency};
 use std::sync::Arc;
 
 /// Standard credit key-rate buckets in years used for CS01.
@@ -35,46 +39,128 @@ pub fn standard_credit_cs01_buckets() -> Vec<f64> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }
 
-/// Compute parallel CS01 by bumping the entire hazard curve uniformly.
+/// Helper to bump hazard curve by shocking par spreads and re-calibrating.
 ///
-/// Calculates credit spread sensitivity by shifting the entire hazard curve in parallel
-/// and measuring the present value change. This is the most common CS01 measure, representing
-/// the P&L impact of a 1bp parallel shift in credit spreads.
+/// Falls back to hazard rate shifting if par spread information is missing.
+fn bump_hazard_curve_spreads(
+    hazard: &HazardCurve,
+    context: &MarketContext,
+    discount_id: Option<&CurveId>,
+    bump_bp: f64,
+    bucket_year: Option<f64>, // None for parallel, Some(t) for key-rate
+) -> finstack_core::Result<HazardCurve> {
+    // Check if we have necessary data for re-calibration
+    let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
+    
+    let Some(discount_id) = discount_id else {
+        // Fallback to hazard rate shift (Model Sensitivity)
+        let bump_decimal = bump_bp * 1e-4;
+        if let Some(t) = bucket_year {
+            return with_key_rate_hazard_bump(hazard, t, bump_bp);
+        } else {
+            let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+            return temp_bumped
+                .to_builder_with_id(hazard.id().clone())
+                .build()
+                .map_err(|_| finstack_core::Error::Internal);
+        }
+    };
+
+    if par_points.is_empty() {
+        // Fallback to hazard rate shift (Model Sensitivity) if no par points
+        let bump_decimal = bump_bp * 1e-4;
+        if let Some(t) = bucket_year {
+            return with_key_rate_hazard_bump(hazard, t, bump_bp);
+        } else {
+            let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
+            return temp_bumped
+                .to_builder_with_id(hazard.id().clone())
+                .build()
+                .map_err(|_| finstack_core::Error::Internal);
+        }
+    }
+    
+    // Construct CreditQuotes from par points with bumps applied
+    let base_date = hazard.base_date();
+    let currency = hazard.currency().unwrap_or(Currency::USD); // Default or error?
+    let recovery = hazard.recovery_rate();
+    let seniority = hazard.seniority.unwrap_or(Seniority::Senior);
+    let issuer = hazard.issuer().map(|s| s.to_string()).unwrap_or_else(|| "UNKNOWN".to_string());
+
+    let mut quotes = Vec::new();
+    
+    for (tenor_years, spread_bp) in par_points {
+        let maturity_days = (tenor_years * 365.25).round() as i64;
+        let maturity = base_date + time::Duration::days(maturity_days);
+        
+        let mut bumped_spread = spread_bp;
+        
+        // Apply bump
+        if let Some(bucket_t) = bucket_year {
+            // Key-rate bump: strictly bucketed or distributed?
+            // Standard key-rate bump usually applies to the specific par instrument
+            // matching the bucket. Here we map tenor points to buckets.
+            // For simplicity/standard practice: 
+            // If bucket_year matches tenor_years (approx), bump it.
+            // Or we could define "buckets" as the par points themselves.
+            // Since we passed in `bucket_year` from `standard_credit_cs01_buckets`,
+            // we should check if this par point falls in the bucket's influence.
+            // BUT: typically re-calibration bumps the *input* instruments.
+            // If the curve has points at 3Y, 5Y, 7Y, and we request 5Y bucket sensitivity,
+            // we bump the 5Y quote.
+            // If we request 4Y bucket sensitivity (no point), we might interpolate or do nothing.
+            // 
+            // Current logic receives `bucket_times_years` from caller.
+            // For bootstrapping consistency, we should bump the par point closest to the bucket?
+            // Or assumes the caller passed `par_tenors` as buckets?
+            
+            // Strategy: Bump the par point if it matches the requested bucket within tolerance.
+            // If `bucket_year` is not one of the par tenors, this might result in zero sensitivity
+            // for that bucket, which is correct for a bootstrapped curve (local dependency).
+            if (tenor_years - bucket_t).abs() < 0.1 { // 0.1 year tolerance
+                bumped_spread += bump_bp;
+            }
+        } else {
+            // Parallel bump
+            bumped_spread += bump_bp;
+        }
+
+        quotes.push(CreditQuote::CDS {
+            entity: issuer.clone(),
+            currency,
+            maturity,
+            spread_bp: bumped_spread,
+            recovery_rate: recovery,
+        });
+    }
+
+    // Calibrate new curve
+    let calibrator = HazardCurveCalibrator::new(
+        issuer,
+        seniority,
+        recovery,
+        base_date,
+        currency,
+        discount_id.clone(),
+    );
+
+    let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
+    
+    // Restore original ID to ensure it overrides correctly in MarketContext
+    let final_curve = new_curve
+        .to_builder_with_id(hazard.id().clone())
+        .build()
+        .map_err(|_| finstack_core::Error::Internal)?;
+
+    Ok(final_curve)
+}
+
+/// Compute parallel CS01 by bumping the entire hazard curve uniformly (Hazard Rate Sensitivity).
 ///
-/// # Arguments
-///
-/// * `context` - Metric context containing instrument and market data
-/// * `hazard_id` - ID of the hazard curve to bump
-/// * `bump_bp` - Bump size in basis points (typically 1.0 for CS01)
-/// * `revalue_with_hazard` - Closure that reprices the instrument with a bumped hazard curve
-///
-/// # Returns
-///
-/// CS01 value representing the present value change per 1bp parallel shift in credit spreads.
-/// A positive CS01 means the instrument gains value when spreads widen.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The hazard curve is not found in the market context
-/// - The bump operation fails due to invalid curve data
-/// - Revaluation fails
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::cs01::compute_parallel_cs01;
-///
-/// let cs01 = compute_parallel_cs01(
-///     &mut context,
-///     &hazard_curve_id,
-///     1.0, // 1bp bump
-///     |hazard| instrument.value_with_hazard(hazard)
-/// )?;
-///
-/// println!("CS01: ${:.2} per bp", cs01);
-/// ```
-pub fn compute_parallel_cs01<RevalFn>(
+/// Note: This computes Model Sensitivity (to hazard rates), not Quote Sensitivity (to par spreads).
+/// For Par Spread sensitivity, use `compute_parallel_par_spread_cs01` with a discount curve.
+#[allow(dead_code)] // Alternative API for hazard rate sensitivity (not currently used)
+pub fn compute_parallel_hazard_cs01<RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     bump_bp: f64,
@@ -91,7 +177,6 @@ where
     let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
 
     // Restore original ID so it overwrites correctly in MarketContext
-    // hazard.with_hazard_shift() changes the ID to a temp one
     let bumped_hazard = temp_bumped
         .to_builder_with_id(hazard_id.clone())
         .build()
@@ -99,8 +184,6 @@ where
 
     let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
     
-    // CS01 is PV change per 1bp
-    // If bump_bp is not 1.0, scale result to 1bp equivalent
     let cs01 = if bump_bp.abs() > 1e-10 {
         (pv_bumped.amount() - base_pv.amount()) / bump_bp
     } else {
@@ -110,54 +193,11 @@ where
     Ok(cs01)
 }
 
-/// Compute parallel CS01 using full MarketContext revaluation.
+/// Compute key-rate CS01 series by bumping hazard rates at specific tenors (Hazard Rate Sensitivity).
 ///
-/// Returns the CS01 as a single scalar value.
-pub fn compute_parallel_cs01_with_context<RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    bump_bp: f64,
-    mut revalue_with_context: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
-{
-    let base_pv = context.base_value;
-    let base_ctx = context.curves.as_ref();
-    let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
-
-    // Parallel bump the entire hazard curve
-    let bump_decimal = bump_bp * 1e-4;
-    let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
-
-    // Restore original ID so it overwrites correctly in MarketContext
-    // hazard.with_hazard_shift() changes the ID to a temp one
-    let bumped_hazard = temp_bumped
-        .to_builder_with_id(hazard_id.clone())
-        .build()
-        .map_err(|_| finstack_core::Error::Internal)?;
-
-    let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
-    let pv_bumped = revalue_with_context(&temp_ctx)?;
-    
-    // CS01 is PV change per 1bp
-    // If bump_bp is not 1.0, scale result to 1bp equivalent
-    let cs01 = if bump_bp.abs() > 1e-10 {
-        (pv_bumped.amount() - base_pv.amount()) / bump_bp
-    } else {
-        0.0
-    };
-
-    Ok(cs01)
-}
-
-/// Compute key-rate CS01 series by bumping hazard rates at specific tenors.
-///
-/// - `bucket_times_years` are maturities in years (e.g., 0.25, 0.5, 1.0, ...)
-/// - Each bucket bumps only the hazard rate segment containing that tenor
-/// - `bump_bp` is the bump size in basis points (typically 1.0 for CS01)
-/// - Labels are derived from times using standard m/y formatting
-pub fn compute_key_rate_cs01_series<I, RevalFn>(
+/// Note: This computes Model Sensitivity (to hazard rates), not Quote Sensitivity (to par spreads).
+#[allow(dead_code)] // Alternative API for hazard rate sensitivity (not currently used)
+pub fn compute_key_rate_hazard_cs01_series<I, RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     bucket_times_years: I,
@@ -176,11 +216,9 @@ where
         let label = format_credit_bucket_label(t);
 
         // Bump hazard rate at the specific tenor
-        // For key-rate bumping, we bump the segment containing the target time
         let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
 
         let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-        // CS01 is PV change per 1bp, so divide by bump_bp to normalize
         let cs01 = if bump_bp.abs() > 1e-10 {
             (pv_bumped.amount() - base_pv.amount()) / bump_bp
         } else {
@@ -194,10 +232,63 @@ where
     Ok(total)
 }
 
-/// Compute key-rate CS01 series using full MarketContext revaluation per bucket time.
+/// Compute parallel CS01 by bumping par spreads and re-calibrating.
+///
+/// Calculates credit spread sensitivity by shifting the par spreads in parallel
+/// and re-bootstrapping the hazard curve.
+///
+/// # Arguments
+///
+/// * `context` - Metric context containing instrument and market data
+/// * `hazard_id` - ID of the hazard curve to bump
+/// * `discount_id` - ID of the discount curve used for calibration (optional)
+/// * `bump_bp` - Bump size in basis points (typically 1.0 for CS01)
+/// * `revalue_with_context` - Closure that reprices the instrument with a bumped context
+pub fn compute_parallel_cs01_with_context<RevalFn>(
+    context: &mut MetricContext,
+    hazard_id: &CurveId,
+    discount_id: Option<&CurveId>,
+    bump_bp: f64,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+
+    // Bump spreads and re-calibrate
+    let bumped_hazard = bump_hazard_curve_spreads(
+        hazard, 
+        base_ctx, 
+        discount_id, 
+        bump_bp, 
+        None
+    )?;
+
+    let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
+    let pv_bumped = revalue_with_context(&temp_ctx)?;
+    
+    // CS01 is PV change per 1bp
+    let cs01 = if bump_bp.abs() > 1e-10 {
+        (pv_bumped.amount() - base_pv.amount()) / bump_bp
+    } else {
+        0.0
+    };
+
+    Ok(cs01)
+}
+
+/// Compute key-rate CS01 series by bumping par spreads at specific tenors.
+///
+/// - `bucket_times_years` are maturities in years (e.g., 0.25, 0.5, 1.0, ...)
+/// - For bootstrapped curves, bumps the par quote corresponding to the bucket.
+/// - `bump_bp` is the bump size in basis points (typically 1.0 for CS01)
 pub fn compute_key_rate_cs01_series_with_context<I, RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
+    discount_id: Option<&CurveId>,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_with_context: RevalFn,
@@ -211,26 +302,39 @@ where
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
+    let mut total = 0.0;
+
     for t in bucket_times_years.into_iter() {
         let label = format_credit_bucket_label(t);
 
-        // Bump hazard at key rate
-        let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
+        // Bump spread at key rate (bucket t)
+        // Note: bump_hazard_curve_spreads handles the logic of finding the matching par point
+        let bumped_hazard = bump_hazard_curve_spreads(
+            hazard,
+            base_ctx,
+            discount_id,
+            bump_bp,
+            Some(t)
+        )?;
 
-        // Create new MarketContext with bumped hazard
+        // Optimization: If the curve is identical (no bump applied because no matching par point),
+        // we can skip revaluation.
+        // However, comparing curves is hard. bump_hazard_curve_spreads creates a new curve anyway.
+        // For correctness, we reprice. Ideally we'd check if we actually bumped anything.
+        
         let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
-        // CS01 is PV change per 1bp, so divide by bump_bp to normalize
+        
         let cs01 = if bump_bp.abs() > 1e-10 {
             (pv_bumped.amount() - base_pv.amount()) / bump_bp
         } else {
             0.0
         };
         series.push((label, cs01));
+        total += cs01;
     }
 
-    context.store_bucketed_series(MetricId::BucketedCs01, series.clone());
-    let total: f64 = series.iter().map(|(_, v)| *v).sum();
+    context.store_bucketed_series(MetricId::BucketedCs01, series);
     Ok(total)
 }
 
@@ -324,6 +428,7 @@ fn with_key_rate_hazard_bump(
 // ===== Generic Calculators =====
 
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 
@@ -359,11 +464,12 @@ impl<I> Default for GenericParallelCs01<I> {
 
 impl<I> MetricCalculator for GenericParallelCs01<I>
 where
-    I: Instrument + HasCreditCurve + 'static,
+    I: Instrument + HasCreditCurve + HasDiscountCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let hazard_id = instrument.credit_curve_id().clone();
+        let discount_id = instrument.discount_curve_id().clone();
 
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
@@ -372,7 +478,7 @@ where
             inst_arc.value(temp_ctx, as_of)
         };
 
-        compute_parallel_cs01_with_context(context, &hazard_id, 1.0, reval)
+        compute_parallel_cs01_with_context(context, &hazard_id, Some(&discount_id), 1.0, reval)
     }
 }
 
@@ -386,11 +492,12 @@ impl<I> Default for GenericBucketedCs01<I> {
 
 impl<I> MetricCalculator for GenericBucketedCs01<I>
 where
-    I: Instrument + HasCreditCurve + 'static,
+    I: Instrument + HasCreditCurve + HasDiscountCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let hazard_id = instrument.credit_curve_id().clone();
+        let discount_id = instrument.discount_curve_id().clone();
 
         // Standard credit bucket times
         let buckets = standard_credit_cs01_buckets();
@@ -404,7 +511,7 @@ where
         };
 
         let total =
-            compute_key_rate_cs01_series_with_context(context, &hazard_id, buckets, 1.0, reval)?;
+            compute_key_rate_cs01_series_with_context(context, &hazard_id, Some(&discount_id), buckets, 1.0, reval)?;
 
         Ok(total)
     }

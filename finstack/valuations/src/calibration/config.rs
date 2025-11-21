@@ -93,6 +93,9 @@ pub struct CalibrationConfig {
     pub explain: ExplainOpts,
     /// Runtime validation mode (warnings vs errors). Feature `strict_validation` may still harden checks.
     pub validation_mode: ValidationMode,
+    /// Validation configuration with thresholds and checks
+    #[serde(default)]
+    pub validation: crate::calibration::validation::ValidationConfig,
 }
 
 impl Default for CalibrationConfig {
@@ -109,6 +112,7 @@ impl Default for CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
             validation_mode: ValidationMode::Warn,
+            validation: crate::calibration::validation::ValidationConfig::default(),
         }
     }
 }
@@ -172,6 +176,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
+            validation: crate::calibration::validation::ValidationConfig::default(),
         }
     }
 
@@ -209,6 +214,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
+            validation: crate::calibration::validation::ValidationConfig::default(),
         }
     }
 
@@ -246,6 +252,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
+            validation: crate::calibration::validation::ValidationConfig::default(),
         }
     }
 

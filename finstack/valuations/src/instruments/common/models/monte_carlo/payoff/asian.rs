@@ -40,6 +40,11 @@ pub struct AsianCall {
     sum_spots: f64,     // For arithmetic
     product_spots: f64, // For geometric (stored as log-product)
     num_fixings_seen: usize,
+
+    // History
+    initial_sum_spots: f64,
+    initial_product_spots: f64,
+    initial_count: usize,
 }
 
 impl AsianCall {
@@ -65,6 +70,33 @@ impl AsianCall {
             sum_spots: 0.0,
             product_spots: 0.0, // Will store log-sum for geometric
             num_fixings_seen: 0,
+            initial_sum_spots: 0.0,
+            initial_product_spots: 0.0,
+            initial_count: 0,
+        }
+    }
+
+    /// Create with history
+    pub fn with_history(
+        strike: f64,
+        notional: f64,
+        averaging: AveragingMethod,
+        fixing_steps: Vec<usize>,
+        initial_sum: f64,
+        initial_product_log: f64,
+        initial_count: usize,
+    ) -> Self {
+        Self {
+            strike,
+            notional,
+            averaging,
+            fixing_steps,
+            sum_spots: initial_sum,
+            product_spots: initial_product_log,
+            num_fixings_seen: initial_count,
+            initial_sum_spots: initial_sum,
+            initial_product_spots: initial_product_log,
+            initial_count,
         }
     }
 
@@ -110,9 +142,9 @@ impl Payoff for AsianCall {
     }
 
     fn reset(&mut self) {
-        self.sum_spots = 0.0;
-        self.product_spots = 0.0;
-        self.num_fixings_seen = 0;
+        self.sum_spots = self.initial_sum_spots;
+        self.product_spots = self.initial_product_spots;
+        self.num_fixings_seen = self.initial_count;
     }
 }
 
@@ -133,6 +165,11 @@ pub struct AsianPut {
     sum_spots: f64,
     product_spots: f64,
     num_fixings_seen: usize,
+
+    // History
+    initial_sum_spots: f64,
+    initial_product_spots: f64,
+    initial_count: usize,
 }
 
 impl AsianPut {
@@ -151,6 +188,33 @@ impl AsianPut {
             sum_spots: 0.0,
             product_spots: 0.0,
             num_fixings_seen: 0,
+            initial_sum_spots: 0.0,
+            initial_product_spots: 0.0,
+            initial_count: 0,
+        }
+    }
+
+    /// Create with history
+    pub fn with_history(
+        strike: f64,
+        notional: f64,
+        averaging: AveragingMethod,
+        fixing_steps: Vec<usize>,
+        initial_sum: f64,
+        initial_product_log: f64,
+        initial_count: usize,
+    ) -> Self {
+        Self {
+            strike,
+            notional,
+            averaging,
+            fixing_steps,
+            sum_spots: initial_sum,
+            product_spots: initial_product_log,
+            num_fixings_seen: initial_count,
+            initial_sum_spots: initial_sum,
+            initial_product_spots: initial_product_log,
+            initial_count,
         }
     }
 
@@ -190,9 +254,9 @@ impl Payoff for AsianPut {
     }
 
     fn reset(&mut self) {
-        self.sum_spots = 0.0;
-        self.product_spots = 0.0;
-        self.num_fixings_seen = 0;
+        self.sum_spots = self.initial_sum_spots;
+        self.product_spots = self.initial_product_spots;
+        self.num_fixings_seen = self.initial_count;
     }
 }
 

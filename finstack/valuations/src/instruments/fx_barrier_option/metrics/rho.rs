@@ -41,7 +41,7 @@ impl MetricCalculator for RhoCalculator {
         // Bump discount curve. Default to 1bp (0.0001) if not overridden.
         let bump_bp = option.pricing_overrides.rho_bump_decimal.unwrap_or(0.0001);
         let curves_bumped =
-            bump_discount_curve_parallel(&context.curves, &option.discount_curve_id, bump_bp)?;
+            bump_discount_curve_parallel(&context.curves, &option.domestic_discount_curve_id, bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

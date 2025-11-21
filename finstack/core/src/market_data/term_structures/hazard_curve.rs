@@ -300,6 +300,16 @@ impl HazardCurve {
         self.day_count
     }
 
+    /// Get the currency of the protection leg.
+    pub fn currency(&self) -> Option<Currency> {
+        self.currency
+    }
+
+    /// Get the issuer name.
+    pub fn issuer(&self) -> Option<&str> {
+        self.issuer.as_deref()
+    }
+
     /// Access the knot points (time, lambda) for inspection or modification.
     pub fn knot_points(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.knots

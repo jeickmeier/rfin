@@ -24,6 +24,8 @@
       "credit_index_id": "CDX.NA.IG.HAZARD",
       "side": "BuyProtection",
       "effective_date": null,
+      "accumulated_loss": 0.0,
+      "standard_imm_dates": false,
       "attributes": {
         "tags": [],
         "meta": {}

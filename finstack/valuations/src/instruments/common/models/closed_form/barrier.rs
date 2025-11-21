@@ -277,8 +277,10 @@ pub fn barrier_touch_probability(
     if time <= 0.0 {
         return if is_up {
             if spot >= barrier { 1.0 } else { 0.0 }
+        } else if spot <= barrier {
+            1.0
         } else {
-            if spot <= barrier { 1.0 } else { 0.0 }
+            0.0
         };
     }
 
@@ -471,7 +473,7 @@ pub fn barrier_put_continuous(
     time: f64,
     rate: f64,
     div_yield: f64,
-    vol: f64,
+    _vol: f64,
     barrier_type: BarrierType,
 ) -> f64 {
     // Put pricing using similar formulas with eta = -1

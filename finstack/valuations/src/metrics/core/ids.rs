@@ -256,6 +256,9 @@ impl MetricId {
     /// Rho (price sensitivity to interest rates)
     pub const Rho: Self = Self(Cow::Borrowed("rho"));
 
+    /// Foreign Rho (price sensitivity to foreign interest rates)
+    pub const ForeignRho: Self = Self(Cow::Borrowed("foreign_rho"));
+
     /// Forward curve PV01 (price sensitivity to a 1bp forward curve bump)
     pub const ForwardPv01: Self = Self(Cow::Borrowed("forward_pv01"));
 
@@ -663,6 +666,7 @@ impl MetricId {
         MetricId::Gamma,
         MetricId::Vega,
         MetricId::Rho,
+        MetricId::ForeignRho,
         MetricId::ForwardPv01,
         MetricId::Vanna,
         MetricId::Volga,

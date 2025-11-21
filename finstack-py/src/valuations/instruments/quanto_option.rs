@@ -29,7 +29,7 @@ impl PyQuantoOption {
 impl PyQuantoOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
+        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, foreign_discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a quanto option.
@@ -45,6 +45,7 @@ impl PyQuantoOption {
     ///     foreign_currency: Currency of the underlying.
     ///     correlation: Correlation between equity and FX.
     ///     discount_curve: Discount curve identifier.
+    ///     foreign_discount_curve: Foreign discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
     ///     div_yield_id: Optional dividend yield identifier.
@@ -65,6 +66,7 @@ impl PyQuantoOption {
         foreign_currency: Bound<'_, PyAny>,
         correlation: f64,
         discount_curve: Bound<'_, PyAny>,
+        foreign_discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
@@ -78,6 +80,7 @@ impl PyQuantoOption {
         let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
         let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let foreign_discount_curve_id = CurveId::new(foreign_discount_curve.extract::<&str>()?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
 
         let CurrencyArg(dom_currency) = domestic_currency.extract()?;
@@ -113,6 +116,7 @@ impl PyQuantoOption {
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(vol_surface_id.into());
         if let Some(div) = div_yield_id {

@@ -252,7 +252,7 @@ impl Default for JsValidationConfig {
 pub fn validate_discount_curve(curve: &JsDiscountCurve) -> Result<bool, JsValue> {
     curve
         .inner()
-        .validate()
+        .validate(&ValidationConfig::default())
         .map(|_| true)
         .map_err(|e| JsValue::from_str(&format!("Discount curve validation failed: {}", e)))
 }
@@ -262,7 +262,7 @@ pub fn validate_discount_curve(curve: &JsDiscountCurve) -> Result<bool, JsValue>
 pub fn validate_forward_curve(curve: &JsForwardCurve) -> Result<bool, JsValue> {
     curve
         .inner()
-        .validate()
+        .validate(&ValidationConfig::default())
         .map(|_| true)
         .map_err(|e| JsValue::from_str(&format!("Forward curve validation failed: {}", e)))
 }
@@ -272,7 +272,7 @@ pub fn validate_forward_curve(curve: &JsForwardCurve) -> Result<bool, JsValue> {
 pub fn validate_hazard_curve(curve: &JsHazardCurve) -> Result<bool, JsValue> {
     curve
         .inner()
-        .validate()
+        .validate(&ValidationConfig::default())
         .map(|_| true)
         .map_err(|e| JsValue::from_str(&format!("Hazard curve validation failed: {}", e)))
 }
@@ -282,7 +282,7 @@ pub fn validate_hazard_curve(curve: &JsHazardCurve) -> Result<bool, JsValue> {
 pub fn validate_inflation_curve(curve: &JsInflationCurve) -> Result<bool, JsValue> {
     curve
         .inner()
-        .validate()
+        .validate(&ValidationConfig::default())
         .map(|_| true)
         .map_err(|e| JsValue::from_str(&format!("Inflation curve validation failed: {}", e)))
 }
@@ -307,7 +307,7 @@ pub fn validate_inflation_curve(curve: &JsInflationCurve) -> Result<bool, JsValu
 pub fn validate_vol_surface(surface: &JsVolSurface) -> Result<bool, JsValue> {
     surface
         .inner()
-        .validate()
+        .validate(&ValidationConfig::default())
         .map(|_| true)
         .map_err(|e| JsValue::from_str(&format!("Vol surface validation failed: {}", e)))
 }

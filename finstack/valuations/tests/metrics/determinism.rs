@@ -144,6 +144,7 @@ mod tests {
             div_yield_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            past_fixings: vec![],
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
@@ -177,6 +178,7 @@ mod tests {
             div_yield_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            past_fixings: vec![],
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
@@ -210,6 +212,7 @@ mod tests {
             div_yield_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            past_fixings: vec![],
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
@@ -245,6 +248,7 @@ mod tests {
             div_yield_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            rebate: None,
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
@@ -271,6 +275,8 @@ mod tests {
             discount_curve_id: "USD-OIS".into(),
             vol_surface_id: "SPOT_VOL".into(),
             div_yield_id: None,
+            observed_min: None,
+            observed_max: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
         };

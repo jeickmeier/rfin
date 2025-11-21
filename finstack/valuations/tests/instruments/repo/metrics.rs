@@ -55,8 +55,8 @@ fn test_required_collateral_metric() {
 
     let required = results.get(&MetricId::RequiredCollateral).unwrap();
 
-    // 1M * (1 + 0.02) = 1,020,000
-    assert_approx_eq(*required, 1_020_000.0, 1.0);
+    // 1M / (1 - 0.02) = 1,020,408.16
+    assert_approx_eq(*required, 1_020_408.16, 1.0);
 }
 
 #[test]

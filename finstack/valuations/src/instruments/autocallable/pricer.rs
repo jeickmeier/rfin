@@ -127,8 +127,27 @@ impl AutocallableMcPricer {
 
         let mc_final_payoff = Self::convert_final_payoff_type(inst.final_payoff_type);
 
+        // Calculate discount factor ratios for each observation date
+        // Ratio = DF(T_obs) / DF(T_mat)
+        // This corrects for the engine applying DF(T_mat) to early cashflows
+        let mut df_ratios = Vec::with_capacity(inst.observation_dates.len());
+        for &date in &inst.observation_dates {
+            let t_obs = inst
+                .day_count
+                .year_fraction(as_of, date, DayCountCtx::default())
+                .unwrap_or(0.0)
+                .max(0.0);
+            let df_obs = disc_curve.df(t_as_of + t_obs);
+            let ratio = if df_maturity > 0.0 {
+                df_obs / df_maturity
+            } else {
+                1.0
+            };
+            df_ratios.push(ratio);
+        }
+
         let payoff = AutocallablePayoff::new(
-            observation_times,
+            observation_times.clone(),
             inst.autocall_barriers.clone(),
             inst.coupons.clone(),
             inst.final_barrier,
@@ -138,6 +157,7 @@ impl AutocallableMcPricer {
             inst.notional.amount(),
             inst.notional.currency(),
             initial_spot,
+            df_ratios,
         );
 
         // Derive deterministic seed from instrument ID and scenario
@@ -160,14 +180,39 @@ impl AutocallableMcPricer {
             self.config.seed
         };
 
+        // Create time grid that includes observation dates to ensure exact event timing
+        #[cfg(feature = "mc")]
+        use crate::instruments::common::mc::time_grid::TimeGrid;
+
+        let mut grid_times = Vec::with_capacity(num_steps + observation_times.len() + 1);
+        grid_times.push(0.0);
+        
+        // Add uniform steps
+        let dt = t / num_steps as f64;
+        for i in 1..=num_steps {
+            grid_times.push(i as f64 * dt);
+        }
+        
+        // Add observation times (ensure we visit exact dates)
+        for &obs_t in &observation_times {
+            if obs_t > 1e-10 && obs_t <= t {
+                grid_times.push(obs_t);
+            }
+        }
+        
+        // Sort and dedup
+        grid_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid_times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+        
+        let time_grid = TimeGrid::from_times(grid_times)?;
+
         let mut config = self.config.clone();
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);
-        let result = pricer.price(
+        let result = pricer.price_with_grid(
             &process,
             initial_spot,
-            t,
-            num_steps,
+            time_grid,
             &payoff,
             inst.notional.currency(),
             discount_factor,

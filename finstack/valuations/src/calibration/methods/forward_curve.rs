@@ -348,9 +348,9 @@ impl ForwardCurveCalibrator {
             .build()?;
 
         // Validate the calibrated forward curve
-        use crate::calibration::validation::CurveValidator;
+        use crate::calibration::validation::{CurveValidator, ValidationConfig};
         curve
-            .validate()
+            .validate(&ValidationConfig::default())
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated forward curve {} failed validation: {}",

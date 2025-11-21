@@ -17,19 +17,32 @@ pub struct CmsOption {
     /// Strike rate (fixed rate for CMS option)
     pub strike_rate: f64,
     /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
-    pub cms_tenor: f64, // Tenor of the CMS swap (e.g., 10.0 for 10Y)
+    pub cms_tenor: f64,
     /// Observation/fixing dates for CMS rate
     pub fixing_dates: Vec<Date>,
+    /// Payment dates for each period (usually fixing date + lag or period end)
+    pub payment_dates: Vec<Date>,
     /// Accrual fractions for each period
     pub accrual_fractions: Vec<f64>,
     /// Option type (call or put on CMS rate)
     pub option_type: OptionType,
     /// Notional amount
     pub notional: Money,
-    /// Day count convention
+    /// Day count convention for the option accrual
     pub day_count: finstack_core::dates::DayCount,
+    
+    // --- Underlying Swap Conventions ---
+    /// Fixed leg frequency of the underlying swap
+    pub swap_fixed_freq: finstack_core::dates::Frequency,
+    /// Floating leg frequency of the underlying swap
+    pub swap_float_freq: finstack_core::dates::Frequency,
+    /// Day count convention of the underlying swap fixed leg
+    pub swap_day_count: finstack_core::dates::DayCount,
+
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
+    /// Optional forward/projection curve ID (defaults to discount curve if not provided)
+    pub forward_curve_id: Option<CurveId>,
     /// Optional volatility surface ID for CMS rates
     pub vol_surface_id: Option<CurveId>, // Optional volatility surface for CMS rates
     /// Pricing overrides (manual price, yield, spread)
@@ -42,7 +55,7 @@ impl CmsOption {
     /// Create a canonical example CMS option (10Y CMS caplet style).
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use finstack_core::dates::DayCount;
+        use finstack_core::dates::{DayCount, Frequency};
         use time::Month;
 
         let fixing_dates = vec![
@@ -51,6 +64,12 @@ impl CmsOption {
             Date::from_calendar_date(2025, Month::September, 22).expect("Valid example date"),
             Date::from_calendar_date(2025, Month::December, 22).expect("Valid example date"),
         ];
+        let payment_dates = vec![
+            Date::from_calendar_date(2025, Month::June, 20).expect("Valid example date"),
+            Date::from_calendar_date(2025, Month::September, 22).expect("Valid example date"),
+            Date::from_calendar_date(2025, Month::December, 22).expect("Valid example date"),
+            Date::from_calendar_date(2026, Month::March, 20).expect("Valid example date"),
+        ];
         let accrual_fractions = vec![0.25, 0.25, 0.25, 0.25];
 
         CmsOptionBuilder::new()
@@ -58,11 +77,16 @@ impl CmsOption {
             .strike_rate(0.025)
             .cms_tenor(10.0)
             .fixing_dates(fixing_dates)
+            .payment_dates(payment_dates)
             .accrual_fractions(accrual_fractions)
             .option_type(crate::instruments::OptionType::Call)
             .notional(Money::new(10_000_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
+            .swap_fixed_freq(Frequency::semi_annual())
+            .swap_float_freq(Frequency::quarterly())
+            .swap_day_count(DayCount::Thirty360)
             .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
             .vol_surface_id_opt(Some(CurveId::new("USD-CMS10Y-VOL")))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -139,8 +163,11 @@ impl crate::instruments::common::pricing::HasDiscountCurve for CmsOption {
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for CmsOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
+        let mut builder = crate::instruments::common::traits::InstrumentCurves::builder();
+        builder = builder.discount(self.discount_curve_id.clone());
+        if let Some(fwd) = &self.forward_curve_id {
+            builder = builder.forward(fwd.clone());
+        }
+        builder.build()
     }
 }

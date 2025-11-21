@@ -72,7 +72,8 @@ impl FxBarrierOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        // Domestic curve (discounting)
+        let disc_curve = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
         let r_dom = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -87,6 +88,10 @@ impl FxBarrierOptionMcPricer {
             1.0
         };
 
+        // Foreign curve (risk-free rate for drift)
+        let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let r_for = for_curve.zero(t);
+
         let spot_scalar = curves.price(&inst.fx_spot_id)?;
         let fx_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -96,8 +101,10 @@ impl FxBarrierOptionMcPricer {
         let vol_surface = curves.surface_ref(inst.fx_vol_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
-        // For FX, drift is typically r_dom - r_for, simplified here
-        let q = 0.0; // Foreign rate handled via quanto adjustment if needed
+        // For FX, drift is r_dom - r_for.
+        // In GBM process param 'q' is subtracted from r to get drift (r-q).
+        // So q should be r_for.
+        let q = r_for;
         let gbm_params = GbmParams::new(r_dom, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
@@ -106,13 +113,9 @@ impl FxBarrierOptionMcPricer {
         let dt = t / num_steps as f64;
         let maturity_step = num_steps - 1;
 
-        // Compute quanto adjustment if correlation provided
-        let quanto_adjustment = if inst.correlation != 0.0 {
-            // Simplified: would need FX volatility
-            inst.correlation * sigma * 0.12 // Placeholder
-        } else {
-            0.0
-        };
+        // Quanto adjustment removed as standard FX barriers don't need it.
+        // If Quanto is needed, it should be explicit.
+        let quanto_adjustment = 0.0;
 
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = FxBarrierCall::new(
@@ -222,13 +225,16 @@ fn collect_fx_barrier_inputs(
     inst: &FxBarrierOption,
     curves: &MarketContext,
     as_of: Date,
-) -> finstack_core::Result<(f64, f64, f64, f64)> {
+) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
     let t = inst
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
+
+    let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+    let r_for = for_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.fx_spot_id)?;
     let fx_spot = match spot_scalar {
@@ -239,7 +245,7 @@ fn collect_fx_barrier_inputs(
     let vol_surface = curves.surface_ref(inst.fx_vol_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
-    Ok((fx_spot, r_dom, sigma, t))
+    Ok((fx_spot, r_dom, r_for, sigma, t))
 }
 
 /// FX Barrier option analytical pricer (continuous monitoring).
@@ -279,7 +285,7 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::FxBarrierOption, instrument.key())
             })?;
 
-        let (fx_spot, r_dom, sigma, t) = collect_fx_barrier_inputs(fx_barrier, market, as_of)
+        let (fx_spot, r_dom, r_for, sigma, t) = collect_fx_barrier_inputs(fx_barrier, market, as_of)
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         if t <= 0.0 {
@@ -289,9 +295,6 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
                 Money::new(0.0, fx_barrier.domestic_currency),
             ));
         }
-
-        // For FX, q = r_for (foreign rate, simplified to r_dom for now)
-        let r_for = r_dom; // Simplified: would fetch from separate curve in production
 
         // Map barrier type
         use crate::instruments::barrier_option::types::BarrierType;

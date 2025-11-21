@@ -14,31 +14,46 @@ use pyo3::Bound;
 #[pyfunction]
 #[pyo3(text_signature = "(curve)")]
 fn validate_discount_curve(curve: &PyDiscountCurve) -> PyResult<()> {
-    curve.inner.validate().map_err(core_to_py)
+    curve
+        .inner
+        .validate(&ValidationConfig::default())
+        .map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(curve)")]
 fn validate_forward_curve(curve: &PyForwardCurve) -> PyResult<()> {
-    curve.inner.validate().map_err(core_to_py)
+    curve
+        .inner
+        .validate(&ValidationConfig::default())
+        .map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(curve)")]
 fn validate_hazard_curve(curve: &PyHazardCurve) -> PyResult<()> {
-    curve.inner.validate().map_err(core_to_py)
+    curve
+        .inner
+        .validate(&ValidationConfig::default())
+        .map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(curve)")]
 fn validate_inflation_curve(curve: &PyInflationCurve) -> PyResult<()> {
-    curve.inner.validate().map_err(core_to_py)
+    curve
+        .inner
+        .validate(&ValidationConfig::default())
+        .map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(surface)")]
 fn validate_vol_surface(surface: &PyVolSurface) -> PyResult<()> {
-    surface.inner.validate().map_err(core_to_py)
+    surface
+        .inner
+        .validate(&ValidationConfig::default())
+        .map_err(core_to_py)
 }
 
 /// Validation error details with constraint information.

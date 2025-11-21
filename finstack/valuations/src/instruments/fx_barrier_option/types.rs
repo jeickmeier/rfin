@@ -32,14 +32,14 @@ pub struct FxBarrierOption {
     pub domestic_currency: Currency,
     /// Foreign currency (base currency)
     pub foreign_currency: Currency,
-    /// Correlation between FX rate and domestic/foreign rates
-    pub correlation: f64, // Correlation between FX and domestic/foreign rates
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
     /// Whether to use Gobet-Miri continuous barrier adjustment
     pub use_gobet_miri: bool,
-    /// Discount curve ID
-    pub discount_curve_id: CurveId,
+    /// Domestic discount curve ID
+    pub domestic_discount_curve_id: CurveId,
+    /// Foreign discount curve ID
+    pub foreign_discount_curve_id: CurveId,
     /// FX spot price identifier
     pub fx_spot_id: String,
     /// FX volatility surface ID
@@ -53,7 +53,7 @@ pub struct FxBarrierOption {
 // Implement HasDiscountCurve for GenericParallelDv01
 impl crate::metrics::HasDiscountCurve for FxBarrierOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
+        &self.domestic_discount_curve_id
     }
 }
 
@@ -61,7 +61,7 @@ impl crate::metrics::HasDiscountCurve for FxBarrierOption {
 impl crate::instruments::common::traits::CurveDependencies for FxBarrierOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
+            .discount(self.domestic_discount_curve_id.clone())
             .build()
     }
 }
@@ -83,10 +83,10 @@ impl FxBarrierOption {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .domestic_currency(Currency::USD)
             .foreign_currency(Currency::EUR)
-            .correlation(0.2)
             .day_count(DayCount::Act365F)
             .use_gobet_miri(false)
-            .discount_curve_id(CurveId::new("USD-OIS"))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
             .fx_spot_id("EURUSD-SPOT".to_string())
             .fx_vol_id(CurveId::new("EURUSD-VOL"))
             .pricing_overrides(PricingOverrides::default())

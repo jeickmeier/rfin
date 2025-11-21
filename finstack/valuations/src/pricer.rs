@@ -900,7 +900,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     #[cfg(feature = "mc")]
     registry.register_pricer(
         PricerKey::new(InstrumentType::CmsOption, ModelKey::MonteCarloHullWhite1F),
-        Box::new(crate::instruments::cms_option::pricer::CmsOptionMcPricer::new()),
+        Box::new(crate::instruments::cms_option::pricer::CmsOptionPricer::new()),
     );
 
     // Cliquet Option

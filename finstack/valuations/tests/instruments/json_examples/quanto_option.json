@@ -20,6 +20,7 @@
       "correlation": -0.2,
       "day_count": "Act365F",
       "discount_curve_id": "USD-OIS",
+      "foreign_discount_curve_id": "JPY-OIS",
       "spot_id": "NKY-SPOT",
       "vol_surface_id": "NKY-VOL",
       "div_yield_id": "NKY-DIV",
@@ -27,6 +28,8 @@
       "fx_vol_id": "USDJPY-VOL",
       "pricing_overrides": {
         "quoted_clean_price": null,
+        "rho_bump_decimal": null,
+        "vega_bump_decimal": null,
         "implied_volatility": null,
         "quoted_spread_bp": null,
         "upfront_payment": null,

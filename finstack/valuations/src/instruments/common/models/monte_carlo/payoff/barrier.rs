@@ -211,7 +211,7 @@ impl Payoff for BarrierOptionPayoff {
     }
 }
 
-// Compatibility alias for tests or other modules (deprecated)
+/// Compatibility alias for tests or other modules (deprecated)
 pub type BarrierCall = BarrierOptionPayoff;
 
 #[cfg(test)]

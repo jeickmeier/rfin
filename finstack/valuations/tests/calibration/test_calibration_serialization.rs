@@ -348,6 +348,12 @@ fn test_validation_config_serialization() {
         check_monotonicity: true,
         check_arbitrage: true,
         tolerance: 1e-10,
+        max_hazard_rate: 0.50,
+        min_cpi_growth: -0.10,
+        max_cpi_growth: 0.50,
+        min_fwd_inflation: -0.20,
+        max_fwd_inflation: 0.50,
+        max_volatility: 5.0,
     };
 
     let restored = roundtrip_json(&config);

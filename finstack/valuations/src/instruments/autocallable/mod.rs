@@ -6,17 +6,15 @@
 //!
 //! # Autocallable Structure
 //!
-//! - **Observation dates**: Regular schedule (monthly, quarterly)
-//! - **Autocall barrier**: Early redemption if S > Barrier
-//! - **Coupon barrier**: Conditional coupons if S > Lower Barrier
-//! - **Protection barrier**: Capital protection level at maturity
-//!
-//! Typical payoff at observation i:
-//! - If S_i ≥ Autocall Barrier: Redeem at par + accrued coupons (stop)
-//! - Else if S_i ≥ Coupon Barrier: Pay coupon, continue
-//! - Else: No coupon, continue to next observation
-//!
-//! At maturity (if not called):
+    //! - **Observation dates**: Regular schedule (monthly, quarterly)
+    //! - **Autocall barrier**: Early redemption if S > Barrier
+    //! - **Protection barrier**: Capital protection level at maturity
+    //!
+    //! Typical payoff at observation i:
+    //! - If S_i ≥ Autocall Barrier: Redeem at par + accrued coupons (stop)
+    //! - Else: No coupon, continue to next observation
+    //!
+    //! At maturity (if not called):
 //! - If S_T ≥ Protection Barrier: Repay par
 //! - Else: Lose (Protection - S_T)/S_0 (downside participation)
 //!

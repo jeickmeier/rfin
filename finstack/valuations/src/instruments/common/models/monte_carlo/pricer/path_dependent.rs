@@ -182,7 +182,30 @@ impl PathDependentPricer {
     {
         // Create time grid
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+        self.price_with_grid(
+            process,
+            initial_spot,
+            time_grid,
+            payoff,
+            currency,
+            discount_factor,
+        )
+    }
 
+    /// Price a path-dependent option with a custom time grid.
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_with_grid<P>(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_grid: TimeGrid,
+        payoff: &P,
+        currency: Currency,
+        discount_factor: f64,
+    ) -> Result<MoneyEstimate>
+    where
+        P: Payoff,
+    {
         // Create MC engine
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
@@ -222,7 +245,7 @@ impl PathDependentPricer {
             Ok(result.estimate)
         } else {
             // Use regular pricing without path capture
-            let engine = McEngine::new(engine_config);
+            let engine = McEngine::new(engine_config); // engine takes ownership of time_grid from config
             let disc = ExactGbm::new();
             let initial_state = vec![initial_spot];
 
@@ -234,15 +257,33 @@ impl PathDependentPricer {
                     if self.config.antithetic {
                         // Antithetic pricing path
                         use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
-                        let time_grid =
-                            crate::instruments::common::mc::time_grid::TimeGrid::uniform(
-                                time_to_maturity,
-                                num_steps,
-                            )?;
-                        let mut rng_clone = rng.clone();
+                        // Need time_grid ref, but engine took it?
+                        // McEngineConfig takes time_grid by value? Yes.
+                        // So engine has it.
+                        // But we need it for AntitheticConfig.
+                        // We need to clone it before creating engine?
+                        // Re-structure:
+                        // engine_config consumes time_grid.
+                        // We can clone time_grid before creating config if needed.
+                        
+                        // Actually, let's just clone the grid at start since we need it multiple places in this complex block
+                        // But time_grid was moved into price_with_grid.
+                        // We can clone it.
+                        
+                        // Easier: Clone passed time_grid before creating engine.
+                        // But I already created engine above.
+                        // Let's fix the structure.
+                        
+                        // For this specific refactor, to avoid massive diff, I will just copy the body and use `time_grid` variable.
+                        // But `time_grid` is moved into `McEngineConfig`.
+                        // TimeGrid implements Clone.
+                        
+                        // I will provide the implementation below correctly.
+                         let mut rng_clone = rng.clone();
+                        let time_grid_ref = &engine.config().time_grid;
                         let cfg = AntitheticConfig {
                             num_pairs: self.config.num_paths / 2,
-                            time_grid: &time_grid,
+                            time_grid: time_grid_ref,
                             currency,
                             discount_factor,
                         };
@@ -265,12 +306,9 @@ impl PathDependentPricer {
                         use crate::instruments::common::mc::online_stats::OnlineStats;
                         use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
 
-                        let time_grid =
-                            crate::instruments::common::mc::time_grid::TimeGrid::uniform(
-                                time_to_maturity,
-                                num_steps,
-                            )?;
-                        let dt = time_grid.dt(0);
+                        let time_grid_ref = &engine.config().time_grid;
+                        let num_steps = time_grid_ref.num_steps();
+                        let dt = time_grid_ref.dt(0);
                         let bridge = BrownianBridge::new(num_steps);
                         let mut stats = OnlineStats::new();
 
@@ -298,8 +336,8 @@ impl PathDependentPricer {
                             payoff_clone.on_event(&mut path_state);
 
                             for step in 0..num_steps {
-                                let t = time_grid.time(step);
-                                let dt = time_grid.dt(step);
+                                let t = time_grid_ref.time(step);
+                                let dt = time_grid_ref.dt(step);
                                 let w_inc = (w_path[step + 1] - w_path[step]) / dt.sqrt();
                                 z_step[0] = w_inc;
                                 disc.step(process, t, dt, &mut state, &z_step, &mut work);
@@ -353,14 +391,11 @@ impl PathDependentPricer {
                 let rng = PhiloxRng::new(self.config.seed);
                 if self.config.antithetic {
                     use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
-                    let time_grid = crate::instruments::common::mc::time_grid::TimeGrid::uniform(
-                        time_to_maturity,
-                        num_steps,
-                    )?;
+                    let time_grid_ref = &engine.config().time_grid;
                     let mut rng_clone = rng.clone();
                     let cfg = AntitheticConfig {
                         num_pairs: self.config.num_paths / 2,
-                        time_grid: &time_grid,
+                        time_grid: time_grid_ref,
                         currency,
                         discount_factor,
                     };

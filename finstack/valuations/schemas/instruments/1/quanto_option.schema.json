@@ -14,6 +14,7 @@
           "correlation": -0.2,
           "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
+          "foreign_discount_curve_id": "JPY-OIS",
           "div_yield_id": "NKY-DIV",
           "domestic_currency": "USD",
           "equity_strike": {
@@ -64,6 +65,7 @@
           "correlation": -0.2,
           "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
+          "foreign_discount_curve_id": "JPY-OIS",
           "div_yield_id": "NKY-DIV",
           "domestic_currency": "USD",
           "equity_strike": {

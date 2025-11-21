@@ -474,9 +474,9 @@ impl DiscountCurveCalibrator {
         }
 
         // Use the CurveValidator trait to validate the curve
-        use crate::calibration::validation::CurveValidator;
+        use crate::calibration::validation::{CurveValidator, ValidationConfig};
         curve
-            .validate()
+            .validate(&ValidationConfig::default())
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated discount curve {} failed validation: {}",

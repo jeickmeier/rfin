@@ -56,6 +56,9 @@ pub struct AsianOption {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
+    /// Past fixings for seasoned options
+    #[builder(default)]
+    pub past_fixings: Vec<(Date, f64)>,
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
@@ -117,6 +120,25 @@ impl AsianOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::asian_option::pricer;
         pricer::npv(self, curves, as_of)
+    }
+
+    /// Get the accumulated state (sum, log_sum_product, count) for seasoned options.
+    /// Only considers fixings that are in the fixing schedule and before or on as_of.
+    pub fn accumulated_state(&self, as_of: Date) -> (f64, f64, usize) {
+        let mut sum = 0.0;
+        let mut product_log = 0.0;
+        let mut count = 0;
+
+        for (d, v) in &self.past_fixings {
+            if *d <= as_of && self.fixing_dates.contains(d) {
+                sum += v;
+                if *v > 0.0 {
+                    product_log += v.ln();
+                }
+                count += 1;
+            }
+        }
+        (sum, product_log, count)
     }
 
     /// Calculate the net present value using analytical method (default).
@@ -200,3 +222,48 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Date;
+    use time::Month;
+
+    #[test]
+    fn test_accumulated_state() {
+        let fixings = vec![
+            Date::from_calendar_date(2024, Month::January, 1).expect("valid date"),
+            Date::from_calendar_date(2024, Month::February, 1).expect("valid date"),
+            Date::from_calendar_date(2024, Month::March, 1).expect("valid date"),
+        ];
+        
+        let mut asian = AsianOption::example();
+        asian.fixing_dates = fixings.clone();
+        
+        // No history
+        let (sum, _log_prod, count) = asian.accumulated_state(Date::from_calendar_date(2024, Month::April, 1).expect("valid date"));
+        assert_eq!(sum, 0.0);
+        assert_eq!(count, 0);
+
+        // Add history
+        asian.past_fixings = vec![
+            (fixings[0], 100.0),
+            (fixings[1], 105.0),
+        ];
+
+        // Check at date between Feb and Mar
+        let as_of = Date::from_calendar_date(2024, Month::February, 15).expect("valid date");
+        let (sum, log_prod, count) = asian.accumulated_state(as_of);
+        
+        assert_eq!(sum, 205.0);
+        assert_eq!(count, 2);
+        assert!((log_prod - (100.0f64.ln() + 105.0f64.ln())).abs() < 1e-10);
+
+        // Check at date before Feb
+        let as_of_early = Date::from_calendar_date(2024, Month::January, 15).expect("valid date");
+        let (sum_early, _, count_early) = asian.accumulated_state(as_of_early);
+        assert_eq!(sum_early, 100.0);
+        assert_eq!(count_early, 1);
+    }
+}
+

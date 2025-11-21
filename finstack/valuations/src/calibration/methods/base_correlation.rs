@@ -296,9 +296,9 @@ impl BaseCorrelationCalibrator {
             .build()?;
 
         // Validate the calibrated base correlation curve
-        use crate::calibration::validation::CurveValidator;
+        use crate::calibration::validation::{CurveValidator, ValidationConfig};
         final_curve
-            .validate()
+            .validate(&ValidationConfig::default())
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!("Calibrated base correlation curve failed validation: {}", e),
                 category: "base_correlation_validation".to_string(),

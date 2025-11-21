@@ -33,6 +33,8 @@
       "div_yield_id": "SPX-DIV",
       "pricing_overrides": {
         "quoted_clean_price": null,
+        "rho_bump_decimal": null,
+        "vega_bump_decimal": null,
         "implied_volatility": null,
         "quoted_spread_bp": null,
         "upfront_payment": null,
@@ -47,7 +49,10 @@
       "attributes": {
         "tags": [],
         "meta": {}
-      }
+      },
+      "quanto_correlation": null,
+      "fx_vol_surface_id": null,
+      "payment_date": null
     }
   }
 }

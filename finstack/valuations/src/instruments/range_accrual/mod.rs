@@ -13,10 +13,12 @@
 //!
 //! # Pricing Method
 //!
-//! Range accruals require:
-//! - **Monte Carlo**: For complex rate dynamics and barriers
-//! - **Analytical approximations**: For single-factor cases
-//! - **Tree methods**: For short rate models
+//! This module implements two pricing methods:
+//! 1.  **Static Replication (Default)**: Replicates the payoff as a portfolio of digital options
+//!     (binary call spreads). This method naturally captures volatility skew/smile and term structure
+//!     from the volatility surface, making it the market standard for vanilla range accruals.
+//! 2.  **Monte Carlo**: Used for complex path-dependent features or when explicitly requested.
+//!     Supports Quanto drift adjustment and flat/term volatility.
 //!
 //! # Market Usage
 //!
@@ -28,7 +30,8 @@
 //! # See Also
 //!
 //! - [`RangeAccrual`] for instrument struct
-//! - Monte Carlo pricer for rate simulation
+//! - [`pricer`] for Static Replication and MC implementations
+//!
 
 pub mod metrics;
 pub mod pricer;

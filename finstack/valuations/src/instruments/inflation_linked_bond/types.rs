@@ -565,7 +565,9 @@ impl InflationLinkedBond {
         use crate::instruments::bond::pricing::quote_engine::{
             price_from_ytm_compounded_params, YieldCompounding,
         };
-        let flows = self.build_schedule(curves, as_of)?;
+        // Use real schedule to calculate sensitivity to real yield (Real Duration)
+        // This assumes the "Duration" metric refers to the duration of the real bond component.
+        let flows = self.build_real_schedule(as_of)?;
         // Convert price from ytm helpers returns currency units; convert back to clean per-100 notionally
         let price_from_yield = |y: f64| -> f64 {
             price_from_ytm_compounded_params(

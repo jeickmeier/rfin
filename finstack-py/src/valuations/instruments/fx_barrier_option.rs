@@ -30,7 +30,7 @@ impl PyFxBarrierOption {
 impl PyFxBarrierOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, strike, barrier, option_type, barrier_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, fx_spot_id, fx_vol_surface, *, use_gobet_miri=False)"
+        text_signature = "(cls, instrument_id, strike, barrier, option_type, barrier_type, expiry, notional, domestic_currency, foreign_currency, discount_curve, foreign_discount_curve, fx_spot_id, fx_vol_surface, *, use_gobet_miri=False)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create an FX barrier option.
@@ -64,8 +64,8 @@ impl PyFxBarrierOption {
         notional: Bound<'_, PyAny>,
         domestic_currency: Bound<'_, PyAny>,
         foreign_currency: Bound<'_, PyAny>,
-        correlation: f64,
         discount_curve: Bound<'_, PyAny>,
+        foreign_discount_curve: Bound<'_, PyAny>,
         fx_spot_id: &str,
         fx_vol_surface: Bound<'_, PyAny>,
         use_gobet_miri: Option<bool>,
@@ -76,7 +76,8 @@ impl PyFxBarrierOption {
 
         let id = InstrumentId::new(instrument_id.extract::<&str>()?);
         let expiry_date = py_to_date(&expiry)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let domestic_discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let foreign_discount_curve_id = CurveId::new(foreign_discount_curve.extract::<&str>()?);
         let fx_vol_id = CurveId::new(fx_vol_surface.extract::<&str>()?);
 
         let CurrencyArg(dom_currency) = domestic_currency.extract()?;
@@ -118,10 +119,10 @@ impl PyFxBarrierOption {
         builder = builder.notional(notional_money);
         builder = builder.domestic_currency(dom_currency);
         builder = builder.foreign_currency(for_currency);
-        builder = builder.correlation(correlation);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
-        builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.domestic_discount_curve_id(domestic_discount_curve_id);
+        builder = builder.foreign_discount_curve_id(foreign_discount_curve_id);
         builder = builder.fx_spot_id(fx_spot_id.to_string());
         builder = builder.fx_vol_id(fx_vol_id.into());
         let option = builder.build().map_err(|e| {
@@ -183,12 +184,6 @@ impl PyFxBarrierOption {
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
-    }
-
-    /// Correlation.
-    #[getter]
-    fn correlation(&self) -> f64 {
-        self.inner.correlation
     }
 
     fn __repr__(&self) -> String {

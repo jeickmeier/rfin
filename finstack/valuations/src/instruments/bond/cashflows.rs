@@ -87,4 +87,41 @@ impl CashflowProvider for Bond {
 
         Ok(flows)
     }
+
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        _as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        // Get the full schedule from either custom_cashflows or builder
+        let mut schedule = if let Some(ref custom) = self.custom_cashflows {
+            custom.clone()
+        } else {
+            self.get_full_schedule(curves)?
+        };
+
+        // Filter flows to holder view, preserving CashFlow objects with CFKind
+        let filtered_flows: Vec<crate::cashflow::primitives::CashFlow> = schedule
+            .flows
+            .iter()
+            .filter_map(|cf| {
+                match cf.kind {
+                    // Include coupons and interest flows
+                    CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => Some(*cf),
+                    // Include amortization
+                    CFKind::Amortization => Some(*cf),
+                    // Include positive notional (redemption)
+                    CFKind::Notional if cf.amount.amount() > 0.0 => Some(*cf),
+                    // Exclude others
+                    _ => None,
+                }
+            })
+            .collect();
+
+        schedule.flows = filtered_flows;
+        // Sort by date
+        schedule.flows.sort_by_key(|cf| cf.date);
+
+        Ok(schedule)
+    }
 }

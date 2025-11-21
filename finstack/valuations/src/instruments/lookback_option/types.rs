@@ -48,6 +48,10 @@ pub struct LookbackOption {
     pub div_yield_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
+    /// Observed minimum spot price since inception (required for Floating Call / Fixed Put)
+    pub observed_min: Option<Money>,
+    /// Observed maximum spot price since inception (required for Floating Put / Fixed Call)
+    pub observed_max: Option<Money>,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
 }
@@ -90,6 +94,8 @@ impl LookbackOption {
             .vol_surface_id(CurveId::new("SPX-VOL"))
             .div_yield_id_opt(Some("SPX-DIV".to_string()))
             .pricing_overrides(PricingOverrides::default())
+            .observed_min_opt(None)
+            .observed_max_opt(None)
             .attributes(Attributes::new())
             .build()
             .expect("Example LookbackOption construction should not fail")

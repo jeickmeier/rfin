@@ -251,6 +251,7 @@ impl RevolvingCreditPricer {
                 };
 
                 // Integrate over intervals
+                let mut prev_date = as_of;
                 for i in 0..future_grid.len() {
                     let curr_date = future_grid[i];
                     let curr_sp = survival_at_grid[i];
@@ -258,13 +259,26 @@ impl RevolvingCreditPricer {
 
                     let prob_default = (prev_sp - curr_sp).max(0.0);
 
-                    // Discount at end of period (conservative)
-                    let t_df = disc_dc.year_fraction(
-                        disc_curve.base_date(),
-                        curr_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let df = disc_curve.df(t_df);
+                    // Discount using mid-point of interval for better accuracy
+                    // t_df = (t_prev + t_curr) / 2
+                    let t_prev = disc_dc
+                        .year_fraction(
+                            disc_curve.base_date(),
+                            prev_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
+                    let t_curr = disc_dc
+                        .year_fraction(
+                            disc_curve.base_date(),
+                            curr_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
+                    let t_mid = (t_prev + t_curr) / 2.0;
+                    let df = disc_curve.df(t_mid);
 
                     // Exposure Average
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
@@ -275,6 +289,7 @@ impl RevolvingCreditPricer {
 
                     prev_sp = curr_sp;
                     prev_exposure = curr_exposure;
+                    prev_date = curr_date;
                 }
             }
         }

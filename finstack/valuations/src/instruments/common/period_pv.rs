@@ -154,9 +154,17 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// Compute present values aggregated by period with optional credit adjustment.
     ///
     /// Similar to `periodized_pv`, but optionally applies credit risk adjustment via
-    /// a hazard curve. When a hazard curve is provided, the PV is computed as:
-    /// `amount * df(t) * sp(t)` where `df(t)` is the rates discount factor and
-    /// `sp(t)` is the survival probability.
+    /// a hazard curve.
+    ///
+    /// # Methodology
+    ///
+    /// - **Interest/Fees**: Assumed zero recovery (`PV = Amount * DF * SP`)
+    /// - **Principal**: Applies recovery rate `R` from hazard curve (`PV = Amount * DF * (SP + R * (1-SP))`)
+    ///
+    /// # Assumptions
+    ///
+    /// - **Independence**: Assumes independence between interest rates and credit spreads (default time).
+    /// - **Recovery**: Recovery is applied only if the instrument's schedule identifies flows as Principal/Notional.
     ///
     /// # Arguments
     /// * `periods` - Period definitions with start/end boundaries
@@ -192,9 +200,9 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         base: Date,
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        // Build simplified schedule (holder perspective, filtered flows)
-        // This matches the behavior of schedule_pv_impl used in instrument pricing
-        let flows = self.build_schedule(market, base)?;
+        // Build full schedule (holder perspective, filtered flows) to preserve CFKind
+        // This allows applying recovery rates to principal flows only.
+        let schedule = self.build_full_schedule(market, base)?;
 
         // Use the instrument's discount curve
         let disc_curve_id = self.discount_curve_id();
@@ -214,11 +222,21 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
             .as_ref()
             .map(|arc| arc.as_ref() as &dyn finstack_core::market_data::traits::Survival);
 
-        // Use credit-adjusted aggregation directly on filtered flows
-        use crate::cashflow::aggregation::pv_by_period_credit_adjusted;
-        Ok(pv_by_period_credit_adjusted(
-            &flows, periods, disc, hazard, base, dc,
-        ))
+        // Extract recovery rate from HazardCurve
+        let recovery_rate = hazard_arc_opt.as_ref().map(|h| h.recovery_rate());
+
+        // Use credit-adjusted aggregation detailed
+        use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
+        use finstack_core::dates::DayCountCtx;
+
+        pv_by_period_credit_adjusted_detailed(
+            &schedule.flows,
+            periods,
+            disc,
+            hazard,
+            recovery_rate,
+            DateContext::new(base, dc, DayCountCtx::default()),
+        )
     }
 }
 

@@ -263,9 +263,9 @@ impl VolSurfaceCalibrator {
         )?;
 
         // Validate the calibrated volatility surface
-        use crate::calibration::validation::SurfaceValidator;
+        use crate::calibration::validation::{SurfaceValidator, ValidationConfig};
         surface
-            .validate()
+            .validate(&ValidationConfig::default())
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated volatility surface {} failed validation: {}",

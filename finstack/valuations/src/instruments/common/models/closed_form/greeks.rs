@@ -340,7 +340,7 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
 ///
 /// # Returns
 ///
-/// Vega value (per 1-unit change in volatility). Returns 0.0 at expiration.
+/// Vega value (per 1% change in volatility). Returns 0.0 at expiration.
 ///
 /// # Examples
 ///
@@ -367,7 +367,8 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
     }
 
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1)
+    // Scale by 0.01 to represent sensitivity per 1% vol change
+    0.01 * spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1)
 }
 
 /// Black-Scholes call theta.

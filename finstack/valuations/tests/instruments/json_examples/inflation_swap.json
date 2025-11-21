@@ -16,6 +16,7 @@
       "dc": "Act365F",
       "side": "PayFixed",
       "lag_override": null,
+      "base_cpi": null,
       "attributes": {
         "tags": [],
         "meta": {}

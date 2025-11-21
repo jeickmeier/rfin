@@ -72,26 +72,30 @@ impl ValidationError {
 /// Core validation trait for market data structures
 pub trait CurveValidator {
     /// Validate that the curve satisfies no-arbitrage constraints
-    fn validate_no_arbitrage(&self) -> Result<()>;
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate monotonicity constraints
-    fn validate_monotonicity(&self) -> Result<()>;
+    fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate that all values are within reasonable bounds
-    fn validate_bounds(&self) -> Result<()>;
+    fn validate_bounds(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Run all validations
-    fn validate(&self) -> Result<()> {
-        self.validate_no_arbitrage()?;
-        self.validate_monotonicity()?;
-        self.validate_bounds()?;
+    fn validate(&self, config: &ValidationConfig) -> Result<()> {
+        self.validate_no_arbitrage(config)?;
+        self.validate_monotonicity(config)?;
+        self.validate_bounds(config)?;
         Ok(())
     }
 }
 
 /// Validation for discount curves
 impl CurveValidator for DiscountCurve {
-    fn validate_no_arbitrage(&self) -> Result<()> {
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // Check forward rate positivity
         let times = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
 
@@ -107,25 +111,26 @@ impl CurveValidator for DiscountCurve {
                 let fwd_rate = (df1 / df2 - 1.0) / (t2 - t1);
 
                 // Forward rates should be positive (allowing small negative for technical reasons)
-                if fwd_rate < -0.02 {
+                if fwd_rate < config.min_forward_rate {
                     return Err(Error::Validation(format!(
-                        "Negative forward rate {:.4}% between t={} and t={} in {}",
+                        "Negative forward rate {:.4}% between t={} and t={} in {} (limit: {:.2}%)",
                         fwd_rate * 100.0,
                         t1,
                         t2,
-                        self.id().as_str()
+                        self.id().as_str(),
+                        config.min_forward_rate * 100.0
                     )));
                 }
 
                 // Forward rates shouldn't be unreasonably high
-                if fwd_rate > 1.0 {
-                    // 100% forward rate
+                if fwd_rate > config.max_forward_rate {
                     return Err(Error::Validation(format!(
-                        "Unreasonably high forward rate {:.2}% between t={} and t={} in {}",
+                        "Unreasonably high forward rate {:.2}% between t={} and t={} in {} (limit: {:.2}%)",
                         fwd_rate * 100.0,
                         t1,
                         t2,
-                        self.id().as_str()
+                        self.id().as_str(),
+                        config.max_forward_rate * 100.0
                     )));
                 }
             }
@@ -134,7 +139,11 @@ impl CurveValidator for DiscountCurve {
         Ok(())
     }
 
-    fn validate_monotonicity(&self) -> Result<()> {
+    fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_monotonicity {
+            return Ok(());
+        }
+        
         // Discount factors must be monotonically decreasing
         let mut prev_df = 1.0;
 
@@ -142,7 +151,7 @@ impl CurveValidator for DiscountCurve {
             let df = self.df(t);
 
             // Allow for numerical tolerance
-            if df > prev_df + 1e-10 {
+            if df > prev_df + config.tolerance {
                 return Err(Error::Validation(format!(
                     "Discount factor not monotonically decreasing: DF({})={:.6} > DF(prev)={:.6} in {}",
                     t, df, prev_df, self.id().as_str()
@@ -155,7 +164,7 @@ impl CurveValidator for DiscountCurve {
         Ok(())
     }
 
-    fn validate_bounds(&self) -> Result<()> {
+    fn validate_bounds(&self, config: &ValidationConfig) -> Result<()> {
         // Check that discount factors are in (0, 1]
         for &t in DF_BOUNDS_POINTS {
             let df = self.df(t);
@@ -184,8 +193,7 @@ impl CurveValidator for DiscountCurve {
             let rate = self.zero(t);
 
             // Allow slightly negative rates but not too extreme
-            if rate < -0.05 {
-                // -5% floor
+            if rate < config.min_forward_rate * 5.0 { // e.g. -5% if min_forward is -1%
                 return Err(Error::Validation(format!(
                     "Zero rate {:.2}% too negative at t={} in {}",
                     rate * 100.0,
@@ -195,8 +203,7 @@ impl CurveValidator for DiscountCurve {
             }
 
             // Cap at reasonable maximum
-            if rate > 0.50 {
-                // 50% ceiling
+            if rate > config.max_forward_rate {
                 return Err(Error::Validation(format!(
                     "Zero rate {:.2}% too high at t={} in {}",
                     rate * 100.0,
@@ -212,18 +219,22 @@ impl CurveValidator for DiscountCurve {
 
 /// Validation for forward curves
 impl CurveValidator for ForwardCurve {
-    fn validate_no_arbitrage(&self) -> Result<()> {
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage && !config.check_forward_positivity {
+            return Ok(());
+        }
+        
         // Forward rates should be positive (with small tolerance for negative rates)
         for &t in FWD_ARBI_POINTS {
             let fwd = self.rate(t);
 
-            if fwd < -0.01 {
-                // Allow small negative rates
+            if fwd < config.min_forward_rate {
                 return Err(Error::Validation(format!(
-                    "Negative forward rate {:.4}% at t={} in {}",
+                    "Negative forward rate {:.4}% at t={} in {} (limit: {:.2}%)",
                     fwd * 100.0,
                     t,
-                    self.id().as_str()
+                    self.id().as_str(),
+                    config.min_forward_rate * 100.0
                 )));
             }
         }
@@ -231,7 +242,11 @@ impl CurveValidator for ForwardCurve {
         Ok(())
     }
 
-    fn validate_monotonicity(&self) -> Result<()> {
+    fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_monotonicity {
+            return Ok(());
+        }
+        
         // Forward curves don't have strict monotonicity requirements
         // but we check for reasonable smoothness
         let test_points = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
@@ -260,12 +275,12 @@ impl CurveValidator for ForwardCurve {
         Ok(())
     }
 
-    fn validate_bounds(&self) -> Result<()> {
+    fn validate_bounds(&self, config: &ValidationConfig) -> Result<()> {
         for &t in FWD_BOUNDS_POINTS {
             let rate = self.rate(t);
 
             // Allow slightly negative but bounded
-            if rate < -0.05 {
+            if rate < config.min_forward_rate * 5.0 {
                 return Err(Error::Validation(format!(
                     "Forward rate {:.2}% too negative at t={} in {}",
                     rate * 100.0,
@@ -275,7 +290,7 @@ impl CurveValidator for ForwardCurve {
             }
 
             // Cap at reasonable maximum
-            if rate > 0.50 {
+            if rate > config.max_forward_rate {
                 return Err(Error::Validation(format!(
                     "Forward rate {:.2}% too high at t={} in {}",
                     rate * 100.0,
@@ -291,7 +306,11 @@ impl CurveValidator for ForwardCurve {
 
 /// Validation for hazard curves
 impl CurveValidator for HazardCurve {
-    fn validate_no_arbitrage(&self) -> Result<()> {
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // Check hazard rates are non-negative using survival probability
         for &t in HAZARD_ARBI_POINTS {
             // Get hazard rate from survival probability derivative
@@ -315,12 +334,13 @@ impl CurveValidator for HazardCurve {
             }
 
             // Check for unreasonably high hazard rates (>50% instantaneous default prob)
-            if lambda > 0.5 {
+            if lambda > config.max_hazard_rate {
                 return Err(Error::Validation(format!(
-                    "Unreasonably high hazard rate {:.2} at t={} in {}",
+                    "Unreasonably high hazard rate {:.2} at t={} in {} (limit: {:.2})",
                     lambda,
                     t,
-                    self.id().as_str()
+                    self.id().as_str(),
+                    config.max_hazard_rate
                 )));
             }
         }
@@ -328,7 +348,11 @@ impl CurveValidator for HazardCurve {
         Ok(())
     }
 
-    fn validate_monotonicity(&self) -> Result<()> {
+    fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_monotonicity {
+            return Ok(());
+        }
+        
         // Survival probabilities must be monotonically decreasing
         let mut prev_sp = 1.0;
 
@@ -336,7 +360,7 @@ impl CurveValidator for HazardCurve {
             let sp = self.sp(t);
 
             // Allow for numerical tolerance
-            if sp > prev_sp + 1e-10 {
+            if sp > prev_sp + config.tolerance {
                 return Err(Error::Validation(format!(
                     "Survival probability not monotonically decreasing: SP({})={:.6} > SP(prev)={:.6} in {}",
                     t, sp, prev_sp, self.id().as_str()
@@ -349,7 +373,7 @@ impl CurveValidator for HazardCurve {
         Ok(())
     }
 
-    fn validate_bounds(&self) -> Result<()> {
+    fn validate_bounds(&self, _config: &ValidationConfig) -> Result<()> {
         // Check that survival probabilities are in [0, 1]
         // and that recovery rate is reasonable
         for &t in HAZARD_BOUNDS_POINTS {
@@ -390,7 +414,11 @@ impl CurveValidator for HazardCurve {
 
 /// Validation for inflation curves
 impl CurveValidator for InflationCurve {
-    fn validate_no_arbitrage(&self) -> Result<()> {
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // CPI levels should be positive
         for &t in INFL_ARBI_POINTS {
             let cpi = self.cpi(t);
@@ -408,7 +436,11 @@ impl CurveValidator for InflationCurve {
         Ok(())
     }
 
-    fn validate_monotonicity(&self) -> Result<()> {
+    fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_monotonicity {
+            return Ok(());
+        }
+        
         // CPI doesn't need to be strictly monotonic (deflation is possible)
         // but check for reasonable growth rates
         let base_cpi = self.cpi(0.0);
@@ -418,22 +450,24 @@ impl CurveValidator for InflationCurve {
             let annual_inflation = (cpi / base_cpi).powf(1.0 / t) - 1.0;
 
             // Check for extreme deflation (< -10% annual)
-            if annual_inflation < -0.10 {
+            if annual_inflation < config.min_cpi_growth {
                 return Err(Error::Validation(format!(
-                    "Extreme deflation {:.2}% per year over {} years in {}",
+                    "Extreme deflation {:.2}% per year over {} years in {} (limit: {:.2}%)",
                     annual_inflation * 100.0,
                     t,
-                    self.id().as_str()
+                    self.id().as_str(),
+                    config.min_cpi_growth * 100.0
                 )));
             }
 
             // Check for hyperinflation (> 50% annual)
-            if annual_inflation > 0.50 {
+            if annual_inflation > config.max_cpi_growth {
                 return Err(Error::Validation(format!(
-                    "Hyperinflation {:.2}% per year over {} years in {}",
+                    "Hyperinflation {:.2}% per year over {} years in {} (limit: {:.2}%)",
                     annual_inflation * 100.0,
                     t,
-                    self.id().as_str()
+                    self.id().as_str(),
+                    config.max_cpi_growth * 100.0
                 )));
             }
         }
@@ -441,7 +475,7 @@ impl CurveValidator for InflationCurve {
         Ok(())
     }
 
-    fn validate_bounds(&self) -> Result<()> {
+    fn validate_bounds(&self, config: &ValidationConfig) -> Result<()> {
         // Check reasonable inflation expectations
         for &t in INFL_BOUNDS_POINTS {
             // Calculate forward inflation over 1-year period
@@ -450,10 +484,12 @@ impl CurveValidator for InflationCurve {
             let fwd_inflation = cpi_t1 / cpi_t - 1.0;
 
             // Forward inflation should be in reasonable range
-            if !(-0.20..=0.50).contains(&fwd_inflation) {
+            if !(config.min_fwd_inflation..=config.max_fwd_inflation).contains(&fwd_inflation) {
                 return Err(Error::Validation(format!(
-                    "Forward inflation {:.2}% outside reasonable range at t={} in {}",
+                    "Forward inflation {:.2}% outside reasonable range [{:.2}%, {:.2}%] at t={} in {}",
                     fwd_inflation * 100.0,
+                    config.min_fwd_inflation * 100.0,
+                    config.max_fwd_inflation * 100.0,
                     t,
                     self.id().as_str()
                 )));
@@ -466,7 +502,11 @@ impl CurveValidator for InflationCurve {
 
 /// Validation for base correlation curves
 impl CurveValidator for BaseCorrelationCurve {
-    fn validate_no_arbitrage(&self) -> Result<()> {
+    fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // Base correlations should be monotonically increasing with detachment
         let detachment_points = self.detachment_points();
         let correlations = self.correlations();
@@ -480,7 +520,7 @@ impl CurveValidator for BaseCorrelationCurve {
 
         // Check monotonicity
         for i in 1..correlations.len() {
-            if correlations[i] < correlations[i - 1] - 1e-10 {
+            if correlations[i] < correlations[i - 1] - config.tolerance {
                 return Err(Error::Validation(format!(
                     "Base correlation not monotonically increasing: corr({:.1}%)={:.2}% < corr({:.1}%)={:.2}% in {}",
                     detachment_points[i], correlations[i] * 100.0,
@@ -493,12 +533,12 @@ impl CurveValidator for BaseCorrelationCurve {
         Ok(())
     }
 
-    fn validate_monotonicity(&self) -> Result<()> {
+    fn validate_monotonicity(&self, _config: &ValidationConfig) -> Result<()> {
         // Already checked in validate_no_arbitrage
         Ok(())
     }
 
-    fn validate_bounds(&self) -> Result<()> {
+    fn validate_bounds(&self, _config: &ValidationConfig) -> Result<()> {
         // Correlations must be in [0, 1]
         for (detach, corr) in self
             .detachment_points()
@@ -522,25 +562,29 @@ impl CurveValidator for BaseCorrelationCurve {
 /// Validation for volatility surfaces
 pub trait SurfaceValidator {
     /// Validate no calendar spread arbitrage
-    fn validate_calendar_spread(&self) -> Result<()>;
+    fn validate_calendar_spread(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate no butterfly arbitrage
-    fn validate_butterfly_spread(&self) -> Result<()>;
+    fn validate_butterfly_spread(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate volatility bounds
-    fn validate_vol_bounds(&self) -> Result<()>;
+    fn validate_vol_bounds(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Run all validations
-    fn validate(&self) -> Result<()> {
-        self.validate_calendar_spread()?;
-        self.validate_butterfly_spread()?;
-        self.validate_vol_bounds()?;
+    fn validate(&self, config: &ValidationConfig) -> Result<()> {
+        self.validate_calendar_spread(config)?;
+        self.validate_butterfly_spread(config)?;
+        self.validate_vol_bounds(config)?;
         Ok(())
     }
 }
 
 impl SurfaceValidator for VolSurface {
-    fn validate_calendar_spread(&self) -> Result<()> {
+    fn validate_calendar_spread(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // Total variance (σ²T) must be monotonically increasing with time to prevent calendar arbitrage.
         // This is a fundamental no-arbitrage condition: longer-dated options must have at least
         // as much total variance as shorter-dated options at the same strike.
@@ -555,7 +599,7 @@ impl SurfaceValidator for VolSurface {
                 let total_var = vol * vol * expiry; // σ²T
 
                 // Check monotonicity of total variance
-                if total_var < prev_total_var - 1e-10 {
+                if total_var < prev_total_var - config.tolerance {
                     // In strict mode, escalate to hard error to enforce no-arbitrage
                     #[cfg(feature = "strict_validation")]
                     {
@@ -584,7 +628,11 @@ impl SurfaceValidator for VolSurface {
         Ok(())
     }
 
-    fn validate_butterfly_spread(&self) -> Result<()> {
+    fn validate_butterfly_spread(&self, config: &ValidationConfig) -> Result<()> {
+        if !config.check_arbitrage {
+            return Ok(());
+        }
+        
         // Check convexity of total variance in strike dimension.
         // Proper butterfly arbitrage check requires that total variance (σ²T) is convex in strike,
         // which prevents risk-free arbitrage via butterfly spreads.
@@ -656,7 +704,7 @@ impl SurfaceValidator for VolSurface {
         Ok(())
     }
 
-    fn validate_vol_bounds(&self) -> Result<()> {
+    fn validate_vol_bounds(&self, config: &ValidationConfig) -> Result<()> {
         let strikes = self.strikes();
         let expiries = self.expiries();
 
@@ -676,13 +724,14 @@ impl SurfaceValidator for VolSurface {
                 }
 
                 // Cap at reasonable maximum (500% vol)
-                if vol > 5.0 {
+                if vol > config.max_volatility {
                     return Err(Error::Validation(format!(
-                        "Unreasonably high volatility {:.2}% at T={}, K={} in {}",
+                        "Unreasonably high volatility {:.2}% at T={}, K={} in {} (limit: {:.2}%)",
                         vol * 100.0,
                         expiry,
                         strike,
-                        self.id().as_str()
+                        self.id().as_str(),
+                        config.max_volatility * 100.0
                     )));
                 }
             }
@@ -707,6 +756,18 @@ pub struct ValidationConfig {
     pub check_arbitrage: bool,
     /// Numerical tolerance for comparisons
     pub tolerance: f64,
+    /// Maximum allowed hazard rate (default 0.5 = 50%)
+    pub max_hazard_rate: f64,
+    /// Minimum allowed annual CPI growth (default -0.10 = -10%)
+    pub min_cpi_growth: f64,
+    /// Maximum allowed annual CPI growth (default 0.50 = 50%)
+    pub max_cpi_growth: f64,
+    /// Minimum allowed forward inflation (default -0.20 = -20%)
+    pub min_fwd_inflation: f64,
+    /// Maximum allowed forward inflation (default 0.50 = 50%)
+    pub max_fwd_inflation: f64,
+    /// Maximum allowed volatility (default 5.0 = 500%)
+    pub max_volatility: f64,
 }
 
 impl Default for ValidationConfig {
@@ -718,6 +779,12 @@ impl Default for ValidationConfig {
             check_monotonicity: true,
             check_arbitrage: true,
             tolerance: 1e-10,
+            max_hazard_rate: 0.50,
+            min_cpi_growth: -0.10,
+            max_cpi_growth: 0.50,
+            min_fwd_inflation: -0.20,
+            max_fwd_inflation: 0.50,
+            max_volatility: 5.0,
         }
     }
 }
@@ -732,6 +799,7 @@ mod tests {
     #[test]
     fn test_discount_curve_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let config = ValidationConfig::default();
 
         // Valid curve - monotonically decreasing DFs
         let valid_curve = DiscountCurve::builder("TEST-VALID")
@@ -748,7 +816,7 @@ mod tests {
             .build()
             .expect("should build valid curve");
 
-        assert!(valid_curve.validate().is_ok());
+        assert!(valid_curve.validate(&config).is_ok());
 
         // Invalid curve - increasing discount factors
         // NOTE: Must use allow_non_monotonic() since monotonicity is now enforced by default
@@ -765,7 +833,7 @@ mod tests {
             .build()
             .expect("should build invalid curve for testing");
 
-        assert!(invalid_curve.validate_monotonicity().is_err());
+        assert!(invalid_curve.validate_monotonicity(&config).is_err());
     }
 
     #[test]
@@ -773,6 +841,7 @@ mod tests {
         use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let config = ValidationConfig::default();
 
         // Valid hazard curve
         let valid_curve = HazardCurve::builder("TEST-HAZARD")
@@ -783,15 +852,16 @@ mod tests {
             .build()
             .expect("should build valid hazard curve");
 
-        assert!(valid_curve.validate().is_ok());
+        assert!(valid_curve.validate(&config).is_ok());
 
         // Check survival probability monotonicity
-        assert!(valid_curve.validate_monotonicity().is_ok());
+        assert!(valid_curve.validate_monotonicity(&config).is_ok());
     }
 
     #[test]
     fn test_forward_curve_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let config = ValidationConfig::default();
 
         // Valid forward curve
         let valid_curve = ForwardCurve::builder("TEST-FWD", 0.25)
@@ -805,7 +875,7 @@ mod tests {
             .build()
             .expect("should build valid forward curve");
 
-        assert!(valid_curve.validate().is_ok());
+        assert!(valid_curve.validate(&config).is_ok());
 
         // Curve with negative forward rates (should fail if too negative)
         let negative_curve = ForwardCurve::builder("TEST-NEG-FWD", 0.25)
@@ -822,7 +892,7 @@ mod tests {
         match negative_curve {
             Ok(curve) => {
                 // If builder accepts it, our validation should reject it
-                assert!(curve.validate_bounds().is_err());
+                assert!(curve.validate_bounds(&config).is_err());
             }
             Err(_) => {
                 // Builder rejected it, which is also a valid outcome
@@ -833,6 +903,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_validation() {
+        let config = ValidationConfig::default();
         // Valid base correlation curve - monotonically increasing
         let valid_curve = BaseCorrelationCurve::builder("TEST-CORR")
             .knots(vec![
@@ -845,7 +916,7 @@ mod tests {
             .build()
             .expect("should build valid base correlation curve");
 
-        assert!(valid_curve.validate().is_ok());
+        assert!(valid_curve.validate(&config).is_ok());
 
         // Invalid curve - decreasing correlation
         let invalid_curve = BaseCorrelationCurve::builder("TEST-INVALID-CORR")
@@ -857,6 +928,6 @@ mod tests {
             .build()
             .expect("should build invalid curve for testing");
 
-        assert!(invalid_curve.validate_no_arbitrage().is_err());
+        assert!(invalid_curve.validate_no_arbitrage(&config).is_err());
     }
 }

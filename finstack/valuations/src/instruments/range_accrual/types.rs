@@ -39,6 +39,12 @@ pub struct RangeAccrual {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
+    /// Optional Quanto correlation (Asset vs FX)
+    pub quanto_correlation: Option<f64>,
+    /// Optional FX volatility surface ID (required for Quanto)
+    pub fx_vol_surface_id: Option<CurveId>,
+    /// Optional payment date (defaults to last observation date)
+    pub payment_date: Option<Date>,
 }
 
 impl RangeAccrual {
@@ -76,6 +82,9 @@ impl RangeAccrual {
             .div_yield_id_opt(Some("SPX-DIV".to_string()))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
+            .quanto_correlation_opt(None)
+            .fx_vol_surface_id_opt(None)
+            .payment_date_opt(None)
             .build()
             .expect("Example RangeAccrual construction should not fail")
     }

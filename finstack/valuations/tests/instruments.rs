@@ -47,6 +47,10 @@ mod cap_floor;
 #[path = "instruments/fra/mod.rs"]
 mod fra;
 
+/// CMS Option tests - Constant Maturity Swap caps and floors
+#[path = "instruments/cms_option/mod.rs"]
+mod cms_option;
+
 /// Interest rate future tests - Exchange-traded IR futures
 #[path = "instruments/ir_future/mod.rs"]
 mod ir_future;
@@ -98,6 +102,10 @@ mod basket;
 /// Equity option tests - Vanilla and exotic equity options
 #[path = "instruments/equity_option/mod.rs"]
 mod equity_option;
+
+/// Lookback option tests
+#[path = "instruments/lookback_option/mod.rs"]
+mod lookback_option;
 
 /// Total Return Swap (TRS) tests - Equity and asset swaps
 #[path = "instruments/trs/mod.rs"]

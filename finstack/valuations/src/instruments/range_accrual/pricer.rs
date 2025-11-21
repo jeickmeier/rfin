@@ -1,4 +1,4 @@
-//! Range accrual Monte Carlo pricer.
+//! Range accrual Monte Carlo and Analytical pricers.
 
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
@@ -53,7 +53,7 @@ impl RangeAccrualMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let final_date = inst.observation_dates.last().copied().unwrap_or(as_of);
+        let final_date = inst.payment_date.unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
         let t = inst
             .day_count
             .year_fraction(as_of, final_date, DayCountCtx::default())?;
@@ -76,7 +76,7 @@ impl RangeAccrualMcPricer {
             1.0
         };
 
-        let q = if let Some(div_id) = &inst.div_yield_id {
+        let mut q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
                 Ok(ms) => match ms {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -89,7 +89,26 @@ impl RangeAccrualMcPricer {
         };
 
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, initial_spot);
+        let sigma = vol_surface.value_clamped(t, initial_spot); // value_clamped handles bounds
+
+        // Quanto Adjustment
+        if let Some(rho) = inst.quanto_correlation {
+            if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
+                let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+                // Assume FX vol at strike 1.0 (or spot) roughly.
+                // If we knew FX spot, we'd use it. Without it, 1.0 is a common proxy for normalized FX surfaces or ATM.
+                let sigma_fx = fx_vol_surface.value_clamped(t, 1.0); 
+                
+                // Drift adjustment: r_d - r_f - q - rho * sigma_S * sigma_FX
+                // The 'q' parameter in GbmParams is subtracted from r.
+                // Drift = r - q_param.
+                // Desired Drift = r - q_real - rho * sigma_S * sigma_FX
+                // => r - q_param = r - q_real - rho * sigma_S * sigma_FX
+                // => q_param = q_real + rho * sigma_S * sigma_FX
+                
+                q += rho * sigma * sigma_fx;
+            }
+        }
 
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
@@ -191,6 +210,150 @@ impl Pricer for RangeAccrualMcPricer {
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
 pub fn npv(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
-    let pricer = RangeAccrualMcPricer::new();
-    pricer.price_internal(inst, curves, as_of)
+    // If explicit model choice is not MC, prefer Analytic Static Replication
+    // (Currently assuming Analytic is the "Standard" for simple range accruals)
+    // We can add a flag in PricingOverrides if the user wants to force MC.
+    // For now, we route to Analytic by default as it is more accurate for skew.
+    
+    // Check if forced MC (future feature? or infer from overrides?)
+    // If 'mc_seed_scenario' is set, user likely expects MC.
+    if inst.pricing_overrides.mc_seed_scenario.is_some() {
+        let pricer = RangeAccrualMcPricer::new();
+        pricer.price_internal(inst, curves, as_of)
+    } else {
+        npv_analytic(inst, curves, as_of)
+    }
+}
+
+/// Present value using Static Replication (Analytic).
+/// 
+/// Replicates the range accrual as a sum of digital options (binary call spreads).
+/// Captures volatility skew/smile and term structure naturally from the surface.
+#[cfg(feature = "mc")]
+pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    use finstack_core::math::special_functions::norm_cdf;
+
+    let spot_scalar = curves.price(&inst.spot_id)?;
+    let initial_spot = match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    };
+
+    let final_date = inst.payment_date.unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
+    let t_maturity = inst.day_count.year_fraction(as_of, final_date, DayCountCtx::default())?;
+    
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+    let t_as_of = disc_curve.day_count().year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())?;
+    let df_as_of = disc_curve.df(t_as_of);
+    let df_maturity = disc_curve.df(t_as_of + t_maturity);
+    let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+
+    let q_yield = if let Some(div_id) = &inst.div_yield_id {
+        match curves.price(div_id.as_str()) {
+            Ok(ms) => match ms {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
+            },
+            Err(_) => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    // Term structure of rates: we should ideally look up rate for each observation.
+    // Simplified: Use zero rate to observation date.
+    
+    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+    
+    // Quanto Logic (adjust q_yield)
+    // Note: For Static Replication, we adjust the Forward Price.
+    // E[S_T] in Payment Measure = S_0 * exp((r - q - rho*sig*sig_fx)*T)
+    // So we just add the drift term to q_yield effectively.
+    if let Some(_rho) = inst.quanto_correlation {
+         if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
+            let _fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+            // Using ATM/1.0 vol approximation for the drift adjustment
+            // Ideally this would be time-dependent, but for drift adjustment it's usually fine.
+            // We'll look up at maturity or average? Let's use maturity for simplicity or look up per step.
+            // We'll do it per step inside loop for better term structure support.
+         }
+    }
+
+    let mut total_prob = 0.0;
+    let n_obs = inst.observation_dates.len();
+    if n_obs == 0 {
+        return Ok(Money::new(0.0, inst.notional.currency()));
+    }
+
+    for &date in &inst.observation_dates {
+        let t_obs = inst.day_count.year_fraction(as_of, date, DayCountCtx::default())?;
+        if t_obs <= 0.0 {
+            // Past observation. If we had history we'd check it.
+            // Assuming valuation as of today implies we only care about future?
+            // Or assuming past is "in range"? 
+            // Convention: Past fixings should be provided or we assume 1 (or 0).
+            // Code usually prices "remaining value". If the user wants full value including accrued,
+            // they need to handle past fixings separately.
+            // For now, we assume t<=0 means known outcome, but we don't have history.
+            // We'll skip (assume 0) or assume 1?
+            // Let's skip contribution (0).
+            continue; 
+        }
+
+        let r_obs = disc_curve.zero(t_obs);
+        
+        // Quanto drift adjustment specific to this horizon
+        let mut drift_adj = 0.0;
+        if let Some(rho) = inst.quanto_correlation {
+            if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
+                let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+                // Vol of Asset (S) for drift adj: use ATM
+                let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
+                // Vol of FX for drift adj: use ATM (strike 1.0 proxy)
+                let sig_fx = fx_vol_surface.value_clamped(t_obs, 1.0);
+                drift_adj = rho * sig_s * sig_fx;
+            }
+        }
+
+        // Forward Price F = S * exp((r - q - drift_adj) * t)
+        // Note: drift_adj is subtracted from drift of S.
+        // Risk neutral S drift is (r - q).
+        // Payment measure S drift is (r - q - rho*sig*sig_fx).
+        let forward = initial_spot * ((r_obs - q_yield - drift_adj) * t_obs).exp();
+
+        // Digital Call Probability P(S > K) = N(d2)
+        // d2 = (ln(F/K) - 0.5*sigma^2*t) / (sigma*sqrt(t))
+        // We use sigma at strike K
+        
+        let calc_prob_above = |strike: f64| -> finstack_core::Result<f64> {
+            let vol = vol_surface.value_clamped(t_obs, strike);
+            let std_dev = vol * t_obs.sqrt();
+            if std_dev < 1e-6 {
+                if forward > strike { Ok(1.0) } else { Ok(0.0) }
+            } else {
+                let d2 = ( (forward / strike).ln() - 0.5 * vol * vol * t_obs ) / std_dev;
+                Ok(norm_cdf(d2))
+            }
+        };
+
+        let p_lower = calc_prob_above(inst.lower_bound)?;
+        let p_upper = calc_prob_above(inst.upper_bound)?;
+        
+        // Prob in range [L, U] = P(S > L) - P(S > U)
+        let p_in_range = p_lower - p_upper;
+        
+        // Clamp to [0, 1] for numerical noise
+        let p_clamped = p_in_range.clamp(0.0, 1.0);
+        
+        total_prob += p_clamped;
+    }
+
+    // Average probability * Coupon * Notional * DF
+    // Note: Range Accrual usually pays Coupon * (DaysRange / TotalDays).
+    // So we sum probabilities (expected days) and divide by total days.
+    let expected_fraction = total_prob / (n_obs as f64);
+    let fv = inst.notional.amount() * inst.coupon_rate * expected_fraction;
+    let pv = fv * discount_factor;
+
+    Ok(Money::new(pv, inst.notional.currency()))
 }

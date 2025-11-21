@@ -230,9 +230,8 @@ pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 pub use sensitivities::cs01::{
-    compute_key_rate_cs01_series, compute_key_rate_cs01_series_with_context, compute_parallel_cs01,
-    compute_parallel_cs01_with_context, standard_credit_cs01_buckets, GenericBucketedCs01,
-    GenericParallelCs01, HasCreditCurve,
+    compute_key_rate_cs01_series_with_context, compute_parallel_cs01_with_context,
+    standard_credit_cs01_buckets, GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
 };
 pub use sensitivities::dv01::{
     standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig, Dv01ComputationMode,

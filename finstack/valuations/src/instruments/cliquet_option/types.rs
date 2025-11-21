@@ -19,8 +19,12 @@ pub struct CliquetOption {
     pub reset_dates: Vec<Date>,
     /// Local cap on individual period returns
     pub local_cap: f64,
+    /// Local floor on individual period returns (default 0.0)
+    pub local_floor: f64,
     /// Global cap on sum of all period returns
     pub global_cap: f64,
+    /// Global floor on sum of all period returns (default 0.0)
+    pub global_floor: f64,
     /// Notional amount
     pub notional: Money,
     /// Day count convention
@@ -37,6 +41,20 @@ pub struct CliquetOption {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
+    /// Payoff aggregation type (default: Additive)
+    #[builder(default)]
+    pub payoff_type: CliquetPayoffType,
+}
+
+/// Cliquet payoff aggregation type.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum CliquetPayoffType {
+    /// Additive: Sum of period returns
+    #[default]
+    Additive,
+    /// Multiplicative: Product of (1 + period returns) - 1
+    Multiplicative,
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
@@ -72,7 +90,9 @@ impl CliquetOption {
             .underlying_ticker("SPX".to_string())
             .reset_dates(reset_dates)
             .local_cap(0.05) // 5% per period
+            .local_floor(0.0) // 0% per period (min)
             .global_cap(0.20) // 20% max cumulative
+            .global_floor(0.0) // 0% min cumulative
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))

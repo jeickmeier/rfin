@@ -36,7 +36,7 @@ fn test_real_yield_premium_bond() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
-    ilb.issue = d(2025, 1, 2);
+    ilb.issue = d(2020, 1, 2); // Issue in the past
     ilb.maturity = d(2030, 1, 2);
 
     let (ctx, _) = market_context_with_index();
@@ -48,7 +48,9 @@ fn test_real_yield_premium_bond() {
 
     // Assert - yield should be positive and reasonable
     // Premium pricing for ILBs is complex due to inflation adjustments
-    assert!(y > 0.0);
+    // For a premium bond (price > 100), yield should be less than coupon
+    assert!(y < ilb.real_coupon, "Premium bond should have yield < coupon, got yield={}, coupon={}", y, ilb.real_coupon);
+    assert!(y > -0.05, "Yield should be reasonable, got {}", y);
     assert!(y < 0.15);
 }
 
