@@ -26,7 +26,8 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanDiscountingPricer};
+//! use finstack_valuations::instruments::term_loan::TermLoan;
+//! use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
 //! use finstack_core::market_data::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
@@ -78,7 +79,8 @@ use super::types::TermLoan;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanDiscountingPricer};
+/// use finstack_valuations::instruments::term_loan::TermLoan;
+/// use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
 /// use finstack_valuations::pricer::Pricer;
 /// use finstack_core::market_data::MarketContext;
 /// use finstack_core::dates::Date;
@@ -138,7 +140,8 @@ impl TermLoanDiscountingPricer {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanDiscountingPricer};
+    /// use finstack_valuations::instruments::term_loan::TermLoan;
+    /// use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
     /// use finstack_core::market_data::MarketContext;
     /// use finstack_core::dates::Date;
     /// use time::Month;

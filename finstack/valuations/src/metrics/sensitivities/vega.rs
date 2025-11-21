@@ -91,7 +91,7 @@ impl<I> ParallelVega<I> {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::metrics::vega::ParallelVega;
+    /// use finstack_valuations::metrics::ParallelVega;
     /// use finstack_valuations::instruments::EquityOption;
     ///
     /// let calculator = ParallelVega::<EquityOption>::new();
@@ -186,7 +186,7 @@ impl<I> KeyRateVega<I> {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::metrics::vega::KeyRateVega;
+    /// use finstack_valuations::metrics::KeyRateVega;
     /// use finstack_valuations::instruments::EquityOption;
     ///
     /// let expiries = vec![0.25, 0.5, 1.0, 2.0];
@@ -209,7 +209,7 @@ impl<I> KeyRateVega<I> {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::metrics::vega::KeyRateVega;
+    /// use finstack_valuations::metrics::KeyRateVega;
     /// use finstack_valuations::instruments::EquityOption;
     ///
     /// let calculator = KeyRateVega::<EquityOption>::standard();

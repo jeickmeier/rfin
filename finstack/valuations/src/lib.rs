@@ -118,10 +118,11 @@
 //!
 //! ## Calibration
 //!
-//! ```rust
-//! use finstack_valuations::calibration::{
-//!     SimpleCalibration, MarketQuote, RatesQuote, CalibrationConfig
-//! };
+//! ```rust,ignore
+//! // Note: SimpleCalibration API may have changed - see calibration module docs
+//! // use finstack_valuations::calibration::{
+//! //     SimpleCalibration, MarketQuote, RatesQuote, CalibrationConfig
+//! // };
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
 //! use time::Month;

@@ -508,7 +508,7 @@ impl Bond {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
-    /// use crate::cashflow::builder::CashFlowSchedule;
+    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;

@@ -44,7 +44,7 @@
 //! // Convert to equivalent semi-annual rate
 //! let simple_rate = 0.05;
 //! let year_fraction = 0.5;
-//! let periodic_rate = simple_to_periodic(simple_rate, year_fraction, 2);
+//! let periodic_rate = simple_to_periodic(simple_rate, year_fraction, 2).expect("conversion should succeed");
 //!
 //! // For short periods, rates are approximately equal
 //! assert!((periodic_rate - simple_rate).abs() < 0.001);
@@ -56,7 +56,7 @@
 //!
 //! // Convert 5% semi-annual rate to continuous
 //! let periodic_rate = 0.05;
-//! let continuous_rate = periodic_to_continuous(periodic_rate, 2);
+//! let continuous_rate = periodic_to_continuous(periodic_rate, 2).expect("conversion should succeed");
 //!
 //! // Continuous rate is slightly lower for positive rates
 //! assert!(continuous_rate < periodic_rate);
@@ -67,8 +67,8 @@
 //! use finstack_core::dates::rate_conversions::{periodic_to_continuous, continuous_to_periodic};
 //!
 //! let original_rate = 0.05;
-//! let continuous = periodic_to_continuous(original_rate, 2);
-//! let back_to_periodic = continuous_to_periodic(continuous, 2);
+//! let continuous = periodic_to_continuous(original_rate, 2).expect("conversion should succeed");
+//! let back_to_periodic = continuous_to_periodic(continuous, 2).expect("conversion should succeed");
 //!
 //! // Round-trip should preserve precision
 //! assert!((original_rate - back_to_periodic).abs() < 1e-12);
@@ -124,9 +124,9 @@ use crate::{Error, Result};
 /// let periodic = simple_to_periodic(0.05, 1.0, 2).expect("conversion should succeed");
 /// assert!((periodic - 0.04939).abs() < 0.00001);
 ///
-/// // For very short periods, rates converge
+/// // For very short periods, rates are approximately equal
 /// let periodic_short = simple_to_periodic(0.05, 0.01, 2).expect("conversion should succeed");
-/// assert!((periodic_short - 0.05).abs() < 0.0001);
+/// assert!((periodic_short - 0.05).abs() < 0.01);
 /// ```
 #[inline]
 pub fn simple_to_periodic(

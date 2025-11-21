@@ -17,6 +17,7 @@ use indexmap::IndexMap;
 /// # Examples
 /// ```rust
 /// use finstack_scenarios::adapters::RollForwardReport;
+/// use indexmap::IndexMap;
 /// use time::macros::date;
 ///
 /// let report = RollForwardReport {

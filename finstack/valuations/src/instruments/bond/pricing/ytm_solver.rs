@@ -103,7 +103,7 @@ impl Default for YtmSolverConfig {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
 ///     frequency: Frequency::semi_annual(),
 /// };
 /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -205,7 +205,7 @@ impl YtmSolver {
     ///     day_count: DayCount::Act365F,
     ///     notional: Money::new(1000.0, Currency::USD),
     ///     coupon_rate: 0.05,
-    ///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+    ///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
     ///     frequency: Frequency::semi_annual(),
     /// };
     /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -331,7 +331,7 @@ impl YtmSolver {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
 ///     frequency: Frequency::semi_annual(),
 /// };
 /// let ytm = solve_ytm(&cashflows, as_of, target_price, spec)?;

@@ -42,8 +42,9 @@ use super::super::specs::DefaultEvent;
 ///     defaulted_amount: 100_000.0,
 ///     recovery_rate: 0.40,
 ///     recovery_lag: 12,
-    recovery_bdc: None,
-    recovery_calendar_id: None,/// };
+///     recovery_bdc: None,
+///     recovery_calendar_id: None,
+/// };
 /// let mut outstanding = 1_000_000.0;
 /// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
 ///

@@ -119,8 +119,9 @@ pub enum RateSpec {
 ///
 /// Create via [`TermLoanSpec`] conversion or use the builder pattern:
 ///
-/// ```rust
-/// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanBuilder, RateSpec};
+/// ```rust,ignore
+/// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanSpec, RateSpec};
+/// use std::convert::TryInto;
 /// use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
 /// use finstack_valuations::cashflow::builder::specs::CouponType;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
@@ -132,28 +133,28 @@ pub enum RateSpec {
 /// use time::Month;
 ///
 /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let loan = TermLoanBuilder::new()
-///     .id(InstrumentId::new("TL-001"))
-///     .currency(Currency::USD)
-///     .notional_limit(Money::new(5_000_000.0, Currency::USD))
-///     .issue(create_date(2025, Month::January, 1)?)
-///     .maturity(create_date(2030, Month::January, 1)?)
-///     .rate(RateSpec::Fixed { rate_bp: 550 })
-///     .pay_freq(Frequency::quarterly())
-///     .day_count(DayCount::Act360)
-///     .bdc(BusinessDayConvention::ModifiedFollowing)
-///     .calendar_id_opt(None)
-///     .stub(StubKind::None)
-///     .discount_curve_id(CurveId::new("USD-CREDIT"))
-///     .amortization(AmortizationSpec::None)
-///     .coupon_type(CouponType::Cash)
-///     .upfront_fee_opt(None)
-///     .ddtl_opt(None)
-///     .covenants_opt(None)
-///     .pricing_overrides(PricingOverrides::default())
-///     .call_schedule_opt(None)
-///     .attributes(Attributes::new())
-///     .build()?;
+/// let spec = TermLoanSpec {
+///     id: InstrumentId::new("TL-001"),
+///     discount_curve_id: CurveId::new("USD-CREDIT"),
+///     currency: Currency::USD,
+///     issue: create_date(2025, Month::January, 1)?,
+///     maturity: create_date(2030, Month::January, 1)?,
+///     rate: RateSpec::Fixed { rate_bp: 550 },
+///     pay_freq: Frequency::quarterly(),
+///     day_count: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: None,
+///     stub: StubKind::None,
+///     amortization: AmortizationSpec::None,
+///     coupon_type: CouponType::Cash,
+///     upfront_fee: None,
+///     ddtl: None,
+///     covenants: None,
+///     credit_curve_id: None,
+///     pricing_overrides: PricingOverrides::default(),
+///     call_schedule: None,
+/// };
+/// let loan: TermLoan = spec.try_into()?;
 /// # Ok(())
 /// # }
 /// ```

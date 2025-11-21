@@ -344,6 +344,7 @@ pub enum AmortizationSpec {
 /// # Examples
 ///
 /// ```rust,no_run
+/// # // Note: TryFrom implementation may not be available
 /// use finstack_valuations::instruments::term_loan::spec::*;
 /// use finstack_valuations::instruments::term_loan::types::RateSpec;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
@@ -387,7 +388,7 @@ pub enum AmortizationSpec {
 ///     upfront_fee: None,
 ///     ddtl: None,
 ///     covenants: None,
-///     // credit_curve_id: None, // Deprecated field removed
+///     credit_curve_id: None,
 ///     pricing_overrides: PricingOverrides::default(),
 ///     call_schedule: None,
 /// };

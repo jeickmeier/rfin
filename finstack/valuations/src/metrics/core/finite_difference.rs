@@ -52,17 +52,18 @@ pub mod bump_sizes {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::metrics::core::finite_difference::bump_scalar_price;
+/// use finstack_valuations::metrics::bump_scalar_price;
 /// use finstack_core::market_data::MarketContext;
 /// use finstack_core::market_data::scalars::MarketScalar;
-/// use finstack_core::dates::{create_date, Month};
+/// use finstack_core::dates::create_date;
+/// use time::Month;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
 /// let mut context = MarketContext::new();
 ///
 /// // Add a spot price
-/// context.add_price("AAPL", MarketScalar::Unitless(150.0));
+/// context.insert_price_mut("AAPL", MarketScalar::Unitless(150.0));
 ///
 /// // Bump the price up by 1%
 /// let bumped = bump_scalar_price(&context, "AAPL", 0.01)?;
@@ -121,11 +122,13 @@ pub fn bump_scalar_price(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::metrics::core::finite_difference::bump_discount_curve_parallel;
+/// use finstack_valuations::metrics::bump_discount_curve_parallel;
 /// use finstack_core::market_data::MarketContext;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::types::CurveId;
-/// use finstack_core::dates::{create_date, Month, DayCount};
+/// use finstack_core::dates::create_date;
+/// use finstack_core::dates::DayCount;
+/// use time::Month;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
@@ -183,9 +186,10 @@ pub fn bump_discount_curve_parallel(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::metrics::core::finite_difference::scale_surface;
+/// use finstack_valuations::metrics::scale_surface;
 /// use finstack_core::market_data::MarketContext;
-/// use finstack_core::dates::{create_date, Month};
+/// use finstack_core::dates::create_date;
+/// use time::Month;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;

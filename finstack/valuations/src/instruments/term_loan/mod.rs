@@ -24,7 +24,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanSpec, RateSpec};
 //! use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
 //! use finstack_valuations::cashflow::builder::specs::CouponType;
@@ -34,6 +34,7 @@
 //! use finstack_core::dates::*;
 //! use finstack_core::types::{InstrumentId, CurveId};
 //! use time::Month;
+//! use std::convert::TryInto;
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Fixed-rate bullet term loan

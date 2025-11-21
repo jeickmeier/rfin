@@ -194,7 +194,7 @@ impl CashflowSpec {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
-    /// use crate::cashflow::builder::AmortizationSpec;
+    /// use finstack_valuations::cashflow::builder::AmortizationSpec;
     /// use finstack_core::dates::{Frequency, DayCount, Date};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;

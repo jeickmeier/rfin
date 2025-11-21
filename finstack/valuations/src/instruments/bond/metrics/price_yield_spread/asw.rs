@@ -18,7 +18,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::AssetSwapConfig;
+/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapConfig;
 /// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention, StubKind};
 ///
 /// let config = AssetSwapConfig {
