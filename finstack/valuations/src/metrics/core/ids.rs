@@ -606,6 +606,19 @@ impl MetricId {
     pub const CarryAccrued: Self = Self(Cow::Borrowed("carry_accrued"));
 
     // ========================================================================
+    // DCF / Corporate Valuation Metrics
+    // ========================================================================
+
+    /// Enterprise value (present value of all operating cashflows + terminal value)
+    pub const EnterpriseValue: Self = Self(Cow::Borrowed("enterprise_value"));
+
+    /// Equity value (enterprise value less net debt)
+    pub const EquityValue: Self = Self(Cow::Borrowed("equity_value"));
+
+    /// Present value of terminal value
+    pub const TerminalValuePV: Self = Self(Cow::Borrowed("terminal_value_pv"));
+
+    // ========================================================================
     // ALL_STANDARD Array
     // ========================================================================
 
@@ -765,6 +778,9 @@ impl MetricId {
         MetricId::DpiLp,
         MetricId::TvpiLp,
         MetricId::CarryAccrued,
+        MetricId::EnterpriseValue,
+        MetricId::EquityValue,
+        MetricId::TerminalValuePV,
     ];
 }
 

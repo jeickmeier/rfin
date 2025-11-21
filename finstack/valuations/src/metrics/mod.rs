@@ -359,5 +359,6 @@ pub fn standard_registry() -> MetricRegistry {
         crate::instruments::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
     }
     crate::instruments::cms_option::metrics::register_cms_option_metrics(&mut registry);
+    crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
     registry
 }

@@ -13,6 +13,7 @@ mod cliquet_option;
 mod cms_option;
 mod convertible;
 mod deposit;
+mod dcf;
 mod equity;
 mod equity_option;
 mod fra;
@@ -174,6 +175,9 @@ pub(crate) fn register<'py>(
 
     let deposit_exports = deposit::register(py, &module)?;
     exports.extend(deposit_exports.iter().copied());
+
+    let dcf_exports = dcf::register(py, &module)?;
+    exports.extend(dcf_exports.iter().copied());
 
     let irs_exports = irs::register(py, &module)?;
     exports.extend(irs_exports.iter().copied());

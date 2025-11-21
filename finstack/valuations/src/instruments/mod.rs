@@ -33,6 +33,8 @@ pub mod cliquet_option;
 pub mod cms_option;
 /// convertible module.
 pub mod convertible;
+/// dcf module.
+pub mod dcf;
 /// deposit module.
 pub mod deposit;
 /// equity module.
@@ -100,6 +102,7 @@ pub use cds_tranche::CdsTranche;
 pub use cliquet_option::CliquetOption;
 pub use cms_option::CmsOption;
 pub use convertible::ConvertibleBond;
+pub use dcf::{DiscountedCashFlow, TerminalValueSpec};
 pub use deposit::Deposit;
 pub use equity::Equity;
 pub use equity_option::EquityOption;
