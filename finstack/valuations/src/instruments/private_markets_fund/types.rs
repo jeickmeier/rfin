@@ -173,6 +173,10 @@ impl Instrument for PrivateMarketsFund {
             metrics,
         )
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl CashflowProvider for PrivateMarketsFund {

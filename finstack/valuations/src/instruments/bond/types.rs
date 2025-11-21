@@ -769,6 +769,10 @@ impl crate::instruments::common::traits::Instrument for Bond {
             vec![]
         }
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 // Implement HasDiscountCurve for Bond

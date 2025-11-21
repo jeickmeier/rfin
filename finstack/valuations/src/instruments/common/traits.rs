@@ -57,6 +57,7 @@
 //! assert!(attrs.matches_selector("*")); // Matches all
 //! ```
 
+use crate::cashflow::traits::CashflowProvider;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
 use finstack_core::market_data::MarketContext;
@@ -546,6 +547,51 @@ pub trait Instrument: Send + Sync {
     /// # }
     /// ```
     fn as_any(&self) -> &dyn Any;
+
+    /// Expose this instrument as a [`CashflowProvider`] when supported.
+    ///
+    /// This hook enables generic components (e.g., scenario time-roll and
+    /// attribution engines) to obtain cashflow schedules without relying on
+    /// manual downcasting for each concrete instrument type.
+    ///
+    /// Instruments that implement [`CashflowProvider`] should override this
+    /// method to return `Some(self)`. The default implementation returns
+    /// `None`, indicating that no cashflow schedule is available.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::cashflow::traits::CashflowProvider;
+    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::market_data::MarketContext;
+    /// # use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let issue = create_date(2025, Month::January, 15)?;
+    /// # let maturity = create_date(2030, Month::January, 15)?;
+    /// let bond = Bond::fixed(
+    ///     "BOND-001",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     0.05,
+    ///     issue,
+    ///     maturity,
+    ///     "USD-OIS"
+    /// );
+    ///
+    /// let inst: &dyn Instrument = &bond;
+    /// if let Some(cf) = inst.as_cashflow_provider() {
+    ///     let curves = MarketContext::new();
+    ///     let _schedule = cf.build_schedule(&curves, issue)?;
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        None
+    }
 
     /// Get immutable reference to instrument attributes.
     ///

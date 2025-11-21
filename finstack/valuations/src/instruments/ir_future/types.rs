@@ -326,6 +326,10 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
             metrics,
         )
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl CashflowProvider for InterestRateFuture {

@@ -670,6 +670,10 @@ impl Instrument for StructuredCredit {
 
         Ok(result)
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl crate::instruments::common::pricing::HasDiscountCurve for StructuredCredit {

@@ -571,6 +571,10 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
             metrics,
         )
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 // Implement HasDiscountCurve trait

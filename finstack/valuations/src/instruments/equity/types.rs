@@ -361,6 +361,10 @@ impl crate::instruments::common::traits::Instrument for Equity {
             metrics,
         )
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl HasDiscountCurve for Equity {

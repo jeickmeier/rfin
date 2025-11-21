@@ -470,6 +470,10 @@ impl Instrument for Repo {
             metrics,
         )
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
+    }
 }
 
 // Do not add explicit Instrument impl; provided by blanket impl.

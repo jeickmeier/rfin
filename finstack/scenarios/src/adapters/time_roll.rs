@@ -7,7 +7,10 @@
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::utils::parse_period_to_days;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
+use indexmap::IndexMap;
 
 /// Report from time roll-forward operation.
 ///
@@ -20,10 +23,10 @@ use finstack_valuations::instruments::common::traits::Instrument;
 ///     old_date: date!(2025 - 01 - 01),
 ///     new_date: date!(2025 - 02 - 01),
 ///     days: 31,
-///     instrument_carry: vec![("BondA".into(), 1.23)],
-///     instrument_mv_change: vec![("BondA".into(), 0.0)],
-///     total_carry: 1.23,
-///     total_mv_change: 0.0,
+///     instrument_carry: vec![],
+///     instrument_mv_change: vec![],
+///     total_carry: IndexMap::new(),
+///     total_mv_change: IndexMap::new(),
 /// };
 /// assert_eq!(report.days, 31);
 /// ```
@@ -38,17 +41,17 @@ pub struct RollForwardReport {
     /// Number of days rolled forward.
     pub days: i64,
 
-    /// Per-instrument carry accrual (if instruments provided).
-    pub instrument_carry: Vec<(String, f64)>,
+    /// Per-instrument carry accrual (if instruments provided), grouped by currency.
+    pub instrument_carry: Vec<(String, IndexMap<Currency, Money>)>,
 
-    /// Per-instrument market value change (if instruments provided).
-    pub instrument_mv_change: Vec<(String, f64)>,
+    /// Per-instrument market value change (if instruments provided), grouped by currency.
+    pub instrument_mv_change: Vec<(String, IndexMap<Currency, Money>)>,
 
-    /// Total P&L from carry.
-    pub total_carry: f64,
+    /// Total P&L from carry, grouped by currency.
+    pub total_carry: IndexMap<Currency, Money>,
 
-    /// Total P&L from market value changes.
-    pub total_mv_change: f64,
+    /// Total P&L from market value changes, grouped by currency.
+    pub total_mv_change: IndexMap<Currency, Money>,
 }
 
 /// Apply a time roll-forward operation.
@@ -119,7 +122,12 @@ pub fn apply_time_roll_forward(
         if let Some(instruments) = ctx.instruments.as_ref() {
             calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, days)?
         } else {
-            (vec![], vec![], 0.0, 0.0)
+            (
+                Vec::new(),
+                Vec::new(),
+                IndexMap::new(),
+                IndexMap::new(),
+            )
         };
 
     Ok(RollForwardReport {
@@ -151,111 +159,85 @@ fn calculate_instrument_pnl(
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
     _days: i64,
-) -> Result<(Vec<(String, f64)>, Vec<(String, f64)>, f64, f64)> {
-    let mut instrument_carry = Vec::new();
-    let mut instrument_mv_change = Vec::new();
-    let mut total_carry = 0.0;
-    let mut total_mv_change = 0.0;
+) -> Result<
+    (
+        Vec<(String, IndexMap<Currency, Money>)>,
+        Vec<(String, IndexMap<Currency, Money>)>,
+        IndexMap<Currency, Money>,
+        IndexMap<Currency, Money>,
+    ),
+> {
+    let mut instrument_carry: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
+    let mut instrument_mv_change: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
+    let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
+    let total_mv_change: IndexMap<Currency, Money> = IndexMap::new();
 
     for instrument in instruments {
         let inst_id = instrument.id().to_string();
 
-        // Calculate PV change
-        let pv_change = {
-            let pv_old = instrument.value(market, old_date).ok();
-            let pv_new = instrument.value(market, new_date).ok();
+        // Calculate PV change as Money, grouped by currency (single currency per instrument).
+        let mut pv_change_by_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        let pv_old = instrument.value(market, old_date).ok();
+        let pv_new = instrument.value(market, new_date).ok();
+        if let (Some(old), Some(new)) = (pv_old, pv_new) {
+            let diff = (new - old)?;
+            pv_change_by_ccy.insert(diff.currency(), diff);
+        }
 
-            if let (Some(old), Some(new)) = (pv_old, pv_new) {
-                new.amount() - old.amount()
-            } else {
-                0.0
-            }
-        };
-
-        // Collect cashflows during the period using downcasting
+        // Collect cashflows during the period, grouped by currency.
         let cashflows_during_period =
             collect_instrument_cashflows(instrument.as_ref(), market, old_date, new_date);
 
-        // Carry = PV change + cashflows received
-        let carry = pv_change + cashflows_during_period;
+        // Carry per currency = PV change + cashflows received.
+        let mut carry_by_ccy = pv_change_by_ccy;
+        for (ccy, flow) in cashflows_during_period {
+            carry_by_ccy
+                .entry(ccy)
+                .and_modify(|m| *m += flow)
+                .or_insert(flow);
+        }
 
-        // Market value change is zero in time roll (market data unchanged)
-        // All P&L comes from carry/theta
-        let mv_change = 0.0;
+        // Market value change is zero in time roll (market data unchanged),
+        // so per-currency MV change is always an empty map.
+        let mv_change_by_ccy: IndexMap<Currency, Money> = IndexMap::new();
 
-        instrument_carry.push((inst_id.clone(), carry));
-        instrument_mv_change.push((inst_id, mv_change));
-        total_carry += carry;
-        total_mv_change += mv_change;
+        // Accumulate totals by currency.
+        for (ccy, amount) in &carry_by_ccy {
+            total_carry
+                .entry(*ccy)
+                .and_modify(|m| *m += *amount)
+                .or_insert(*amount);
+        }
+
+        instrument_carry.push((inst_id.clone(), carry_by_ccy));
+        instrument_mv_change.push((inst_id, mv_change_by_ccy));
     }
 
-    Ok((
-        instrument_carry,
-        instrument_mv_change,
-        total_carry,
-        total_mv_change,
-    ))
+    Ok((instrument_carry, instrument_mv_change, total_carry, total_mv_change))
 }
 
-/// Collect cashflows for an instrument during a period.
-///
-/// Uses downcasting to handle instruments that implement CashflowProvider.
+/// Collect cashflows for an instrument during a period, grouped by currency.
 fn collect_instrument_cashflows(
     instrument: &dyn Instrument,
     market: &finstack_core::market_data::MarketContext,
     start_date: finstack_core::dates::Date,
     end_date: finstack_core::dates::Date,
-) -> f64 {
-    use finstack_valuations::cashflow::traits::CashflowProvider;
-    use finstack_valuations::instruments::*;
+) -> IndexMap<Currency, Money> {
+    let mut result: IndexMap<Currency, Money> = IndexMap::new();
 
-    let instrument_any = instrument.as_any();
-
-    // Try downcasting to instruments that implement CashflowProvider
-    let cashflows = if let Some(bond) = instrument_any.downcast_ref::<Bond>() {
-        bond.build_schedule(market, start_date).ok()
-    } else if let Some(irs) = instrument_any.downcast_ref::<irs::InterestRateSwap>() {
-        irs.build_schedule(market, start_date).ok()
-    } else if let Some(deposit) = instrument_any.downcast_ref::<deposit::Deposit>() {
-        deposit.build_schedule(market, start_date).ok()
-    } else if let Some(fra) = instrument_any.downcast_ref::<fra::ForwardRateAgreement>() {
-        fra.build_schedule(market, start_date).ok()
-    } else if let Some(ir_fut) = instrument_any.downcast_ref::<ir_future::InterestRateFuture>() {
-        ir_fut.build_schedule(market, start_date).ok()
-    } else if let Some(equity) = instrument_any.downcast_ref::<equity::Equity>() {
-        equity.build_schedule(market, start_date).ok()
-    } else if let Some(fx_spot) = instrument_any.downcast_ref::<fx_spot::FxSpot>() {
-        fx_spot.build_schedule(market, start_date).ok()
-    } else if let Some(inf_bond) =
-        instrument_any.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
-    {
-        inf_bond.build_schedule(market, start_date).ok()
-    } else if let Some(repo) = instrument_any.downcast_ref::<repo::Repo>() {
-        repo.build_schedule(market, start_date).ok()
-    } else if let Some(sc) = instrument_any.downcast_ref::<structured_credit::StructuredCredit>() {
-        sc.build_schedule(market, start_date).ok()
-    } else if let Some(eq_trs) = instrument_any.downcast_ref::<trs::EquityTotalReturnSwap>() {
-        eq_trs.build_schedule(market, start_date).ok()
-    } else if let Some(fi_trs) = instrument_any.downcast_ref::<trs::FIIndexTotalReturnSwap>() {
-        fi_trs.build_schedule(market, start_date).ok()
-    } else if let Some(pmf) =
-        instrument_any.downcast_ref::<private_markets_fund::PrivateMarketsFund>()
-    {
-        pmf.build_schedule(market, start_date).ok()
-    } else if let Some(var_swap) = instrument_any.downcast_ref::<variance_swap::VarianceSwap>() {
-        var_swap.build_schedule(market, start_date).ok()
-    } else {
-        None
-    };
-
-    // Sum cashflows in (start_date, end_date]
-    if let Some(flows) = cashflows {
-        flows
-            .iter()
-            .filter(|(date, _)| *date > start_date && *date <= end_date)
-            .map(|(_, money)| money.amount())
-            .sum()
-    } else {
-        0.0
+    if let Some(provider) = instrument.as_cashflow_provider() {
+        if let Ok(flows) = provider.build_schedule(market, start_date) {
+            for (date, money) in flows.into_iter() {
+                if date > start_date && date <= end_date {
+                    let ccy = money.currency();
+                    result
+                        .entry(ccy)
+                        .and_modify(|m| *m += money)
+                        .or_insert(money);
+                }
+            }
+        }
     }
+
+    result
 }

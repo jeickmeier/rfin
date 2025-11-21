@@ -82,38 +82,40 @@ class RollForwardReport:
         ...
 
     @property
-    def instrument_carry(self) -> List[Tuple[str, float]]:
-        """Per-instrument carry accrual.
+    def instrument_carry(self) -> List[Tuple[str, List[Tuple[str, float]]]]:
+        """Per-instrument carry accrual by currency.
 
         Returns:
-            list[tuple[str, float]]: List of (instrument_id, carry) pairs
+            list[tuple[str, list[tuple[str, float]]]]:
+                List of (instrument_id, [(currency_code, amount)]) pairs
         """
         ...
 
     @property
-    def instrument_mv_change(self) -> List[Tuple[str, float]]:
-        """Per-instrument market value change.
+    def instrument_mv_change(self) -> List[Tuple[str, List[Tuple[str, float]]]]:
+        """Per-instrument market value change by currency.
 
         Returns:
-            list[tuple[str, float]]: List of (instrument_id, mv_change) pairs
+            list[tuple[str, list[tuple[str, float]]]]:
+                List of (instrument_id, [(currency_code, amount)]) pairs
         """
         ...
 
     @property
-    def total_carry(self) -> float:
-        """Total P&L from carry.
+    def total_carry(self) -> dict[str, float]:
+        """Total P&L from carry by currency.
 
         Returns:
-            float: Total carry
+            dict[str, float]: Mapping from currency code to total carry
         """
         ...
 
     @property
-    def total_mv_change(self) -> float:
-        """Total P&L from market value changes.
+    def total_mv_change(self) -> dict[str, float]:
+        """Total P&L from market value changes by currency.
 
         Returns:
-            float: Total market value change
+            dict[str, float]: Mapping from currency code to total market value change
         """
         ...
 
