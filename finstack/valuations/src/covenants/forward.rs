@@ -108,6 +108,23 @@ impl CovenantForecast {
     // Polars export lives in the meta crate to avoid bringing polars into valuations.
 }
 
+/// A projected covenant breach.
+#[derive(Clone, Debug)]
+pub struct FutureBreach {
+    /// Covenant identifier
+    pub covenant_id: String,
+    /// Date of the breach
+    pub breach_date: Date,
+    /// Projected value
+    pub projected_value: f64,
+    /// Threshold value
+    pub threshold: f64,
+    /// Headroom (negative means breach)
+    pub headroom: f64,
+    /// Probability of breach (if stochastic)
+    pub breach_probability: f64,
+}
+
 /// Minimal read-only adapter to query model time-series values and map periods to dates.
 pub trait ModelTimeSeries {
     /// Get scalar value for a metric node and period
@@ -252,6 +269,52 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         min_headroom_date,
         min_headroom_value,
     })
+}
+
+/// Forecast breaches for all covenants in an engine.
+pub fn forecast_breaches_generic<MTS: ModelTimeSeries>(
+    engine: &crate::covenants::engine::CovenantEngine,
+    model: &MTS,
+    periods: &[PeriodId],
+    config: CovenantForecastConfig,
+) -> Result<Vec<FutureBreach>> {
+    let mut breaches = Vec::new();
+
+    for spec in &engine.specs {
+        // Skip inactive covenants
+        if !spec.covenant.is_active {
+            continue;
+        }
+
+        let forecast = forecast_covenant_generic(spec, model, periods, config.clone())?;
+
+        for (i, &headroom) in forecast.headroom.iter().enumerate() {
+            // Check for breach (headroom < 0) or high probability of breach
+            let is_breach = headroom < 0.0;
+            let prob = forecast.breach_probability[i];
+            
+            // We report if it's a deterministic breach OR if there's a non-zero probability in stochastic mode
+            if is_breach || (config.stochastic && prob > 0.0) {
+                breaches.push(FutureBreach {
+                    covenant_id: forecast.covenant_id.clone(),
+                    breach_date: forecast.test_dates[i],
+                    projected_value: forecast.projected_values[i],
+                    threshold: forecast.thresholds[i],
+                    headroom,
+                    breach_probability: prob,
+                });
+            }
+        }
+    }
+
+    // Sort by date then covenant ID
+    breaches.sort_by(|a, b| {
+        a.breach_date
+            .cmp(&b.breach_date)
+            .then_with(|| a.covenant_id.cmp(&b.covenant_id))
+    });
+
+    Ok(breaches)
 }
 
 fn comparator_for(cov: &CovenantType) -> Comparator {
@@ -428,5 +491,38 @@ mod tests {
             .expect("Forecast covenant should succeed in test");
         let p = fc.breach_probability[0];
         assert!(p > 0.2 && p < 0.8, "unexpected breach probability: {p}");
+    }
+    #[test]
+    fn test_forecast_breaches_generic() {
+        use crate::covenants::engine::CovenantEngine;
+
+        let mut engine = CovenantEngine::new();
+        let covenant = crate::covenants::engine::Covenant::new(
+            crate::covenants::engine::CovenantType::MaxDebtToEBITDA { threshold: 3.0 },
+            finstack_core::dates::Frequency::quarterly(),
+        );
+        let spec = CovenantSpec {
+            covenant,
+            metric_id: Some(crate::metrics::MetricId::custom("NetDebtEbitda")),
+            custom_evaluator: None,
+        };
+        engine.add_spec(spec);
+
+        let p1 = q(2025, 1);
+        let p2 = q(2025, 2);
+
+        let mut adapter = MockTs::new();
+        adapter = adapter.with("NetDebtEbitda", p1, 2.5); // Pass
+        adapter = adapter.with("NetDebtEbitda", p2, 3.5); // Fail
+
+        let periods = vec![p1, p2];
+        let config = CovenantForecastConfig::default();
+
+        let breaches = forecast_breaches_generic(&engine, &adapter, &periods, config)
+            .expect("Forecast should succeed");
+
+        assert_eq!(breaches.len(), 1);
+        assert_eq!(breaches[0].covenant_id, "Debt/EBITDA ≤ 3.00x");
+        assert_eq!(breaches[0].projected_value, 3.5);
     }
 }

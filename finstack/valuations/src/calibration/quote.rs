@@ -123,6 +123,83 @@ impl RatesQuote {
             RatesQuote::BasisSwap { maturity, .. } => *maturity,
         }
     }
+
+    /// Create a new quote with the rate bumped by the given amount.
+    ///
+    /// Used for Jacobian calculation (sensitivity analysis).
+    pub fn bump(&self, amount: f64) -> Self {
+        match self {
+            RatesQuote::Deposit {
+                maturity,
+                rate,
+                day_count,
+            } => RatesQuote::Deposit {
+                maturity: *maturity,
+                rate: rate + amount,
+                day_count: *day_count,
+            },
+            RatesQuote::FRA {
+                start,
+                end,
+                rate,
+                day_count,
+            } => RatesQuote::FRA {
+                start: *start,
+                end: *end,
+                rate: rate + amount,
+                day_count: *day_count,
+            },
+            RatesQuote::Future {
+                expiry,
+                price,
+                specs,
+            } => RatesQuote::Future {
+                expiry: *expiry,
+                // For futures, price = 100 - rate * 100.
+                // Bump rate by +amount => price decreases by amount * 100
+                price: price - (amount * 100.0),
+                specs: specs.clone(),
+            },
+            RatesQuote::Swap {
+                maturity,
+                rate,
+                fixed_freq,
+                float_freq,
+                fixed_dc,
+                float_dc,
+                index,
+            } => RatesQuote::Swap {
+                maturity: *maturity,
+                rate: rate + amount,
+                fixed_freq: *fixed_freq,
+                float_freq: *float_freq,
+                fixed_dc: *fixed_dc,
+                float_dc: *float_dc,
+                index: index.clone(),
+            },
+            RatesQuote::BasisSwap {
+                maturity,
+                primary_index,
+                reference_index,
+                spread_bp,
+                primary_freq,
+                reference_freq,
+                primary_dc,
+                reference_dc,
+                currency,
+            } => RatesQuote::BasisSwap {
+                maturity: *maturity,
+                primary_index: primary_index.clone(),
+                reference_index: reference_index.clone(),
+                spread_bp: spread_bp + (amount * 10_000.0), // Convert decimal bump to bp
+                primary_freq: *primary_freq,
+                reference_freq: *reference_freq,
+                primary_dc: *primary_dc,
+                reference_dc: *reference_dc,
+                currency: *currency,
+            },
+        }
+    }
 }
 
 /// Credit instrument quotes for hazard curve and correlation calibration.

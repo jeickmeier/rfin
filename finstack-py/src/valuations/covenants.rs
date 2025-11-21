@@ -307,6 +307,96 @@ pub fn py_forecast_covenant(
     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "FutureBreach",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyFutureBreach {
+    pub(crate) inner: finstack_valuations::covenants::forward::FutureBreach,
+}
+
+#[pymethods]
+impl PyFutureBreach {
+    #[getter]
+    fn covenant_id(&self) -> &str {
+        &self.inner.covenant_id
+    }
+
+    #[getter]
+    fn breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+        crate::core::utils::date_to_py(py, self.inner.breach_date)
+    }
+
+    #[getter]
+    fn projected_value(&self) -> f64 {
+        self.inner.projected_value
+    }
+
+    #[getter]
+    fn threshold(&self) -> f64 {
+        self.inner.threshold
+    }
+
+    #[getter]
+    fn headroom(&self) -> f64 {
+        self.inner.headroom
+    }
+
+    #[getter]
+    fn breach_probability(&self) -> f64 {
+        self.inner.breach_probability
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<FutureBreach id='{}' date='{}' val={:.2} thr={:.2} prob={:.1}%>",
+            self.inner.covenant_id,
+            self.inner.breach_date,
+            self.inner.projected_value,
+            self.inner.threshold,
+            self.inner.breach_probability * 100.0
+        )
+    }
+}
+
+#[pyfunction(name = "forecast_breaches")]
+pub fn py_forecast_breaches(
+    specs: Vec<PyCovenantSpec>,
+    model: &PyFinancialModelSpec,
+    base_case: &PyResults,
+    config: Option<&PyCovenantForecastConfig>,
+) -> PyResult<Vec<PyFutureBreach>> {
+    let mut engine = finstack_valuations::covenants::engine::CovenantEngine::new();
+    for spec in specs {
+        engine.add_spec(spec.inner.clone());
+    }
+
+    let _adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
+    
+    // We need periods. The Rust `forecast_breaches` extracts them from results.
+    // But here we are calling `forecast_breaches_generic` via `finstack_statements::forecast::covenants::forecast_breaches`.
+    // Wait, `finstack_statements::forecast::covenants::forecast_breaches` takes `&Results` and `&CovenantEngine`.
+    // So I can use that!
+    
+    let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
+    
+    finstack_statements::forecast::covenants::forecast_breaches(
+        &base_case.inner,
+        &engine,
+        Some(&model.inner),
+        cfg,
+    )
+    .map(|breaches| {
+        breaches
+            .into_iter()
+            .map(|b| PyFutureBreach { inner: b })
+            .collect()
+    })
+    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -321,14 +411,18 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCovenantSpec>()?;
     module.add_class::<PyCovenantForecastConfig>()?;
     module.add_class::<PyCovenantForecast>()?;
+    module.add_class::<PyFutureBreach>()?;
     module.add_function(pyo3::wrap_pyfunction!(py_forecast_covenant, &module)?)?;
+    module.add_function(pyo3::wrap_pyfunction!(py_forecast_breaches, &module)?)?;
     let exports = [
         "CovenantType",
         "Covenant",
         "CovenantSpec",
         "CovenantForecastConfig",
         "CovenantForecast",
+        "FutureBreach",
         "forecast_covenant",
+        "forecast_breaches",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

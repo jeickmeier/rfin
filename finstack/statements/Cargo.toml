@@ -15,6 +15,7 @@ indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
 nom = "7"
 polars = { version = "0.51", optional = true, default-features = false }
+time = { version = "0.3" }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

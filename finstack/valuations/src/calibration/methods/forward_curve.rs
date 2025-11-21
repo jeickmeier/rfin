@@ -15,6 +15,7 @@ use crate::instruments::{
 use finstack_core::{
     currency::Currency,
     dates::{add_months, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
+    explain::{ExplanationTrace, TraceEntry},
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
     money::Money,
@@ -157,8 +158,15 @@ impl ForwardCurveCalibrator {
         let mut total_iterations = 0;
         let mut residual_key_counter = 0;
 
+        // Initialize explanation trace if enabled
+        let mut trace = if self.config.explain.enabled {
+            Some(ExplanationTrace::new("forward_curve_calibration"))
+        } else {
+            None
+        };
+
         // Bootstrap each instrument sequentially
-        for quote in &sorted_quotes {
+        for (idx, quote) in sorted_quotes.iter().enumerate() {
             // Skip FRA quotes with zero or negative accrual (start <= base_date)
             if let RatesQuote::FRA { start, end, .. } = quote {
                 if *end <= self.base_date || *start <= self.base_date {
@@ -312,6 +320,19 @@ impl ForwardCurveCalibrator {
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
             total_iterations += 1;
+
+            // Record trace entry if enabled
+            if let Some(t) = &mut trace {
+                t.push(
+                    TraceEntry::CalibrationIteration {
+                        iteration: idx,
+                        residual: final_residual,
+                        knots_updated: vec![format!("{:.6}", knot_time)],
+                        converged: true,
+                    },
+                    self.config.explain.max_entries,
+                );
+            }
         }
 
         // Build final forward curve with consistent anchor derivation
@@ -360,6 +381,17 @@ impl ForwardCurveCalibrator {
                 category: "forward_curve_validation".to_string(),
             })?;
 
+        // Calculate Jacobian if explanation is enabled
+        if let Some(t) = &mut trace {
+            let jacobian_entry = self.calculate_jacobian(
+                &sorted_quotes,
+                &curve,
+                base_context,
+                solver,
+            )?;
+            t.push(jacobian_entry, self.config.explain.max_entries);
+        }
+
         // Build calibration report
         let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
             .with_metadata("curve_id", self.fwd_curve_id.to_string())
@@ -369,7 +401,83 @@ impl ForwardCurveCalibrator {
             .with_metadata("time_dc", format!("{:?}", self.time_dc))
             .with_metadata("validation", "passed");
 
+        let report = if let Some(t) = trace {
+            report.with_explanation(t)
+        } else {
+            report
+        };
+
         Ok((curve, report))
+    }
+
+    /// Calculate the Jacobian matrix (sensitivity of curve points to input quotes).
+    ///
+    /// Uses a bump-and-rebuild approach:
+    /// 1. Perturb each input quote by 1bp
+    /// 2. Re-calibrate the curve
+    /// 3. Measure change in curve knots
+    fn calculate_jacobian<S: Solver>(
+        &self,
+        quotes: &[RatesQuote],
+        base_curve: &ForwardCurve,
+        base_context: &MarketContext,
+        solver: &S,
+    ) -> Result<TraceEntry> {
+        let bump_size = 0.0001; // 1bp
+        let mut sensitivity_matrix = Vec::with_capacity(quotes.len());
+        let row_labels: Vec<String> = quotes
+            .iter()
+            .enumerate()
+            .map(|(i, q)| self.format_quote_key(q, i))
+            .collect();
+        let col_labels: Vec<String> = base_curve
+            .knots()
+            .iter()
+            .map(|t| format!("t={:.4}", t))
+            .collect();
+
+        // Base knots (excluding anchor if it wasn't part of the solve, but here we just take all knots)
+        // Note: The anchor at t=0 is usually derived or fixed. We include all knots in the sensitivity matrix.
+        let base_knots: Vec<f64> = base_curve.forwards().to_vec();
+
+        for (i, quote) in quotes.iter().enumerate() {
+            // 1. Bump quote
+            let bumped_quote = quote.bump(bump_size);
+            let mut bumped_quotes = quotes.to_vec();
+            bumped_quotes[i] = bumped_quote;
+
+            // 2. Re-calibrate (disable explanation to avoid recursion)
+            // We need a clone of self with explanation disabled
+            let mut sub_calibrator = self.clone();
+            sub_calibrator.config.explain.enabled = false;
+
+            // We use the internal bootstrap method directly
+            let (bumped_curve, _) =
+                sub_calibrator.bootstrap_curve_with_solver(&bumped_quotes, solver, base_context)?;
+
+            // 3. Calculate sensitivities
+            let mut row_sensitivities = Vec::with_capacity(base_knots.len());
+            
+            // Match knots by time (assuming same grid structure, which should hold for small bumps)
+            // If the grid changes (e.g. adaptive knots), this simple mapping might fail, 
+            // but for standard bootstrapping the knot times are determined by quote maturities.
+            for (j, base_rate) in base_knots.iter().enumerate() {
+                if j < bumped_curve.knots().len() {
+                    let bumped_rate = bumped_curve.forwards()[j];
+                    let sensitivity = (bumped_rate - base_rate) / bump_size;
+                    row_sensitivities.push(sensitivity);
+                } else {
+                    row_sensitivities.push(0.0);
+                }
+            }
+            sensitivity_matrix.push(row_sensitivities);
+        }
+
+        Ok(TraceEntry::Jacobian {
+            row_labels,
+            col_labels,
+            sensitivity_matrix,
+        })
     }
 
     /// Price an instrument for calibration.

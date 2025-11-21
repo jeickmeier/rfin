@@ -218,6 +218,18 @@ pub enum TraceEntry {
         #[serde(skip_serializing_if = "Option::is_none")]
         metadata: Option<serde_json::Value>,
     },
+
+    /// Jacobian sensitivity matrix (Instruments x Curve Points)
+    #[serde(rename = "jacobian")]
+    Jacobian {
+        /// Row labels (Instrument IDs)
+        row_labels: Vec<String>,
+        /// Column labels (Curve Point Dates/Tenors)
+        col_labels: Vec<String>,
+        /// Sensitivity matrix (Rows x Cols)
+        /// sensitivity[i][j] = change in curve_point[j] / change in instrument[i]
+        sensitivity_matrix: Vec<Vec<f64>>,
+    },
 }
 
 #[cfg(test)]
