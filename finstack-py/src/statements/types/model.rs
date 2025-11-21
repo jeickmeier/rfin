@@ -429,6 +429,92 @@ impl PyFinancialModelSpec {
             self.inner.nodes.len()
         )
     }
+
+    #[pyo3(
+        signature = (target_node, target_period, target_value, driver_node, driver_period=None, update_model=true),
+        text_signature = "(self, target_node, target_period, target_value, driver_node, driver_period=None, update_model=True)"
+    )]
+    /// Perform goal seek to find the driver value that achieves a target metric.
+    ///
+    /// Solves for the driver node value that achieves a target metric value in a specific period.
+    /// Uses Brent's method for robust root-finding.
+    ///
+    /// Parameters
+    /// ----------
+    /// target_node : str
+    ///     Node identifier for the target metric (e.g., "interest_coverage")
+    /// target_period : str
+    ///     Period in which to evaluate the target (e.g., "2025Q4")
+    /// target_value : float
+    ///     Desired value for the target metric
+    /// driver_node : str
+    ///     Node identifier for the driver input to vary (e.g., "revenue")
+    /// driver_period : str, optional
+    ///     Period in which to vary the driver. Defaults to target_period if None.
+    /// update_model : bool, optional
+    ///     If True (default), update the model with the solved driver value
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     The solved driver value that achieves the target
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the target or driver node doesn't exist, periods are invalid,
+    ///     or no solution can be found
+    ///
+    /// Examples
+    /// --------
+    /// >>> model = ModelBuilder("test") \\
+    /// ...     .periods("2025Q1..Q4", None) \\
+    /// ...     .value("revenue", [(PeriodId.quarter(2025, 1), 100_000.0)]) \\
+    /// ...     .forecast("revenue", ForecastSpec.growth(0.05)) \\
+    /// ...     .compute("interest_expense", "10000.0") \\
+    /// ...     .compute("ebitda", "revenue * 0.3") \\
+    /// ...     .compute("interest_coverage", "ebitda / interest_expense") \\
+    /// ...     .build()
+    /// >>> # Solve for Q4 revenue that achieves 2.0x interest coverage
+    /// >>> solved = model.goal_seek(
+    /// ...     target_node="interest_coverage",
+    /// ...     target_period="2025Q4",
+    /// ...     target_value=2.0,
+    /// ...     driver_node="revenue",
+    /// ... )
+    /// >>> print(f"Revenue needed: ${solved:,.2f}")
+    fn goal_seek(
+        &mut self,
+        target_node: &str,
+        target_period: &str,
+        target_value: f64,
+        driver_node: &str,
+        driver_period: Option<&str>,
+        update_model: bool,
+    ) -> PyResult<f64> {
+        // Parse target period
+        let target_period_id: finstack_core::dates::PeriodId = target_period
+            .parse()
+            .map_err(|e| PyValueError::new_err(format!("Invalid target period '{}': {}", target_period, e)))?;
+
+        // Parse driver period (default to target period if None)
+        let driver_period_str = driver_period.unwrap_or(target_period);
+        let driver_period_id: finstack_core::dates::PeriodId = driver_period_str
+            .parse()
+            .map_err(|e| PyValueError::new_err(format!("Invalid driver period '{}': {}", driver_period_str, e)))?;
+
+        // Call the Rust implementation
+        finstack_statements::analysis::goal_seek(
+            &mut self.inner,
+            target_node,
+            target_period_id,
+            target_value,
+            driver_node,
+            driver_period_id,
+            update_model,
+        )
+        .map_err(|e| PyValueError::new_err(format!("Goal seek failed: {}", e)))
+    }
 }
 
 /// Helper to convert PyDict to serde_json::Value

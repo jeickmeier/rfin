@@ -22,7 +22,8 @@ __all__ = tuple(
 )
 
 for _name in __all__:
-    globals()[_name] = getattr(_finstack, _name)
+    if hasattr(_finstack, _name):
+        globals()[_name] = getattr(_finstack, _name)
 
 # Expose compiled core tree (no top-level aliases)
 _core = _finstack.core
