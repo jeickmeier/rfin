@@ -70,9 +70,61 @@ impl PortfolioValuation {
 /// Standard metrics to compute for portfolio positions.
 ///
 /// Note: Using Theta, DV01, and CS01 which are widely supported as scalar metrics.
-/// Many instruments use bucketed metrics (series) which require special handling.
 fn standard_portfolio_metrics() -> Vec<MetricId> {
-    vec![MetricId::Theta, MetricId::Dv01, MetricId::Cs01]
+    // Core risk set chosen to align with common portfolio risk reports:
+    // - Theta: carry / time-decay
+    // - Dv01 / BucketedDv01: parallel and key-rate IR risk
+    // - Cs01 / BucketedCs01: credit spread / hazard risk
+    // - Delta / Gamma / Vega / Rho: standard option Greeks
+    //
+    // Instruments that do not support a given metric simply omit it from
+    // `ValuationResult::measures`; aggregation remains robust to missing keys.
+    vec![
+        MetricId::Theta,
+        MetricId::Dv01,
+        MetricId::BucketedDv01,
+        MetricId::Cs01,
+        MetricId::BucketedCs01,
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Rho,
+    ]
+}
+
+/// Options controlling portfolio valuation behaviour.
+///
+/// This structure allows callers to configure how strictly risk metric
+/// errors are handled. By default, risk metrics are treated as
+/// best-effort: if metrics fail for a position, the engine falls back
+/// to PV-only valuation for that position.
+#[derive(Clone, Debug, Default)]
+pub struct PortfolioValuationOptions {
+    /// When `true`, any failure to compute requested risk metrics for a
+    /// position causes the entire portfolio valuation to fail.
+    ///
+    /// When `false` (default), the engine falls back to PV-only
+    /// valuation for that position if metrics fail, preserving
+    /// aggregate PV but potentially leaving some risk metrics missing.
+    pub strict_risk: bool,
+}
+
+/// Value all positions in a portfolio with full metrics using default options.
+///
+/// This is a convenience wrapper over
+/// [`value_portfolio_with_options`] that uses
+/// [`PortfolioValuationOptions::default`].
+pub fn value_portfolio(
+    portfolio: &Portfolio,
+    market: &MarketContext,
+    config: &FinstackConfig,
+) -> Result<PortfolioValuation> {
+    value_portfolio_with_options(
+        portfolio,
+        market,
+        config,
+        &PortfolioValuationOptions::default(),
+    )
 }
 
 /// Value all positions in a portfolio with full metrics.
@@ -88,6 +140,7 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 /// * `portfolio` - Portfolio to value.
 /// * `market` - Market data context supplying curves and FX.
 /// * `config` - Runtime configuration for the valuation engine.
+/// * `options` - Portfolio valuation options controlling risk behaviour.
 ///
 /// # Returns
 ///
@@ -102,20 +155,21 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 ///
 /// When the `parallel` feature is enabled, position valuations are computed in parallel
 /// using rayon. Results are deterministically reduced to ensure consistency across runs.
-pub fn value_portfolio(
+pub fn value_portfolio_with_options(
     portfolio: &Portfolio,
     market: &MarketContext,
     config: &FinstackConfig,
+    options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
     // Use parallel execution if feature is enabled
     #[cfg(feature = "parallel")]
     {
-        value_portfolio_parallel(portfolio, market, config)
+        value_portfolio_parallel(portfolio, market, config, options)
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        value_portfolio_serial(portfolio, market, config)
+        value_portfolio_serial(portfolio, market, config, options)
     }
 }
 
@@ -125,6 +179,7 @@ fn value_portfolio_serial(
     portfolio: &Portfolio,
     market: &MarketContext,
     _config: &FinstackConfig,
+    options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
     let mut position_values = IndexMap::new();
     let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
@@ -133,7 +188,8 @@ fn value_portfolio_serial(
     let metrics = standard_portfolio_metrics();
 
     for position in &portfolio.positions {
-        let position_value = value_single_position(position, market, portfolio, &metrics)?;
+        let position_value =
+            value_single_position(position, market, portfolio, &metrics, options.strict_risk)?;
 
         // Aggregate by entity
         let entity_total = by_entity
@@ -168,6 +224,7 @@ fn value_portfolio_parallel(
     portfolio: &Portfolio,
     market: &MarketContext,
     _config: &FinstackConfig,
+    options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
     use rayon::prelude::*;
 
@@ -177,7 +234,9 @@ fn value_portfolio_parallel(
     let position_results: Vec<Result<PositionValue>> = portfolio
         .positions
         .par_iter()
-        .map(|position| value_single_position(position, market, portfolio, &metrics))
+        .map(|position| {
+            value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+        })
         .collect();
 
     // Collect results and handle errors (fail-fast on first error)
@@ -224,24 +283,39 @@ fn value_single_position(
     market: &MarketContext,
     portfolio: &Portfolio,
     metrics: &[MetricId],
+    strict_risk: bool,
 ) -> Result<PositionValue> {
-    // Price the instrument with metrics (try with metrics, fall back to value only)
-    let valuation_result = position
-        .instrument
-        .price_with_metrics(market, portfolio.as_of, metrics)
-        .or_else(|_: finstack_core::Error| {
-            // If metrics fail, just get base value
-            let value = position.instrument.value(market, portfolio.as_of)?;
-            Ok(ValuationResult::stamped(
-                position.instrument.id(),
-                portfolio.as_of,
-                value,
-            ))
-        })
-        .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
-            position_id: position.position_id.clone(),
-            message: e.to_string(),
-        })?;
+    // Price the instrument with metrics.
+    //
+    // When `strict_risk` is `false`, metric failures fall back to PV-only
+    // valuation for the position. When `true`, any metric failure bubbles up
+    // as a portfolio error.
+    let valuation_result = if strict_risk {
+        position
+            .instrument
+            .price_with_metrics(market, portfolio.as_of, metrics)
+            .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                position_id: position.position_id.clone(),
+                message: e.to_string(),
+            })?
+    } else {
+        position
+            .instrument
+            .price_with_metrics(market, portfolio.as_of, metrics)
+            .or_else(|_: finstack_core::Error| {
+                // If metrics fail, just get base value
+                let value = position.instrument.value(market, portfolio.as_of)?;
+                Ok(ValuationResult::stamped(
+                    position.instrument.id(),
+                    portfolio.as_of,
+                    value,
+                ))
+            })
+            .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                position_id: position.position_id.clone(),
+                message: e.to_string(),
+            })?
+    };
 
     let value_native = valuation_result.value;
 

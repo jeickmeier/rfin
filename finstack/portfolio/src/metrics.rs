@@ -69,6 +69,15 @@ impl PortfolioMetrics {
 /// Metrics that can be meaningfully summed across positions.
 ///
 /// These metrics scale linearly with position size and can be aggregated.
+///
+/// Bucketed metrics (e.g. key-rate DV01) are stored in `ValuationResult::measures`
+/// using composite keys of the form:
+///
+/// - `bucketed_dv01::2y`
+/// - `bucketed_cs01::5y`
+///
+/// To support portfolio-level aggregation of these series, `is_summable` performs
+/// a prefix match on the base metric ID rather than requiring an exact key match.
 const SUMMABLE_METRICS: &[&str] = &[
     "theta",
     "dv01",
@@ -96,11 +105,25 @@ const SUMMABLE_METRICS: &[&str] = &[
 
 /// Check if a metric can be summed across positions.
 ///
+/// This treats both base IDs (e.g. `bucketed_dv01`) and structured
+/// composite keys (e.g. `bucketed_dv01::2y`) as summable so that
+/// key-rate / bucketed series aggregate correctly.
+///
 /// # Arguments
 ///
 /// * `metric_id` - Metric identifier to test.
 pub fn is_summable(metric_id: &str) -> bool {
-    SUMMABLE_METRICS.contains(&metric_id)
+    if SUMMABLE_METRICS.contains(&metric_id) {
+        return true;
+    }
+
+    // Handle composite keys produced by `MetricContext::default_composite_key`,
+    // which uses the pattern `base::label[::sub_label...]`.
+    if let Some((base, _rest)) = metric_id.split_once("::") {
+        return SUMMABLE_METRICS.contains(&base);
+    }
+
+    false
 }
 
 /// Aggregate metrics from portfolio valuation results.

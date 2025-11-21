@@ -67,6 +67,9 @@ pub mod results;
 pub mod types;
 pub mod valuation;
 
+/// Cashflow ladder and schedule aggregation utilities.
+pub mod cashflows;
+
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
 
@@ -76,6 +79,7 @@ pub use builder::PortfolioBuilder;
 pub use error::{PortfolioError, Result};
 pub use grouping::{aggregate_by_attribute, group_by_attribute};
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
+pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
 pub use portfolio::Portfolio;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResults;

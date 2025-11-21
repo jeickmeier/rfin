@@ -8,10 +8,11 @@ use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::prelude::*;
 use finstack_valuations::attribution::{
-    attribute_pnl_parallel, AttributionMethod, CorrelationsAttribution, CreditCurvesAttribution,
-    FxAttribution, InflationCurvesAttribution, PnlAttribution, RatesCurvesAttribution,
-    ScalarsAttribution, VolAttribution,
+    attribute_pnl_parallel, attribute_pnl_metrics_based, AttributionMethod, CorrelationsAttribution,
+    CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution, PnlAttribution,
+    RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
 };
+use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,9 @@ pub struct PortfolioAttribution {
 
     /// FX rate changes P&L.
     pub fx_pnl: Money,
+
+    /// FX translation P&L from instrument currency to portfolio base currency.
+    pub fx_translation_pnl: Money,
 
     /// Implied volatility changes P&L.
     pub vol_pnl: Money,
@@ -79,15 +83,47 @@ pub struct PortfolioAttribution {
     pub scalars_detail: Option<ScalarsAttribution>,
 }
 
+/// Default set of metrics for metrics-based attribution at the portfolio level.
+///
+/// This mirrors the standard metrics used by the valuations crate for
+/// metrics-based attribution and should stay in sync with
+/// `default_attribution_metrics` in `finstack-valuations`.
+fn default_metrics_for_metrics_based() -> Vec<MetricId> {
+    vec![
+        // First-order metrics
+        MetricId::Theta,       // Time decay (carry)
+        MetricId::Dv01,        // Interest rate sensitivity
+        MetricId::Cs01,        // Credit spread sensitivity
+        MetricId::Vega,        // Volatility sensitivity
+        MetricId::Delta,       // Delta for options/equity
+        MetricId::Fx01,        // FX sensitivity
+        MetricId::Inflation01, // Inflation sensitivity
+        MetricId::Dividend01,  // Dividend sensitivity
+        // Second-order metrics
+        MetricId::Gamma,              // Spot convexity
+        MetricId::Convexity,          // Rate convexity (bonds)
+        MetricId::IrConvexity,        // Rate convexity (swaps)
+        MetricId::Volga,              // Vol convexity
+        MetricId::Vanna,              // Cross-gamma (spot-vol)
+        MetricId::CsGamma,            // Credit spread convexity
+        MetricId::InflationConvexity, // Inflation convexity
+    ]
+}
+
 /// Perform P&L attribution for an entire portfolio.
 ///
 /// Attributes each position's P&L and aggregates to portfolio base currency.
+/// Each position is attributed using the specified method (Parallel, Waterfall,
+/// or MetricsBased), and the results are converted to the portfolio's base
+/// currency with explicit FX translation P&L tracking.
 ///
 /// # Arguments
 ///
 /// * `portfolio` - Portfolio to attribute
 /// * `market_t0` - Market context at T₀
 /// * `market_t1` - Market context at T₁
+/// * `as_of_t0` - Valuation date at T₀ (typically yesterday for day-over-day)
+/// * `as_of_t1` - Valuation date at T₁ (typically today for day-over-day)
 /// * `config` - Finstack configuration
 /// * `method` - Attribution methodology (Parallel, Waterfall, or MetricsBased)
 ///
@@ -95,29 +131,29 @@ pub struct PortfolioAttribution {
 ///
 /// Portfolio-level attribution with per-position breakdown.
 ///
-/// # Errors
-///
-/// Returns error if:
-/// - Any position attribution fails
-/// - Currency conversion fails
-///
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_portfolio::attribution::{
-///     attribute_portfolio_pnl, AttributionMethod
-/// };
+/// use finstack_portfolio::attribute_portfolio_pnl;
+/// use finstack_valuations::attribution::AttributionMethod;
+/// use time::macros::date;
+///
+/// let as_of_t0 = date!(2025-11-20);  // Yesterday
+/// let as_of_t1 = date!(2025-11-21);  // Today
 ///
 /// let attribution = attribute_portfolio_pnl(
 ///     &portfolio,
 ///     &market_t0,
 ///     &market_t1,
+///     as_of_t0,
+///     as_of_t1,
 ///     &config,
 ///     AttributionMethod::Parallel,
 /// )?;
 ///
 /// println!("Portfolio P&L: {}", attribution.total_pnl);
 /// println!("Total Carry: {}", attribution.carry);
+/// println!("FX Translation: {}", attribution.fx_translation_pnl);
 ///
 /// // Drill down to specific position
 /// if let Some(pos_attr) = attribution.by_position.get("POS_001") {
@@ -128,6 +164,8 @@ pub fn attribute_portfolio_pnl(
     portfolio: &Portfolio,
     market_t0: &MarketContext,
     market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
     config: &FinstackConfig,
     method: AttributionMethod,
 ) -> Result<PortfolioAttribution> {
@@ -142,6 +180,7 @@ pub fn attribute_portfolio_pnl(
         inflation_curves_pnl: zero,
         correlations_pnl: zero,
         fx_pnl: zero,
+        fx_translation_pnl: zero,
         vol_pnl: zero,
         model_params_pnl: zero,
         market_scalars_pnl: zero,
@@ -164,8 +203,8 @@ pub fn attribute_portfolio_pnl(
                 &position.instrument,
                 market_t0,
                 market_t1,
-                portfolio.as_of,
-                portfolio.as_of, // TODO: Should T₁ be different?
+                as_of_t0,
+                as_of_t1,
                 config,
             )
             .map_err(|e| PortfolioError::ValuationError {
@@ -178,8 +217,8 @@ pub fn attribute_portfolio_pnl(
                     &position.instrument,
                     market_t0,
                     market_t1,
-                    portfolio.as_of,
-                    portfolio.as_of,
+                    as_of_t0,
+                    as_of_t1,
                     config,
                     order.clone(),
                     false,
@@ -191,16 +230,35 @@ pub fn attribute_portfolio_pnl(
             }
 
             AttributionMethod::MetricsBased => {
-                // For metrics-based, we need ValuationResults which we don't have here
-                // For now, fall back to parallel
-                // TODO: Support metrics-based by pre-computing valuations
-                attribute_pnl_parallel(
+                // For metrics-based attribution, compute valuations with the
+                // standard attribution metrics set and delegate to the
+                // valuations crate's metrics-based engine.
+                let metrics = default_metrics_for_metrics_based();
+
+                let val_t0 = position
+                    .instrument
+                    .price_with_metrics(market_t0, as_of_t0, &metrics)
+                    .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: format!("Attribution T0 valuation failed: {}", e),
+                    })?;
+
+                let val_t1 = position
+                    .instrument
+                    .price_with_metrics(market_t1, as_of_t1, &metrics)
+                    .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+                        position_id: position.position_id.clone(),
+                        message: format!("Attribution T1 valuation failed: {}", e),
+                    })?;
+
+                attribute_pnl_metrics_based(
                     &position.instrument,
                     market_t0,
                     market_t1,
-                    portfolio.as_of,
-                    portfolio.as_of,
-                    config,
+                    &val_t0,
+                    &val_t1,
+                    as_of_t0,
+                    as_of_t1,
                 )
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),
@@ -287,6 +345,48 @@ pub fn attribute_portfolio_pnl(
             .checked_add(residual_base)
             .map_err(PortfolioError::Core)?;
 
+        // FX translation P&L: effect of translating instrument-currency P&L
+        // into portfolio base currency as FX rates move from T₀ to T₁.
+        if pos_attr.total_pnl.currency() != base_ccy {
+            let inst_ccy = pos_attr.total_pnl.currency();
+
+            let fx_t0 = market_t0.fx.as_ref().ok_or_else(|| {
+                PortfolioError::MissingMarketData("FX matrix at T0 not available".to_string())
+            })?;
+            let fx_t1 = market_t1.fx.as_ref().ok_or_else(|| {
+                PortfolioError::MissingMarketData("FX matrix at T1 not available".to_string())
+            })?;
+
+            let query_t0 = FxQuery::new(inst_ccy, base_ccy, as_of_t1);
+            let rate_t0 = fx_t0
+                .rate(query_t0)
+                .map_err(|_| PortfolioError::FxConversionFailed {
+                    from: inst_ccy,
+                    to: base_ccy,
+                })?;
+
+            let query_t1 = FxQuery::new(inst_ccy, base_ccy, as_of_t1);
+            let rate_t1 = fx_t1
+                .rate(query_t1)
+                .map_err(|_| PortfolioError::FxConversionFailed {
+                    from: inst_ccy,
+                    to: base_ccy,
+                })?;
+
+            let pnl_amount = pos_attr.total_pnl.amount();
+            let base_t0 = Money::new(pnl_amount * rate_t0.rate, base_ccy);
+            let base_t1 = Money::new(pnl_amount * rate_t1.rate, base_ccy);
+
+            let translation = base_t1
+                .checked_sub(base_t0)
+                .map_err(PortfolioError::Core)?;
+
+            portfolio_attr.fx_translation_pnl = portfolio_attr
+                .fx_translation_pnl
+                .checked_add(translation)
+                .map_err(PortfolioError::Core)?;
+        }
+
         // Store position-level attribution
         portfolio_attr
             .by_position
@@ -306,13 +406,13 @@ impl PortfolioAttribution {
         // Header
         lines.push(
             "total,carry,rates_curves,credit_curves,inflation_curves,\
-             correlations,fx,vol,model_params,market_scalars,residual"
+             correlations,fx,fx_translation,vol,model_params,market_scalars,residual"
                 .to_string(),
         );
 
         // Data row
         lines.push(format!(
-            "{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{}",
             self.total_pnl.amount(),
             self.carry.amount(),
             self.rates_curves_pnl.amount(),
@@ -320,6 +420,7 @@ impl PortfolioAttribution {
             self.inflation_curves_pnl.amount(),
             self.correlations_pnl.amount(),
             self.fx_pnl.amount(),
+            self.fx_translation_pnl.amount(),
             self.vol_pnl.amount(),
             self.model_params_pnl.amount(),
             self.market_scalars_pnl.amount(),
@@ -397,6 +498,10 @@ impl PortfolioAttribution {
             fmt(&self.correlations_pnl, &self.total_pnl)
         ));
         lines.push(format!("  ├─ FX: {}", fmt(&self.fx_pnl, &self.total_pnl)));
+        lines.push(format!(
+            "  ├─ FX Translation: {}",
+            fmt(&self.fx_translation_pnl, &self.total_pnl)
+        ));
         lines.push(format!("  ├─ Vol: {}", fmt(&self.vol_pnl, &self.total_pnl)));
         lines.push(format!(
             "  ├─ Model Params: {}",
@@ -432,6 +537,7 @@ mod tests {
             inflation_curves_pnl: zero,
             correlations_pnl: zero,
             fx_pnl: zero,
+            fx_translation_pnl: zero,
             vol_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,

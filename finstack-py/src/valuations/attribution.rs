@@ -613,6 +613,8 @@ impl PyPortfolioAttribution {
 /// * `portfolio` - Portfolio to attribute
 /// * `market_t0` - Market context at T₀
 /// * `market_t1` - Market context at T₁
+/// * `as_of_t0` - Valuation date at T₀ (e.g., yesterday for day-over-day)
+/// * `as_of_t1` - Valuation date at T₁ (e.g., today for day-over-day)
 /// * `method` - Optional attribution method (defaults to Parallel)
 ///
 /// # Returns
@@ -622,21 +624,34 @@ impl PyPortfolioAttribution {
 /// # Examples
 ///
 /// ```python
+/// import datetime
+///
+/// as_of_t0 = datetime.date(2025, 11, 20)  # Yesterday
+/// as_of_t1 = datetime.date(2025, 11, 21)  # Today
+///
 /// attr = finstack.attribute_portfolio_pnl(
 ///     portfolio,
 ///     market_yesterday,
 ///     market_today,
+///     as_of_t0,
+///     as_of_t1,
 ///     method=finstack.AttributionMethod.parallel()
 /// )
 /// ```
 #[pyfunction]
-#[pyo3(signature = (portfolio, market_t0, market_t1, method=None))]
+#[pyo3(signature = (portfolio, market_t0, market_t1, as_of_t0, as_of_t1, method=None))]
 pub fn attribute_portfolio_pnl(
     portfolio: &crate::portfolio::portfolio::PyPortfolio,
     market_t0: &crate::core::market_data::PyMarketContext,
     market_t1: &crate::core::market_data::PyMarketContext,
+    as_of_t0: &Bound<'_, pyo3::PyAny>,
+    as_of_t1: &Bound<'_, pyo3::PyAny>,
     method: Option<&PyAttributionMethod>,
 ) -> PyResult<PyPortfolioAttribution> {
+    // Convert Python dates to Rust dates
+    let date_t0 = crate::core::utils::py_to_date(as_of_t0)?;
+    let date_t1 = crate::core::utils::py_to_date(as_of_t1)?;
+
     // Get attribution method (default to Parallel)
     let method_inner = method
         .map(|m| m.inner.clone())
@@ -650,6 +665,8 @@ pub fn attribute_portfolio_pnl(
         &portfolio.inner,
         &market_t0.inner,
         &market_t1.inner,
+        date_t0,
+        date_t1,
         &config,
         method_inner,
     )
