@@ -1,8 +1,0 @@
-[profile.default]
-# Skip wasm-bindgen tests that require the wasm32 runner. These tests are executed
-# via wasm-pack in their own pipeline; nextest cannot execute them because they
-# emit .wasm artifacts instead of native binaries.
-#
-# Note: finstack-wasm tests are filtered out at runtime via --workspace --exclude finstack-wasm
-# rather than using overrides, since nextest overrides don't support skip status directly.
-

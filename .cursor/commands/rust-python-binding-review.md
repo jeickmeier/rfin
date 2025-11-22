@@ -13,12 +13,3 @@ Data Validation (Pydantic): I am using Pydantic models to handle data transfer o
 Pydantic is correctly used for pre-validation and JSON serialization before data crosses the FFI boundary into Rust.
 
 The conversion logic between Pydantic models and Rust structs is efficient and safe.
-
-The Code:
-
-Python
-
-[INSERT PYTHON BINDING CODE HERE]
-Rust
-
-[INSERT RELEVANT RUST STRUCTS/IMPLS HERE]
