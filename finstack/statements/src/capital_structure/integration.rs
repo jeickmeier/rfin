@@ -6,8 +6,10 @@
 use crate::capital_structure::types::*;
 use crate::error::Result;
 use crate::types::DebtInstrumentSpec;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::MarketContext;
+use finstack_core::money::fx::FxQuery;
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
@@ -50,17 +52,23 @@ pub fn aggregate_instrument_cashflows(
 ) -> Result<CapitalStructureCashflows> {
     let mut result = CapitalStructureCashflows::new();
 
-    // Determine base currency from first instrument (if any) or default to USD
-    // For now, we default to USD for all aggregations
-    // In a future implementation, we'll query instrument currency
-    let base_currency = finstack_core::currency::Currency::USD;
+    // Determine reporting currency from FX pivot when available
+    let fx_matrix = market_ctx.fx.as_ref();
+    let reporting_currency = fx_matrix.map(|fx| fx.config().pivot_currency);
 
-    // Initialize period maps for totals with base currency
-    for period in periods {
-        result
-            .totals
-            .insert(period.id, CashflowBreakdown::with_currency(base_currency));
-    }
+    // Initialize reporting totals if we know the reporting currency up-front
+    let mut reporting_totals: Option<IndexMap<PeriodId, CashflowBreakdown>> = reporting_currency
+        .map(|rc| {
+            let mut map = IndexMap::new();
+            for period in periods {
+                map.insert(period.id, CashflowBreakdown::with_currency(rc));
+            }
+            map
+        });
+
+    // Always accumulate per-currency totals to avoid panics on mixed-currency portfolios
+    let mut totals_by_currency: IndexMap<Currency, IndexMap<PeriodId, CashflowBreakdown>> =
+        IndexMap::new();
 
     // Process each instrument
     for (instrument_id, instrument) in instruments {
@@ -80,6 +88,15 @@ pub fn aggregate_instrument_cashflows(
             instrument_periods.insert(period.id, CashflowBreakdown::with_currency(currency));
         }
 
+        // Pre-initialize per-currency totals for this currency
+        totals_by_currency.entry(currency).or_insert_with(|| {
+            let mut map = IndexMap::new();
+            for period in periods {
+                map.insert(period.id, CashflowBreakdown::with_currency(currency));
+            }
+            map
+        });
+
         // Classify cashflows using precise CFKind information (NO MORE HEURISTICS!)
         // Note: We use full_schedule.flows directly rather than aggregate_by_period because
         // we need access to CFKind metadata for precise classification, which is preserved
@@ -98,27 +115,60 @@ pub fn aggregate_instrument_cashflows(
                         cf.amount
                     };
 
+                    let converted_abs =
+                        convert_to_reporting(abs_value, cf.date, reporting_currency, fx_matrix)?;
+
                     match cf.kind {
                         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
                             // Cash interest payments (coupons, floating resets)
                             breakdown.interest_expense_cash += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.interest_expense_cash += money;
+                            }
                         }
                         CFKind::Amortization => {
                             // Principal amortization payments
                             breakdown.principal_payment += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.principal_payment += money;
+                            }
                         }
                         CFKind::Notional if cf.amount.amount() > 0.0 => {
                             // Principal redemption (bullet payment)
                             breakdown.principal_payment += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.principal_payment += money;
+                            }
                         }
                         CFKind::Fee => {
                             // Commitment fees, facility fees, etc.
                             breakdown.fees += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.fees += money;
+                            }
                         }
                         CFKind::PIK => {
                             // PIK (payment-in-kind) interest accrued but not paid in cash
                             // This increases the outstanding balance and is tracked separately
                             breakdown.interest_expense_pik += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.interest_expense_pik += money;
+                            }
                         }
                         CFKind::Notional if cf.amount.amount() <= 0.0 => {
                             // Negative notional flows (initial exchange) - typically netted against principal
@@ -131,6 +181,12 @@ pub fn aggregate_instrument_cashflows(
                             // Note: If this case is hit frequently, consider adding explicit handling for the new CFKind.
                             // In production, this should be logged with: tracing::warn!("Unknown CFKind: {:?}", cf.kind)
                             breakdown.interest_expense_cash += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                let total = map.get_mut(&period_id).expect("period initialized");
+                                total.interest_expense_cash += money;
+                            }
                         }
                     }
                 }
@@ -147,7 +203,7 @@ pub fn aggregate_instrument_cashflows(
             {
                 if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
                     // Keep as Money, use absolute value for issuer perspective
-                    breakdown.debt_balance = if outstanding_amount.amount() < 0.0 {
+                    let issuer_balance = if outstanding_amount.amount() < 0.0 {
                         finstack_core::money::Money::new(
                             -outstanding_amount.amount(),
                             outstanding_amount.currency(),
@@ -155,6 +211,15 @@ pub fn aggregate_instrument_cashflows(
                     } else {
                         outstanding_amount
                     };
+                    breakdown.debt_balance = issuer_balance;
+
+                    if let (Some(map), Some(money)) = (
+                        reporting_totals.as_mut(),
+                        convert_to_reporting(issuer_balance, date, reporting_currency, fx_matrix)?,
+                    ) {
+                        let total = map.get_mut(&period_id).expect("period initialized");
+                        total.debt_balance = money;
+                    }
                 }
             }
         }
@@ -165,22 +230,55 @@ pub fn aggregate_instrument_cashflows(
             .insert(instrument_id.clone(), instrument_periods.clone());
 
         // Aggregate into totals (handling Money addition which returns Result)
-        for (period_id, breakdown) in &instrument_periods {
-            // SAFETY: All periods were initialized at function start
-            let total = result
-                .totals
-                .get_mut(period_id)
-                .expect("period should exist in totals map");
-            // Money += Money unwraps internally (uses AddAssign which panics on currency mismatch)
-            total.interest_expense_cash += breakdown.interest_expense_cash;
-            total.interest_expense_pik += breakdown.interest_expense_pik;
-            total.principal_payment += breakdown.principal_payment;
-            total.debt_balance += breakdown.debt_balance;
-            total.fees += breakdown.fees;
+        if let Some(currency_totals) = totals_by_currency.get_mut(&currency) {
+            for (period_id, breakdown) in &instrument_periods {
+                let total = currency_totals
+                    .get_mut(period_id)
+                    .expect("period should exist in currency totals");
+                total.interest_expense_cash += breakdown.interest_expense_cash;
+                total.interest_expense_pik += breakdown.interest_expense_pik;
+                total.principal_payment += breakdown.principal_payment;
+                total.debt_balance += breakdown.debt_balance;
+                total.fees += breakdown.fees;
+            }
+        }
+    }
+
+    // Finalize totals and reporting currency selection
+    result.totals_by_currency = totals_by_currency;
+
+    if let Some(reporting_totals) = reporting_totals {
+        result.reporting_currency = reporting_currency;
+        result.totals = reporting_totals;
+    } else if result.totals_by_currency.len() == 1 {
+        if let Some((ccy, per_period)) = result.totals_by_currency.first() {
+            result.reporting_currency = Some(*ccy);
+            result.totals = per_period.clone();
         }
     }
 
     Ok(result)
+}
+
+/// Convert a money amount into the reporting currency when FX data is available.
+fn convert_to_reporting(
+    money: finstack_core::money::Money,
+    on: Date,
+    reporting_currency: Option<Currency>,
+    fx_matrix: Option<&Arc<finstack_core::money::fx::FxMatrix>>,
+) -> Result<Option<finstack_core::money::Money>> {
+    if let (Some(rc), Some(fx)) = (reporting_currency, fx_matrix) {
+        if rc == money.currency() {
+            return Ok(Some(money));
+        }
+        let rate = fx.rate(FxQuery::new(money.currency(), rc, on))?.rate;
+        Ok(Some(finstack_core::money::Money::new(
+            money.amount() * rate,
+            rc,
+        )))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Build a [`Bond`] instrument from a [`DebtInstrumentSpec`].

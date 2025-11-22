@@ -117,7 +117,8 @@ impl Evaluator {
         #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
-        // Clear forecast cache for new evaluation
+        // Clear caches for new evaluation to avoid stale formula/forecast reuse
+        self.compiled_cache.clear();
         self.forecast_cache.clear();
 
         // Build dependency graph and check for cycles
@@ -470,9 +471,10 @@ impl EvaluatorWithContext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::types::AmountOrScalar;
+use super::*;
+use crate::builder::ModelBuilder;
+use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+use indexmap::IndexMap;
 
     #[test]
     fn test_simple_evaluation() {
@@ -564,5 +566,49 @@ mod tests {
             .expect_err("should fail with circular dependency")
             .to_string()
             .contains("Circular"));
+    }
+
+    #[test]
+    fn test_recompile_on_reuse() {
+        let periods = crate::builder::ModelBuilder::new("cache")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .build()
+            .expect("build should succeed")
+            .periods;
+
+        let mut model = FinancialModelSpec::new("cache", periods);
+        let mut nodes = IndexMap::new();
+        nodes.insert(
+            "x".into(),
+            NodeSpec::new("x", NodeType::Value).with_values(
+                [(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10.0))]
+                    .into_iter()
+                    .collect(),
+            ),
+        );
+        nodes.insert(
+            "y".into(),
+            NodeSpec::new("y", NodeType::Calculated).with_formula("x * 2"),
+        );
+        model.nodes = nodes;
+
+        let mut evaluator = Evaluator::new();
+        let first = evaluator.evaluate(&model).expect("first eval");
+        assert_eq!(
+            first.get("y", &PeriodId::quarter(2025, 1)),
+            Some(20.0)
+        );
+
+        // Mutate formula and ensure evaluator recompiles when reused
+        if let Some(node) = model.get_node_mut("y") {
+            node.formula_text = Some("x * 3".to_string());
+        }
+
+        let second = evaluator.evaluate(&model).expect("second eval");
+        assert_eq!(
+            second.get("y", &PeriodId::quarter(2025, 1)),
+            Some(30.0)
+        );
     }
 }

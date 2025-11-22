@@ -196,12 +196,7 @@ impl EvaluationContext {
             }
         };
 
-        value.ok_or_else(|| {
-            Error::capital_structure(format!(
-                "No capital structure data for component '{}' and instrument '{}' in period {}",
-                component, instrument_or_total, self.period_id
-            ))
-        })
+        value
     }
 
     /// Get all results as a map.
