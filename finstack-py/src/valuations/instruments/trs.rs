@@ -99,8 +99,9 @@ impl PyFinancingLegSpec {
         day_count: crate::core::dates::daycount::PyDayCount,
         spread_bp: Option<f64>,
     ) -> PyResult<Self> {
-        let disc = parse_curve_id(&discount_curve, "discount curve")?;
-        let fwd = parse_curve_id(&forward_curve, "forward curve")?;
+        use crate::errors::PyContext;
+        let disc = parse_curve_id(&discount_curve, "discount curve").context("discount_curve")?;
+        let fwd = parse_curve_id(&forward_curve, "forward curve").context("forward_curve")?;
         let spec = FinancingLegSpec::new(disc, fwd, spread_bp.unwrap_or(0.0), day_count.inner);
         Ok(Self { inner: spec })
     }
@@ -147,8 +148,9 @@ impl PyTrsScheduleSpec {
         end: Bound<'_, PyAny>,
         schedule_params: PyScheduleParams,
     ) -> PyResult<Self> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        use crate::errors::PyContext;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         if end_date <= start_date {
             return Err(PyValueError::new_err("Schedule end must be after start"));
         }

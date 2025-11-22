@@ -3,45 +3,48 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
 from ..common import InstrumentType
 
-class CdsIndex:
-    """CDS index instrument."""
+class CDSIndex:
+    """CDS index instrument binding exposing a simplified constructor."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
-        notional: Money,
         index_name: str,
-        start: date,
+        series: int,
+        version: int,
+        notional: Money,
+        fixed_coupon_bp: float,
+        start_date: date,
         maturity: date,
-        spread_bp: float,
-        recovery_rate: float,
-        currency: Currency,
         discount_curve: str,
-    ) -> None:
-        """Create a CDS index."""
+        credit_curve: str,
+        *,
+        side: Optional[str] = "pay_protection",
+        recovery_rate: Optional[float] = None,
+        index_factor: Optional[float] = None,
+    ) -> "CDSIndex":
+        """Create a CDS index instrument with standard ISDA conventions."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
-    def notional(self) -> Money: ...
-    @property
     def index_name(self) -> str: ...
     @property
-    def start(self) -> date: ...
+    def notional(self) -> Money: ...
     @property
-    def maturity(self) -> date: ...
+    def fixed_coupon_bp(self) -> float: ...
     @property
-    def spread_bp(self) -> float: ...
-    @property
-    def recovery_rate(self) -> float: ...
-    @property
-    def currency(self) -> Currency: ...
+    def side(self) -> str: ...
     @property
     def discount_curve(self) -> str: ...
+    @property
+    def credit_curve(self) -> str: ...
+    @property
+    def maturity(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

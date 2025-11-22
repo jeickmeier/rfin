@@ -76,16 +76,17 @@ impl PyBasisSwapLeg {
         business_day_convention: Option<Bound<'_, PyAny>>,
         spread: Option<f64>,
     ) -> PyResult<Self> {
-        let forward_id = forward_curve.extract::<&str>()?;
-        let freq = parse_frequency(frequency)?;
+        use crate::errors::PyContext;
+        let forward_id = forward_curve.extract::<&str>().context("forward_curve")?;
+        let freq = parse_frequency(frequency).context("frequency")?;
         let dc = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract()?;
+            let DayCountArg(value) = obj.extract().context("day_count")?;
             value
         } else {
             DayCount::Act360
         };
         let bdc = if let Some(obj) = business_day_convention {
-            let BusinessDayConventionArg(value) = obj.extract()?;
+            let BusinessDayConventionArg(value) = obj.extract().context("business_day_convention")?;
             value
         } else {
             BusinessDayConvention::ModifiedFollowing
@@ -199,12 +200,13 @@ impl PyBasisSwap {
         calendar: Option<&str>,
         stub: Option<&str>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let stub_kind = parse_stub(stub)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let stub_kind = parse_stub(stub).context("stub")?;
 
         let mut builder = BasisSwap::builder();
         builder = builder.id(id);

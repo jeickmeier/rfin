@@ -102,15 +102,16 @@ impl PyInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let end = py_to_date(&end_date)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
-        let freq = frequency_from_payments_per_year(payments_per_year)?;
-        let dc = extract_day_count(day_count)?;
-        let vol_surface_id = vol_surface.extract::<&str>()?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&end_date).context("end_date")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
+        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
+        let dc = extract_day_count(day_count).context("day_count")?;
+        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
         let option = InterestRateOption::new_cap(
             id,
             amt,
@@ -176,15 +177,16 @@ impl PyInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let end = py_to_date(&end_date)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
-        let freq = frequency_from_payments_per_year(payments_per_year)?;
-        let dc = extract_day_count(day_count)?;
-        let vol_surface_id = vol_surface.extract::<&str>()?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&end_date).context("end_date")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
+        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
+        let dc = extract_day_count(day_count).context("day_count")?;
+        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
         let option = InterestRateOption::new_floor(
             id,
             amt,

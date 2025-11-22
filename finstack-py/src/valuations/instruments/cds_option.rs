@@ -106,13 +106,14 @@ impl PyCdsOption {
         index_factor: Option<f64>,
         forward_adjust_bp: Option<f64>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let expiry_date = py_to_date(&expiry)?;
-        let cds_maturity_date = py_to_date(&cds_maturity)?;
-        let discount = discount_curve.extract::<&str>()?;
-        let credit = credit_curve.extract::<&str>()?;
-        let option_type_value = parse_option_type(option_type)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let expiry_date = py_to_date(&expiry).context("expiry")?;
+        let cds_maturity_date = py_to_date(&cds_maturity).context("cds_maturity")?;
+        let discount = discount_curve.extract::<&str>().context("discount_curve")?;
+        let credit = credit_curve.extract::<&str>().context("credit_curve")?;
+        let option_type_value = parse_option_type(option_type).context("option_type")?;
         let recovery =
             recovery_rate.unwrap_or(finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {

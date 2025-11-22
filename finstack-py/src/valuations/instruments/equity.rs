@@ -77,8 +77,9 @@ impl PyEquity {
         price_id: Option<&str>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let CurrencyArg(ccy) = currency.extract()?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
         let mut equity = Equity::new(id.into_string(), ticker, ccy);
         if let Some(qty) = shares {
             equity = equity.with_shares(qty);

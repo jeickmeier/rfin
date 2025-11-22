@@ -8,19 +8,20 @@ from .cap_floor import InterestRateOption
 from .ir_future import InterestRateFuture
 from .irs import InterestRateSwap
 from .fx import FxSpot, FxOption, FxSwap
+from .fx_barrier_option import FxBarrierOption
 from .equity import Equity
 from .equity_option import EquityOption
+from .lookback_option import LookbackOption, LookbackType
+from .cliquet_option import CliquetOption
+from .cms_option import CmsOption
 from .convertible import ConvertibleBond
-from .cds import CreditDefaultSwap
+from .quanto_option import QuantoOption
+from .range_accrual import RangeAccrual
+from .cds import CreditDefaultSwap, CDSPayReceive
 from .cds_index import CdsIndex
 from .cds_option import CdsOption
 from .cds_tranche import CdsTranche
-from .repo import Repo
-from .trs import EquityTotalReturnSwap, FiIndexTotalReturnSwap
-from .variance_swap import VarianceSwap
-from .inflation_linked_bond import InflationLinkedBond
-from .inflation_swap import InflationSwap
-from .basket import Basket
+from .barrier_option import BarrierOption, BarrierType
 from .structured_credit import StructuredCredit
 from .private_markets_fund import PrivateMarketsFund
 from .term_loan import TermLoan
@@ -46,22 +47,37 @@ __all__ = [
     "FxSpot",
     "FxOption",
     "FxSwap",
+    "FxBarrierOption",
     # Equity
     "Equity",
     "EquityOption",
+    "LookbackOption",
+    "LookbackType",
+    "CliquetOption",
     "ConvertibleBond",
+    "QuantoOption",
+    "RangeAccrual",
     # Credit
     "CreditDefaultSwap",
     "CdsIndex",
     "CdsOption",
     "CdsTranche",
+    "CmsOption",
     "StructuredCredit",
+    "evaluate_dcf",
     # Other
     "Repo",
+    "RevolvingCredit",
+    "TermLoan",
     "EquityTotalReturnSwap",
     "FiIndexTotalReturnSwap",
     "VarianceSwap",
+    "AsianOption",
+    "AveragingMethod",
+    "Autocallable",
     "Basket",
+    "BarrierOption",
+    "BarrierType",
     "PrivateMarketsFund",
     "TermLoan",
     "RevolvingCredit",

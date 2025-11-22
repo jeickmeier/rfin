@@ -97,15 +97,16 @@ impl PyForwardRateAgreement {
         reset_lag: Option<i32>,
         pay_fixed: Option<bool>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let fixing = py_to_date(&fixing_date)?;
-        let start = py_to_date(&start_date)?;
-        let end = py_to_date(&end_date)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let fixing = py_to_date(&fixing_date).context("fixing_date")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&end_date).context("end_date")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
         let day_count_value = if let Some(dc_obj) = day_count {
-            let DayCountArg(dc) = dc_obj.extract()?;
+            let DayCountArg(dc) = dc_obj.extract().context("day_count")?;
             dc
         } else {
             finstack_core::dates::DayCount::Act360

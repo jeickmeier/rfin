@@ -11,7 +11,6 @@
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use crate::instruments::basis_swap::BasisSwap;
-use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -70,7 +69,7 @@ impl XccyBasisCalibrator {
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by(|a, b| a.maturity_date().cmp(&b.maturity_date()));
+        sorted_quotes.sort_by_key(|a| a.maturity_date());
 
         let mut knots = Vec::with_capacity(sorted_quotes.len() + 1);
         knots.push((0.0, 1.0)); // DF(0) = 1.0
@@ -123,10 +122,7 @@ impl XccyBasisCalibrator {
                 let temp_ctx = ctx_ref.clone().insert_discount(temp_curve);
                 
                 // Price the instrument
-                match Self::price_basis_swap(&quote_clone, &temp_ctx, base_date, &curve_id) {
-                    Ok(pv) => pv,
-                    Err(_) => 1e9,
-                }
+                Self::price_basis_swap(&quote_clone, &temp_ctx, base_date, &curve_id).unwrap_or(1e9)
             };
 
             // Initial guess: extrapolate
@@ -183,7 +179,7 @@ impl XccyBasisCalibrator {
             } => {
                 use crate::instruments::basis_swap::BasisSwapLeg;
                 use crate::cashflow::builder::date_generation::build_dates;
-                use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
+                use finstack_core::dates::{BusinessDayConvention, StubKind};
                 use finstack_core::money::Money;
                 
                 // Assume Primary Leg is the Foreign Leg (with spread) and Reference Leg is Domestic (USD).

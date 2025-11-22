@@ -1,6 +1,6 @@
 """Fixed-income bond instrument with convenience constructors."""
 
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any, TypedDict
 from datetime import date
 from ...core.money import Money
 from ...core.dates.schedule import Frequency, StubKind
@@ -9,6 +9,14 @@ from ...core.dates.calendar import BusinessDayConvention
 from ...core.cashflow.primitives import AmortizationSpec
 from ...core.cashflow.builder import CashFlowSchedule
 from ..common import InstrumentType
+
+class CallScheduleItem(TypedDict):
+    date: date
+    price_pct: float
+
+class PutScheduleItem(TypedDict):
+    date: date
+    price_pct: float
 
 class Bond:
     """Fixed-income bond instrument with convenience constructors."""
@@ -100,8 +108,8 @@ class Bond:
         calendar_id: Optional[str] = None,
         stub: Optional[StubKind] = None,
         amortization: Optional[AmortizationSpec] = None,
-        call_schedule: Optional[List[Tuple[date, float]]] = None,
-        put_schedule: Optional[List[Tuple[date, float]]] = None,
+        call_schedule: Optional[List[CallScheduleItem]] = None,
+        put_schedule: Optional[List[PutScheduleItem]] = None,
         quoted_clean_price: Optional[float] = None,
         forward_curve: Optional[str] = None,
         float_margin_bp: Optional[float] = None,

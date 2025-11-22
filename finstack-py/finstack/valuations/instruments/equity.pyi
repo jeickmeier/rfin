@@ -1,38 +1,41 @@
 """Equity instrument."""
 
 from typing import Optional
-from datetime import date
-from ...core.money import Money
 from ...core.currency import Currency
 from ..common import InstrumentType
 
 class Equity:
-    """Equity instrument."""
+    """Spot equity position with optional share count and price override."""
 
-    def __init__(
-        self, instrument_id: str, quantity: float, currency: Currency, as_of: date, underlying: Optional[str] = None
-    ) -> None:
-        """Create an equity instrument.
-
-        Args:
-            instrument_id: Instrument identifier
-            quantity: Number of shares
-            currency: Currency of the equity
-            as_of: Valuation date
-            underlying: Optional underlying identifier
-        """
+    @classmethod
+    def create(
+        cls,
+        instrument_id: str,
+        ticker: str,
+        currency: Currency,
+        *,
+        shares: Optional[float] = None,
+        price: Optional[float] = None,
+        price_id: Optional[str] = None,
+        div_yield_id: Optional[str] = None,
+    ) -> "Equity":
+        """Create an equity instrument optionally specifying share count and price."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
-    def quantity(self) -> float: ...
+    def ticker(self) -> str: ...
     @property
     def currency(self) -> Currency: ...
     @property
-    def as_of(self) -> date: ...
+    def shares(self) -> float: ...
     @property
-    def underlying(self) -> Optional[str]: ...
+    def price_quote(self) -> Optional[float]: ...
+    @property
+    def price_id(self) -> Optional[str]: ...
+    @property
+    def div_yield_id(self) -> Optional[str]: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

@@ -3,49 +3,71 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.dates.schedule import Frequency
+from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
-class InterestRateSwap:
-    """Interest rate swap instrument."""
+class PayReceive:
+    """Pay/receive direction for swap fixed-leg cashflows."""
+    PAY_FIXED: "PayReceive"
+    RECEIVE_FIXED: "PayReceive"
 
-    def __init__(
-        self,
+    @classmethod
+    def from_name(cls, name: str) -> "PayReceive": ...
+    @property
+    def name(self) -> str: ...
+
+class InterestRateSwap:
+    """Plain-vanilla interest rate swap with fixed-for-floating legs."""
+
+    @classmethod
+    def usd_pay_fixed(
+        cls,
         instrument_id: str,
         notional: Money,
-        start: date,
-        maturity: date,
         fixed_rate: float,
-        fixed_frequency: Frequency,
-        fixed_day_count: DayCount,
-        fixed_bdc: BusinessDayConvention,
-        float_index: str,
-        float_frequency: Frequency,
-        float_day_count: DayCount,
-        float_bdc: BusinessDayConvention,
-        discount_curve: str,
-        forward_curve: Optional[str] = None,
-    ) -> None:
-        """Create an interest rate swap.
+        start: date,
+        end: date,
+    ) -> "InterestRateSwap":
+        """Create a USD SOFR swap where the caller pays fixed and receives floating."""
+        ...
 
-        Args:
-            instrument_id: Instrument identifier
-            notional: Notional amount
-            start: Start date
-            maturity: Maturity date
-            fixed_rate: Fixed rate in decimal form
-            fixed_frequency: Fixed leg frequency
-            fixed_day_count: Fixed leg day count
-            fixed_bdc: Fixed leg business day convention
-            float_index: Floating rate index identifier
-            float_frequency: Floating leg frequency
-            float_day_count: Floating leg day count
-            float_bdc: Floating leg business day convention
-            discount_curve: Discount curve identifier
-            forward_curve: Optional forward curve identifier
-        """
+    @classmethod
+    def usd_receive_fixed(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        fixed_rate: float,
+        start: date,
+        end: date,
+    ) -> "InterestRateSwap":
+        """Create a USD SOFR swap where the caller receives fixed."""
+        ...
+
+    @classmethod
+    def builder(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        fixed_rate: float,
+        start: date,
+        end: date,
+        side: str,
+        discount_curve: str,
+        forward_curve: str,
+        *,
+        fixed_frequency: Optional[Frequency] = None,
+        float_frequency: Optional[Frequency] = None,
+        fixed_day_count: Optional[DayCount] = None,
+        float_day_count: Optional[DayCount] = None,
+        business_day_convention: Optional[BusinessDayConvention] = None,
+        float_spread_bp: float = 0.0,
+        reset_lag_days: int = 2,
+        calendar: Optional[str] = None,
+        stub: Optional[StubKind] = None,
+    ) -> "InterestRateSwap":
+        """Create a fully customizable interest rate swap with explicit curves and conventions."""
         ...
 
     @property
@@ -53,17 +75,19 @@ class InterestRateSwap:
     @property
     def notional(self) -> Money: ...
     @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
+    def side(self) -> PayReceive: ...
     @property
     def fixed_rate(self) -> float: ...
     @property
-    def float_index(self) -> str: ...
+    def float_spread_bp(self) -> float: ...
+    @property
+    def start(self) -> date: ...
+    @property
+    def end(self) -> date: ...
     @property
     def discount_curve(self) -> str: ...
     @property
-    def forward_curve(self) -> Optional[str]: ...
+    def forward_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

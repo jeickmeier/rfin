@@ -130,14 +130,15 @@ impl PyCdsTranche {
             ));
         }
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let disc_curve = CurveId::new(discount_curve.extract::<&str>()?);
-        let credit_curve = CurveId::new(credit_index_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let disc_curve = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let credit_curve = CurveId::new(credit_index_curve.extract::<&str>().context("credit_index_curve")?);
 
-        let side_value = parse_tranche_side(side)?;
-        let freq = frequency_from_payments_per_year(payments_per_year)?;
+        let side_value = parse_tranche_side(side).context("side")?;
+        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
         let dc = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value

@@ -107,12 +107,13 @@ impl PyInflationSwap {
         lag_override: Option<&str>,
         inflation_curve: Option<&str>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let end = py_to_date(&maturity)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let side_value = parse_side(side)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&maturity).context("maturity")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let side_value = parse_side(side).context("side")?;
         let dc = if let Some(name) = day_count {
             match crate::core::common::labels::normalize_label(name).as_str() {
                 "act_act" | "actact" => DayCount::ActAct,

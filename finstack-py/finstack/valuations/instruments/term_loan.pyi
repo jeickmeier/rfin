@@ -1,153 +1,36 @@
-"""
-Term loan instrument with DDTL (Delayed Draw Term Loan) support.
+"""Term loan instrument."""
 
-A term loan is a debt instrument with a defined maturity, optional amortization,
-and support for both fixed and floating rates. The DDTL variant allows for
-delayed draws during an availability period with commitment fees and usage fees.
-"""
-
+from typing import Optional, Dict, Any
 from datetime import date
-from typing import ClassVar
-
-from finstack.core.currency import Currency
-from finstack.core.money import Money
+from ...core.money import Money
+from ...core.currency import Currency
+from ..common import InstrumentType
 
 class TermLoan:
-    """
-    Term loan instrument with DDTL (Delayed Draw Term Loan) support.
-
-    A term loan is a debt instrument with a defined maturity, optional amortization,
-    and support for both fixed and floating rates. The DDTL variant allows for
-    delayed draws during an availability period with commitment fees and usage fees.
-
-    Examples:
-        >>> from finstack.valuations.instruments import TermLoan
-        >>> from finstack.core.money import Money
-        >>> from datetime import date
-        >>> # Create a simple fixed-rate term loan
-        >>> loan = TermLoan.from_json('''{
-        ...     "id": "loan_001",
-        ...     "discount_curve_id": "usd_discount",
-        ...     "currency": "USD",
-        ...     "notional_limit": {"amount": "100000000", "currency": "USD"},
-        ...     "issue": "2024-01-01",
-        ...     "maturity": "2029-01-01",
-        ...     "rate": {"Fixed": {"rate_bp": 500}},
-        ...     "pay_freq": {"months": 3},
-        ...     "day_count": "Act360",
-        ...     "bdc": "Following",
-        ...     "calendar_id": null,
-        ...     "stub": "None",
-        ...     "amortization": "None",
-        ...     "coupon_type": "Cash",
-        ...     "upfront_fee": null,
-        ...     "ddtl": null,
-        ...     "covenants": null,
-        ...     "pricing_overrides": {},
-        ...     "call_schedule": null,
-        ...     "attributes": {}
-        ... }''')
-        >>> loan.instrument_id
-        'loan_001'
-    """
+    """Term loan instrument with DDTL (Delayed Draw Term Loan) support."""
 
     @classmethod
-    def from_json(cls, json_str: str) -> TermLoan:
-        """
-        Create a term loan from a JSON string specification.
-
-        The JSON should match the TermLoan schema from finstack-valuations.
-        This is the recommended way to create complex term loans with DDTL features,
-        covenants, and custom amortization schedules.
-
-        Args:
-            json_str: JSON string matching the TermLoan schema.
-
-        Returns:
-            Configured term loan instrument.
-
-        Raises:
-            ValueError: If JSON cannot be parsed or is invalid.
-        """
+    def from_json(cls, json_str: str) -> "TermLoan":
+        """Create a term loan from a JSON string specification."""
         ...
 
     def to_json(self) -> str:
-        """
-        Serialize the term loan to a JSON string.
-
-        Returns:
-            JSON representation of the term loan.
-        """
+        """Serialize the term loan to a JSON string."""
         ...
 
     @property
-    def instrument_id(self) -> str:
-        """
-        Instrument identifier.
-
-        Returns:
-            Unique identifier assigned to the instrument.
-        """
-        ...
-
+    def instrument_id(self) -> str: ...
     @property
-    def currency(self) -> Currency:
-        """
-        Currency for all cashflows.
-
-        Returns:
-            Currency object.
-        """
-        ...
-
+    def currency(self) -> Currency: ...
     @property
-    def notional_limit(self) -> Money:
-        """
-        Maximum commitment / notional limit.
-
-        Returns:
-            Notional limit as Money object.
-        """
-        ...
-
+    def notional_limit(self) -> Money: ...
     @property
-    def issue(self) -> date:
-        """
-        Issue (effective) date.
-
-        Returns:
-            Issue date.
-        """
-        ...
-
+    def issue(self) -> date: ...
     @property
-    def maturity(self) -> date:
-        """
-        Maturity date.
-
-        Returns:
-            Maturity date.
-        """
-        ...
-
+    def maturity(self) -> date: ...
     @property
-    def discount_curve(self) -> str:
-        """
-        Discount curve identifier.
-
-        Returns:
-            Identifier for the discount curve.
-        """
-        ...
-
+    def discount_curve(self) -> str: ...
     @property
-    def instrument_type(self) -> int:
-        """
-        Instrument type enum value.
-
-        Returns:
-            Enumeration value identifying the instrument family.
-        """
-        ...
-
+    def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...

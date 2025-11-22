@@ -222,13 +222,14 @@ fn construct_swaption(
     settlement: Option<&str>,
     payer: bool,
 ) -> PyResult<PySwaption> {
-    let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-    let amt = extract_money(&notional)?;
-    let expiry_date = py_to_date(&expiry)?;
-    let start = py_to_date(&swap_start)?;
-    let end = py_to_date(&swap_end)?;
-    let disc = CurveId::new(discount_curve.extract::<&str>()?);
-    let fwd = CurveId::new(forward_curve.extract::<&str>()?);
+    use crate::errors::PyContext;
+    let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+    let amt = extract_money(&notional).context("notional")?;
+    let expiry_date = py_to_date(&expiry).context("expiry")?;
+    let start = py_to_date(&swap_start).context("swap_start")?;
+    let end = py_to_date(&swap_end).context("swap_end")?;
+    let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+    let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
     let exercise_style = parse_exercise(exercise)?;
     let settlement_type = parse_settlement(settlement)?;
 
@@ -238,7 +239,7 @@ fn construct_swaption(
         SwaptionParams::receiver(amt, strike, expiry_date, start, end)
     };
 
-    let vol_surface_id = vol_surface.extract::<&str>()?;
+    let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
 
     let mut swaption = if payer {
         Swaption::new_payer(id.clone(), &params, disc, fwd, vol_surface_id)

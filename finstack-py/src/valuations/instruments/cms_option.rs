@@ -67,21 +67,22 @@ impl PyCmsOption {
         swap_float_freq: Option<Bound<'_, PyAny>>,
         swap_day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
         // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();
         for item in fixing_dates.iter() {
-            fixing_dates_vec.push(py_to_date(&item)?);
+            fixing_dates_vec.push(py_to_date(&item).context("fixing_dates")?);
         }
 
         // Parse payment dates
         let mut payment_dates_vec = Vec::new();
         if let Some(dates) = payment_dates {
             for item in dates.iter() {
-                payment_dates_vec.push(py_to_date(&item)?);
+                payment_dates_vec.push(py_to_date(&item).context("payment_dates")?);
             }
         } else {
             // Default to fixing dates if not provided
@@ -91,7 +92,7 @@ impl PyCmsOption {
         // Parse accrual fractions
         let mut accrual_fractions_vec = Vec::new();
         for item in accrual_fractions.iter() {
-            accrual_fractions_vec.push(item.extract::<f64>()?);
+            accrual_fractions_vec.push(item.extract::<f64>().context("accrual_fractions")?);
         }
 
         let opt_type = match normalize_label(option_type).as_str() {

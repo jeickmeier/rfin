@@ -3,61 +3,75 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
 from ..common import InstrumentType
 
-class CreditDefaultSwap:
-    """Credit default swap instrument."""
+class CDSPayReceive:
+    """Pay/receive indicator for CDS premium leg."""
+    PAY_PROTECTION: "CDSPayReceive"
+    RECEIVE_PROTECTION: "CDSPayReceive"
 
-    def __init__(
-        self,
+    @classmethod
+    def from_name(cls, name: str) -> "CDSPayReceive": ...
+    @property
+    def name(self) -> str: ...
+
+class CreditDefaultSwap:
+    """Credit default swap wrapper with helper constructors."""
+
+    @classmethod
+    def buy_protection(
+        cls,
         instrument_id: str,
         notional: Money,
-        entity: str,
-        start: date,
-        maturity: date,
         spread_bp: float,
-        recovery_rate: float,
-        currency: Currency,
+        start_date: date,
+        maturity: date,
         discount_curve: str,
-        hazard_curve: Optional[str] = None,
-    ) -> None:
-        """Create a credit default swap.
+        credit_curve: str,
+        *,
+        recovery_rate: Optional[float] = None,
+        settlement_delay: Optional[int] = None,
+    ) -> "CreditDefaultSwap":
+        """Create a CDS where the caller buys protection (pays premium, receives protection)."""
+        ...
 
-        Args:
-            instrument_id: Instrument identifier
-            notional: Notional amount
-            entity: Reference entity identifier
-            start: Start date
-            maturity: Maturity date
-            spread_bp: Spread in basis points
-            recovery_rate: Recovery rate
-            currency: Currency
-            discount_curve: Discount curve identifier
-            hazard_curve: Optional hazard curve identifier
-        """
+    @classmethod
+    def sell_protection(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        spread_bp: float,
+        start_date: date,
+        maturity: date,
+        discount_curve: str,
+        credit_curve: str,
+        *,
+        recovery_rate: Optional[float] = None,
+        settlement_delay: Optional[int] = None,
+    ) -> "CreditDefaultSwap":
+        """Create a CDS where the caller sells protection (receives premium)."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
+    def side(self) -> CDSPayReceive: ...
+    @property
     def notional(self) -> Money: ...
-    @property
-    def entity(self) -> str: ...
-    @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
     @property
     def spread_bp(self) -> float: ...
     @property
-    def recovery_rate(self) -> float: ...
-    @property
-    def currency(self) -> Currency: ...
-    @property
     def discount_curve(self) -> str: ...
     @property
-    def hazard_curve(self) -> Optional[str]: ...
+    def credit_curve(self) -> str: ...
+    @property
+    def recovery_rate(self) -> float: ...
+    @property
+    def settlement_delay(self) -> int: ...
+    @property
+    def start_date(self) -> date: ...
+    @property
+    def maturity(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

@@ -93,6 +93,7 @@ impl HestonModel {
     /// * `T`: Time to maturity (years)
     /// * `r`: Risk-free rate (continuous compounding)
     /// * `q`: Dividend yield (continuous compounding)
+    #[allow(non_snake_case)]
     pub fn price_european_call(&self, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
         // Heston pricing formula:
         // Call = S * e^{-qT} * P1 - K * e^{-rT} * P2
@@ -108,6 +109,7 @@ impl HestonModel {
     }
 
     /// Price a European put option using Put-Call Parity.
+    #[allow(non_snake_case)]
     pub fn price_european_put(&self, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
         let call = self.price_european_call(S, K, T, r, q)?;
         // Put = Call - S * e^{-qT} + K * e^{-rT}
@@ -116,6 +118,7 @@ impl HestonModel {
     }
 
     /// Calculate probabilities P1 and P2 via numerical integration.
+    #[allow(non_snake_case)]
     fn calculate_prob(&self, prob_num: u8, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
         // Integration limits and step
         // The integrand decays effectively; 100-200 is usually sufficient upper bound for standard params
@@ -143,6 +146,7 @@ impl HestonModel {
 
     /// Integrand for the probabilities.
     /// Re[ (e^{-i * phi * ln(K)} * psi(phi)) / (i * phi) ]
+    #[allow(clippy::too_many_arguments, non_snake_case)]
     fn integrand(&self, prob_num: u8, phi: f64, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
         let i_complex = Complex::new(0.0, 1.0);
         let log_k = K.ln();
@@ -156,6 +160,7 @@ impl HestonModel {
     /// Heston characteristic function.
     /// 
     /// Returns $\psi(\phi)$ for the log-price.
+    #[allow(non_snake_case)]
     fn characteristic_function(&self, prob_num: u8, phi: f64, S: f64, T: f64, r: f64, q: f64) -> Result<Complex<f64>> {
         let kappa = self.params.kappa;
         let theta = self.params.theta;
@@ -196,8 +201,11 @@ mod tests {
         // As sigma (vol of vol) -> 0, Heston should converge to Black-Scholes
         // We set kappa high to force v to theta quickly, or just v0=theta and sigma=0
         
+        #[allow(non_snake_case)]
         let S = 100.0;
+        #[allow(non_snake_case)]
         let K = 100.0;
+        #[allow(non_snake_case)]
         let T = 1.0;
         let r = 0.05;
         let q = 0.0;
@@ -233,8 +241,11 @@ mod tests {
         // Parameters: S=100, K=100, T=0.5, r=0.03, q=0.0
         // v0=0.04, kappa=2.0, theta=0.04, sigma=0.3, rho=-0.5
         
+        #[allow(non_snake_case)]
         let S = 100.0;
+        #[allow(non_snake_case)]
         let K = 100.0;
+        #[allow(non_snake_case)]
         let T = 0.5;
         let r = 0.03;
         let q = 0.0;

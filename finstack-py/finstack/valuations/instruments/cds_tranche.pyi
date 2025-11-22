@@ -3,25 +3,35 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
+from ...core.dates.daycount import DayCount
+from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
 class CdsTranche:
-    """CDS tranche instrument."""
+    """CDS tranche wrapper exposing a simplified constructor."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
+        index_name: str,
+        series: int,
+        attach_pct: float,
+        detach_pct: float,
         notional: Money,
-        attachment_point: float,
-        detachment_point: float,
-        start: date,
         maturity: date,
-        spread_bp: float,
-        currency: Currency,
+        running_coupon_bp: float,
         discount_curve: str,
-    ) -> None:
-        """Create a CDS tranche."""
+        credit_index_curve: str,
+        *,
+        side: Optional[str] = "buy_protection",
+        payments_per_year: Optional[int] = 4,
+        day_count: Optional[DayCount] = None,
+        business_day_convention: Optional[BusinessDayConvention] = None,
+        calendar: Optional[str] = None,
+        effective_date: Optional[date] = None,
+    ) -> "CdsTranche":
+        """Create a CDS tranche referencing a credit index."""
         ...
 
     @property
@@ -29,19 +39,17 @@ class CdsTranche:
     @property
     def notional(self) -> Money: ...
     @property
-    def attachment_point(self) -> float: ...
+    def attach_pct(self) -> float: ...
     @property
-    def detachment_point(self) -> float: ...
+    def detach_pct(self) -> float: ...
     @property
-    def start(self) -> date: ...
+    def running_coupon_bp(self) -> float: ...
     @property
     def maturity(self) -> date: ...
     @property
-    def spread_bp(self) -> float: ...
-    @property
-    def currency(self) -> Currency: ...
-    @property
     def discount_curve(self) -> str: ...
+    @property
+    def credit_index_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

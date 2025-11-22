@@ -4,15 +4,27 @@ from typing import Optional
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
+from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
 class FxSpot:
-    """FX spot instrument."""
+    """FX spot instrument exchanging base currency for quote currency."""
 
-    def __init__(
-        self, instrument_id: str, base_currency: Currency, quote_currency: Currency, quantity: float, as_of: date
-    ) -> None:
-        """Create an FX spot instrument."""
+    @classmethod
+    def create(
+        cls,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        *,
+        settlement: Optional[date] = None,
+        settlement_lag_days: Optional[int] = None,
+        spot_rate: Optional[float] = None,
+        notional: Optional[Money] = None,
+        bdc: Optional[BusinessDayConvention] = None,
+        calendar: Optional[str] = None,
+    ) -> "FxSpot":
+        """Create an FX spot position with optional settlement overrides."""
         ...
 
     @property
@@ -22,29 +34,71 @@ class FxSpot:
     @property
     def quote_currency(self) -> Currency: ...
     @property
-    def quantity(self) -> float: ...
+    def notional(self) -> Optional[Money]: ...
     @property
-    def as_of(self) -> date: ...
+    def spot_rate(self) -> Optional[float]: ...
+    @property
+    def settlement(self) -> Optional[date]: ...
+    @property
+    def settlement_lag_days(self) -> Optional[int]: ...
+    @property
+    def business_day_convention(self) -> str: ...
+    @property
+    def calendar_id(self) -> Optional[str]: ...
+    @property
+    def pair_name(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
 class FxOption:
-    """FX option instrument."""
+    """Garman–Kohlhagen FX option with European exercise."""
 
-    def __init__(
-        self,
+    @classmethod
+    def european_call(
+        cls,
         instrument_id: str,
         base_currency: Currency,
         quote_currency: Currency,
-        quantity: float,
         strike: float,
         expiry: date,
-        option_type: str,  # "call" or "put"
-        as_of: date,
-    ) -> None:
-        """Create an FX option instrument."""
+        notional: Money,
+        vol_surface: str,
+    ) -> "FxOption":
+        """Create a European call option with explicit volatility surface."""
+        ...
+
+    @classmethod
+    def european_put(
+        cls,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        strike: float,
+        expiry: date,
+        notional: Money,
+        vol_surface: str,
+    ) -> "FxOption":
+        """Create a European put option with explicit volatility surface."""
+        ...
+
+    @classmethod
+    def builder(
+        cls,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        strike: float,
+        expiry: date,
+        notional: Money,
+        domestic_curve: str,
+        foreign_curve: str,
+        vol_surface: str,
+        *,
+        settlement: Optional[str] = "cash",
+    ) -> "FxOption":
+        """Create an FX option with explicit domestic/foreign curves and vol surface."""
         ...
 
     @property
@@ -54,7 +108,7 @@ class FxOption:
     @property
     def quote_currency(self) -> Currency: ...
     @property
-    def quantity(self) -> float: ...
+    def notional(self) -> Money: ...
     @property
     def strike(self) -> float: ...
     @property
@@ -62,26 +116,39 @@ class FxOption:
     @property
     def option_type(self) -> str: ...
     @property
-    def as_of(self) -> date: ...
+    def exercise_style(self) -> str: ...
+    @property
+    def settlement(self) -> str: ...
+    @property
+    def domestic_curve(self) -> str: ...
+    @property
+    def foreign_curve(self) -> str: ...
+    @property
+    def vol_surface(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
 class FxSwap:
-    """FX swap instrument."""
+    """FX swap exchanging notionals on near and far legs."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
         base_currency: Currency,
         quote_currency: Currency,
-        quantity: float,
+        notional: Money,
         near_date: date,
         far_date: date,
-        as_of: date,
-    ) -> None:
-        """Create an FX swap instrument."""
+        domestic_curve: str,
+        foreign_curve: str,
+        *,
+        near_rate: Optional[float] = None,
+        far_rate: Optional[float] = None,
+    ) -> "FxSwap":
+        """Create an FX swap specifying near/far legs and associated curves."""
         ...
 
     @property
@@ -91,13 +158,19 @@ class FxSwap:
     @property
     def quote_currency(self) -> Currency: ...
     @property
-    def quantity(self) -> float: ...
+    def base_notional(self) -> Money: ...
     @property
     def near_date(self) -> date: ...
     @property
     def far_date(self) -> date: ...
     @property
-    def as_of(self) -> date: ...
+    def near_rate(self) -> Optional[float]: ...
+    @property
+    def far_rate(self) -> Optional[float]: ...
+    @property
+    def domestic_curve(self) -> str: ...
+    @property
+    def foreign_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

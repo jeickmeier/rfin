@@ -67,9 +67,10 @@ impl PyEquityOption {
         notional: Bound<'_, PyAny>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let expiry_date = py_to_date(&expiry)?;
-        let notional_money = extract_money(&notional)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let expiry_date = py_to_date(&expiry).context("expiry")?;
+        let notional_money = extract_money(&notional).context("notional")?;
         let contract = contract_size.unwrap_or(1.0);
         Ok(Self::new(EquityOption::european_call(
             id.into_string(),
@@ -109,9 +110,10 @@ impl PyEquityOption {
         notional: Bound<'_, PyAny>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let expiry_date = py_to_date(&expiry)?;
-        let notional_money = extract_money(&notional)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let expiry_date = py_to_date(&expiry).context("expiry")?;
+        let notional_money = extract_money(&notional).context("notional")?;
         let contract = contract_size.unwrap_or(1.0);
         Ok(Self::new(EquityOption::european_put(
             id.into_string(),
@@ -157,12 +159,13 @@ impl PyEquityOption {
     ) -> PyResult<Self> {
         use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
         use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
+        use crate::errors::PyContext;
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let expiry_date = py_to_date(&expiry)?;
-        let notional_money = extract_money(&notional)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let vol_surface_id = vol_surface.extract::<&str>()?;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let expiry_date = py_to_date(&expiry).context("expiry")?;
+        let notional_money = extract_money(&notional).context("notional")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
 
         let mut underlying =
             EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());

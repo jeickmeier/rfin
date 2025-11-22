@@ -83,21 +83,22 @@ impl PyInterestRateFuture {
         delivery_months: Option<u8>,
         convexity_adjustment: Option<f64>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let expiry_date = py_to_date(&expiry)?;
-        let fixing = py_to_date(&fixing_date)?;
-        let start = py_to_date(&period_start)?;
-        let end = py_to_date(&period_end)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let expiry_date = py_to_date(&expiry).context("expiry")?;
+        let fixing = py_to_date(&fixing_date).context("fixing_date")?;
+        let start = py_to_date(&period_start).context("period_start")?;
+        let end = py_to_date(&period_end).context("period_end")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
         let day_count_value = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract()?;
+            let DayCountArg(value) = obj.extract().context("day_count")?;
             value
         } else {
             DayCount::Act360
         };
-        let position_value = parse_position(position)?;
+        let position_value = parse_position(position).context("position")?;
 
         let mut specs = FutureContractSpecs::default();
         if let Some(face) = face_value {

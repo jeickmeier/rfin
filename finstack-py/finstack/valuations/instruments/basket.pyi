@@ -1,38 +1,22 @@
 """Basket instrument."""
 
-from typing import Optional, List
-from datetime import date
-from ...core.money import Money
-from ...core.currency import Currency
+from typing import Union, Dict, Any
 from ..common import InstrumentType
 
 class Basket:
-    """Basket instrument."""
+    """Basket instrument wrapper parsed from JSON definitions."""
 
-    def __init__(
-        self,
-        instrument_id: str,
-        notional: Money,
-        constituents: List[str],
-        weights: List[float],
-        as_of: date,
-        currency: Currency,
-    ) -> None:
-        """Create a basket instrument."""
+    @classmethod
+    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "Basket":
+        """Parse a basket definition from a JSON string or dictionary."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize the basket definition to a JSON string."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
-    @property
-    def notional(self) -> Money: ...
-    @property
-    def constituents(self) -> List[str]: ...
-    @property
-    def weights(self) -> List[float]: ...
-    @property
-    def as_of(self) -> date: ...
-    @property
-    def currency(self) -> Currency: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

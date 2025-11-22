@@ -3,21 +3,33 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
+from ...core.dates.daycount import DayCount
 from ..common import InstrumentType
 
 class InterestRateFuture:
-    """Interest rate future instrument."""
+    """Interest rate future wrapper exposing a convenience constructor."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
         notional: Money,
-        start: date,
-        maturity: date,
-        rate: float,
-        currency: str,
+        quoted_price: float,
+        expiry: date,
+        fixing_date: date,
+        period_start: date,
+        period_end: date,
         discount_curve: str,
-    ) -> None:
+        forward_curve: str,
+        *,
+        position: Optional[str] = "long",
+        day_count: Optional[DayCount] = None,
+        face_value: float = 1_000_000.0,
+        tick_size: float = 0.0025,
+        tick_value: Optional[float] = None,
+        delivery_months: int = 3,
+        convexity_adjustment: Optional[float] = None,
+    ) -> "InterestRateFuture":
         """Create an interest rate future."""
         ...
 
@@ -26,15 +38,7 @@ class InterestRateFuture:
     @property
     def notional(self) -> Money: ...
     @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
-    @property
-    def rate(self) -> float: ...
-    @property
-    def currency(self) -> str: ...
-    @property
-    def discount_curve(self) -> str: ...
+    def quoted_price(self) -> float: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

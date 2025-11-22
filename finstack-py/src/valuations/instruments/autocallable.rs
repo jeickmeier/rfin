@@ -72,28 +72,29 @@ impl PyAutocallable {
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use finstack_core::dates::DayCount;
+        use crate::errors::PyContext;
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         // Parse observation dates
         let mut obs_dates = Vec::new();
         for item in observation_dates.iter() {
-            obs_dates.push(py_to_date(&item)?);
+            obs_dates.push(py_to_date(&item).context("observation_dates")?);
         }
 
         // Parse autocall barriers
         let mut barriers = Vec::new();
         for item in autocall_barriers.iter() {
-            barriers.push(item.extract::<f64>()?);
+            barriers.push(item.extract::<f64>().context("autocall_barriers")?);
         }
 
         // Parse coupons
         let mut coupon_rates = Vec::new();
         for item in coupons.iter() {
-            coupon_rates.push(item.extract::<f64>()?);
+            coupon_rates.push(item.extract::<f64>().context("coupons")?);
         }
 
         // Parse final payoff type from dict or string
@@ -101,7 +102,7 @@ impl PyAutocallable {
             let py_type_val = dict
                 .get_item("type")?
                 .ok_or_else(|| PyValueError::new_err("Missing 'type' key in final_payoff_type"))?;
-            let py_type = py_type_val.extract::<&str>()?;
+            let py_type = py_type_val.extract::<&str>().context("final_payoff_type.type")?;
 
             match py_type.to_lowercase().as_str() {
                 "capital_protection" => {
@@ -110,21 +111,21 @@ impl PyAutocallable {
                         .ok_or_else(|| {
                             PyValueError::new_err("Missing 'floor' for capital_protection")
                         })?
-                        .extract::<f64>()?;
+                        .extract::<f64>().context("final_payoff_type.floor")?;
                     FinalPayoffType::CapitalProtection { floor }
                 }
                 "participation" => {
                     let rate = dict
                         .get_item("rate")?
                         .ok_or_else(|| PyValueError::new_err("Missing 'rate' for participation"))?
-                        .extract::<f64>()?;
+                        .extract::<f64>().context("final_payoff_type.rate")?;
                     FinalPayoffType::Participation { rate }
                 }
                 "knock_in_put" => {
                     let strike = dict
                         .get_item("strike")?
                         .ok_or_else(|| PyValueError::new_err("Missing 'strike' for knock_in_put"))?
-                        .extract::<f64>()?;
+                        .extract::<f64>().context("final_payoff_type.strike")?;
                     FinalPayoffType::KnockInPut { strike }
                 }
                 other => {

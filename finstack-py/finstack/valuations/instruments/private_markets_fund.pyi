@@ -1,47 +1,33 @@
 """Private markets fund instrument."""
 
-from typing import Optional
+from typing import Optional, Dict, Any, List, Tuple, Union
 from datetime import date
 from ...core.money import Money
 from ...core.currency import Currency
 from ..common import InstrumentType
 
 class PrivateMarketsFund:
-    """Private markets fund instrument."""
+    """Private markets fund instrument wrapper parsed from JSON definitions."""
 
-    def __init__(
-        self,
-        instrument_id: str,
-        notional: Money,
-        fund_type: str,
-        start: date,
-        maturity: date,
-        management_fee_bp: float,
-        performance_fee_bp: float,
-        currency: Currency,
-        discount_curve: str,
-    ) -> None:
-        """Create a private markets fund instrument."""
+    @classmethod
+    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "PrivateMarketsFund":
+        """Create a private markets fund from JSON string or dictionary."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize the fund to a JSON string."""
+        ...
+
+    def lp_cashflows(self) -> List[Tuple[date, Money]]:
+        """Calculate LP cashflows."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
-    def notional(self) -> Money: ...
-    @property
-    def fund_type(self) -> str: ...
-    @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
-    @property
-    def management_fee_bp(self) -> float: ...
-    @property
-    def performance_fee_bp(self) -> float: ...
-    @property
     def currency(self) -> Currency: ...
     @property
-    def discount_curve(self) -> str: ...
+    def discount_curve(self) -> Optional[str]: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

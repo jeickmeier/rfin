@@ -28,7 +28,8 @@ fn parse_call_put_schedule(
     let mut schedule = CallPutSchedule::default();
     if let Some(list) = calls {
         for (date_obj, pct) in list {
-            let date = py_to_date(&date_obj)?;
+            use crate::errors::PyContext;
+            let date = py_to_date(&date_obj).context("call_schedule date")?;
             schedule.calls.push(CallPut {
                 date,
                 price_pct_of_par: pct,
@@ -37,7 +38,8 @@ fn parse_call_put_schedule(
     }
     if let Some(list) = puts {
         for (date_obj, pct) in list {
-            let date = py_to_date(&date_obj)?;
+            use crate::errors::PyContext;
+            let date = py_to_date(&date_obj).context("put_schedule date")?;
             schedule.puts.push(CallPut {
                 date,
                 price_pct_of_par: pct,
@@ -136,7 +138,8 @@ impl PyConversionPolicy {
     #[classmethod]
     #[pyo3(text_signature = "(cls, conversion_date)")]
     fn mandatory_on(_cls: &Bound<'_, PyType>, conversion_date: Bound<'_, PyAny>) -> PyResult<Self> {
-        let date = py_to_date(&conversion_date)?;
+        use crate::errors::PyContext;
+        let date = py_to_date(&conversion_date).context("conversion_date")?;
         Ok(Self::new(ConversionPolicy::MandatoryOn(date)))
     }
 
@@ -147,8 +150,9 @@ impl PyConversionPolicy {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        use crate::errors::PyContext;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         if end_date < start_date {
             return Err(PyValueError::new_err(
                 "Conversion window end must be on/after start",
@@ -380,11 +384,12 @@ impl PyConvertibleBond {
         fixed_coupon: Option<&PyFixedCouponSpec>,
         floating_coupon: Option<&PyFloatingCouponSpec>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
         if fixed_coupon.is_some() && floating_coupon.is_some() {
             return Err(PyValueError::new_err(

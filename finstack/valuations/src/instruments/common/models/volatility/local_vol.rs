@@ -23,10 +23,6 @@ pub trait Interp2D: Send + Sync + Debug {
 pub struct BilinearInterp {
     xs: Vec<f64>,
     ys: Vec<f64>,
-    z: Vec<Vec<f64>>, // Row-major: z[x_idx][y_idx] -> actually usually z[y_idx][x_idx] or flat. Let's use flat or nested.
-                      // Let's use flat vector for better cache locality usually, but nested is easier to implement quickly.
-                      // Wait, the builder constructed `local_vols` as flat.
-                      // Let's use flat: z[i * ny + j] where i is x index, j is y index.
     z_flat: Vec<f64>,
 }
 
@@ -46,20 +42,24 @@ impl BilinearInterp {
         }
         // Verify sorted
         // (Omitted for brevity, assume sorted from builder)
-        Ok(Self { xs, ys, z_flat, z: vec![] })
+        Ok(Self { xs, ys, z_flat })
     }
 }
 
 impl Interp2D for BilinearInterp {
     fn interpolate(&self, x: f64, y: f64) -> Result<f64> {
         // Find indices
-        let i = match self.xs.binary_search_by(|v| v.partial_cmp(&x).unwrap()) {
+        let i = match self.xs.binary_search_by(|v| {
+            v.partial_cmp(&x).expect("NaN or infinite values not allowed in interpolation")
+        }) {
             Ok(idx) => idx,
             Err(idx) => {
                 if idx == 0 { 0 } else if idx >= self.xs.len() { self.xs.len() - 2 } else { idx - 1 }
             }
         };
-        let j = match self.ys.binary_search_by(|v| v.partial_cmp(&y).unwrap()) {
+        let j = match self.ys.binary_search_by(|v| {
+            v.partial_cmp(&y).expect("NaN or infinite values not allowed in interpolation")
+        }) {
             Ok(idx) => idx,
             Err(idx) => {
                 if idx == 0 { 0 } else if idx >= self.ys.len() { self.ys.len() - 2 } else { idx - 1 }
@@ -142,11 +142,12 @@ impl LocalVolBuilder {
     ///
     /// # Arguments
     /// * `implied_vol`: Function/Closure returning implied vol $\sigma(K, T)$
-    /// * `S0`: Current spot price
+    /// * `s0`: Current spot price
     /// * `r`: Risk-free rate (continuous)
     /// * `q`: Dividend yield (continuous)
     /// * `strikes`: Grid of strikes for the local vol surface
     /// * `times`: Grid of times for the local vol surface
+    #[allow(non_snake_case)]
     pub fn from_implied_vol<F>(
         implied_vol: F,
         S0: f64,
@@ -183,11 +184,14 @@ impl LocalVolBuilder {
                 let c_k_minus = black_scholes_price(&implied_vol, S0, k - dk, t, r, q)?;
                 let c_k = black_scholes_price(&implied_vol, S0, k, t, r, q)?;
                 
+                #[allow(non_snake_case)]
                 let dC_dK = (c_k_plus - c_k_minus) / (2.0 * dk);
+                #[allow(non_snake_case)]
                 let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
                 
                 // Forward difference for T
                 let c_t_plus = black_scholes_price(&implied_vol, S0, k, t + dt, r, q)?;
+                #[allow(non_snake_case)]
                 let dC_dT = (c_t_plus - c_k) / dt;
 
                 // Dupire Formula
@@ -210,11 +214,16 @@ impl LocalVolBuilder {
         
         let surface = BilinearInterp::new(times.to_vec(), strikes.to_vec(), local_vols)?;
         
-        Ok(LocalVolSurface::new(Date::from_ordinal_date(2024, 1).unwrap(), Arc::new(surface)))
+        Ok(LocalVolSurface::new(
+            Date::from_ordinal_date(2024, 1)
+                .expect("Invalid date: 2024-01-01 should be valid"),
+            Arc::new(surface)
+        ))
     }
 }
 
 /// Helper to price Call using Black-Scholes with implied vol
+#[allow(non_snake_case)]
 fn black_scholes_price<F>(implied_vol_fn: &F, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64>
 where
     F: Fn(f64, f64) -> Result<f64>,
@@ -245,6 +254,7 @@ mod tests {
         let const_vol = 0.20;
         let implied_vol_fn = |_: f64, _: f64| Ok(const_vol);
         
+        #[allow(non_snake_case)]
         let S0 = 100.0;
         let r = 0.05;
         let q = 0.0;

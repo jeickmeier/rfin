@@ -62,16 +62,17 @@ impl PyRangeAccrual {
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use finstack_core::dates::DayCount;
+        use crate::errors::PyContext;
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>()?);
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         // Parse observation dates
         let mut obs_dates = Vec::new();
         for item in observation_dates.iter() {
-            obs_dates.push(py_to_date(&item)?);
+            obs_dates.push(py_to_date(&item).context("observation_dates")?);
         }
 
         let mut builder = RangeAccrual::builder();

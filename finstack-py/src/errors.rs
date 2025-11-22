@@ -297,6 +297,27 @@ pub(crate) fn core_to_py(err: CoreError) -> PyErr {
     map_error(err)
 }
 
+// =============================================================================
+// Error Context Trait
+// =============================================================================
+
+/// Trait to add context to `PyResult` errors.
+///
+/// This allows adding field-specific information to generic PyO3 errors.
+pub trait PyContext<T> {
+    /// Wrap the error with additional context message.
+    fn context(self, msg: &str) -> PyResult<T>;
+}
+
+impl<T> PyContext<T> for PyResult<T> {
+    fn context(self, msg: &str) -> PyResult<T> {
+        self.map_err(|e| {
+            use pyo3::exceptions::PyValueError;
+            PyValueError::new_err(format!("Invalid input for field '{}': {}", msg, e))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

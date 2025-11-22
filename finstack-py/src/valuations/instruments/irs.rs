@@ -138,10 +138,11 @@ impl PyInterestRateSwap {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
         let swap = InterestRateSwap::create_usd_swap(
             id,
@@ -182,10 +183,11 @@ impl PyInterestRateSwap {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
         let swap = InterestRateSwap::create_usd_swap(
             id,
@@ -272,13 +274,14 @@ impl PyInterestRateSwap {
         stub: Option<crate::core::dates::schedule::PyStubKind>,
     ) -> PyResult<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use crate::errors::PyContext;
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>()?);
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
 
         let side_value = side
             .parse::<PayReceive>()

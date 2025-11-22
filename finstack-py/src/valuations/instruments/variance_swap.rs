@@ -178,16 +178,17 @@ impl PyVarianceSwap {
                 "Strike variance must be non-negative",
             ));
         }
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let maturity_date = py_to_date(&maturity)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
         if maturity_date <= start {
             return Err(PyValueError::new_err(
                 "Maturity must be after observation start",
             ));
         }
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let method = realized_method
             .map(|m| m.inner)
             .unwrap_or(RealizedVarMethod::CloseToClose);

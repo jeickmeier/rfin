@@ -395,12 +395,13 @@ fn construct_cds(
     recovery_rate: Option<f64>,
     settlement_delay: Option<u16>,
 ) -> PyResult<PyCreditDefaultSwap> {
-    let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-    let amt = extract_money(&notional)?;
-    let start = py_to_date(&start_date)?;
-    let end = py_to_date(&maturity)?;
-    let disc = CurveId::new(discount_curve.extract::<&str>()?);
-    let credit = credit_curve.extract::<&str>()?;
+    use crate::errors::PyContext;
+    let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+    let amt = extract_money(&notional).context("notional")?;
+    let start = py_to_date(&start_date).context("start_date")?;
+    let end = py_to_date(&maturity).context("maturity")?;
+    let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+    let credit = credit_curve.extract::<&str>().context("credit_curve")?;
 
     let builder_result = match side {
         PayReceive::PayFixed => {

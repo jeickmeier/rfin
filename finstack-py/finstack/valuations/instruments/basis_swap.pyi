@@ -3,51 +3,50 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.dates.schedule import Frequency
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
-class BasisSwap:
-    """Basis swap instrument."""
-
+class BasisSwapLeg:
+    """Basis swap leg specification."""
     def __init__(
         self,
+        forward_curve: str,
+        *,
+        frequency: Optional[str] = "quarterly",
+        day_count: Optional[DayCount] = None,
+        business_day_convention: Optional[BusinessDayConvention] = None,
+        spread: float = 0.0,
+    ) -> None: ...
+    @property
+    def forward_curve(self) -> str: ...
+    @property
+    def spread(self) -> float: ...
+
+class BasisSwap:
+    """Basis swap wrapper with convenience constructor."""
+
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
         notional: Money,
-        start: date,
+        start_date: date,
         maturity: date,
-        primary_index: str,
-        reference_index: str,
-        spread_bp: float,
-        primary_frequency: Frequency,
-        reference_frequency: Frequency,
-        primary_day_count: DayCount,
-        reference_day_count: DayCount,
-        primary_bdc: BusinessDayConvention,
-        reference_bdc: BusinessDayConvention,
-        currency: str,
+        primary_leg: BasisSwapLeg,
+        reference_leg: BasisSwapLeg,
         discount_curve: str,
-    ) -> None:
-        """Create a basis swap."""
+        *,
+        calendar: Optional[str] = None,
+        stub: Optional[str] = "none",
+    ) -> "BasisSwap":
+        """Create a floating-for-floating basis swap with two legs."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
     def notional(self) -> Money: ...
-    @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
-    @property
-    def primary_index(self) -> str: ...
-    @property
-    def reference_index(self) -> str: ...
-    @property
-    def spread_bp(self) -> float: ...
-    @property
-    def currency(self) -> str: ...
     @property
     def discount_curve(self) -> str: ...
     @property

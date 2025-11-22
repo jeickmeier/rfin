@@ -3,24 +3,29 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
 from ..common import InstrumentType
 
 class InflationSwap:
-    """Inflation swap instrument."""
+    """Zero-coupon inflation swap binding."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
         notional: Money,
-        start: date,
-        maturity: date,
         fixed_rate: float,
-        inflation_index: str,
-        currency: Currency,
+        start_date: date,
+        maturity: date,
         discount_curve: str,
-    ) -> None:
-        """Create an inflation swap."""
+        inflation_index: Optional[str] = None,
+        *,
+        side: Optional[str] = "pay_fixed",
+        day_count: Optional[str] = "act_act",
+        inflation_index_id: Optional[str] = None,
+        lag_override: Optional[str] = None,
+        inflation_curve: Optional[str] = None,
+    ) -> "InflationSwap":
+        """Create an inflation swap fixing against the supplied inflation index."""
         ...
 
     @property
@@ -28,17 +33,9 @@ class InflationSwap:
     @property
     def notional(self) -> Money: ...
     @property
-    def start(self) -> date: ...
-    @property
-    def maturity(self) -> date: ...
-    @property
     def fixed_rate(self) -> float: ...
     @property
-    def inflation_index(self) -> str: ...
-    @property
-    def currency(self) -> Currency: ...
-    @property
-    def discount_curve(self) -> str: ...
+    def maturity(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

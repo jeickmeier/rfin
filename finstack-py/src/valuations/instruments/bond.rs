@@ -65,11 +65,12 @@ impl PyBond {
         maturity: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         Ok(Self::new(Bond::fixed(
             id,
             amt,
@@ -108,10 +109,11 @@ impl PyBond {
         issue: Bound<'_, PyAny>,
         maturity: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
         use finstack_valuations::instruments::common::parameters::BondConvention;
         Ok(Self::new(Bond::with_convention(
             id,
@@ -148,11 +150,12 @@ impl PyBond {
         maturity: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         Ok(Self::new(Bond::fixed(
             id,
             amt,
@@ -219,11 +222,12 @@ impl PyBond {
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
         // Build the cashflow_spec from the provided parameters
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
@@ -363,8 +367,9 @@ impl PyBond {
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let mut bond = finstack_valuations::instruments::bond::Bond::from_cashflows(
             id,
             schedule.inner_clone(),
@@ -379,7 +384,7 @@ impl PyBond {
                 CouponType, FloatingCouponSpec, FloatingRateSpec,
             };
 
-            let forward_curve_id = CurveId::new(fwd.extract::<&str>()?);
+            let forward_curve_id = CurveId::new(fwd.extract::<&str>().context("forward_curve")?);
             let freq = bond.cashflow_spec.frequency();
             let dc = bond.cashflow_spec.day_count();
 
@@ -424,12 +429,13 @@ impl PyBond {
         forward_curve: Bound<'_, PyAny>,
         margin_bp: f64,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let amt = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let disc = CurveId::new(discount_curve.extract::<&str>()?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let amt = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
 
         use finstack_core::dates::{DayCount, Frequency};
 

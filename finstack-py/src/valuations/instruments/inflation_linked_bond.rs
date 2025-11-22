@@ -122,22 +122,23 @@ impl PyInflationLinkedBond {
         deflation_protection: Option<&str>,
         calendar: Option<&str>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let issue_date = py_to_date(&issue)?;
-        let maturity_date = py_to_date(&maturity)?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>()?);
-        let inflation_index_id = CurveId::new(inflation_curve.extract::<&str>()?);
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let inflation_index_id = CurveId::new(inflation_curve.extract::<&str>().context("inflation_curve")?);
 
-        let indexation_method = parse_indexation_method(indexation)?;
-        let freq = crate::valuations::common::parse_frequency_label(frequency)?;
+        let indexation_method = parse_indexation_method(indexation).context("indexation")?;
+        let freq = crate::valuations::common::parse_frequency_label(frequency).context("frequency")?;
         let dc = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract()?;
+            let DayCountArg(value) = obj.extract().context("day_count")?;
             value
         } else {
             DayCount::ActAct
         };
-        let deflation = parse_deflation_protection(deflation_protection)?;
+        let deflation = parse_deflation_protection(deflation_protection).context("deflation_protection")?;
 
         let params = InflationLinkedBondParams::new(
             notional_money,

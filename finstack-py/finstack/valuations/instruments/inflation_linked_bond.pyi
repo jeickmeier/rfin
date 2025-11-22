@@ -3,24 +3,31 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
+from ...core.dates.daycount import DayCount
 from ..common import InstrumentType
 
 class InflationLinkedBond:
-    """Inflation linked bond instrument."""
+    """Inflation-linked bond binding with a convenience constructor."""
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         instrument_id: str,
         notional: Money,
+        real_coupon: float,
         issue: date,
         maturity: date,
-        coupon_rate: float,
-        inflation_index: str,
-        currency: Currency,
+        base_index: float,
         discount_curve: str,
-    ) -> None:
-        """Create an inflation linked bond."""
+        inflation_curve: str,
+        *,
+        indexation: Optional[str] = "tips",
+        frequency: Optional[str] = "semi_annual",
+        day_count: Optional[DayCount] = None,
+        deflation_protection: Optional[str] = "maturity_only",
+        calendar: Optional[str] = None,
+    ) -> "InflationLinkedBond":
+        """Create an inflation-linked bond instrument using standard parameters."""
         ...
 
     @property
@@ -28,17 +35,13 @@ class InflationLinkedBond:
     @property
     def notional(self) -> Money: ...
     @property
-    def issue(self) -> date: ...
+    def real_coupon(self) -> float: ...
     @property
     def maturity(self) -> date: ...
     @property
-    def coupon_rate(self) -> float: ...
-    @property
-    def inflation_index(self) -> str: ...
-    @property
-    def currency(self) -> Currency: ...
-    @property
     def discount_curve(self) -> str: ...
+    @property
+    def inflation_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...

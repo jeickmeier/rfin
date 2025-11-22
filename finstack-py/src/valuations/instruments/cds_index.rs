@@ -107,13 +107,14 @@ impl PyCdsIndex {
         recovery_rate: Option<f64>,
         index_factor: Option<f64>,
     ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
-        let start = py_to_date(&start_date)?;
-        let end = py_to_date(&maturity)?;
-        let disc_curve = discount_curve.extract::<&str>()?;
-        let credit_curve_id = credit_curve.extract::<&str>()?;
-        let side_value = normalize_cds_side(side.unwrap_or("pay_protection"))?;
+        use crate::errors::PyContext;
+        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+        let notional_money = extract_money(&notional).context("notional")?;
+        let start = py_to_date(&start_date).context("start_date")?;
+        let end = py_to_date(&maturity).context("maturity")?;
+        let disc_curve = discount_curve.extract::<&str>().context("discount_curve")?;
+        let credit_curve_id = credit_curve.extract::<&str>().context("credit_curve")?;
+        let side_value = normalize_cds_side(side.unwrap_or("pay_protection")).context("side")?;
         let recovery = recovery_rate.unwrap_or(isda::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(

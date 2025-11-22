@@ -3,37 +3,63 @@
 from typing import Optional
 from datetime import date
 from ...core.money import Money
-from ...core.currency import Currency
+from ...core.dates.daycount import DayCount
+from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
-class Repo:
-    """Repo instrument."""
-
+class RepoCollateral:
+    """Collateral specification for Repo."""
     def __init__(
         self,
         instrument_id: str,
-        notional: Money,
-        start: date,
-        end: date,
-        rate: float,
-        currency: Currency,
+        quantity: float,
+        market_value_id: str,
+        *,
+        collateral_type: str = "general",
+        special_security_id: Optional[str] = None,
+        special_rate_adjust_bp: Optional[float] = None,
+    ) -> None: ...
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def quantity(self) -> float: ...
+    @property
+    def market_value_id(self) -> str: ...
+
+class Repo:
+    """Repo wrapper exposing a convenience constructor."""
+
+    @classmethod
+    def create(
+        cls,
+        instrument_id: str,
+        cash_amount: Money,
+        collateral: RepoCollateral,
+        repo_rate: float,
+        start_date: date,
+        maturity: date,
         discount_curve: str,
-    ) -> None:
+        *,
+        repo_type: str = "term",
+        haircut: float = 0.0,
+        day_count: Optional[DayCount] = None,
+        business_day_convention: Optional[BusinessDayConvention] = None,
+        calendar: Optional[str] = None,
+        triparty: bool = False,
+    ) -> "Repo":
         """Create a repo."""
         ...
 
     @property
     def instrument_id(self) -> str: ...
     @property
-    def notional(self) -> Money: ...
+    def cash_amount(self) -> Money: ...
     @property
-    def start(self) -> date: ...
+    def repo_rate(self) -> float: ...
     @property
-    def end(self) -> date: ...
+    def start_date(self) -> date: ...
     @property
-    def rate(self) -> float: ...
-    @property
-    def currency(self) -> Currency: ...
+    def maturity(self) -> date: ...
     @property
     def discount_curve(self) -> str: ...
     @property
