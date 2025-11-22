@@ -1,8 +1,23 @@
 //! Trait implementations for AsianOption
 
 use crate::instruments::asian_option::AsianOption;
-use crate::instruments::common::traits::EquityDependencies;
+use crate::instruments::common::pricing::HasDiscountCurve;
+use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
+
+impl CurveDependencies for AsianOption {
+    fn curve_dependencies(&self) -> InstrumentCurves {
+        InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
+impl HasDiscountCurve for AsianOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
 
 impl EquityDependencies for AsianOption {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {

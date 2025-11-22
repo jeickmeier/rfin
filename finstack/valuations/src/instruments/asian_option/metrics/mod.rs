@@ -54,7 +54,7 @@ pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
             instrument: "AsianOption",
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
-                (Rho, rho::RhoCalculator),
+                (Rho, rho::RhoCalculator::default()),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::AsianOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

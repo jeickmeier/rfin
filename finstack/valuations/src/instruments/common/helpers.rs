@@ -4,8 +4,8 @@
 //! function to assemble a `ValuationResult` with computed metrics.
 
 use crate::metrics::{standard_registry, MetricContext};
-use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::{scalars::MarketScalar, MarketContext};
 use finstack_core::money::Money;
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -121,4 +121,70 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
         }
     }
     Ok(())
+}
+
+/// Collect standard Black-Scholes inputs (spot, r, q, sigma, t) from market context.
+///
+/// Retrieves and calculates the 5 standard parameters required for Black-Scholes pricing:
+/// - Spot price (S)
+/// - Risk-free rate (r) for the period to expiry
+/// - Dividend/Continuous yield (q)
+/// - Volatility (sigma) at strike/maturity
+/// - Time to expiry (t) in years
+///
+/// # Arguments
+///
+/// * `spot_id` - ID of the spot price scalar
+/// * `discount_curve_id` - ID of the discount curve
+/// * `div_yield_id` - Optional ID of the dividend yield scalar (defaults to 0.0 if None)
+/// * `vol_surface_id` - ID of the volatility surface
+/// * `strike` - Strike price for volatility lookup
+/// * `expiry` - Expiry date
+/// * `day_count` - Day count convention for time calculation
+/// * `curves` - Market data context
+/// * `as_of` - Valuation date
+#[allow(clippy::too_many_arguments)]
+pub fn collect_black_scholes_inputs(
+    spot_id: &str,
+    discount_curve_id: &finstack_core::types::CurveId,
+    div_yield_id: Option<&finstack_core::types::CurveId>, // Changed to match Instrument fields often being CurveId or String
+    vol_surface_id: &str,
+    strike: f64,
+    expiry: Date,
+    day_count: DayCount,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
+    // Time to expiry
+    let t = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
+
+    // Risk-free rate (r) from zero rate at expiry
+    let disc_curve = curves.get_discount_ref(discount_curve_id.as_str())?;
+    let r = disc_curve.zero(t);
+
+    // Spot price (S)
+    let spot_scalar = curves.price(spot_id)?;
+    let spot = match spot_scalar {
+        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Price(m) => m.amount(),
+    };
+
+    // Dividend yield (q)
+    let q = if let Some(div_id) = div_yield_id {
+        match curves.price(div_id.as_str()) {
+            Ok(ms) => match ms {
+                MarketScalar::Unitless(v) => *v,
+                MarketScalar::Price(_) => 0.0,
+            },
+            Err(_) => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    // Volatility (sigma)
+    let vol_surface = curves.surface_ref(vol_surface_id)?;
+    let sigma = vol_surface.value_clamped(t, strike);
+
+    Ok((spot, r, q, sigma, t))
 }

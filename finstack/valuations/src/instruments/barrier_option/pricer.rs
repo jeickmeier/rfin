@@ -359,47 +359,11 @@ pub fn npv_with_lrm_greeks(
 
 // ========================= ANALYTICAL PRICER =========================
 
+use crate::instruments::common::helpers::collect_black_scholes_inputs;
 use crate::instruments::common::models::closed_form::barrier::{
     barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
     BarrierType as AnalyticalBarrierType,
 };
-
-/// Helper to collect inputs for barrier option pricing.
-fn collect_barrier_inputs(
-    inst: &BarrierOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
-    let t = inst
-        .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-    let r = disc_curve.zero(t);
-
-    let spot_scalar = curves.price(&inst.spot_id)?;
-    let spot = match spot_scalar {
-        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-    };
-
-    let q = if let Some(div_id) = &inst.div_yield_id {
-        match curves.price(div_id.as_str()) {
-            Ok(ms) => match ms {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-            },
-            Err(_) => 0.0,
-        }
-    } else {
-        0.0
-    };
-
-    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-    let sigma = vol_surface.value_clamped(t, inst.strike.amount());
-
-    Ok((spot, r, q, sigma, t))
-}
 
 /// Barrier option analytical pricer (continuous monitoring).
 pub struct BarrierOptionAnalyticalPricer;
@@ -435,8 +399,19 @@ impl Pricer for BarrierOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::BarrierOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t) = collect_barrier_inputs(barrier_opt, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        // Use standardized input collection
+        let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
+            &barrier_opt.spot_id,
+            &barrier_opt.discount_curve_id,
+            barrier_opt.div_yield_id.as_ref(),
+            &barrier_opt.vol_surface_id,
+            barrier_opt.strike.amount(),
+            barrier_opt.expiry,
+            barrier_opt.day_count,
+            market,
+            as_of,
+        )
+        .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(

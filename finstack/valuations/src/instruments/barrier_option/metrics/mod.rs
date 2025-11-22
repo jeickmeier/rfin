@@ -55,7 +55,7 @@ pub fn register_barrier_option_metrics(registry: &mut MetricRegistry) {
             instrument: "BarrierOption",
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
-                (Rho, rho::RhoCalculator),
+                (Rho, rho::RhoCalculator::default()),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::BarrierOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

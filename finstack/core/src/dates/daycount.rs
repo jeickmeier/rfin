@@ -97,6 +97,7 @@
 
 use crate::dates::date_extensions::DateExt;
 use core::cmp::Ordering;
+use smallvec::SmallVec;
 use time::{Date, Duration, Month};
 
 use crate::dates::date_extensions::BusinessDayIter;
@@ -713,11 +714,25 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
     let extended_start = extend_backward_for_coupon_period(start, freq);
     let extended_end = extend_forward_for_coupon_period(end, freq);
 
-    let schedule = crate::dates::ScheduleBuilder::new(extended_start, extended_end)
-        .frequency(freq)
-        .build()?;
+    // Optimization: Manually generate dates to avoid heap allocation of ScheduleBuilder
+    // Most ISMA calculations involve very few periods (often 1 or 2), so 16 is plenty.
+    let mut periods: SmallVec<[Date; 16]> = SmallVec::new();
+    let mut current = extended_start;
+    periods.push(current);
 
-    let periods: Vec<Date> = schedule.into_iter().collect();
+    while current < extended_end {
+        let next = match freq {
+            Frequency::Months(m) => current.add_months(m as i32),
+            Frequency::Days(d) => current + Duration::days(d as i64),
+        };
+
+        current = if next > extended_end {
+            extended_end
+        } else {
+            next
+        };
+        periods.push(current);
+    }
 
     // Find the periods that overlap with our [start, end) interval
     for window in periods.windows(2) {

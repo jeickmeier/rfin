@@ -375,30 +375,35 @@ impl MetricContext {
 
     /// Builds a default composite key like `base::p1[::p2[::p3]]...` using sanitized labels.
     fn default_composite_key(base: &MetricId, parts: &[&str]) -> MetricId {
-        let mut key = String::with_capacity(64);
+        // Calculate exact capacity needed
+        let base_len = base.as_str().len();
+        let separator_len = 2; // "::"
+        let parts_len: usize = parts.iter().map(|p| p.len() + separator_len).sum();
+
+        let mut key = String::with_capacity(base_len + parts_len);
         key.push_str(base.as_str());
+
         for p in parts {
             key.push_str("::");
-            key.push_str(&Self::sanitize_label(p));
+
+            let start_len = key.len();
+            let mut last_was_underscore = true; // Treat start as "underscore" to trim leading separators
+
+            for ch in p.chars() {
+                if ch.is_ascii_alphanumeric() {
+                    key.push(ch.to_ascii_lowercase());
+                    last_was_underscore = false;
+                } else if !last_was_underscore {
+                    key.push('_');
+                    last_was_underscore = true;
+                }
+            }
+
+            // Trim trailing underscore
+            if last_was_underscore && key.len() > start_len {
+                key.pop();
+            }
         }
         MetricId::custom(key)
-    }
-
-    fn sanitize_label(label: &str) -> String {
-        // Convert non-alphanumeric chars to underscores, lowercase, and collapse repeated underscores
-        label
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch.to_ascii_lowercase()
-                } else {
-                    '_'
-                }
-            })
-            .collect::<String>()
-            .split('_')
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<&str>>()
-            .join("_")
     }
 }

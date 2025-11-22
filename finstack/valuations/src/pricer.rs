@@ -524,6 +524,20 @@ impl PricerRegistry {
         self.pricers.get(&key).map(|p| p.as_ref())
     }
 
+    /// Helper to look up a pricer using distinct type and model.
+    ///
+    /// # Arguments
+    ///
+    /// * `inst` - Instrument type
+    /// * `model` - Model key
+    ///
+    /// # Returns
+    ///
+    /// `Some(&dyn Pricer)` if registered, `None` otherwise
+    pub fn get(&self, inst: InstrumentType, model: ModelKey) -> Option<&dyn Pricer> {
+        self.get_pricer(PricerKey::new(inst, model))
+    }
+
     /// Price an instrument using the registry dispatch system.
     ///
     /// Routes the instrument to the appropriate pricer based on its type
@@ -571,387 +585,472 @@ impl PricerRegistry {
 /// clearer dependency tracking compared to auto-registration. Registration here
 /// is explicit and centralized, not implicit or macro-driven.
 fn register_all_pricers(registry: &mut PricerRegistry) {
+    macro_rules! register_pricer {
+        ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
+            $registry.register_pricer(
+                PricerKey::new(InstrumentType::$inst, ModelKey::$model),
+                Box::new($pricer),
+            );
+        };
+    }
+
     // Bond pricers
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
-        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        Bond,
+        Discounting,
+        crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate),
-        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondHazardPricer),
+    register_pricer!(
+        registry,
+        Bond,
+        HazardRate,
+        crate::instruments::bond::pricing::pricer::SimpleBondHazardPricer
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Bond, ModelKey::Tree),
-        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondOasPricer),
+    register_pricer!(
+        registry,
+        Bond,
+        Tree,
+        crate::instruments::bond::pricing::pricer::SimpleBondOasPricer
     );
 
     // Interest Rate Swaps
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::IRS, ModelKey::Discounting),
-        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+    register_pricer!(
+        registry,
+        IRS,
+        Discounting,
+        crate::instruments::common::GenericDiscountingPricer::<
             crate::instruments::InterestRateSwap,
-        >::new(InstrumentType::IRS)),
+        >::new(InstrumentType::IRS)
     );
 
     // FRA
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FRA, ModelKey::Discounting),
-        Box::new(crate::instruments::fra::pricer::SimpleFraDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        FRA,
+        Discounting,
+        crate::instruments::fra::pricer::SimpleFraDiscountingPricer::default()
     );
 
     // Basis Swap
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::BasisSwap, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default(),
-        ),
+    register_pricer!(
+        registry,
+        BasisSwap,
+        Discounting,
+        crate::instruments::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default()
     );
 
     // Deposit
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting),
-        Box::new(crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        Deposit,
+        Discounting,
+        crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::default()
     );
 
     // Interest Rate Future
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting),
-        Box::new(crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        InterestRateFuture,
+        Discounting,
+        crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()
     );
 
     // Cap/Floor
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76),
-        Box::new(
-            crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default(),
-        ),
+    register_pricer!(
+        registry,
+        CapFloor,
+        Black76,
+        crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CapFloor, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        CapFloor,
+        Discounting,
+        crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // Swaption
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Swaption, ModelKey::Black76),
-        Box::new(crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::default()),
+    register_pricer!(
+        registry,
+        Swaption,
+        Black76,
+        crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Swaption, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        Swaption,
+        Discounting,
+        crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // CDS
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate),
-        Box::new(crate::instruments::common::GenericInstrumentPricer::cds()),
+    register_pricer!(
+        registry,
+        CDS,
+        HazardRate,
+        crate::instruments::common::GenericInstrumentPricer::cds()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDS, ModelKey::Discounting),
-        Box::new(crate::instruments::common::GenericInstrumentPricer::<
+    register_pricer!(
+        registry,
+        CDS,
+        Discounting,
+        crate::instruments::common::GenericInstrumentPricer::<
             crate::instruments::CreditDefaultSwap,
-        >::new(InstrumentType::CDS, ModelKey::Discounting)),
+        >::new(InstrumentType::CDS, ModelKey::Discounting)
     );
 
     // CDS Index
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::default()),
+    register_pricer!(
+        registry,
+        CDSIndex,
+        HazardRate,
+        crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSIndex, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        CDSIndex,
+        Discounting,
+        crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // CDS Tranche
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::default()),
+    register_pricer!(
+        registry,
+        CDSTranche,
+        HazardRate,
+        crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSTranche, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        CDSTranche,
+        Discounting,
+        crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // CDS Option
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76),
-        Box::new(crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::default()),
+    register_pricer!(
+        registry,
+        CDSOption,
+        Black76,
+        crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CDSOption, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        CDSOption,
+        Discounting,
+        crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // FX Spot
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting),
-        Box::new(crate::instruments::fx_spot::pricer::FxSpotPricer),
+    register_pricer!(
+        registry,
+        FxSpot,
+        Discounting,
+        crate::instruments::fx_spot::pricer::FxSpotPricer
     );
 
     // FX Swap
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        FxSwap,
+        Discounting,
+        crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default()
     );
 
     // FX Option
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FxOption, ModelKey::Black76),
-        Box::new(crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::default()),
+    register_pricer!(
+        registry,
+        FxOption,
+        Black76,
+        crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FxOption, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        FxOption,
+        Discounting,
+        crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // Equity
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Equity, ModelKey::Discounting),
-        Box::new(crate::instruments::equity::pricer::SimpleEquityDiscountingPricer),
+    register_pricer!(
+        registry,
+        Equity,
+        Discounting,
+        crate::instruments::equity::pricer::SimpleEquityDiscountingPricer
     );
 
     // Equity Option
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76),
-        Box::new(
-            crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::default(),
-        ),
+    register_pricer!(
+        registry,
+        EquityOption,
+        Black76,
+        crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::default()
     );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::EquityOption, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::with_model(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        EquityOption,
+        Discounting,
+        crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
-    // Equity Option - Heston Fourier (semi-analytical)
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::EquityOption, ModelKey::HestonFourier),
-        Box::new(crate::instruments::equity_option::pricer::EquityOptionHestonFourierPricer),
+    register_pricer!(
+        registry,
+        EquityOption,
+        HestonFourier,
+        crate::instruments::equity_option::pricer::EquityOptionHestonFourierPricer
     );
 
     // TRS (Total Return Swap)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::TRS, ModelKey::Discounting),
-        Box::new(crate::instruments::trs::pricing::pricer::SimpleTrsDiscountingPricer),
+    register_pricer!(
+        registry,
+        TRS,
+        Discounting,
+        crate::instruments::trs::pricing::pricer::SimpleTrsDiscountingPricer
     );
 
     // Convertible Bond
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting),
-        Box::new(crate::instruments::convertible::pricer::SimpleConvertibleDiscountingPricer),
+    register_pricer!(
+        registry,
+        Convertible,
+        Discounting,
+        crate::instruments::convertible::pricer::SimpleConvertibleDiscountingPricer
     );
 
     // Private Markets Fund
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::private_markets_fund::pricer::PrivateMarketsFundDiscountingPricer,
-        ),
+    register_pricer!(
+        registry,
+        PrivateMarketsFund,
+        Discounting,
+        crate::instruments::private_markets_fund::pricer::PrivateMarketsFundDiscountingPricer
     );
 
     // Inflation Swap
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::InflationSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        InflationSwap,
+        Discounting,
+        crate::instruments::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default()
     );
 
     // Inflation Linked Bond
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::InflationLinkedBond, ModelKey::Discounting),
-        Box::new(crate::instruments::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        InflationLinkedBond,
+        Discounting,
+        crate::instruments::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default()
     );
 
     // Variance Swap
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default(
-            ),
-        ),
+    register_pricer!(
+        registry,
+        VarianceSwap,
+        Discounting,
+        crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default()
     );
 
     // Repo
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Repo, ModelKey::Discounting),
-        Box::new(crate::instruments::repo::pricer::SimpleRepoDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        Repo,
+        Discounting,
+        crate::instruments::repo::pricer::SimpleRepoDiscountingPricer::default()
     );
 
     // Basket
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Basket, ModelKey::Discounting),
-        Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::default()),
+    register_pricer!(
+        registry,
+        Basket,
+        Discounting,
+        crate::instruments::basket::SimpleBasketDiscountingPricer::default()
     );
 
     // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::StructuredCredit, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::structured_credit::StructuredCreditDiscountingPricer::default(),
-        ),
+    register_pricer!(
+        registry,
+        StructuredCredit,
+        Discounting,
+        crate::instruments::structured_credit::StructuredCreditDiscountingPricer::default()
     );
 
     // Revolving Credit
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
-                ModelKey::Discounting,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        RevolvingCredit,
+        Discounting,
+        crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
+            ModelKey::Discounting
+        )
     );
     // Term Loan (including DDTL)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::TermLoan, ModelKey::Discounting),
-        Box::new(crate::instruments::term_loan::pricing::TermLoanDiscountingPricer),
+    register_pricer!(
+        registry,
+        TermLoan,
+        Discounting,
+        crate::instruments::term_loan::pricing::TermLoanDiscountingPricer
     );
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::MonteCarloGBM),
-        Box::new(
-            crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
-                ModelKey::MonteCarloGBM,
-            ),
-        ),
+    register_pricer!(
+        registry,
+        RevolvingCredit,
+        MonteCarloGBM,
+        crate::instruments::revolving_credit::pricer::RevolvingCreditPricer::new(
+            ModelKey::MonteCarloGBM
+        )
     );
 
     // Asian Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::AsianOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::asian_option::pricer::AsianOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        AsianOption,
+        MonteCarloGBM,
+        crate::instruments::asian_option::pricer::AsianOptionMcPricer::default()
     );
     // Asian Option - Analytical (Geometric)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianGeometricBS),
-        Box::new(crate::instruments::asian_option::pricer::AsianOptionAnalyticalGeometricPricer),
+    register_pricer!(
+        registry,
+        AsianOption,
+        AsianGeometricBS,
+        crate::instruments::asian_option::pricer::AsianOptionAnalyticalGeometricPricer
     );
     // Asian Option - Semi-Analytical (Turnbull-Wakeman)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianTurnbullWakeman),
-        Box::new(crate::instruments::asian_option::pricer::AsianOptionSemiAnalyticalTwPricer),
+    register_pricer!(
+        registry,
+        AsianOption,
+        AsianTurnbullWakeman,
+        crate::instruments::asian_option::pricer::AsianOptionSemiAnalyticalTwPricer
     );
 
     // Barrier Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::barrier_option::pricer::BarrierOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        BarrierOption,
+        MonteCarloGBM,
+        crate::instruments::barrier_option::pricer::BarrierOptionMcPricer::default()
     );
     // Barrier Option - Analytical (Continuous monitoring)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::BarrierOption, ModelKey::BarrierBSContinuous),
-        Box::new(crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer),
+    register_pricer!(
+        registry,
+        BarrierOption,
+        BarrierBSContinuous,
+        crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer
     );
 
     // Lookback Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::LookbackOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::lookback_option::pricer::LookbackOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        LookbackOption,
+        MonteCarloGBM,
+        crate::instruments::lookback_option::pricer::LookbackOptionMcPricer::default()
     );
     // Lookback Option - Analytical (Continuous monitoring)
-    registry.register_pricer(
-        PricerKey::new(
-            InstrumentType::LookbackOption,
-            ModelKey::LookbackBSContinuous,
-        ),
-        Box::new(crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer),
+    register_pricer!(
+        registry,
+        LookbackOption,
+        LookbackBSContinuous,
+        crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer
     );
 
     // Quanto Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::QuantoOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::quanto_option::pricer::QuantoOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        QuantoOption,
+        MonteCarloGBM,
+        crate::instruments::quanto_option::pricer::QuantoOptionMcPricer::default()
     );
     // Quanto Option - Analytical
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::QuantoOption, ModelKey::QuantoBS),
-        Box::new(crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer),
+    register_pricer!(
+        registry,
+        QuantoOption,
+        QuantoBS,
+        crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer
     );
 
     // Autocallable
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Autocallable, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::autocallable::pricer::AutocallableMcPricer::default()),
+    register_pricer!(
+        registry,
+        Autocallable,
+        MonteCarloGBM,
+        crate::instruments::autocallable::pricer::AutocallableMcPricer::default()
     );
 
     // CMS Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CmsOption, ModelKey::MonteCarloHullWhite1F),
-        Box::new(crate::instruments::cms_option::pricer::CmsOptionPricer::new()),
+    register_pricer!(
+        registry,
+        CmsOption,
+        MonteCarloHullWhite1F,
+        crate::instruments::cms_option::pricer::CmsOptionPricer::new()
     );
 
     // Cliquet Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CliquetOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::cliquet_option::pricer::CliquetOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        CliquetOption,
+        MonteCarloGBM,
+        crate::instruments::cliquet_option::pricer::CliquetOptionMcPricer::default()
     );
 
     // Range Accrual
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::RangeAccrual, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::range_accrual::pricer::RangeAccrualMcPricer::default()),
+    register_pricer!(
+        registry,
+        RangeAccrual,
+        MonteCarloGBM,
+        crate::instruments::range_accrual::pricer::RangeAccrualMcPricer::default()
     );
 
     // FX Barrier Option
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionMcPricer::default()),
+    register_pricer!(
+        registry,
+        FxBarrierOption,
+        MonteCarloGBM,
+        crate::instruments::fx_barrier_option::pricer::FxBarrierOptionMcPricer::default()
     );
     // FX Barrier Option - Analytical (Continuous monitoring)
-    registry.register_pricer(
-        PricerKey::new(
-            InstrumentType::FxBarrierOption,
-            ModelKey::FxBarrierBSContinuous,
-        ),
-        Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer),
+    register_pricer!(
+        registry,
+        FxBarrierOption,
+        FxBarrierBSContinuous,
+        crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer
     );
 
     // Swaption LSMC (Bermudan exercise)
     #[cfg(feature = "mc")]
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::Swaption, ModelKey::MonteCarloGBM),
-        Box::new(crate::instruments::swaption::pricer::SwaptionLsmcPricer::default()),
+    register_pricer!(
+        registry,
+        Swaption,
+        MonteCarloGBM,
+        crate::instruments::swaption::pricer::SwaptionLsmcPricer::default()
     );
 
     // DCF (Discounted Cash Flow)
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::DCF, ModelKey::Discounting),
-        Box::new(crate::instruments::dcf::pricer::DcfPricer),
+    register_pricer!(
+        registry,
+        DCF,
+        Discounting,
+        crate::instruments::dcf::pricer::DcfPricer
     );
 }
 
@@ -991,6 +1090,9 @@ mod tests {
         // Test that we can retrieve a registered pricer
         let key = PricerKey::new(InstrumentType::Bond, ModelKey::Discounting);
         assert!(registry.get_pricer(key).is_some());
+
+        // Test convenience method
+        assert!(registry.get(InstrumentType::Bond, ModelKey::Discounting).is_some());
     }
 
     #[test]

@@ -242,6 +242,7 @@ pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,
 };
+pub use sensitivities::rho::GenericRho;
 pub use sensitivities::theta::{
     calculate_theta_date, generic_theta_calculator, parse_period_days, GenericTheta,
     GenericThetaAny,

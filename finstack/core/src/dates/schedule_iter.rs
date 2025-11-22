@@ -953,17 +953,18 @@ fn enforce_monotonic_and_dedup(dates: &mut Vec<Date>) {
     if dates.is_empty() {
         return;
     }
-    let mut out: Vec<Date> = Vec::with_capacity(dates.len());
-    let mut last = dates[0];
-    out.push(last);
-    for &d in dates.iter().skip(1) {
-        if d > last {
-            out.push(d);
-            last = d;
+    // In-place deduplication and monotonic filtering
+    let mut write = 0;
+    for read in 1..dates.len() {
+        if dates[read] > dates[write] {
+            write += 1;
+            // Avoid self-assignment if indices match
+            if read != write {
+                dates[write] = dates[read];
+            }
         }
-        // Else: skip duplicates and non-increasing values
     }
-    *dates = out;
+    dates.truncate(write + 1);
 }
 
 #[cfg(test)]

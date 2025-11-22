@@ -109,7 +109,7 @@ impl JsAsianOption {
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
         if let Some(div) = div_yield_id {
-            builder = builder.div_yield_id(div);
+            builder = builder.div_yield_id(curve_id_from_str(&div));
         }
 
         builder
@@ -183,7 +183,7 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
     pub fn div_yield_id(&self) -> Option<String> {
-        self.0.div_yield_id.clone()
+        self.0.div_yield_id.as_ref().map(|id| id.as_str().to_string())
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

@@ -51,7 +51,7 @@ pub struct AsianOption {
     /// Volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
@@ -59,22 +59,6 @@ pub struct AsianOption {
     /// Past fixings for seasoned options
     #[builder(default)]
     pub past_fixings: Vec<(Date, f64)>,
-}
-
-// Implement HasDiscountCurve for GenericParallelDv01
-impl crate::metrics::HasDiscountCurve for AsianOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-// Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for AsianOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
-    }
 }
 
 impl AsianOption {
@@ -104,7 +88,7 @@ impl AsianOption {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id("SPX-SPOT".to_string())
             .vol_surface_id(CurveId::new("SPX-VOL"))
-            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

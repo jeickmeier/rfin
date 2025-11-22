@@ -750,46 +750,10 @@ pub fn npv_with_lrm_greeks(
 
 // ========================= ANALYTICAL PRICERS =========================
 
+use crate::instruments::common::helpers::collect_black_scholes_inputs;
 use crate::instruments::common::models::closed_form::asian::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, geometric_asian_call, geometric_asian_put,
 };
-
-/// Helper to collect standard inputs for Asian option pricing.
-fn collect_asian_inputs(
-    inst: &AsianOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> finstack_core::Result<(f64, f64, f64, f64, f64, usize)> {
-    let t = inst
-        .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-    let r = disc_curve.zero(t);
-
-    let spot_scalar = curves.price(&inst.spot_id)?;
-    let spot = match spot_scalar {
-        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-    };
-
-    let q = if let Some(div_id) = &inst.div_yield_id {
-        match curves.price(div_id.as_str()) {
-            Ok(ms) => match ms {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-            },
-            Err(_) => 0.0,
-        }
-    } else {
-        0.0
-    };
-
-    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-    let sigma = vol_surface.value_clamped(t, inst.strike.amount());
-
-    Ok((spot, r, q, sigma, t, inst.fixing_dates.len()))
-}
 
 /// Geometric Asian option analytical pricer.
 pub struct AsianOptionAnalyticalGeometricPricer;
@@ -825,8 +789,19 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
                 PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t, _num_fixings) = collect_asian_inputs(asian, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        // Use standardized input collection
+        let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
+            &asian.spot_id,
+            &asian.discount_curve_id,
+            asian.div_yield_id.as_ref(),
+            &asian.vol_surface_id,
+            asian.strike.amount(),
+            asian.expiry,
+            asian.day_count,
+            market,
+            as_of,
+        )
+        .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         let (sum, log_prod, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();
@@ -914,8 +889,19 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                 PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t, _num_fixings) = collect_asian_inputs(asian, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        // Use standardized input collection
+        let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
+            &asian.spot_id,
+            &asian.discount_curve_id,
+            asian.div_yield_id.as_ref(),
+            &asian.vol_surface_id,
+            asian.strike.amount(),
+            asian.expiry,
+            asian.day_count,
+            market,
+            as_of,
+        )
+        .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         let (sum, _, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();

@@ -50,11 +50,45 @@ impl Pricer for SimpleSwaptionBlackPricer {
                 PricingError::type_mismatch(InstrumentType::Swaption, instrument.key())
             })?;
 
-        // Use the provided as_of date for consistency
-        // Compute present value using the instrument's value method
-        let pv = swaption
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        // Explicit dispatch based on PRICER configuration
+        // If model is Black76, we enforce Black pricing regardless of instrument preference
+        let pv = match self.model {
+            ModelKey::Black76 => {
+                let disc = market
+                    .get_discount_ref(swaption.discount_curve_id.as_ref())
+                    .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+                // Use SABR if available (implies Black vol in this library), otherwise look up surface
+                if swaption.sabr_params.is_some() {
+                    swaption
+                        .price_sabr(disc, as_of)
+                        .map_err(|e| PricingError::model_failure(e.to_string()))?
+                } else {
+                    let time_to_expiry = swaption
+                        .year_fraction(as_of, swaption.expiry, swaption.day_count)
+                        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+                    let vol_surface = market
+                        .surface_ref(swaption.vol_surface_id.as_str())
+                        .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
+
+                    let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility {
+                        impl_vol
+                    } else {
+                        vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
+                    };
+
+                    swaption
+                        .price_black(disc, vol, as_of)
+                        .map_err(|e| PricingError::model_failure(e.to_string()))?
+                }
+            }
+            // For Discounting or other models, fallback to instrument's internal preference
+            // (which might be Normal/Bachelier)
+            _ => swaption
+                .value(market, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?,
+        };
 
         // Return stamped result
         Ok(ValuationResult::stamped(swaption.id(), as_of, pv))

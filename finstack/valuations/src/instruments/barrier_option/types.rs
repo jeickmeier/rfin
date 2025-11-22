@@ -57,27 +57,11 @@ pub struct BarrierOption {
     /// Volatility surface ID
     pub vol_surface_id: CurveId,
     /// Optional dividend yield curve ID
-    pub div_yield_id: Option<String>,
+    pub div_yield_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
-}
-
-// Implement HasDiscountCurve for GenericParallelDv01
-impl crate::metrics::HasDiscountCurve for BarrierOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-// Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for BarrierOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
-    }
 }
 
 impl BarrierOption {
@@ -103,7 +87,7 @@ impl BarrierOption {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id("SPX-SPOT".to_string())
             .vol_surface_id(CurveId::new("SPX-VOL"))
-            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
