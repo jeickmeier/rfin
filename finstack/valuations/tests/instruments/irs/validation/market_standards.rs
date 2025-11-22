@@ -341,6 +341,7 @@ fn test_irs_receive_vs_pay_fixed() {
         compounding: Default::default(),
         start: as_of,
         end,
+    fixing_calendar_id: None,
     };
 
     let swap_receive = InterestRateSwap {
@@ -421,6 +422,7 @@ fn test_irs_rate_sensitivity() {
         compounding: Default::default(),
         start: as_of,
         end,
+    fixing_calendar_id: None,
     };
 
     let swap = InterestRateSwap {
@@ -514,6 +516,7 @@ fn test_irs_leg_pvs_consistency() {
             compounding: Default::default(),
             start: as_of,
             end,
+        fixing_calendar_id: None,
         },
         attributes: Default::default(),
     };

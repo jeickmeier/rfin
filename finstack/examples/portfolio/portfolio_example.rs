@@ -626,6 +626,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
+            fixing_calendar_id: None,
             stub: StubKind::None,
             start: as_of,
             end: date!(2029 - 01 - 01),

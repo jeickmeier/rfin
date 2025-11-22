@@ -6,10 +6,13 @@ use finstack_core::prelude::FinstackConfig;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
     AttributionFactor, AttributionMeta, AttributionMethod, CreditCurvesAttribution,
-    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution,
+    ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution, RatesCurvesAttribution,
 };
 use finstack_valuations::metrics::MetricId;
 use pyo3::prelude::*;
+use pyo3::types::PyString;
+use pythonize::depythonize;
+use serde_json::{self, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -18,6 +21,33 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct PyAttributionMethod {
     pub(crate) inner: AttributionMethod,
+}
+
+fn parse_model_params_snapshot(
+    value: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<ModelParamsSnapshot>> {
+    if let Some(obj) = value {
+        if obj.is_none() {
+            return Ok(None);
+        }
+
+        if let Ok(text) = obj.downcast::<PyString>() {
+            let snapshot: ModelParamsSnapshot = serde_json::from_str(text.to_str()?)
+                .map_err(|err| pyo3::exceptions::PyValueError::new_err(format!(
+                    "Invalid model_params_t0 JSON: {err}"
+                )))?;
+            return Ok(Some(snapshot));
+        }
+
+        let json_value: Value = depythonize(obj)?;
+        let snapshot: ModelParamsSnapshot = serde_json::from_value(json_value)
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(format!(
+                "model_params_t0 does not match expected schema: {err}"
+            )))?;
+        Ok(Some(snapshot))
+    } else {
+        Ok(None)
+    }
 }
 
 #[pymethods]
@@ -378,6 +408,7 @@ impl PyPnlAttribution {
 /// * `as_of_t0` - Valuation date at T₀ (date or datetime)
 /// * `as_of_t1` - Valuation date at T₁ (date or datetime)
 /// * `method` - Optional attribution method (defaults to Parallel)
+/// * `model_params_t0` - Optional dict/JSON describing T₀ model parameters
 ///
 /// # Returns
 ///
@@ -386,17 +417,26 @@ impl PyPnlAttribution {
 /// # Examples
 ///
 /// ```python
+/// model_params_t0 = {
+///     "StructuredCredit": {
+///         "prepayment_spec": {"psa": {"speed_multiplier": 1.0}},
+///         "default_spec": {"type": "ConstantCdr", "cdr": 0.02},
+///         "recovery_spec": {"type": "Constant", "rate": 0.60}
+///     }
+/// }
+///
 /// attr = finstack.attribute_pnl(
 ///     bond,
 ///     market_yesterday,
 ///     market_today,
 ///     date(2025, 1, 15),
 ///     date(2025, 1, 16),
-///     method=finstack.AttributionMethod.parallel()
+///     method=finstack.AttributionMethod.parallel(),
+///     model_params_t0=model_params_t0,
 /// )
 /// ```
 #[pyfunction]
-#[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, method=None))]
+#[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, method=None, model_params_t0=None))]
 pub fn attribute_pnl(
     instrument: Bound<'_, PyAny>,
     market_t0: &crate::core::market_data::PyMarketContext,
@@ -404,6 +444,7 @@ pub fn attribute_pnl(
     as_of_t0: Bound<'_, PyAny>,
     as_of_t1: Bound<'_, PyAny>,
     method: Option<&PyAttributionMethod>,
+    model_params_t0: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyPnlAttribution> {
     // Extract dates
     let date_t0 = py_to_date(&as_of_t0)?;
@@ -421,6 +462,8 @@ pub fn attribute_pnl(
 
     // Get config
     let config = FinstackConfig::default();
+    let model_params_snapshot = parse_model_params_snapshot(model_params_t0)?;
+    let model_params_ref = model_params_snapshot.as_ref();
 
     // Call appropriate Rust function based on method
     let attribution = match method_inner {
@@ -431,6 +474,7 @@ pub fn attribute_pnl(
             date_t0,
             date_t1,
             &config,
+            model_params_ref,
         )
         .map_err(map_error)?,
 
@@ -443,6 +487,7 @@ pub fn attribute_pnl(
             &config,
             order,
             false,
+            model_params_ref,
         )
         .map_err(map_error)?,
 

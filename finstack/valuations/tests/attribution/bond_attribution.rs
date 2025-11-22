@@ -64,6 +64,7 @@ fn test_bond_attribution_parallel() {
         as_of_t0,
         as_of_t1,
         &config,
+        None,
     )
     .unwrap();
 
@@ -116,6 +117,7 @@ fn test_bond_attribution_structure() {
         as_of_t0,
         as_of_t1,
         &config,
+        None,
     )
     .unwrap();
 

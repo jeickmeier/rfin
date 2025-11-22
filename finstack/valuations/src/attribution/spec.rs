@@ -93,6 +93,9 @@ pub struct AttributionSpec {
     pub as_of_t1: Date,
     /// Attribution methodology
     pub method: AttributionMethod,
+    /// Optional model parameters at T₀ (for attributing parameter changes)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_params_t0: Option<crate::attribution::model_params::ModelParamsSnapshot>,
     /// Optional configuration overrides (defaults to FinstackConfig::default())
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<AttributionConfig>,
@@ -151,6 +154,7 @@ impl AttributionSpec {
                 self.as_of_t0,
                 self.as_of_t1,
                 &config,
+                self.model_params_t0.as_ref(),
             )?,
 
             AttributionMethod::Waterfall(order) => attribute_pnl_waterfall(
@@ -162,6 +166,7 @@ impl AttributionSpec {
                 &config,
                 order.clone(),
                 strict_validation,
+                self.model_params_t0.as_ref(),
             )?,
 
             AttributionMethod::MetricsBased => {
@@ -330,6 +335,7 @@ mod tests {
             as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
             as_of_t1: create_date(2025, Month::January, 2).expect("Valid test date"),
             method: AttributionMethod::Parallel,
+            model_params_t0: None,
             config: None,
         };
 

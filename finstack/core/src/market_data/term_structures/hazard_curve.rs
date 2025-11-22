@@ -128,6 +128,8 @@ pub struct HazardCurve {
     par_tenors: Box<[f64]>,
     /// Par spreads in basis points at `par_tenors`
     par_spreads_bp: Box<[f64]>,
+    /// Default interpolation for par spreads
+    par_interp: ParInterp,
 }
 
 /// Raw serializable state of a HazardCurve
@@ -153,6 +155,13 @@ struct RawHazardCurve {
     pub day_count: DayCount,
     /// Par spread points for reporting
     pub par_points: Vec<(f64, f64)>,
+    /// Par interpolation method
+    #[serde(default = "default_par_interp")]
+    pub par_interp: ParInterp,
+}
+
+fn default_par_interp() -> ParInterp {
+    ParInterp::Linear
 }
 
 #[cfg(feature = "serde")]
@@ -183,6 +192,7 @@ impl From<HazardCurve> for RawHazardCurve {
             currency: curve.currency,
             day_count: curve.day_count,
             par_points,
+            par_interp: curve.par_interp,
         }
     }
 }
@@ -197,7 +207,8 @@ impl TryFrom<RawHazardCurve> for HazardCurve {
             .recovery_rate(state.recovery_rate)
             .day_count(state.day_count)
             .knots(state.points.knot_points)
-            .par_spreads(state.par_points);
+            .par_spreads(state.par_points)
+            .par_interp(state.par_interp);
 
         if let Some(issuer) = state.issuer {
             builder = builder.issuer(issuer);
@@ -227,6 +238,7 @@ impl HazardCurve {
             currency: None,
             day_count: DayCount::Act365F,
             par_points: Vec::new(),
+            par_interp: ParInterp::Linear,
         }
     }
 
@@ -326,13 +338,19 @@ impl HazardCurve {
             .map(|(&t, &spread)| (t, spread))
     }
 
+    /// Get the default interpolation method for par spreads.
+    pub fn par_interp(&self) -> ParInterp {
+        self.par_interp
+    }
+
     /// Create a builder with this curve's parameters, using a new ID.
     /// Useful for creating modified versions of the curve.
     pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> HazardCurveBuilder {
         let mut builder = HazardCurve::builder(new_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
-            .day_count(self.day_count);
+            .day_count(self.day_count)
+            .par_interp(self.par_interp);
 
         if let Some(ref issuer) = self.issuer {
             builder = builder.issuer(issuer.clone());
@@ -370,7 +388,8 @@ impl HazardCurve {
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count)
-            .knots(shifted_points);
+            .knots(shifted_points)
+            .par_interp(self.par_interp);
 
         if let Some(ref issuer) = self.issuer {
             builder = builder.issuer(issuer.clone());
@@ -452,6 +471,7 @@ pub struct HazardCurveBuilder {
     currency: Option<Currency>,
     day_count: DayCount,
     par_points: Vec<(f64, f64)>, // (t, spread_bp)
+    par_interp: ParInterp,
 }
 
 impl HazardCurveBuilder {
@@ -501,6 +521,11 @@ impl HazardCurveBuilder {
         self.par_points.extend(pts);
         self
     }
+    /// Set the interpolation method for par spreads.
+    pub fn par_interp(mut self, method: ParInterp) -> Self {
+        self.par_interp = method;
+        self
+    }
 
     /// Validate input and build the [`HazardCurve`].
     pub fn build(self) -> crate::Result<HazardCurve> {
@@ -545,6 +570,7 @@ impl HazardCurveBuilder {
             day_count: self.day_count,
             par_tenors: p_ten.into_boxed_slice(),
             par_spreads_bp: p_spd.into_boxed_slice(),
+            par_interp: self.par_interp,
         })
     }
 }

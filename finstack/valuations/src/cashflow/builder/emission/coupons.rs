@@ -115,35 +115,74 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 },
             )?;
 
-            // Compute reset date once
+            // Resolve fixing calendar for reset date (default to accrual calendar if None)
+            let fixing_cal_id = spec
+                .rate_spec
+                .fixing_calendar_id
+                .clone()
+                .or_else(|| spec.rate_spec.calendar_id.clone());
+
+            // Compute reset date
             let reset_date = compute_reset_date(
                 d,
                 spec.rate_spec.reset_lag_days,
                 spec.rate_spec.bdc,
-                &spec.rate_spec.calendar_id,
+                &fixing_cal_id,
             )?;
+
+            // Construct params for detailed projection
+            let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
+                spread_bp: spec.rate_spec.spread_bp,
+                gearing: spec.rate_spec.gearing,
+                gearing_includes_spread: spec.rate_spec.gearing_includes_spread,
+                index_floor_bp: spec.rate_spec.floor_bp,
+                index_cap_bp: spec.rate_spec.index_cap_bp,
+                all_in_floor_bp: spec.rate_spec.all_in_floor_bp,
+                all_in_cap_bp: spec.rate_spec.cap_bp,
+            };
+
+            // Helper for fallback (no curve or error)
+            let compute_fallback_rate = |params: &crate::cashflow::builder::rate_helpers::FloatingRateParams| -> f64 {
+                // Assume index = 0
+                let index: f64 = 0.0;
+                let floored_index = match params.index_floor_bp {
+                    Some(f) => index.max(f * 1e-4),
+                    None => index,
+                };
+                let capped_index = match params.index_cap_bp {
+                    Some(c) => floored_index.min(c * 1e-4),
+                    None => floored_index,
+                };
+
+                let mut rate = if params.gearing_includes_spread {
+                    (capped_index + params.spread_bp * 1e-4) * params.gearing
+                } else {
+                    (capped_index * params.gearing) + params.spread_bp * 1e-4
+                };
+
+                if let Some(f) = params.all_in_floor_bp {
+                    rate = rate.max(f * 1e-4);
+                }
+                if let Some(c) = params.all_in_cap_bp {
+                    rate = rate.min(c * 1e-4);
+                }
+                rate
+            };
 
             // Compute total rate using centralized projection with floor/cap support
             let total_rate = if let Some(fwd) = resolved_curve {
-                // Use centralized floating rate projection
-                match super::super::rate_helpers::project_floating_rate_with_curve(
+                // Use detailed floating rate projection
+                match super::super::rate_helpers::project_floating_rate_detailed(
                     reset_date,
                     d, // Use payment date as period end approximation
-                    spec.rate_spec.spread_bp,
-                    spec.rate_spec.gearing,
-                    spec.rate_spec.floor_bp,
-                    spec.rate_spec.cap_bp,
                     fwd,
+                    &params,
                 ) {
                     Ok(rate) => rate,
-                    Err(_) => {
-                        // Curve not found, fall back to spread only with gearing
-                        (spec.rate_spec.spread_bp * 1e-4) * spec.rate_spec.gearing
-                    }
+                    Err(_) => compute_fallback_rate(&params),
                 }
             } else {
-                // No curves provided, use spread only with gearing
-                (spec.rate_spec.spread_bp * 1e-4) * spec.rate_spec.gearing
+                compute_fallback_rate(&params)
             };
 
             let coupon_total = base_out * (total_rate * yf);

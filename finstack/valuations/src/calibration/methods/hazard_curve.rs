@@ -296,6 +296,7 @@ impl HazardCurveCalibrator {
             .base_date(self.base_date)
             .knots(hazard_knots)
             .par_spreads(par_knots)
+            .par_interp(self.par_interp)
             .build()?;
 
         // Validate the calibrated hazard curve

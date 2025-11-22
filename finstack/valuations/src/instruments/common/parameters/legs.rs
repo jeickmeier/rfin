@@ -128,6 +128,9 @@ pub struct FloatLegSpec {
     pub stub: StubKind,
     /// Reset lag in business days for floating rate
     pub reset_lag_days: i32,
+    /// Optional calendar for rate fixing (reset lag)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub fixing_calendar_id: Option<String>,
     /// Start date of the floating leg
     pub start: Date,
     /// End date of the floating leg

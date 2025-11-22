@@ -697,13 +697,17 @@ mod tests {
                     index_id: CurveId::new("SOFR-3M".to_string()),
                     spread_bp: 150.0,
                     gearing: 1.0,
+                    gearing_includes_spread: true,
                     floor_bp: None,
                     cap_bp: None,
+                    all_in_floor_bp: None,
+                    index_cap_bp: None,
                     reset_freq: finstack_core::dates::Frequency::quarterly(),
                     reset_lag_days: 2,
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
+                    fixing_calendar_id: None,
                 },
             ))
             .legal_maturity(test_date())

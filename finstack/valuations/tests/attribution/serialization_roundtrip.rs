@@ -49,6 +49,7 @@ fn test_attribution_envelope_json_roundtrip() {
         as_of_t1: create_date(2025, Month::January, 2).unwrap(),
         method: AttributionMethod::Parallel,
         config: None,
+        model_params_t0: None,
     };
 
     let envelope = AttributionEnvelope::new(spec);
@@ -114,6 +115,7 @@ fn test_attribution_envelope_waterfall_roundtrip() {
             AttributionFactor::CreditCurves,
         ]),
         config: None,
+        model_params_t0: None,
     };
 
     let envelope = AttributionEnvelope::new(spec);
@@ -207,6 +209,7 @@ fn test_attribution_envelope_to_from_json_helpers() {
         as_of_t1: create_date(2025, Month::January, 2).unwrap(),
         method: AttributionMethod::MetricsBased,
         config: None,
+        model_params_t0: None,
     };
 
     let envelope = AttributionEnvelope::new(spec);

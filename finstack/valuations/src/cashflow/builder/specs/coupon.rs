@@ -111,13 +111,17 @@ fn default_reset_lag() -> i32 {
 ///     index_id: "USD-SOFR-3M".into(),
 ///     spread_bp: 200.0,
 ///     gearing: 1.0,
+///     gearing_includes_spread: true,
 ///     floor_bp: Some(0.0),
+///     all_in_floor_bp: None,
 ///     cap_bp: None,
+///     index_cap_bp: None,
 ///     reset_freq: Frequency::quarterly(),
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
+///     fixing_calendar_id: None,
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -135,17 +139,34 @@ pub struct FloatingRateSpec {
     #[cfg_attr(feature = "serde", serde(default = "default_gearing"))]
     pub gearing: f64,
 
-    /// Floor on index rate in basis points (applied before adding spread).
+    /// Whether gearing includes the spread (default: true).
+    ///
+    /// - `true`: `rate = (index + spread) * gearing`
+    /// - `false`: `rate = (index * gearing) + spread` (Affine model)
+    #[cfg_attr(feature = "serde", serde(default = "default_gearing_includes_spread"))]
+    pub gearing_includes_spread: bool,
+
+    /// Floor on index rate in basis points (applied to index component).
     ///
     /// Example: floor_bp = Some(0.0) ensures index rate >= 0%.
     #[cfg_attr(feature = "serde", serde(default))]
     pub floor_bp: Option<f64>,
+
+    /// Floor on all-in rate in basis points (Min Coupon).
+    ///
+    /// Applied to the final calculated rate after gearing and spread.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub all_in_floor_bp: Option<f64>,
 
     /// Cap on all-in rate in basis points (applied after spread and gearing).
     ///
     /// Example: cap_bp = Some(1000.0) ensures all-in rate <= 10%.
     #[cfg_attr(feature = "serde", serde(default))]
     pub cap_bp: Option<f64>,
+
+    /// Cap on index rate in basis points (applied to index component).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub index_cap_bp: Option<f64>,
 
     /// Reset frequency for rate fixings.
     pub reset_freq: Frequency,
@@ -160,9 +181,19 @@ pub struct FloatingRateSpec {
     /// Business day convention for date adjustments.
     pub bdc: BusinessDayConvention,
 
-    /// Optional calendar for business day adjustments.
+    /// Optional calendar for business day adjustments (accrual/payment).
     #[cfg_attr(feature = "serde", serde(default))]
     pub calendar_id: Option<String>,
+
+    /// Optional calendar for rate fixing (reset lag).
+    ///
+    /// If not provided, defaults to `calendar_id`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub fixing_calendar_id: Option<String>,
+}
+
+fn default_gearing_includes_spread() -> bool {
+    true
 }
 
 /// Floating coupon specification (composes FloatingRateSpec).

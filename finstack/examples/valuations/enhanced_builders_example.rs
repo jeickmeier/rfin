@@ -116,6 +116,7 @@ fn main() -> finstack_core::Result<()> {
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
+            fixing_calendar_id: None,
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 2,
             start: issue,

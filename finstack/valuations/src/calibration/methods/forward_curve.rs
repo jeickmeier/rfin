@@ -149,7 +149,26 @@ impl ForwardCurveCalibrator {
         let _discount_curve = base_context.get_discount_ref(self.discount_curve_id.as_ref())?;
 
         // Filter and sort quotes by maturity
-        let mut sorted_quotes = quotes.to_vec();
+        let mut sorted_quotes: Vec<RatesQuote> = quotes
+            .iter()
+            .filter(|q| match q {
+                RatesQuote::Swap {
+                    float_freq, index, ..
+                } => self.matches_tenor(index.as_ref(), float_freq),
+                RatesQuote::BasisSwap {
+                    primary_index,
+                    reference_index,
+                    ..
+                } => {
+                    primary_index
+                        .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
+                        || reference_index
+                            .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
+                }
+                _ => true,
+            })
+            .cloned()
+            .collect();
         sorted_quotes.sort_by_key(|q| q.maturity_date());
 
         // Initialize knots vector: (time, forward_rate)
@@ -522,6 +541,41 @@ impl ForwardCurveCalibrator {
                 let period_end = add_months(*expiry, specs.delivery_months as i32);
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
+                // Calculate convexity adjustment if not provided
+                let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
+                    Some(adj)
+                } else {
+                    // Auto-calculate convexity adjustment based on time to expiry
+                    let time_to_expiry = specs
+                        .day_count
+                        .year_fraction(
+                            self.base_date,
+                            *expiry,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
+                    let time_to_maturity = specs
+                        .day_count
+                        .year_fraction(
+                            self.base_date,
+                            period_end,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
+                    // Always apply convexity adjustment per market practice
+                    use super::convexity::ConvexityParameters;
+                    let params = match self.currency {
+                        Currency::USD => ConvexityParameters::usd_sofr(),
+                        Currency::EUR => ConvexityParameters::eur_euribor(),
+                        Currency::GBP => ConvexityParameters::gbp_sonia(),
+                        Currency::JPY => ConvexityParameters::jpy_tonar(),
+                        _ => ConvexityParameters::usd_sofr(), // Default to USD
+                    };
+                    Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
+                };
+
                 let future = match InterestRateFuture::builder()
                     .id(format!("CALIB_FUT_{}", expiry).into())
                     .notional(Money::new(specs.face_value, self.currency))
@@ -532,7 +586,13 @@ impl ForwardCurveCalibrator {
                     .quoted_price(*price)
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
-                    .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
+                    .contract_specs(crate::instruments::ir_future::FutureContractSpecs {
+                        face_value: specs.face_value,
+                        tick_size: 0.0025,
+                        tick_value: 6.25,
+                        delivery_months: specs.delivery_months,
+                        convexity_adjustment: convexity_adj,
+                    })
                     .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
@@ -551,13 +611,8 @@ impl ForwardCurveCalibrator {
                 float_freq,
                 fixed_dc,
                 float_dc,
-                index,
+                ..
             } => {
-                // Only process swaps that match our tenor
-                if !self.matches_tenor(index.as_ref(), float_freq) {
-                    return Ok(0.0); // Skip non-matching swaps
-                }
-
                 let fixed_spec = crate::instruments::irs::FixedLegSpec {
                     rate: *rate,
                     freq: *fixed_freq,
@@ -581,6 +636,7 @@ impl ForwardCurveCalibrator {
                     dc: *float_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: self.calendar_id.clone(),
+                    fixing_calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     reset_lag_days: 2,
                     start: self.base_date,
@@ -611,15 +667,6 @@ impl ForwardCurveCalibrator {
                 currency,
             } => {
                 // Use basis swaps for forward curve calibration
-                // Check if this basis swap involves our forward curve
-                let involves_our_curve = primary_index
-                    .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
-                    || reference_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32));
-
-                if !involves_our_curve {
-                    return Ok(0.0); // Skip basis swaps that don't involve our tenor
-                }
-
                 // Create basis swap instrument
                 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 

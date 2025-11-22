@@ -300,7 +300,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     solved_cpi = initial_guess;
                 }
 
-                // Apply seasonality adjustment to the solved CPI
+                // Stamp seasonality before evaluating residuals and committing knot
                 solved_cpi = self.apply_seasonality(solved_cpi, maturity);
 
                 // Record residual and commit the knot

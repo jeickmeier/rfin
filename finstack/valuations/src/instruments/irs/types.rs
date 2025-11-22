@@ -196,6 +196,7 @@ impl InterestRateSwap {
                     ))
                 })?,
                 compounding: Default::default(),
+                fixing_calendar_id: None,
             })
             .build()
     }
@@ -236,6 +237,7 @@ impl InterestRateSwap {
             start,
             end,
             compounding: Default::default(),
+            fixing_calendar_id: None,
         };
         Self::builder()
             .id(id)

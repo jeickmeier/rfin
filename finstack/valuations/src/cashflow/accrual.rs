@@ -19,10 +19,26 @@
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
+use finstack_core::dates::calendar::business_days::HolidayCalendar;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+
+/// Helper to advance a date by N business days.
+fn advance_business_days<C: HolidayCalendar + ?Sized>(cal: &C, mut date: Date, days: i32) -> Date {
+    let step = if days >= 0 { 1 } else { -1 };
+    let mut count = 0;
+    let target = days.abs();
+    while count < target {
+        date += time::Duration::days(step as i64);
+        if cal.is_business_day(date) {
+            count += 1;
+        }
+    }
+    date
+}
 
 /// Generic accrual method usable across instruments.
 ///
@@ -65,8 +81,13 @@ impl Default for AccrualMethod {
 /// Ex-coupon convention applied to coupon flows.
 #[derive(Clone, Debug)]
 pub struct ExCouponRule {
-    /// Number of calendar days before coupon date that go ex.
+    /// Number of days before coupon date that go ex.
     pub days_before_coupon: u32,
+    /// Optional calendar ID for business day calculation.
+    ///
+    /// - `Some(id)`: Subtract N business days from payment date.
+    /// - `None`: Subtract N calendar days from payment date.
+    pub calendar_id: Option<String>,
 }
 
 /// Generic configuration for schedule-driven interest accrual.
@@ -313,7 +334,21 @@ fn find_active_period_and_elapsed<'a>(
         if inputs.start <= as_of && as_of < inputs.end {
             // Apply ex-coupon convention if present.
             if let Some(ref ex) = cfg.ex_coupon {
-                let ex_date = inputs.end - Duration::days(ex.days_before_coupon as i64);
+                let ex_date = if let Some(cal_id) = &ex.calendar_id {
+                    if let Some(cal) = calendar_by_id(cal_id) {
+                        advance_business_days(
+                            cal,
+                            inputs.end,
+                            -(ex.days_before_coupon as i32),
+                        )
+                    } else {
+                        // Calendar not found: fallback to calendar days
+                        inputs.end - Duration::days(ex.days_before_coupon as i64)
+                    }
+                } else {
+                    inputs.end - Duration::days(ex.days_before_coupon as i64)
+                };
+
                 if as_of >= ex_date && as_of < inputs.end {
                     return Ok(None);
                 }

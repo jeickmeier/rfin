@@ -207,6 +207,7 @@ pub fn attribute_portfolio_pnl(
                     as_of_t0,
                     as_of_t1,
                     config,
+                    None,
                 )
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),
@@ -235,6 +236,7 @@ pub fn attribute_portfolio_pnl(
                     config,
                     order.clone(),
                     false,
+                    None,
                 )
                 .map_err(|e| PortfolioError::ValuationError {
                     position_id: position.position_id.clone(),

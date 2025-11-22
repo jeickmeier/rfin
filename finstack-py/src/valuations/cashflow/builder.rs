@@ -243,19 +243,24 @@ impl PyFloatingCouponSpec {
         schedule: PyScheduleParams,
         coupon_type: Option<PyCouponType>,
     ) -> Self {
+        let calendar_id = schedule.inner.calendar_id.clone();
         Self {
             inner: val_builder::FloatingCouponSpec {
                 rate_spec: val_builder::FloatingRateSpec {
                     index_id: params.inner.index_id.clone(),
                     spread_bp: params.inner.margin_bp,
                     gearing: params.inner.gearing,
+                    gearing_includes_spread: true,
                     floor_bp: None,
+                    all_in_floor_bp: None,
                     cap_bp: None,
+                    index_cap_bp: None,
                     reset_freq: schedule.inner.freq,
                     reset_lag_days: params.inner.reset_lag_days,
                     dc: schedule.inner.dc,
                     bdc: schedule.inner.bdc,
-                    calendar_id: schedule.inner.calendar_id,
+                    calendar_id: calendar_id.clone(),
+                    fixing_calendar_id: calendar_id,
                 },
                 coupon_type: coupon_type
                     .map(|c| c.inner)

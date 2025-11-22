@@ -104,6 +104,7 @@ fn test_fx_attribution_parallel_internal_exposure() {
         as_of_t0,
         as_of_t1,
         &config,
+        None,
     )
     .unwrap();
 
@@ -170,6 +171,7 @@ fn test_waterfall_attribution_sum_equality() {
         &config,
         default_waterfall_order(),
         false, // strict validation off
+        None,
     )
     .unwrap();
 
@@ -250,6 +252,7 @@ fn test_waterfall_factor_ordering_sensitivity() {
         &config,
         order1,
         false, // strict validation off
+        None,
     )
     .unwrap();
 
@@ -265,6 +268,7 @@ fn test_waterfall_factor_ordering_sensitivity() {
         &config,
         order2,
         false, // strict validation off
+        None,
     )
     .unwrap();
 

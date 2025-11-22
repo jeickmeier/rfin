@@ -79,13 +79,17 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 ///     index_id: CurveId::new("USD-SOFR-3M"),
 ///     spread_bp: 300.0,     // +300 bps spread
 ///     gearing: 1.0,
+///     gearing_includes_spread: true,
 ///     floor_bp: Some(0.0),  // 0% floor
+///     all_in_floor_bp: None,
 ///     cap_bp: None,
+///     index_cap_bp: None,
 ///     reset_freq: Frequency::quarterly(),
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
+///     fixing_calendar_id: None,
 /// });
 /// ```
 #[derive(Clone, Debug)]

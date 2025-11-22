@@ -8,74 +8,65 @@
 //! - Project forward rates from market curves
 //! - Apply floors and caps according to ISDA conventions
 //! - Support gearing/leverage on rates
-//! - Consistent floor/cap ordering: floor(index) → spread → gearing → cap(all-in)
+//! - Consistent floor/cap ordering
 //!
+//! ## Formulas
+//!
+//! ### Gearing Includes Spread (Default)
+//! `rate = cap( max( all_in_floor, gearing * ( max(index, floor) + spread ) ) )`
+//!
+//! ### Gearing Excludes Spread (Affine Model)
+//! `rate = cap( max( all_in_floor, (gearing * max(index, floor)) + spread ) )`
 
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::Result;
 
+/// Parameters for floating rate projection.
+#[derive(Debug, Clone)]
+pub struct FloatingRateParams {
+    /// Spread over index in basis points.
+    pub spread_bp: f64,
+
+    /// Gearing multiplier (default: 1.0).
+    pub gearing: f64,
+
+    /// Whether gearing includes the spread (default: true).
+    /// - `true`: `(Index + Spread) * Gearing`
+    /// - `false`: `(Index * Gearing) + Spread`
+    pub gearing_includes_spread: bool,
+
+    /// Floor on index rate in basis points (applied to index component).
+    pub index_floor_bp: Option<f64>,
+
+    /// Cap on index rate in basis points (applied to index component).
+    pub index_cap_bp: Option<f64>,
+
+    /// Floor on all-in rate in basis points (Min Coupon).
+    pub all_in_floor_bp: Option<f64>,
+
+    /// Cap on all-in rate in basis points (Max Coupon).
+    pub all_in_cap_bp: Option<f64>,
+}
+
+impl Default for FloatingRateParams {
+    fn default() -> Self {
+        Self {
+            spread_bp: 0.0,
+            gearing: 1.0,
+            gearing_includes_spread: true,
+            index_floor_bp: None,
+            index_cap_bp: None,
+            all_in_floor_bp: None,
+            all_in_cap_bp: None,
+        }
+    }
+}
+
 /// Project floating rate with optional floor, cap, and gearing.
 ///
-/// Standard pattern for floating rate instruments following ISDA conventions:
-/// 1. Look up forward rate from market for the accrual period [reset_date, reset_period_end]
-/// 2. Apply floor to index rate (if specified) - applied BEFORE adding spread
-/// 3. Add spread/margin to index rate
-/// 4. Multiply by gearing (typically 1.0)
-/// 5. Apply cap to all-in rate (if specified) - applied AFTER spread and gearing
-///
-/// Formula: `cap(gearing * (floor(index_rate) + spread))`
-///
-/// # Arguments
-///
-/// * `reset_date` - Start of accrual period (rate fixing date)
-/// * `reset_period_end` - End of accrual period
-/// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M", "USD-LIBOR-3M")
-/// * `spread_bp` - Spread/margin over index in basis points
-/// * `gearing` - Multiplier applied to rate (typically 1.0)
-/// * `floor_bp` - Optional floor on index rate in basis points (applied before spread)
-/// * `cap_bp` - Optional cap on all-in rate in basis points (applied after spread + gearing)
-/// * `market` - Market context containing forward curves
-///
-/// # Returns
-///
-/// All-in coupon rate as decimal (e.g., 0.05 for 5%)
-///
-/// # Errors
-///
-/// Returns error if:
-/// - Forward curve not found in market context
-/// - Year fraction calculation fails
-///
-/// # Example
-///
-/// ```rust
-/// use finstack_core::dates::Date;
-/// use finstack_core::market_data::MarketContext;
-/// use finstack_valuations::cashflow::builder::project_floating_rate;
-/// use time::Month;
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// use finstack_core::dates::create_date;
-/// let reset = create_date(2025, Month::January, 15)?;
-/// let period_end = create_date(2025, Month::April, 15)?;
-/// # let market = MarketContext::new();
-///
-/// // 3M SOFR + 200bps with 0% floor, no cap
-/// let rate = project_floating_rate(
-///     reset,
-///     period_end,
-///     "USD-SOFR-3M",
-///     200.0,      // 200 bps spread
-///     1.0,        // no gearing
-///     Some(0.0),  // 0% floor
-///     None,       // no cap
-///     &market,
-/// )?;
-/// # Ok(())
-/// # }
-/// ```
+/// Delegates to `project_floating_rate_with_curve` using standard defaults.
 #[allow(clippy::too_many_arguments)]
 pub fn project_floating_rate(
     reset_date: Date,
@@ -100,10 +91,12 @@ pub fn project_floating_rate(
     )
 }
 
-/// Project floating rate using a resolved forward curve.
+/// Project floating rate using a resolved forward curve (legacy/simplified).
 ///
-/// Optimized version of `project_floating_rate` that avoids curve lookup.
-/// Useful when projecting rates in a loop where the curve is known.
+/// Uses default conventions:
+/// - Gearing includes spread
+/// - floor_bp is index floor
+/// - cap_bp is all-in cap
 #[allow(clippy::too_many_arguments)]
 pub fn project_floating_rate_with_curve(
     reset_date: Date,
@@ -113,6 +106,25 @@ pub fn project_floating_rate_with_curve(
     floor_bp: Option<f64>,
     cap_bp: Option<f64>,
     fwd: &ForwardCurve,
+) -> Result<f64> {
+    let params = FloatingRateParams {
+        spread_bp,
+        gearing,
+        gearing_includes_spread: true,
+        index_floor_bp: floor_bp,
+        index_cap_bp: None,
+        all_in_floor_bp: None,
+        all_in_cap_bp: cap_bp,
+    };
+    project_floating_rate_detailed(reset_date, reset_period_end, fwd, &params)
+}
+
+/// Project floating rate using full parameter set.
+pub fn project_floating_rate_detailed(
+    reset_date: Date,
+    reset_period_end: Date,
+    fwd: &ForwardCurve,
+    params: &FloatingRateParams,
 ) -> Result<f64> {
     let fwd_dc = fwd.day_count();
     let fwd_base = fwd.base_date();
@@ -124,41 +136,35 @@ pub fn project_floating_rate_with_curve(
     // Get period forward rate
     let mut index_rate = fwd.rate_period(t0, t1);
 
-    // Apply floor to index (before adding spread)
-    if let Some(floor) = floor_bp {
+    // Apply index floor/cap
+    if let Some(floor) = params.index_floor_bp {
         index_rate = index_rate.max(floor * 1e-4);
     }
-
-    // Add spread and apply gearing
-    let mut all_in_rate = (index_rate + spread_bp * 1e-4) * gearing;
-
-    // Apply cap to all-in rate (after spread and gearing)
-    if let Some(cap) = cap_bp {
-        all_in_rate = all_in_rate.min(cap * 1e-4);
+    if let Some(cap) = params.index_cap_bp {
+        index_rate = index_rate.min(cap * 1e-4);
     }
 
-    Ok(all_in_rate)
+    // Calculate rate based on gearing style
+    let mut rate = if params.gearing_includes_spread {
+        // (Index + Spread) * Gearing
+        (index_rate + params.spread_bp * 1e-4) * params.gearing
+    } else {
+        // (Index * Gearing) + Spread
+        (index_rate * params.gearing) + params.spread_bp * 1e-4
+    };
+
+    // Apply all-in floor/cap
+    if let Some(floor) = params.all_in_floor_bp {
+        rate = rate.max(floor * 1e-4);
+    }
+    if let Some(cap) = params.all_in_cap_bp {
+        rate = rate.min(cap * 1e-4);
+    }
+
+    Ok(rate)
 }
 
 /// Simplified floating rate projection using tenor approximation.
-///
-/// Convenience wrapper for `project_floating_rate` when reset period end
-/// is not explicitly known. Approximates period end from reset date + tenor.
-///
-/// # Arguments
-///
-/// * `reset_date` - Rate fixing date
-/// * `tenor_years` - Accrual period length in years (e.g., 0.25 for 3M)
-/// * `index_id` - Forward curve identifier
-/// * `spread_bp` - Spread in basis points
-/// * `gearing` - Rate multiplier
-/// * `floor_bp` - Optional floor in basis points
-/// * `cap_bp` - Optional cap in basis points
-/// * `market` - Market context
-///
-/// # Returns
-///
-/// All-in coupon rate as decimal
 #[allow(clippy::too_many_arguments)]
 pub fn project_floating_rate_simple(
     reset_date: Date,
@@ -175,13 +181,18 @@ pub fn project_floating_rate_simple(
     let period_end = reset_date + time::Duration::days(days);
 
     project_floating_rate(
-        reset_date, period_end, index_id, spread_bp, gearing, floor_bp, cap_bp, market,
+        reset_date,
+        period_end,
+        index_id,
+        spread_bp,
+        gearing,
+        floor_bp,
+        cap_bp,
+        market,
     )
 }
 
 /// Simplified floating rate projection using tenor approximation with resolved curve.
-///
-/// Optimized version of `project_floating_rate_simple` that avoids curve lookup.
 #[allow(clippy::too_many_arguments)]
 pub fn project_floating_rate_simple_with_curve(
     reset_date: Date,

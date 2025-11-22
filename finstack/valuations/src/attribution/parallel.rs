@@ -84,18 +84,33 @@ pub fn attribute_pnl_parallel(
     as_of_t0: Date,
     as_of_t1: Date,
     _config: &FinstackConfig,
+    model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
     let mut num_repricings = 0;
 
     // Step 1: Price at T₀ and T₁
-    let val_t0 = reprice_instrument(instrument, market_t0, as_of_t0)?;
+    // Use T₀ model parameters for T₀ valuation if available
+    let instrument_t0 = if let Some(params) = model_params_t0 {
+        crate::attribution::model_params::with_model_params(instrument, params)?
+    } else {
+        Arc::clone(instrument)
+    };
+    let val_t0 = reprice_instrument(&instrument_t0, market_t0, as_of_t0)?;
     num_repricings += 1;
 
     let val_t1 = reprice_instrument(instrument, market_t1, as_of_t1)?;
     num_repricings += 1;
 
-    // Total P&L (in instrument's currency)
-    let total_pnl = compute_pnl(val_t0, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+    // Total P&L (with FX translation)
+    let total_pnl = compute_pnl_with_fx(
+        val_t0,
+        val_t1,
+        val_t1.currency(),
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+    )?;
 
     // Initialize attribution result
     let mut attribution = PnlAttribution::new(
@@ -189,13 +204,15 @@ pub fn attribute_pnl_parallel(
         let val_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
 
-        // Use instrument currency (no cross-currency translation effect)
-        // This isolates the internal pricing impact of FX rate changes
-        attribution.fx_pnl = compute_pnl(
+        // Use full FX translation attribution
+        // This captures both internal pricing impact and translation P&L
+        attribution.fx_pnl = compute_pnl_with_fx(
             val_with_t0_fx,
             val_t1,
             val_t1.currency(),
+            market_t0,
             market_t1,
+            as_of_t0,
             as_of_t1,
         )?;
 
@@ -204,7 +221,7 @@ pub fn attribute_pnl_parallel(
             attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
                 strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
                 target_ccy: Some(val_t1.currency()),
-                notes: "Parallel FX attribution using instrument currency".to_string(),
+                notes: "Parallel FX attribution with full translation".to_string(),
             });
         }
     }
@@ -226,7 +243,9 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 9: Model parameters attribution
-    let params_t0 = crate::attribution::model_params::extract_model_params(instrument);
+    let params_t0 = model_params_t0
+        .cloned()
+        .unwrap_or_else(|| crate::attribution::model_params::extract_model_params(instrument));
     if !matches!(
         params_t0,
         crate::attribution::model_params::ModelParamsSnapshot::None

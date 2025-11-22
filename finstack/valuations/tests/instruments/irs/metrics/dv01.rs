@@ -72,6 +72,7 @@ fn create_standard_swap(as_of: Date, end: Date, side: PayReceive) -> InterestRat
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
+            fixing_calendar_id: None,
             stub: StubKind::None,
             reset_lag_days: 2,
             compounding: Default::default(),

@@ -376,8 +376,12 @@ pub struct BaseCorrelationSurfaceCalibrator {
     pub target_maturities: Vec<f64>,
     /// Standard detachment points
     pub detachment_points: Vec<f64>,
-    /// Configuration
+    /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Discount curve identifier used for tranche PVs
+    pub discount_curve_id: finstack_core::types::CurveId,
+    /// Interpolation used for base correlation between detachment points
+    pub corr_interp: CorrelationInterp,
     /// Day count used to map tranche maturities to years for grouping
     pub time_dc: DayCount,
 }
@@ -397,8 +401,37 @@ impl BaseCorrelationSurfaceCalibrator {
             target_maturities,
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
+            discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
+            corr_interp: CorrelationInterp::Linear,
             time_dc: DayCount::Act365F,
         }
+    }
+
+    /// Set calibration configuration.
+    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// Set the discount curve identifier used when pricing synthetic tranches.
+    pub fn with_discount_curve_id(
+        mut self,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
+    ) -> Self {
+        self.discount_curve_id = discount_curve_id.into();
+        self
+    }
+
+    /// Set interpolation method for base correlation between detachment points.
+    pub fn with_corr_interp(mut self, interp: CorrelationInterp) -> Self {
+        self.corr_interp = interp;
+        self
+    }
+
+    /// Set custom detachment points.
+    pub fn with_detachment_points(mut self, points: Vec<f64>) -> Self {
+        self.detachment_points = points;
+        self
     }
 
     /// Calibrate correlation surface from tranche quotes across maturities.
@@ -450,7 +483,11 @@ impl BaseCorrelationSurfaceCalibrator {
                     self.series,
                     maturity_years,
                     self.base_date,
-                );
+                )
+                .with_config(self.config.clone())
+                .with_discount_curve_id(self.discount_curve_id.clone())
+                .with_corr_interp(self.corr_interp)
+                .with_detachment_points(self.detachment_points.clone());
 
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();

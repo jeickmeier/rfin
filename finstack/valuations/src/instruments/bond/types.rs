@@ -67,6 +67,11 @@ pub struct Bond {
     pub settlement_days: Option<u32>,
     /// Ex-coupon convention: number of days before coupon date that go ex.
     pub ex_coupon_days: Option<u32>,
+    /// Ex-coupon calendar identifier.
+    ///
+    /// If provided, ex-coupon days are treated as business days according to this calendar.
+    /// If None, ex-coupon days are treated as calendar days (default).
+    pub ex_coupon_calendar_id: Option<String>,
 }
 
 /// Call or put option on a bond.
@@ -239,6 +244,7 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
             .build()
             .expect("Standard bond construction should not fail")
     }
@@ -304,6 +310,7 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
             .build()
             .expect("Bond with convention construction should not fail")
     }
@@ -373,6 +380,7 @@ impl Bond {
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
             .build()
             .expect("FRN construction should not fail")
     }
@@ -488,6 +496,7 @@ impl Bond {
             .pricing_overrides(pricing_overrides)
             .custom_cashflows_opt(Some(schedule))
             .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
             .build()
     }
 
@@ -549,6 +558,7 @@ impl Bond {
                 .ex_coupon_days
                 .map(|d| crate::cashflow::accrual::ExCouponRule {
                     days_before_coupon: d,
+                    calendar_id: self.ex_coupon_calendar_id.clone(),
                 }),
             include_pik: true,
         }
@@ -980,6 +990,7 @@ mod tests {
             .attributes(Attributes::new())
             .settlement_days_opt(None)
             .ex_coupon_days_opt(None)
+            .ex_coupon_calendar_id_opt(None)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
@@ -1029,6 +1040,7 @@ mod tests {
             .attributes(Attributes::new())
             .settlement_days_opt(None)
             .ex_coupon_days_opt(None)
+            .ex_coupon_calendar_id_opt(None)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 

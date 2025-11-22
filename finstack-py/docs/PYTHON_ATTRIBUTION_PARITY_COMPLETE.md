@@ -258,6 +258,25 @@ attr = finstack.attribute_pnl(
     # IDE shows: as_of_t0: date
     # IDE shows: as_of_t1: date  
     # IDE shows: method: Optional[AttributionMethod] = None
+    # IDE shows: model_params_t0: Optional[Mapping | str] = None
+)
+
+# Optional StructuredCredit example
+model_params_t0 = {
+    "StructuredCredit": {
+        "prepayment_spec": {"psa": {"speed_multiplier": 1.0}},
+        "default_spec": {"type": "ConstantCdr", "cdr": 0.02},
+        "recovery_spec": {"type": "Constant", "rate": 0.60}
+    }
+}
+
+attr = finstack.attribute_pnl(
+    structured_credit,
+    market_t0,
+    market_t1,
+    as_of_t0,
+    as_of_t1,
+    model_params_t0=model_params_t0,
 )
 
 # IDE autocomplete shows all properties:

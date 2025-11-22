@@ -149,6 +149,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                     dc: *float_dc,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
+                    fixing_calendar_id: None,
                     stub: finstack_core::dates::StubKind::None,
                     reset_lag_days: 2,
                     compounding:

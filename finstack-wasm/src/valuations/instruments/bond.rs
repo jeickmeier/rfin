@@ -163,8 +163,11 @@ impl JsBond {
                     index_id: curve_id_from_str(curve),
                     spread_bp: float_margin_bp.unwrap_or(0.0),
                     gearing: float_gearing.unwrap_or(1.0),
+                    gearing_includes_spread: true,
                     floor_bp: None,
+                    all_in_floor_bp: None,
                     cap_bp: None,
+                    index_cap_bp: None,
                     reset_freq: frequency
                         .map(|f| f.inner())
                         .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
@@ -176,6 +179,7 @@ impl JsBond {
                         .map(|c| c.into())
                         .unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
                     calendar_id: calendar_id.clone(),
+                    fixing_calendar_id: calendar_id.clone(),
                 },
                 coupon_type: CouponType::Cash,
                 freq: frequency

@@ -5,15 +5,19 @@
       "index_id": "EUR-EURIBOR-6M",
       "spread_bp": 150.0,
       "gearing": 1.0,
+      "gearing_includes_spread": true,
       "floor_bp": null,
+      "all_in_floor_bp": null,
       "cap_bp": null,
+      "index_cap_bp": null,
       "reset_freq": {
         "Months": 6
       },
       "reset_lag_days": 2,
       "dc": "Act360",
       "bdc": "modified_following",
-      "calendar_id": "EUR"
+      "calendar_id": "EUR",
+      "fixing_calendar_id": null
     },
     "coupon_type": "Cash",
     "freq": {

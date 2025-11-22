@@ -390,6 +390,7 @@ def attribute_pnl(
     as_of_t0: date,
     as_of_t1: date,
     method: Optional[AttributionMethod] = None,
+    model_params_t0: Optional[Mapping[str, Any] | str] = None,
 ) -> PnlAttribution:
     """Perform P&L attribution for an instrument.
     
@@ -404,6 +405,7 @@ def attribute_pnl(
         as_of_t0: Valuation date at T₀
         as_of_t1: Valuation date at T₁
         method: Attribution methodology (defaults to Parallel)
+        model_params_t0: Optional dict/JSON describing T₀ model parameters
     
     Returns:
         Complete P&L attribution with factor breakdown

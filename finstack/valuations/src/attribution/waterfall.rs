@@ -117,6 +117,7 @@ pub fn attribute_pnl_waterfall(
     _config: &FinstackConfig,
     factor_order: Vec<AttributionFactor>,
     strict_validation: bool,
+    model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
     if factor_order.is_empty() {
         return Err(Error::Validation(
@@ -127,14 +128,28 @@ pub fn attribute_pnl_waterfall(
     let mut num_repricings = 0;
 
     // Step 1: Price at T₀
-    let val_t0 = reprice_instrument(instrument, market_t0, as_of_t0)?;
+    // Use T₀ model parameters for T₀ valuation if available
+    let instrument_t0 = if let Some(params) = model_params_t0 {
+        crate::attribution::model_params::with_model_params(instrument, params)?
+    } else {
+        Arc::clone(instrument)
+    };
+    let val_t0 = reprice_instrument(&instrument_t0, market_t0, as_of_t0)?;
     num_repricings += 1;
 
     // Also price at T₁ for total P&L calculation
     let val_t1 = reprice_instrument(instrument, market_t1, as_of_t1)?;
     num_repricings += 1;
 
-    let total_pnl = compute_pnl(val_t0, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+    let total_pnl = compute_pnl_with_fx(
+        val_t0,
+        val_t1,
+        val_t1.currency(),
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+    )?;
 
     // Initialize attribution result
     let mut attribution = PnlAttribution::new(
@@ -148,14 +163,17 @@ pub fn attribute_pnl_waterfall(
     // Build hybrid market: start with all T₀, progressively apply T₁
     let mut current_market = market_t0.clone();
     let mut current_val = val_t0;
+    let mut current_instrument = instrument_t0;
 
     // Apply each factor in sequence
     for factor in factor_order {
-        let (new_market, factor_pnl) = apply_factor_to_t1(
+        let (new_market, factor_pnl, new_instrument) = apply_factor_to_t1(
             instrument,
+            &current_instrument,
             &current_market,
             market_t0,
             market_t1,
+            as_of_t0,
             as_of_t1,
             &factor,
             current_val,
@@ -176,7 +194,7 @@ pub fn attribute_pnl_waterfall(
                 attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
                     strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
                     target_ccy: Some(current_val.currency()),
-                    notes: "Waterfall FX attribution using instrument currency".to_string(),
+                    notes: "Waterfall FX attribution with full translation".to_string(),
                 });
             }
             AttributionFactor::Volatility => attribution.vol_pnl = factor_pnl,
@@ -185,7 +203,7 @@ pub fn attribute_pnl_waterfall(
                 // Add note if factor P&L is zero (likely skipped)
                 if factor_pnl.amount().abs() < 1e-10 {
                     attribution.meta.notes.push(
-                        "Model parameters attribution returned zero (may be unsupported for this instrument type)".to_string()
+                        "Model parameters attribution returned zero".to_string()
                     );
                 }
             }
@@ -194,6 +212,7 @@ pub fn attribute_pnl_waterfall(
 
         // Update current market and value for next iteration
         current_market = new_market;
+        current_instrument = new_instrument;
         current_val = current_val
             .checked_add(factor_pnl)
             .map_err(|_| Error::Validation("Currency mismatch in waterfall".to_string()))?;
@@ -228,84 +247,60 @@ pub fn attribute_pnl_waterfall(
 ///
 /// # Returns
 ///
-/// Tuple of (new market with factor applied, P&L from applying factor)
+/// Tuple of (new market, P&L from applying factor, new instrument)
 #[allow(clippy::too_many_arguments)]
 fn apply_factor_to_t1(
-    instrument: &Arc<dyn Instrument>,
+    target_instrument: &Arc<dyn Instrument>,
+    current_instrument: &Arc<dyn Instrument>,
     current_market: &MarketContext,
     _market_t0: &MarketContext,
     market_t1: &MarketContext,
+    as_of_t0: Date,
     as_of_t1: Date,
     factor: &AttributionFactor,
     current_val: Money,
     num_repricings: &mut usize,
     strict_validation: bool,
-) -> Result<(MarketContext, Money)> {
-    // For ModelParameters, we need to modify the instrument, not the market
+) -> Result<(MarketContext, Money, Arc<dyn Instrument>)> {
+    // For ModelParameters, we transition to T₁ parameters (which are on target_instrument)
     if matches!(factor, AttributionFactor::ModelParameters) {
-        // Extract T₁ parameters and create modified instrument
-        let params_t1 = crate::attribution::model_params::extract_model_params(instrument);
-
-        if !matches!(
-            params_t1,
-            crate::attribution::model_params::ModelParamsSnapshot::None
-        ) {
-            match crate::attribution::model_params::with_model_params(instrument, &params_t1) {
-                Ok(instrument_with_t1_params) => {
-                    // Reprice with T₁ parameters
-                    match reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1) {
-                        Ok(new_val) => {
-                            *num_repricings += 1;
-                            let factor_pnl = compute_pnl(
-                                current_val,
-                                new_val,
-                                current_val.currency(),
-                                current_market,
-                                as_of_t1,
-                            )?;
-                            return Ok((current_market.clone(), factor_pnl));
-                        }
-                        Err(e) => {
-                            if strict_validation {
-                                return Err(e);
-                            }
-                            // Repricing failed - log warning since we can't access attribution.meta.notes from here
-                            tracing::warn!(
-                                error = %e,
-                                factor = ?factor,
-                                instrument_id = %instrument.id(),
-                                "Waterfall attribution: repricing with T₁ model parameters failed, returning zero P&L"
-                            );
-                            return Ok((
-                                current_market.clone(),
-                                Money::new(0.0, current_val.currency()),
-                            ));
-                        }
-                    }
+        // The target_instrument already has T₁ parameters
+        // We just need to reprice it with the current market
+        match reprice_instrument(target_instrument, current_market, as_of_t1) {
+            Ok(new_val) => {
+                *num_repricings += 1;
+                // For model params, we assume no FX change, so use standard compute_pnl
+                // (FX factor handles FX changes)
+                let factor_pnl = compute_pnl(
+                    current_val,
+                    new_val,
+                    current_val.currency(),
+                    current_market,
+                    as_of_t1,
+                )?;
+                return Ok((
+                    current_market.clone(),
+                    factor_pnl,
+                    Arc::clone(target_instrument),
+                ));
+            }
+            Err(e) => {
+                if strict_validation {
+                    return Err(e);
                 }
-                Err(e) => {
-                    if strict_validation {
-                        return Err(e);
-                    }
-                    // Parameter modification failed - log warning since we can't access attribution.meta.notes from here
-                    tracing::warn!(
-                        error = %e,
-                        factor = ?factor,
-                        instrument_id = %instrument.id(),
-                        "Waterfall attribution: model parameter modification failed, returning zero P&L"
-                    );
-                    return Ok((
-                        current_market.clone(),
-                        Money::new(0.0, current_val.currency()),
-                    ));
-                }
+                tracing::warn!(
+                    error = %e,
+                    factor = ?factor,
+                    instrument_id = %target_instrument.id(),
+                    "Waterfall attribution: repricing with T₁ model parameters failed, returning zero P&L"
+                );
+                return Ok((
+                    current_market.clone(),
+                    Money::new(0.0, current_val.currency()),
+                    Arc::clone(current_instrument),
+                ));
             }
         }
-        // If no params or extraction fails, return zero P&L
-        return Ok((
-            current_market.clone(),
-            Money::new(0.0, current_val.currency()),
-        ));
     }
 
     // For all other factors, modify the market
@@ -360,19 +355,35 @@ fn apply_factor_to_t1(
     };
 
     // Reprice with new market
-    let new_val = reprice_instrument(instrument, &new_market, as_of_t1)?;
+    let new_val = reprice_instrument(current_instrument, &new_market, as_of_t1)?;
     *num_repricings += 1;
 
     // Compute P&L from this factor
-    let factor_pnl = compute_pnl(
-        current_val,
-        new_val,
-        current_val.currency(),
-        &new_market,
-        as_of_t1,
-    )?;
+    let factor_pnl = if matches!(factor, AttributionFactor::Fx) {
+        // For FX, use full translation logic: (new_val @ new_fx) - (current_val @ current_fx)
+        // current_market has T0 FX (or whatever state before this step)
+        // new_market has T1 FX
+        compute_pnl_with_fx(
+            current_val,
+            new_val,
+            current_val.currency(),
+            current_market, // use FX from before this step
+            &new_market,    // use FX from after this step
+            as_of_t0,       // Doesn't matter much for FX lookup as we pass explicit markets,
+            as_of_t1,       // but we use t1 date for conversion as we are at t1
+        )?
+    } else {
+        // Standard P&L in instrument currency (FX logic handles translation)
+        compute_pnl(
+            current_val,
+            new_val,
+            current_val.currency(),
+            &new_market,
+            as_of_t1,
+        )?
+    };
 
-    Ok((new_market, factor_pnl))
+    Ok((new_market, factor_pnl, Arc::clone(current_instrument)))
 }
 
 #[cfg(test)]
@@ -480,6 +491,7 @@ mod tests {
             &config,
             vec![],
             false, // strict validation off
+            None,
         );
 
         assert!(result.is_err());

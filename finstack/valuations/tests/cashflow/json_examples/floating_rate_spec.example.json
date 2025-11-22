@@ -4,15 +4,19 @@
     "index_id": "USD-SOFR-3M",
     "spread_bp": 200.0,
     "gearing": 1.0,
+    "gearing_includes_spread": true,
     "floor_bp": 0.0,
+    "all_in_floor_bp": null,
     "cap_bp": null,
+    "index_cap_bp": null,
     "reset_freq": {
       "Months": 3
     },
     "reset_lag_days": 2,
     "dc": "Act360",
     "bdc": "modified_following",
-    "calendar_id": "USD"
+    "calendar_id": "USD",
+    "fixing_calendar_id": null
   }
 }
 
