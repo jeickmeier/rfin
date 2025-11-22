@@ -795,8 +795,8 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
         if crate::dates::utils::is_leap_year(year) {
             // Try to create Feb 29 for this year
             if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
-                // Check if Feb 29 is in the interval (start, end]
-                if feb_29 > start && feb_29 <= end {
+                // Check if Feb 29 is in the interval [start, end]
+                if feb_29 >= start && feb_29 <= end {
                     return true;
                 }
             }
@@ -916,6 +916,19 @@ mod tests {
             .expect("Year fraction calculation should succeed in test");
         let actual_days = (end - start).whole_days() as f64; // 3 days
         let expected = actual_days / 366.0; // Should use 366 denominator due to Feb 29
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn act365l_includes_starting_on_feb_29() {
+        // Period that starts on Feb 29 should still use 366 denominator
+        let start = make_date(2024, 2, 29);
+        let end = make_date(2024, 3, 2);
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .expect("Year fraction calculation should succeed in test");
+        let actual_days = (end - start).whole_days() as f64; // 2 days
+        let expected = actual_days / 366.0;
         assert!((yf - expected).abs() < 1e-9);
     }
 

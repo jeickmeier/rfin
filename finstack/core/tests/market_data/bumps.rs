@@ -1,8 +1,9 @@
 use super::common::{
-    sample_base_correlation_curve, sample_discount_curve, sample_forward_curve,
+    sample_base_correlation_curve, sample_base_date, sample_discount_curve, sample_forward_curve,
     sample_hazard_curve, sample_inflation_curve,
 };
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
 #[test]
 fn bump_spec_constructors_normalize_values() {
@@ -77,6 +78,22 @@ fn hazard_curve_requires_additive_fraction() {
 
     let none = curve.apply_bump(BumpSpec::multiplier(1.2));
     assert!(none.is_none(), "hazard curves only support additive bumps");
+}
+
+#[test]
+fn hazard_curve_rejects_invalid_recovery_for_bumps() {
+    let curve = HazardCurve::builder("CDX-RISKLESS")
+        .base_date(sample_base_date())
+        .recovery_rate(1.0)
+        .knots([(0.0, 0.01), (3.0, 0.015)])
+        .build()
+        .expect("hazard curve construction should succeed in test");
+
+    let bumped = curve.apply_bump(BumpSpec::parallel_bp(25.0));
+    assert!(
+        bumped.is_none(),
+        "curves with recovery >= 100% cannot convert par spread bumps"
+    );
 }
 
 #[test]

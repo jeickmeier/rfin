@@ -26,6 +26,13 @@ impl CachedResult {
         }
     }
 
+    /// Length of the cached payload.
+    pub fn len(&self) -> usize {
+        match self {
+            CachedResult::Scalar(shared) => shared.len(),
+        }
+    }
+
     /// Estimate memory usage in bytes.
     pub fn memory_size(&self) -> usize {
         match self {
@@ -49,6 +56,8 @@ struct CacheEntry {
     access_count: usize,
     /// Memory size in bytes.
     size: usize,
+    /// Result length for cache compatibility checks.
+    len: usize,
 }
 
 /// LRU cache for expression results with memory budget management.
@@ -110,31 +119,48 @@ impl ExpressionCache {
         }
     }
 
-    /// Get a cached result if available.
-    pub fn get(&mut self, node_id: u64) -> Option<CachedResult> {
-        if let Some(entry) = self.cache.get_mut(&node_id) {
-            // Update access metadata
-            #[cfg(target_arch = "wasm32")]
-            {
-                entry.last_access += 1; // Increment counter in WASM
-            }
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                entry.last_access = std::time::Instant::now();
-            }
-            entry.access_count += 1;
+    /// Get a cached result if available and matching the requested length.
+    pub fn get(&mut self, node_id: u64, len: usize) -> Option<CachedResult> {
+        if self
+            .cache
+            .peek(&node_id)
+            .is_none_or(|entry| entry.len != len)
+        {
+            self.record_miss();
+            return None;
+        }
 
-            self.stats.hits += 1;
-            Some(entry.result.clone())
-        } else {
-            self.stats.misses += 1;
-            None
+        match self.cache.get_mut(&node_id) {
+            Some(entry) => {
+                // Update access metadata
+                #[cfg(target_arch = "wasm32")]
+                {
+                    entry.last_access += 1; // Increment counter in WASM
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    entry.last_access = std::time::Instant::now();
+                }
+                entry.access_count += 1;
+
+                self.stats.hits += 1;
+                Some(entry.result.clone())
+            }
+            None => {
+                debug_assert!(
+                    false,
+                    "ExpressionCache::get peek succeeded but get_mut failed for node {node_id}"
+                );
+                self.record_miss();
+                None
+            }
         }
     }
 
     /// Store a result in the cache.
     pub fn put(&mut self, node_id: u64, result: CachedResult) -> bool {
         let size = result.memory_size();
+        let len = result.len();
 
         // Check if we need to make space for memory budget
         while self.current_memory + size > self.max_memory && !self.cache.is_empty() {
@@ -158,6 +184,7 @@ impl ExpressionCache {
             last_access: std::time::Instant::now(),
             access_count: 1,
             size,
+            len,
         };
 
         // Insert will handle LRU eviction if capacity is exceeded
@@ -174,6 +201,11 @@ impl ExpressionCache {
         self.stats.memory_usage = self.current_memory;
 
         true
+    }
+
+    #[inline]
+    fn record_miss(&mut self) {
+        self.stats.misses += 1;
     }
 
     /// Evict the least recently used entry.
@@ -240,8 +272,8 @@ impl CacheManager {
     }
 
     /// Get a cached result.
-    pub fn get(&self, node_id: u64) -> Option<CachedResult> {
-        self.cache.lock().get(node_id)
+    pub fn get(&self, node_id: u64, len: usize) -> Option<CachedResult> {
+        self.cache.lock().get(node_id, len)
     }
 
     /// Store a result in the cache.
@@ -283,7 +315,9 @@ mod tests {
 
         // Store and retrieve
         assert!(cache.put(1, result));
-        let retrieved = cache.get(1).expect("Value should exist after put");
+        let retrieved = cache
+            .get(1, data.len())
+            .expect("Value should exist after put");
         assert_eq!(retrieved.as_scalar().expect("Value should be scalar"), data);
 
         // Check stats

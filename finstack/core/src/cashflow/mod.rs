@@ -74,6 +74,7 @@
 pub mod discounting;
 pub mod performance;
 pub mod primitives;
+pub(crate) mod utils;
 pub mod xirr;
 
 pub use discounting::{npv_static, Discountable};

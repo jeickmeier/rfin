@@ -323,11 +323,11 @@ pub enum StubKind {
     None,
     /// Short stub period at the beginning of the schedule.
     ShortFront,
-    /// Short stub period at the end of the schedule.
+    /// Short stub period at the end of the schedule (final step truncated to maturity).
     ShortBack,
     /// Long stub period at the beginning of the schedule.
     LongFront,
-    /// Long stub period at the end of the schedule.
+    /// Long stub period at the end of the schedule (merges final two periods).
     LongBack,
 }
 
@@ -852,7 +852,8 @@ impl BuilderInternal {
             StubKind::ShortFront => self.gen_short_front(step),
             StubKind::LongFront => self.gen_long_front(step),
             StubKind::LongBack => self.gen_long_back(step),
-            StubKind::None | StubKind::ShortBack => self.gen_regular(step),
+            StubKind::None => self.gen_regular(step),
+            StubKind::ShortBack => self.gen_short_back(step),
         }
     }
 
@@ -872,6 +873,11 @@ impl BuilderInternal {
             push_if_new(&mut buf, dt);
         }
         buf.into_vec()
+    }
+
+    fn gen_short_back(self, step: Step) -> Vec<Date> {
+        // Short back stub is naturally produced by forward generation that truncates the final step.
+        self.gen_regular(step)
     }
 
     fn gen_short_front(self, step: Step) -> Vec<Date> {
@@ -1074,6 +1080,47 @@ mod tests {
 
         // Should generate a valid schedule
         assert!(schedule.dates.len() >= 2);
+    }
+
+    #[test]
+    fn stub_short_back_truncates_last_period() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 5, 20);
+
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .stub_rule(StubKind::ShortBack)
+            .build()
+            .expect("Schedule builder should succeed with ShortBack");
+
+        assert_eq!(
+            schedule.dates,
+            vec![
+                d(2025, 1, 15),
+                d(2025, 2, 15),
+                d(2025, 3, 15),
+                d(2025, 4, 15),
+                d(2025, 5, 15),
+                end
+            ]
+        );
+    }
+
+    #[test]
+    fn stub_long_back_merges_final_two_periods() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 5, 20);
+
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .stub_rule(StubKind::LongBack)
+            .build()
+            .expect("Schedule builder should succeed with LongBack");
+
+        assert_eq!(
+            schedule.dates,
+            vec![d(2025, 1, 15), d(2025, 2, 15), d(2025, 3, 15), d(2025, 4, 15), end]
+        );
     }
 }
 

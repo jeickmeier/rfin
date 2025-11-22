@@ -312,11 +312,17 @@ impl Bumpable for HazardCurve {
             return None;
         }
 
+        // Recovery must be within [0, 1) for par spread ⇢ hazard conversions
+        let recovery = self.recovery_rate();
+        if !recovery.is_finite() || !(0.0..1.0).contains(&recovery) {
+            return None;
+        }
+
         // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
         let shift = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
                 let spread = spec.additive_fraction()?;
-                spread / (1.0 - self.recovery_rate())
+                spread / (1.0 - recovery)
             }
             _ => return None,
         };

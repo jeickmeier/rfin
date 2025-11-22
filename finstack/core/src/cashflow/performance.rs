@@ -78,6 +78,7 @@
 //! - **XIRR**:
 //!   - Microsoft Excel XIRR function documentation (industry standard implementation)
 
+use crate::cashflow::utils::{has_sign_change, signed_year_fraction};
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
@@ -165,21 +166,10 @@ pub fn npv(
     let base = base_date.unwrap_or(cash_flows[0].0);
     let dc = day_count.unwrap_or(DayCount::Act365F);
     let mut sum = 0.0;
+    let ctx = DayCountCtx::default();
 
     for (date, amount) in cash_flows {
-        let years = if *date == base {
-            0.0
-        } else if *date > base {
-            dc.year_fraction(base, *date, DayCountCtx::default())
-                .map_err(|e| {
-                    crate::Error::Validation(format!("Day count calculation failed: {}", e))
-                })?
-        } else {
-            -dc.year_fraction(*date, base, DayCountCtx::default())
-                .map_err(|e| {
-                    crate::Error::Validation(format!("Day count calculation failed: {}", e))
-                })?
-        };
+        let years = signed_year_fraction(dc, base, *date, ctx)?;
         let discount_factor = (1.0 + discount_rate).powf(years);
         sum += amount / discount_factor;
     }
@@ -285,9 +275,7 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
     }
 
     // Check for sign change
-    let has_positive = amounts.iter().any(|&x| x > 0.0);
-    let has_negative = amounts.iter().any(|&x| x < 0.0);
-    if !has_positive || !has_negative {
+    if !has_sign_change(amounts.iter().copied()) {
         return Err(InputError::Invalid.into());
     }
 

@@ -71,6 +71,7 @@
 //!   - CFA Institute (2019). "Calculating and Using Time-Weighted and Money-Weighted
 //!     Rates of Return." CFA Program Curriculum, Level I.
 
+use crate::cashflow::utils::{has_sign_change, signed_year_fraction};
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
@@ -185,7 +186,7 @@ pub fn xirr_with_daycount(
     }
 
     // Check for sign change
-    if !has_sign_change(cash_flows) {
+    if !has_sign_change(cash_flows.iter().map(|&(_, amt)| amt)) {
         return Err(InputError::Invalid.into());
     }
 
@@ -194,12 +195,13 @@ pub fn xirr_with_daycount(
     flows.sort_by_key(|(d, _)| *d);
 
     let first_date = flows[0].0;
+    let ctx = DayCountCtx::default();
 
     // Precompute (year_fraction, amount) once for performance and
     // propagate any day-count errors rather than masking/panicking.
     let mut years_and_amounts: Vec<(f64, f64)> = Vec::with_capacity(flows.len());
     for (date, amount) in flows.iter().copied() {
-        let years = day_count.year_fraction(first_date, date, DayCountCtx::default())?;
+        let years = signed_year_fraction(day_count, first_date, date, ctx)?;
         years_and_amounts.push((years, amount));
     }
 
@@ -327,28 +329,6 @@ pub fn xirr_with_daycount(
 /// - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
 pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
     xirr_with_daycount(cash_flows, DayCount::Act365F, guess)
-}
-
-/// Checks if cash flows have at least one sign change.
-fn has_sign_change(cash_flows: &[(Date, f64)]) -> bool {
-    if cash_flows.len() < 2 {
-        return false;
-    }
-
-    let mut has_positive = false;
-    let mut has_negative = false;
-
-    for &(_, amount) in cash_flows {
-        if amount > 0.0 {
-            has_positive = true;
-        } else if amount < 0.0 {
-            has_negative = true;
-        }
-        if has_positive && has_negative {
-            return true;
-        }
-    }
-    false
 }
 
 #[cfg(test)]

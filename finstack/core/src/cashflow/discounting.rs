@@ -57,6 +57,7 @@
 //! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling* (3 vols).
 //!   Atlantic Financial Press. Volume 1, Chapter 3.
 
+use crate::cashflow::utils::signed_year_fraction;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::market_data::traits::Discounting;
 use crate::money::Money;
@@ -89,14 +90,9 @@ pub fn npv_static<D: Discounting + ?Sized>(
     }
     let ccy = flows[0].1.currency();
     let mut total = Money::new(0.0, ccy);
+    let ctx = DayCountCtx::default();
     for (d, amt) in flows {
-        let t = if *d == base {
-            0.0
-        } else if *d > base {
-            dc.year_fraction(base, *d, DayCountCtx::default())?
-        } else {
-            -dc.year_fraction(*d, base, DayCountCtx::default())?
-        };
+        let t = signed_year_fraction(dc, base, *d, ctx)?;
         let df = disc.df(t);
         let disc_amt = *amt * df;
         total = (total + disc_amt)?;
@@ -108,15 +104,6 @@ pub fn npv_static<D: Discounting + ?Sized>(
 ///
 /// Discounts each cashflow to the base date using the provided curve.
 /// All flows must be in the same currency for the calculation to succeed.
-fn npv(
-    disc: &dyn Discounting,
-    base: Date,
-    dc: DayCount,
-    flows: &[(Date, Money)],
-) -> crate::Result<Money> {
-    npv_static(disc, base, dc, flows)
-}
-
 impl<T> Discountable for T
 where
     T: AsRef<[(Date, Money)]>,
@@ -124,7 +111,7 @@ where
     type PVOutput = crate::Result<Money>;
 
     fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> crate::Result<Money> {
-        npv(disc, base, dc, self.as_ref())
+        npv_static(disc, base, dc, self.as_ref())
     }
 }
 
@@ -177,7 +164,7 @@ mod tests {
         };
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
-        let err = super::npv(&curve, base, DayCount::Act365F, &flows)
+        let err = npv_static(&curve, base, DayCount::Act365F, &flows)
             .expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }

@@ -448,6 +448,7 @@ impl ScenarioEngine {
                                     id: CurveId::from(curve_id.as_str()),
                                     spec: BumpSpec::key_rate_bp(years, *bp),
                                 });
+                                applied += 1;
                             }
                             Err(e) => warnings.push(format!(
                                 "Tenor parsing failed for {} on {}: {}",
@@ -455,7 +456,6 @@ impl ScenarioEngine {
                             )),
                         }
                     }
-                    applied += 1;
                 }
                 OperationSpec::BaseCorrParallelPts { surface_id, points } => {
                     market_bumps.push(MarketBump::Curve {
