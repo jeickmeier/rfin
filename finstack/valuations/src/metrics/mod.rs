@@ -219,6 +219,7 @@
 
 // calculators module removed - GenericPv was the only calculator and has been removed
 mod core;
+pub mod risk;
 mod sensitivities;
 
 // Re-export all public items at the root level for backward compatibility
@@ -249,6 +250,12 @@ pub use sensitivities::vega::{
     standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
     ParallelVega, VOL_BUMP_PCT,
 };
+
+// Risk metrics
+pub use risk::{
+    calculate_portfolio_var, calculate_var, extract_risk_factors, GenericHVar, MarketHistory,
+    MarketScenario, RiskFactorShift, RiskFactorType, VarConfig, VarMethod, VarResult,
+};
 /// Creates a standard metric registry with all built-in metrics.
 ///
 /// This registry includes metrics for:
@@ -261,10 +268,20 @@ pub use sensitivities::vega::{
 pub fn standard_registry() -> MetricRegistry {
     let mut registry = MetricRegistry::new();
 
-    // Register universal Theta calculator for ALL instruments (empty applicability = all)
+    // Universal metrics (work with any instrument via trait object)
     registry.register_metric(
         MetricId::Theta,
         std::sync::Arc::new(GenericThetaAny),
+        &[], // Empty = applies to all instruments
+    );
+    registry.register_metric(
+        MetricId::HVAR,
+        std::sync::Arc::new(GenericHVar::var_95()),
+        &[], // Empty = applies to all instruments
+    );
+    registry.register_metric(
+        MetricId::EXPECTED_SHORTFALL,
+        std::sync::Arc::new(GenericHVar::var_95()),
         &[], // Empty = applies to all instruments
     );
 
@@ -305,10 +322,6 @@ pub fn standard_registry() -> MetricRegistry {
         >::default()),
         &["RevolvingCredit"],
     );
-
-    // TODO: Add CS01 for Bond once hazard-rate pricing is implemented
-    // TODO: Add CS01 for StructuredCredit once hazard-rate pricing is added
-    // TODO: Add CS01 for Convertible when priced with credit risk (implement HasCreditCurve)
 
     crate::instruments::equity::metrics::register_equity_metrics(&mut registry);
     crate::instruments::basket::metrics::register_basket_metrics(&mut registry);

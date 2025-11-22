@@ -140,7 +140,6 @@ impl PricingOverrides {
         self
     }
 }
-
 // tests moved to end of file to satisfy clippy::items_after_test_module
 
 impl PricingOverrides {

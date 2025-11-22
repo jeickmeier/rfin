@@ -1,0 +1,208 @@
+//! Generic Historical VaR metric calculator.
+//!
+//! Integrates Historical VaR into the standard metrics framework as a
+//! `MetricCalculator` that can be registered and computed alongside other
+//! risk metrics like DV01, Theta, etc.
+
+use crate::metrics::core::traits::{MetricCalculator, MetricContext};
+use crate::metrics::risk::{calculate_var, VarConfig, VarMethod};
+use crate::metrics::MetricId;
+use finstack_core::Result;
+
+/// Generic Historical VaR calculator that works with any instrument.
+///
+/// This calculator integrates Historical VaR into the standard metrics
+/// framework. It requires `MarketHistory` to be attached to the
+/// [`MarketContext`] via its `market_history` field.
+///
+/// # Examples
+///
+/// ```ignore
+/// use finstack_valuations::metrics::{GenericHVar, VarConfig, MetricId};
+///
+/// // Create VaR calculator with 95% confidence
+/// let var_calc = GenericHVar::new(VarConfig::var_95());
+///
+/// // Register in metric registry
+/// registry.register_universal(MetricId::HVAR, Arc::new(var_calc));
+///
+/// // Calculate via price_with_metrics
+/// let result = bond.price_with_metrics(&market, as_of, &[MetricId::HVAR], overrides)?;
+/// let var = result.metrics.get(&MetricId::HVAR)?;
+/// ```
+pub struct GenericHVar {
+    config: VarConfig,
+}
+
+impl GenericHVar {
+    /// Create a new VaR calculator with the given configuration.
+    pub fn new(config: VarConfig) -> Self {
+        Self { config }
+    }
+
+    /// Create a VaR calculator with 95% confidence level.
+    pub fn var_95() -> Self {
+        Self::new(VarConfig::var_95())
+    }
+
+    /// Create a VaR calculator with 99% confidence level.
+    pub fn var_99() -> Self {
+        Self::new(VarConfig::var_99())
+    }
+
+    /// Create a VaR calculator with custom confidence level.
+    pub fn with_confidence(confidence_level: f64) -> Self {
+        Self::new(VarConfig::new(confidence_level))
+    }
+
+    /// Set the calculation method.
+    pub fn with_method(mut self, method: VarMethod) -> Self {
+        self.config.method = method;
+        self
+    }
+}
+
+impl MetricCalculator for GenericHVar {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        // Get market history from market context
+        let history = context
+            .curves
+            .market_history
+            .as_ref()
+            .and_then(|h| h.downcast_ref::<crate::metrics::risk::MarketHistory>())
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Market history required for VaR calculation but not provided in MarketContext"
+                        .to_string(),
+                )
+            })?;
+
+        // Calculate VaR for this instrument
+        let result = calculate_var(
+            context.instrument.as_ref(),
+            &context.curves,
+            history,
+            context.as_of,
+            &self.config,
+        )?;
+
+        // Store additional metrics
+        // Store Expected Shortfall as a separate metric
+        context
+            .computed
+            .insert(MetricId::EXPECTED_SHORTFALL, result.expected_shortfall);
+
+        // TODO: Store P&L distribution as a series metric if needed
+        // context.store_series(...)?;
+
+        // Return VaR as the primary metric value
+        Ok(result.var)
+    }
+
+    fn dependencies(&self) -> &[MetricId] {
+        // VaR doesn't depend on other metrics (it revalues directly)
+        &[]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::Bond;
+    use crate::metrics::risk::{MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType};
+    use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::money::Money;
+    use finstack_core::types::{Currency, CurveId};
+    use std::sync::Arc;
+    use time::macros::date;
+
+    #[test]
+    fn test_generic_hvar_creation() {
+        let var_calc = GenericHVar::var_95();
+        assert_eq!(var_calc.config.confidence_level, 0.95);
+
+        let var_calc = GenericHVar::var_99();
+        assert_eq!(var_calc.config.confidence_level, 0.99);
+
+        let var_calc = GenericHVar::with_confidence(0.975);
+        assert_eq!(var_calc.config.confidence_level, 0.975);
+    }
+
+    #[test]
+    fn test_hvar_via_metrics_framework() -> Result<()> {
+        let as_of = date!(2024 - 01 - 01);
+
+        // Create bond
+        let bond = Bond::fixed(
+            "TEST-BOND",
+            Money::new(100_000.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2029 - 01 - 01),
+            "USD-OIS",
+        );
+
+        // Create market
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots(vec![(0.0, 1.0), (5.0, 0.85), (10.0, 0.70)])
+            .build()?;
+
+        // Create historical scenarios
+        let scenarios = vec![
+            MarketScenario::new(
+                date!(2023 - 12 - 31),
+                vec![RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::from("USD-OIS"),
+                        tenor_years: 5.0,
+                    },
+                    shift: 0.0050,
+                }],
+            ),
+            MarketScenario::new(
+                date!(2023 - 12 - 30),
+                vec![RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::from("USD-OIS"),
+                        tenor_years: 5.0,
+                    },
+                    shift: -0.0030,
+                }],
+            ),
+        ];
+
+        let history = Arc::new(MarketHistory::new(as_of, 2, scenarios))
+            as Arc<dyn std::any::Any + Send + Sync>;
+
+        let market = Arc::new(
+            MarketContext::new()
+                .insert_discount(curve)
+                .insert_market_history(history),
+        );
+
+        // Calculate VaR via metrics framework
+        let result = bond.price_with_metrics(
+            market.as_ref(),
+            as_of,
+            &[MetricId::HVAR, MetricId::EXPECTED_SHORTFALL],
+        )?;
+
+        // Verify VaR was calculated
+        let var = result.measures.get("hvar").expect("VaR should be computed");
+        assert!(*var > 0.0, "VaR should be positive");
+
+        // Verify ES was calculated
+        let es = result
+            .measures
+            .get("expected_shortfall")
+            .expect("ES should be computed");
+        assert!(*es >= *var, "ES should be >= VaR");
+
+        Ok(())
+    }
+}

@@ -619,6 +619,19 @@ impl MetricId {
     pub const TerminalValuePV: Self = Self(Cow::Borrowed("terminal_value_pv"));
 
     // ========================================================================
+    // VaR Metrics
+    // ========================================================================
+
+    /// Conditional second-order theta (gamma of theta)
+    pub const ThetaGamma: Self = Self(Cow::Borrowed("theta_gamma"));
+
+    /// Historical Value-at-Risk (95% confidence by default)
+    pub const HVAR: Self = Self(Cow::Borrowed("hvar"));
+
+    /// Expected Shortfall / Conditional VaR (CVaR)
+    pub const EXPECTED_SHORTFALL: Self = Self(Cow::Borrowed("expected_shortfall"));
+
+    // ========================================================================
     // ALL_STANDARD Array
     // ========================================================================
 

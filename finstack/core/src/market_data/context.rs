@@ -482,6 +482,13 @@ pub struct MarketContext {
 
     /// Collateral CSA code mappings
     pub(super) collateral: HashMap<String, CurveId>,
+
+    /// Historical market scenarios for VaR calculation
+    ///
+    /// Stores time-series of historical market shifts used by Historical VaR
+    /// and other scenario-based risk metrics. When present, enables VaR
+    /// metric calculation.
+    pub market_history: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 impl MarketContext {
@@ -866,9 +873,27 @@ impl MarketContext {
         self
     }
 
-    /// In-place set of the FX matrix from an Arc.
+    /// In-place insert of FX matrix from Arc.
     pub fn insert_fx_mut(&mut self, fx: Arc<FxMatrix>) -> &mut Self {
         self.fx = Some(fx);
+        self
+    }
+
+    /// Insert historical market scenarios for VaR calculation.
+    ///
+    /// # Parameters
+    /// - `history`: Historical market scenarios (type-erased)
+    pub fn insert_market_history(mut self, history: Arc<dyn std::any::Any + Send + Sync>) -> Self {
+        self.market_history = Some(history);
+        self
+    }
+
+    /// In-place insert of historical market scenarios.
+    pub fn insert_market_history_mut(
+        &mut self,
+        history: Arc<dyn std::any::Any + Send + Sync>,
+    ) -> &mut Self {
+        self.market_history = Some(history);
         self
     }
 
