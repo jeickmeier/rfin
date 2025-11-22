@@ -22,6 +22,8 @@ fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut Ca
             debt_instruments: vec![],
             equity_instruments: vec![],
             meta: indexmap::IndexMap::new(),
+            reporting_currency: None,
+            fx_policy: None,
         })
 }
 
@@ -183,6 +185,21 @@ impl<State> ModelBuilder<State> {
                 spec,
             });
 
+        self
+    }
+
+    /// Set an explicit reporting currency for capital-structure totals.
+    pub fn reporting_currency(mut self, currency: finstack_core::currency::Currency) -> Self {
+        ensure_capital_structure(&mut self).reporting_currency = Some(currency);
+        self
+    }
+
+    /// Set the FX conversion policy used when converting capital-structure cashflows.
+    pub fn fx_policy(
+        mut self,
+        policy: finstack_core::money::fx::FxConversionPolicy,
+    ) -> Self {
+        ensure_capital_structure(&mut self).fx_policy = Some(policy);
         self
     }
 

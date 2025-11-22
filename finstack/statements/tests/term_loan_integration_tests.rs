@@ -94,6 +94,8 @@ fn test_term_loan_in_capital_structure_placeholder() {
         }],
         equity_instruments: vec![],
         meta: indexmap::IndexMap::new(),
+        reporting_currency: None,
+        fx_policy: None,
     };
 
     // Verify it serializes correctly

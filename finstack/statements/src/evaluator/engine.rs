@@ -340,12 +340,8 @@ impl Evaluator {
         }
 
         // Aggregate cashflows by period using valuations cashflow aggregation
-        let cashflows = integration::aggregate_instrument_cashflows(
-            &instruments,
-            &model.periods,
-            market_ctx,
-            as_of,
-        )?;
+        let cashflows =
+            integration::aggregate_instrument_cashflows(cs_spec, &instruments, &model.periods, market_ctx, as_of)?;
 
         Ok(Some(cashflows))
     }

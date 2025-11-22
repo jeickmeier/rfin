@@ -103,6 +103,14 @@ pub struct CapitalStructureSpec {
     /// Additional metadata
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub meta: IndexMap<String, serde_json::Value>,
+
+    /// Optional reporting currency override for capital structure totals
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reporting_currency: Option<finstack_core::currency::Currency>,
+
+    /// Optional FX conversion policy override (defaults to CashflowDate)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fx_policy: Option<finstack_core::money::fx::FxConversionPolicy>,
 }
 
 /// Debt instrument specification.

@@ -317,7 +317,7 @@ impl CapitalStructureCashflows {
 
         self.totals
             .get(period_id)
-            .map(|cf| f(cf))
+            .map(f)
             .ok_or_else(|| {
                 crate::error::Error::capital_structure(format!(
                     "No total cashflow data for period {}",
@@ -382,23 +382,41 @@ mod tests {
 
         // Test by-instrument accessors
         assert_eq!(
-            cs_cf.get_interest("BOND-001", &period_id).unwrap(),
+            cs_cf
+                .get_interest("BOND-001", &period_id)
+                .expect("interest"),
             50_000.0
         );
         assert_eq!(
-            cs_cf.get_principal("BOND-001", &period_id).unwrap(),
+            cs_cf
+                .get_principal("BOND-001", &period_id)
+                .expect("principal"),
             100_000.0
         );
         assert_eq!(
-            cs_cf.get_debt_balance("BOND-001", &period_id).unwrap(),
+            cs_cf
+                .get_debt_balance("BOND-001", &period_id)
+                .expect("balance"),
             1_000_000.0
         );
 
         // Test total accessors
-        assert_eq!(cs_cf.get_total_interest(&period_id).unwrap(), 50_000.0);
-        assert_eq!(cs_cf.get_total_principal(&period_id).unwrap(), 100_000.0);
         assert_eq!(
-            cs_cf.get_total_debt_balance(&period_id).unwrap(),
+            cs_cf
+                .get_total_interest(&period_id)
+                .expect("total interest"),
+            50_000.0
+        );
+        assert_eq!(
+            cs_cf
+                .get_total_principal(&period_id)
+                .expect("total principal"),
+            100_000.0
+        );
+        assert_eq!(
+            cs_cf
+                .get_total_debt_balance(&period_id)
+                .expect("total balance"),
             1_000_000.0
         );
 

@@ -40,11 +40,19 @@ use std::sync::Arc;
 ///
 /// let periods = build_periods("2025Q1..Q4", None)?.periods;
 /// let instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> = IndexMap::new();
+/// let spec = CapitalStructureSpec {
+///     debt_instruments: vec![],
+///     equity_instruments: vec![],
+///     meta: IndexMap::new(),
+///     reporting_currency: None,
+///     fx_policy: None,
+/// };
 /// let cashflows: CapitalStructureCashflows =
-///     aggregate_instrument_cashflows(&instruments, &periods, &market_ctx, as_of)?;
+///     aggregate_instrument_cashflows(&spec, &instruments, &periods, &market_ctx, as_of)?;
 /// assert!(cashflows.totals.is_empty());
 /// ```
 pub fn aggregate_instrument_cashflows(
+    spec: &crate::types::CapitalStructureSpec,
     instruments: &IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>>,
     periods: &[Period],
     market_ctx: &MarketContext,
@@ -52,9 +60,16 @@ pub fn aggregate_instrument_cashflows(
 ) -> Result<CapitalStructureCashflows> {
     let mut result = CapitalStructureCashflows::new();
 
-    // Determine reporting currency from FX pivot when available
+    // Determine reporting currency: explicit override > FX pivot > set later if single-currency
     let fx_matrix = market_ctx.fx.as_ref();
-    let reporting_currency = fx_matrix.map(|fx| fx.config().pivot_currency);
+    let mut reporting_currency = spec.reporting_currency;
+    if reporting_currency.is_none() {
+        reporting_currency = fx_matrix.map(|fx| fx.config().pivot_currency);
+    }
+    // FX policy override (default CashflowDate)
+    let fx_policy = spec
+        .fx_policy
+        .unwrap_or(finstack_core::money::fx::FxConversionPolicy::CashflowDate);
 
     // Initialize reporting totals if we know the reporting currency up-front
     let mut reporting_totals: Option<IndexMap<PeriodId, CashflowBreakdown>> = reporting_currency
@@ -115,8 +130,13 @@ pub fn aggregate_instrument_cashflows(
                         cf.amount
                     };
 
-                    let converted_abs =
-                        convert_to_reporting(abs_value, cf.date, reporting_currency, fx_matrix)?;
+                    let converted_abs = convert_to_reporting(
+                        abs_value,
+                        cf.date,
+                        reporting_currency,
+                        fx_matrix,
+                        fx_policy,
+                    )?;
 
                     match cf.kind {
                         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
@@ -215,7 +235,13 @@ pub fn aggregate_instrument_cashflows(
 
                     if let (Some(map), Some(money)) = (
                         reporting_totals.as_mut(),
-                        convert_to_reporting(issuer_balance, date, reporting_currency, fx_matrix)?,
+                        convert_to_reporting(
+                            issuer_balance,
+                            date,
+                            reporting_currency,
+                            fx_matrix,
+                            fx_policy,
+                        )?,
                     ) {
                         let total = map.get_mut(&period_id).expect("period initialized");
                         total.debt_balance = money;
@@ -266,12 +292,20 @@ fn convert_to_reporting(
     on: Date,
     reporting_currency: Option<Currency>,
     fx_matrix: Option<&Arc<finstack_core::money::fx::FxMatrix>>,
+    fx_policy: finstack_core::money::fx::FxConversionPolicy,
 ) -> Result<Option<finstack_core::money::Money>> {
     if let (Some(rc), Some(fx)) = (reporting_currency, fx_matrix) {
         if rc == money.currency() {
             return Ok(Some(money));
         }
-        let rate = fx.rate(FxQuery::new(money.currency(), rc, on))?.rate;
+        let rate = fx
+            .rate(FxQuery::with_policy(
+                money.currency(),
+                rc,
+                on,
+                fx_policy,
+            ))?
+            .rate;
         Ok(Some(finstack_core::money::Money::new(
             money.amount() * rate,
             rc,

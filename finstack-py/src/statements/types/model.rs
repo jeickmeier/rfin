@@ -60,6 +60,8 @@ impl PyCapitalStructureSpec {
             debt_instruments,
             equity_instruments,
             meta: IndexMap::new(),
+            reporting_currency: None,
+            fx_policy: None,
         })
     }
 
