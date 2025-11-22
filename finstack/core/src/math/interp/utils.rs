@@ -4,6 +4,43 @@
 //! monotonicity checking used across all interpolation implementations.
 
 use crate::{error::InputError, Error};
+use super::types::ExtrapolationPolicy;
+
+/// Helper to check and apply extrapolation if x is out of bounds.
+///
+/// If `x` is before the first knot, calls `on_left`.
+/// If `x` is after the last knot, calls `on_right`.
+/// Otherwise returns `None`.
+#[inline]
+pub fn check_extrapolation<F1, F2>(
+    x: f64,
+    knots: &[f64],
+    extrapolation: ExtrapolationPolicy,
+    on_left: F1,
+    on_right: F2,
+) -> Option<f64>
+where
+    F1: FnOnce(ExtrapolationPolicy) -> f64,
+    F2: FnOnce(ExtrapolationPolicy) -> f64,
+{
+    if knots.is_empty() {
+        return None;
+    }
+
+    // Left extrapolation
+    if x <= knots[0] {
+        return Some(on_left(extrapolation));
+    }
+
+    // Right extrapolation
+    if let Some(&last_knot) = knots.last() {
+        if x >= last_knot {
+            return Some(on_right(extrapolation));
+        }
+    }
+
+    None
+}
 
 /// Validate strictly increasing knots with length >= 2.
 pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {

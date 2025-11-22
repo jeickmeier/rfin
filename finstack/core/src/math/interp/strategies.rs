@@ -40,31 +40,32 @@ impl InterpolationStrategy for LinearStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values[0],
                 ExtrapolationPolicy::FlatForward => {
                     let slope = segment_slope(knots, values, 0, 1);
-                    let x0 = knots[0];
-                    values[0] + slope * (x - x0)
+                    values[0] + slope * (x - knots[0])
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                let n = knots.len();
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => {
-                        *values.last().expect("values should not be empty")
-                    }
-                    ExtrapolationPolicy::FlatForward => {
-                        let slope = segment_slope(knots, values, n - 2, n - 1);
-                        let x1 = knots[n - 1];
-                        values[n - 1] + slope * (x - x1)
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => {
+                    *values.last().expect("values should not be empty")
+                }
+                ExtrapolationPolicy::FlatForward => {
+                    let n = knots.len();
+                    let slope = segment_slope(knots, values, n - 2, n - 1);
+                    values[n - 1] + slope * (x - knots[n - 1])
+                }
+            },
+        ) {
+            return val;
         }
 
         // Exact knot match
@@ -92,21 +93,26 @@ impl InterpolationStrategy for LinearStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => segment_slope(knots, values, 0, 1),
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                let n = knots.len();
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => 0.0,
-                    ExtrapolationPolicy::FlatForward => segment_slope(knots, values, n - 2, n - 1),
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let n = knots.len();
+                    segment_slope(knots, values, n - 2, n - 1)
+                }
+            },
+        ) {
+            return val;
         }
 
         // Interior linear interpolation derivative
@@ -161,33 +167,36 @@ impl InterpolationStrategy for LogLinearStrategy {
         _values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => self.log_values[0].exp(),
                 ExtrapolationPolicy::FlatForward => {
                     let slope = log_segment_slope(&self.log_values, knots, 0, 1);
                     let extrapolated_log = self.log_values[0] + slope * (x - knots[0]);
                     extrapolated_log.exp()
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                let n = knots.len();
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => (*self
-                        .log_values
-                        .last()
-                        .expect("log_values should not be empty"))
-                    .exp(),
-                    ExtrapolationPolicy::FlatForward => {
-                        let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
-                        let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
-                        extrapolated_log.exp()
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => (*self
+                    .log_values
+                    .last()
+                    .expect("log_values should not be empty"))
+                .exp(),
+                ExtrapolationPolicy::FlatForward => {
+                    let n = knots.len();
+                    let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
+                    let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
+                    extrapolated_log.exp()
+                }
+            },
+        ) {
+            return val;
         }
 
         // Exact knot match
@@ -218,29 +227,32 @@ impl InterpolationStrategy for LogLinearStrategy {
         // For log-linear interpolation: f(x) = exp(y0 + w*(y1-y0)) where w = (x-x0)/(x1-x0)
         // The derivative is: df/dx = f(x) * (y1-y0)/(x1-x0)
 
+        use super::utils::check_extrapolation;
+
         // At boundaries, handle based on extrapolation policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => {
                     let slope = log_segment_slope(&self.log_values, knots, 0, 1);
                     let f_val = self.interp(x, knots, &[], extrapolation);
                     f_val * slope
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                let n = knots.len();
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => 0.0,
-                    ExtrapolationPolicy::FlatForward => {
-                        let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
-                        let f_val = self.interp(x, knots, &[], extrapolation);
-                        f_val * slope
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let n = knots.len();
+                    let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
+                    let f_val = self.interp(x, knots, &[], extrapolation);
+                    f_val * slope
+                }
+            },
+        ) {
+            return val;
         }
 
         // Get the interpolated value and log-linear slope
@@ -309,9 +321,14 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values[0],
                 ExtrapolationPolicy::FlatForward => {
                     let x0 = knots[0];
@@ -319,23 +336,21 @@ impl InterpolationStrategy for CubicHermiteStrategy {
                     let dx = x - x0;
                     values[0] + slope * dx
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => {
-                        *values.last().expect("values should not be empty")
-                    }
-                    ExtrapolationPolicy::FlatForward => {
-                        let n = knots.len();
-                        let x_last = knots[n - 1];
-                        let slope = self.ms[n - 1];
-                        let dx = x - x_last;
-                        values[n - 1] + slope * dx
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => {
+                    *values.last().expect("values should not be empty")
+                }
+                ExtrapolationPolicy::FlatForward => {
+                    let n = knots.len();
+                    let x_last = knots[n - 1];
+                    let slope = self.ms[n - 1];
+                    let dx = x - x_last;
+                    values[n - 1] + slope * dx
+                }
+            },
+        ) {
+            return val;
         }
 
         // Fast-path: exact knot value → short-circuit
@@ -379,20 +394,23 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => self.ms[0],
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => 0.0,
-                    ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
+            },
+        ) {
+            return val;
         }
 
         // For exact knot values, return the precomputed slope
@@ -545,9 +563,14 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values[0],
                 ExtrapolationPolicy::FlatForward => {
                     let (a, b, _c, _d) = self.coeffs[0];
@@ -556,26 +579,24 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let y = a + b * s;
                     (-y).exp()
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => {
-                        *values.last().expect("values should not be empty")
-                    }
-                    ExtrapolationPolicy::FlatForward => {
-                        let n = self.coeffs.len();
-                        let (a, b, c, d) = self.coeffs[n - 1];
-                        let h = knots[n] - knots[n - 1];
-                        let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                        let s_extra = 1.0 + (x - knots[n]) / h;
-                        let y_end = a + b + c + d;
-                        let y = y_end + dy_ds_at_end * (s_extra - 1.0);
-                        (-y).exp()
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => {
+                    *values.last().expect("values should not be empty")
+                }
+                ExtrapolationPolicy::FlatForward => {
+                    let n = self.coeffs.len();
+                    let (a, b, c, d) = self.coeffs[n - 1];
+                    let h = knots[n] - knots[n - 1];
+                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                    let s_extra = 1.0 + (x - knots[n]) / h;
+                    let y_end = a + b + c + d;
+                    let y = y_end + dy_ds_at_end * (s_extra - 1.0);
+                    (-y).exp()
+                }
+            },
+        ) {
+            return val;
         }
 
         // Exact knot match
@@ -607,9 +628,14 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
+        use super::utils::check_extrapolation;
+
         // Handle extrapolation based on policy
-        if x <= knots[0] {
-            return match extrapolation {
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => {
                     let (a, b, _c, _d) = self.coeffs[0];
@@ -620,25 +646,23 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let p = (-y).exp();
                     -p * dy_ds / h
                 }
-            };
-        }
-        if let Some(&last_knot) = knots.last() {
-            if x >= last_knot {
-                return match extrapolation {
-                    ExtrapolationPolicy::FlatZero => 0.0,
-                    ExtrapolationPolicy::FlatForward => {
-                        let n = self.coeffs.len();
-                        let (a, b, c, d) = self.coeffs[n - 1];
-                        let h = knots[n] - knots[n - 1];
-                        let s_extra = 1.0 + (x - knots[n]) / h;
-                        let y_end = a + b + c + d;
-                        let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                        let y = y_end + dy_ds_at_end * (s_extra - 1.0);
-                        let p = (-y).exp();
-                        -p * dy_ds_at_end / h
-                    }
-                };
-            }
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let n = self.coeffs.len();
+                    let (a, b, c, d) = self.coeffs[n - 1];
+                    let h = knots[n] - knots[n - 1];
+                    let s_extra = 1.0 + (x - knots[n]) / h;
+                    let y_end = a + b + c + d;
+                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                    let y = y_end + dy_ds_at_end * (s_extra - 1.0);
+                    let p = (-y).exp();
+                    -p * dy_ds_at_end / h
+                }
+            },
+        ) {
+            return val;
         }
 
         // For exact knot values, compute derivative using coefficients
