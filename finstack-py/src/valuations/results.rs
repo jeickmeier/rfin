@@ -164,8 +164,11 @@ impl PyResultsMeta {
     /// Returns:
     ///     str | None: Timestamp of computation for audit trails.
     #[getter]
-    fn timestamp(&self) -> Option<&str> {
-        self.inner.timestamp.as_deref()
+    fn timestamp(&self) -> Option<String> {
+        self.inner.timestamp.map(|t| {
+            t.format(&time::format_description::well_known::Iso8601::DEFAULT)
+                .unwrap_or_else(|_| "unknown".to_string())
+        })
     }
 
     /// Finstack library version used to produce this result.
@@ -205,7 +208,10 @@ impl PyResultsMeta {
             dict.set_item("fx_policy_applied", py.None())?;
         }
         if let Some(timestamp) = &self.inner.timestamp {
-            dict.set_item("timestamp", timestamp.clone())?;
+            let ts_str = timestamp
+                .format(&time::format_description::well_known::Iso8601::DEFAULT)
+                .unwrap_or_else(|_| "unknown".to_string());
+            dict.set_item("timestamp", ts_str)?;
         }
         if let Some(version) = &self.inner.version {
             dict.set_item("version", version.clone())?;

@@ -155,7 +155,7 @@ impl DateExt for Date {
             };
             current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
                 crate::Error::Input(crate::error::InputError::AdjustmentFailed {
-                    date: start,
+                    date: self,
                     convention: conv,
                     max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
                 })

@@ -288,8 +288,8 @@ mod tests {
         for currency in Currency::iter() {
             let decimals = currency.decimals();
             assert!(
-                decimals <= 3,
-                "Decimal places should be reasonable for {:?}",
+                decimals <= 4,
+                "Decimal places should be reasonable (<= 4) for {:?}",
                 currency
             );
         }

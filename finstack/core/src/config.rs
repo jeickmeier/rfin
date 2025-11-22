@@ -261,9 +261,9 @@ pub struct ResultsMeta {
     /// Useful for audit trails and reproducibility.
     #[cfg_attr(
         feature = "serde",
-        serde(skip_serializing_if = "Option::is_none", default)
+        serde(skip_serializing_if = "Option::is_none", default, with = "time::serde::iso8601::option")
     )]
-    pub timestamp: Option<String>,
+    pub timestamp: Option<time::OffsetDateTime>,
     /// Finstack library version used to produce the result.
     #[cfg_attr(
         feature = "serde",
@@ -337,14 +337,8 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     // Generate ISO 8601 timestamp
-    #[cfg(target_arch = "wasm32")]
-    let timestamp = Some("wasm-unsupported".to_string()); // Timestamp not available in WASM
-    #[cfg(not(target_arch = "wasm32"))]
-    let timestamp = Some(
-        time::OffsetDateTime::now_utc()
-            .format(&time::format_description::well_known::Iso8601::DEFAULT)
-            .unwrap_or_else(|_| String::from("unknown")),
-    );
+    // With `wasm-bindgen` feature enabled in `time` crate, `now_utc()` works on WASM too.
+    let timestamp = Some(time::OffsetDateTime::now_utc());
 
     ResultsMeta {
         numeric_mode: NUMERIC_MODE,

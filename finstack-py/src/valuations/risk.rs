@@ -365,7 +365,7 @@ impl PyMarketHistory {
 /// Examples:
 ///     >>> result = calculate_var(bond, market, history, (2024, 1, 1), config)
 ///     >>> print(f"95% VaR: ${result.var:.2f}")
-#[pyfunction]
+#[pyfunction(name = "calculate_var")]
 #[pyo3(signature = (instrument, market, history, as_of, config))]
 fn py_calculate_var(
     instrument: Bound<'_, PyAny>,
@@ -412,7 +412,7 @@ fn py_calculate_var(
 /// Examples:
 ///     >>> result = calculate_portfolio_var([bond1, bond2], market, history, (2024, 1, 1), config)
 ///     >>> print(f"Portfolio 95% VaR: ${result.var:.2f}")
-#[pyfunction]
+#[pyfunction(name = "calculate_portfolio_var")]
 #[pyo3(signature = (instruments, market, history, as_of, config))]
 fn py_calculate_portfolio_var(
     instruments: Vec<Bound<'_, PyAny>>,
@@ -488,8 +488,8 @@ pub(crate) fn register<'py>(
         "RiskFactorShift",
         "MarketScenario",
         "MarketHistory",
-        "py_calculate_var",
-        "py_calculate_portfolio_var",
+        "calculate_var",
+        "calculate_portfolio_var",
     ];
 
     module.setattr("__all__", PyList::new(py, &exports)?)?;

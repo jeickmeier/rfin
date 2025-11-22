@@ -39,7 +39,10 @@ impl JsResultsMeta {
     /// Timestamp when result was computed (ISO 8601).
     #[wasm_bindgen(getter)]
     pub fn timestamp(&self) -> Option<String> {
-        self.inner.timestamp.clone()
+        self.inner.timestamp.map(|t| {
+            t.format(&time::format_description::well_known::Iso8601::DEFAULT)
+                .unwrap_or_else(|_| "unknown".to_string())
+        })
     }
 
     /// Library version used to produce this result.

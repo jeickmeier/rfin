@@ -312,6 +312,8 @@ impl Error {
 
         // Find curves that contain the requested string (case-insensitive fuzzy match)
         let requested_lower = requested_str.to_lowercase();
+        let requested_chars: Vec<char> = requested_lower.chars().collect();
+
         let mut suggestions: Vec<String> = available
             .iter()
             .filter(|id| {
@@ -322,7 +324,7 @@ impl Error {
                 // 3. Edit distance is small
                 id_lower.contains(&requested_lower)
                     || requested_lower.contains(&id_lower)
-                    || edit_distance(&requested_lower, &id_lower) <= 2
+                    || edit_distance(&requested_chars, &id_lower) <= 2
             })
             .cloned()
             .collect();
@@ -338,11 +340,9 @@ impl Error {
 }
 
 /// Simple Levenshtein edit distance for fuzzy matching.
-fn edit_distance(a: &str, b: &str) -> usize {
-    let a_chars: Vec<char> = a.chars().collect();
-    let b_chars: Vec<char> = b.chars().collect();
+fn edit_distance(a_chars: &[char], b: &str) -> usize {
+    let b_len = b.chars().count();
     let a_len = a_chars.len();
-    let b_len = b_chars.len();
 
     if a_len == 0 {
         return b_len;
@@ -354,17 +354,13 @@ fn edit_distance(a: &str, b: &str) -> usize {
     let mut prev_row: Vec<usize> = (0..=b_len).collect();
     let mut curr_row = vec![0; b_len + 1];
 
-    for i in 1..=a_len {
-        curr_row[0] = i;
-        for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] {
-                0
-            } else {
-                1
-            };
-            curr_row[j] = (curr_row[j - 1] + 1)
-                .min(prev_row[j] + 1)
-                .min(prev_row[j - 1] + cost);
+    for (i, &a_char) in a_chars.iter().enumerate() {
+        curr_row[0] = i + 1;
+        for (j, b_char) in b.chars().enumerate() {
+            let cost = if a_char == b_char { 0 } else { 1 };
+            curr_row[j + 1] = (curr_row[j] + 1)
+                .min(prev_row[j + 1] + 1)
+                .min(prev_row[j] + cost);
         }
         std::mem::swap(&mut prev_row, &mut curr_row);
     }
@@ -418,10 +414,13 @@ mod tests {
 
     #[test]
     fn test_edit_distance() {
-        assert_eq!(edit_distance("", ""), 0);
-        assert_eq!(edit_distance("abc", "abc"), 0);
-        assert_eq!(edit_distance("abc", "abd"), 1);
-        assert_eq!(edit_distance("abc", "ab"), 1);
-        assert_eq!(edit_distance("", "abc"), 3);
+        let empty: Vec<char> = vec![];
+        let abc: Vec<char> = vec!['a', 'b', 'c'];
+
+        assert_eq!(edit_distance(&empty, ""), 0);
+        assert_eq!(edit_distance(&abc, "abc"), 0);
+        assert_eq!(edit_distance(&abc, "abd"), 1);
+        assert_eq!(edit_distance(&abc, "ab"), 1);
+        assert_eq!(edit_distance(&empty, "abc"), 3);
     }
 }
