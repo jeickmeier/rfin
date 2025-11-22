@@ -4,7 +4,7 @@ import json
 from datetime import date
 
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import PrivateMarketsFund
 from finstack.valuations.pricer import create_standard_registry

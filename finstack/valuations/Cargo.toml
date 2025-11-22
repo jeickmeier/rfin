@@ -21,6 +21,7 @@ rust_decimal = { version = "1.36" }
 nalgebra = { version = "0.33", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
+num-complex = "0.4"
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

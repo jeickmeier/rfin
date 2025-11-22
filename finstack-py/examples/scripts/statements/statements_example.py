@@ -14,7 +14,7 @@ It shows:
 - Metric registry
 """
 
-from finstack.core.dates import PeriodId
+from finstack.core.dates.periods import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
 from finstack.statements.extensions import (

@@ -15,7 +15,7 @@ Run with:
 
 from datetime import date
 
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 
 
 def build_market_data(as_of: date) -> MarketContext:
@@ -23,7 +23,7 @@ def build_market_data(as_of: date) -> MarketContext:
     market = MarketContext()
 
     # Discount curves
-    from finstack.core.market_data import DiscountCurve, ForwardCurve
+    from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 
     usd_curve = DiscountCurve(
         "USD-OIS",
@@ -49,7 +49,7 @@ def build_market_data(as_of: date) -> MarketContext:
     market.insert_forward(forward_curve)
 
     # Equity prices
-    from finstack.core.market_data import MarketScalar
+    from finstack.core.market_data.scalars import MarketScalar
     from finstack.core.money import Money
 
     market.insert_price("AAPL-SPOT", MarketScalar.price(Money(185.0, "USD")))
@@ -99,7 +99,7 @@ def example_2_portfolio_builder():
     print("=" * 80)
 
     from finstack.core.currency import Currency
-    from finstack.core.dates import DayCount
+    from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond, Deposit, InterestRateSwap
@@ -205,7 +205,7 @@ def example_3_portfolio_valuation():
     print("=" * 80)
 
     from finstack.core.currency import Currency
-    from finstack.core.dates import DayCount
+    from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
     from finstack.portfolio import (
         Entity,
@@ -389,7 +389,7 @@ def example_5_multi_entity_portfolio():
 
     from finstack.core.config import FinstackConfig
     from finstack.core.currency import Currency
-    from finstack.core.dates import DayCount
+    from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
     from finstack.portfolio import (
         Entity,
@@ -745,7 +745,7 @@ def example_10_dummy_entity():
     print("=" * 80)
 
     from finstack.core.currency import Currency
-    from finstack.core.dates import DayCount
+    from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Deposit, InterestRateSwap

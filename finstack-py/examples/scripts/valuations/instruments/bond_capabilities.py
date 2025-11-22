@@ -17,7 +17,7 @@ from finstack.valuations.cashflow import (
 from finstack.valuations.instruments import Bond
 from finstack.valuations.pricer import create_standard_registry
 from finstack.valuations.metrics import MetricId, MetricRegistry
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 
 

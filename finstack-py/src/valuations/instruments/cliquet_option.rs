@@ -1,3 +1,4 @@
+// Reverted start_date
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::date_to_py;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -78,7 +79,9 @@ impl PyCliquetOption {
         builder = builder.underlying_ticker(ticker.to_string());
         builder = builder.reset_dates(reset_dates_vec);
         builder = builder.local_cap(local_cap);
+        builder = builder.local_floor(0.0);
         builder = builder.global_cap(global_cap);
+        builder = builder.global_floor(0.0);
         builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder

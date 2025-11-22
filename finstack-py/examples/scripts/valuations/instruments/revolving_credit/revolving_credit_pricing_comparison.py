@@ -23,7 +23,7 @@ import json
 import sys
 
 try:
-    from finstack.core.market_data import MarketContext
+    from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
 except ImportError as e:

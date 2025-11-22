@@ -25,7 +25,7 @@ try:
     import finstack
     from finstack import Money
     from finstack.core.currency import Currency
-    from finstack.valuations import PathPoint, SimulatedPath, PathDataset
+    from finstack.valuations.common.mc import PathPoint, SimulatedPath, PathDataset
     import pandas as pd
     import numpy as np
     

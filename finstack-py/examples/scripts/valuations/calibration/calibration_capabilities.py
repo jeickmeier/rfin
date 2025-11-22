@@ -7,7 +7,7 @@ from typing import Dict, List, Sequence, Tuple, Optional
 import math
 
 from finstack.core.dates.schedule import Frequency
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface as MarketVolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData
 from finstack.valuations import calibration as cal
@@ -279,7 +279,7 @@ def calibrate_forward_curves(
         calibrator = cal.ForwardCurveCalibrator(curve_id, tenor_years, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
             cal.CalibrationConfig.multi_curve()
-            .with_solver_kind(cal.SolverKind.HYBRID)
+            .with_solver_kind(cal.SolverKind.BRENT)
             .with_max_iterations(100)
         )
 
@@ -315,7 +315,7 @@ def calibrate_credit_index_structures(
         calibrator = cal.HazardCurveCalibrator(index_curve_id, "senior", 0.40, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
             cal.CalibrationConfig.multi_curve()
-            .with_solver_kind(cal.SolverKind.HYBRID)
+            .with_solver_kind(cal.SolverKind.BRENT)
             .with_max_iterations(40)
         )
         try:
@@ -451,23 +451,27 @@ def main() -> None:
 
     config = (
         cal.CalibrationConfig.multi_curve()
-        .with_solver_kind(cal.SolverKind.HYBRID)
+        .with_solver_kind(cal.SolverKind.BRENT)
         .with_max_iterations(40)
         .with_verbose(False)
     )
 
-    calibration = cal.SimpleCalibration(base_date, "USD", config=config)
-    calibration.set_multi_curve_config(cal.MultiCurveConfig(True, True))
-    calibration.add_entity_seniority("ACME", "senior")
+    # calibration = cal.SimpleCalibration(base_date, "USD", config=config)
+    # calibration.set_multi_curve_config(cal.MultiCurveConfig(True, True))
+    # calibration.add_entity_seniority("ACME", "senior")
 
-    market, report = calibration.calibrate(market_quotes)
-    forward_reports = calibrate_forward_curves(market, base_date, forward_inputs)
-    credit_reports = calibrate_credit_index_structures(market, base_date, credit_inputs)
-    fallback_surface = ensure_swaption_surface(market, base_date, swaption_specs)
-    report_info = report.to_dict()
+    # market, report = calibration.calibrate(market_quotes)
+    print("SimpleCalibration is deprecated. Please use specific calibrators (DiscountCurveCalibrator, etc.)")
+    return
 
-    print("=== Simple Calibration Summary ===")
-    print("Success:", report_info["success"])
+    # forward_reports = calibrate_forward_curves(market, base_date, forward_inputs)
+    # credit_reports = calibrate_credit_index_structures(market, base_date, credit_inputs)
+    # fallback_surface = ensure_swaption_surface(market, base_date, swaption_specs)
+    # report_info = report.to_dict()
+
+    # print("=== Simple Calibration Summary ===")
+    # print("Success:", report_info["success"])
+    # ...
     print("Report type:", report_info["metadata"].get("type"))
     print("Iterations:", report_info["iterations"])
     print("Max residual:", round(report_info["max_residual"], 8))

@@ -7,7 +7,7 @@ Demonstrates pricing and analysis of quanto options (currency-protected foreign 
 from datetime import date
 from finstack import Money
 from finstack.core.currency import USD, EUR
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
@@ -86,6 +86,7 @@ def example_quanto_call_positive_correlation():
         foreign_currency=EUR,  # Underlying currency
         correlation=0.3,  # Positive correlation between SAP and EUR/USD
         discount_curve="USD.SOFR",
+        foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
         div_yield_id="SAP.DIV",
@@ -137,6 +138,7 @@ def example_quanto_put_negative_correlation():
         foreign_currency=EUR,
         correlation=-0.2,  # Negative correlation (SAP falls when EUR strengthens)
         discount_curve="USD.SOFR",
+        foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
         div_yield_id="SAP.DIV",
@@ -186,6 +188,7 @@ def example_quanto_call_zero_correlation():
         foreign_currency=EUR,
         correlation=0.0,  # Zero correlation
         discount_curve="USD.SOFR",
+        foreign_discount_curve="EUR.ESTR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
         div_yield_id="SAP.DIV",

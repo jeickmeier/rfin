@@ -62,26 +62,51 @@ def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
     except CellExecutionError as e:
         execution_time = time.time() - start_time
         
-        # Extract error information
-        error_msg = str(e)
-        # Get the most relevant part of the error
-        lines = error_msg.split('\n')
-        
-        # Try to find the actual error message
+        # Extract error information from the exception
         error_summary = []
-        for i, line in enumerate(lines):
-            if 'Error' in line or 'Exception' in line:
-                # Include context around the error
-                start_idx = max(0, i - 1)
-                end_idx = min(len(lines), i + 4)
-                error_summary = lines[start_idx:end_idx]
-                break
+        
+        # Try to get the traceback from the exception
+        if hasattr(e, 'traceback'):
+            # Extract the error message and traceback
+            tb_lines = str(e.traceback).split('\n') if e.traceback else []
+            error_lines = str(e).split('\n')
+            
+            # Find the actual error type and message
+            for line in error_lines + tb_lines:
+                if any(keyword in line for keyword in ['Error', 'Exception', 'Traceback', 'File']):
+                    error_summary.append(line)
+                    if len(error_summary) >= 10:  # Limit to 10 lines
+                        break
+            
+            # If we found an error, include a few more context lines
+            if error_summary:
+                # Get the last error/exception line and a few before/after
+                for i, line in enumerate(error_lines):
+                    if 'Error' in line or 'Exception' in line:
+                        start_idx = max(0, i - 2)
+                        end_idx = min(len(error_lines), i + 5)
+                        error_summary = error_lines[start_idx:end_idx]
+                        break
         
         if not error_summary:
-            # Fallback: get last few lines
-            error_summary = lines[-5:] if len(lines) >= 5 else lines
+            # Fallback: use the exception string representation
+            error_summary = [str(e)]
+            # Try to extract meaningful parts
+            error_str = str(e)
+            if '\n' in error_str:
+                lines = error_str.split('\n')
+                # Find lines with Error or Exception
+                for i, line in enumerate(lines):
+                    if 'Error' in line or 'Exception' in line:
+                        start_idx = max(0, i - 1)
+                        end_idx = min(len(lines), i + 4)
+                        error_summary = lines[start_idx:end_idx]
+                        break
+                if len(error_summary) == 1:
+                    # Get last few lines as fallback
+                    error_summary = lines[-5:] if len(lines) >= 5 else lines
         
-        summary = '\n'.join(error_summary)
+        summary = '\n'.join(error_summary[:15])  # Limit to 15 lines max
         return False, summary, execution_time
         
     except TimeoutError:

@@ -5,7 +5,7 @@ Updated to use the unified StructuredCredit type and the current serde shapes.
 """
 import json
 from datetime import date
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import StructuredCredit
 from finstack.valuations.pricer import create_standard_registry
@@ -252,7 +252,6 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
         "pool": build_pool(deal_type, asset_kind),
         "tranches": tranches,
         "waterfall": wf,
-        "coverage_tests": coverage_tests_template(),
         "closing_date": "2024-01-02",
         "first_payment_date": "2024-04-01",
         "reinvestment_end_date": None,
@@ -285,25 +284,21 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
 
 def build_abs_payload() -> dict:
     payload = base_deal_payload("ABS-SAMPLE", "ABS", asset_kind="loan")
-    payload.update({"servicer_id": "ABS-SERVICER", "trustee_id": "ABS-TRUST"})
     return payload
 
 
 def build_clo_payload() -> dict:
     payload = base_deal_payload("CLO-SAMPLE", "CLO", asset_kind="loan")
-    payload.update({"manager_id": "CLO-MANAGER", "servicer_id": "CLO-SERVICER"})
     return payload
 
 
 def build_cmbs_payload() -> dict:
     payload = base_deal_payload("CMBS-SAMPLE", "CMBS", asset_kind="commercial_mortgage")
-    payload.update({"master_servicer_id": "CMBS-MASTER", "special_servicer_id": "CMBS-SPECIAL"})
     return payload
 
 
 def build_rmbs_payload() -> dict:
     payload = base_deal_payload("RMBS-SAMPLE", "RMBS", asset_kind="residential_mortgage")
-    payload.update({"servicer_id": "RMBS-SERVICER", "master_servicer_id": "RMBS-MASTER"})
     return payload
 
 

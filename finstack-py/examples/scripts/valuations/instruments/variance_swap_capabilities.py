@@ -6,7 +6,7 @@ from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.schedule import Frequency
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar, ScalarTimeSeries, SeriesInterpolation
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
@@ -83,6 +83,7 @@ def main() -> None:
         "discounting",
         market,
         ["variance_vega", "variance_expected"],
+        as_of=as_of,
     )
     print("Variance swap PV:", round(result.value.amount, 2), result.value.currency)
     print("Variance swap vega:", result.measures.get("variance_vega"))

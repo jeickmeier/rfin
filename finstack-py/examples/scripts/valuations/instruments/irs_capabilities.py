@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from finstack import Money
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.instruments import InterestRateSwap
 from finstack.valuations.pricer import create_standard_registry
@@ -67,7 +67,8 @@ def main() -> None:
         swap, 
         "discounting", 
         market,
-        ["annuity", "dv01","par_rate"]  # Start with metrics that work
+        ["annuity", "dv01","par_rate"],  # Start with metrics that work
+        as_of=as_of,
     )
     
     pv = result.value

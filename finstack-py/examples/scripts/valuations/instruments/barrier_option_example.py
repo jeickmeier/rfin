@@ -7,7 +7,7 @@ Demonstrates pricing and analysis of barrier options with various barrier types.
 from datetime import date
 from finstack import Money
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve

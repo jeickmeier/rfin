@@ -8,9 +8,9 @@ daily MTM changes.
 
 from datetime import date
 from finstack import Money
-from finstack.valuations import Bond
+from finstack.valuations.instruments import Bond
 from finstack.valuations.attribution import AttributionMethod, attribute_pnl
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 
 

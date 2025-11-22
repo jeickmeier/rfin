@@ -4,7 +4,7 @@ from datetime import date
 
 from finstack import Money
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, InflationCurve
 from finstack.valuations.instruments import InflationLinkedBond, InflationSwap
 from finstack.valuations.pricer import create_standard_registry

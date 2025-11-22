@@ -25,7 +25,7 @@ try:
 except Exception:  # pragma: no cover - optional
     pl = None
 
-from finstack.core.dates import build_periods
+from finstack.core.dates.periods import build_periods
 from finstack import (
     CovenantType,
     Covenant,

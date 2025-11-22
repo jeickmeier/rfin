@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from finstack import Money
 from finstack.core.currency import EUR, JPY, USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.fx import FxMatrix
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve

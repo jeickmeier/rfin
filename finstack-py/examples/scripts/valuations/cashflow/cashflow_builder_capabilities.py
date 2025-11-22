@@ -36,7 +36,7 @@ from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates import BusinessDayConvention
 from finstack.valuations.cashflow import AmortizationSpec
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (
     CashflowBuilder,

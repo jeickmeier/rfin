@@ -174,6 +174,8 @@ impl PyCdsTranche {
         builder = builder.side(side_value);
         builder = builder.effective_date_opt(eff);
         builder = builder.attributes(Default::default());
+        builder = builder.standard_imm_dates(true);
+        builder = builder.accumulated_loss(0.0);
 
         let tranche = builder.build().map_err(core_to_py)?;
         Ok(Self::new(tranche))

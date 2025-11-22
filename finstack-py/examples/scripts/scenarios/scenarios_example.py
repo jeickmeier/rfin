@@ -15,9 +15,9 @@ import finstack
 
 # Import required types
 Currency = finstack.Currency
-MarketContext = finstack.market_data.MarketContext
-DiscountCurve = finstack.market_data.DiscountCurve
-MarketScalar = finstack.market_data.MarketScalar
+MarketContext = finstack.market_data.context.MarketContext
+DiscountCurve = finstack.market_data.term_structures.DiscountCurve
+MarketScalar = finstack.market_data.scalars.MarketScalar
 Money = finstack.Money
 FinancialModelSpec = finstack.statements.types.FinancialModelSpec
 

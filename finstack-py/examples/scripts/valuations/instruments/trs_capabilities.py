@@ -7,7 +7,7 @@ from finstack.core.currency import USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.schedule import Frequency, StubKind
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.cashflow import ScheduleParams

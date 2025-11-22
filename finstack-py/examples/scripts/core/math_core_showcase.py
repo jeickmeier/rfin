@@ -68,12 +68,14 @@ def brent_bisection_cos() -> float:
     return solver.solve(lambda x: math.cos(x) - x, initial_guess=0.5)
 
 
-def hybrid_polynomial() -> float:
-    """Use the hybrid solver to find a root of x^3 - x - 1 ≈ 0."""
+def brent_polynomial() -> float:
+    """Use the Brent solver (formerly Hybrid) to find a root of x^3 - x - 1 ≈ 0."""
 
-    solver = finstack.core.math.solver.HybridSolver(
+    solver = finstack.core.math.solver.BrentSolver(
         tolerance=1e-12,
         max_iterations=100,
+        bracket_expansion=1.6,
+        initial_bracket_size=None,
     )
     return solver.solve(lambda x: x * x * x - x - 1.0, initial_guess=1.0)
 
@@ -94,7 +96,7 @@ def main() -> None:
     print("\n=== finstack.core.math solver showcases ===")
     print("Newton root for x^2 - 2:", newton_solve_sqrt2())
     print("Brent root for cos(x) - x:", brent_bisection_cos())
-    print("Hybrid root for x^3 - x - 1:", hybrid_polynomial())
+    print("Brent root for x^3 - x - 1:", brent_polynomial())
 
 
 if __name__ == "__main__":

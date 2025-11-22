@@ -7,11 +7,11 @@ Demonstrates pricing and analysis of lookback options with fixed and floating st
 from datetime import date
 from finstack import Money
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.valuations.instruments import LookbackOption, LookbackType
 from finstack.valuations.pricer import create_standard_registry
 

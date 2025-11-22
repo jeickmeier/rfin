@@ -382,5 +382,16 @@ pub(crate) fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
         return Ok(mny.inner);
     }
 
-    Err(PyTypeError::new_err("Expected Money instance"))
+    if let Ok(tuple) = value.downcast::<pyo3::types::PyTuple>() {
+        if tuple.len() == 2 {
+            let amount = tuple.get_item(0)?.extract::<f64>()?;
+            let currency_obj = tuple.get_item(1)?;
+            let currency = extract_currency(&currency_obj)?;
+            return Ok(Money::new(amount, currency));
+        }
+    }
+
+    Err(PyTypeError::new_err(
+        "Expected Money instance or (amount, currency) tuple",
+    ))
 }

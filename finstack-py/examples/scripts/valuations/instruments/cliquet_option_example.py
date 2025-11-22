@@ -7,11 +7,11 @@ Demonstrates pricing and analysis of cliquet (ratchet) options with periodic res
 from datetime import date
 from finstack import Money
 from finstack.core.currency import USD
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.valuations.instruments import CliquetOption
 from finstack.valuations.pricer import create_standard_registry
 
@@ -56,6 +56,7 @@ def example_quarterly_cliquet():
     
     
     # Quarterly reset dates over 1 year
+    # NOTE: reset_dates must be future dates
     reset_dates = [
         date(2025, 4, 1),
         date(2025, 7, 1),
@@ -67,6 +68,7 @@ def example_quarterly_cliquet():
     cliquet = CliquetOption.builder(
         instrument_id="CLIQUET_001",
         ticker="NVDA",
+        # Removed start_date
         reset_dates=reset_dates,
         local_cap=0.10,  # 10% cap per reset period
         global_cap=0.30,  # 30% total cap
@@ -116,6 +118,7 @@ def example_annual_cliquet():
     cliquet = CliquetOption.builder(
         instrument_id="CLIQUET_002",
         ticker="NVDA",
+        # Removed start_date
         reset_dates=reset_dates,
         local_cap=0.25,  # 25% cap per year
         global_cap=0.60,  # 60% total cap over 3 years
@@ -167,6 +170,7 @@ def example_monthly_cliquet():
     cliquet = CliquetOption.builder(
         instrument_id="CLIQUET_003",
         ticker="NVDA",
+        # Removed start_date
         reset_dates=reset_dates,
         local_cap=0.05,  # 5% cap per month
         global_cap=0.20,  # 20% total cap
@@ -220,4 +224,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

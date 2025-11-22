@@ -22,7 +22,7 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent.parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
-    from finstack.core.market_data import MarketContext
+    from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
     from finstack.core.cashflow import xirr
@@ -315,10 +315,21 @@ def analyze_single_scenario(
     """
     print(f"\nAnalyzing scenario: Util Vol={util_vol:.0%}, CS Vol={cs_vol:.0%}")  # noqa: T201
     
-    # Create and price deterministic facility
+    # Create deterministic facility
     det_spec = create_deterministic_facility("DET-BASE", commitment, initial_utilization)
     det_facility = RevolvingCredit.from_json(det_spec)
-    det_schedule = det_facility.build_schedule(market, as_of)
+    
+    # The facility starts on commitment_date. 
+    # If as_of < commitment_date, the schedule will start from commitment_date.
+    # If as_of >= commitment_date, the schedule starts from as_of.
+    # The error "start must be before end" suggests schedule generation is failing.
+    # Let's use an as_of date that is definitely inside the facility period for the Monte Carlo pricing.
+    # However, the initial investment logic needs to be carefully handled.
+    
+    # For this script, we will use commitment_date as as_of for MC pricing to avoid confusion.
+    mc_as_of = commitment_date if as_of < commitment_date else as_of
+    
+    det_schedule = det_facility.build_schedule(market, as_of) # Keep original as_of for det pricing
     det_irr = calculate_irr_from_cashflows(det_schedule, commitment * initial_utilization, commitment_date)
     print(f"Deterministic IRR: {det_irr:.2%}" if det_irr else "Deterministic IRR: N/A")  # noqa: T201
     
@@ -332,7 +343,8 @@ def analyze_single_scenario(
         num_paths=num_paths,
     )
     stoch_facility = RevolvingCredit.from_json(stoch_spec)
-    mc_result = stoch_facility.price_with_paths(market, as_of)
+    # Use mc_as_of to ensure valid range for simulation
+    mc_result = stoch_facility.price_with_paths(market, mc_as_of)
     
     print(f"Monte Carlo paths: {mc_result.num_paths}")  # noqa: T201
     print(f"Mean PV: {mc_result.mean}")  # noqa: T201
@@ -546,7 +558,9 @@ def analyze_volatility_grid(
                 num_paths=num_paths,
             )
             stoch_facility = RevolvingCredit.from_json(stoch_spec)
-            mc_result = stoch_facility.price_with_paths(market, as_of)
+            # Use commitment_date if as_of is before it, otherwise use as_of
+            loop_mc_as_of = commitment_date if as_of < commitment_date else as_of
+            mc_result = stoch_facility.price_with_paths(market, loop_mc_as_of)
             
             # Calculate IRRs
             irr_distribution = []
@@ -1409,10 +1423,13 @@ def main() -> int:
     print("Monte Carlo Simulation with Volatility Scenarios")  # noqa: T201
     print("=" * 80)  # noqa: T201
     
+    # For the first example, we use a date clearly before the facility starts
+    # to allow calculation of the initial drawdown
+    as_of = date(2024, 12, 29)  # A few days before commitment
+    
     try:
         # Set up market
         market = create_test_market()
-        as_of = date(2024, 12, 29)  # A few days before commitment
         commitment_date = date(2025, 1, 1)
         
         # Part 1: Single scenario analysis (10% util vol, 30% credit spread vol)
@@ -1420,6 +1437,7 @@ def main() -> int:
         print("PART 1: Single Scenario Analysis")  # noqa: T201
         print("=" * 80)  # noqa: T201
         
+        # Use same commitment date as in create_deterministic_facility
         single_results = analyze_single_scenario(
             market, as_of, 
             util_vol=0.10, 
