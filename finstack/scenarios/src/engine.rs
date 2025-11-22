@@ -11,6 +11,9 @@
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
 use indexmap::IndexMap;
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
+use finstack_core::types::CurveId;
+use crate::error::Error;
 
 /// Execution context for scenario application.
 ///
@@ -280,24 +283,38 @@ impl ScenarioEngine {
         }
 
         // Phase 1: Market data operations (order: FX → Equities → Vol → Curves)
+        let mut market_bumps: Vec<MarketBump> = Vec::new();
+
         for op in &spec.operations {
             match op {
                 OperationSpec::MarketFxPct { base, quote, pct } => {
-                    crate::adapters::fx::apply_fx_shock(
-                        ctx.market, ctx.as_of, *base, *quote, *pct,
-                    )?;
+                    market_bumps.push(MarketBump::FxPct {
+                        base: *base,
+                        quote: *quote,
+                        pct: *pct,
+                        as_of: ctx.as_of,
+                    });
                     applied += 1;
                 }
                 OperationSpec::EquityPricePct { ids, pct } => {
                     for id in ids {
-                        match crate::adapters::equity::apply_equity_shock(ctx.market, id, *pct) {
-                            Ok(_) => applied += 1,
-                            Err(e) => warnings.push(format!("Equity {}: {}", id, e)),
+                        if ctx.market.price(id).is_ok() {
+                            market_bumps.push(MarketBump::Curve {
+                                id: CurveId::from(id.as_str()),
+                                spec: BumpSpec {
+                                    mode: BumpMode::Additive,
+                                    units: BumpUnits::Percent,
+                                    value: *pct,
+                                    bump_type: BumpType::Parallel,
+                                },
+                            });
+                            applied += 1;
+                        } else {
+                            warnings.push(format!("Equity {}: not found in market data", id));
                         }
                     }
                 }
                 OperationSpec::InstrumentPricePctByAttr { attrs, pct: _ } => {
-                    // Phase A: stub (no instrument registry query yet)
                     warnings.push(format!(
                         "InstrumentPricePctByAttr with {} attrs: not implemented in Phase A",
                         attrs.len()
@@ -328,12 +345,16 @@ impl ScenarioEngine {
                     surface_id,
                     pct,
                 } => {
-                    match crate::adapters::vol::apply_vol_parallel_shock(
-                        ctx.market, surface_id, *pct,
-                    ) {
-                        Ok(_) => applied += 1,
-                        Err(e) => warnings.push(format!("Vol surface {}: {}", surface_id, e)),
-                    }
+                    market_bumps.push(MarketBump::Curve {
+                        id: CurveId::from(surface_id.as_str()),
+                        spec: BumpSpec {
+                            mode: BumpMode::Multiplicative,
+                            units: BumpUnits::Factor,
+                            value: 1.0 + (*pct / 100.0),
+                            bump_type: BumpType::Parallel,
+                        },
+                    });
+                    applied += 1;
                 }
                 OperationSpec::VolSurfaceBucketPct {
                     surface_kind: _,
@@ -342,28 +363,42 @@ impl ScenarioEngine {
                     strikes,
                     pct,
                 } => {
-                    match crate::adapters::vol::apply_vol_bucket_shock(
-                        ctx.market,
-                        surface_id,
-                        tenors.as_deref(),
-                        strikes.as_deref(),
-                        *pct,
-                    ) {
-                        Ok(_) => applied += 1,
-                        Err(e) => warnings.push(format!("Vol bucket {}: {}", surface_id, e)),
-                    }
+                    let exp_years = if let Some(t) = tenors {
+                        let parsed: std::result::Result<Vec<f64>, _> =
+                            t.iter().map(|s| crate::utils::parse_tenor_to_years(s)).collect();
+                        match parsed {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                warnings.push(format!("Vol bucket tenor parse failed: {}", e));
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
+                    market_bumps.push(MarketBump::VolBucketPct {
+                        surface_id: CurveId::from(surface_id.as_str()),
+                        expiries: exp_years,
+                        strikes: strikes.clone(),
+                        pct: *pct,
+                    });
+                    applied += 1;
                 }
                 OperationSpec::CurveParallelBp {
                     curve_kind,
                     curve_id,
                     bp,
                 } => {
-                    crate::adapters::curves::apply_curve_parallel_shock(
-                        ctx.market,
-                        *curve_kind,
-                        curve_id,
-                        *bp,
-                    )?;
+                    let spec = if *curve_kind == crate::spec::CurveKind::Inflation {
+                        BumpSpec::inflation_shift_pct(*bp / 100.0)
+                    } else {
+                        BumpSpec::parallel_bp(*bp)
+                    };
+                    market_bumps.push(MarketBump::Curve {
+                        id: CurveId::from(curve_id.as_str()),
+                        spec,
+                    });
                     applied += 1;
                 }
                 OperationSpec::CurveNodeBp {
@@ -372,19 +407,66 @@ impl ScenarioEngine {
                     nodes,
                     match_mode,
                 } => {
-                    crate::adapters::curves::apply_curve_node_shock(
-                        ctx.market,
-                        *curve_kind,
-                        curve_id,
-                        nodes,
-                        *match_mode,
-                    )?;
+                    if *curve_kind == crate::spec::CurveKind::Hazard {
+                        return Err(Error::UnsupportedOperation {
+                            operation: "hazard curves don't expose knots for node shocks".into(),
+                            target: curve_id.clone(),
+                        });
+                    }
+                    for (tenor, bp) in nodes {
+                        match crate::utils::parse_tenor_to_years(tenor) {
+                            Ok(years) => {
+                                // If Exact, ensure pillar exists; otherwise warn and skip
+                                if *match_mode == crate::spec::TenorMatchMode::Exact {
+                                    let has_pillar = match curve_kind {
+                                        crate::spec::CurveKind::Discount => ctx
+                                            .market
+                                            .get_discount_ref(curve_id)
+                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .unwrap_or(false),
+                                        crate::spec::CurveKind::Forecast => ctx
+                                            .market
+                                            .get_forward_ref(curve_id)
+                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .unwrap_or(false),
+                                        crate::spec::CurveKind::Hazard => true, // unreachable due to guard above
+                                        crate::spec::CurveKind::Inflation => ctx
+                                            .market
+                                            .get_inflation_ref(curve_id)
+                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .unwrap_or(false),
+                                    };
+                                    if !has_pillar {
+                                        return Err(Error::tenor_not_found(
+                                            tenor.clone(),
+                                            curve_id.clone(),
+                                        ));
+                                    }
+                                }
+
+                                market_bumps.push(MarketBump::Curve {
+                                    id: CurveId::from(curve_id.as_str()),
+                                    spec: BumpSpec::key_rate_bp(years, *bp),
+                                });
+                            }
+                            Err(e) => warnings.push(format!(
+                                "Tenor parsing failed for {} on {}: {}",
+                                tenor, curve_id, e
+                            )),
+                        }
+                    }
                     applied += 1;
                 }
                 OperationSpec::BaseCorrParallelPts { surface_id, points } => {
-                    crate::adapters::basecorr::apply_basecorr_parallel_shock(
-                        ctx.market, surface_id, *points,
-                    )?;
+                    market_bumps.push(MarketBump::Curve {
+                        id: CurveId::from(surface_id.as_str()),
+                        spec: BumpSpec {
+                            mode: BumpMode::Additive,
+                            units: BumpUnits::Fraction,
+                            value: *points,
+                            bump_type: BumpType::Parallel,
+                        },
+                    });
                     applied += 1;
                 }
                 OperationSpec::BaseCorrBucketPts {
@@ -393,17 +475,24 @@ impl ScenarioEngine {
                     maturities,
                     points,
                 } => {
-                    crate::adapters::basecorr::apply_basecorr_bucket_shock(
-                        ctx.market,
-                        surface_id,
-                        detachment_bps.as_deref(),
-                        maturities.as_deref(),
-                        *points,
-                    )?;
+                    let dets = detachment_bps
+                        .as_ref()
+                        .map(|v| v.iter().map(|bp| *bp as f64 / 100.0).collect());
+
+                    if let Some(mats) = maturities {
+                        if !mats.is_empty() {
+                            warnings.push("BaseCorrBucketPts maturities filter not yet supported; applying detachment-only bump".to_string());
+                        }
+                    }
+
+                    market_bumps.push(MarketBump::BaseCorrBucketPts {
+                        surface_id: CurveId::from(surface_id.as_str()),
+                        detachments: dets,
+                        points: *points,
+                    });
                     applied += 1;
                 }
                 OperationSpec::InstrumentSpreadBpByAttr { attrs, bp: _ } => {
-                    // Phase A: stub
                     warnings.push(format!(
                         "InstrumentSpreadBpByAttr with {} attrs: not implemented in Phase A",
                         attrs.len()
@@ -431,6 +520,10 @@ impl ScenarioEngine {
                 }
                 _ => {} // statements and time roll handled elsewhere
             }
+        }
+
+        if !market_bumps.is_empty() {
+            *ctx.market = ctx.market.apply_bumps(&market_bumps)?;
         }
 
         // Phase 2: Rate bindings update (if configured)

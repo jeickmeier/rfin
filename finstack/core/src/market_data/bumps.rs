@@ -9,6 +9,8 @@ use super::term_structures::{
     forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
 };
 use super::scalars::{MarketScalar, ScalarTimeSeries};
+use crate::currency::Currency;
+use crate::dates::Date;
 use crate::types::CurveId;
 
 // -----------------------------------------------------------------------------
@@ -156,6 +158,49 @@ impl BumpSpec {
     }
 }
 
+/// Unified bump description spanning curves, surfaces, FX, and scalar prices.
+#[derive(Debug, Clone)]
+pub enum MarketBump {
+    /// Standard curve/surface/price bumps addressed by `CurveId`.
+    Curve {
+        /// Identifier of the curve/surface/price entry.
+        id: CurveId,
+        /// How to bump the entry (parallel/key-rate, additive/multiplicative).
+        spec: BumpSpec,
+    },
+    /// FX rate percentage shock (positive strengthens the base currency).
+    FxPct {
+        /// Base currency.
+        base: Currency,
+        /// Quote currency.
+        quote: Currency,
+        /// Percentage change (e.g., 5.0 = +5%).
+        pct: f64,
+        /// Valuation date used for the FX lookup.
+        as_of: Date,
+    },
+    /// Volatility surface bucket bump (percentage multiplier).
+    VolBucketPct {
+        /// Surface identifier.
+        surface_id: CurveId,
+        /// Optional expiry filters (year fractions).
+        expiries: Option<Vec<f64>>,
+        /// Optional strike filters.
+        strikes: Option<Vec<f64>>,
+        /// Percentage change to apply to matching buckets.
+        pct: f64,
+    },
+    /// Base correlation bucket bump (additive points).
+    BaseCorrBucketPts {
+        /// Curve identifier.
+        surface_id: CurveId,
+        /// Optional detachment filters (percent, e.g., 3.0 for 3%).
+        detachments: Option<Vec<f64>>,
+        /// Absolute correlation points to add (0.02 = +2 points).
+        points: f64,
+    },
+}
+
 // -----------------------------------------------------------------------------
 // ID formatting helpers
 // -----------------------------------------------------------------------------
@@ -267,9 +312,11 @@ impl Bumpable for HazardCurve {
             return None;
         }
 
+        // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
         let shift = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
-                spec.additive_fraction()?
+                let spread = spec.additive_fraction()?;
+                spread / (1.0 - self.recovery_rate())
             }
             _ => return None,
         };

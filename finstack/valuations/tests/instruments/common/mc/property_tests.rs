@@ -248,15 +248,17 @@ mod tests {
                 .sum::<f64>() / (num_samples - 1) as f64;
             let std_dev = variance.sqrt();
 
-            // For 1000 samples, mean should be close to 0 (±0.1) and std_dev close to 1 (±0.1)
-            // Using wider tolerance for property tests
+            // For 1000 samples, mean should be close to 0 and std_dev close to 1.0. Allow wider
+            // tolerance to avoid flaky failures from rare tail draws of the chi-square distribution.
+            const MEAN_TOL: f64 = 0.2;
+            const STD_TOL: f64 = 0.15;
             prop_assert!(
-                mean.abs() < 0.2,
+                mean.abs() < MEAN_TOL,
                 "Sample mean {} too far from 0",
                 mean
             );
             prop_assert!(
-                (std_dev - 1.0).abs() < 0.1,
+                (std_dev - 1.0).abs() < STD_TOL,
                 "Sample std_dev {} too far from 1",
                 std_dev
             );

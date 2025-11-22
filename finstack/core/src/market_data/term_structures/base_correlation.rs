@@ -216,6 +216,31 @@ impl BaseCorrelationCurve {
     pub fn id(&self) -> &CurveId {
         &self.id
     }
+
+    /// Apply a filtered bucket bump to matching detachment points (additive points).
+    pub fn apply_bucket_bump(
+        &self,
+        detachment_filter: Option<&[f64]>,
+        points: f64,
+    ) -> Option<Self> {
+        let mut new_points: Vec<(f64, f64)> = Vec::with_capacity(self.detachment_points.len());
+
+        for (det, corr) in self.detachment_points.iter().copied().zip(self.correlations.iter().copied()) {
+            let matches = detachment_filter
+                .map(|flt| flt.iter().any(|d| (d - det).abs() < 0.01))
+                .unwrap_or(true);
+            if matches {
+                new_points.push((det, (corr + points).clamp(0.0, 1.0)));
+            } else {
+                new_points.push((det, corr));
+            }
+        }
+
+        BaseCorrelationCurve::builder(self.id.clone())
+            .points(new_points)
+            .build()
+            .ok()
+    }
 }
 
 /// Builder for creating base correlation curves.

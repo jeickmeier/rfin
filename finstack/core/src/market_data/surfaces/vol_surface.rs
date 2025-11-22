@@ -359,6 +359,44 @@ impl Bumpable for VolSurface {
     }
 }
 
+impl VolSurface {
+    /// Apply a filtered bucket bump (percentage) to matching expiry/strike cells.
+    pub fn apply_bucket_bump(
+        &self,
+        expiries_filter: Option<&[f64]>,
+        strikes_filter: Option<&[f64]>,
+        pct: f64,
+    ) -> Option<Self> {
+        let factor = 1.0 + pct / 100.0;
+        let (n_expiries, n_strikes) = self.grid_shape();
+        let mut builder = VolSurface::builder(self.id.clone())
+            .expiries(self.expiries())
+            .strikes(self.strikes());
+
+        for (ei, &expiry) in self.expiries.iter().enumerate().take(n_expiries) {
+            let mut row = Vec::with_capacity(n_strikes);
+            for (si, &strike) in self.strikes.iter().enumerate().take(n_strikes) {
+                let val = self.vols[[ei, si]];
+                let expiry_match = expiries_filter
+                    .map(|flt| flt.iter().any(|e| (e - expiry).abs() < 0.01))
+                    .unwrap_or(true);
+                let strike_match = strikes_filter
+                    .map(|flt| flt.iter().any(|s| (s - strike).abs() < 0.01))
+                    .unwrap_or(true);
+
+                if expiry_match && strike_match {
+                    row.push((val * factor).max(0.0));
+                } else {
+                    row.push(val);
+                }
+            }
+            builder = builder.row(&row);
+        }
+
+        builder.build().ok()
+    }
+}
+
 /// Helper to find the closest grid index for a target value.
 fn find_closest_grid_index(arr: &[f64], target: f64) -> usize {
     if target <= arr[0] {
