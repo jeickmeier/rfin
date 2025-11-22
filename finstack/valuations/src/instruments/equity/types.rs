@@ -313,6 +313,14 @@ impl Equity {
     }
 }
 
+impl crate::instruments::common::traits::CurveDependencies for Equity {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
 impl crate::instruments::common::traits::Instrument for Equity {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -370,14 +378,6 @@ impl crate::instruments::common::traits::Instrument for Equity {
 impl HasDiscountCurve for Equity {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
-    }
-}
-
-impl crate::instruments::common::traits::CurveDependencies for Equity {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
-            .build()
     }
 }
 

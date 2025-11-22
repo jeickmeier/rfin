@@ -6,11 +6,11 @@
 
 use crate::metrics::risk::RiskFactorType;
 use finstack_core::dates::Date;
-use finstack_core::market_data::bumps::BumpSpec;
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
 use finstack_core::market_data::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 
 /// Historical shift for a single risk factor on a single date.
 ///
@@ -39,13 +39,6 @@ pub struct MarketScenario {
     pub shifts: Vec<RiskFactorShift>,
 }
 
-#[derive(Hash, Eq, PartialEq)]
-enum ScenarioFactorKey {
-    Discount(CurveId),
-    Forward(CurveId),
-    Credit(CurveId),
-}
-
 impl MarketScenario {
     /// Create a new market scenario.
     pub fn new(date: Date, shifts: Vec<RiskFactorShift>) -> Self {
@@ -65,67 +58,51 @@ impl MarketScenario {
     ///
     /// New market context with historical shifts applied
     pub fn apply(&self, base_market: &MarketContext) -> Result<MarketContext> {
-        // Group shifts by curve ID to create BumpSpec map
-        let mut bumps: HashMap<CurveId, BumpSpec> = HashMap::new();
-        let mut seen: HashSet<ScenarioFactorKey> = HashSet::new();
+        let mut bumped_market = base_market.clone();
 
         for shift in &self.shifts {
-            match &shift.factor {
+            let maybe_bump: Option<(CurveId, BumpSpec)> = match &shift.factor {
                 RiskFactorType::DiscountRate {
                     curve_id,
                     tenor_years,
-                } => {
-                    if !seen.insert(ScenarioFactorKey::Discount(curve_id.clone())) {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Scenario {} contains multiple discount rate shifts for curve '{}'",
-                            self.date,
-                            curve_id.as_str()
-                        )));
-                    }
-                    // For now, apply shifts as parallel bumps
-                    // TODO: Implement key-rate shifts for more accurate historical simulation
-                    let bump = BumpSpec::key_rate_bp(*tenor_years, shift.shift * 10_000.0);
-                    bumps.insert(curve_id.clone(), bump);
-                }
+                } => Some((
+                    curve_id.clone(),
+                    BumpSpec::key_rate_bp(*tenor_years, shift.shift * 10_000.0),
+                )),
                 RiskFactorType::ForwardRate {
                     curve_id,
                     tenor_years,
-                } => {
-                    if !seen.insert(ScenarioFactorKey::Forward(curve_id.clone())) {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Scenario {} contains multiple forward rate shifts for curve '{}'",
-                            self.date,
-                            curve_id.as_str()
-                        )));
-                    }
-                    let bump = BumpSpec::key_rate_bp(*tenor_years, shift.shift * 10_000.0);
-                    bumps.insert(curve_id.clone(), bump);
-                }
-                RiskFactorType::CreditSpread {
-                    curve_id,
-                    tenor_years: _,
-                } => {
-                    if !seen.insert(ScenarioFactorKey::Credit(curve_id.clone())) {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Scenario {} contains multiple credit spread shifts for curve '{}'",
-                            self.date,
-                            curve_id.as_str()
-                        )));
-                    }
-                    let bump = BumpSpec::parallel_bp(shift.shift * 10_000.0);
-                    bumps.insert(curve_id.clone(), bump);
-                }
-                RiskFactorType::EquitySpot { .. } => {
-                    // TODO: Implement equity spot bumping
-                }
-                RiskFactorType::ImpliedVol { .. } => {
-                    // TODO: Implement vol surface bumping
-                }
+                } => Some((
+                    curve_id.clone(),
+                    BumpSpec::key_rate_bp(*tenor_years, shift.shift * 10_000.0),
+                )),
+                RiskFactorType::CreditSpread { curve_id, .. } => Some((
+                    curve_id.clone(),
+                    BumpSpec::parallel_bp(shift.shift * 10_000.0),
+                )),
+                RiskFactorType::EquitySpot { ticker } => Some((
+                    CurveId::from(ticker.as_str()),
+                    BumpSpec::multiplier(1.0 + shift.shift),
+                )),
+                RiskFactorType::ImpliedVol { surface_id, .. } => Some((
+                    surface_id.clone(),
+                    BumpSpec {
+                        mode: BumpMode::Additive,
+                        units: BumpUnits::Fraction,
+                        value: shift.shift,
+                        bump_type: BumpType::Parallel,
+                    },
+                )),
+            };
+
+            if let Some((curve_id, spec)) = maybe_bump {
+                let mut single = HashMap::new();
+                single.insert(curve_id, spec);
+                bumped_market = bumped_market.bump(single)?;
             }
         }
 
-        // Apply all bumps to create scenario market
-        base_market.bump(bumps)
+        Ok(bumped_market)
     }
 }
 
@@ -232,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn test_market_scenario_duplicate_curve_shifts_rejected() -> Result<()> {
+    fn test_market_scenario_allows_multiple_key_rates() -> Result<()> {
         let base_date = date!(2024 - 01 - 01);
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
@@ -261,16 +238,8 @@ mod tests {
             ],
         );
 
-        match scenario.apply(&base_market) {
-            Ok(_) => panic!("duplicate curve shifts should fail"),
-            Err(finstack_core::error::Error::Validation(msg)) => {
-                assert!(
-                    msg.contains("multiple discount rate shifts"),
-                    "unexpected message: {msg}"
-                );
-            }
-            Err(other) => panic!("unexpected error variant: {other:?}"),
-        }
+        let bumped = scenario.apply(&base_market)?;
+        assert!(bumped.get_discount_ref("USD-OIS").is_ok());
 
         Ok(())
     }
@@ -339,5 +308,63 @@ mod tests {
         assert!(history.is_empty());
         assert_eq!(history.len(), 0);
         assert!(history.get(0).is_none());
+    }
+
+    #[test]
+    fn test_equity_spot_shift_applied() -> Result<()> {
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        let base_market =
+            MarketContext::new().insert_price("AAPL", MarketScalar::Unitless(100.0));
+
+        let scenario = MarketScenario::new(
+            date!(2024 - 01 - 02),
+            vec![RiskFactorShift {
+                factor: RiskFactorType::EquitySpot {
+                    ticker: "AAPL".to_string(),
+                },
+                shift: 0.10, // +10%
+            }],
+        );
+
+        let bumped = scenario.apply(&base_market)?;
+        match bumped.price("AAPL")? {
+            MarketScalar::Unitless(v) => assert!((v - 110.0).abs() < 1e-9),
+            other => panic!("unexpected scalar variant: {:?}", other),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_implied_vol_shift_applied() -> Result<()> {
+        use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+
+        let surface = VolSurface::builder("EQ-VOL")
+            .expiries(&[0.5, 1.0])
+            .strikes(&[100.0, 110.0])
+            .row(&[0.20, 0.22])
+            .row(&[0.21, 0.23])
+            .build()?;
+
+        let base_market = MarketContext::new().insert_surface(surface.clone());
+
+        let scenario = MarketScenario::new(
+            date!(2024 - 01 - 02),
+            vec![RiskFactorShift {
+                factor: RiskFactorType::ImpliedVol {
+                    surface_id: CurveId::from("EQ-VOL"),
+                    expiry_years: 1.0,
+                    strike: 100.0,
+                },
+                shift: 0.02, // +2 vol points
+            }],
+        );
+
+        let bumped = scenario.apply(&base_market)?;
+        let bumped_surface = bumped.surface_ref("EQ-VOL")?;
+        assert!((bumped_surface.value(1.0, 100.0) - 0.23).abs() < 1e-9);
+
+        Ok(())
     }
 }

@@ -84,6 +84,10 @@ pub fn pv_total_return_leg(
     let (spot, div_yield) = extract_underlying_data(trs, context)?;
     let initial = trs.initial_level.unwrap_or(spot);
 
+    if !initial.is_finite() || initial <= 0.0 {
+        return Err(finstack_core::error::InputError::Invalid.into());
+    }
+
     let params = TotalReturnLegParams {
         schedule: &trs.schedule,
         notional: trs.notional,

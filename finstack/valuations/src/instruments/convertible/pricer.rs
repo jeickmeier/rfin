@@ -93,6 +93,9 @@ impl ConvertibleBondValuator {
         // Process coupon cashflows (exclude reset-only events) using schedule day count
         let mut coupon_map = HashMap::new();
         for cf in cashflow_schedule.coupons() {
+            if cf.date < base_date {
+                continue;
+            }
             let bounded_step = map_date_to_step(
                 base_date,
                 cf.date,
@@ -692,11 +695,34 @@ pub fn price_convertible_bond(
     tree_type: ConvertibleTreeType,
     as_of: Date,
 ) -> Result<Money> {
+    if as_of > bond.maturity {
+        return Ok(Money::new(0.0, bond.notional.currency()));
+    }
+
     // Step 1: Prepare all inputs
     let inputs = prepare_for_pricing(bond, market_context, as_of)?;
 
     if inputs.time_to_maturity <= 0.0 {
-        return Ok(Money::new(0.0, bond.notional.currency()));
+        let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
+            ratio
+        } else if let Some(price) = bond.conversion.price {
+            bond.notional.amount() / price
+        } else {
+            return Err(Error::Internal);
+        };
+
+        let maturity_coupon: f64 = inputs
+            .cashflow_schedule
+            .coupons()
+            .filter(|cf| cf.date == bond.maturity)
+            .map(|cf| cf.amount.amount())
+            .sum();
+
+        let redemption_value = bond.notional.amount() + maturity_coupon;
+        let conversion_value = inputs.spot * conversion_ratio;
+        let payoff = redemption_value.max(conversion_value);
+
+        return Ok(Money::new(payoff, bond.notional.currency()));
     }
 
     // Step 2: Create valuator
@@ -774,7 +800,23 @@ pub fn calculate_convertible_greeks(
         time_to_maturity: inputs.time_to_maturity,
     };
 
-    engine.calculate_greeks(initial_vars, tree_type, bump_size)
+    let mut greeks = engine.calculate_greeks(initial_vars, tree_type, bump_size)?;
+
+    // Finite-difference theta using a 1-day roll of the valuation date.
+    let dt_bump = 1.0 / 365.25;
+    if inputs.time_to_maturity > dt_bump {
+        if let Some(next_day) = as_of.next_day() {
+            let fwd_price = price_convertible_bond(
+                bond,
+                market_context,
+                tree_type,
+                next_day,
+            )?;
+            greeks.theta = (fwd_price.amount() - greeks.price) / dt_bump;
+        }
+    }
+
+    Ok(greeks)
 }
 
 /// Build the convertible bond cashflow schedule using common builder flow.
@@ -982,6 +1024,25 @@ mod tests {
 
         // Should be in a reasonable range
         assert!(price.amount() > 1000.0 && price.amount() < 2000.0);
+    }
+
+    #[test]
+    fn test_convertible_pricing_at_maturity_uses_payoff() {
+        let bond = create_test_bond();
+        let market_context = create_test_market_context();
+        let as_of = bond.maturity;
+
+        let price = price_convertible_bond(
+            &bond,
+            &market_context,
+            ConvertibleTreeType::Binomial(10),
+            as_of,
+        )
+        .expect("should price");
+
+        // At maturity, value should match the greater of redemption or conversion.
+        let conversion_value = 150.0 * 10.0;
+        assert!((price.amount() - conversion_value).abs() < 1e-6);
     }
 
     #[test]

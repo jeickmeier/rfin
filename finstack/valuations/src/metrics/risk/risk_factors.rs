@@ -9,6 +9,7 @@ use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
 use finstack_core::market_data::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
+use hashbrown::HashSet;
 
 /// Risk factor categories for VaR calculation.
 ///
@@ -123,6 +124,7 @@ where
     I: Instrument + CurveDependencies,
 {
     let mut factors = Vec::new();
+    let mut seen = HashSet::new();
 
     // Get instrument's curve dependencies
     let deps = instrument.curve_dependencies();
@@ -135,10 +137,14 @@ where
         // Verify curve exists in market
         if market.get_discount_ref(curve_id.as_str()).is_ok() {
             for &tenor_years in &standard_tenors {
-                factors.push(RiskFactorType::DiscountRate {
-                    curve_id: curve_id.clone(),
-                    tenor_years,
-                });
+                push_factor(
+                    &mut factors,
+                    &mut seen,
+                    RiskFactorType::DiscountRate {
+                        curve_id: curve_id.clone(),
+                        tenor_years,
+                    },
+                );
             }
         }
     }
@@ -147,10 +153,14 @@ where
     for curve_id in &deps.forward_curves {
         if market.get_forward_ref(curve_id.as_str()).is_ok() {
             for &tenor_years in &standard_tenors {
-                factors.push(RiskFactorType::ForwardRate {
-                    curve_id: curve_id.clone(),
-                    tenor_years,
-                });
+                push_factor(
+                    &mut factors,
+                    &mut seen,
+                    RiskFactorType::ForwardRate {
+                        curve_id: curve_id.clone(),
+                        tenor_years,
+                    },
+                );
             }
         }
     }
@@ -159,24 +169,114 @@ where
     for curve_id in &deps.credit_curves {
         if market.get_hazard_ref(curve_id.as_str()).is_ok() {
             for &tenor_years in &standard_tenors {
-                factors.push(RiskFactorType::CreditSpread {
-                    curve_id: curve_id.clone(),
-                    tenor_years,
-                });
+                push_factor(
+                    &mut factors,
+                    &mut seen,
+                    RiskFactorType::CreditSpread {
+                        curve_id: curve_id.clone(),
+                        tenor_years,
+                    },
+                );
             }
         }
     }
 
-    // TODO: Extract equity spot factors (requires equity price lookup in market)
-    // TODO: Extract volatility surface factors (requires vol surface analysis)
+    extract_equity_like_risk_factors(instrument, market, &mut factors, &mut seen)?;
 
     Ok(factors)
+}
+
+fn push_factor(
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+    factor: RiskFactorType,
+) {
+    let label = factor.label();
+    if seen.insert(label) {
+        factors.push(factor);
+    }
+}
+
+fn extract_equity_like_risk_factors<I>(
+    instrument: &I,
+    market: &MarketContext,
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+) -> Result<()>
+where
+    I: Instrument + CurveDependencies,
+{
+    // Spot equities
+    if let Some(eq) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::equity::Equity>()
+    {
+        let price_id = eq.price_id.as_deref().unwrap_or(eq.ticker.as_str());
+        if market.price(price_id).is_ok() {
+            push_factor(
+                factors,
+                seen,
+                RiskFactorType::EquitySpot {
+                    ticker: price_id.to_string(),
+                },
+            );
+        }
+    }
+
+    // Convertible bonds expose equity spot risk via underlying
+    if let Some(conv) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
+    {
+        if let Some(ticker) = conv.underlying_equity_id.as_ref() {
+            if market.price(ticker).is_ok() {
+                push_factor(
+                    factors,
+                    seen,
+                    RiskFactorType::EquitySpot {
+                        ticker: ticker.clone(),
+                    },
+                );
+            }
+        }
+    }
+
+    // Equity options carry spot and vol surface exposure
+    if let Some(opt) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::equity_option::EquityOption>()
+    {
+        if market.price(&opt.spot_id).is_ok() {
+            push_factor(
+                factors,
+                seen,
+                RiskFactorType::EquitySpot {
+                    ticker: opt.spot_id.clone(),
+                },
+            );
+        }
+
+        if market.surface_ref(opt.vol_surface_id.as_str()).is_ok() {
+            push_factor(
+                factors,
+                seen,
+                RiskFactorType::ImpliedVol {
+                    surface_id: opt.vol_surface_id.clone(),
+                    expiry_years: 0.0,
+                    strike: opt.strike.amount(),
+                },
+            );
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_core::types::Currency;
@@ -291,6 +391,57 @@ mod tests {
         assert!(
             factors.is_empty(),
             "Should have no factors for empty market"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_equity_and_vol_factors() -> Result<()> {
+        use crate::instruments::equity_option::EquityOption;
+
+        let expiry = date!(2025 - 06 - 01);
+        let option = EquityOption::european_call(
+            "EQO",
+            "AAPL",
+            100.0,
+            expiry,
+            Money::new(10_000.0, Currency::USD),
+            100.0,
+        );
+
+        let base_date = date!(2024 - 01 - 01);
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .day_count(DayCount::Act365F)
+            .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+            .build()?;
+
+        let market = MarketContext::new()
+            .insert_discount(curve)
+            .insert_price(&option.spot_id, MarketScalar::Unitless(150.0))
+            .insert_surface(
+                finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
+                    option.vol_surface_id.clone(),
+                )
+                .expiries(&[0.5, 1.0])
+                .strikes(&[90.0, 100.0])
+                .row(&[0.24, 0.25])
+                .row(&[0.26, 0.27])
+                .build()?,
+            );
+
+        let factors = extract_risk_factors(&option, &market)?;
+
+        assert!(
+            factors
+                .iter()
+                .any(|f| matches!(f, RiskFactorType::EquitySpot { ticker } if ticker == &option.spot_id)),
+            "should include equity spot factor"
+        );
+        assert!(
+            factors.iter().any(|f| matches!(f, RiskFactorType::ImpliedVol { surface_id, .. } if surface_id == &option.vol_surface_id)),
+            "should include vol surface factor"
         );
 
         Ok(())
