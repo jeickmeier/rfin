@@ -1744,7 +1744,7 @@ impl MarketContext {
     /// Apply one or more bumps to the market context in a single call.
     ///
     /// This consolidated API supports discount/forward/hazard/inflation/base-correlation
-    /// curves, volatility surfaces, and market scalars.
+    /// curves. Other market data types (vol surfaces, prices) are not modified.
     ///
     /// # Example
     /// ```rust

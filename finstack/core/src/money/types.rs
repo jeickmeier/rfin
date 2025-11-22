@@ -135,7 +135,8 @@ impl Money {
         );
         let amt = amount_from_repr(rounded);
         let int_part = amt.trunc() as i64;
-        let frac_part = ((amt - amt.trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
+        let frac_part =
+            ((amt.abs() - amt.abs().trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
 
         // Format integer part with thousands separators
         let int_str = format_with_separators(int_part);
@@ -170,6 +171,11 @@ impl Money {
     #[must_use]
     #[inline]
     pub fn new(amount: f64, currency: Currency) -> Self {
+        assert!(
+            amount.is_finite(),
+            "Money::new requires finite amount (got {:?})",
+            amount
+        );
         // Fallback to ISO-4217 minor units when no config is provided.
         let dp = currency.decimals();
         let mode = RoundingMode::Bankers;
@@ -204,6 +210,11 @@ impl Money {
     #[must_use]
     #[inline]
     pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
+        assert!(
+            amount.is_finite(),
+            "Money::new_with_config requires finite amount (got {:?})",
+            amount
+        );
         let dp = cfg.ingest_scale(currency);
         let mode = cfg.rounding.mode;
         let rounded = round_f64(amount, dp as i32, mode);
@@ -336,6 +347,9 @@ impl Money {
             return Ok(self);
         }
         let rate = provider.rate(self.currency, to, on, policy)?;
+        if !rate.is_finite() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
         let new_amount = repr_mul_f64(self.amount, rate);
         Ok(Self {
             amount: new_amount,
@@ -555,5 +569,61 @@ mod tests {
         assert_eq!(m1.amount(), 100.0);
         let m2: Money = (42_u64, Currency::EUR).into();
         assert_eq!(m2.amount(), 42.0);
+    }
+
+    #[test]
+    fn format_with_separators_handles_negative_values() {
+        let m = Money::new(-1234.56, Currency::USD);
+        let formatted = m.format_with_separators(2);
+        assert!(
+            formatted.starts_with("-1,234.56 USD"),
+            "formatted output should keep sign on integer part only: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "finite amount")]
+    fn new_rejects_non_finite_amounts() {
+        let _ = Money::new(f64::NAN, Currency::USD);
+    }
+
+    #[test]
+    #[should_panic(expected = "division by zero")]
+    fn division_by_zero_panics() {
+        let _ = Money::new(10.0, Currency::USD) / 0.0;
+    }
+
+    #[test]
+    #[should_panic(expected = "finite scalar")]
+    fn multiply_by_nan_panics() {
+        let _ = Money::new(10.0, Currency::USD) * f64::NAN;
+    }
+
+    struct NaNProvider;
+    impl crate::money::fx::FxProvider for NaNProvider {
+        fn rate(
+            &self,
+            _from: Currency,
+            _to: Currency,
+            _on: Date,
+            _policy: crate::money::fx::FxConversionPolicy,
+        ) -> crate::Result<f64> {
+            Ok(f64::NAN)
+        }
+    }
+
+    #[test]
+    fn convert_rejects_non_finite_rate() {
+        let usd = Money::new(5.0, Currency::USD);
+        let date = Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("Valid test date");
+        let res = usd.convert(
+            Currency::EUR,
+            date,
+            &NaNProvider,
+            crate::money::fx::FxConversionPolicy::CashflowDate,
+        );
+        assert!(res.is_err());
     }
 }

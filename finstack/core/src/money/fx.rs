@@ -675,8 +675,18 @@ impl FxMatrix {
             bumped_rate,
         ));
 
-        // Create new FX matrix with same config
-        Ok(Self::with_config(bumped_provider, self.config))
+        // Create new FX matrix with same config and carry over cached quotes so lookups that
+        // rely on seeded values keep working after the bump.
+        let bumped = Self::with_config(bumped_provider, self.config);
+        {
+            let src = self.quotes.lock();
+            let mut dst = bumped.quotes.lock();
+            for (pair, rate) in src.iter() {
+                dst.put(*pair, *rate);
+            }
+        }
+
+        Ok(bumped)
     }
 
     // Private helper methods
@@ -1118,5 +1128,31 @@ mod tests {
             .expect("FX rate query should succeed in test")
             .rate;
         assert_eq!(eur_chf, 0.95);
+    }
+
+    #[test]
+    fn fx_bumped_matrix_preserves_seeded_quotes() {
+        // Provider has no CHF quotes; we seed them manually.
+        let provider = MockFxProvider::new_incomplete();
+        let matrix = FxMatrix::new(Arc::new(provider));
+        matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
+
+        // Ensure the seeded quote is available.
+        let usd_chf = matrix
+            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
+            .expect("FX rate query should succeed in test")
+            .rate;
+        assert_eq!(usd_chf, 0.90);
+
+        // Bump EUR/USD; CHF quote should still be present in the bumped matrix.
+        let bumped = matrix
+            .with_bumped_rate(Currency::EUR, Currency::USD, 0.01, test_date())
+            .expect("Bumped matrix construction should succeed in test");
+
+        let usd_chf_bumped = bumped
+            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
+            .expect("FX rate query should succeed in test")
+            .rate;
+        assert_eq!(usd_chf_bumped, 0.90);
     }
 }

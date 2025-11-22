@@ -32,24 +32,39 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 
 #[inline]
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    a * Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ZERO)
+    assert!(
+        rhs.is_finite(),
+        "Money multiplication requires finite scalar (got {:?})",
+        rhs
+    );
+    a * Decimal::from_f64_retain(rhs)
+        .expect("finite scalar should convert to Decimal without loss of finiteness")
 }
 
 #[inline]
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    let rhs_decimal = Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ONE);
-    if rhs_decimal.is_zero() {
-        Decimal::ZERO
-    } else {
-        a / rhs_decimal
-    }
+    assert!(
+        rhs.is_finite(),
+        "Money division requires finite scalar (got {:?})",
+        rhs
+    );
+    assert!(rhs != 0.0, "Money division by zero is not allowed");
+    let rhs_decimal = Decimal::from_f64_retain(rhs)
+        .expect("finite non-zero scalar should convert to Decimal without loss of finiteness");
+    a / rhs_decimal
 }
 
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 /// Converts f64 input to Decimal for proper rounding.
 #[inline]
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
-    let decimal = Decimal::from_f64_retain(x).unwrap_or(Decimal::ZERO);
+    assert!(
+        x.is_finite(),
+        "Money rounding requires finite scalar (got {:?})",
+        x
+    );
+    let decimal = Decimal::from_f64_retain(x)
+        .expect("finite scalar should convert to Decimal without loss of finiteness");
     round_decimal(decimal, dp, mode)
 }
 
