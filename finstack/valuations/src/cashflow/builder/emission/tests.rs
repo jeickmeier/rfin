@@ -175,6 +175,7 @@ mod credit_emission_tests {
     use super::super::credit::{emit_default_on, emit_prepayment_on};
     use crate::cashflow::primitives::CFKind;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::DateExt;
     use finstack_core::dates::Date;
     use time::Month;
 
@@ -207,7 +208,7 @@ mod credit_emission_tests {
         // Second flow: recovery
         assert_eq!(flows[1].kind, CFKind::Recovery);
         assert_eq!(flows[1].amount.amount(), 160_000.0);
-        let expected_recovery_date = finstack_core::dates::utils::add_months(d, 12);
+        let expected_recovery_date = d.add_months(12);
         assert_eq!(flows[1].date, expected_recovery_date);
     }
 
@@ -441,7 +442,7 @@ mod credit_emission_tests {
         let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
             .expect("should emit default");
 
-        let expected_recovery_date = finstack_core::dates::utils::add_months(d, 6);
+        let expected_recovery_date = d.add_months(6);
         assert_eq!(flows[1].date, expected_recovery_date);
     }
 

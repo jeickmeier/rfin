@@ -82,12 +82,6 @@ pub use periods::{
     build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey, PeriodKind,
 };
 
-pub mod utils;
-pub use utils::{
-    add_months, date_to_days_since_epoch, days_in_month, days_since_epoch_to_date, is_leap_year,
-    last_day_of_month,
-};
-
 /// Safe date creation helper that returns a Result instead of panicking.
 ///
 /// This is a safer alternative to `Date::from_calendar_date(...).unwrap()`
@@ -113,6 +107,23 @@ pub fn create_date(year: i32, month: time::Month, day: u8) -> crate::Result<Date
             day,
         })
         .map_err(Into::into)
+}
+
+/// Add months to a date, clamping to the last valid day of the target month.
+///
+/// This is a convenience function that wraps [`DateExt::add_months`].
+/// For more ergonomic usage, consider importing [`DateExt`] and using the method directly.
+///
+/// # Example
+/// ```rust
+/// use finstack_core::dates::add_months;
+/// use time::{Date, Month};
+///
+/// let date = Date::from_calendar_date(2024, Month::January, 31).expect("Valid date");
+/// assert_eq!(add_months(date, 1), Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"));
+/// ```
+pub fn add_months(date: Date, months: i32) -> Date {
+    date.add_months(months)
 }
 
 #[cfg(test)]

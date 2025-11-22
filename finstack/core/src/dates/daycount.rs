@@ -95,7 +95,7 @@
 
 #![allow(clippy::many_single_char_names)]
 
-use crate::dates::utils::add_months;
+use crate::dates::date_extensions::DateExt;
 use core::cmp::Ordering;
 use time::{Date, Duration, Month};
 
@@ -748,7 +748,7 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
 /// Extend start date backward to find the beginning of its coupon period.
 fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
     match freq {
-        Frequency::Months(m) => add_months(date, -(m as i32)),
+        Frequency::Months(m) => date.add_months(-(m as i32)),
         Frequency::Days(d) => date - Duration::days(d as i64),
     }
 }
@@ -756,7 +756,7 @@ fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
 /// Extend end date forward to find the end of its coupon period.
 fn extend_forward_for_coupon_period(date: Date, freq: Frequency) -> Date {
     match freq {
-        Frequency::Months(m) => add_months(date, m as i32),
+        Frequency::Months(m) => date.add_months(m as i32),
         Frequency::Days(d) => date + Duration::days(d as i64),
     }
 }
@@ -792,7 +792,7 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
 
     // Check each year in the range for Feb 29
     for year in start_year..=end_year {
-        if crate::dates::utils::is_leap_year(year) {
+        if time::util::is_leap_year(year) {
             // Try to create Feb 29 for this year
             if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
                 // Check if Feb 29 is in the interval [start, end]
@@ -815,7 +815,7 @@ fn count_business_days<C: HolidayCalendar + ?Sized>(start: Date, end: Date, cale
 
 #[inline]
 const fn days_in_year(year: i32) -> i32 {
-    if crate::dates::utils::is_leap_year(year) {
+    if time::util::is_leap_year(year) {
         366
     } else {
         365

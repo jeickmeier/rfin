@@ -4,10 +4,11 @@
 //! functions for common calendar operations. All functions accept/return
 //! `datetime.date` where applicable and surface `ValueError` for invalid inputs.
 use crate::core::utils::{date_to_py, py_to_date};
-use finstack_core::dates::utils as core_utils;
+use finstack_core::dates::DateExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
+use time::{Date, Duration, Month};
 
 /// Add a number of calendar months to a date (preserving end-of-month logic).
 ///
@@ -29,7 +30,7 @@ use pyo3::Bound;
 #[pyfunction(name = "add_months", text_signature = "(date, months)")]
 fn add_months_py(py: Python<'_>, date: Bound<'_, PyAny>, months: i32) -> PyResult<PyObject> {
     let d = py_to_date(&date)?;
-    let result = core_utils::add_months(d, months);
+    let result = d.add_months(months);
     date_to_py(py, result)
 }
 
@@ -47,7 +48,7 @@ fn add_months_py(py: Python<'_>, date: Bound<'_, PyAny>, months: i32) -> PyResul
 #[pyfunction(name = "last_day_of_month", text_signature = "(date)")]
 fn last_day_of_month_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
     let d = py_to_date(&date)?;
-    let result = core_utils::last_day_of_month(d);
+    let result = d.end_of_month();
     date_to_py(py, result)
 }
 
@@ -70,13 +71,14 @@ fn last_day_of_month_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyOb
 /// ValueError
 ///     If `month` is not in 1..=12.
 #[pyfunction(name = "days_in_month", text_signature = "(year, month)")]
-fn days_in_month_py(year: i32, month: u8) -> PyResult<u8> {
+fn days_in_month_py(_year: i32, month: u8) -> PyResult<u8> {
     if !(1..=12).contains(&month) {
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Month out of range: {month}"
         )));
     }
-    Ok(core_utils::days_in_month(year, month))
+    let m = Month::try_from(month).expect("Month validated in range");
+    Ok(m.length(_year))
 }
 
 /// True if the given year is a leap year.
@@ -92,7 +94,7 @@ fn days_in_month_py(year: i32, month: u8) -> PyResult<u8> {
 ///     `True` if `year` is a leap year, otherwise `False`.
 #[pyfunction(name = "is_leap_year", text_signature = "(year)")]
 fn is_leap_year_py(year: i32) -> bool {
-    core_utils::is_leap_year(year)
+    time::util::is_leap_year(year)
 }
 
 /// Convert a date into a day count offset from the Unix epoch (1970-01-01).
@@ -109,7 +111,8 @@ fn is_leap_year_py(year: i32) -> bool {
 #[pyfunction(name = "date_to_days_since_epoch", text_signature = "(date)")]
 fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
     let d = py_to_date(&date)?;
-    Ok(core_utils::date_to_days_since_epoch(d))
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid");
+    Ok((d - epoch).whole_days() as i32)
 }
 
 /// Convert a day-count offset from the Unix epoch back to a date.
@@ -125,7 +128,8 @@ fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
 ///     Date corresponding to the epoch offset.
 #[pyfunction(name = "days_since_epoch_to_date", text_signature = "(days)")]
 fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<PyObject> {
-    let date = core_utils::days_since_epoch_to_date(days);
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid");
+    let date = epoch + Duration::days(days as i64);
     date_to_py(py, date)
 }
 

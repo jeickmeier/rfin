@@ -5,6 +5,7 @@
 
 use super::types::{BaseRateSpec, RevolvingCredit};
 use crate::instruments::common::traits::Attributes;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::{BusinessDayConvention, Date, ScheduleBuilder};
 use finstack_core::prelude::HolidayCalendar;
 use finstack_core::Result;
@@ -245,7 +246,7 @@ pub(super) fn compute_reset_period_end(
     let mut reset_end = reset_date;
     match reset_freq {
         Frequency::Months(m) => {
-            reset_end = finstack_core::dates::utils::add_months(reset_date, *m as i32);
+            reset_end = reset_date.add_months(*m as i32);
         }
         Frequency::Days(d) => {
             reset_end = reset_date + time::Duration::days(*d as i64);

@@ -205,7 +205,7 @@ impl VarianceSwap {
 
     /// Get observation dates based on frequency.
     pub fn observation_dates(&self) -> Vec<Date> {
-        use finstack_core::dates::utils::add_months;
+        use finstack_core::dates::DateExt;
 
         // Simple date generation based on frequency
         let mut dates = Vec::new();
@@ -216,7 +216,7 @@ impl VarianceSwap {
             // Month-based frequency
             while current <= self.maturity {
                 dates.push(current);
-                current = add_months(current, months_step as i32);
+                current = current.add_months(months_step as i32);
 
                 if current > self.maturity {
                     break;

@@ -195,7 +195,7 @@ impl ScalarTimeSeries {
         // Convert dates to days since epoch
         let observations_i32: Vec<(i32, f64)> = observations
             .into_iter()
-            .map(|(d, v)| (crate::dates::utils::date_to_days_since_epoch(d), v))
+            .map(|(d, v)| (to_days(d), v))
             .collect();
 
         // Create storage (handles sorting and duplicate detection)
@@ -273,7 +273,7 @@ impl ScalarTimeSeries {
     /// assert!(linear.value_on(jan).expect("Value lookup should succeed") > 10.0);
     /// ```
     pub fn value_on(&self, date: Date) -> Result<f64> {
-        let days = crate::dates::utils::date_to_days_since_epoch(date);
+        let days = to_days(date);
         self.values_on_days(&[days]).map(|v| v[0])
     }
 
@@ -285,7 +285,7 @@ impl ScalarTimeSeries {
     pub fn values_on(&self, dates: &[Date]) -> Result<Vec<f64>> {
         let query_days: Vec<i32> = dates
             .iter()
-            .map(|&d| crate::dates::utils::date_to_days_since_epoch(d))
+            .map(|&d| to_days(d))
             .collect();
         self.values_on_days(&query_days)
     }
@@ -378,7 +378,7 @@ impl ScalarTimeSeries {
         self.data
             .iter()
             .map(|(days, value)| {
-                let date = crate::dates::utils::days_since_epoch_to_date(days);
+                let date = from_days(days);
                 (date, value)
             })
             .collect()
@@ -393,6 +393,16 @@ impl ScalarTimeSeries {
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+}
+
+fn to_days(date: Date) -> i32 {
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+    (date - epoch).whole_days() as i32
+}
+
+fn from_days(days: i32) -> Date {
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+    epoch + time::Duration::days(days as i64)
 }
 
 /// Raw serializable state of a ScalarTimeSeries

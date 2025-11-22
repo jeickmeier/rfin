@@ -9,7 +9,7 @@ use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
-use finstack_core::dates::utils::add_months;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 // use finstack_core::market_data::context::MarketContext; // use re-export above
@@ -321,7 +321,7 @@ impl BaseCorrelationCalibrator {
     ) -> Result<CdsTranche> {
         // Use proper calendar arithmetic instead of 365.25 approximation
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
-        let maturity = add_months(self.base_date, months_to_add);
+        let maturity = self.base_date.add_months(months_to_add);
 
         let id = finstack_core::types::InstrumentId::new(
             format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct).replace('.', "_"),

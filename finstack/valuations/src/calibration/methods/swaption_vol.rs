@@ -10,7 +10,7 @@ use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConv
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
-use finstack_core::dates::utils::add_months;
+use finstack_core::dates::{add_months, DateExt};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
@@ -204,7 +204,7 @@ impl SwaptionVolCalibrator {
     ) -> Result<f64> {
         let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
         let swap_start = expiry;
-        let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
+        let swap_end = expiry.add_months((tenor_years * 12.0) as i32);
 
         let t_start = self.market_conventions.day_count.year_fraction(
             self.base_date,
@@ -392,7 +392,7 @@ impl SwaptionVolCalibrator {
                 if let Some(params) = sabr_params.get(&key) {
                     // Have exact calibrated parameters
                     let model = SABRModel::new(params.clone());
-                    let expiry = add_months(self.base_date, (expiry_years * 12.0) as i32);
+                    let expiry = self.base_date.add_months((expiry_years * 12.0) as i32);
 
                     match self.calculate_forward_swap_rate(expiry, tenor_years, context) {
                         Ok(forward) => {
@@ -665,7 +665,7 @@ impl SwaptionVolCalibrator {
                     self.interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
                 {
                     let model = SABRModel::new(params);
-                    let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
+                    let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
                     let forward =
                         self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
                     let strike =
@@ -689,7 +689,7 @@ impl SwaptionVolCalibrator {
                     match closest {
                         Some((_, params)) => {
                             let model = SABRModel::new(params.clone());
-                            let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
+                            let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
                             let forward =
                                 self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
                             let strike =
@@ -772,7 +772,7 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
 
             let expiry_years = *expiry_bp as f64 / 10000.0;
             let tenor_years = *tenor_bp as f64 / 10000.0;
-            let expiry_date = add_months(self.base_date, (expiry_years * 12.0) as i32);
+            let expiry_date = self.base_date.add_months((expiry_years * 12.0) as i32);
 
             // Calculate forward swap rate
             let forward =

@@ -12,7 +12,7 @@
 use crate::constants::{isda, time as time_constants, NUMERICAL_TOLERANCE};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
-use finstack_core::dates::utils::add_months;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
@@ -913,7 +913,7 @@ impl CDSBootstrapper {
         recovery_rate: f64,
     ) -> Result<CreditDefaultSwap> {
         let months = (tenor_years * 12.0).round() as i32;
-        let end_date = add_months(base_date, months);
+        let end_date = base_date.add_months(months);
         Ok(CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
@@ -999,7 +999,7 @@ impl CDSBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::dates::utils::add_months;
+    use finstack_core::dates::DateExt;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn create_test_cds(
@@ -1050,7 +1050,7 @@ mod tests {
     fn test_enhanced_protection_leg() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-        let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 100.0, 0.40);
+        let cds = create_test_cds("TEST-CDS", as_of, as_of.add_months(60), 100.0, 0.40);
         let pricer = CDSPricer::new();
         let protection_pv = pricer
             .pv_protection_leg(&cds, &disc, &credit, as_of)
@@ -1062,7 +1062,7 @@ mod tests {
     fn test_accrual_on_default() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-        let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 100.0, 0.40);
+        let cds = create_test_cds("TEST-CDS", as_of, as_of.add_months(60), 100.0, 0.40);
         let pricer_with = CDSPricer::new();
         let pricer_without = CDSPricer::with_config(CDSPricerConfig {
             include_accrual: false,
@@ -1082,7 +1082,7 @@ mod tests {
     fn test_par_spread_calculation() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-        let cds = create_test_cds("TEST-CDS", as_of, add_months(as_of, 60), 0.0, 0.40);
+        let cds = create_test_cds("TEST-CDS", as_of, as_of.add_months(60), 0.0, 0.40);
         let pricer = CDSPricer::new();
         let par_spread = pricer
             .par_spread(&cds, &disc, &credit, as_of)
@@ -1100,7 +1100,7 @@ mod tests {
     fn test_settlement_delay_reduces_protection_pv() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-        let mut cds0 = create_test_cds("CDS-0D", as_of, add_months(as_of, 60), 100.0, 0.40);
+        let mut cds0 = create_test_cds("CDS-0D", as_of, as_of.add_months(60), 100.0, 0.40);
         let mut cds20 = cds0.clone();
         cds0.protection.settlement_delay = 0;
         cds20.protection.settlement_delay = 20;
@@ -1123,7 +1123,7 @@ mod tests {
     fn test_par_spread_full_premium_option_runs() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-        let cds = create_test_cds("CDS-PAR", as_of, add_months(as_of, 60), 0.0, 0.40);
+        let cds = create_test_cds("CDS-PAR", as_of, as_of.add_months(60), 0.0, 0.40);
         let pricer_ra = CDSPricer::new();
         let pricer_full = CDSPricer::with_config(CDSPricerConfig {
             par_spread_uses_full_premium: true,

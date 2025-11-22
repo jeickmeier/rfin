@@ -99,7 +99,7 @@ use smallvec::SmallVec;
 use time::{Date, Duration};
 
 use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
-use crate::dates::utils::{add_months, last_day_of_month};
+use crate::dates::date_extensions::DateExt;
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -372,7 +372,7 @@ impl Step {
     /// Return a new `Date` advanced by this step relative to `date`.
     fn add(self, date: Date) -> Date {
         match self {
-            Step::Months(m) => add_months(date, m),
+            Step::Months(m) => date.add_months(m),
             Step::Days(d) => date + Duration::days(d as i64),
         }
     }
@@ -381,7 +381,7 @@ impl Step {
 /// Apply End-of-Month (EOM) convention to a date.
 /// Returns the last day of the month for the given date.
 fn apply_eom(date: Date) -> Date {
-    last_day_of_month(date)
+    date.end_of_month()
 }
 
 #[inline]
@@ -892,7 +892,7 @@ impl BuilderInternal {
                 break;
             }
             let prev = match step {
-                Step::Months(m) => add_months(dt, -m),
+                Step::Months(m) => dt.add_months(-m),
                 Step::Days(d) => dt - Duration::days(d as i64),
             };
             dt = if prev < target { target } else { prev };
@@ -908,7 +908,7 @@ impl BuilderInternal {
         anchors.push(dt);
         while dt > self.start {
             let prev = match step {
-                Step::Months(m) => add_months(dt, -m),
+                Step::Months(m) => dt.add_months(-m),
                 Step::Days(d) => dt - Duration::days(d as i64),
             };
             if prev >= self.start {

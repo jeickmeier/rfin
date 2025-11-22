@@ -1701,7 +1701,7 @@ mod tests {
             3.0,
             7.0,
             Money::new(10_000_000.0, Currency::USD),
-            finstack_core::dates::utils::add_months(as_of, 60),
+            as_of.add_months(60),
             0.0,
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
@@ -1743,7 +1743,7 @@ mod tests {
             0.0,
             3.0,
             Money::new(10_000_000.0, Currency::USD),
-            finstack_core::dates::utils::add_months(as_of, 60),
+            as_of.add_months(60),
             0.0,
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();

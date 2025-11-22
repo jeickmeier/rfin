@@ -19,7 +19,7 @@
 //! - **Weekly**: 2025W01 through 2025W52 (non-ISO, Jan 1 anchor)
 //! - **Annual**: 2025
 
-use crate::dates::utils::{add_months, days_in_month};
+use crate::dates::date_extensions::DateExt;
 use crate::dates::Date;
 use core::fmt;
 use core::str::FromStr;
@@ -486,8 +486,8 @@ fn fiscal_quarter_bounds(fiscal_year: i32, q: u8, config: FiscalConfig) -> (Date
     let quarter_end_month_offset = q * 3;
 
     // Calculate start and end dates for the quarter
-    let start = add_months(fy_start, quarter_start_month_offset as i32);
-    let end = add_months(fy_start, quarter_end_month_offset as i32);
+    let start = fy_start.add_months(quarter_start_month_offset as i32);
+    let end = fy_start.add_months(quarter_end_month_offset as i32);
 
     (start, end)
 }
@@ -497,8 +497,8 @@ fn fiscal_month_bounds(fiscal_year: i32, m: u8, config: FiscalConfig) -> (Date, 
     let fy_start = fiscal_year_start(fiscal_year, config);
 
     // Calculate start and end dates for the month
-    let start = add_months(fy_start, (m - 1) as i32);
-    let end = add_months(fy_start, m as i32);
+    let start = fy_start.add_months((m - 1) as i32);
+    let end = fy_start.add_months(m as i32);
 
     (start, end)
 }
@@ -528,8 +528,8 @@ fn fiscal_half_bounds(fiscal_year: i32, h: u8, config: FiscalConfig) -> (Date, D
     let half_start_month_offset = (h - 1) * 6;
     let half_end_month_offset = h * 6;
 
-    let start = add_months(fy_start, half_start_month_offset as i32);
-    let end = add_months(fy_start, half_end_month_offset as i32);
+    let start = fy_start.add_months(half_start_month_offset as i32);
+    let end = fy_start.add_months(half_end_month_offset as i32);
 
     (start, end)
 }
@@ -556,13 +556,11 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     let month = Month::try_from(config.start_month).unwrap_or(Month::January);
     Date::from_calendar_date(calendar_year, month, config.start_day).unwrap_or_else(|_| {
         // If the day doesn't exist (e.g., Feb 30), use the last day of the month
-        let last_day = days_in_month(calendar_year, config.start_month);
+        let last_day = month.length(calendar_year);
         Date::from_calendar_date(calendar_year, month, last_day)
             .expect("Last day of month should be valid")
     })
 }
-
-// days_in_month moved to crate::dates::utils for single source of truth
 
 fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
     let s = s.trim();

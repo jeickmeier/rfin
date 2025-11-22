@@ -3,6 +3,7 @@
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;
 
@@ -79,8 +80,7 @@ pub fn emit_default_on(
         // Recovery cashflow (on future date)
         let recovery_amt = event.defaulted_amount * event.recovery_rate;
         if recovery_amt > 0.0 {
-            let base_recovery_date =
-                finstack_core::dates::utils::add_months(d, event.recovery_lag as i32);
+            let base_recovery_date = d.add_months(event.recovery_lag as i32);
 
             // Apply optional business-day adjustment if both BDC and calendar are provided.
             let recovery_date = if let (Some(bdc), Some(ref cal_id)) =

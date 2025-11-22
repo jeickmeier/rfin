@@ -64,7 +64,7 @@
 
 use super::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::currency::Currency;
-use crate::dates::Date;
+use crate::dates::{Date, DateExt};
 use crate::{Error, Result};
 
 #[cfg(feature = "serde")]
@@ -416,7 +416,7 @@ impl InflationIndex {
                 .ok_or(Error::Input(crate::error::InputError::InvalidDateRange)),
             InflationLag::Months(months) => {
                 // Proper month arithmetic using shared helper
-                Ok(crate::dates::utils::add_months(date, -(months as i32)))
+                Ok(date.add_months(-(months as i32)))
             }
         }
     }

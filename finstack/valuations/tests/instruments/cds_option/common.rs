@@ -4,7 +4,7 @@
 //! to maintain DRY principles across the test suite.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::utils::add_months;
+use finstack_core::dates::add_months;
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::market_data::MarketContext;

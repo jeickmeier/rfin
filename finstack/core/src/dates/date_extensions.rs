@@ -10,8 +10,7 @@ use crate::dates::calendar::business_days::{
     seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS,
 };
 use crate::dates::periods::FiscalConfig;
-use crate::dates::utils::days_in_month;
-use time::{Date, Duration, OffsetDateTime, Weekday};
+use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 
 /// Convenience extensions for [`time::Date`].
 pub trait DateExt: Sized {
@@ -26,6 +25,31 @@ pub trait DateExt: Sized {
     /// Uses the fiscal year start month and day from `FiscalConfig` to determine
     /// which fiscal year this date belongs to.
     fn fiscal_year(self, config: FiscalConfig) -> i32;
+
+    /// Add `months` to the date, clamping to the last valid day of the target month.
+    ///
+    /// Handles negative month offsets correctly and clamps the day to the last
+    /// valid day for the target month (e.g. Jan 31 + 1 month → Feb 28/29).
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::dates::{Date, DateExt};
+    /// use time::Month;
+    /// let date = Date::from_calendar_date(2024, Month::January, 31).expect("Valid date");
+    /// assert_eq!(date.add_months(1), Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"));
+    /// ```
+    fn add_months(self, months: i32) -> Self;
+
+    /// Return the last day-of-month date for the month containing this date.
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::dates::{Date, DateExt};
+    /// use time::Month;
+    /// let date = Date::from_calendar_date(2024, Month::February, 15).expect("Valid date");
+    /// assert_eq!(date.end_of_month(), Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"));
+    /// ```
+    fn end_of_month(self) -> Self;
 
     /// Add / subtract a number of **weekdays** (`n`) to the date.
     ///
@@ -88,33 +112,61 @@ impl DateExt for Date {
     }
 
     fn fiscal_year(self, config: FiscalConfig) -> i32 {
-        // If fiscal year starts in January, it's just the calendar year
+        let year = self.year();
+
+        // Fast path: Calendar year
         if config.start_month == 1 && config.start_day == 1 {
-            return self.year();
+            return year;
         }
 
-        // Otherwise, we need to check if the date is before or after the fiscal year start
-        let calendar_year = self.year();
-        let start_month = time::Month::try_from(config.start_month).unwrap_or(time::Month::January);
-        let fiscal_start_this_year =
-            Date::from_calendar_date(calendar_year, start_month, config.start_day).unwrap_or_else(
-                |_| {
-                    // If the day doesn't exist (e.g., Feb 30), use the last day of the month
-                    let last_day = days_in_month(calendar_year, config.start_month);
-                    Date::from_calendar_date(calendar_year, start_month, last_day)
-                        .expect("Date should be valid")
-                },
-            );
+        // Optimization: Direct tuple comparison avoids expensive Date construction and validation.
+        let current_month = self.month() as u8;
 
-        if self >= fiscal_start_this_year {
-            // Date is on or after fiscal year start, so it belongs to the fiscal year
-            // that started in this calendar year
-            calendar_year + 1
+        if current_month > config.start_month {
+            // Strictly after the start month -> belongs to next fiscal year
+            return year + 1;
+        } else if current_month < config.start_month {
+            // Strictly before the start month -> belongs to current calendar year
+            return year;
+        }
+
+        // We are in the start month. Check the day.
+        // We must handle the edge case where config.start_day exceeds the month length
+        // (e.g. config="Feb 30" implies "last day of Feb").
+        let threshold_day = if config.start_day <= 28 {
+            config.start_day
         } else {
-            // Date is before fiscal year start, so it belongs to the fiscal year
-            // that started in the previous calendar year
-            calendar_year
+            let month_len = self.month().length(year);
+            config.start_day.min(month_len)
+        };
+
+        if self.day() >= threshold_day {
+            year + 1
+        } else {
+            year
         }
+    }
+
+    fn add_months(self, months: i32) -> Self {
+        let (year, month, _) = self.to_calendar_date();
+        let total_months = year * 12 + (month as i32 - 1) + months;
+        let new_year = total_months.div_euclid(12);
+        let new_month_idx = total_months.rem_euclid(12);
+
+        let new_month = Month::try_from((new_month_idx + 1) as u8)
+            .expect("Month index 0-11 + 1 fits in u8");
+
+        let days_in_new_month = new_month.length(new_year);
+        let new_day = self.day().min(days_in_new_month);
+
+        Date::from_calendar_date(new_year, new_month, new_day)
+            .expect("Date components guaranteed valid by logic")
+    }
+
+    fn end_of_month(self) -> Self {
+        let days = self.month().length(self.year());
+        Date::from_calendar_date(self.year(), self.month(), days)
+            .expect("End of month date always valid")
     }
 
     fn add_weekdays(self, mut n: i32) -> Self {
@@ -124,13 +176,42 @@ impl DateExt for Date {
 
         let step = if n > 0 { 1 } else { -1 };
         let mut date = self;
-        while n != 0 {
-            // Safe unwrap: adding 1 day to a valid Date always succeeds within time range.
+
+        // Phase 1: Advance until we are on a weekday.
+        // This handles the "start on weekend" edge case and aligns us to the 5-day week grid.
+        // Max 2 iterations.
+        while date.is_weekend() {
             date += Duration::days(step as i64);
+            // If we landed on a weekday, we consumed one unit of 'n'.
             if !date.is_weekend() {
                 n -= step;
             }
+            // If n reached 0 during this adjustment (e.g. start Sat, add 1 weekday -> Mon), return.
+            if n == 0 {
+                return date;
+            }
         }
+
+        // Phase 2: Jump full weeks.
+        // Now 'date' is guaranteed to be a weekday.
+        // 5 weekdays = 1 calendar week (7 days).
+        let weeks = n / 5;
+        let remainder = n % 5;
+
+        if weeks != 0 {
+            date += Duration::days(weeks as i64 * 7);
+        }
+
+        // Phase 3: Handle remaining days (max 4).
+        // Since we started on a weekday (from Phase 1 or 2), simple iteration is fine and safe.
+        let mut rem = remainder;
+        while rem != 0 {
+            date += Duration::days(step as i64);
+            if !date.is_weekend() {
+                rem -= step;
+            }
+        }
+
         date
     }
 
@@ -184,6 +265,12 @@ pub trait OffsetDateTimeExt: Sized {
     /// See [`DateExt::fiscal_year`].
     fn fiscal_year(self, config: FiscalConfig) -> i32;
 
+    /// See [`DateExt::add_months`].
+    fn add_months(self, months: i32) -> Self;
+
+    /// See [`DateExt::end_of_month`].
+    fn end_of_month(self) -> Self;
+
     /// See [`DateExt::add_weekdays`].
     fn add_weekdays(self, n: i32) -> Self;
 
@@ -212,6 +299,16 @@ impl OffsetDateTimeExt for OffsetDateTime {
 
     fn fiscal_year(self, config: FiscalConfig) -> i32 {
         self.date().fiscal_year(config)
+    }
+
+    fn add_months(self, months: i32) -> Self {
+        let new_date = self.date().add_months(months);
+        self.replace_date(new_date)
+    }
+
+    fn end_of_month(self) -> Self {
+        let new_date = self.date().end_of_month();
+        self.replace_date(new_date)
     }
 
     fn add_weekdays(self, n: i32) -> Self {
