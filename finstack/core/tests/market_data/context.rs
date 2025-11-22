@@ -10,6 +10,7 @@ use finstack_core::market_data::scalars::{
     inflation_index::{InflationIndex, InflationInterpolation},
     MarketScalar, ScalarTimeSeries, SeriesInterpolation,
 };
+use finstack_core::market_data::bumps::BumpType;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
@@ -224,6 +225,81 @@ fn market_context_supports_curve_bumps() {
         bumped_disc.df(5.0) < orig_df_5y,
         "bumped curve has lower discount factors (higher rates)"
     );
+}
+
+#[test]
+fn market_context_bumps_surfaces_and_scalars() {
+    let surface = sample_vol_surface();
+    let price = MarketScalar::Price(Money::new(100.0, Currency::USD));
+    let series = ScalarTimeSeries::new(
+        "TS",
+        vec![
+            (sample_base_date(), 10.0),
+            (
+                sample_base_date() + time::Duration::days(30),
+                12.0,
+            ),
+        ],
+        None,
+    )
+    .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_surface_arc(surface.clone())
+        .insert_price("EQ-SPOT", price.clone())
+        .insert_series(series.clone());
+
+    let original_vol = surface
+        .value_checked(0.5, 1.0)
+        .expect("vol lookup should succeed in test");
+    let original_price = match ctx.price("EQ-SPOT").unwrap() {
+        MarketScalar::Price(m) => m.amount(),
+        _ => panic!("unexpected scalar variant"),
+    };
+    let original_series = ctx.series("TS").unwrap().value_on(sample_base_date()).unwrap();
+
+    let mut bumps = HashMap::new();
+    bumps.insert(CurveId::from("EQ-VOL"), BumpSpec::multiplier(1.10));
+    bumps.insert(
+        CurveId::from("EQ-SPOT"),
+        BumpSpec {
+            mode: finstack_core::market_data::context::BumpMode::Multiplicative,
+            units: finstack_core::market_data::context::BumpUnits::Factor,
+            value: 1.05,
+            bump_type: BumpType::Parallel,
+        },
+    );
+    bumps.insert(
+        CurveId::from("TS"),
+        BumpSpec {
+            mode: finstack_core::market_data::context::BumpMode::Additive,
+            units: finstack_core::market_data::context::BumpUnits::Percent,
+            value: 10.0,
+            bump_type: BumpType::Parallel,
+        },
+    );
+
+    let bumped = ctx.bump(bumps).expect("bump should succeed");
+
+    let bumped_vol = bumped
+        .surface("EQ-VOL")
+        .unwrap()
+        .value_checked(0.5, 1.0)
+        .unwrap();
+    assert!(bumped_vol > original_vol);
+
+    let bumped_price = match bumped.price("EQ-SPOT").unwrap() {
+        MarketScalar::Price(m) => m.amount(),
+        _ => panic!("unexpected scalar variant"),
+    };
+    assert!((bumped_price - original_price * 1.05).abs() < 1e-9);
+
+    let bumped_series_value = bumped
+        .series("TS")
+        .unwrap()
+        .value_on(sample_base_date())
+        .unwrap();
+    assert!((bumped_series_value - (original_series + 0.10)).abs() < 1e-9);
 }
 
 #[test]

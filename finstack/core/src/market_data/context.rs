@@ -1744,7 +1744,7 @@ impl MarketContext {
     /// Apply one or more bumps to the market context in a single call.
     ///
     /// This consolidated API supports discount/forward/hazard/inflation/base-correlation
-    /// curves. Other market data types (vol surfaces, prices) are not modified.
+    /// curves, volatility surfaces, market scalars, and generic scalar time series.
     ///
     /// # Example
     /// ```rust
@@ -1810,6 +1810,23 @@ impl MarketContext {
                         curve_id.clone(),
                         CurveStorage::BaseCorrelation(Arc::new(bumped)),
                     );
+                    found = true;
+                }
+            } else if let Some(original) = self.surfaces.get(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    new_context
+                        .surfaces
+                        .insert(curve_id.clone(), Arc::new(bumped));
+                    found = true;
+                }
+            } else if let Some(original) = self.prices.get(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    new_context.prices.insert(curve_id.clone(), bumped);
+                    found = true;
+                }
+            } else if let Some(original) = self.series.get(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    new_context.series.insert(curve_id.clone(), bumped);
                     found = true;
                 }
             }

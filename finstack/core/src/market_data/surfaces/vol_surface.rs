@@ -39,8 +39,14 @@
 // Box and Vec are available from the standard prelude; no explicit alloc import needed.
 
 use crate::{
-    error::InputError, market_data::traits::TermStructure, math::interp::utils::locate_segment,
-    types::CurveId, Error,
+    error::InputError,
+    market_data::{
+        bumps::{BumpMode, BumpSpec, BumpUnits, Bumpable},
+        traits::TermStructure,
+    },
+    math::interp::utils::locate_segment,
+    types::CurveId,
+    Error,
 };
 use ndarray::Array2;
 
@@ -322,6 +328,34 @@ impl VolSurface {
             strikes: self.strikes.clone(),
             vols: scaled_vols,
         }
+    }
+}
+
+impl Bumpable for VolSurface {
+    fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        // Only parallel bumps are supported for now
+        if !matches!(spec.bump_type, crate::market_data::bumps::BumpType::Parallel) {
+            return None;
+        }
+
+        let mut bumped_vols = self.vols.clone();
+        match (spec.mode, spec.units) {
+            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
+                let delta = spec.additive_fraction()?;
+                bumped_vols.mapv_inplace(|v| (v + delta).max(0.0));
+            }
+            (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                bumped_vols.mapv_inplace(|v| (v * spec.value).max(0.0));
+            }
+            _ => return None,
+        }
+
+        Some(Self {
+            id: self.id.clone(),
+            expiries: self.expiries.clone(),
+            strikes: self.strikes.clone(),
+            vols: bumped_vols,
+        })
     }
 }
 

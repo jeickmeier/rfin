@@ -8,6 +8,7 @@ use super::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
     forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
 };
+use super::scalars::{MarketScalar, ScalarTimeSeries};
 use crate::types::CurveId;
 
 // -----------------------------------------------------------------------------
@@ -368,6 +369,61 @@ impl Bumpable for BaseCorrelationCurve {
         BaseCorrelationCurve::builder(bumped_id)
             .knots(bumped_points)
             .build()
+            .ok()
+    }
+}
+
+impl Bumpable for MarketScalar {
+    fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        match self {
+            MarketScalar::Unitless(v) => match (spec.mode, spec.units) {
+                (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
+                    Some(MarketScalar::Unitless(v + spec.additive_fraction()?))
+                }
+                (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                    Some(MarketScalar::Unitless(v * spec.value))
+                }
+                _ => None,
+            },
+            MarketScalar::Price(m) => match (spec.mode, spec.units) {
+                (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
+                    let factor = 1.0 + spec.additive_fraction()?;
+                    Some(MarketScalar::Price(*m * factor))
+                }
+                (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                    Some(MarketScalar::Price(*m * spec.value))
+                }
+                _ => None,
+            },
+        }
+    }
+}
+
+impl Bumpable for ScalarTimeSeries {
+    fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+        // Only parallel bumps are supported for now
+        if !matches!(spec.bump_type, BumpType::Parallel) {
+            return None;
+        }
+
+        let bumped_obs: Vec<(crate::dates::Date, f64)> = match (spec.mode, spec.units) {
+            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
+                let delta = spec.additive_fraction()?;
+                self.observations()
+                    .into_iter()
+                    .map(|(d, v)| (d, v + delta))
+                    .collect()
+            }
+            (BumpMode::Multiplicative, BumpUnits::Factor) => self
+                .observations()
+                .into_iter()
+                .map(|(d, v)| (d, v * spec.value))
+                .collect(),
+            _ => return None,
+        };
+
+        ScalarTimeSeries::new(self.id().as_str(), bumped_obs, self.currency())
+            .map(|s| s.with_interpolation(self.interpolation()))
             .ok()
     }
 }
