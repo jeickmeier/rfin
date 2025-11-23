@@ -7,7 +7,7 @@
 //! supported for ergonomics and interoperability with Python code.
 use crate::core::config::PyFinstackConfig;
 use crate::core::currency::{extract_currency, PyCurrency};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::money::Money;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -63,7 +63,7 @@ impl PyMoney {
     /// --------
     /// >>> Money(125.5, "USD")
     fn ctor(amount: f64, currency: Bound<'_, PyAny>) -> PyResult<Self> {
-        let ccy = extract_currency(&currency)?;
+        let ccy = extract_currency(&currency).context("currency")?;
         Ok(Self::new(Money::new(amount, ccy)))
     }
 
@@ -96,7 +96,7 @@ impl PyMoney {
         currency: Bound<'_, PyAny>,
         config: &PyFinstackConfig,
     ) -> PyResult<Self> {
-        let ccy = extract_currency(&currency)?;
+        let ccy = extract_currency(&currency).context("currency")?;
         Ok(Self::new(Money::new_with_config(
             amount,
             ccy,
@@ -118,7 +118,7 @@ impl PyMoney {
     /// Money
     ///     Money instance with amount ``0`` in ``currency``.
     fn zero(_cls: &Bound<'_, PyType>, currency: Bound<'_, PyAny>) -> PyResult<Self> {
-        let ccy = extract_currency(&currency)?;
+        let ccy = extract_currency(&currency).context("currency")?;
         Ok(Self::new(Money::new(0.0, ccy)))
     }
 
@@ -136,7 +136,7 @@ impl PyMoney {
     /// Money
     ///     Money instance matching the input.
     fn from_tuple(_cls: &Bound<'_, PyType>, value: Bound<'_, PyAny>) -> PyResult<Self> {
-        let inner = extract_money(&value)?;
+        let inner = extract_money(&value).context("value")?;
         Ok(Self::new(inner))
     }
 
@@ -218,7 +218,7 @@ impl PyMoney {
     /// ValueError
     ///     If currencies differ.
     fn checked_add(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs = extract_money(&other)?;
+        let rhs = extract_money(&other).context("other")?;
         (self.inner + rhs).map(Self::new).map_err(core_to_py)
     }
 
@@ -240,7 +240,7 @@ impl PyMoney {
     /// ValueError
     ///     If currencies differ.
     fn checked_sub(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs = extract_money(&other)?;
+        let rhs = extract_money(&other).context("other")?;
         (self.inner - rhs).map(Self::new).map_err(core_to_py)
     }
 
@@ -290,7 +290,7 @@ impl PyMoney {
     }
 
     fn __add__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs = extract_money(&other)?;
+        let rhs = extract_money(&other).context("other")?;
         (self.inner + rhs).map(Self::new).map_err(core_to_py)
     }
 
@@ -306,13 +306,13 @@ impl PyMoney {
     /// ValueError
     ///     If currencies differ.
     fn __sub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs = extract_money(&other)?;
+        let rhs = extract_money(&other).context("other")?;
         (self.inner - rhs).map(Self::new).map_err(core_to_py)
     }
 
     /// Reflected subtraction: ``other - self``.
     fn __rsub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs = extract_money(&other)?;
+        let rhs = extract_money(&other).context("other")?;
         (rhs - self.inner).map(Self::new).map_err(core_to_py)
     }
 

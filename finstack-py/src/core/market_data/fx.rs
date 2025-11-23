@@ -11,7 +11,7 @@
 use crate::core::currency::PyCurrency;
 // use crate::core::common::args::{ExtrapolationPolicyArg, CurrencyArg};
 use crate::core::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -418,7 +418,7 @@ impl PyFxMatrix {
         on: Bound<'_, PyAny>,
         policy: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyFxRateResult> {
-        let date = py_to_date(&on)?;
+        let date = py_to_date(&on).context("on")?;
         let parsed_policy = parse_policy(py, policy)?;
         let query =
             FxQuery::with_policy(from_currency.inner, to_currency.inner, date, parsed_policy);

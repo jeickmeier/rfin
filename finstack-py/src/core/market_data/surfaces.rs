@@ -128,6 +128,81 @@ impl PyVolSurface {
     fn value_clamped(&self, expiry: f64, strike: f64) -> f64 {
         self.inner.value_clamped(expiry, strike)
     }
+
+    #[pyo3(text_signature = "(self, expiry, strike, bump_pct)")]
+    /// Return a new surface with a single point bumped.
+    ///
+    /// Parameters
+    /// ----------
+    /// expiry : float
+    ///     Expiry time in years.
+    /// strike : float
+    ///     Strike value.
+    /// bump_pct : float
+    ///     Relative bump percentage (e.g., 0.01 for 1%).
+    ///
+    /// Returns
+    /// -------
+    /// VolSurface
+    ///     New surface with the specified point bumped.
+    fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> PyResult<Self> {
+        let new_surface = self
+            .inner
+            .bump_point(expiry, strike, bump_pct)
+            .map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(new_surface)))
+    }
+
+    #[pyo3(text_signature = "(self, scale)")]
+    /// Return a new surface with all volatilities scaled by a factor.
+    ///
+    /// Parameters
+    /// ----------
+    /// scale : float
+    ///     Scaling factor (e.g., 1.1 for 10% increase).
+    ///
+    /// Returns
+    /// -------
+    /// VolSurface
+    ///     New surface with scaled volatilities.
+    fn scaled(&self, scale: f64) -> Self {
+        let new_surface = self.inner.scaled(scale);
+        Self::new_arc(Arc::new(new_surface))
+    }
+
+    #[pyo3(signature = (pct, expiries_filter=None, strikes_filter=None))]
+    #[pyo3(text_signature = "(self, pct, expiries_filter=None, strikes_filter=None)")]
+    /// Apply a bucket bump to volatilities matching the filters.
+    ///
+    /// Parameters
+    /// ----------
+    /// pct : float
+    ///     Percentage bump to apply (e.g. 1.0 for 1% bump).
+    /// expiries_filter : list[float], optional
+    ///     List of expiries to bump. If None, all expiries are bumped.
+    /// strikes_filter : list[float], optional
+    ///     List of strikes to bump. If None, all strikes are bumped.
+    ///
+    /// Returns
+    /// -------
+    /// VolSurface
+    ///     New surface with applied bumps.
+    fn apply_bucket_bump(
+        &self,
+        pct: f64,
+        expiries_filter: Option<Vec<f64>>,
+        strikes_filter: Option<Vec<f64>>,
+    ) -> PyResult<Self> {
+        let new_surface = self
+            .inner
+            .apply_bucket_bump(
+                expiries_filter.as_deref(),
+                strikes_filter.as_deref(),
+                pct,
+            )
+            .ok_or_else(|| PyValueError::new_err("Failed to apply bucket bump"))?;
+        Ok(Self::new_arc(Arc::new(new_surface)))
+    }
 }
 
 pub(crate) fn register<'py>(

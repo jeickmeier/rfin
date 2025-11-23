@@ -129,6 +129,8 @@ class DiscountCurve:
         Forward rate.
     """
 
+    from ..money import Money
+
     def df_on_date(self, date: Union[str, date]) -> float: ...
     """Get discount factor on a specific date.
     
@@ -142,6 +144,27 @@ class DiscountCurve:
     float
         Discount factor.
     """
+
+    def npv(
+        self,
+        cash_flows: List[Tuple[date, Money]],
+        day_count: Optional[Union[str, DayCount]] = None,
+    ) -> Money:
+        """Calculate the Net Present Value of a series of cashflows.
+
+        Parameters
+        ----------
+        cash_flows : list[tuple[date, Money]]
+            List of dated cashflows to discount.
+        day_count : DayCount, optional
+            Day count convention for discounting (defaults to curve's day count).
+
+        Returns
+        -------
+        Money
+            The NPV in the currency of the cashflows.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 

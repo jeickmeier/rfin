@@ -1,7 +1,7 @@
 """Statistical distribution bindings.
 
-Provides binomial probability calculations and related
-logarithmic functions for financial modeling.
+Provides binomial probability calculations, logarithmic helpers, and
+Beta sampling utilities for financial modeling.
 """
 
 def binomial_probability(trials: int, successes: int, probability: float) -> float: ...
@@ -69,3 +69,23 @@ Raises
 ValueError
     If value is negative.
 """
+
+def sample_beta(alpha: float, beta: float, seed: int | None = ...) -> float: ...
+
+"""Sample from a Beta(alpha, beta) distribution.
+
+Parameters
+----------
+alpha : float
+    First shape parameter (> 0).
+beta : float
+    Second shape parameter (> 0).
+seed : int, optional
+    Optional RNG seed for deterministic sampling.
+
+Returns
+-------
+float
+    Sample in [0.0, 1.0].
+"""
+

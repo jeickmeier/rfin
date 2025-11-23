@@ -2,6 +2,7 @@ pub mod calendar;
 pub mod daycount;
 pub mod imm;
 pub mod periods;
+pub mod rate_conversions;
 pub mod schedule;
 pub mod utils;
 
@@ -44,6 +45,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let utils_exports = utils::register(py, &module)?;
     exports.extend(utils_exports.iter().copied());
+
+    let rate_exports = rate_conversions::register(py, &module)?;
+    exports.extend(rate_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

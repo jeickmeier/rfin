@@ -8,7 +8,7 @@
 // use crate::core::currency::extract_currency; // replaced by CurrencyArg
 use crate::core::common::args::{CurrencyArg, RoundingModeArg};
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::errors::unknown_rounding_mode;
+use crate::errors::{unknown_rounding_mode, PyContext};
 use finstack_core::config::{FinstackConfig, RoundingMode};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyTypeError;
@@ -94,7 +94,7 @@ impl PyFinstackConfig {
     /// >>> cfg.set_rounding_mode("away_from_zero")
     #[pyo3(text_signature = "(self, mode)")]
     fn set_rounding_mode(&mut self, mode: Bound<'_, PyAny>) -> PyResult<()> {
-        let RoundingModeArg(value) = mode.extract()?;
+        let RoundingModeArg(value) = mode.extract().context("mode")?;
         self.inner.rounding.mode = value;
         Ok(())
     }
@@ -112,7 +112,7 @@ impl PyFinstackConfig {
     /// int
     ///     Number of decimal places allowed for ingestion.
     fn ingest_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
-        let CurrencyArg(ccy) = currency.extract()?;
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
         Ok(self.inner.ingest_scale(ccy))
     }
 
@@ -130,7 +130,7 @@ impl PyFinstackConfig {
     /// None
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_ingest_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
-        let CurrencyArg(ccy) = currency.extract()?;
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
         self.inner
             .rounding
             .ingest_scale
@@ -152,7 +152,7 @@ impl PyFinstackConfig {
     /// int
     ///     Decimal places used during formatting.
     fn output_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
-        let CurrencyArg(ccy) = currency.extract()?;
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
         Ok(self.inner.output_scale(ccy))
     }
 
@@ -175,7 +175,7 @@ impl PyFinstackConfig {
     /// >>> cfg.set_output_scale("JPY", 0)
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_output_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
-        let CurrencyArg(ccy) = currency.extract()?;
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
         self.inner
             .rounding
             .output_scale

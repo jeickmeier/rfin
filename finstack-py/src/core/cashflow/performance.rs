@@ -1,7 +1,7 @@
 //! Python bindings for performance measurement utilities: IRR, XIRR, and NPV.
 
 use crate::core::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::{irr_periodic, npv_performance};
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -45,12 +45,12 @@ pub fn py_npv(
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
     for (date, amount) in cash_flows {
-        let rust_date = py_to_date(&date)?;
+        let rust_date = py_to_date(&date).context("cash_flows")?;
         flows.push((rust_date, amount));
     }
 
     let base = base_date
-        .map(|d| py_to_date(&d))
+        .map(|d| py_to_date(&d).context("base_date"))
         .transpose()?
         .or_else(|| flows.first().map(|(d, _)| *d));
 

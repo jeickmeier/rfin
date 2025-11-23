@@ -1,7 +1,7 @@
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -196,10 +196,12 @@ impl PyCashFlow {
         accrual_factor: f64,
         reset_date: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let date = py_to_date(date)?;
-        let amount = extract_money(amount)?;
-        let kind = extract_cf_kind(kind)?;
-        let reset_date = reset_date.map(py_to_date).transpose()?;
+        let date = py_to_date(date).context("date")?;
+        let amount = extract_money(amount).context("amount")?;
+        let kind = extract_cf_kind(kind).context("kind")?;
+        let reset_date = reset_date
+            .map(|d| py_to_date(d).context("reset_date"))
+            .transpose()?;
 
         Ok(Self {
             inner: CashFlow {

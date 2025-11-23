@@ -1,4 +1,5 @@
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::errors::PyContext;
 use finstack_core::dates::{
     imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, next_imm_option_expiry,
     third_friday, third_wednesday,
@@ -21,7 +22,7 @@ use time::Month;
 ///     The next IMM date.
 #[pyfunction(name = "next_imm", text_signature = "(date)")]
 fn next_imm_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let d = py_to_date(&date)?;
+    let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_imm(d))
 }
 
@@ -38,7 +39,7 @@ fn next_imm_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
 ///     Next CDS IMM date.
 #[pyfunction(name = "next_cds_date", text_signature = "(date)")]
 fn next_cds_date_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let d = py_to_date(&date)?;
+    let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_cds_date(d))
 }
 
@@ -55,7 +56,7 @@ fn next_cds_date_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject
 ///     Next IMM option expiry date.
 #[pyfunction(name = "next_imm_option_expiry", text_signature = "(date)")]
 fn next_imm_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let d = py_to_date(&date)?;
+    let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_imm_option_expiry(d))
 }
 
@@ -94,7 +95,7 @@ fn imm_option_expiry_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObje
 ///     Next monthly equity option expiry.
 #[pyfunction(name = "next_equity_option_expiry", text_signature = "(date)")]
 fn next_equity_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let d = py_to_date(&date)?;
+    let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_equity_option_expiry(d))
 }
 

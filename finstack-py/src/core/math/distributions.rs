@@ -1,7 +1,10 @@
 use finstack_core::math::distributions::{
     binomial_probability as core_binomial_probability,
-    log_binomial_coefficient as core_log_binomial_coefficient, log_factorial as core_log_factorial,
+    log_binomial_coefficient as core_log_binomial_coefficient,
+    log_factorial as core_log_factorial, sample_beta as core_sample_beta,
 };
+use finstack_core::math::random::{RandomNumberGenerator, SimpleRng};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -76,6 +79,42 @@ pub fn log_factorial_py(value: usize) -> PyResult<f64> {
     Ok(core_log_factorial(value))
 }
 
+#[pyfunction(name = "sample_beta", text_signature = "(alpha, beta, seed=None)")]
+/// Sample from a Beta(α, β) distribution using the core RNG implementation.
+///
+/// Parameters
+/// ----------
+/// alpha : float
+///     First shape parameter (must be positive).
+/// beta : float
+///     Second shape parameter (must be positive).
+/// seed : int, optional
+///     Optional RNG seed for deterministic sampling. If omitted, a fixed
+///     default seed is used for reproducible examples.
+///
+/// Returns
+/// -------
+/// float
+///     Sample in ``[0.0, 1.0]`` drawn from ``Beta(alpha, beta)``.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If ``alpha`` or ``beta`` are not positive.
+pub fn sample_beta_py(alpha: f64, beta: f64, seed: Option<u64>) -> PyResult<f64> {
+    if alpha <= 0.0 || beta <= 0.0 {
+        return Err(PyValueError::new_err(
+            "alpha and beta must be positive",
+        ));
+    }
+    let mut rng = SimpleRng::new(seed.unwrap_or(42));
+    Ok(core_sample_beta(
+        &mut rng as &mut dyn RandomNumberGenerator,
+        alpha,
+        beta,
+    ))
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -88,10 +127,12 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(binomial_probability_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_binomial_coefficient_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_factorial_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(sample_beta_py, &module)?)?;
     let exports = [
         "binomial_probability",
         "log_binomial_coefficient",
         "log_factorial",
+        "sample_beta",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

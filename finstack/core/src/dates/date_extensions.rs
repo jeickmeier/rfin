@@ -79,7 +79,7 @@ pub trait DateExt: Sized {
     /// let next = start.add_business_days(3, &cal).expect("Business days calculation should succeed");
     /// assert_eq!(next, Date::from_calendar_date(2025, Month::July, 2).expect("Valid date"));
     /// ```
-    fn add_business_days<C: crate::dates::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar + ?Sized>(
         self,
         n: i32,
         cal: &C,
@@ -91,7 +91,7 @@ pub trait DateExt: Sized {
     /// This is a thin convenience wrapper around
     /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
     /// calls. See repository examples under `examples/` for usage.
-    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool;
+    fn is_business_day<C: crate::dates::HolidayCalendar + ?Sized>(self, cal: &C) -> bool;
 
     /// Returns the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec)
     /// strictly **after** `self`.
@@ -215,7 +215,7 @@ impl DateExt for Date {
         date
     }
 
-    fn add_business_days<C: crate::dates::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar + ?Sized>(
         self,
         n: i32,
         cal: &C,
@@ -245,7 +245,7 @@ impl DateExt for Date {
         Ok(current)
     }
 
-    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool {
+    fn is_business_day<C: crate::dates::HolidayCalendar + ?Sized>(self, cal: &C) -> bool {
         cal.is_business_day(self)
     }
 
@@ -275,14 +275,14 @@ pub trait OffsetDateTimeExt: Sized {
     fn add_weekdays(self, n: i32) -> Self;
 
     /// See [`DateExt::add_business_days`].
-    fn add_business_days<C: crate::dates::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar + ?Sized>(
         self,
         n: i32,
         cal: &C,
     ) -> crate::Result<Self>;
 
     /// See [`DateExt::is_business_day`].
-    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool;
+    fn is_business_day<C: crate::dates::HolidayCalendar + ?Sized>(self, cal: &C) -> bool;
 
     /// See [`DateExt::next_imm`].
     fn next_imm(self) -> Self;
@@ -316,7 +316,7 @@ impl OffsetDateTimeExt for OffsetDateTime {
         self.replace_date(new_date)
     }
 
-    fn add_business_days<C: crate::dates::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar + ?Sized>(
         self,
         n: i32,
         cal: &C,
@@ -325,7 +325,7 @@ impl OffsetDateTimeExt for OffsetDateTime {
         Ok(self.replace_date(new_date))
     }
 
-    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool {
+    fn is_business_day<C: crate::dates::HolidayCalendar + ?Sized>(self, cal: &C) -> bool {
         self.date().is_business_day(cal)
     }
 

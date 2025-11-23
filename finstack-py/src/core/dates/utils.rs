@@ -1,9 +1,13 @@
 //! Date utilities: month math, month boundaries, leap years, and epoch conversions.
 //!
-//! These helpers mirror `finstack_core::dates::utils` and provide Python-friendly
-//! functions for common calendar operations. All functions accept/return
-//! `datetime.date` where applicable and surface `ValueError` for invalid inputs.
+//! These helpers mirror `finstack_core::dates::utils` and selected methods from
+//! `finstack_core::dates::DateExt`, providing Python-friendly functions for common
+//! calendar operations. All functions accept/return `datetime.date` where applicable
+//! and surface `ValueError` for invalid inputs.
+use super::calendar::extract_calendar;
+use super::periods::PyFiscalConfig;
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::dates::DateExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -50,6 +54,134 @@ fn last_day_of_month_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyOb
     let d = py_to_date(&date)?;
     let result = d.end_of_month();
     date_to_py(py, result)
+}
+
+/// True if the provided date falls on a weekend (Saturday or Sunday).
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Date to test.
+///
+/// Returns
+/// -------
+/// bool
+///     ``True`` when the date is Saturday/Sunday, otherwise ``False``.
+#[pyfunction(name = "is_weekend", text_signature = "(date)")]
+fn is_weekend_py(date: Bound<'_, PyAny>) -> PyResult<bool> {
+    let d = py_to_date(&date)?;
+    Ok(d.is_weekend())
+}
+
+/// Calendar quarter of the provided date (1..=4).
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Date to classify.
+///
+/// Returns
+/// -------
+/// int
+///     Quarter index in the range 1..=4.
+#[pyfunction(name = "quarter", text_signature = "(date)")]
+fn quarter_py(date: Bound<'_, PyAny>) -> PyResult<u8> {
+    let d = py_to_date(&date)?;
+    Ok(d.quarter())
+}
+
+/// Fiscal year corresponding to the date under a given fiscal configuration.
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Date to classify.
+/// config : FiscalConfig
+///     Fiscal-year configuration such as ``FiscalConfig.US_FEDERAL``.
+///
+/// Returns
+/// -------
+/// int
+///     Fiscal year identifier.
+#[pyfunction(name = "fiscal_year", text_signature = "(date, config)")]
+fn fiscal_year_py(date: Bound<'_, PyAny>, config: PyRef<PyFiscalConfig>) -> PyResult<i32> {
+    let d = py_to_date(&date)?;
+    Ok(d.fiscal_year(config.inner))
+}
+
+/// Add / subtract a number of weekdays (Mon–Fri) from the provided date.
+///
+/// Weekends are skipped but **holidays are ignored**; for true business-day
+/// arithmetic, use :func:`add_business_days`.
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Anchor date.
+/// n : int
+///     Number of weekdays to add (negative to subtract).
+///
+/// Returns
+/// -------
+/// datetime.date
+///     Adjusted date after skipping weekends.
+#[pyfunction(name = "add_weekdays", text_signature = "(date, n)")]
+fn add_weekdays_py(py: Python<'_>, date: Bound<'_, PyAny>, n: i32) -> PyResult<PyObject> {
+    let d = py_to_date(&date)?;
+    let result = d.add_weekdays(n);
+    date_to_py(py, result)
+}
+
+/// Add / subtract a number of business days from the provided date.
+///
+/// Weekends and holidays as defined by the supplied calendar are skipped.
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Anchor date.
+/// n : int
+///     Number of business days to add (negative permitted).
+/// calendar : Calendar or str
+///     Holiday calendar or calendar code.
+///
+/// Returns
+/// -------
+/// datetime.date
+///     Adjusted business-day date.
+#[pyfunction(name = "add_business_days", text_signature = "(date, n, calendar)")]
+fn add_business_days_py(
+    py: Python<'_>,
+    date: Bound<'_, PyAny>,
+    n: i32,
+    calendar: Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let d = py_to_date(&date).context("date")?;
+    let cal = extract_calendar(&calendar).context("calendar")?;
+    let result = d
+        .add_business_days(n, cal.inner)
+        .map_err(core_to_py)?;
+    date_to_py(py, result)
+}
+
+/// Return ``True`` if the date is a business day under the supplied calendar.
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Date to test.
+/// calendar : Calendar or str
+///     Holiday calendar or calendar code.
+///
+/// Returns
+/// -------
+/// bool
+///     ``True`` if the date is a business day, otherwise ``False``.
+#[pyfunction(name = "is_business_day", text_signature = "(date, calendar)")]
+fn is_business_day_py(date: Bound<'_, PyAny>, calendar: Bound<'_, PyAny>) -> PyResult<bool> {
+    let d = py_to_date(&date).context("date")?;
+    let cal = extract_calendar(&calendar).context("calendar")?;
+    Ok(cal.inner.is_business_day(d))
 }
 
 /// Number of days in a given month of a year.
@@ -133,6 +265,38 @@ fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<PyObject> 
     date_to_py(py, date)
 }
 
+/// Safe helper to construct a :class:`datetime.date` with validation.
+///
+/// Parameters
+/// ----------
+/// year : int
+///     Calendar year.
+/// month : int
+///     Month (1-12).
+/// day : int
+///     Day-of-month.
+///
+/// Returns
+/// -------
+/// datetime.date
+///     Constructed date.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If the combination does not form a valid calendar date.
+#[pyfunction(name = "create_date", text_signature = "(year, month, day)")]
+fn create_date_py(py: Python<'_>, year: i32, month: u8, day: u8) -> PyResult<PyObject> {
+    if !(1..=12).contains(&month) {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Month out of range: {month}"
+        )));
+    }
+    let month_enum = Month::try_from(month).expect("Month validated in range");
+    let date = finstack_core::dates::create_date(year, month_enum, day).map_err(core_to_py)?;
+    date_to_py(py, date)
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -144,17 +308,31 @@ pub(crate) fn register<'py>(
     )?;
     module.add_function(wrap_pyfunction!(add_months_py, &module)?)?;
     module.add_function(wrap_pyfunction!(last_day_of_month_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(is_weekend_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(quarter_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(fiscal_year_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(add_weekdays_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(add_business_days_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(is_business_day_py, &module)?)?;
     module.add_function(wrap_pyfunction!(days_in_month_py, &module)?)?;
     module.add_function(wrap_pyfunction!(is_leap_year_py, &module)?)?;
     module.add_function(wrap_pyfunction!(date_to_days_since_epoch_py, &module)?)?;
     module.add_function(wrap_pyfunction!(days_since_epoch_to_date_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(create_date_py, &module)?)?;
     let exports = [
+        "add_business_days",
         "add_months",
-        "last_day_of_month",
-        "days_in_month",
-        "is_leap_year",
+        "add_weekdays",
+        "create_date",
         "date_to_days_since_epoch",
+        "days_in_month",
         "days_since_epoch_to_date",
+        "fiscal_year",
+        "is_business_day",
+        "is_leap_year",
+        "is_weekend",
+        "last_day_of_month",
+        "quarter",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

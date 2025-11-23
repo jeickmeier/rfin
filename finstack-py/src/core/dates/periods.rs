@@ -242,6 +242,26 @@ impl PyPeriodId {
         self.kind_label()
     }
 
+    #[pyo3(text_signature = "(self)")]
+    /// Number of periods per year implied by this identifier's kind.
+    ///
+    /// Returns 4 for quarters, 12 for months, 52 for weeks, 2 for halves, and 1 for annual.
+    fn periods_per_year(&self) -> u8 {
+        self.inner.periods_per_year()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Next period in sequence (e.g. 2025Q1 → 2025Q2, 2025Q4 → 2026Q1).
+    fn next(&self) -> PyResult<Self> {
+        self.inner.next().map(Self::new).map_err(core_to_py)
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Previous period in sequence (e.g. 2025Q2 → 2025Q1, 2025Q1 → 2024Q4).
+    fn prev(&self) -> PyResult<Self> {
+        self.inner.prev().map(Self::new).map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> String {
         format!("PeriodId('{}')", self.inner)
     }

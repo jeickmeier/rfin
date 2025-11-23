@@ -6,7 +6,7 @@
 //! call `build()` to produce an immutable `Schedule` of dates.
 use super::calendar::{PyBusinessDayConvention, PyCalendar};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::dates::{Frequency, ScheduleBuilder, ScheduleSpec, StubKind};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -64,6 +64,21 @@ impl PyFrequency {
             ));
         }
         Ok(Self::new(Frequency::Days(days)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, payments_per_year)")]
+    /// Construct a frequency from a number of payments per year.
+    ///
+    /// This mirrors :rust:`finstack_core::dates::Frequency::from_payments_per_year`,
+    /// accepting common values such as 1, 2, 3, 4, 6, or 12.
+    fn from_payments_per_year(
+        _cls: &Bound<'_, PyType>,
+        payments_per_year: u32,
+    ) -> PyResult<Self> {
+        Frequency::from_payments_per_year(payments_per_year)
+            .map(Self::new)
+            .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg))
     }
 
     #[classattr]
@@ -266,8 +281,8 @@ impl PyScheduleBuilder {
         start: Bound<'_, PyAny>,
         end: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         let builder = ScheduleBuilder::try_new(start_date, end_date).map_err(core_to_py)?;
         Ok(Self::new_with_builder(builder, start_date, end_date))
     }
@@ -456,8 +471,8 @@ impl PyScheduleSpec {
         cds_imm_mode: bool,
         graceful: bool,
     ) -> PyResult<Self> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         Ok(Self {
             inner: ScheduleSpec {
                 start: start_date,

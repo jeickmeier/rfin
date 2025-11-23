@@ -2,7 +2,7 @@ use super::calendar::PyCalendar;
 use super::schedule::PyFrequency;
 use crate::core::common::labels::normalize_label;
 use crate::core::utils::py_to_date;
-use crate::errors::{calendar_not_found, core_to_py};
+use crate::errors::{calendar_not_found, core_to_py, PyContext};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
     DayCount, DayCountCtx, DayCountCtxState, Frequency, Thirty360Convention,
@@ -122,8 +122,8 @@ impl PyDayCount {
         end: Bound<'_, PyAny>,
         ctx: Option<PyRef<PyDayCountContext>>,
     ) -> PyResult<f64> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
         let ctx_inner = if let Some(ctx_ref) = ctx {
             DayCountCtx {
                 calendar: ctx_ref.calendar.as_ref().map(|cal| cal.inner),

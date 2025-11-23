@@ -12,6 +12,7 @@ from . import calendar
 from . import daycount
 from . import imm
 from . import periods
+from . import rate_conversions
 from . import schedule
 from . import utils
 
@@ -20,6 +21,7 @@ __all__ = [
     "daycount",
     "imm",
     "periods",
+    "rate_conversions",
     "schedule",
     "utils",
 ]

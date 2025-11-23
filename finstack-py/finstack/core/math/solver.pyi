@@ -1,10 +1,11 @@
 """Numerical solver bindings.
 
-Provides root finding algorithms including Newton's method,
-Brent's method, and hybrid approaches.
+Provides root finding algorithms including Newton's method
+and Brent's method.
 """
 
 from typing import Callable, Optional
+
 
 class NewtonSolver:
     """Newton's method for root finding.
@@ -25,10 +26,11 @@ class NewtonSolver:
         max_iterations: Optional[int] = None,
         fd_step: Optional[float] = None,
     ) -> None: ...
+
     @property
     def tolerance(self) -> float: ...
     """Get the convergence tolerance.
-    
+
     Returns
     -------
     float
@@ -37,7 +39,7 @@ class NewtonSolver:
 
     def set_tolerance(self, value: float) -> None: ...
     """Set the convergence tolerance.
-    
+
     Parameters
     ----------
     value : float
@@ -47,7 +49,7 @@ class NewtonSolver:
     @property
     def max_iterations(self) -> int: ...
     """Get the maximum iterations.
-    
+
     Returns
     -------
     int
@@ -56,7 +58,7 @@ class NewtonSolver:
 
     def set_max_iterations(self, value: int) -> None: ...
     """Set the maximum iterations.
-    
+
     Parameters
     ----------
     value : int
@@ -66,7 +68,7 @@ class NewtonSolver:
     @property
     def fd_step(self) -> float: ...
     """Get the finite difference step.
-    
+
     Returns
     -------
     float
@@ -75,7 +77,7 @@ class NewtonSolver:
 
     def set_fd_step(self, value: float) -> None: ...
     """Set the finite difference step.
-    
+
     Parameters
     ----------
     value : float
@@ -84,19 +86,19 @@ class NewtonSolver:
 
     def solve(self, func: Callable[[float], float], initial_guess: float) -> float: ...
     """Solve for root using Newton's method.
-    
+
     Parameters
     ----------
     func : Callable[[float], float]
         Function to find root of.
     initial_guess : float
         Initial guess.
-        
+
     Returns
     -------
     float
         Root value.
-        
+
     Raises
     ------
     ValueError
@@ -104,6 +106,7 @@ class NewtonSolver:
     """
 
     def __repr__(self) -> str: ...
+
 
 class BrentSolver:
     """Brent's method for root finding.
@@ -127,10 +130,11 @@ class BrentSolver:
         bracket_expansion: Optional[float] = None,
         initial_bracket_size: Optional[float] = None,
     ) -> None: ...
+
     @property
     def tolerance(self) -> float: ...
     """Get the convergence tolerance.
-    
+
     Returns
     -------
     float
@@ -139,7 +143,7 @@ class BrentSolver:
 
     def set_tolerance(self, value: float) -> None: ...
     """Set the convergence tolerance.
-    
+
     Parameters
     ----------
     value : float
@@ -149,7 +153,7 @@ class BrentSolver:
     @property
     def max_iterations(self) -> int: ...
     """Get the maximum iterations.
-    
+
     Returns
     -------
     int
@@ -158,7 +162,7 @@ class BrentSolver:
 
     def set_max_iterations(self, value: int) -> None: ...
     """Set the maximum iterations.
-    
+
     Parameters
     ----------
     value : int
@@ -168,7 +172,7 @@ class BrentSolver:
     @property
     def bracket_expansion(self) -> float: ...
     """Get the bracket expansion factor.
-    
+
     Returns
     -------
     float
@@ -177,7 +181,7 @@ class BrentSolver:
 
     def set_bracket_expansion(self, value: float) -> None: ...
     """Set the bracket expansion factor.
-    
+
     Parameters
     ----------
     value : float
@@ -187,7 +191,7 @@ class BrentSolver:
     @property
     def initial_bracket_size(self) -> Optional[float]: ...
     """Get the initial bracket size.
-    
+
     Returns
     -------
     float or None
@@ -196,7 +200,7 @@ class BrentSolver:
 
     def set_initial_bracket_size(self, value: Optional[float]) -> None: ...
     """Set the initial bracket size.
-    
+
     Parameters
     ----------
     value : float or None
@@ -205,19 +209,19 @@ class BrentSolver:
 
     def solve(self, func: Callable[[float], float], initial_guess: float) -> float: ...
     """Solve for root using Brent's method.
-    
+
     Parameters
     ----------
     func : Callable[[float], float]
         Function to find root of.
     initial_guess : float
         Initial guess.
-        
+
     Returns
     -------
     float
         Root value.
-        
+
     Raises
     ------
     ValueError
@@ -226,79 +230,3 @@ class BrentSolver:
 
     def __repr__(self) -> str: ...
 
-class HybridSolver:
-    """Hybrid solver combining multiple methods.
-
-    Parameters
-    ----------
-    tolerance : float, optional
-        Convergence tolerance.
-    max_iterations : int, optional
-        Maximum number of iterations.
-    """
-
-    def __init__(
-        self,
-        tolerance: Optional[float] = None,
-        max_iterations: Optional[int] = None,
-    ) -> None: ...
-    @property
-    def tolerance(self) -> float: ...
-    """Get the convergence tolerance.
-    
-    Returns
-    -------
-    float
-        Tolerance.
-    """
-
-    def set_tolerance(self, value: float) -> None: ...
-    """Set the convergence tolerance.
-    
-    Parameters
-    ----------
-    value : float
-        New tolerance.
-    """
-
-    @property
-    def max_iterations(self) -> int: ...
-    """Get the maximum iterations.
-    
-    Returns
-    -------
-    int
-        Maximum iterations.
-    """
-
-    def set_max_iterations(self, value: int) -> None: ...
-    """Set the maximum iterations.
-    
-    Parameters
-    ----------
-    value : int
-        New maximum iterations.
-    """
-
-    def solve(self, func: Callable[[float], float], initial_guess: float) -> float: ...
-    """Solve for root using hybrid method.
-    
-    Parameters
-    ----------
-    func : Callable[[float], float]
-        Function to find root of.
-    initial_guess : float
-        Initial guess.
-        
-    Returns
-    -------
-    float
-        Root value.
-        
-    Raises
-    ------
-    ValueError
-        If convergence fails.
-    """
-
-    def __repr__(self) -> str: ...

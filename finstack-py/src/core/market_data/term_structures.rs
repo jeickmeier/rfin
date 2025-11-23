@@ -4,8 +4,10 @@ use crate::core::common::args::{
 };
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
+use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
+use finstack_core::cashflow::discounting::npv_static;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -13,7 +15,7 @@ use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority};
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
@@ -127,7 +129,7 @@ impl PyDiscountCurve {
                 "knots must contain at least two (time, df) pairs",
             ));
         }
-        let base = py_to_date(&base_date)?;
+        let base = py_to_date(&base_date).context("base_date")?;
         let style = match interp {
             None => InterpStyle::Linear,
             Some(obj) => {
@@ -292,8 +294,58 @@ impl PyDiscountCurve {
     ///     Discount factor at the supplied date.
     #[pyo3(text_signature = "(self, date)")]
     fn df_on_date(&self, _py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<f64> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         Ok(self.inner.df_on_date_curve(d))
+    }
+
+    #[pyo3(text_signature = "(self, cash_flows, day_count=None)")]
+    /// Calculate the Net Present Value of a series of cashflows.
+    ///
+    /// Parameters
+    /// ----------
+    /// cash_flows : list[tuple[date, Money]]
+    ///     List of dated cashflows to discount.
+    /// day_count : DayCount, optional
+    ///     Day count convention for discounting (defaults to curve's day count).
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     The NPV in the currency of the cashflows.
+    fn npv(
+        &self,
+        cash_flows: Bound<'_, PyAny>,
+        day_count: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<PyMoney> {
+        let flows_iter = cash_flows.try_iter()?;
+        let mut flows = Vec::new();
+        for item in flows_iter {
+            let item = item?;
+            // Expect tuple (date, money_like)
+            if let Ok(tuple) = item.downcast::<pyo3::types::PyTuple>() {
+                if tuple.len() == 2 {
+                    let date = py_to_date(&tuple.get_item(0).context("date")?)
+                        .context("cash_flow_date")?;
+                    let money = extract_money(&tuple.get_item(1).context("money")?)
+                        .context("cash_flow_amount")?;
+                    flows.push((date, money));
+                } else {
+                    return Err(PyValueError::new_err(
+                        "cash_flows must be list of (date, money) tuples",
+                    ));
+                }
+            } else {
+                return Err(PyTypeError::new_err(
+                    "cash_flows must be list of (date, money) tuples",
+                ));
+            }
+        }
+
+        let dc = parse_day_count(day_count)?.unwrap_or(self.inner.day_count());
+
+        let result = npv_static(&*self.inner, self.inner.base_date(), dc, &flows)
+            .map_err(core_to_py)?;
+        Ok(PyMoney::new(result))
     }
 }
 
@@ -357,7 +409,7 @@ impl PyForwardCurve {
         }
         let mut builder = ForwardCurve::builder(id, tenor_years).knots(knots_vec);
         if let Some(date_obj) = base_date {
-            let d = py_to_date(&date_obj)?;
+            let d = py_to_date(&date_obj).context("base_date")?;
             builder = builder.base_date(d);
         }
         if let Some(lag) = reset_lag {
@@ -552,7 +604,7 @@ impl PyHazardCurve {
                 "knots must contain at least one (time, hazard) pair",
             ));
         }
-        let base = py_to_date(&base_date)?;
+        let base = py_to_date(&base_date).context("base_date")?;
         let mut builder = HazardCurve::builder(id).base_date(base).knots(knots_vec);
         if let Some(rr) = recovery_rate {
             builder = builder.recovery_rate(rr);

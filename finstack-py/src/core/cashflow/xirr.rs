@@ -1,5 +1,5 @@
 use crate::core::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::xirr as core_xirr;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -56,7 +56,7 @@ pub fn py_xirr(cash_flows: Vec<(Bound<'_, PyAny>, f64)>, guess: Option<f64>) -> 
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
     for (date, amount) in cash_flows {
-        let rust_date = py_to_date(&date)?;
+        let rust_date = py_to_date(&date).context("cash_flows")?;
         flows.push((rust_date, amount));
     }
 

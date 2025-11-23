@@ -16,7 +16,7 @@
 use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::market_data::dividends::{
     DividendEvent, DividendKind, DividendSchedule, DividendScheduleBuilder,
 };
@@ -339,7 +339,7 @@ impl PyDividendScheduleBuilder {
     /// --------
     /// >>> builder.cash(date(2024, 2, 15), Money(0.24, "USD"))
     fn cash(&mut self, date: Bound<'_, PyAny>, amount: &PyMoney) -> PyResult<()> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         let builder = self
             .inner
             .take()
@@ -362,7 +362,7 @@ impl PyDividendScheduleBuilder {
     /// -------
     /// None
     fn yield_div(&mut self, date: Bound<'_, PyAny>, yield_value: f64) -> PyResult<()> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         let builder = self
             .inner
             .take()
@@ -385,7 +385,7 @@ impl PyDividendScheduleBuilder {
     /// -------
     /// None
     fn stock(&mut self, date: Bound<'_, PyAny>, ratio: f64) -> PyResult<()> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         let builder = self
             .inner
             .take()

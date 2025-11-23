@@ -1,7 +1,9 @@
 use crate::core::common::args::BusinessDayConventionArg;
 use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::errors::{calendar_not_found, core_to_py, unknown_business_day_convention};
+use crate::errors::{
+    calendar_not_found, core_to_py, unknown_business_day_convention, PyContext,
+};
 use finstack_core::dates::calendar::business_days::{self, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{self, adjust as core_adjust, BusinessDayConvention};
@@ -182,14 +184,14 @@ impl PyCalendar {
     #[pyo3(text_signature = "(self, date)")]
     /// Return ``True`` if the provided date is a business day.
     fn is_business_day(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         Ok(self.inner.is_business_day(d))
     }
 
     #[pyo3(text_signature = "(self, date)")]
     /// Return ``True`` if the provided date is an observed holiday.
     fn is_holiday(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         Ok(self.inner.is_holiday(d))
     }
 
@@ -255,9 +257,9 @@ pub(crate) fn adjust_py<'py>(
     convention: Bound<'py, PyAny>,
     calendar: Bound<'py, PyAny>,
 ) -> PyResult<PyObject> {
-    let d = py_to_date(&date)?;
-    let BusinessDayConventionArg(conv) = convention.extract()?;
-    let cal = extract_calendar(&calendar)?;
+    let d = py_to_date(&date).context("date")?;
+    let BusinessDayConventionArg(conv) = convention.extract().context("convention")?;
+    let cal = extract_calendar(&calendar).context("calendar")?;
     let adjusted = core_adjust(d, conv, cal.inner).map_err(core_to_py)?;
     date_to_py(py, adjusted)
 }

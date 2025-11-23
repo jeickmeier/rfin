@@ -6,7 +6,7 @@
 use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
 use crate::core::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, PyContext};
 use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -420,7 +420,7 @@ impl PyScalarTimeSeries {
     ///     Interpolated value on ``date``.
     #[pyo3(text_signature = "(self, date)")]
     fn value_on(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
-        let d = py_to_date(&date)?;
+        let d = py_to_date(&date).context("date")?;
         self.inner.value_on(d).map_err(core_to_py)
     }
 
