@@ -334,12 +334,13 @@ class FeeBase:
     Determines what balance is used to calculate periodic fees.
 
     Examples:
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.cashflow.builder import FeeBase
         >>> # Fee on drawn balance
-        >>> fee_base = FeeBase.drawn()
-
+        >>> FeeBase.drawn()
         >>> # Fee on undrawn (unused) facility
-        >>> from finstack.core import Money
-        >>> fee_base = FeeBase.undrawn(Money("USD", 10_000_000))
+        >>> FeeBase.undrawn(Money(10_000_000, Currency("USD")))
     """
 
     @classmethod
@@ -372,17 +373,16 @@ class FeeSpec:
     basis points on drawn or undrawn balances.
 
     Examples:
-        >>> from finstack.core import Money
-        >>> import datetime
-        >>>
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.cashflow.builder import FeeBase, FeeSpec, ScheduleParams
         >>> # One-time fixed fee
-        >>> fee = FeeSpec.fixed(datetime.date(2025, 6, 15), Money("USD", 50_000))
-
+        >>> FeeSpec.fixed(date(2025, 6, 15), Money(50_000, Currency("USD")))
         >>> # Periodic commitment fee on undrawn balance
-        >>> from finstack.valuations.cashflow.builder import FeeBase, ScheduleParams
-        >>> fee = FeeSpec.periodic_bps(
-        ...     FeeBase.undrawn(Money("USD", 10_000_000)),
-        ...     25.0,  # 25 bps
+        >>> FeeSpec.periodic_bps(
+        ...     FeeBase.undrawn(Money(10_000_000, Currency("USD"))),
+        ...     25.0,
         ...     ScheduleParams.quarterly_act360(),
         ... )
     """
@@ -426,6 +426,7 @@ class FixedWindow:
     Defines a period with a specific fixed rate and schedule.
 
     Examples:
+        >>> from finstack.valuations.cashflow.builder import FixedWindow, ScheduleParams
         >>> window = FixedWindow(rate=0.05, schedule=ScheduleParams.quarterly_act360())
     """
 
@@ -454,7 +455,8 @@ class FloatWindow:
     Defines a period with floating rate parameters and schedule.
 
     Examples:
-        >>> params = FloatCouponParams.new("USD-SOFR", 50.0)
+        >>> from finstack.valuations.cashflow.builder import FloatCouponParams, FloatWindow, ScheduleParams
+        >>> params = FloatCouponParams.new("USD-SOFR", 50.0, 1.0, 2)
         >>> window = FloatWindow(params=params, schedule=ScheduleParams.quarterly_act360())
     """
 

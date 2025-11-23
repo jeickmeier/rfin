@@ -8,7 +8,50 @@ from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
 class CdsTranche:
-    """CDS tranche wrapper exposing a simplified constructor."""
+    """CDS tranche for structured credit exposure.
+
+    CdsTranche represents a tranche of a CDS index, providing exposure to
+    a specific loss layer (attachment point to detachment point). Tranches
+    are used in structured credit products (CDO, CLO).
+
+    CDS tranches provide leveraged credit exposure and are priced using
+    portfolio credit models. They require discount curves and credit index
+    curves.
+
+    Examples
+    --------
+    Create a CDS tranche (equity tranche):
+
+        >>> from finstack.valuations.instruments import CdsTranche
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> tranche = CdsTranche.create(
+        ...     "CDX-IG-0-3",
+        ...     index_name="CDX.NA.IG",
+        ...     series=40,
+        ...     attach_pct=0.0,  # 0% attachment (equity)
+        ...     detach_pct=3.0,  # 3% detachment
+        ...     notional=Money(10_000_000, Currency("USD")),
+        ...     maturity=date(2029, 1, 1),
+        ...     running_coupon_bp=500.0,  # 500bp running coupon
+        ...     discount_curve="USD",
+        ...     credit_index_curve="CDX-IG-40",
+        ... )
+
+    Notes
+    -----
+    - CDS tranches require discount curve and credit index curve
+    - Attachment and detachment define the loss layer
+    - Equity tranche (0-3%) has highest risk and return
+    - Senior tranches (e.g., 15-30%) have lower risk
+    - Running coupon is paid on remaining notional
+
+    See Also
+    --------
+    :class:`CDSIndex`: CDS indices
+    :class:`CreditDefaultSwap`: Single-name CDS
+    :class:`PricerRegistry`: Pricing entry point
+    """
 
     @classmethod
     def create(
@@ -30,9 +73,71 @@ class CdsTranche:
         business_day_convention: Optional[BusinessDayConvention] = None,
         calendar: Optional[str] = None,
         effective_date: Optional[date] = None,
-    ) -> "CdsTranche":
-        """Create a CDS tranche referencing a credit index."""
-        ...
+    ) -> "CdsTranche": ...
+    """Create a CDS tranche referencing a credit index.
+
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the tranche (e.g., "CDX-IG-0-3").
+    index_name : str
+        Index name (e.g., "CDX.NA.IG", "iTraxx.Europe").
+    series : int
+        Index series number.
+    attach_pct : float
+        Attachment point as percentage (e.g., 0.0 for equity, 3.0 for mezzanine).
+    detach_pct : float
+        Detachment point as percentage (e.g., 3.0, 7.0, 15.0, 30.0).
+        Must be > attach_pct.
+    notional : Money
+        Notional principal amount.
+    maturity : date
+        Tranche maturity date.
+    running_coupon_bp : float
+        Running coupon in basis points paid on remaining notional.
+    discount_curve : str
+        Discount curve identifier in MarketContext.
+    credit_index_curve : str
+        Credit index curve identifier in MarketContext.
+    side : str, optional
+        Position side: "buy_protection" (default) or "sell_protection".
+    payments_per_year : int, optional
+        Coupon payment frequency per year (default: 4 for quarterly).
+    day_count : DayCount, optional
+        Day-count convention (default: ACT/360).
+    business_day_convention : BusinessDayConvention, optional
+        Business day convention for payment dates.
+    calendar : str, optional
+        Holiday calendar identifier.
+    effective_date : date, optional
+        Effective date (default: trade date).
+
+    Returns
+    -------
+    CdsTranche
+        Configured CDS tranche ready for pricing.
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid (detach_pct <= attach_pct, etc.) or if
+        required curves are not found.
+
+    Examples
+    --------
+        >>> tranche = CdsTranche.create(
+        ...     "CDX-IG-0-3",
+        ...     "CDX.NA.IG",
+        ...     40,
+        ...     0.0,   # 0% attachment
+        ...     3.0,   # 3% detachment
+        ...     Money(10_000_000, Currency("USD")),
+        ...     date(2029, 1, 1),
+        ...     500.0,  # 500bp
+        ...     discount_curve="USD",
+        ...     credit_index_curve="CDX-IG-40"
+        ... )
+    """
 
     @property
     def instrument_id(self) -> str: ...

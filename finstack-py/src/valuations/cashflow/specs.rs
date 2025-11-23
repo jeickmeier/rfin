@@ -5,8 +5,8 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
-use crate::core::money::extract_money;
 use crate::core::dates::utils::py_to_date;
+use crate::core::money::extract_money;
 
 /// Amortization specification for principal over time.
 #[pyclass(

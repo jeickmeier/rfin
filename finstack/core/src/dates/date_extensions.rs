@@ -153,8 +153,8 @@ impl DateExt for Date {
         let new_year = total_months.div_euclid(12);
         let new_month_idx = total_months.rem_euclid(12);
 
-        let new_month = Month::try_from((new_month_idx + 1) as u8)
-            .expect("Month index 0-11 + 1 fits in u8");
+        let new_month =
+            Month::try_from((new_month_idx + 1) as u8).expect("Month index 0-11 + 1 fits in u8");
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);

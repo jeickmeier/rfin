@@ -4,13 +4,13 @@ use super::common::{
 };
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::bumps::BumpType;
 use finstack_core::market_data::context::{BumpSpec, CurveStorage, MarketContext};
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::{
     inflation_index::{InflationIndex, InflationInterpolation},
     MarketScalar, ScalarTimeSeries, SeriesInterpolation,
 };
-use finstack_core::market_data::bumps::BumpType;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
@@ -235,10 +235,7 @@ fn market_context_bumps_surfaces_and_scalars() {
         "TS",
         vec![
             (sample_base_date(), 10.0),
-            (
-                sample_base_date() + time::Duration::days(30),
-                12.0,
-            ),
+            (sample_base_date() + time::Duration::days(30), 12.0),
         ],
         None,
     )
@@ -256,7 +253,11 @@ fn market_context_bumps_surfaces_and_scalars() {
         MarketScalar::Price(m) => m.amount(),
         _ => panic!("unexpected scalar variant"),
     };
-    let original_series = ctx.series("TS").unwrap().value_on(sample_base_date()).unwrap();
+    let original_series = ctx
+        .series("TS")
+        .unwrap()
+        .value_on(sample_base_date())
+        .unwrap();
 
     let mut bumps = HashMap::new();
     bumps.insert(CurveId::from("EQ-VOL"), BumpSpec::multiplier(1.10));

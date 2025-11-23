@@ -47,20 +47,24 @@ class MonteCarloPathGenerator:
             PathDataset with generated paths
 
         Example:
-            >>> generator = MonteCarloPathGenerator()
-            >>> paths = generator.generate_gbm_paths(
-            ...     initial_spot=100.0,
-            ...     r=0.05,
-            ...     q=0.02,
-            ...     sigma=0.2,
-            ...     time_to_maturity=1.0,
-            ...     num_steps=252,
-            ...     num_paths=1000,
-            ...     capture_mode="sample",
-            ...     sample_count=100,
-            ...     seed=42,
-            ... )
-            >>> print(f"Generated {paths.num_captured()} paths")
+            Use :class:`MonteCarloPathGenerator` to simulate GBM paths::
+
+                from finstack.valuations.common.mc import MonteCarloPathGenerator
+
+                generator = MonteCarloPathGenerator()
+                paths = generator.generate_gbm_paths(
+                    initial_spot=100.0,
+                    r=0.05,
+                    q=0.02,
+                    sigma=0.2,
+                    time_to_maturity=0.25,
+                    num_steps=5,
+                    num_paths=8,
+                    capture_mode="sample",
+                    sample_count=3,
+                    seed=7,
+                )
+                print(paths.num_captured())
         """
         ...
 
@@ -96,15 +100,23 @@ class MonteCarloPathGenerator:
             PathDataset with generated paths
 
         Example:
-            >>> generator = MonteCarloPathGenerator()
-            >>> paths = generator.generate_paths(
-            ...     process_type="gbm",
-            ...     process_params={"r": 0.05, "q": 0.02, "sigma": 0.2},
-            ...     initial_state=[100.0],
-            ...     time_to_maturity=1.0,
-            ...     num_steps=252,
-            ...     num_paths=1000,
-            ... )
+            The same generator can be used for the lower-level interface::
+
+                from finstack.valuations.common.mc import MonteCarloPathGenerator
+
+                generator = MonteCarloPathGenerator()
+                paths = generator.generate_paths(
+                    process_type="gbm",
+                    process_params={"r": 0.05, "q": 0.02, "sigma": 0.2},
+                    initial_state=[100.0],
+                    time_to_maturity=0.25,
+                    num_steps=5,
+                    num_paths=6,
+                    capture_mode="sample",
+                    sample_count=2,
+                    seed=11,
+                )
+                print(paths.num_captured())
         """
         ...
 

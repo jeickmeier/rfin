@@ -7,7 +7,48 @@ from ...core.dates.schedule import Frequency
 from ...core.dates.daycount import DayCount
 
 class CmsOption:
-    """CMS option instrument."""
+    """CMS (Constant Maturity Swap) option for interest rate optionality.
+
+    CmsOption represents an option on a constant maturity swap rate (e.g.,
+    10-year swap rate). The option pays based on the difference between the
+    CMS rate and strike rate on each fixing date.
+
+    CMS options are used for interest rate optionality and structured products.
+    They require discount curves and optionally volatility surfaces.
+
+    Examples
+    --------
+    Create a CMS cap (call option on CMS rate):
+
+        >>> from finstack.valuations.instruments import CmsOption
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> fixing_dates = [date(2024, 3, 15), date(2024, 6, 15), date(2024, 9, 15)]
+        >>> cms_option = CmsOption.builder(
+        ...     "CMS-CAP-10Y",
+        ...     strike_rate=0.035,  # 3.5% strike
+        ...     cms_tenor=10.0,  # 10-year CMS rate
+        ...     fixing_dates=fixing_dates,
+        ...     accrual_fractions=[0.25, 0.25, 0.25],  # Quarterly
+        ...     option_type="call",  # Cap (call on rate)
+        ...     notional=Money(10_000_000, Currency("USD")),
+        ...     discount_curve="USD",
+        ... )
+
+    Notes
+    -----
+    - CMS options require discount curve and swap curve
+    - CMS tenor is the maturity of the underlying swap rate (e.g., 10 years)
+    - Option type: "call" (cap) or "put" (floor)
+    - Each fixing date creates a separate CMS option (caplet/floorlet)
+    - Convexity adjustment accounts for CMS vs forward rate differences
+
+    See Also
+    --------
+    :class:`Swaption`: Swaptions
+    :class:`InterestRateOption`: Interest rate caps/floors
+    :class:`PricerRegistry`: Pricing entry point
+    """
 
     @classmethod
     def builder(
@@ -26,9 +67,62 @@ class CmsOption:
         swap_fixed_freq: Optional[Frequency] = None,
         swap_float_freq: Optional[Frequency] = None,
         swap_day_count: Optional[DayCount] = None,
-    ) -> "CmsOption":
-        """Create a CMS option."""
-        ...
+    ) -> "CmsOption": ...
+    """Create a CMS option.
+
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the option (e.g., "CMS-CAP-10Y").
+    strike_rate : float
+        Strike rate as a decimal (e.g., 0.035 for 3.5%).
+    cms_tenor : float
+        CMS tenor in years (e.g., 10.0 for 10-year swap rate).
+    fixing_dates : List[date]
+        Dates when CMS rates are observed. Must match accrual_fractions length.
+    accrual_fractions : List[float]
+        Accrual fractions for each period (e.g., [0.25, 0.25, 0.25] for quarterly).
+    option_type : str
+        Option type: "call" (cap) or "put" (floor).
+    notional : Money
+        Notional principal amount.
+    discount_curve : str
+        Discount curve identifier in MarketContext.
+    vol_surface : str, optional
+        Volatility surface identifier for CMS option pricing.
+    payment_dates : List[date], optional
+        Payment dates (default: fixing_dates).
+    swap_fixed_freq : Frequency, optional
+        Fixed leg frequency of underlying swap (default: semi-annual).
+    swap_float_freq : Frequency, optional
+        Floating leg frequency of underlying swap (default: quarterly).
+    swap_day_count : DayCount, optional
+        Day-count convention for underlying swap (default: 30/360).
+
+    Returns
+    -------
+    CmsOption
+        Configured CMS option ready for pricing.
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid (fixing_dates/accrual_fractions mismatch, etc.)
+        or if required market data is missing.
+
+    Examples
+    --------
+        >>> option = CmsOption.builder(
+        ...     "CMS-CAP-10Y",
+        ...     0.035,  # 3.5% strike
+        ...     10.0,  # 10-year CMS
+        ...     fixing_dates,
+        ...     accrual_fractions,
+        ...     "call",
+        ...     Money(10_000_000, Currency("USD")),
+        ...     discount_curve="USD"
+        ... )
+    """
 
     @property
     def instrument_id(self) -> str: ...

@@ -13,6 +13,8 @@ class TenorSamplingMethod:
     STANDARD: TenorSamplingMethod
     DYNAMIC: TenorSamplingMethod
 
+    @classmethod
+    def default(cls) -> TenorSamplingMethod: ...
     @staticmethod
     def custom(tenors: Sequence[float]) -> TenorSamplingMethod: ...
 

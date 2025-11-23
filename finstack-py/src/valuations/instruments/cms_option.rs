@@ -1,8 +1,8 @@
 use crate::core::common::args::DayCountArg;
 use crate::core::common::labels::normalize_label;
 use crate::core::dates::schedule::PyFrequency;
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cms_option::CmsOption;
@@ -70,7 +70,8 @@ impl PyCmsOption {
         use crate::errors::PyContext;
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let notional_money = extract_money(&notional).context("notional")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
         // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();

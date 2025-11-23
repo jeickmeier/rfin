@@ -112,9 +112,50 @@ class DebtInstrumentSpec:
     def __repr__(self) -> str: ...
 
 class FinancialModelSpec:
-    """Financial model specification.
+    """Financial model specification for statement modeling.
 
-    Top-level specification for a complete financial statement model.
+    FinancialModelSpec is the top-level container for a complete financial
+    statement model. It contains nodes (value, forecast, formula), periods,
+    optional capital structure, and metadata. Models are evaluated period-by-period
+    with deterministic precedence rules (Value > Forecast > Formula).
+
+    Models can be built using ModelBuilder or constructed programmatically.
+    They support serialization to/from JSON for persistence and sharing.
+
+    Examples
+    --------
+    Build a model via :class:`ModelBuilder`:
+
+        >>> from finstack.core.dates.periods import PeriodId
+        >>> from finstack.statements.builder import ModelBuilder
+        >>> from finstack.statements.types import AmountOrScalar, FinancialModelSpec
+        >>> builder = ModelBuilder.new("DocCo")
+        >>> builder.periods("2025Q1..Q2", None)
+        >>> builder.value(
+        ...     "revenue",
+        ...     [
+        ...         (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0)),
+        ...         (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110.0)),
+        ...     ],
+        ... )
+        >>> builder.compute("gross_profit", "revenue * 0.4")
+        >>> model = builder.build()
+        >>> restored = FinancialModelSpec.from_json(model.to_json())
+        >>> print(restored.id, len(model.periods), restored.has_node("gross_profit"))
+        DocCo 2 True
+
+    Notes
+    -----
+    - Models are immutable after construction
+    - Nodes are evaluated in dependency order
+    - Capital structure enables cs.* references in formulas
+    - Models can be serialized to JSON for persistence
+
+    See Also
+    --------
+    :class:`ModelBuilder`: Fluent builder for models
+    :class:`Evaluator`: Model evaluation engine
+    :class:`NodeSpec`: Individual node specifications
     """
 
     def __init__(self, id: str, periods: List[Period]) -> None:

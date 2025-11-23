@@ -1,15 +1,13 @@
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::core::types::PyCurveId;
-use finstack_core::market_data::bumps::{
-    BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump,
-};
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 #[pyclass(module = "finstack.core.market_data.bumps", name = "BumpMode", frozen)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBumpMode {
     pub(crate) inner: BumpMode,
 }
@@ -30,13 +28,13 @@ impl PyBumpMode {
         match self.inner {
             BumpMode::Additive => "BumpMode.ADDITIVE",
             BumpMode::Multiplicative => "BumpMode.MULTIPLICATIVE",
-            _ => "BumpMode.UNKNOWN",
+            _ => "BumpMode.UNKNOWN_VARIANT",
         }
     }
 }
 
 #[pyclass(module = "finstack.core.market_data.bumps", name = "BumpUnits", frozen)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBumpUnits {
     pub(crate) inner: BumpUnits,
 }
@@ -69,13 +67,13 @@ impl PyBumpUnits {
             BumpUnits::Percent => "BumpUnits.PERCENT",
             BumpUnits::Fraction => "BumpUnits.FRACTION",
             BumpUnits::Factor => "BumpUnits.FACTOR",
-            _ => "BumpUnits.UNKNOWN",
+            _ => "BumpUnits.UNKNOWN_VARIANT",
         }
     }
 }
 
 #[pyclass(module = "finstack.core.market_data.bumps", name = "BumpType", frozen)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyBumpType {
     pub(crate) inner: BumpType,
 }
@@ -117,7 +115,7 @@ impl PyBumpType {
 }
 
 #[pyclass(module = "finstack.core.market_data.bumps", name = "BumpSpec", frozen)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyBumpSpec {
     pub(crate) inner: BumpSpec,
 }
@@ -204,27 +202,31 @@ impl PyBumpSpec {
     }
 
     fn __repr__(&self) -> String {
+        let mode = PyBumpMode {
+            inner: self.inner.mode,
+        };
+        let units = PyBumpUnits {
+            inner: self.inner.units,
+        };
+        let bump_type = PyBumpType {
+            inner: self.inner.bump_type,
+        };
         format!(
             "BumpSpec(mode={}, units={}, value={}, bump_type={})",
-            PyBumpMode {
-                inner: self.inner.mode
-            }
-            .__repr__(),
-            PyBumpUnits {
-                inner: self.inner.units
-            }
-            .__repr__(),
+            mode.__repr__(),
+            units.__repr__(),
             self.inner.value,
-            PyBumpType {
-                inner: self.inner.bump_type
-            }
-            .__repr__()
+            bump_type.__repr__()
         )
     }
 }
 
-#[pyclass(module = "finstack.core.market_data.bumps", name = "MarketBump", frozen)]
-#[derive(Clone)]
+#[pyclass(
+    module = "finstack.core.market_data.bumps",
+    name = "MarketBump",
+    frozen
+)]
+#[derive(Clone, Debug)]
 pub struct PyMarketBump {
     pub(crate) inner: MarketBump,
 }
@@ -311,11 +313,15 @@ impl PyMarketBump {
     fn __repr__(&self) -> String {
         match &self.inner {
             MarketBump::Curve { id, .. } => format!("MarketBump.Curve(id='{}')", id),
-            MarketBump::FxPct { base, quote, pct, .. } => format!(
+            MarketBump::FxPct {
+                base, quote, pct, ..
+            } => format!(
                 "MarketBump.FxPct(base={:?}, quote={:?}, pct={})",
                 base, quote, pct
             ),
-            MarketBump::VolBucketPct { surface_id, pct, .. } => format!(
+            MarketBump::VolBucketPct {
+                surface_id, pct, ..
+            } => format!(
                 "MarketBump.VolBucketPct(surface='{}', pct={})",
                 surface_id, pct
             ),
@@ -344,9 +350,14 @@ pub(crate) fn register<'py>(
     module.add_class::<PyBumpSpec>()?;
     module.add_class::<PyMarketBump>()?;
 
-    let exports = ["BumpMode", "BumpUnits", "BumpType", "BumpSpec", "MarketBump"];
+    let exports = [
+        "BumpMode",
+        "BumpUnits",
+        "BumpType",
+        "BumpSpec",
+        "MarketBump",
+    ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

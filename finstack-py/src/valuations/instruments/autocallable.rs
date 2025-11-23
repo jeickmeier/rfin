@@ -1,5 +1,5 @@
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::py_to_date;
+use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::autocallable::{Autocallable, FinalPayoffType};
 use pyo3::exceptions::PyValueError;
@@ -71,12 +71,13 @@ impl PyAutocallable {
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
-        use finstack_core::dates::DayCount;
         use crate::errors::PyContext;
+        use finstack_core::dates::DayCount;
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let notional_money = extract_money(&notional).context("notional")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         // Parse observation dates
@@ -102,7 +103,9 @@ impl PyAutocallable {
             let py_type_val = dict
                 .get_item("type")?
                 .ok_or_else(|| PyValueError::new_err("Missing 'type' key in final_payoff_type"))?;
-            let py_type = py_type_val.extract::<&str>().context("final_payoff_type.type")?;
+            let py_type = py_type_val
+                .extract::<&str>()
+                .context("final_payoff_type.type")?;
 
             match py_type.to_lowercase().as_str() {
                 "capital_protection" => {
@@ -111,21 +114,24 @@ impl PyAutocallable {
                         .ok_or_else(|| {
                             PyValueError::new_err("Missing 'floor' for capital_protection")
                         })?
-                        .extract::<f64>().context("final_payoff_type.floor")?;
+                        .extract::<f64>()
+                        .context("final_payoff_type.floor")?;
                     FinalPayoffType::CapitalProtection { floor }
                 }
                 "participation" => {
                     let rate = dict
                         .get_item("rate")?
                         .ok_or_else(|| PyValueError::new_err("Missing 'rate' for participation"))?
-                        .extract::<f64>().context("final_payoff_type.rate")?;
+                        .extract::<f64>()
+                        .context("final_payoff_type.rate")?;
                     FinalPayoffType::Participation { rate }
                 }
                 "knock_in_put" => {
                     let strike = dict
                         .get_item("strike")?
                         .ok_or_else(|| PyValueError::new_err("Missing 'strike' for knock_in_put"))?
-                        .extract::<f64>().context("final_payoff_type.strike")?;
+                        .extract::<f64>()
+                        .context("final_payoff_type.strike")?;
                     FinalPayoffType::KnockInPut { strike }
                 }
                 other => {

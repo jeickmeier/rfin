@@ -1,6 +1,6 @@
 use finstack_core::math::random::{
-    box_muller_polar as core_box_muller_polar,
-    box_muller_transform as core_box_muller_transform, RandomNumberGenerator, SimpleRng,
+    box_muller_polar as core_box_muller_polar, box_muller_transform as core_box_muller_transform,
+    RandomNumberGenerator, SimpleRng,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -65,17 +65,11 @@ impl PySimpleRng {
     /// ------
     /// ValueError
     ///     If ``std_dev`` is not positive.
-    pub fn normal(
-        &mut self,
-        mean: Option<f64>,
-        std_dev: Option<f64>,
-    ) -> PyResult<f64> {
+    pub fn normal(&mut self, mean: Option<f64>, std_dev: Option<f64>) -> PyResult<f64> {
         let m = mean.unwrap_or(0.0);
         let s = std_dev.unwrap_or(1.0);
         if s <= 0.0 {
-            return Err(PyValueError::new_err(
-                "std_dev must be positive",
-            ));
+            return Err(PyValueError::new_err("std_dev must be positive"));
         }
         Ok(self.inner.normal(m, s))
     }
@@ -99,9 +93,7 @@ impl PySimpleRng {
     ///     If ``p`` is outside ``[0, 1]``.
     pub fn bernoulli(&mut self, p: f64) -> PyResult<bool> {
         if !(0.0..=1.0).contains(&p) {
-            return Err(PyValueError::new_err(
-                "p must be in the range [0, 1]",
-            ));
+            return Err(PyValueError::new_err("p must be in the range [0, 1]"));
         }
         Ok(self.inner.bernoulli(p))
     }
@@ -124,7 +116,7 @@ impl PySimpleRng {
 ///     Second uniform variate in ``(0, 1)``.
 ///
 /// Returns
-/// ------- 
+/// -------
 /// tuple[float, float]
 ///     Pair ``(z1, z2)`` of independent ``N(0, 1)`` samples.
 pub fn box_muller_transform_py(u1: f64, u2: f64) -> (f64, f64) {
@@ -169,5 +161,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-
-

@@ -8,13 +8,9 @@ from .metrics import PortfolioMetrics
 class PortfolioResults:
     """Complete results from portfolio evaluation.
 
-    Contains valuation, metrics, and metadata about the calculation.
-
-    Examples:
-        >>> results.total_value()
-        Money(USD, 10000000.0)
-        >>> results.get_metric("dv01")
-        125.0
+    Contains valuation, metrics, and metadata about the calculation. Instances
+    are typically produced by higher-level orchestration code that values a
+    portfolio, aggregates metrics, and snapshots the active :class:`ResultsMeta`.
     """
 
     def __init__(
@@ -40,10 +36,6 @@ class PortfolioResults:
 
         Returns:
             Money: Total portfolio value in base currency.
-
-        Examples:
-            >>> results.total_value()
-            Money(USD, 10000000.0)
         """
         ...
 
@@ -55,10 +47,6 @@ class PortfolioResults:
 
         Returns:
             float or None: Metric value if found.
-
-        Examples:
-            >>> results.get_metric("dv01")
-            125.0
         """
         ...
 

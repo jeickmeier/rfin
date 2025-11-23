@@ -134,11 +134,7 @@ impl PyLevenbergMarquardtSolver {
         )
     }
 
-    fn solve_system(
-        &self,
-        residuals: Bound<'_, PyAny>,
-        initial: Vec<f64>,
-    ) -> PyResult<Vec<f64>> {
+    fn solve_system(&self, residuals: Bound<'_, PyAny>, initial: Vec<f64>) -> PyResult<Vec<f64>> {
         let adapter = VectorCallableAdapter::new(residuals)?;
         let residual_closure = adapter.residual_closure();
         adapter.run_core(
@@ -175,4 +171,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

@@ -20,7 +20,73 @@ class PayReceive:
     def name(self) -> str: ...
 
 class InterestRateSwap:
-    """Plain-vanilla interest rate swap with fixed-for-floating legs."""
+    """Plain-vanilla interest rate swap with fixed-for-floating legs.
+
+    InterestRateSwap represents a standard interest rate swap where one
+    party pays a fixed rate and receives a floating rate (or vice versa)
+    on a specified notional over a given term. Swaps are priced using
+    discount curves and forward curves stored in a MarketContext.
+
+    Swaps are the most liquid interest rate derivatives and are used for
+    hedging, speculation, and asset-liability management. The fixed rate
+    is typically set such that the swap has zero value at inception (par swap).
+
+    Examples
+    --------
+    Create a USD SOFR swap (pay fixed, receive floating):
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments import InterestRateSwap
+        >>> swap = InterestRateSwap.usd_pay_fixed(
+        ...     "SWAP-001",
+        ...     Money(10_000_000, Currency("USD")),
+        ...     0.035,
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1),
+        ... )
+
+    Price the swap:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments import InterestRateSwap
+        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> swap = InterestRateSwap.usd_pay_fixed(
+        ...     "SWAP-EXAMPLE",
+        ...     Money(5_000_000, Currency("USD")),
+        ...     0.03,
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1),
+        ... )
+        >>> ctx = MarketContext()
+        >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
+        >>> ctx.insert_forward(
+        ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (5.0, 0.032)], base_date=date(2024, 1, 1))
+        ... )
+        >>> registry = create_standard_registry()
+        >>> pv = registry.price(swap, "discounting", ctx).value
+        >>> pv.currency.code
+        'USD'
+
+    Notes
+    -----
+    - Swaps require both discount and forward curves in MarketContext
+    - Fixed leg uses the specified fixed_rate
+    - Floating leg uses forward rates from the forward_curve plus any spread
+    - Use :meth:`builder` for non-USD swaps or custom conventions
+    - Par swap rate can be calculated by solving for fixed_rate = 0 PV
+
+    See Also
+    --------
+    :class:`Bond`: Fixed-income bond instruments
+    :class:`PricerRegistry`: Pricing entry point
+    :class:`MarketContext`: Market data container
+    """
 
     @classmethod
     def usd_pay_fixed(
@@ -30,9 +96,55 @@ class InterestRateSwap:
         fixed_rate: float,
         start: date,
         end: date,
-    ) -> "InterestRateSwap":
-        """Create a USD SOFR swap where the caller pays fixed and receives floating."""
-        ...
+    ) -> "InterestRateSwap": ...
+    """Create a USD SOFR swap where the caller pays fixed and receives floating.
+
+    Factory method for creating a standard USD interest rate swap using SOFR
+    conventions: quarterly floating payments, semi-annual fixed payments,
+    30/360 day count, and Following business day convention.
+
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the swap (e.g., "SWAP-001", "IRS-5Y").
+    notional : Money
+        Notional principal amount. Must be in USD for this factory method.
+    fixed_rate : float
+        Fixed rate paid by the caller, as a decimal (e.g., 0.035 for 3.5%).
+        This is typically the par swap rate at inception.
+    start : date
+        Swap start date (first accrual date).
+    end : date
+        Swap end date (last payment date). Must be after start date.
+
+    Returns
+    -------
+    InterestRateSwap
+        Configured swap where the caller pays fixed and receives floating.
+
+    Raises
+    ------
+    ValueError
+        If dates are invalid (end <= start), if fixed_rate is negative,
+        or if notional currency is not USD.
+
+    Examples
+    --------
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> 
+        >>> swap = InterestRateSwap.usd_pay_fixed(
+        ...     "SWAP-5Y",
+        ...     Money(10_000_000, Currency("USD")),
+        ...     0.035,  # 3.5% fixed rate
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1)  # 5-year swap
+        ... )
+        >>> swap.fixed_rate
+        0.035
+        >>> swap.side
+        PayReceive.PAY_FIXED
+    """
 
     @classmethod
     def usd_receive_fixed(

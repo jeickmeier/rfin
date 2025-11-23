@@ -225,7 +225,12 @@ impl BaseCorrelationCurve {
     ) -> Option<Self> {
         let mut new_points: Vec<(f64, f64)> = Vec::with_capacity(self.detachment_points.len());
 
-        for (det, corr) in self.detachment_points.iter().copied().zip(self.correlations.iter().copied()) {
+        for (det, corr) in self
+            .detachment_points
+            .iter()
+            .copied()
+            .zip(self.correlations.iter().copied())
+        {
             let matches = detachment_filter
                 .map(|flt| flt.iter().any(|d| (d - det).abs() < 0.01))
                 .unwrap_or(true);

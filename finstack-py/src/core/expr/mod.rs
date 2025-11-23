@@ -17,4 +17,3 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     parent.add_submodule(&module)?;
     Ok(())
 }
-

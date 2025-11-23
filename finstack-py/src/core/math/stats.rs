@@ -1,10 +1,10 @@
 use crate::core::common::labels::normalize_label;
 use finstack_core::math::stats::{
-    correlation as core_correlation, covariance as core_covariance, log_returns as core_log_returns,
-    mean as core_mean, mean_var as core_mean_var,
+    correlation as core_correlation, covariance as core_covariance,
+    log_returns as core_log_returns, mean as core_mean, mean_var as core_mean_var,
     realized_variance as core_realized_variance,
-    realized_variance_ohlc as core_realized_variance_ohlc,
-    variance as core_variance, RealizedVarMethod,
+    realized_variance_ohlc as core_realized_variance_ohlc, variance as core_variance,
+    RealizedVarMethod,
 };
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -51,9 +51,7 @@ fn parse_realized_var_method_name(name: &str) -> PyResult<RealizedVarMethod> {
     }
 }
 
-fn parse_realized_var_method(
-    method: Option<Bound<'_, PyAny>>,
-) -> PyResult<RealizedVarMethod> {
+fn parse_realized_var_method(method: Option<Bound<'_, PyAny>>) -> PyResult<RealizedVarMethod> {
     if let Some(obj) = method {
         if let Ok(wrapper) = obj.extract::<PyRef<PyRealizedVarMethod>>() {
             return Ok(wrapper.inner);
@@ -134,9 +132,7 @@ pub fn mean_py(data: Vec<f64>) -> PyResult<f64> {
 #[pyo3(text_signature = "(data)")]
 pub fn variance_py(data: Vec<f64>) -> PyResult<f64> {
     if data.len() < 2 {
-        return Err(PyValueError::new_err(
-            "Data must have at least 2 elements",
-        ));
+        return Err(PyValueError::new_err("Data must have at least 2 elements"));
     }
     Ok(core_variance(&data))
 }
@@ -145,14 +141,10 @@ pub fn variance_py(data: Vec<f64>) -> PyResult<f64> {
 #[pyo3(text_signature = "(x, y)")]
 pub fn covariance_py(x: Vec<f64>, y: Vec<f64>) -> PyResult<f64> {
     if x.len() != y.len() {
-        return Err(PyValueError::new_err(
-            "Input arrays must have same length",
-        ));
+        return Err(PyValueError::new_err("Input arrays must have same length"));
     }
     if x.len() < 2 {
-        return Err(PyValueError::new_err(
-            "Data must have at least 2 elements",
-        ));
+        return Err(PyValueError::new_err("Data must have at least 2 elements"));
     }
     Ok(core_covariance(&x, &y))
 }
@@ -161,14 +153,10 @@ pub fn covariance_py(x: Vec<f64>, y: Vec<f64>) -> PyResult<f64> {
 #[pyo3(text_signature = "(x, y)")]
 pub fn correlation_py(x: Vec<f64>, y: Vec<f64>) -> PyResult<f64> {
     if x.len() != y.len() {
-        return Err(PyValueError::new_err(
-            "Input arrays must have same length",
-        ));
+        return Err(PyValueError::new_err("Input arrays must have same length"));
     }
     if x.len() < 2 {
-        return Err(PyValueError::new_err(
-            "Data must have at least 2 elements",
-        ));
+        return Err(PyValueError::new_err("Data must have at least 2 elements"));
     }
     Ok(core_correlation(&x, &y))
 }
@@ -276,10 +264,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(mean_var_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_returns_py, &module)?)?;
     module.add_function(wrap_pyfunction!(realized_variance_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(
-        realized_variance_ohlc_py,
-        &module
-    )?)?;
+    module.add_function(wrap_pyfunction!(realized_variance_ohlc_py, &module)?)?;
 
     let exports = [
         "RealizedVarMethod",
@@ -296,5 +281,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-
-

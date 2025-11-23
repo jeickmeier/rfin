@@ -1,6 +1,5 @@
 use finstack_core::math::summation::{
-    kahan_sum as core_kahan_sum, pairwise_sum as core_pairwise_sum,
-    stable_sum as core_stable_sum,
+    kahan_sum as core_kahan_sum, pairwise_sum as core_pairwise_sum, stable_sum as core_stable_sum,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -53,4 +52,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

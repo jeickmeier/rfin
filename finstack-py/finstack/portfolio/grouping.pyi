@@ -6,56 +6,132 @@ from .portfolio import Portfolio
 from .valuation import PortfolioValuation
 from .types import Position
 
-def group_by_attribute(portfolio: Portfolio, attribute_key: str) -> Dict[str, List[Position]]:
-    """Group portfolio positions by an attribute.
+def group_by_attribute(portfolio: Portfolio, attribute_key: str) -> Dict[str, List[Position]]: ...
 
-    Returns a dictionary mapping attribute values to lists of positions.
-    The attribute key must exist in position tags for positions to be included.
+"""Group portfolio positions by an attribute tag.
 
-    Args:
-        portfolio: Portfolio to group.
-        attribute_key: Tag key to group by (e.g., "sector", "rating").
+Groups all positions in a portfolio by the value of a specified attribute
+tag. Positions without the tag are excluded from the result. This is useful
+for organizing positions by sector, rating, currency, or any custom attribute.
 
-    Returns:
-        dict[str, list[Position]]: Mapping of attribute values to position lists.
+Parameters
+----------
+portfolio : Portfolio
+    Portfolio containing positions to group.
+attribute_key : str
+    Tag key to group by (e.g., "sector", "rating", "currency", "strategy").
+    Must exist in position.tags for positions to be included.
 
-    Raises:
-        RuntimeError: If grouping fails.
+Returns
+-------
+Dict[str, List[Position]]
+    Dictionary mapping attribute values to lists of positions. Keys are
+    the tag values, values are lists of positions with that tag value.
 
-    Examples:
-        >>> from finstack.portfolio import group_by_attribute
-        >>> by_sector = group_by_attribute(portfolio, "sector")
-        >>> by_sector["Technology"]
-        [Position(...), Position(...)]
-    """
-    ...
+Raises
+------
+RuntimeError
+    If grouping fails (internal error).
+
+Examples
+--------
+Group by sector:
+
+    >>> from finstack.portfolio import group_by_attribute
+    >>> 
+    >>> by_sector = group_by_attribute(portfolio, "sector")
+    >>> print(by_sector.keys())
+    dict_keys(['Technology', 'Healthcare', 'Financials'])
+    >>> 
+    >>> tech_positions = by_sector["Technology"]
+    >>> print(len(tech_positions))
+    15
+
+Group by rating:
+
+    >>> by_rating = group_by_attribute(portfolio, "rating")
+    >>> print(by_rating.keys())
+    dict_keys(['AAA', 'AA', 'A', 'BBB'])
+
+Notes
+-----
+- Only positions with the specified tag are included
+- Positions without the tag are excluded (no error)
+- Empty groups are not included in the result
+- Useful for filtering and organizing positions
+
+See Also
+--------
+:func:`aggregate_by_attribute`: Aggregate values by attribute
+:class:`Position`: Position structure with tags
+"""
 
 def aggregate_by_attribute(
     valuation: PortfolioValuation,
     portfolio: Portfolio,
     attribute_key: str,
-) -> Dict[str, Money]:
-    """Aggregate portfolio valuation by an attribute.
+) -> Dict[str, Money]: ...
 
-    Sums position values within each attribute group. Only positions with the
-    specified attribute key in their tags are included. Values are converted
-    to the portfolio base currency before aggregation.
+"""Aggregate portfolio valuation by an attribute tag.
 
-    Args:
-        valuation: Portfolio valuation results.
-        portfolio: Portfolio containing positions.
-        attribute_key: Tag key to group by (e.g., "sector", "rating").
+Sums position values within each attribute group. This is useful for
+reporting portfolio value by sector, rating, currency, or any custom
+attribute. Values are converted to the portfolio base currency before
+aggregation.
 
-    Returns:
-        dict[str, Money]: Mapping of attribute values to aggregated amounts.
+Parameters
+----------
+valuation : PortfolioValuation
+    Portfolio valuation results from value_portfolio(). Must contain
+    valuations for all positions in the portfolio.
+portfolio : Portfolio
+    Portfolio containing positions. Used to access position tags.
+attribute_key : str
+    Tag key to group by (e.g., "sector", "rating", "currency").
+    Must exist in position.tags for positions to be included.
 
-    Raises:
-        RuntimeError: If aggregation fails.
+Returns
+-------
+Dict[str, Money]
+    Dictionary mapping attribute values to aggregated amounts in the
+    portfolio base currency. Keys are tag values, values are summed
+    position values.
 
-    Examples:
-        >>> from finstack.portfolio import aggregate_by_attribute
-        >>> by_sector = aggregate_by_attribute(valuation, portfolio, "sector")
-        >>> by_sector["Technology"]
-        Money(USD, 5000000.0)
-    """
-    ...
+Raises
+------
+RuntimeError
+    If aggregation fails (missing valuations, FX conversion errors).
+
+Examples
+--------
+Aggregate by sector:
+
+    >>> from finstack.portfolio import aggregate_by_attribute, value_portfolio
+    >>> 
+    >>> valuation = value_portfolio(portfolio, market_ctx)
+    >>> by_sector = aggregate_by_attribute(valuation, portfolio, "sector")
+    >>> 
+    >>> print(f"Technology: {by_sector['Technology']}")
+    Technology: Money(5000000.0, Currency("USD"))
+    >>> print(f"Healthcare: {by_sector['Healthcare']}")
+    Healthcare: Money(3000000.0, Currency("USD"))
+
+Aggregate by rating:
+
+    >>> by_rating = aggregate_by_attribute(valuation, portfolio, "rating")
+    >>> print(f"AAA: {by_rating['AAA']}")
+    AAA: Money(2000000.0, Currency("USD"))
+
+Notes
+-----
+- Only positions with the specified tag are included
+- Values are converted to portfolio base currency
+- Empty groups are not included in the result
+- Useful for risk reporting and portfolio analysis
+
+See Also
+--------
+:func:`group_by_attribute`: Group positions by attribute
+:func:`value_portfolio`: Portfolio valuation
+:class:`PortfolioValuation`: Valuation results
+"""

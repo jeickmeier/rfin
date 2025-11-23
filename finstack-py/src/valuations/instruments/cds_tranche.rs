@@ -1,6 +1,6 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::{
     frequency_from_payments_per_year, to_optional_string, PyInstrumentType,
@@ -135,10 +135,15 @@ impl PyCdsTranche {
         let notional_money = extract_money(&notional).context("notional")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let disc_curve = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let credit_curve = CurveId::new(credit_index_curve.extract::<&str>().context("credit_index_curve")?);
+        let credit_curve = CurveId::new(
+            credit_index_curve
+                .extract::<&str>()
+                .context("credit_index_curve")?,
+        );
 
         let side_value = parse_tranche_side(side).context("side")?;
-        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
+        let freq =
+            frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
         let dc = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value

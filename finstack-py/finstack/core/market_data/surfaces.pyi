@@ -7,18 +7,66 @@ including equity, credit, and swaption surfaces.
 from typing import List, Tuple, Optional
 
 class VolSurface:
-    """Volatility surface for options pricing.
+    """Two-dimensional volatility surface for options pricing.
+
+    VolSurface represents a grid of implied volatilities indexed by expiry
+    (time to expiration) and strike (moneyness or absolute level). It supports
+    bilinear interpolation between grid points and provides methods for querying
+    volatilities, applying bumps, and creating scenario variants.
+
+    Volatility surfaces are essential for pricing options, swaptions, and other
+    volatility-dependent instruments. They can be constructed from market quotes
+    or model-generated grids.
 
     Parameters
     ----------
     id : str
-        Surface identifier.
+        Unique identifier for the surface (e.g., "SPX", "EURUSD", "IR-SWAPTION").
+        Used to retrieve the surface from a :class:`MarketContext`.
     expiries : list[float]
-        Expiry times in years.
+        Expiry times in years (e.g., [0.25, 0.5, 1.0, 2.0]). Must be in
+        ascending order and contain at least one value.
     strikes : list[float]
-        Strike prices.
+        Strike values. Can be absolute strikes (e.g., [90, 100, 110]) or
+        moneyness ratios (e.g., [0.9, 1.0, 1.1]). Must be in ascending order
+        and contain at least one value.
     grid : list[list[float]]
-        2D volatility grid (expiry x strike).
+        Two-dimensional volatility grid. Must have shape (len(expiries), len(strikes)).
+        Each row corresponds to an expiry, each column to a strike.
+        Grid[i][j] is the volatility for expiries[i] and strikes[j].
+
+    Returns
+    -------
+    VolSurface
+        Immutable volatility surface ready for queries and use in MarketContext.
+
+    Raises
+    ------
+    ValueError
+        If expiries or strikes are empty, if grid dimensions don't match,
+        if expiries/strikes are not in ascending order, or if volatility
+        values are invalid (negative).
+
+    Examples
+    --------
+        >>> from finstack.core.market_data.surfaces import VolSurface
+        >>> surface = VolSurface("SPX", [0.5, 1.0], [0.9, 1.0], [[0.20, 0.21], [0.19, 0.20]])
+        >>> print(surface.value(0.5, 1.0))
+        0.21
+
+    Notes
+    -----
+    - Volatility surfaces are immutable once constructed
+    - Bilinear interpolation is used between grid points
+    - Use :meth:`value_checked` for bounds checking (raises on out-of-bounds)
+    - Use :meth:`value_clamped` to clamp to grid boundaries
+    - Strikes can be absolute or relative (moneyness); consistency is important
+    - Volatility values should be positive (as decimals, e.g., 0.20 for 20%)
+
+    See Also
+    --------
+    :class:`MarketContext`: Container for volatility surfaces
+    :class:`MarketBump`: Scenario bumps for volatility surfaces
     """
 
     def __init__(
@@ -69,56 +117,74 @@ class VolSurface:
     """
 
     def value(self, expiry: float, strike: float) -> float: ...
-    """Get volatility at expiry and strike.
+    """Get interpolated volatility at a specific expiry and strike.
+    
+    Performs bilinear interpolation between grid points. If the query point
+    is outside the grid boundaries, extrapolation behavior depends on the
+    surface's configuration (may clamp or extrapolate).
     
     Parameters
     ----------
     expiry : float
-        Expiry time in years.
+        Time to expiration in years. Can be between or beyond grid expiries.
     strike : float
-        Strike price.
+        Strike value (absolute or moneyness). Can be between or beyond grid strikes.
         
     Returns
     -------
     float
-        Volatility.
+        Interpolated/extrapolated volatility (as a decimal, e.g., 0.20 for 20%).
+        
+    Examples
+    --------
+        >>> vol = vol_surface.value(0.5, 1.0)  # 6M, ATM
+        >>> vol = vol_surface.value(0.75, 1.05)  # Interpolated
     """
 
     def value_checked(self, expiry: float, strike: float) -> float: ...
-    """Get volatility with bounds checking.
+    """Get volatility with strict bounds checking.
+    
+    Similar to :meth:`value`, but raises an error if the query point is
+    outside the grid boundaries. Use this when you want to ensure queries
+    stay within the defined surface range.
     
     Parameters
     ----------
     expiry : float
-        Expiry time in years.
+        Time to expiration in years. Must be within [min_expiry, max_expiry].
     strike : float
-        Strike price.
+        Strike value. Must be within [min_strike, max_strike].
         
     Returns
     -------
     float
-        Volatility.
+        Interpolated volatility (as a decimal).
         
     Raises
     ------
     ValueError
-        If expiry or strike is out of bounds.
+        If expiry or strike is outside the grid boundaries. The error message
+        indicates which dimension is out of bounds and the valid range.
     """
 
     def value_clamped(self, expiry: float, strike: float) -> float: ...
-    """Get volatility with clamping to bounds.
+    """Get volatility with clamping to grid boundaries.
+    
+    Similar to :meth:`value`, but clamps expiry and strike to the grid's
+    min/max values before interpolation. Use this when you want predictable
+    behavior at boundaries without errors.
     
     Parameters
     ----------
     expiry : float
-        Expiry time in years.
+        Time to expiration in years. Clamped to [min_expiry, max_expiry].
     strike : float
-        Strike price.
+        Strike value. Clamped to [min_strike, max_strike].
         
     Returns
     -------
     float
-        Clamped volatility.
+        Interpolated volatility using clamped coordinates.
     """
 
     def bump_point(self, expiry: float, strike: float, bump_pct: float) -> "VolSurface":

@@ -238,10 +238,60 @@ class DependencyGraph:
     def __repr__(self) -> str: ...
 
 class Evaluator:
-    """Evaluator for financial models.
+    """Evaluator for financial statement models.
 
-    The evaluator compiles formulas, resolves dependencies, and evaluates
-    nodes period-by-period according to precedence rules.
+    Evaluator compiles formulas, resolves dependencies, and evaluates nodes
+    period-by-period according to precedence rules (Value > Forecast > Formula).
+    It supports both standalone evaluation and evaluation with market context
+    for capital structure pricing.
+
+    The evaluator performs topological sorting of the dependency graph and
+    evaluates nodes in the correct order, ensuring all dependencies are
+    computed before dependent nodes.
+
+    Examples
+    --------
+    Evaluate a basic model:
+
+        >>> from finstack.core.dates.periods import PeriodId
+        >>> from finstack.statements.builder import ModelBuilder
+        >>> from finstack.statements.evaluator import Evaluator
+        >>> from finstack.statements.types import AmountOrScalar
+        >>> builder = ModelBuilder.new("DocCo")
+        >>> builder.periods("2025Q1..Q2", None)
+        >>> builder.value(
+        ...     "revenue",
+        ...     [
+        ...         (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0)),
+        ...         (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110.0)),
+        ...     ],
+        ... )
+        >>> builder.compute("gross_profit", "revenue * 0.4")
+        >>> model = builder.build()
+        >>> evaluator = Evaluator.new()
+        >>> results = evaluator.evaluate(model)
+        >>> gp_q1 = results.get("gross_profit", PeriodId.quarter(2025, 1))
+        >>> print(round(gp_q1, 2), results.meta.num_nodes, results.meta.num_periods)
+        40.0 2 2
+
+    Export to DataFrames (requires Polars):
+
+        Use :meth:`Results.to_polars_long`, :meth:`Results.to_polars_wide`,
+        or :meth:`Results.to_polars_long_filtered` on the ``results`` object to
+        obtain DataFrames for downstream analysis.
+
+    Notes
+    -----
+    - Evaluation is deterministic and reproducible
+    - Formulas are compiled once and reused across periods
+    - Capital structure requires market context for pricing
+    - Results can be exported to Polars DataFrames for analysis
+
+    See Also
+    --------
+    :class:`EvaluatorWithContext`: Convenience wrapper with stored context
+    :class:`Results`: Evaluation results structure
+    :class:`DependencyGraph`: Dependency analysis
     """
 
     @classmethod

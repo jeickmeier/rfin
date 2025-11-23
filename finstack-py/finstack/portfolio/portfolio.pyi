@@ -6,19 +6,58 @@ from ...core.currency import Currency
 from .types import Entity, Position
 
 class Portfolio:
-    """A portfolio of positions across multiple entities.
+    """A portfolio of positions across multiple entities with aggregation support.
 
-    The portfolio holds a flat list of positions, each referencing an entity and instrument.
-    Positions can be grouped and aggregated by entity or by arbitrary attributes (tags).
+    Portfolio represents a collection of financial instrument positions organized
+    by entities. It supports multi-currency positions, attribute-based grouping,
+    and aggregation for reporting and risk analysis.
 
-    Examples:
-        >>> from finstack.portfolio import Portfolio, Entity
-        >>> from finstack.core import Currency
+    Portfolios are the primary structure for portfolio-level valuation, risk
+    aggregation, and scenario analysis. Positions reference entities and
+    instruments, enabling flexible grouping and reporting.
+
+    Examples
+    --------
+    Create and query a portfolio:
+
         >>> from datetime import date
-        >>> portfolio = Portfolio("FUND_A", Currency.USD, date(2024, 1, 1))
-        >>> portfolio.entities["ACME"] = Entity("ACME")
-        >>> len(portfolio.positions)
-        0
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.portfolio import (
+        ...     PortfolioBuilder,
+        ...     Portfolio,
+        ...     Entity,
+        ...     Position,
+        ...     PositionUnit,
+        ... )
+        >>> from finstack.valuations.instruments import Equity
+        >>> entity = Entity("ACME")
+        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+        >>> portfolio = (
+        ...     PortfolioBuilder("FUND_A")
+        ...     .base_ccy(Currency("USD"))
+        ...     .as_of(date(2025, 1, 1))
+        ...     .entity(entity)
+        ...     .position(position)
+        ...     .build()
+        ... )
+        >>> portfolio.validate()
+        >>> len(portfolio.positions_for_entity("ACME")), portfolio.get_position("POS-1").instrument_id
+        (1, 'EQ-ACME')
+
+    Notes
+    -----
+    - Positions must reference valid entities
+    - Base currency is used for aggregation and reporting
+    - Positions can have tags for attribute-based grouping
+    - Portfolio supports metadata for custom attributes
+
+    See Also
+    --------
+    :class:`PortfolioBuilder`: Fluent builder for portfolios
+    :class:`Entity`: Entity structure
+    :class:`Position`: Position structure
+    :func:`value_portfolio`: Value a portfolio
     """
 
     def __init__(self, id: str, base_ccy: Currency, as_of: date) -> None:
@@ -50,8 +89,25 @@ class Portfolio:
         Returns:
             Position or None: The position if found.
 
-        Examples:
-            >>> position = portfolio.get_position("POS_1")
+        Examples
+        --------
+            >>> from datetime import date
+            >>> from finstack.core.currency import Currency
+            >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
+            >>> from finstack.valuations.instruments import Equity
+            >>> entity = Entity("ACME")
+            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+            >>> portfolio = (
+            ...     PortfolioBuilder("FUND_A")
+            ...     .base_ccy(Currency("USD"))
+            ...     .as_of(date(2025, 1, 1))
+            ...     .entity(entity)
+            ...     .position(position)
+            ...     .build()
+            ... )
+            >>> portfolio.get_position("POS-1").instrument_id
+            'EQ-ACME'
         """
         ...
 
@@ -64,9 +120,24 @@ class Portfolio:
         Returns:
             list[Position]: List of positions for the entity.
 
-        Examples:
-            >>> positions = portfolio.positions_for_entity("ENTITY_A")
-            >>> len(positions)
+        Examples
+        --------
+            >>> from datetime import date
+            >>> from finstack.core.currency import Currency
+            >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
+            >>> from finstack.valuations.instruments import Equity
+            >>> entity = Entity("ACME")
+            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+            >>> portfolio = (
+            ...     PortfolioBuilder("FUND_A")
+            ...     .base_ccy(Currency("USD"))
+            ...     .as_of(date(2025, 1, 1))
+            ...     .entity(entity)
+            ...     .position(position)
+            ...     .build()
+            ... )
+            >>> len(portfolio.positions_for_entity("ACME"))
             1
         """
         ...
@@ -80,9 +151,6 @@ class Portfolio:
 
         Returns:
             list[Position]: List of positions with matching tag.
-
-        Examples:
-            >>> positions = portfolio.positions_with_tag("sector", "Technology")
         """
         ...
 
@@ -95,7 +163,23 @@ class Portfolio:
         Raises:
             ValueError: If validation fails.
 
-        Examples:
+        Examples
+        --------
+            >>> from datetime import date
+            >>> from finstack.core.currency import Currency
+            >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
+            >>> from finstack.valuations.instruments import Equity
+            >>> entity = Entity("ACME")
+            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+            >>> portfolio = (
+            ...     PortfolioBuilder("FUND_A")
+            ...     .base_ccy(Currency("USD"))
+            ...     .as_of(date(2025, 1, 1))
+            ...     .entity(entity)
+            ...     .position(position)
+            ...     .build()
+            ... )
             >>> portfolio.validate()
         """
         ...

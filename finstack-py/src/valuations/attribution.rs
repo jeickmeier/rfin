@@ -32,18 +32,21 @@ fn parse_model_params_snapshot(
         }
 
         if let Ok(text) = obj.downcast::<PyString>() {
-            let snapshot: ModelParamsSnapshot = serde_json::from_str(text.to_str()?)
-                .map_err(|err| pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid model_params_t0 JSON: {err}"
-                )))?;
+            let snapshot: ModelParamsSnapshot =
+                serde_json::from_str(text.to_str()?).map_err(|err| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "Invalid model_params_t0 JSON: {err}"
+                    ))
+                })?;
             return Ok(Some(snapshot));
         }
 
         let json_value: Value = depythonize(obj)?;
-        let snapshot: ModelParamsSnapshot = serde_json::from_value(json_value)
-            .map_err(|err| pyo3::exceptions::PyValueError::new_err(format!(
+        let snapshot: ModelParamsSnapshot = serde_json::from_value(json_value).map_err(|err| {
+            pyo3::exceptions::PyValueError::new_err(format!(
                 "model_params_t0 does not match expected schema: {err}"
-            )))?;
+            ))
+        })?;
         Ok(Some(snapshot))
     } else {
         Ok(None)

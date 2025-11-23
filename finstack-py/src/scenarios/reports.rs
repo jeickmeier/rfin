@@ -1,10 +1,14 @@
 //! Report types from scenario execution.
 
 use crate::core::dates::utils::date_to_py;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_scenarios::adapters::RollForwardReport;
 use finstack_scenarios::engine::ApplicationReport;
+use indexmap::IndexMap;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyList, PyModule, PyType};
+use time::macros::date;
 
 /// Report describing what happened during scenario application.
 ///
@@ -107,6 +111,25 @@ impl PyRollForwardReport {
 
 #[pymethods]
 impl PyRollForwardReport {
+    #[classmethod]
+    fn example(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
+        total_carry.insert(Currency::USD, Money::new(25_000.0, Currency::USD));
+
+        let mut total_mv_change: IndexMap<Currency, Money> = IndexMap::new();
+        total_mv_change.insert(Currency::USD, Money::new(-10_000.0, Currency::USD));
+
+        Ok(Self::new(RollForwardReport {
+            old_date: date!(2025 - 01 - 01),
+            new_date: date!(2025 - 02 - 01),
+            days: 31,
+            instrument_carry: Vec::new(),
+            instrument_mv_change: Vec::new(),
+            total_carry,
+            total_mv_change,
+        }))
+    }
+
     #[getter]
     /// Original as-of date.
     ///

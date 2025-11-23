@@ -9,6 +9,7 @@ class InstrumentType:
     """Enumerates instrument families supported by the valuation engines.
 
     Examples:
+        >>> from finstack.valuations.common import InstrumentType
         >>> InstrumentType.BOND.name
         'bond'
     """
@@ -56,6 +57,7 @@ class InstrumentType:
             ValueError: If the label is unknown.
 
         Examples:
+            >>> from finstack.valuations.common import InstrumentType
             >>> InstrumentType.from_name("bond")
             InstrumentType.BOND
         """
@@ -79,6 +81,7 @@ class ModelKey:
     """Enumerates pricing model categories recognized by the registry.
 
     Examples:
+        >>> from finstack.valuations.common import ModelKey
         >>> ModelKey.DISCOUNTING.name
         'discounting'
     """
@@ -104,6 +107,7 @@ class ModelKey:
             ValueError: If the label is not supported.
 
         Examples:
+            >>> from finstack.valuations.common import ModelKey
             >>> ModelKey.from_name("discounting")
             ModelKey.DISCOUNTING
         """
@@ -127,6 +131,7 @@ class PricerKey:
     """Composite key identifying a specific instrument/model pairing.
 
     Examples:
+        >>> from finstack.valuations.common import InstrumentType, ModelKey, PricerKey
         >>> PricerKey(InstrumentType.BOND, ModelKey.DISCOUNTING)
         PricerKey(instrument='bond', model='discounting')
     """

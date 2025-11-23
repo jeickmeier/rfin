@@ -40,9 +40,12 @@ class WaterfallTier:
         payment_type: Type of payment (Fee, Interest, Principal, Residual)
 
     Examples:
+        >>> from finstack.valuations.instruments import AllocationMode, PaymentType, WaterfallTier
         >>> tier = WaterfallTier("fees", 1, PaymentType.Fee)
-        >>> tier.add_fixed_fee("trustee", "Trustee", 50000.0, "USD")
+        >>> tier.add_fixed_fee("trustee", "Trustee", 50_000.0, "USD")
         >>> tier.set_allocation_mode(AllocationMode.Sequential)
+        >>> tier.recipient_count
+        1
     """
 
     def __init__(self, tier_id: str, priority: int, payment_type: PaymentType) -> None: ...
@@ -144,8 +147,10 @@ def clo_2_0_template(currency: str) -> dict[str, Any]:
         Waterfall configuration as JSON-serializable dict
 
     Examples:
+        >>> from finstack.valuations.instruments import clo_2_0_template
         >>> waterfall = clo_2_0_template("USD")
-        >>> print(waterfall["tiers"])
+        >>> sorted(waterfall.keys())
+        ['base_currency', 'coverage_triggers', 'tiers']
     """
     ...
 
@@ -182,7 +187,10 @@ def get_waterfall_template(template_name: str, currency: str) -> dict[str, Any]:
         Waterfall configuration as JSON-serializable dict
 
     Examples:
+        >>> from finstack.valuations.instruments import get_waterfall_template
         >>> waterfall = get_waterfall_template("clo_2.0", "USD")
+        >>> len(waterfall["coverage_triggers"])
+        2
     """
     ...
 
@@ -192,9 +200,10 @@ def available_waterfall_templates() -> list[dict[str, str]]:
     Returns:
         List of template metadata with name, description, and deal_type
 
-    Examples:
-        >>> templates = available_waterfall_templates()
-        >>> for t in templates:
-        ...     print(f"{t['name']}: {t['description']}")
+        Examples:
+            >>> from finstack.valuations.instruments import available_waterfall_templates
+            >>> templates = available_waterfall_templates()
+            >>> templates[0]["name"]
+            'clo_2.0'
     """
     ...

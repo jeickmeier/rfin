@@ -5,24 +5,51 @@ from .types import Entity, Position
 from .portfolio import Portfolio
 
 class PortfolioBuilder:
-    """Builder for constructing a Portfolio with validation.
+    """Fluent builder for constructing portfolios with validation.
 
-    The builder stores all intermediate values needed to construct a portfolio and checks
-    invariants such as base currency, valuation date, and entity references before the
-    final portfolio is produced.
+    PortfolioBuilder provides a type-safe, fluent interface for constructing
+    portfolios. It validates invariants (base currency, valuation date, entity
+    references) before producing the final portfolio.
 
-    Examples:
-        >>> from finstack.portfolio import PortfolioBuilder, Entity
-        >>> from finstack.core import Currency
+    The builder enforces that all positions reference valid entities and that
+    required fields (base_ccy, as_of) are set before building.
+
+    Examples
+    --------
+    Build a simple portfolio:
+
         >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
+        >>> from finstack.valuations.instruments import Equity
+        >>> entity = Entity("ACME")
+        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
         >>> portfolio = (
         ...     PortfolioBuilder("FUND_A")
         ...     .name("Alpha Fund")
-        ...     .base_ccy(Currency.USD)
-        ...     .as_of(date(2024, 1, 1))
-        ...     .entity(Entity("ACME"))
+        ...     .base_ccy(Currency("USD"))
+        ...     .as_of(date(2025, 1, 1))
+        ...     .entity(entity)
+        ...     .position(position)
+        ...     .tag("style", "long_only")
         ...     .build()
         ... )
+        >>> print(portfolio.id, len(portfolio.positions))
+        FUND_A 1
+
+    Notes
+    -----
+    - Builder methods return self for chaining
+    - base_ccy and as_of are required before build()
+    - All positions must reference valid entities
+    - Validation occurs at build() time
+
+    See Also
+    --------
+    :class:`Portfolio`: Final portfolio structure
+    :class:`Entity`: Entity structure
+    :class:`Position`: Position structure
     """
 
     def __init__(self, id: str) -> None:
@@ -34,7 +61,9 @@ class PortfolioBuilder:
         Returns:
             PortfolioBuilder: New builder instance.
 
-        Examples:
+        Examples
+        --------
+            >>> from finstack.portfolio import PortfolioBuilder
             >>> builder = PortfolioBuilder("FUND_A")
         """
         ...
@@ -62,9 +91,10 @@ class PortfolioBuilder:
         Returns:
             PortfolioBuilder: Self for chaining.
 
-        Examples:
-            >>> from finstack.core import Currency
-            >>> builder = PortfolioBuilder("FUND_A").base_ccy(Currency.USD)
+        Examples
+        --------
+            >>> from finstack.core.currency import Currency
+            >>> builder = PortfolioBuilder("FUND_A").base_ccy(Currency("USD"))
         """
         ...
 
@@ -94,11 +124,10 @@ class PortfolioBuilder:
         Returns:
             PortfolioBuilder: Self for chaining.
 
-        Examples:
-            >>> entity = Entity("ACME")
-            >>> builder = PortfolioBuilder("FUND_A").entity(entity)
-            >>> # Or with multiple entities:
-            >>> builder = PortfolioBuilder("FUND_A").entity([entity1, entity2])
+        Examples
+        --------
+            >>> from finstack.portfolio import PortfolioBuilder, Entity
+            >>> builder = PortfolioBuilder("FUND_A").entity(Entity("ACME"))
         """
         ...
 
@@ -113,11 +142,14 @@ class PortfolioBuilder:
         Returns:
             PortfolioBuilder: Self for chaining.
 
-        Examples:
-            >>> position = Position("POS_1", "ENTITY_A", "INSTR_1", instrument, 1.0, PositionUnit.UNITS)
+        Examples
+        --------
+            >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
+            >>> from finstack.valuations.instruments import Equity
+            >>> from finstack.core.currency import Currency
+            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> position = Position("POS_1", "ENTITY_A", "EQ-ACME", equity, 1.0, PositionUnit.UNITS)
             >>> builder = PortfolioBuilder("FUND_A").position(position)
-            >>> # Or with multiple positions:
-            >>> builder = PortfolioBuilder("FUND_A").position([pos1, pos2])
         """
         ...
 
@@ -160,8 +192,16 @@ class PortfolioBuilder:
         Raises:
             ValueError: If validation fails (missing base_ccy, as_of, or invalid references).
 
-        Examples:
-            >>> portfolio = builder.build()
+        Examples
+        --------
+            >>> from datetime import date
+            >>> from finstack.core.currency import Currency
+            >>> from finstack.portfolio import PortfolioBuilder, Entity
+            >>> builder = (
+            ...     PortfolioBuilder("FUND_A").base_ccy(Currency("USD")).as_of(date(2025, 1, 1)).entity(Entity("ACME"))
+            ... )
+            >>> builder.build().id
+            'FUND_A'
         """
         ...
 

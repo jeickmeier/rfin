@@ -4,11 +4,11 @@
 //! data. Used for risk metrics (DV01, CS01), scenario analysis, and regulatory
 //! stress tests.
 
+use super::scalars::{MarketScalar, ScalarTimeSeries};
 use super::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
     forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
 };
-use super::scalars::{MarketScalar, ScalarTimeSeries};
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::types::CurveId;
@@ -430,9 +430,10 @@ impl Bumpable for MarketScalar {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         match self {
             MarketScalar::Unitless(v) => match (spec.mode, spec.units) {
-                (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                    Some(MarketScalar::Unitless(v + spec.additive_fraction()?))
-                }
+                (
+                    BumpMode::Additive,
+                    BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction,
+                ) => Some(MarketScalar::Unitless(v + spec.additive_fraction()?)),
                 (BumpMode::Multiplicative, BumpUnits::Factor) => {
                     Some(MarketScalar::Unitless(v * spec.value))
                 }

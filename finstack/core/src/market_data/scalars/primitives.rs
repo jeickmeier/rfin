@@ -283,10 +283,7 @@ impl ScalarTimeSeries {
     /// carries the last observation forward while Linear blends between
     /// neighboring observations.
     pub fn values_on(&self, dates: &[Date]) -> Result<Vec<f64>> {
-        let query_days: Vec<i32> = dates
-            .iter()
-            .map(|&d| to_days(d))
-            .collect();
+        let query_days: Vec<i32> = dates.iter().map(|&d| to_days(d)).collect();
         self.values_on_days(&query_days)
     }
 

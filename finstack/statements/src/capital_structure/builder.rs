@@ -195,10 +195,7 @@ impl<State> ModelBuilder<State> {
     }
 
     /// Set the FX conversion policy used when converting capital-structure cashflows.
-    pub fn fx_policy(
-        mut self,
-        policy: finstack_core::money::fx::FxConversionPolicy,
-    ) -> Self {
+    pub fn fx_policy(mut self, policy: finstack_core::money::fx::FxConversionPolicy) -> Self {
         ensure_capital_structure(&mut self).fx_policy = Some(policy);
         self
     }

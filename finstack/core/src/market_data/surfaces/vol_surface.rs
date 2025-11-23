@@ -334,7 +334,10 @@ impl VolSurface {
 impl Bumpable for VolSurface {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         // Only parallel bumps are supported for now
-        if !matches!(spec.bump_type, crate::market_data::bumps::BumpType::Parallel) {
+        if !matches!(
+            spec.bump_type,
+            crate::market_data::bumps::BumpType::Parallel
+        ) {
             return None;
         }
 

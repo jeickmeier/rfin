@@ -1,6 +1,6 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::{to_optional_string, PyInstrumentType};
 use finstack_core::dates::BusinessDayConvention;
@@ -153,7 +153,8 @@ impl PyRepo {
         let cash = extract_money(&cash_amount).context("cash_amount")?;
         let start = py_to_date(&start_date).context("start_date")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let repo_type_value = parse_repo_type(repo_type).context("repo_type")?;
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract().context("day_count")?;
@@ -162,7 +163,8 @@ impl PyRepo {
             finstack_core::dates::DayCount::Act360
         };
         let bdc_value = if let Some(obj) = business_day_convention {
-            let BusinessDayConventionArg(value) = obj.extract().context("business_day_convention")?;
+            let BusinessDayConventionArg(value) =
+                obj.extract().context("business_day_convention")?;
             value
         } else {
             BusinessDayConvention::Following

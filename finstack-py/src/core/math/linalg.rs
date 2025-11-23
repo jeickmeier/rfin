@@ -1,8 +1,7 @@
 use finstack_core::math::linalg::{
     apply_correlation as core_apply_correlation,
     build_correlation_matrix as core_build_correlation_matrix,
-    cholesky_decomposition as core_cholesky,
-    validate_correlation_matrix as core_validate_corr,
+    cholesky_decomposition as core_cholesky, validate_correlation_matrix as core_validate_corr,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -76,10 +75,7 @@ pub fn validate_correlation_matrix_py(
 /// -------
 /// list[float]
 ///     Vector of correlated shocks ``L * z``.
-pub fn apply_correlation_py(
-    cholesky: Vec<Vec<f64>>,
-    independent: Vec<f64>,
-) -> PyResult<Vec<f64>> {
+pub fn apply_correlation_py(cholesky: Vec<Vec<f64>>, independent: Vec<f64>) -> PyResult<Vec<f64>> {
     let n = independent.len();
     if n == 0 {
         return Ok(vec![]);
@@ -149,4 +145,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

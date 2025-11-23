@@ -7,10 +7,10 @@
 //!
 //! where $C(K, T)$ is the call price surface.
 
-use finstack_core::Result;
 use finstack_core::dates::Date;
-use std::sync::Arc;
+use finstack_core::Result;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 /// Trait for 2D interpolation.
 pub trait Interp2D: Send + Sync + Debug {
@@ -28,7 +28,7 @@ pub struct BilinearInterp {
 
 impl BilinearInterp {
     /// Create a new Bilinear Interpolator.
-    /// 
+    ///
     /// # Arguments
     /// * `xs`: Grid points for X dimension (must be sorted)
     /// * `ys`: Grid points for Y dimension (must be sorted)
@@ -38,7 +38,9 @@ impl BilinearInterp {
     ///   Let's stick to: index = i * ys.len() + j
     pub fn new(xs: Vec<f64>, ys: Vec<f64>, z_flat: Vec<f64>) -> Result<Self> {
         if xs.len() * ys.len() != z_flat.len() {
-            return Err(finstack_core::Error::Validation("Grid dimensions do not match values length".into()));
+            return Err(finstack_core::Error::Validation(
+                "Grid dimensions do not match values length".into(),
+            ));
         }
         // Verify sorted
         // (Omitted for brevity, assume sorted from builder)
@@ -50,19 +52,33 @@ impl Interp2D for BilinearInterp {
     fn interpolate(&self, x: f64, y: f64) -> Result<f64> {
         // Find indices
         let i = match self.xs.binary_search_by(|v| {
-            v.partial_cmp(&x).expect("NaN or infinite values not allowed in interpolation")
+            v.partial_cmp(&x)
+                .expect("NaN or infinite values not allowed in interpolation")
         }) {
             Ok(idx) => idx,
             Err(idx) => {
-                if idx == 0 { 0 } else if idx >= self.xs.len() { self.xs.len() - 2 } else { idx - 1 }
+                if idx == 0 {
+                    0
+                } else if idx >= self.xs.len() {
+                    self.xs.len() - 2
+                } else {
+                    idx - 1
+                }
             }
         };
         let j = match self.ys.binary_search_by(|v| {
-            v.partial_cmp(&y).expect("NaN or infinite values not allowed in interpolation")
+            v.partial_cmp(&y)
+                .expect("NaN or infinite values not allowed in interpolation")
         }) {
             Ok(idx) => idx,
             Err(idx) => {
-                if idx == 0 { 0 } else if idx >= self.ys.len() { self.ys.len() - 2 } else { idx - 1 }
+                if idx == 0 {
+                    0
+                } else if idx >= self.ys.len() {
+                    self.ys.len() - 2
+                } else {
+                    idx - 1
+                }
             }
         };
 
@@ -71,9 +87,9 @@ impl Interp2D for BilinearInterp {
         let j = j.min(self.ys.len().saturating_sub(2));
 
         let x1 = self.xs[i];
-        let x2 = self.xs[i+1];
+        let x2 = self.xs[i + 1];
         let y1 = self.ys[j];
-        let y2 = self.ys[j+1];
+        let y2 = self.ys[j + 1];
 
         let z11 = self.z_flat[i * self.ys.len() + j];
         let z12 = self.z_flat[i * self.ys.len() + j + 1];
@@ -126,7 +142,7 @@ impl LocalVolSurface {
         let t = t.max(0.0);
         // Ensure spot is positive
         let spot = spot.max(1e-6);
-        
+
         self.surface.interpolate(t, spot)
     }
 }
@@ -163,7 +179,7 @@ impl LocalVolBuilder {
         // We iterate times (outer) then strikes (inner) to match BilinearInterp expectation
         // if we map times -> x, strikes -> y.
         let mut local_vols = Vec::with_capacity(times.len() * strikes.len());
-        
+
         // Perturbations
         let dk = 0.001 * S0;
         let dt = 0.001;
@@ -178,17 +194,17 @@ impl LocalVolBuilder {
                 }
 
                 // 1. Compute Call Price C(K, T) and derivatives
-                
+
                 // Central difference for K
                 let c_k_plus = black_scholes_price(&implied_vol, S0, k + dk, t, r, q)?;
                 let c_k_minus = black_scholes_price(&implied_vol, S0, k - dk, t, r, q)?;
                 let c_k = black_scholes_price(&implied_vol, S0, k, t, r, q)?;
-                
+
                 #[allow(non_snake_case)]
                 let dC_dK = (c_k_plus - c_k_minus) / (2.0 * dk);
                 #[allow(non_snake_case)]
                 let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
-                
+
                 // Forward difference for T
                 let c_t_plus = black_scholes_price(&implied_vol, S0, k, t + dt, r, q)?;
                 #[allow(non_snake_case)]
@@ -196,10 +212,10 @@ impl LocalVolBuilder {
 
                 // Dupire Formula
                 // sigma_loc^2 = (dC/dT + (r-q)K dC/dK + qC) / (0.5 * K^2 * d2C/dK2)
-                
+
                 let numerator = dC_dT + (r - q) * k * dC_dK + q * c_k;
                 let denominator = 0.5 * k * k * d2C_dK2;
-                
+
                 let var_loc = if denominator.abs() < 1e-9 {
                     // Fallback to implied vol if curvature is zero (flat smile)
                     let iv = implied_vol(k, t)?;
@@ -207,17 +223,16 @@ impl LocalVolBuilder {
                 } else {
                     (numerator / denominator).max(0.0) // Ensure non-negative variance
                 };
-                
+
                 local_vols.push(var_loc.sqrt());
             }
         }
-        
+
         let surface = BilinearInterp::new(times.to_vec(), strikes.to_vec(), local_vols)?;
-        
+
         Ok(LocalVolSurface::new(
-            Date::from_ordinal_date(2024, 1)
-                .expect("Invalid date: 2024-01-01 should be valid"),
-            Arc::new(surface)
+            Date::from_ordinal_date(2024, 1).expect("Invalid date: 2024-01-01 should be valid"),
+            Arc::new(surface),
         ))
     }
 }
@@ -229,17 +244,17 @@ where
     F: Fn(f64, f64) -> Result<f64>,
 {
     let sigma = implied_vol_fn(K, T)?;
-    
+
     if T <= 0.0 {
         return Ok((S - K).max(0.0));
     }
-    
+
     use crate::instruments::common::models::volatility::black::{d1, d2};
     use finstack_core::math::norm_cdf;
-    
+
     let d1_val = d1(S, K, r, sigma, T, q);
     let d2_val = d2(S, K, r, sigma, T, q);
-    
+
     let call = S * (-q * T).exp() * norm_cdf(d1_val) - K * (-r * T).exp() * norm_cdf(d2_val);
     Ok(call)
 }
@@ -253,30 +268,29 @@ mod tests {
         // If implied vol is constant (flat smile), local vol should equal implied vol
         let const_vol = 0.20;
         let implied_vol_fn = |_: f64, _: f64| Ok(const_vol);
-        
+
         #[allow(non_snake_case)]
         let S0 = 100.0;
         let r = 0.05;
         let q = 0.0;
-        
+
         let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
         let times = vec![0.5, 1.0, 2.0];
-        
-        let lv_surface = LocalVolBuilder::from_implied_vol(
-            implied_vol_fn,
-            S0,
-            r,
-            q,
-            &strikes,
-            &times
-        )?;
-        
+
+        let lv_surface =
+            LocalVolBuilder::from_implied_vol(implied_vol_fn, S0, r, q, &strikes, &times)?;
+
         // Check at ATM, T=1.0
         let lv = lv_surface.get_vol(1.0, 100.0)?;
-        
+
         // Allow small numerical error due to finite differences
-        assert!((lv - const_vol).abs() < 0.01, "Local vol {} should match flat implied vol {}", lv, const_vol);
-        
+        assert!(
+            (lv - const_vol).abs() < 0.01,
+            "Local vol {} should match flat implied vol {}",
+            lv,
+            const_vol
+        );
+
         Ok(())
     }
 }

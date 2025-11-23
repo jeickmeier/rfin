@@ -1,7 +1,7 @@
 use crate::core::common::labels::normalize_label;
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::Frequency;
@@ -188,7 +188,8 @@ impl PyVarianceSwap {
                 "Maturity must be after observation start",
             ));
         }
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let method = realized_method
             .map(|m| m.inner)
             .unwrap_or(RealizedVarMethod::CloseToClose);

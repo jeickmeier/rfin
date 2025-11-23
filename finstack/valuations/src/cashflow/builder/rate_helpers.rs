@@ -181,14 +181,7 @@ pub fn project_floating_rate_simple(
     let period_end = reset_date + time::Duration::days(days);
 
     project_floating_rate(
-        reset_date,
-        period_end,
-        index_id,
-        spread_bp,
-        gearing,
-        floor_bp,
-        cap_bp,
-        market,
+        reset_date, period_end, index_id, spread_bp, gearing, floor_bp, cap_bp, market,
     )
 }
 

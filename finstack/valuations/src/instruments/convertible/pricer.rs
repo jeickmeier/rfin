@@ -806,12 +806,7 @@ pub fn calculate_convertible_greeks(
     let dt_bump = 1.0 / 365.25;
     if inputs.time_to_maturity > dt_bump {
         if let Some(next_day) = as_of.next_day() {
-            let fwd_price = price_convertible_bond(
-                bond,
-                market_context,
-                tree_type,
-                next_day,
-            )?;
+            let fwd_price = price_convertible_bond(bond, market_context, tree_type, next_day)?;
             greeks.theta = (fwd_price.amount() - greeks.price) / dt_bump;
         }
     }

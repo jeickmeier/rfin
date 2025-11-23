@@ -1,6 +1,6 @@
 // Reverted start_date
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::date_to_py;
+use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cliquet_option::CliquetOption;
 use pyo3::prelude::*;
@@ -66,7 +66,8 @@ impl PyCliquetOption {
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let notional_money = extract_money(&notional).context("notional")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         // Parse reset dates

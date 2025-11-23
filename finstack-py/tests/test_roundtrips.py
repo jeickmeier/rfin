@@ -258,8 +258,8 @@ class TestPricingRoundtrips:
 
     def test_bond_pricing_roundtrip(self) -> None:
         """Bond should price and return accessible results."""
-        from finstack.valuations import create_standard_registry
         from finstack.valuations.instruments import Bond
+        from finstack.valuations.pricer import create_standard_registry
 
         # Setup market
         market = MarketContext()

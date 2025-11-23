@@ -6,7 +6,51 @@ from ...core.money import Money
 from ..common import InstrumentType
 
 class CDSIndex:
-    """CDS index instrument binding exposing a simplified constructor."""
+    """CDS index for portfolio credit risk exposure.
+
+    CDSIndex represents a credit default swap on a standardized index of
+    reference entities (e.g., CDX, iTraxx). The index provides diversified
+    credit exposure and is more liquid than single-name CDS.
+
+    CDS indices are used for portfolio credit risk management, hedging, and
+    speculation. They follow ISDA conventions and require discount and credit
+    curves for pricing.
+
+    Examples
+    --------
+    Create a CDS index position:
+
+        >>> from finstack.valuations.instruments import CDSIndex
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> cds_index = CDSIndex.create(
+        ...     "CDX-IG-5Y",
+        ...     index_name="CDX.NA.IG",
+        ...     series=40,
+        ...     version=1,
+        ...     notional=Money(10_000_000, Currency("USD")),
+        ...     fixed_coupon_bp=100.0,  # 100bp fixed coupon
+        ...     start_date=date(2024, 1, 1),
+        ...     maturity=date(2029, 1, 1),  # 5-year index
+        ...     discount_curve="USD",
+        ...     credit_curve="CDX-IG-40",
+        ...     side="pay_protection",
+        ... )
+
+    Notes
+    -----
+    - CDS indices require discount curve and credit (index) curve
+    - Fixed coupon is the standard coupon for the index series
+    - Index factor accounts for defaults and roll-downs
+    - Series and version identify the specific index iteration
+    - Side determines protection buyer vs seller
+
+    See Also
+    --------
+    :class:`CreditDefaultSwap`: Single-name CDS
+    :class:`CdsTranche`: CDS index tranches
+    :class:`PricerRegistry`: Pricing entry point
+    """
 
     @classmethod
     def create(
@@ -25,9 +69,65 @@ class CDSIndex:
         side: Optional[str] = "pay_protection",
         recovery_rate: Optional[float] = None,
         index_factor: Optional[float] = None,
-    ) -> "CDSIndex":
-        """Create a CDS index instrument with standard ISDA conventions."""
-        ...
+    ) -> "CDSIndex": ...
+    """Create a CDS index instrument with standard ISDA conventions.
+
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the CDS index (e.g., "CDX-IG-5Y").
+    index_name : str
+        Index name (e.g., "CDX.NA.IG", "iTraxx.Europe").
+    series : int
+        Index series number (e.g., 40 for CDX.NA.IG Series 40).
+    version : int
+        Index version number (typically 1 for new series).
+    notional : Money
+        Notional principal amount.
+    fixed_coupon_bp : float
+        Fixed coupon in basis points (e.g., 100.0 for 100bp = 1%).
+        This is the standard coupon for the index series.
+    start_date : date
+        CDS index start date.
+    maturity : date
+        CDS index maturity date. Must be after start_date.
+    discount_curve : str
+        Discount curve identifier in MarketContext.
+    credit_curve : str
+        Credit (index) curve identifier in MarketContext.
+    side : str, optional
+        Position side: "pay_protection" (default, pay premium, receive protection)
+        or "receive_protection" (receive premium, pay protection).
+    recovery_rate : float, optional
+        Recovery rate (default: index standard, typically 0.40).
+    index_factor : float, optional
+        Index factor accounting for defaults and roll-downs (default: 1.0).
+
+    Returns
+    -------
+    CDSIndex
+        Configured CDS index ready for pricing.
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid or if required curves are not found.
+
+    Examples
+    --------
+        >>> cds_index = CDSIndex.create(
+        ...     "CDX-IG-5Y",
+        ...     "CDX.NA.IG",
+        ...     40,
+        ...     1,
+        ...     Money(10_000_000, Currency("USD")),
+        ...     100.0,  # 100bp
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1),
+        ...     discount_curve="USD",
+        ...     credit_curve="CDX-IG-40"
+        ... )
+    """
 
     @property
     def instrument_id(self) -> str: ...

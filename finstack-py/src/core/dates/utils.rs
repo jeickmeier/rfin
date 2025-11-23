@@ -242,9 +242,7 @@ fn add_business_days_py(
 ) -> PyResult<PyObject> {
     let d = py_to_date(&date).context("date")?;
     let cal = extract_calendar(&calendar).context("calendar")?;
-    let result = d
-        .add_business_days(n, cal.inner)
-        .map_err(core_to_py)?;
+    let result = d.add_business_days(n, cal.inner).map_err(core_to_py)?;
     date_to_py(py, result)
 }
 

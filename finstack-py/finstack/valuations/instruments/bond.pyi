@@ -19,59 +19,180 @@ class PutScheduleItem(TypedDict):
     price_pct: float
 
 class Bond:
-    """Fixed-income bond instrument with convenience constructors."""
+    """Fixed-income bond instrument for pricing and risk analysis.
+
+    Bond represents a fixed or floating-rate debt instrument with scheduled
+    coupon payments and principal repayment. It supports various bond types
+    including fixed-rate, floating-rate, zero-coupon, callable, puttable,
+    and amortizing bonds.
+
+    Bonds are priced using discount curves (and optionally forward curves for
+    floating-rate bonds) stored in a MarketContext. The instrument generates
+    cashflows based on its schedule and can be valued using various pricing
+    models (discounting, credit-adjusted, etc.).
+
+    Examples
+    --------
+    Create a simple fixed-rate bond:
+
+        >>> from finstack.valuations.instruments import Bond
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> bond = Bond.fixed_semiannual(
+        ...     "CORP-001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     0.045,  # 4.5% annual coupon
+        ...     date(2023, 1, 1),
+        ...     date(2028, 1, 1),
+        ...     "USD",  # Discount curve ID
+        ... )
+        >>> print(bond.coupon)
+        0.045
+
+    Price the bond:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments import Bond
+        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> bond = Bond.fixed_semiannual(
+        ...     "CORP-001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     0.045,
+        ...     date(2023, 1, 1),
+        ...     date(2028, 1, 1),
+        ...     "USD",
+        ... )
+        >>> ctx = MarketContext()
+        >>> curve = DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.97)])
+        >>> ctx.insert_discount(curve)
+        >>> registry = create_standard_registry()
+        >>> result = registry.price(bond, "discounting", ctx)
+        >>> result.value.currency.code
+        'USD'
+
+    Notes
+    -----
+    - Bonds require a discount curve in MarketContext for pricing
+    - Floating-rate bonds also require a forward curve
+    - Use :meth:`builder` for full customization (amortization, calls, puts)
+    - Credit-sensitive pricing requires a hazard curve in MarketContext
+    - Bond cashflows are generated based on the payment schedule
+
+    See Also
+    --------
+    :class:`InterestRateSwap`: Interest rate swap instruments
+    :class:`PricerRegistry`: Pricing entry point
+    :class:`MarketContext`: Market data container
+    """
 
     @classmethod
     def fixed_semiannual(
         cls, instrument_id: str, notional: Money, coupon_rate: float, issue: date, maturity: date, discount_curve: str
-    ) -> Bond:
-        """Create a semi-annual fixed-rate bond with 30/360 day count and Following BDC.
+    ) -> Bond: ...
+    """Create a semi-annual fixed-rate bond with standard conventions.
 
-        Args:
-            instrument_id: Instrument identifier or string-like object.
-            notional: Notional principal as Money.
-            coupon_rate: Annual coupon in decimal form.
-            issue: Issue date of the bond.
-            maturity: Maturity date of the bond.
-            discount_curve: Discount curve identifier for valuation.
+    Factory method for creating a fixed-rate bond with semi-annual coupon
+    payments, 30/360 day count, and Following business day convention.
+    This is the most common bond structure for corporate and government bonds.
 
-        Returns:
-            Bond: Configured fixed-rate bond instrument.
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the bond (e.g., "CORP-001", "UST-5Y").
+    notional : Money
+        Principal amount of the bond. The currency determines the discount
+        curve currency requirement.
+    coupon_rate : float
+        Annual coupon rate as a decimal (e.g., 0.045 for 4.5%).
+    issue : date
+        Issue date of the bond (first accrual date).
+    maturity : date
+        Maturity date when principal is repaid. Must be after issue date.
+    discount_curve : str
+        Identifier of the discount curve in MarketContext used for valuation.
+        The curve currency should match the bond's currency.
 
-        Raises:
-            ValueError: If identifiers or dates cannot be parsed.
+    Returns
+    -------
+    Bond
+        Configured fixed-rate bond with semi-annual payments.
 
-        Examples:
-            >>> bond = Bond.fixed_semiannual(
-            ...     "corp_1", Money("USD", 1_000_000), 0.045, date(2023, 1, 1), date(2028, 1, 1), "usd_discount"
-            ... )
-            >>> bond.coupon
-            0.045
-        """
-        ...
+    Raises
+    ------
+    ValueError
+        If dates are invalid (maturity <= issue), if coupon_rate is negative,
+        or if notional amount is invalid.
+
+    Examples
+    --------
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> 
+        >>> bond = Bond.fixed_semiannual(
+        ...     "CORP-001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     0.045,  # 4.5% coupon
+        ...     date(2023, 1, 1),
+        ...     date(2028, 1, 1),  # 5-year bond
+        ...     "USD"
+        ... )
+        >>> bond.coupon
+        0.045
+        >>> bond.maturity
+        datetime.date(2028, 1, 1)
+    """
 
     @classmethod
-    def treasury(cls, instrument_id: str, notional: Money, coupon_rate: float, issue: date, maturity: date) -> Bond:
-        """Create a U.S. Treasury-style bond with annual coupons and Act/Act ISMA day count.
+    def treasury(cls, instrument_id: str, notional: Money, coupon_rate: float, issue: date, maturity: date) -> Bond: ...
+    """Create a U.S. Treasury-style bond with annual coupons and Act/Act ISMA day count.
 
-        Args:
-            instrument_id: Instrument identifier or string-like object.
-            notional: Notional principal as Money.
-            coupon_rate: Annual coupon in decimal form.
-            issue: Issue date of the bond.
-            maturity: Maturity date of the bond.
+    Factory method for creating a bond matching U.S. Treasury conventions:
+    annual coupon payments, Act/Act ISMA day count, and Following business
+    day convention. The discount curve defaults to the bond's currency.
 
-        Returns:
-            Bond: Configured Treasury-style bond instrument.
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the bond (e.g., "UST-5Y", "T-2030").
+    notional : Money
+        Principal amount. Typically USD for U.S. Treasuries.
+    coupon_rate : float
+        Annual coupon rate as a decimal (e.g., 0.03 for 3%).
+    issue : date
+        Issue date of the bond.
+    maturity : date
+        Maturity date when principal is repaid.
 
-        Raises:
-            ValueError: If identifiers or dates cannot be parsed.
+    Returns
+    -------
+    Bond
+        Configured Treasury-style bond with annual payments and Act/Act
+    day count.
 
-        Examples:
-            >>> Bond.treasury("ust_5y", Money("USD", 1_000), 0.03, date(2024, 1, 1), date(2029, 1, 1))
-            Bond(id='ust_5y', coupon=0.03, maturity='2029-01-01')
-        """
-        ...
+    Raises
+    ------
+    ValueError
+        If dates are invalid or coupon_rate is negative.
+
+    Examples
+    --------
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> 
+        >>> bond = Bond.treasury(
+        ...     "UST-5Y",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     0.03,  # 3% coupon
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1)
+        ... )
+        >>> bond.coupon
+        0.03
+    """
 
     @classmethod
     def zero_coupon(cls, instrument_id: str, notional: Money, issue: date, maturity: date, discount_curve: str) -> Bond:
@@ -115,38 +236,122 @@ class Bond:
         float_margin_bp: Optional[float] = None,
         float_gearing: Optional[float] = None,
         float_reset_lag_days: Optional[int] = None,
-    ) -> Bond:
-        """Create a bond via builder parameters. Supports amortization and call/put.
+    ) -> Bond: ...
+    """Create a fully customizable bond with advanced features.
 
-        Args:
-            instrument_id: Instrument identifier or string-like object.
-            notional: Notional amount as Money.
-            issue: Issue date of the bond.
-            maturity: Maturity date of the bond.
-            discount_curve: Discount curve identifier for valuation.
-            coupon_rate: Optional fixed coupon rate in decimal form.
-            frequency: Optional payment frequency.
-            day_count: Optional day-count convention.
-            bdc: Optional business-day convention.
-            calendar_id: Optional calendar identifier for scheduling.
-            stub: Optional stub kind for schedule construction.
-            amortization: Optional amortization specification.
-            call_schedule: Optional list of (date, price %) call events.
-            put_schedule: Optional list of (date, price %) put events.
-            quoted_clean_price: Optional quoted clean price for overrides.
-            forward_curve: Optional forward curve identifier for float spec.
-            float_margin_bp: Optional floating margin in basis points.
-            float_gearing: Optional gearing multiplier for float leg.
-            float_reset_lag_days: Optional reset lag in days for float leg.
+    Builder method supporting all bond features including amortization,
+    call/put schedules, floating-rate specifications, and custom conventions.
+    Use this when the convenience constructors (:meth:`fixed_semiannual`,
+    :meth:`treasury`, etc.) don't meet your requirements.
 
-        Returns:
-            Bond: Fully specified bond instrument.
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the bond.
+    notional : Money
+        Principal amount of the bond.
+    issue : date
+        Issue date (first accrual date).
+    maturity : date
+        Maturity date (must be after issue).
+    discount_curve : str
+        Discount curve identifier for valuation.
+    coupon_rate : float, optional
+        Fixed coupon rate in decimal form. If None, creates a zero-coupon
+        bond (unless floating-rate spec is provided).
+    frequency : Frequency, optional
+        Coupon payment frequency (e.g., Frequency.SEMI_ANNUAL, Frequency.QUARTERLY).
+        Defaults to semi-annual if not specified.
+    day_count : DayCount, optional
+        Day-count convention for accrual calculations. Defaults to 30/360.
+    bdc : BusinessDayConvention, optional
+        Business day convention for payment dates. Defaults to Following.
+    calendar_id : str, optional
+        Holiday calendar identifier for business day adjustments (e.g., "USNY").
+    stub : StubKind, optional
+        Stub period handling for first/last periods (e.g., StubKind.SHORT_FIRST).
+    amortization : AmortizationSpec, optional
+        Amortization schedule for principal repayment over time (not bullet).
+    call_schedule : List[CallScheduleItem], optional
+        List of call dates and prices. Each item is a dict with "date" and
+        "price_pct" keys. The issuer can call the bond at these dates.
+    put_schedule : List[PutScheduleItem], optional
+        List of put dates and prices. Each item is a dict with "date" and
+        "price_pct" keys. The holder can put the bond back at these dates.
+    quoted_clean_price : float, optional
+        Market clean price override (as a percentage of par, e.g., 101.5 for 101.5%).
+        Used for yield calculations and market-relative pricing.
+    forward_curve : str, optional
+        Forward curve identifier for floating-rate bonds. Required for FRNs.
+    float_margin_bp : float, optional
+        Floating margin in basis points (e.g., 25.0 for 25bp). Added to the
+        forward rate for each reset period.
+    float_gearing : float, optional
+        Gearing multiplier for floating leg (e.g., 1.5 for 150% of the index rate).
+        Defaults to 1.0.
+    float_reset_lag_days : int, optional
+        Number of days between reset date and payment date (settlement lag).
+        Defaults to 2 (T+2) for most markets.
 
-        Raises:
-            ValueError: If identifiers or dates cannot be parsed.
-            RuntimeError: When the underlying builder detects invalid input.
-        """
-        ...
+    Returns
+    -------
+    Bond
+        Fully specified bond instrument with all requested features.
+
+    Raises
+    ------
+    ValueError
+        If dates are invalid, if required parameters are missing, or if
+        schedules are malformed.
+    RuntimeError
+        If the underlying builder detects invalid input combinations.
+
+    Examples
+    --------
+    Callable bond:
+
+        >>> from finstack.core.dates.schedule import Frequency
+        >>> from finstack.core.dates.daycount import DayCount
+        >>> 
+        >>> call_schedule = [
+        ...     {"date": date(2026, 1, 1), "price_pct": 100.0},
+        ...     {"date": date(2027, 1, 1), "price_pct": 100.0},
+        ... ]
+        >>> bond = Bond.builder(
+        ...     "CALLABLE-001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     date(2023, 1, 1),
+        ...     date(2028, 1, 1),
+        ...     "USD",
+        ...     coupon_rate=0.05,
+        ...     frequency=Frequency.SEMI_ANNUAL,
+        ...     call_schedule=call_schedule
+        ... )
+
+    Amortizing bond:
+
+        >>> from finstack.core.cashflow.primitives import AmortizationSpec
+        >>> 
+        >>> amort = AmortizationSpec.linear(maturity, 0.2)  # 20% per year
+        >>> bond = Bond.builder(
+        ...     "AMORT-001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     date(2023, 1, 1),
+        ...     date(2028, 1, 1),
+        ...     "USD",
+        ...     coupon_rate=0.04,
+        ...     amortization=amort
+        ... )
+
+    Notes
+    -----
+    - Use convenience methods (:meth:`fixed_semiannual`, :meth:`treasury`) for
+      simple bonds
+    - Call/put schedules affect optionality and require appropriate pricing
+    - Amortization affects principal cashflows over time
+    - Floating-rate bonds require both discount_curve and forward_curve
+    - Quoted clean price is used for yield-to-maturity calculations
+    """
 
     @classmethod
     def from_cashflows(

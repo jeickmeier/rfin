@@ -136,8 +136,33 @@ class ExtensionRegistry:
 class CorkscrewExtension:
     """Corkscrew extension for balance sheet roll-forward validation.
 
-    Validates that balance sheet accounts properly roll forward:
+    CorkscrewExtension validates that balance sheet accounts properly roll
+    forward according to the accounting identity:
     Ending Balance = Beginning Balance + Additions - Reductions
+
+    This extension is used to ensure balance sheet articulation and detect
+    modeling errors in financial statement models.
+
+    Examples
+    --------
+    Instantiate the extension:
+
+        >>> from finstack.statements.extensions import CorkscrewExtension
+        >>> corkscrew = CorkscrewExtension.new()
+        >>> print(repr(corkscrew))
+        CorkscrewExtension()
+
+    Notes
+    -----
+    - Validates balance sheet roll-forward logic
+    - Detects modeling errors and inconsistencies
+    - Works with balance sheet nodes (assets, liabilities, equity)
+    - Returns ExtensionResult with validation status
+
+    See Also
+    --------
+    :class:`ExtensionRegistry`: Extension management
+    :class:`CreditScorecardExtension`: Credit rating extension
     """
 
     @classmethod
@@ -154,7 +179,31 @@ class CorkscrewExtension:
 class CreditScorecardExtension:
     """Credit scorecard extension for rating assignment.
 
-    Assigns credit ratings based on financial ratios and thresholds.
+    CreditScorecardExtension assigns credit ratings to entities based on
+    financial ratios and predefined thresholds. It evaluates financial
+    metrics (leverage, coverage, profitability) and maps them to credit
+    ratings using configurable scorecard logic.
+
+    Examples
+    --------
+    Instantiate the extension:
+
+        >>> from finstack.statements.extensions import CreditScorecardExtension
+        >>> scorecard = CreditScorecardExtension.new()
+        >>> print(repr(scorecard))
+        CreditScorecardExtension()
+
+    Notes
+    -----
+    - Assigns credit ratings based on financial ratios
+    - Uses configurable thresholds and scorecard logic
+    - Evaluates leverage, coverage, profitability metrics
+    - Returns ExtensionResult with assigned rating
+
+    See Also
+    --------
+    :class:`ExtensionRegistry`: Extension management
+    :class:`CorkscrewExtension`: Balance sheet validation
     """
 
     @classmethod

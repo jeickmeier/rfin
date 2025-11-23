@@ -1,11 +1,13 @@
-use crate::core::math::interp::{parse_extrapolation, parse_interp, PyExtrapolationPolicy, PyInterpStyle};
 use crate::core::common::args::{
     extract_float_pairs, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg,
 };
 use crate::core::currency::PyCurrency;
-use crate::core::dates::PyDayCount;
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::dates::PyDayCount;
+use crate::core::math::interp::{
+    parse_extrapolation, parse_interp, PyExtrapolationPolicy, PyInterpStyle,
+};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::discounting::npv_static;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
@@ -135,9 +137,7 @@ impl PyDiscountCurve {
             Some(obj) => {
                 if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                     v
-                } else if let Ok(py_style) =
-                    obj.extract::<PyRef<PyInterpStyle>>()
-                {
+                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
                     py_style.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
                     parse_interp_enum(Some(name), InterpStyle::Linear)?
@@ -153,9 +153,7 @@ impl PyDiscountCurve {
             Some(obj) => {
                 if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
                     v
-                } else if let Ok(py_ex) =
-                    obj.extract::<PyRef<PyExtrapolationPolicy>>()
-                {
+                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
                     py_ex.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
                     parse_extrap_enum(Some(name))?
@@ -343,8 +341,8 @@ impl PyDiscountCurve {
 
         let dc = parse_day_count(day_count)?.unwrap_or(self.inner.day_count());
 
-        let result = npv_static(&*self.inner, self.inner.base_date(), dc, &flows)
-            .map_err(core_to_py)?;
+        let result =
+            npv_static(&*self.inner, self.inner.base_date(), dc, &flows).map_err(core_to_py)?;
         Ok(PyMoney::new(result))
     }
 }
@@ -421,9 +419,7 @@ impl PyForwardCurve {
         if let Some(obj) = interp {
             let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                 v
-            } else if let Ok(py_style) =
-                obj.extract::<PyRef<PyInterpStyle>>()
-            {
+            } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
                 py_style.inner
             } else if let Ok(name) = obj.extract::<&str>() {
                 parse_interp_enum(Some(name), InterpStyle::Linear)?
@@ -782,9 +778,7 @@ impl PyInflationCurve {
             Some(obj) => {
                 if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                     v
-                } else if let Ok(py_style) =
-                    obj.extract::<PyRef<PyInterpStyle>>()
-                {
+                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
                     py_style.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
                     parse_interp_enum(Some(name), InterpStyle::LogLinear)?

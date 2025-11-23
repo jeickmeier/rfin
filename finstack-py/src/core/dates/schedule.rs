@@ -72,10 +72,7 @@ impl PyFrequency {
     ///
     /// This mirrors :rust:`finstack_core::dates::Frequency::from_payments_per_year`,
     /// accepting common values such as 1, 2, 3, 4, 6, or 12.
-    fn from_payments_per_year(
-        _cls: &Bound<'_, PyType>,
-        payments_per_year: u32,
-    ) -> PyResult<Self> {
+    fn from_payments_per_year(_cls: &Bound<'_, PyType>, payments_per_year: u32) -> PyResult<Self> {
         Frequency::from_payments_per_year(payments_per_year)
             .map(Self::new)
             .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg))

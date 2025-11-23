@@ -13,15 +13,61 @@ from .dividends import DividendSchedule
 from ..currency import Currency
 
 class MarketContext:
-    """Central repository for market data.
+    """Central repository for all market data used in pricing and risk calculations.
 
-    Aggregates all market data including curves, surfaces, FX rates,
-    and other market information for use in pricing and risk calculations.
+    MarketContext is the primary container for market data in finstack. It
+    aggregates discount curves, forward curves, volatility surfaces, FX rates,
+    scalar prices, and other market information needed for instrument valuation.
+    All valuation functions require a MarketContext to resolve market data
+    dependencies by identifier.
+
+    MarketContext instances are mutable and can be populated incrementally using
+    the various ``insert_*`` methods. Once populated, curves and surfaces can
+    be retrieved by their identifiers. The context can be cloned to create
+    independent copies for scenario analysis.
+
+    Parameters
+    ----------
+    None
+        Construct via ``MarketContext()`` to create an empty context.
+
+    Returns
+    -------
+    MarketContext
+        Empty market context ready for population with market data.
+
+    Examples
+    --------
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve
+        >>> from finstack.core.market_data.fx import FxMatrix
+        >>> ctx = MarketContext()
+        >>> ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> fx = FxMatrix()
+        >>> fx.set_quote(Currency("EUR"), Currency("USD"), 1.10)
+        >>> ctx.insert_fx(fx)
+        >>> sorted(ctx.curve_ids())
+        ['USD']
+
+    Notes
+    -----
+    - MarketContext is mutable - use :meth:`clone` to create independent copies
+    - Insertion methods replace existing entries with the same identifier
+    - Retrieval methods raise ``ValueError`` if the requested item is not found
+    - FX matrix is optional but required for multi-currency valuations
+    - Use :meth:`apply_bumps` to create scenario variants with shifted market data
+    - Context statistics are available via :meth:`stats` for debugging
+
+    See Also
+    --------
+    :class:`DiscountCurve`: Discount curve construction
+    :class:`FxMatrix`: FX rate management
+    :class:`MarketBump`: Scenario bump specifications
     """
 
     def __init__(self) -> None: ...
-    """Create an empty market context."""
-
     def clone(self) -> MarketContext: ...
     """Create a deep copy of this market context.
     
@@ -146,22 +192,30 @@ class MarketContext:
     """
 
     def discount(self, id: str) -> DiscountCurve: ...
-    """Get a discount curve by ID.
+    """Retrieve a discount curve by identifier.
     
     Parameters
     ----------
     id : str
-        Curve identifier.
+        Discount curve identifier (e.g., "USD", "EUR-LIBOR-3M").
         
     Returns
     -------
     DiscountCurve
-        Discount curve.
+        Discount curve with the specified identifier.
         
     Raises
     ------
-    KeyError
-        If curve not found.
+    ValueError
+        If no discount curve with the given identifier exists in the context.
+        Use :meth:`curve_ids_by_type` to list available curves.
+        
+    Examples
+    --------
+        >>> ctx = MarketContext()
+        >>> ctx.insert_discount(my_curve)
+        >>> curve = ctx.discount("USD")
+        >>> df = curve.discount_factor(0.5)  # 6-month discount factor
     """
 
     def forward(self, id: str) -> ForwardCurve: ...

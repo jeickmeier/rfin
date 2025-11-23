@@ -3,8 +3,8 @@
 //! Provides common helpers for knot validation, segment location, and
 //! monotonicity checking used across all interpolation implementations.
 
-use crate::{error::InputError, Error};
 use super::types::ExtrapolationPolicy;
+use crate::{error::InputError, Error};
 
 /// Helper to check and apply extrapolation if x is out of bounds.
 ///

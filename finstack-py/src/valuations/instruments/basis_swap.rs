@@ -1,6 +1,6 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::py_to_date;
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
@@ -86,7 +86,8 @@ impl PyBasisSwapLeg {
             DayCount::Act360
         };
         let bdc = if let Some(obj) = business_day_convention {
-            let BusinessDayConventionArg(value) = obj.extract().context("business_day_convention")?;
+            let BusinessDayConventionArg(value) =
+                obj.extract().context("business_day_convention")?;
             value
         } else {
             BusinessDayConvention::ModifiedFollowing
@@ -205,7 +206,8 @@ impl PyBasisSwap {
         let notional_money = extract_money(&notional).context("notional")?;
         let start = py_to_date(&start_date).context("start_date")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let stub_kind = parse_stub(stub).context("stub")?;
 
         let mut builder = BasisSwap::builder();

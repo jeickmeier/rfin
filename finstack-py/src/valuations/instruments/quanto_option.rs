@@ -1,5 +1,5 @@
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::quanto_option::QuantoOption;
 use finstack_valuations::instruments::OptionType;
@@ -75,13 +75,18 @@ impl PyQuantoOption {
     ) -> PyResult<Self> {
         use crate::core::common::args::CurrencyArg;
         use crate::core::common::labels::normalize_label;
-        use finstack_core::dates::DayCount;
         use crate::errors::PyContext;
+        use finstack_core::dates::DayCount;
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let foreign_discount_curve_id = CurveId::new(foreign_discount_curve.extract::<&str>().context("foreign_discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let foreign_discount_curve_id = CurveId::new(
+            foreign_discount_curve
+                .extract::<&str>()
+                .context("foreign_discount_curve")?,
+        );
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         let CurrencyArg(dom_currency) = domestic_currency.extract().context("domestic_currency")?;

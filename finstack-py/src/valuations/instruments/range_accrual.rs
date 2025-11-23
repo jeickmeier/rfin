@@ -1,5 +1,5 @@
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::range_accrual::RangeAccrual;
 use pyo3::prelude::*;
@@ -61,12 +61,13 @@ impl PyRangeAccrual {
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
-        use finstack_core::dates::DayCount;
         use crate::errors::PyContext;
+        use finstack_core::dates::DayCount;
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let notional_money = extract_money(&notional).context("notional")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
         // Parse observation dates

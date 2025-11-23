@@ -9,33 +9,82 @@ numeric identifiers.
 from typing import List, Tuple
 
 class Currency:
-    """Wrap ISO-4217 currency metadata for Python usage.
+    """ISO-4217 currency identifier with metadata and validation.
+
+    Currency objects provide type-safe currency identification throughout
+    finstack. All monetary arithmetic requires matching currencies, preventing
+    accidental cross-currency operations. Currency instances are immutable,
+    hashable, and can be used as dictionary keys.
 
     Parameters
     ----------
     code : str
-        Three-letter ISO code such as "USD" or "eur".
+        Three-letter ISO-4217 currency code (case-insensitive).
+        Examples: "USD", "eur", "GBP", "JPY".
 
     Returns
     -------
     Currency
-        Strongly typed currency object used throughout the bindings.
+        Immutable currency object with code, numeric identifier, and decimal
+        places metadata.
+
+    Raises
+    ------
+    ValueError
+        If the currency code is not recognized as a valid ISO-4217 code.
+
+    Examples
+    --------
+    Examples
+    --------
+        >>> from finstack.core.currency import Currency
+        >>> usd = Currency("USD")
+        >>> eur = Currency.from_numeric(978)
+        >>> print((usd.code, usd.numeric, usd.decimals, usd == Currency("usd"), eur.code))
+        ('USD', 840, 2, True, 'EUR')
+
+    Notes
+    -----
+    - Currency codes are normalized to uppercase internally
+    - Currency objects are immutable and can be safely shared
+    - All supported currencies follow ISO-4217 standard
+    - Use :meth:`from_numeric` to construct from numeric codes
+    - Use :meth:`all` to list all available currencies
+
+    See Also
+    --------
+    :class:`Money`: Currency-tagged monetary amounts
+    :class:`finstack.core.money.Money`: Money arithmetic with currency safety
     """
 
     def __init__(self, code: str) -> None: ...
     @classmethod
     def from_numeric(cls, numeric: int) -> Currency: ...
-    """Construct from an ISO numeric currency code (e.g. 840 → USD).
+    """Construct a Currency from an ISO-4217 numeric code.
     
     Parameters
     ----------
     numeric : int
-        ISO-4217 numeric currency code.
+        ISO-4217 numeric currency code (e.g., 840 for USD, 978 for EUR).
         
     Returns
     -------
     Currency
-        Currency instance associated with numeric.
+        Currency instance associated with the numeric code.
+        
+    Raises
+    ------
+    ValueError
+        If the numeric code is not recognized as a valid ISO-4217 code.
+        
+    Examples
+    --------
+        >>> Currency.from_numeric(840)  # USD
+        Currency("USD")
+        >>> Currency.from_numeric(978)  # EUR
+        Currency("EUR")
+        >>> Currency.from_numeric(392)  # JPY
+        Currency("JPY")
     """
 
     @property
@@ -79,12 +128,17 @@ class Currency:
 
     @classmethod
     def all(cls) -> List[Currency]: ...
-    """Get all available currencies.
+    """Get all available ISO-4217 currencies.
     
     Returns
     -------
     List[Currency]
-        All supported ISO-4217 currencies.
+        List of all supported currencies, ordered by code.
+        
+    Examples
+    --------
+        >>> len(Currency.all()) > 100
+        True
     """
 
     def __repr__(self) -> str: ...

@@ -1,5 +1,5 @@
-use crate::core::market_data::PyMarketContext;
 use crate::core::dates::utils::py_to_date;
+use crate::core::market_data::PyMarketContext;
 use crate::errors::core_to_py;
 use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};

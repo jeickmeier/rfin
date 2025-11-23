@@ -1092,7 +1092,9 @@ mod tests {
         assert!(registry.get_pricer(key).is_some());
 
         // Test convenience method
-        assert!(registry.get(InstrumentType::Bond, ModelKey::Discounting).is_some());
+        assert!(registry
+            .get(InstrumentType::Bond, ModelKey::Discounting)
+            .is_some());
     }
 
     #[test]

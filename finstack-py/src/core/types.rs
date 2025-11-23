@@ -69,7 +69,12 @@ impl PyCurveId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         let rhs = match other.extract::<PyRef<PyCurveId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -118,7 +123,12 @@ impl PyInstrumentId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         let rhs = match other.extract::<PyRef<PyInstrumentId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -167,7 +177,12 @@ impl PyIndexId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         let rhs = match other.extract::<PyRef<PyIndexId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -216,7 +231,12 @@ impl PyPriceId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         let rhs = match other.extract::<PyRef<PyPriceId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -265,7 +285,12 @@ impl PyUnderlyingId {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         let rhs = match other.extract::<PyRef<PyUnderlyingId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -355,7 +380,12 @@ impl PyRate {
         (bits & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         if let Ok(rhs) = other.extract::<PyRef<PyRate>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -462,7 +492,12 @@ impl PyBps {
         self.inner.as_bps() as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         if let Ok(rhs) = other.extract::<PyRef<PyBps>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -570,7 +605,12 @@ impl PyPercentage {
         (bits & isize::MAX as u64) as isize
     }
 
-    fn __richcmp__(&self, other: Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
         if let Ok(rhs) = other.extract::<PyRef<PyPercentage>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -649,4 +689,3 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     parent.add_submodule(&module)?;
     Ok(())
 }
-

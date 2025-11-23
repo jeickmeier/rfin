@@ -1,7 +1,7 @@
 use crate::core::common::args::DayCountArg;
 // use crate::errors::core_to_py; // not used in this module currently
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -109,7 +109,8 @@ impl PyInterestRateOption {
         let end = py_to_date(&end_date).context("end_date")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
+        let freq =
+            frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
         let dc = extract_day_count(day_count).context("day_count")?;
         let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
         let option = InterestRateOption::new_cap(
@@ -184,7 +185,8 @@ impl PyInterestRateOption {
         let end = py_to_date(&end_date).context("end_date")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-        let freq = frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
+        let freq =
+            frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
         let dc = extract_day_count(day_count).context("day_count")?;
         let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
         let option = InterestRateOption::new_floor(

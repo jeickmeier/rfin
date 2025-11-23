@@ -274,15 +274,10 @@ class PnlAttribution:
         Returns:
             Multi-line string with tree structure showing factor breakdown
 
-        Example:
-            >>> print(attr.explain())
-            Total P&L: USD 125,430
-              ├─ Carry: USD 45,000 (35.8%)
-              ├─ Rates Curves: USD 65,000 (51.7%)
-              ├─ Credit Curves: USD 5,000 (4.0%)
-              ├─ FX: USD 12,000 (9.5%)
-              ├─ Vol: USD 2,000 (1.6%)
-              └─ Residual: USD -1,570 (-1.2%)
+        Notes:
+            Call :func:`attribute_pnl` or :func:`attribute_portfolio_pnl` to obtain a
+            ``PnlAttribution`` instance (``attr`` in the examples above) and then
+            invoke ``attr.explain()`` to render the formatted tree.
         """
         ...
 
@@ -298,10 +293,6 @@ class PnlAttribution:
 
         Returns:
             True if residual is within tolerance
-
-        Example:
-            >>> attr.residual_within_tolerance(0.1, 100.0)
-            True
         """
         ...
 
@@ -415,16 +406,30 @@ def attribute_pnl(
         RuntimeError: If pricing fails
 
     Example:
-        >>> bond = finstack.Bond.fixed_semiannual(
-        ...     "CORP-001", finstack.Money(1_000_000, "USD"), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
+        >>> from datetime import date
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve
+        >>> from finstack.valuations.attribution import attribute_pnl, AttributionMethod
+        >>> from finstack.valuations.instruments import Bond
+        >>> bond = Bond.fixed_semiannual(
+        ...     "CORP-001", Money(1_000_000, Currency("USD")), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
         ... )
-        >>> attr = finstack.attribute_pnl(
+        >>> market_t0 = MarketContext()
+        >>> market_t1 = MarketContext()
+        >>> curve_t0 = DiscountCurve("USD-OIS", date(2025, 1, 1), [(0.0, 1.0), (1.0, 0.99)])
+        >>> curve_t1 = DiscountCurve("USD-OIS", date(2025, 1, 1), [(0.0, 1.0), (1.0, 0.9895)])
+        >>> market_t0.insert_discount(curve_t0)
+        >>> market_t1.insert_discount(curve_t1)
+        >>> attr = attribute_pnl(
         ...     bond,
-        ...     market_yesterday,
-        ...     market_today,
+        ...     market_t0,
+        ...     market_t1,
         ...     date(2025, 1, 15),
         ...     date(2025, 1, 16),
-        ...     method=finstack.AttributionMethod.parallel(),
+        ...     method=AttributionMethod.parallel(),
         ... )
         >>> print(f"Total P&L: {attr.total_pnl}")
         >>> print(f"Carry: {attr.carry}")
@@ -440,6 +445,8 @@ def attribute_portfolio_pnl(
     portfolio: Portfolio,
     market_t0: MarketContext,
     market_t1: MarketContext,
+    as_of_t0: date,
+    as_of_t1: date,
     method: Optional[AttributionMethod] = None,
 ) -> PortfolioAttribution:
     """Perform P&L attribution for an entire portfolio.
@@ -461,13 +468,20 @@ def attribute_portfolio_pnl(
         RuntimeError: If attribution fails for any position
 
     Example:
-        >>> portfolio = finstack.Portfolio.builder("MY_FUND")
-        ...     .base_ccy("USD")
-        ...     .as_of(date(2025, 1, 16))
-        ...     .add_position(pos1)
-        ...     .add_position(pos2)
-        ...     .build()
-        >>> attr = finstack.attribute_portfolio_pnl(portfolio, market_yesterday, market_today)
+        >>> from datetime import date
+        >>> from finstack.portfolio import PortfolioBuilder
+        >>> from finstack.valuations.attribution import attribute_portfolio_pnl
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> portfolio = PortfolioBuilder("MY_FUND").base_ccy("USD").as_of(date(2025, 1, 16)).build()
+        >>> market_t0 = MarketContext()
+        >>> market_t1 = MarketContext()
+        >>> attr = attribute_portfolio_pnl(
+        ...     portfolio,
+        ...     market_t0,
+        ...     market_t1,
+        ...     date(2025, 1, 15),
+        ...     date(2025, 1, 16),
+        ... )
         >>> print(f"Portfolio P&L: {attr.total_pnl}")
         >>> print(f"Total Carry: {attr.carry}")
         >>> # Position breakdown
@@ -497,20 +511,24 @@ def attribute_pnl_from_json(spec_json: str) -> PnlAttribution:
         RuntimeError: If attribution execution fails
 
     Example:
-        >>> import json
-        >>> spec = {
-        ...     "schema": "finstack.attribution/1",
-        ...     "attribution": {
-        ...         "instrument": {"type": "bond", "spec": {...}},
-        ...         "market_t0": {...},
-        ...         "market_t1": {...},
-        ...         "as_of_t0": "2025-01-15",
-        ...         "as_of_t1": "2025-01-16",
-        ...         "method": "Parallel",
-        ...     },
-        ... }
-        >>> attr = finstack.attribute_pnl_from_json(json.dumps(spec))
-        >>> print(attr.explain())
+        Use this entry point when another service already has a JSON request ready.
+        A minimal payload includes the schema, instrument specification, market
+        snapshots, valuation dates, and methodology, for example::
+
+            {
+                "schema": "finstack.attribution/1",
+                "attribution": {
+                    "instrument": { ... JSON instrument spec ... },
+                    "market_t0": { ... },
+                    "market_t1": { ... },
+                    "as_of_t0": "2025-01-15",
+                    "as_of_t1": "2025-01-16",
+                    "method": "Parallel"
+                }
+            }
+
+        Once populated, call ``attribute_pnl_from_json(json.dumps(spec))`` to execute
+        the request exactly as the REST API would.
     """
     ...
 
@@ -530,10 +548,11 @@ def attribution_result_to_json(attribution: PnlAttribution) -> str:
         RuntimeError: If serialization fails
 
     Example:
-        >>> attr = finstack.attribute_pnl(bond, market_t0, market_t1, t0, t1)
-        >>> json_str = finstack.attribution_result_to_json(attr)
+        >>> from finstack.valuations.attribution import attribution_result_to_json
+        >>> # Assuming attr is a PnlAttribution from attribute_pnl()
+        >>> # json_str = attribution_result_to_json(attr)
         >>> # Save to file or send to API
-        >>> with open("attribution_result.json", "w") as f:
-        ...     f.write(json_str)
+        >>> # with open("attribution_result.json", "w") as f:
+        >>> #     f.write(json_str)
     """
     ...

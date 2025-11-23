@@ -202,9 +202,10 @@ pub fn attribute_pnl_waterfall(
                 attribution.model_params_pnl = factor_pnl;
                 // Add note if factor P&L is zero (likely skipped)
                 if factor_pnl.amount().abs() < 1e-10 {
-                    attribution.meta.notes.push(
-                        "Model parameters attribution returned zero".to_string()
-                    );
+                    attribution
+                        .meta
+                        .notes
+                        .push("Model parameters attribution returned zero".to_string());
                 }
             }
             AttributionFactor::MarketScalars => attribution.market_scalars_pnl = factor_pnl,

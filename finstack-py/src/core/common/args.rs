@@ -142,9 +142,7 @@ pub struct ExtrapolationPolicyArg(pub ExtrapolationPolicy);
 
 impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(py) =
-            obj.extract::<PyRef<PyExtrapolationPolicy>>()
-        {
+        if let Ok(py) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
             return Ok(ExtrapolationPolicyArg(py.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {

@@ -263,19 +263,70 @@ class OperationSpec:
     def __repr__(self) -> str: ...
 
 class ScenarioSpec:
-    """A complete scenario specification with metadata and ordered operations.
+    """Complete scenario specification with metadata and ordered operations.
 
-    Args:
-        id: Stable identifier used for persistence and reporting
-        operations: Ordered list of operations to execute
-        name: Optional display name for UI or logs
-        description: Optional text describing the intent of the scenario
-        priority: Used by compose() to determine merge ordering (default: 0, lower = higher priority)
+    ScenarioSpec represents a deterministic scenario for stress testing and
+    what-if analysis. It contains an ordered list of operations that modify
+    market data, statement models, or instrument prices. Scenarios can be
+    composed from multiple specs with conflict resolution.
 
-    Examples:
+    Scenarios are used for:
+    - Stress testing (rate shocks, FX moves, equity crashes)
+    - What-if analysis (forecast adjustments, model parameter changes)
+    - Sensitivity analysis (parallel shifts, key-rate shocks)
+    - Time roll-forward (carry/theta calculations)
+
+    Examples
+    --------
+    Create a rate shock scenario:
+
         >>> from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
-        >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD_SOFR", 50.0)]
-        >>> scenario = ScenarioSpec("stress_test", ops, name="Q1 Stress Test")
+        >>> from finstack.core.currency import Currency
+        >>> # +50bp parallel shift to USD discount curve
+        >>> ops = [
+        ...     OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 50.0),
+        ...     OperationSpec.market_fx_pct(Currency("EUR"), Currency("USD"), -0.05),
+        ... ]
+        >>> scenario = ScenarioSpec(
+        ...     "rate_shock_50bp",
+        ...     ops,
+        ...     name="+50bp Rate Shock",
+        ...     description="Parallel shift to USD discount curve",
+        ... )
+
+    Compose scenarios:
+
+        >>> from finstack.scenarios import ScenarioSpec, ScenarioEngine, OperationSpec, CurveKind
+        >>> from finstack.core.currency import Currency
+        >>> base_ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 50.0)]
+        >>> overlay_ops = [OperationSpec.market_fx_pct(Currency("EUR"), Currency("USD"), -0.05)]
+        >>> base_scenario = ScenarioSpec("base", base_ops, priority=1)
+        >>> overlay_scenario = ScenarioSpec("overlay", overlay_ops, priority=2)
+        >>> engine = ScenarioEngine()
+        >>> combined = engine.compose([base_scenario, overlay_scenario])
+
+    Serialize to JSON:
+
+        >>> from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
+        >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 25.0)]
+        >>> scenario = ScenarioSpec("serialize_me", ops, name="Serialize Me")
+        >>> json_str = scenario.to_json()
+        >>> restored = ScenarioSpec.from_json(json_str)
+        >>> restored.name
+        'Serialize Me'
+
+    Notes
+    -----
+    - Scenarios are deterministic and reproducible
+    - Operations are applied in order
+    - Priority determines merge order in composition (lower = higher priority)
+    - Scenarios can be serialized to JSON for persistence
+
+    See Also
+    --------
+    :class:`OperationSpec`: Individual operations
+    :class:`ScenarioEngine`: Scenario execution engine
+    :class:`ExecutionContext`: Execution context
     """
 
     def __init__(

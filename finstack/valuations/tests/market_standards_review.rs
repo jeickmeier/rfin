@@ -2,7 +2,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_valuations::cashflow::builder::rate_helpers::{
-    project_floating_rate, FloatingRateParams, project_floating_rate_detailed,
+    project_floating_rate, project_floating_rate_detailed, FloatingRateParams,
 };
 use time::Month;
 
@@ -21,7 +21,7 @@ fn test_market_standard_gearing_affine() {
     // Market Standard Check: Floating Rate Projection (Affine vs Standard)
     // Standard: (Index + Spread) * Gearing
     // Affine:   (Index * Gearing) + Spread
-    
+
     let date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
     let market = create_test_market(date, 0.03); // 3% index
@@ -32,15 +32,27 @@ fn test_market_standard_gearing_affine() {
     // Case 1: Gearing includes spread (Default/Standard)
     // Expected: (3% + 1%) * 2 = 8%
     let rate_std = project_floating_rate(
-        date, end, "USD-SOFR-3M", spread_bp, gearing, None, None, &market
-    ).unwrap();
-    
-    assert!((rate_std - 0.08).abs() < 1e-6, "Standard gearing failed: got {}", rate_std);
+        date,
+        end,
+        "USD-SOFR-3M",
+        spread_bp,
+        gearing,
+        None,
+        None,
+        &market,
+    )
+    .unwrap();
+
+    assert!(
+        (rate_std - 0.08).abs() < 1e-6,
+        "Standard gearing failed: got {}",
+        rate_std
+    );
 
     // Case 2: Affine model (Gearing excludes spread)
     // Expected: (3% * 2) + 1% = 7%
     // We need to use project_floating_rate_detailed to set the flag, as project_floating_rate uses defaults.
-    
+
     let fwd = market.get_forward_ref("USD-SOFR-3M").unwrap();
     let params = FloatingRateParams {
         spread_bp,
@@ -51,15 +63,19 @@ fn test_market_standard_gearing_affine() {
         all_in_floor_bp: None,
         all_in_cap_bp: None,
     };
-    
+
     let rate_affine = project_floating_rate_detailed(date, end, fwd, &params).unwrap();
-    assert!((rate_affine - 0.07).abs() < 1e-6, "Affine gearing failed: got {}", rate_affine);
+    assert!(
+        (rate_affine - 0.07).abs() < 1e-6,
+        "Affine gearing failed: got {}",
+        rate_affine
+    );
 }
 
 #[test]
 fn test_market_standard_floor_application() {
     // Market Standard Check: Index Floor vs All-in Floor
-    
+
     let date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
     let market = create_test_market(date, 0.01); // 1% index
@@ -78,7 +94,11 @@ fn test_market_standard_floor_application() {
         all_in_cap_bp: None,
     };
     let rate_idx = project_floating_rate_detailed(date, end, fwd, &params_idx).unwrap();
-    assert!((rate_idx - 0.03).abs() < 1e-6, "Index floor failed: got {}", rate_idx);
+    assert!(
+        (rate_idx - 0.03).abs() < 1e-6,
+        "Index floor failed: got {}",
+        rate_idx
+    );
 
     // Case 2: All-in Floor
     // Index = 1%. Spread = 1%. Total = 2%.
@@ -93,6 +113,9 @@ fn test_market_standard_floor_application() {
         all_in_cap_bp: None,
     };
     let rate_all_in = project_floating_rate_detailed(date, end, fwd, &params_all_in).unwrap();
-    assert!((rate_all_in - 0.025).abs() < 1e-6, "All-in floor failed: got {}", rate_all_in);
+    assert!(
+        (rate_all_in - 0.025).abs() < 1e-6,
+        "All-in floor failed: got {}",
+        rate_all_in
+    );
 }
-

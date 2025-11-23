@@ -8,12 +8,12 @@
 //! - collect reporting metadata about how many operations ran and whether any
 //!   warnings were produced during execution
 
+use crate::error::Error;
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
-use indexmap::IndexMap;
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 use finstack_core::types::CurveId;
-use crate::error::Error;
+use indexmap::IndexMap;
 
 /// Execution context for scenario application.
 ///
@@ -364,8 +364,10 @@ impl ScenarioEngine {
                     pct,
                 } => {
                     let exp_years = if let Some(t) = tenors {
-                        let parsed: std::result::Result<Vec<f64>, _> =
-                            t.iter().map(|s| crate::utils::parse_tenor_to_years(s)).collect();
+                        let parsed: std::result::Result<Vec<f64>, _> = t
+                            .iter()
+                            .map(|s| crate::utils::parse_tenor_to_years(s))
+                            .collect();
                         match parsed {
                             Ok(v) => Some(v),
                             Err(e) => {
@@ -422,18 +424,24 @@ impl ScenarioEngine {
                                         crate::spec::CurveKind::Discount => ctx
                                             .market
                                             .get_discount_ref(curve_id)
-                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .map(|c| {
+                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
+                                            })
                                             .unwrap_or(false),
                                         crate::spec::CurveKind::Forecast => ctx
                                             .market
                                             .get_forward_ref(curve_id)
-                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .map(|c| {
+                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
+                                            })
                                             .unwrap_or(false),
                                         crate::spec::CurveKind::Hazard => true, // unreachable due to guard above
                                         crate::spec::CurveKind::Inflation => ctx
                                             .market
                                             .get_inflation_ref(curve_id)
-                                            .map(|c| c.knots().iter().any(|t| (t - years).abs() < 1e-6))
+                                            .map(|c| {
+                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
+                                            })
                                             .unwrap_or(false),
                                     };
                                     if !has_pillar {

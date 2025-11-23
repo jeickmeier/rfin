@@ -195,11 +195,7 @@ impl PyVolSurface {
     ) -> PyResult<Self> {
         let new_surface = self
             .inner
-            .apply_bucket_bump(
-                expiries_filter.as_deref(),
-                strikes_filter.as_deref(),
-                pct,
-            )
+            .apply_bucket_bump(expiries_filter.as_deref(), strikes_filter.as_deref(), pct)
             .ok_or_else(|| PyValueError::new_err("Failed to apply bucket bump"))?;
         Ok(Self::new_arc(Arc::new(new_surface)))
     }

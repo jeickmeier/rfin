@@ -1,8 +1,8 @@
 use crate::core::dates::periods::{PyPeriod, PyPeriodPlan};
+use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;
-use crate::core::dates::utils::py_to_date;
 use crate::errors::core_to_py;
 use finstack_core::dates::Period;
 use finstack_core::money::Money;
@@ -830,8 +830,8 @@ impl PyFeeSpec {
         date: Bound<'_, PyAny>,
         amount: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        use crate::core::money::extract_money;
         use crate::core::dates::utils::py_to_date;
+        use crate::core::money::extract_money;
 
         let payment_date = py_to_date(&date)?;
         let fee_amount = extract_money(&amount)?;

@@ -28,10 +28,10 @@ def apply_scenario(
     Raises:
         RuntimeError: If scenario application fails.
 
-    Examples:
-        >>> from finstack.portfolio import apply_scenario
-        >>> from finstack.scenarios import ScenarioSpec
-        >>> transformed = apply_scenario(portfolio, scenario, market_context)
+    Examples
+    --------
+    Typical usage builds a :class:`ScenarioSpec`, applies it to a portfolio,
+    and then values the transformed portfolio with :func:`value_portfolio`.
     """
     ...
 
@@ -58,11 +58,10 @@ def apply_and_revalue(
     Raises:
         RuntimeError: If scenario application or valuation fails.
 
-    Examples:
-        >>> from finstack.portfolio import apply_and_revalue
-        >>> from finstack.scenarios import ScenarioSpec
-        >>> valuation = apply_and_revalue(portfolio, scenario, market_context)
-        >>> valuation.total_base_ccy
-        Money(USD, 9500000.0)
+    Notes
+    -----
+    This helper simply composes :func:`apply_scenario` and
+    :func:`value_portfolio`, returning the resulting
+    :class:`PortfolioValuation`.
     """
     ...

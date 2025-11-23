@@ -183,8 +183,8 @@ class TestPricingErrors:
 
     def test_unknown_pricer_error(self) -> None:
         """Pricing with unknown instrument/model combo should raise PricingError."""
-        from finstack.valuations import create_standard_registry
         from finstack.valuations.instruments import Bond
+        from finstack.valuations.pricer import create_standard_registry
 
         registry = create_standard_registry()
         market = MarketContext()

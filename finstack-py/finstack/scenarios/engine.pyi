@@ -22,13 +22,17 @@ class ExecutionContext:
         rate_bindings: Optional mapping from statement node IDs to curve IDs for automatic rate updates
 
     Examples:
-        >>> from finstack.scenarios import ExecutionContext
-        >>> from finstack.core import MarketContext
-        >>> from finstack.statements import FinancialModelSpec
         >>> from datetime import date
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve
+        >>> from finstack.statements.types import FinancialModelSpec
+        >>> from finstack.scenarios import ExecutionContext
         >>> market = MarketContext()
-        >>> model = FinancialModelSpec("demo", [])
+        >>> market.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> model = FinancialModelSpec("demo_model", [])
         >>> ctx = ExecutionContext(market, model, date(2025, 1, 1))
+        >>> ctx.as_of
+        datetime.date(2025, 1, 1)
     """
 
     def __init__(
@@ -125,7 +129,63 @@ class ExecutionContext:
     def __repr__(self) -> str: ...
 
 class ScenarioEngine:
-    """Orchestrates the reproducible application of a ScenarioSpec with stable ordering."""
+    """Orchestrates reproducible scenario application with stable ordering.
+
+    ScenarioEngine applies scenario specifications to execution contexts,
+    modifying market data, statement models, and instrument prices in a
+    deterministic order. Scenarios can be composed from multiple scenario
+    specs with conflict resolution.
+
+    Scenarios are used for stress testing, what-if analysis, and sensitivity
+    analysis across market data, financial statements, and instrument portfolios.
+
+    Examples
+    --------
+    Create and apply a simple scenario:
+
+        >>> from datetime import date
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.core.market_data.term_structures import DiscountCurve
+        >>> from finstack.statements.types import FinancialModelSpec
+        >>> from finstack.scenarios import ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind, ExecutionContext
+        >>> # Minimal market context with one curve
+        >>> market_ctx = MarketContext()
+        >>> market_ctx.insert_discount(DiscountCurve("USD-SOFR", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
+        >>> model = FinancialModelSpec("demo", [])
+        >>> ctx = ExecutionContext(market_ctx, model, date(2025, 1, 1))
+        >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 50.0)]
+        >>> scenario = ScenarioSpec("rate_shock", ops, name="+50bp Rate Shock")
+        >>> engine = ScenarioEngine()
+        >>> report = engine.apply(scenario, ctx)
+        >>> report.operations_applied
+        1
+
+    Compose multiple scenarios:
+
+        >>> from finstack.scenarios import ScenarioSpec, ScenarioEngine, OperationSpec, CurveKind
+        >>> from finstack.core.currency import Currency
+        >>> base_ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-SOFR", 25.0)]
+        >>> overlay_ops = [OperationSpec.market_fx_pct(Currency("EUR"), Currency("USD"), -0.02)]
+        >>> rate_scenario = ScenarioSpec("rates", base_ops, priority=1)
+        >>> fx_scenario = ScenarioSpec("fx", overlay_ops, priority=2)
+        >>> engine = ScenarioEngine()
+        >>> combined = engine.compose([rate_scenario, fx_scenario])
+
+    Notes
+    -----
+    - Scenarios are applied in deterministic order
+    - Operations are grouped by type (market data, statements, instruments)
+    - Composition uses priority and last-wins conflict resolution
+    - Execution context is mutated in-place
+    - Application report summarizes operations applied
+
+    See Also
+    --------
+    :class:`ScenarioSpec`: Scenario specification
+    :class:`OperationSpec`: Individual operations
+    :class:`ExecutionContext`: Execution context
+    :class:`ApplicationReport`: Application results
+    """
 
     def __init__(self) -> None:
         """Create a new scenario engine with default settings.

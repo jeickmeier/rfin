@@ -261,7 +261,11 @@ pub struct ResultsMeta {
     /// Useful for audit trails and reproducibility.
     #[cfg_attr(
         feature = "serde",
-        serde(skip_serializing_if = "Option::is_none", default, with = "time::serde::iso8601::option")
+        serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "time::serde::iso8601::option"
+        )
     )]
     pub timestamp: Option<time::OffsetDateTime>,
     /// Finstack library version used to produce the result.

@@ -1,6 +1,6 @@
 use crate::core::currency::PyCurrency;
-use crate::core::money::PyMoney;
 use crate::core::dates::utils::date_to_py;
+use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
@@ -20,7 +20,8 @@ fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
         let py = dict.py();
         let json = pyo3::types::PyModule::import(py, "json")?
             .call_method1("dumps", (dict,))?
-            .extract::<String>().context("json dumps")?;
+            .extract::<String>()
+            .context("json dumps")?;
         return serde_json::from_str(&json).map_err(|err| PyValueError::new_err(err.to_string()));
     }
     Err(PyTypeError::new_err(

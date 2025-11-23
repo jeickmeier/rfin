@@ -616,8 +616,8 @@ mod tests {
     #[test]
     fn convert_rejects_non_finite_rate() {
         let usd = Money::new(5.0, Currency::USD);
-        let date = Date::from_calendar_date(2024, time::Month::January, 1)
-            .expect("Valid test date");
+        let date =
+            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid test date");
         let res = usd.convert(
             Currency::EUR,
             date,

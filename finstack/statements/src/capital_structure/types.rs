@@ -3,12 +3,12 @@
 //! This module defines the types used for aggregated cashflow storage.
 //! Instrument types (Bond, InterestRateSwap) are re-exported from finstack-valuations.
 
+use crate::error::Result;
 use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use finstack_core::money::Money;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use crate::error::Result;
 
 /// Aggregated cashflows from capital structure instruments by period.
 ///
@@ -309,21 +309,21 @@ impl CapitalStructureCashflows {
         period_id: &PeriodId,
         f: impl Fn(&CashflowBreakdown) -> f64,
     ) -> Result<f64> {
-        if self.reporting_currency.is_none() && self.totals.is_empty() && self.totals_by_currency.len() > 1 {
+        if self.reporting_currency.is_none()
+            && self.totals.is_empty()
+            && self.totals_by_currency.len() > 1
+        {
             return Err(crate::error::Error::capital_structure(
                 "Multiple currencies present in capital structure totals and no FX provided. Supply FX in MarketContext or limit to a single currency.",
             ));
         }
 
-        self.totals
-            .get(period_id)
-            .map(f)
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No total cashflow data for period {}",
-                    period_id
-                ))
-            })
+        self.totals.get(period_id).map(f).ok_or_else(|| {
+            crate::error::Error::capital_structure(format!(
+                "No total cashflow data for period {}",
+                period_id
+            ))
+        })
     }
 }
 
@@ -421,18 +421,14 @@ mod tests {
         );
 
         // Test missing instrument
-        assert!(cs_cf
-            .get_interest("NONEXISTENT", &period_id)
-            .is_err());
+        assert!(cs_cf.get_interest("NONEXISTENT", &period_id).is_err());
     }
 
     #[test]
     fn test_multi_currency_without_fx_errors_for_totals() {
         let mut cs = CapitalStructureCashflows::new();
-        cs.totals_by_currency
-            .insert(Currency::USD, IndexMap::new());
-        cs.totals_by_currency
-            .insert(Currency::EUR, IndexMap::new());
+        cs.totals_by_currency.insert(Currency::USD, IndexMap::new());
+        cs.totals_by_currency.insert(Currency::EUR, IndexMap::new());
 
         let period = PeriodId::quarter(2025, 1);
         let err = cs.get_total_interest(&period);

@@ -1,5 +1,5 @@
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
@@ -112,7 +112,8 @@ impl PyInflationSwap {
         let notional_money = extract_money(&notional).context("notional")?;
         let start = py_to_date(&start_date).context("start_date")?;
         let end = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let side_value = parse_side(side).context("side")?;
         let dc = if let Some(name) = day_count {
             match crate::core::common::labels::normalize_label(name).as_str() {

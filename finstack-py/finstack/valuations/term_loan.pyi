@@ -33,9 +33,9 @@ class TermLoan:
         ...     "issue": "2024-01-01",
         ...     "maturity": "2029-01-01",
         ...     "rate": {"Fixed": {"rate_bp": 500}},
-        ...     "pay_freq": {"months": 3},
+        ...     "pay_freq": {"Months": 3},
         ...     "day_count": "Act360",
-        ...     "bdc": "Following",
+        ...     "bdc": "following",
         ...     "calendar_id": null,
         ...     "stub": "None",
         ...     "amortization": "None",
@@ -43,9 +43,9 @@ class TermLoan:
         ...     "upfront_fee": null,
         ...     "ddtl": null,
         ...     "covenants": null,
-        ...     "pricing_overrides": {},
+        ...     "pricing_overrides": {"adaptive_bumps": false, "spot_bump_pct": null, "vol_bump_pct": null, "rate_bump_bp": null},
         ...     "call_schedule": null,
-        ...     "attributes": {}
+        ...     "attributes": {"meta": {}, "tags": []}
         ... }''')
         >>> loan.instrument_id
         'loan_001'

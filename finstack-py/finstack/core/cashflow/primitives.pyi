@@ -9,15 +9,30 @@ from datetime import date
 from ..money import Money
 
 class CFKind:
-    """Cashflow kind enumeration.
+    """Cashflow kind enumeration for categorizing payments.
+
+    CFKind categorizes cashflows by their nature, which is important for
+    reporting, analytics, and cashflow aggregation. Different kinds may
+    be treated differently in calculations (e.g., PIK vs cash payments).
 
     Available kinds:
-    - Fixed: Fixed cashflow
-    - Floating: Floating cashflow
-    - PIK: Payment-in-kind
-    - Amortization: Principal amortization
-    - PrincipalExchange: Principal exchange
-    - Fee: Fee payment
+    - Fixed: Fixed-rate coupon or payment
+    - Floating: Floating-rate payment (requires reset date)
+    - PIK: Payment-in-kind (non-cash payment)
+    - Amortization: Principal amortization payment
+    - PrincipalExchange: Principal exchange (initial or final)
+    - Fee: Fee payment (upfront, periodic, or exit fees)
+
+    Notes
+    -----
+    - Kinds are used for cashflow categorization and reporting
+    - Floating cashflows require reset_date
+    - PIK cashflows represent non-cash payments
+    - PrincipalExchange is used for initial/final principal exchanges
+
+    See Also
+    --------
+    :class:`CashFlow`: Cashflow structure
     """
 
     @classmethod
@@ -60,20 +75,40 @@ PrincipalExchange: CFKind
 Fee: CFKind
 
 class CashFlow:
-    """A single cashflow event.
+    """A single cashflow event with date, amount, and metadata.
 
-    Parameters
-    ----------
-    date : str or date
-        Cashflow date.
-    amount : Money
-        Cashflow amount.
-    kind : CFKind
-        Cashflow kind.
-    accrual_factor : float, optional
-        Accrual factor.
-    reset_date : str or date, optional
-        Reset date for floating cashflows.
+    CashFlow represents a single payment or receipt in a cashflow schedule.
+    It includes the payment date, amount (as Money for currency safety),
+    cashflow kind (fixed, floating, amortization, etc.), and optional
+    accrual and reset date information.
+
+    Cashflows are used to build payment schedules for bonds, loans, swaps,
+    and other instruments. They support currency-safe arithmetic and can
+    be aggregated into schedules.
+
+    Examples
+    --------
+        >>> from datetime import date
+        >>> from finstack.core.cashflow import CashFlow, CFKind
+        >>> from finstack.core.money import Money
+        >>> from finstack.core.currency import Currency
+        >>> flow = CashFlow(
+        ...     date=date(2025, 6, 30), amount=Money(25_000, Currency("USD")), kind=CFKind.FIXED, accrual_factor=0.5
+        ... )
+        >>> (flow.kind.name, flow.amount.currency.code)
+        ('FIXED', 'USD')
+
+    Notes
+    -----
+    - Amount must be non-zero (validated)
+    - Currency is preserved via Money type
+    - Accrual factor is used for yield calculations
+    - Reset date is used for floating cashflows
+
+    See Also
+    --------
+    :class:`CFKind`: Cashflow kind enumeration
+    :class:`Money`: Currency-safe monetary amounts
     """
 
     def validate(self) -> None: ...

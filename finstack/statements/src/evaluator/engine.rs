@@ -340,8 +340,13 @@ impl Evaluator {
         }
 
         // Aggregate cashflows by period using valuations cashflow aggregation
-        let cashflows =
-            integration::aggregate_instrument_cashflows(cs_spec, &instruments, &model.periods, market_ctx, as_of)?;
+        let cashflows = integration::aggregate_instrument_cashflows(
+            cs_spec,
+            &instruments,
+            &model.periods,
+            market_ctx,
+            as_of,
+        )?;
 
         Ok(Some(cashflows))
     }
@@ -467,10 +472,10 @@ impl EvaluatorWithContext {
 
 #[cfg(test)]
 mod tests {
-use super::*;
-use crate::builder::ModelBuilder;
-use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
-use indexmap::IndexMap;
+    use super::*;
+    use crate::builder::ModelBuilder;
+    use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+    use indexmap::IndexMap;
 
     #[test]
     fn test_simple_evaluation() {
@@ -591,10 +596,7 @@ use indexmap::IndexMap;
 
         let mut evaluator = Evaluator::new();
         let first = evaluator.evaluate(&model).expect("first eval");
-        assert_eq!(
-            first.get("y", &PeriodId::quarter(2025, 1)),
-            Some(20.0)
-        );
+        assert_eq!(first.get("y", &PeriodId::quarter(2025, 1)), Some(20.0));
 
         // Mutate formula and ensure evaluator recompiles when reused
         if let Some(node) = model.get_node_mut("y") {
@@ -602,9 +604,6 @@ use indexmap::IndexMap;
         }
 
         let second = evaluator.evaluate(&model).expect("second eval");
-        assert_eq!(
-            second.get("y", &PeriodId::quarter(2025, 1)),
-            Some(30.0)
-        );
+        assert_eq!(second.get("y", &PeriodId::quarter(2025, 1)), Some(30.0));
     }
 }

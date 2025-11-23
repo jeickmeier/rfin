@@ -169,19 +169,90 @@ ValueError
 
 def adjust(date: Union[str, date], convention: BusinessDayConvention, calendar: Calendar) -> date: ...
 
-"""Adjust a date according to business day convention.
+"""Adjust a date to a business day according to a convention and calendar.
+
+This is the primary function for business day adjustments in financial
+calculations. It moves a date to the nearest business day based on the
+specified convention, respecting holidays defined in the calendar.
 
 Parameters
 ----------
 date : str or date
-    Date to adjust.
+    Date to adjust. Can be a ``datetime.date`` object or an ISO-8601 date
+    string (e.g., "2024-01-15").
 convention : BusinessDayConvention
-    Adjustment convention.
+    Adjustment rule to apply:
+    
+    - ``FOLLOWING``: Move to next business day
+    - ``PRECEDING``: Move to previous business day
+    - ``MODIFIED_FOLLOWING``: Following, but if result is in next month,
+      use Preceding instead
+    - ``MODIFIED_PRECEDING``: Preceding, but if result is in previous month,
+      use Following instead
+    - ``UNADJUSTED``: Return date unchanged
 calendar : Calendar
-    Holiday calendar to use.
+    Holiday calendar defining business days. Use :func:`get_calendar` to
+    retrieve a calendar by code (e.g., "USNY", "GBLO", "JPTO").
 
 Returns
 -------
 date
-    Adjusted date.
+    Adjusted date that is a business day according to the calendar and
+    convention.
+
+Raises
+------
+ValueError
+    If the date string cannot be parsed or if the adjustment fails.
+
+Examples
+--------
+Adjust a date falling on a weekend:
+
+    >>> from finstack import adjust, get_calendar, BusinessDayConvention
+    >>> from datetime import date
+    >>> cal = get_calendar("USNY")
+    >>> # Saturday, January 6, 2024
+    >>> sat = date(2024, 1, 6)
+    >>> adjusted = adjust(sat, BusinessDayConvention.FOLLOWING, cal)
+    >>> print(adjusted)  # Monday, January 8, 2024
+    2024-01-08
+
+Adjust a date falling on a holiday:
+
+    >>> # New Year's Day 2024 (Monday)
+    >>> new_year = date(2024, 1, 1)
+    >>> adjusted = adjust(new_year, BusinessDayConvention.FOLLOWING, cal)
+    >>> print(adjusted)  # Tuesday, January 2, 2024
+    2024-01-02
+
+Use Modified Following to avoid month boundaries:
+
+    >>> # Last day of month that's a holiday
+    >>> month_end = date(2024, 1, 31)  # Wednesday
+    >>> # If this were a holiday, Modified Following would move backward
+    >>> adjusted = adjust(month_end, BusinessDayConvention.MODIFIED_FOLLOWING, cal)
+    >>> # Result stays in January if possible
+
+Unadjusted date:
+
+    >>> d = date(2024, 1, 15)
+    >>> result = adjust(d, BusinessDayConvention.UNADJUSTED, cal)
+    >>> result == d
+    True
+
+Notes
+-----
+- This function is re-exported at the ``finstack`` package root for
+  convenience: ``from finstack import adjust``
+- Business days exclude weekends (unless calendar ignores weekends) and
+  holidays defined in the calendar
+- Modified conventions prevent crossing month boundaries when possible
+- Use :func:`get_calendar` to retrieve standard calendars (USNY, GBLO, etc.)
+
+See Also
+--------
+:class:`BusinessDayConvention`: Available adjustment conventions
+:class:`Calendar`: Holiday calendar definitions
+:func:`get_calendar`: Retrieve calendars by code
 """

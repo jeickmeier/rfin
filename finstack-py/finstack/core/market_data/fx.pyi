@@ -53,16 +53,51 @@ ConvertToQuote: FxConversionPolicy
 ConvertToPivot: FxConversionPolicy
 
 class FxConfig:
-    """FX configuration for rate management.
+    """Configuration for FX matrix behavior and triangulation.
+
+    FxConfig controls how an FxMatrix evaluates rates, particularly whether
+    it can compute cross rates via triangulation when direct quotes are
+    unavailable. It also sets the cache capacity for performance optimization.
 
     Parameters
     ----------
     pivot_currency : Currency, optional
-        Pivot currency for triangulation.
+        Currency used as an intermediate step for triangulation. When
+        evaluating a cross rate (e.g., EUR/GBP), if no direct quote exists,
+        the matrix can compute it via the pivot (EUR/USD and GBP/USD).
+        Typically USD for most applications. Defaults to USD if not specified.
     enable_triangulation : bool, optional
-        Enable automatic triangulation.
+        If True, allow the matrix to compute rates via the pivot currency
+        when direct quotes are unavailable. If False, only direct quotes
+        are used. Defaults to False.
     cache_capacity : int, optional
-        Cache capacity for rates.
+        Maximum number of evaluated rates to cache for performance.
+        Defaults to 256. Higher values use more memory but may improve
+        performance for repeated queries.
+
+    Returns
+    -------
+    FxConfig
+        Configuration instance to pass to :class:`FxMatrix` constructor.
+
+    Examples
+    --------
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.fx import FxConfig
+        >>> cfg = FxConfig(pivot_currency=Currency("USD"), enable_triangulation=True, cache_capacity=16)
+        >>> print((cfg.pivot_currency.code, cfg.enable_triangulation, cfg.cache_capacity))
+        ('USD', True, 16)
+
+    Notes
+    -----
+    - Triangulation requires quotes for both currencies against the pivot
+    - Pivot currency defaults to USD if not specified
+    - Cache capacity affects memory usage but not correctness
+    - Configuration is immutable once passed to FxMatrix
+
+    See Also
+    --------
+    :class:`FxMatrix`: FX matrix using this configuration
     """
 
     def __init__(
@@ -120,12 +155,56 @@ class FxRateResult:
     def __init__(self, rate: float, triangulated: bool) -> None: ...
 
 class FxMatrix:
-    """FX rate matrix for currency conversions.
+    """Foreign exchange rate matrix for multi-currency calculations.
+
+    FxMatrix stores direct FX quotes and can evaluate rates between any pair
+    of currencies, optionally using triangulation through a pivot currency
+    when direct quotes are unavailable. It is used by MarketContext for
+    multi-currency portfolio valuations and risk calculations.
+
+    The matrix stores quotes as (from_currency, to_currency, rate) pairs,
+    where rate represents how many units of to_currency equal one unit of
+    from_currency. For example, EUR/USD = 1.10 means 1 EUR = 1.10 USD.
 
     Parameters
     ----------
     config : FxConfig, optional
-        FX configuration.
+        Configuration controlling triangulation behavior and cache capacity.
+        If None, uses default settings (no triangulation, 256 quote cache).
+
+    Returns
+    -------
+    FxMatrix
+        Mutable FX matrix ready to accept quotes via :meth:`set_quote` or
+        :meth:`set_quotes`.
+
+    Examples
+    --------
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.fx import FxConfig, FxMatrix
+        >>> fx = FxMatrix(config=FxConfig(pivot_currency=Currency("USD"), enable_triangulation=True))
+        >>> fx.set_quote(Currency("EUR"), Currency("USD"), 1.10)
+        >>> fx.set_quote(Currency("GBP"), Currency("USD"), 1.25)
+        >>> result = fx.rate(Currency("EUR"), Currency("GBP"), date(2024, 1, 1))
+        >>> print((round(result.rate, 4), result.triangulated))
+        (0.88, True)
+
+    Notes
+    -----
+    - FX quotes are stored as direct (from, to, rate) pairs
+    - Rates are date-agnostic (spot rates); use MarketBump for time-dependent FX
+    - Triangulation requires a pivot currency (typically USD)
+    - The matrix caches evaluated rates for performance
+    - Use :meth:`cache_stats` to monitor cache usage
+    - Inverse rates are automatically available (1/rate)
+
+    See Also
+    --------
+    :class:`FxConfig`: Configuration for triangulation and caching
+    :class:`FxRateResult`: Result of rate queries with triangulation flag
+    :class:`MarketContext`: Container for FX matrices
+    :class:`MarketBump`: Time-dependent FX shifts for scenarios
     """
 
     def __init__(self, config: Optional[FxConfig] = None) -> None: ...
@@ -163,23 +242,51 @@ class FxMatrix:
         on: Union[str, date],
         policy: Optional[Union[str, FxConversionPolicy]] = None,
     ) -> FxRateResult: ...
-    """Get FX rate between currencies.
+    """Evaluate the FX rate between two currencies on a given date.
+    
+    Returns the exchange rate to convert from_currency to to_currency. If a
+    direct quote exists, it is used. Otherwise, if triangulation is enabled,
+    the rate is computed via the pivot currency. The result includes a flag
+    indicating whether triangulation was used.
     
     Parameters
     ----------
     from_currency : Currency
-        Source currency.
+        Source currency (base currency of the rate).
     to_currency : Currency
-        Target currency.
+        Target currency (quote currency of the rate).
     on : str or date
-        Date for the rate.
+        Valuation date. Currently used for policy selection; actual rates
+        are spot rates stored in the matrix.
     policy : str or FxConversionPolicy, optional
-        Conversion policy.
+        FX conversion policy for cashflow timing. Defaults to cashflow_date.
+        See :class:`FxConversionPolicy` for available policies.
         
     Returns
     -------
     FxRateResult
-        FX rate result.
+        Result containing:
+        - rate: The exchange rate (how many to_currency per from_currency)
+        - triangulated: True if the rate was computed via triangulation
+        
+    Raises
+    ------
+    ValueError
+        If no direct quote exists and triangulation is disabled or fails,
+        or if the currencies are the same (returns 1.0 but logs warning).
+
+    Notes
+    -----
+    - Rates are stored as spot rates (date-agnostic)
+    - The 'on' parameter is used for policy selection, not rate lookup
+    - Inverse rates are automatically available (querying USD/EUR when EUR/USD exists)
+    - Triangulation requires both currencies to have quotes against the pivot
+    - Use :meth:`cache_stats` to monitor cache hit rates
+        
+    See Also
+    --------
+    :class:`FxRateResult`: Result structure with triangulation flag
+    :class:`FxConversionPolicy`: Cashflow timing policies
     """
 
     def cache_stats(self) -> Tuple[int, int]: ...

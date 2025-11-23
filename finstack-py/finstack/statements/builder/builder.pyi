@@ -8,17 +8,86 @@ from ...core.dates.periods import Period, PeriodId
 from .mixed_builder import MixedNodeBuilder
 
 class ModelBuilder:
-    """Builder for financial models.
+    """Builder for financial statement models with fluent API.
 
-    Provides a fluent API for building financial statement models with
-    type-safe construction.
+    ModelBuilder provides a type-safe, fluent interface for constructing
+    financial statement models. Models consist of nodes (value, forecast,
+    formula) organized into periods, with optional capital structure and
+    metric definitions.
 
-    Examples:
-        >>> builder = ModelBuilder.new("Acme Corp")
-        >>> builder = builder.periods("2025Q1..Q4", "2025Q2")
-        >>> builder = builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100))])
-        >>> builder = builder.compute("gross_profit", "revenue * 0.4")
+    The builder enforces precedence rules: Value > Forecast > Formula.
+    Nodes can reference other nodes in formulas, creating a directed graph
+    that is evaluated period-by-period.
+
+    Examples
+    --------
+    Build a simple income statement model:
+
+        >>> from finstack.core.dates.periods import PeriodId
+        >>> from finstack.statements.builder import ModelBuilder
+        >>> from finstack.statements.types import AmountOrScalar
+        >>> builder = ModelBuilder.new("DocCo")
+        >>> builder.periods("2025Q1..Q2", None)
+        >>> builder.value(
+        ...     "revenue",
+        ...     [
+        ...         (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100_000.0)),
+        ...         (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110_000.0)),
+        ...     ],
+        ... )
+        >>> builder.compute("gross_profit", "revenue * 0.4")
         >>> model = builder.build()
+        >>> print(sorted(model.nodes.keys()))
+        ['gross_profit', 'revenue']
+
+    Add forecasting:
+
+        >>> from finstack.core.dates.periods import PeriodId
+        >>> from finstack.statements.builder import ModelBuilder
+        >>> from finstack.statements.types import AmountOrScalar, ForecastSpec
+        >>> builder = ModelBuilder.new("ForecastCo")
+        >>> builder.periods("2025Q1..Q2", "2025Q1")
+        >>> builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0))])
+        >>> builder.forecast("revenue", ForecastSpec.growth(0.05))
+        >>> has_forecast = builder.build().get_node("revenue").forecast is not None
+        >>> print(has_forecast)
+        True
+
+    Add capital structure:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.dates.periods import PeriodId
+        >>> from finstack.core.money import Money
+        >>> from finstack.statements.builder import ModelBuilder
+        >>> from finstack.statements.types import AmountOrScalar
+        >>> builder = ModelBuilder.new("CapitalCo")
+        >>> builder.periods("2025Q1..Q2", None)
+        >>> builder.value("operating_income", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(50.0))])
+        >>> builder.add_bond(
+        ...     "BOND_001",
+        ...     Money(1_000_000, Currency("USD")),
+        ...     0.05,
+        ...     date(2024, 1, 1),
+        ...     date(2029, 1, 1),
+        ...     "USD-SOFR",
+        ... )
+        >>> print(builder.build().capital_structure is not None)
+        True
+
+    Notes
+    -----
+    - Periods must be defined before adding nodes
+    - Node precedence: Value > Forecast > Formula
+    - Formulas can reference other nodes by ID
+    - Capital structure enables cs.* references in formulas
+    - Metrics can be added from built-in registry or custom definitions
+
+    See Also
+    --------
+    :class:`FinancialModelSpec`: Final model specification
+    :class:`Evaluator`: Model evaluation engine
+    :class:`Results`: Evaluation results
     """
 
     @classmethod

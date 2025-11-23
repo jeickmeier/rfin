@@ -39,19 +39,29 @@ impl HestonParameters {
     /// Create new Heston parameters.
     pub fn new(v0: f64, kappa: f64, theta: f64, sigma: f64, rho: f64) -> Result<Self> {
         if v0 < 0.0 {
-            return Err(finstack_core::Error::Validation("v0 must be non-negative".into()));
+            return Err(finstack_core::Error::Validation(
+                "v0 must be non-negative".into(),
+            ));
         }
         if kappa < 0.0 {
-            return Err(finstack_core::Error::Validation("kappa must be non-negative".into()));
+            return Err(finstack_core::Error::Validation(
+                "kappa must be non-negative".into(),
+            ));
         }
         if theta < 0.0 {
-            return Err(finstack_core::Error::Validation("theta must be non-negative".into()));
+            return Err(finstack_core::Error::Validation(
+                "theta must be non-negative".into(),
+            ));
         }
         if sigma < 0.0 {
-            return Err(finstack_core::Error::Validation("sigma must be non-negative".into()));
+            return Err(finstack_core::Error::Validation(
+                "sigma must be non-negative".into(),
+            ));
         }
         if !(-1.0..=1.0).contains(&rho) {
-            return Err(finstack_core::Error::Validation("rho must be in [-1, 1]".into()));
+            return Err(finstack_core::Error::Validation(
+                "rho must be in [-1, 1]".into(),
+            ));
         }
 
         Ok(Self {
@@ -103,7 +113,7 @@ impl HestonModel {
         let p2 = self.calculate_prob(2, S, K, T, r, q)?;
 
         let call_price = S * (-q * T).exp() * p1 - K * (-r * T).exp() * p2;
-        
+
         // Ensure non-negative price (numerical errors can sometimes cause slight negatives for deep OTM)
         Ok(call_price.max(0.0))
     }
@@ -122,7 +132,7 @@ impl HestonModel {
     fn calculate_prob(&self, prob_num: u8, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
         // Integration limits and step
         // The integrand decays effectively; 100-200 is usually sufficient upper bound for standard params
-        let upper_bound = 100.0; 
+        let upper_bound = 100.0;
         let n_steps = 1000;
         let d_phi = upper_bound / n_steps as f64;
 
@@ -133,9 +143,9 @@ impl HestonModel {
             let phi = i as f64 * d_phi;
             // Avoid singularity at phi=0
             let phi_eval = if phi == 0.0 { 1e-8 } else { phi };
-            
+
             let integrand = self.integrand(prob_num, phi_eval, S, K, T, r, q)?;
-            
+
             let weight = if i == 0 || i == n_steps { 0.5 } else { 1.0 };
             sum += weight * integrand;
         }
@@ -147,21 +157,38 @@ impl HestonModel {
     /// Integrand for the probabilities.
     /// Re[ (e^{-i * phi * ln(K)} * psi(phi)) / (i * phi) ]
     #[allow(clippy::too_many_arguments, non_snake_case)]
-    fn integrand(&self, prob_num: u8, phi: f64, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64> {
+    fn integrand(
+        &self,
+        prob_num: u8,
+        phi: f64,
+        S: f64,
+        K: f64,
+        T: f64,
+        r: f64,
+        q: f64,
+    ) -> Result<f64> {
         let i_complex = Complex::new(0.0, 1.0);
         let log_k = K.ln();
-        
+
         let psi = self.characteristic_function(prob_num, phi, S, T, r, q)?;
-        
+
         let term = (-i_complex * phi * log_k).exp() * psi / (i_complex * phi);
         Ok(term.re)
     }
 
     /// Heston characteristic function.
-    /// 
+    ///
     /// Returns $\psi(\phi)$ for the log-price.
     #[allow(non_snake_case)]
-    fn characteristic_function(&self, prob_num: u8, phi: f64, S: f64, T: f64, r: f64, q: f64) -> Result<Complex<f64>> {
+    fn characteristic_function(
+        &self,
+        prob_num: u8,
+        phi: f64,
+        S: f64,
+        T: f64,
+        r: f64,
+        q: f64,
+    ) -> Result<Complex<f64>> {
         let kappa = self.params.kappa;
         let theta = self.params.theta;
         let sigma = self.params.sigma;
@@ -178,16 +205,20 @@ impl HestonModel {
         };
 
         let a = kappa * theta;
-        let d_sq = (rho * sigma * phi * i_complex - b).powi(2) - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
+        let d_sq = (rho * sigma * phi * i_complex - b).powi(2)
+            - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
         let d = d_sq.sqrt();
-        
+
         let g = (b - rho * sigma * phi * i_complex + d) / (b - rho * sigma * phi * i_complex - d);
-        
-        let c = (r - q) * phi * i_complex * T 
-            + (a / sigma.powi(2)) * ((b - rho * sigma * phi * i_complex + d) * T - 2.0 * ((1.0 - g * (d * T).exp()) / (1.0 - g)).ln());
-            
-        let d_term = (b - rho * sigma * phi * i_complex + d) / sigma.powi(2) * ((1.0 - (d * T).exp()) / (1.0 - g * (d * T).exp()));
-        
+
+        let c = (r - q) * phi * i_complex * T
+            + (a / sigma.powi(2))
+                * ((b - rho * sigma * phi * i_complex + d) * T
+                    - 2.0 * ((1.0 - g * (d * T).exp()) / (1.0 - g)).ln());
+
+        let d_term = (b - rho * sigma * phi * i_complex + d) / sigma.powi(2)
+            * ((1.0 - (d * T).exp()) / (1.0 - g * (d * T).exp()));
+
         Ok((c + d_term * v0 + i_complex * phi * x).exp())
     }
 }
@@ -200,7 +231,7 @@ mod tests {
     fn test_heston_black_scholes_limit() -> Result<()> {
         // As sigma (vol of vol) -> 0, Heston should converge to Black-Scholes
         // We set kappa high to force v to theta quickly, or just v0=theta and sigma=0
-        
+
         #[allow(non_snake_case)]
         let S = 100.0;
         #[allow(non_snake_case)]
@@ -227,9 +258,14 @@ mod tests {
         // d2 = 0.15
         // N(0.35) = 0.6368, N(0.15) = 0.5596
         // C = 100 * 0.6368 - 100 * e^-0.05 * 0.5596 = 63.68 - 95.12 * 0.5596 = 63.68 - 53.23 = 10.45
-        
+
         let bs_price = 10.4506;
-        assert!((price - bs_price).abs() < 0.01, "Heston limit should match BS. Got {}, expected {}", price, bs_price);
+        assert!(
+            (price - bs_price).abs() < 0.01,
+            "Heston limit should match BS. Got {}, expected {}",
+            price,
+            bs_price
+        );
 
         Ok(())
     }
@@ -240,7 +276,7 @@ mod tests {
         // or similar standard test cases.
         // Parameters: S=100, K=100, T=0.5, r=0.03, q=0.0
         // v0=0.04, kappa=2.0, theta=0.04, sigma=0.3, rho=-0.5
-        
+
         #[allow(non_snake_case)]
         let S = 100.0;
         #[allow(non_snake_case)]
@@ -249,7 +285,7 @@ mod tests {
         let T = 0.5;
         let r = 0.03;
         let q = 0.0;
-        
+
         let params = HestonParameters::new(
             0.04, // v0
             2.0,  // kappa
@@ -260,12 +296,12 @@ mod tests {
 
         let model = HestonModel::new(params);
         let call_price = model.price_european_call(S, K, T, r, q)?;
-        
+
         // Reference value approx 6.28 (approximate check)
         // Let's verify directionality at least if exact reference unavailable
         assert!(call_price > 0.0);
         assert!(call_price < S);
-        
+
         Ok(())
     }
 }

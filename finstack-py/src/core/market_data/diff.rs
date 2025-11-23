@@ -8,7 +8,7 @@ use finstack_core::market_data::diff::{
     DEFAULT_VOL_EXPIRY, STANDARD_TENORS,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 #[pyclass(
@@ -16,7 +16,7 @@ use pyo3::Bound;
     name = "TenorSamplingMethod",
     frozen
 )]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PyTenorSamplingMethod {
     pub(crate) inner: TenorSamplingMethod,
 }
@@ -38,6 +38,14 @@ impl PyTenorSamplingMethod {
     fn custom(tenors: Vec<f64>) -> Self {
         Self {
             inner: TenorSamplingMethod::Custom(tenors),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn default(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: TenorSamplingMethod::default(),
         }
     }
 
@@ -64,9 +72,7 @@ fn measure_discount_curve_shift_py(
     market_t1: &PyMarketContext,
     method: Option<PyRef<'_, PyTenorSamplingMethod>>,
 ) -> PyResult<f64> {
-    let sampling = method
-        .map(|m| m.inner.clone())
-        .unwrap_or(TenorSamplingMethod::Standard);
+    let sampling = method.map_or(TenorSamplingMethod::Standard, |m| m.inner.clone());
     measure_discount_curve_shift(curve_id, &market_t0.inner, &market_t1.inner, sampling)
         .map_err(core_to_py)
 }
@@ -89,9 +95,7 @@ fn measure_hazard_curve_shift_py(
     market_t1: &PyMarketContext,
     method: Option<PyRef<'_, PyTenorSamplingMethod>>,
 ) -> PyResult<f64> {
-    let sampling = method
-        .map(|m| m.inner.clone())
-        .unwrap_or(TenorSamplingMethod::Standard);
+    let sampling = method.map_or(TenorSamplingMethod::Standard, |m| m.inner.clone());
     measure_hazard_curve_shift(curve_id, &market_t0.inner, &market_t1.inner, sampling)
         .map_err(core_to_py)
 }
@@ -102,8 +106,7 @@ fn measure_inflation_curve_shift_py(
     market_t0: &PyMarketContext,
     market_t1: &PyMarketContext,
 ) -> PyResult<f64> {
-    measure_inflation_curve_shift(curve_id, &market_t0.inner, &market_t1.inner)
-        .map_err(core_to_py)
+    measure_inflation_curve_shift(curve_id, &market_t0.inner, &market_t1.inner).map_err(core_to_py)
 }
 
 #[pyfunction(name = "measure_correlation_shift")]
@@ -172,30 +175,15 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyTenorSamplingMethod>()?;
     module.add_function(wrap_pyfunction!(standard_tenors_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(
-        measure_discount_curve_shift_py,
-        &module
-    )?)?;
+    module.add_function(wrap_pyfunction!(measure_discount_curve_shift_py, &module)?)?;
     module.add_function(wrap_pyfunction!(
         measure_bucketed_discount_shift_py,
         &module
     )?)?;
-    module.add_function(wrap_pyfunction!(
-        measure_hazard_curve_shift_py,
-        &module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        measure_inflation_curve_shift_py,
-        &module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        measure_correlation_shift_py,
-        &module
-    )?)?;
-    module.add_function(wrap_pyfunction!(
-        measure_vol_surface_shift_py,
-        &module
-    )?)?;
+    module.add_function(wrap_pyfunction!(measure_hazard_curve_shift_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(measure_inflation_curve_shift_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(measure_correlation_shift_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(measure_vol_surface_shift_py, &module)?)?;
     module.add_function(wrap_pyfunction!(measure_fx_shift_py, &module)?)?;
     module.add_function(wrap_pyfunction!(measure_scalar_shift_py, &module)?)?;
 
@@ -223,4 +211,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-

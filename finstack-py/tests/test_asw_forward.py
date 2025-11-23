@@ -11,8 +11,8 @@ from finstack.core.currency import Currency
 from finstack.core.dates import DayCount
 from finstack.core.market_data import DiscountCurve, ForwardCurve, MarketContext
 from finstack.core.money import Money
-from finstack.valuations import create_standard_registry
 from finstack.valuations.instruments import Bond
+from finstack.valuations.pricer import create_standard_registry
 
 
 def _build_market_and_bond() -> tuple[Bond, MarketContext]:

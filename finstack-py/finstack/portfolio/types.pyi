@@ -9,10 +9,15 @@ class Entity:
     Entities represent companies, funds, or other legal entities that own instruments.
     For standalone instruments, use the dummy entity via Entity.dummy().
 
-    Examples:
-        >>> entity = Entity("ACME_CORP")
-        >>> entity = entity.with_name("Acme Corporation")
-        >>> entity = entity.with_tag("sector", "Technology")
+    Examples
+    --------
+    Create and tag an entity:
+
+        >>> from finstack.portfolio import Entity
+        >>> entity = Entity("ACME_CORP").with_name("Acme Corporation")
+        >>> tagged = entity.with_tag("sector", "Technology")
+        >>> print(tagged.id, tagged.name, tagged.tags["sector"])
+        ACME_CORP Acme Corporation Technology
     """
 
     def __init__(self, id: str) -> None:
@@ -24,7 +29,9 @@ class Entity:
         Returns:
             Entity: New entity instance.
 
-        Examples:
+        Examples
+        --------
+            >>> from finstack.portfolio import Entity
             >>> entity = Entity("ACME_CORP")
             >>> entity.id
             'ACME_CORP'
@@ -40,9 +47,10 @@ class Entity:
         Returns:
             Entity: Entity with updated name (builder pattern).
 
-        Examples:
-            >>> entity = Entity("ACME").with_name("Acme Corporation")
-            >>> entity.name
+        Examples
+        --------
+            >>> from finstack.portfolio import Entity
+            >>> Entity("ACME").with_name("Acme Corporation").name
             'Acme Corporation'
         """
         ...
@@ -57,9 +65,11 @@ class Entity:
         Returns:
             Entity: Entity with added tag (builder pattern).
 
-        Examples:
-            >>> entity = Entity("ACME").with_tag("sector", "Technology")
-            >>> entity.tags["sector"]
+        Examples
+        --------
+            >>> from finstack.portfolio import Entity
+            >>> tagged = Entity("ACME").with_tag("sector", "Technology")
+            >>> tagged.tags["sector"]
             'Technology'
         """
         ...
@@ -71,9 +81,10 @@ class Entity:
         Returns:
             Entity: Dummy entity with special identifier.
 
-        Examples:
-            >>> dummy = Entity.dummy()
-            >>> dummy.id
+        Examples
+        --------
+            >>> from finstack.portfolio import Entity
+            >>> Entity.dummy().id
             '_standalone'
         """
         ...
@@ -112,10 +123,12 @@ class PositionUnit:
         FACE_VALUE: Face value of debt instruments (for bonds, loans)
         PERCENTAGE: Percentage of ownership
 
-    Examples:
-        >>> unit = PositionUnit.UNITS
-        >>> unit = PositionUnit.notional_with_ccy(Currency.USD)
-        >>> unit = PositionUnit.FACE_VALUE
+    Examples
+    --------
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.portfolio import PositionUnit
+        >>> (str(PositionUnit.UNITS), str(PositionUnit.notional_with_ccy(Currency("USD"))))
+        ('units', 'notional(USD)')
     """
 
     # Class attributes
@@ -153,13 +166,15 @@ class Position:
     Represents a holding of a specific quantity of an instrument, belonging to an entity.
     Positions track the instrument reference, quantity, unit, and metadata for aggregation.
 
-    Examples:
-        >>> from finstack.valuations.instruments import Deposit
-        >>> from finstack.core import Money, Currency
-        >>> deposit = Deposit.fixed("DEP_1M", Money(Currency.USD, 1_000_000), ...)
-        >>> position = Position("POS_001", "ENTITY_A", "DEP_1M", deposit, 1.0, PositionUnit.UNITS)
-        >>> position.is_long()
-        True
+    Examples
+    --------
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.valuations.instruments import Equity
+        >>> from finstack.portfolio import Position, PositionUnit
+        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> position = Position("POS-1", "ENTITY_A", equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+        >>> (position.is_long(), position.instrument_id)
+        (True, 'EQ-ACME')
     """
 
     def __init__(

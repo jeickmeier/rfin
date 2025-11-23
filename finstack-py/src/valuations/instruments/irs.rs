@@ -1,6 +1,6 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
 use crate::valuations::common::PyInstrumentType;
@@ -273,15 +273,17 @@ impl PyInterestRateSwap {
         calendar: Option<&str>,
         stub: Option<crate::core::dates::schedule::PyStubKind>,
     ) -> PyResult<Self> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
         use crate::errors::PyContext;
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let amt = extract_money(&notional).context("notional")?;
         let start_date = py_to_date(&start).context("start")?;
         let end_date = py_to_date(&end).context("end")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let forward_curve_id =
+            CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
 
         let side_value = side
             .parse::<PayReceive>()

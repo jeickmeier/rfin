@@ -16,11 +16,11 @@ use super::term_structures::{
 use crate::errors::core_to_py;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyIterator, PyList, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
-use pyo3::exceptions::PyTypeError;
 
 /// Aggregates curves, surfaces, FX matrices, and scalar data for pricing.
 ///

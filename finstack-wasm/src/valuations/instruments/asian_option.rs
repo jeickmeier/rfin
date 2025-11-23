@@ -183,7 +183,10 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
     pub fn div_yield_id(&self) -> Option<String> {
-        self.0.div_yield_id.as_ref().map(|id| id.as_str().to_string())
+        self.0
+            .div_yield_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

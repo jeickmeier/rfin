@@ -18,7 +18,52 @@ class BarrierType:
     def name(self) -> str: ...
 
 class BarrierOption:
-    """Barrier option instrument."""
+    """Barrier option with path-dependent payoff.
+
+    BarrierOption represents an option whose payoff depends on whether the
+    underlying price crosses a barrier level during the option's life. Barrier
+    options are cheaper than standard options but have path-dependent payoffs.
+
+    Barrier options are used for cost-effective hedging and volatility trading.
+    They require discount curves, spot prices, and volatility surfaces.
+
+    Examples
+    --------
+    Create a down-and-out call barrier option:
+
+        >>> from finstack.valuations.instruments import BarrierOption, BarrierType
+        >>> from finstack import Money, Currency
+        >>> from datetime import date
+        >>> barrier_option = BarrierOption.builder(
+        ...     "BARRIER-AAPL-DO-CALL",
+        ...     ticker="AAPL",
+        ...     strike=150.0,
+        ...     barrier=140.0,  # Barrier level
+        ...     option_type="call",
+        ...     barrier_type="down_and_out",  # Knocked out if price goes below barrier
+        ...     expiry=date(2024, 12, 20),
+        ...     notional=Money(100_000, Currency("USD")),
+        ...     discount_curve="USD",
+        ...     spot_id="AAPL",
+        ...     vol_surface="AAPL-VOL",
+        ...     div_yield_id=None,
+        ...     use_gobet_miri=False,
+        ... )
+
+    Notes
+    -----
+    - Barrier options require discount curve, spot price, and volatility surface
+    - Barrier types: "up_and_out", "up_and_in", "down_and_out", "down_and_in"
+    - Out options are knocked out if barrier is crossed
+    - In options only pay if barrier is crossed
+    - Barrier options are typically cheaper than standard options
+
+    See Also
+    --------
+    :class:`EquityOption`: Standard equity options
+    :class:`AsianOption`: Asian options
+    :class:`PricerRegistry`: Pricing entry point
+    """
 
     @classmethod
     def builder(
@@ -37,9 +82,64 @@ class BarrierOption:
         *,
         div_yield_id: Optional[str] = None,
         use_gobet_miri: Optional[bool] = False,
-    ) -> "BarrierOption":
-        """Create a barrier option."""
-        ...
+    ) -> "BarrierOption": ...
+    """Create a barrier option.
+
+    Parameters
+    ----------
+    instrument_id : str
+        Unique identifier for the option.
+    ticker : str
+        Underlying equity ticker symbol.
+    strike : float
+        Strike price. Must be > 0.
+    barrier : float
+        Barrier level. Must be > 0 and typically different from strike.
+    option_type : str
+        Option type: "call" or "put".
+    barrier_type : str
+        Barrier type: "up_and_out", "up_and_in", "down_and_out", "down_and_in".
+    expiry : date
+        Option expiration date.
+    notional : Money
+        Notional amount.
+    discount_curve : str
+        Discount curve identifier in MarketContext.
+    spot_id : str
+        Spot price identifier in MarketContext.
+    vol_surface : str
+        Volatility surface identifier in MarketContext.
+    div_yield_id : str, optional
+        Dividend yield identifier in MarketContext.
+    use_gobet_miri : bool, optional
+        Use Gobet-Miri approximation for barrier pricing (default: False).
+
+    Returns
+    -------
+    BarrierOption
+        Configured barrier option ready for pricing.
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid or if required market data is missing.
+
+    Examples
+    --------
+        >>> option = BarrierOption.builder(
+        ...     "BARRIER-AAPL",
+        ...     "AAPL",
+        ...     strike=150.0,
+        ...     barrier=140.0,
+        ...     option_type="call",
+        ...     barrier_type="down_and_out",
+        ...     expiry=date(2024, 12, 20),
+        ...     notional=Money(100_000, Currency("USD")),
+        ...     discount_curve="USD",
+        ...     spot_id="AAPL",
+        ...     vol_surface="AAPL-VOL"
+        ... )
+    """
 
     @property
     def instrument_id(self) -> str: ...

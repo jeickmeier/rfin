@@ -299,12 +299,7 @@ fn convert_to_reporting(
             return Ok(Some(money));
         }
         let rate = fx
-            .rate(FxQuery::with_policy(
-                money.currency(),
-                rc,
-                on,
-                fx_policy,
-            ))?
+            .rate(FxQuery::with_policy(money.currency(), rc, on, fx_policy))?
             .rate;
         Ok(Some(finstack_core::money::Money::new(
             money.amount() * rate,

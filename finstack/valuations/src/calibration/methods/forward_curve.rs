@@ -160,8 +160,7 @@ impl ForwardCurveCalibrator {
                     reference_index,
                     ..
                 } => {
-                    primary_index
-                        .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
+                    primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
                         || reference_index
                             .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
                 }

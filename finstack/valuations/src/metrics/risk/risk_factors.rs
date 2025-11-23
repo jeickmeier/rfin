@@ -434,9 +434,9 @@ mod tests {
         let factors = extract_risk_factors(&option, &market)?;
 
         assert!(
-            factors
-                .iter()
-                .any(|f| matches!(f, RiskFactorType::EquitySpot { ticker } if ticker == &option.spot_id)),
+            factors.iter().any(
+                |f| matches!(f, RiskFactorType::EquitySpot { ticker } if ticker == &option.spot_id)
+            ),
             "should include equity spot factor"
         );
         assert!(

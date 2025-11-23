@@ -179,8 +179,8 @@ mod credit_emission_tests {
     use super::super::credit::{emit_default_on, emit_prepayment_on};
     use crate::cashflow::primitives::CFKind;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::DateExt;
     use finstack_core::dates::Date;
+    use finstack_core::dates::DateExt;
     use time::Month;
 
     #[test]

@@ -72,7 +72,8 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         .surface_ref(swaption.vol_surface_id.as_str())
                         .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
 
-                    let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility {
+                    let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility
+                    {
                         impl_vol
                     } else {
                         vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)

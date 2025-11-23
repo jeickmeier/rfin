@@ -314,8 +314,7 @@ mod tests {
     fn test_equity_spot_shift_applied() -> Result<()> {
         use finstack_core::market_data::scalars::MarketScalar;
 
-        let base_market =
-            MarketContext::new().insert_price("AAPL", MarketScalar::Unitless(100.0));
+        let base_market = MarketContext::new().insert_price("AAPL", MarketScalar::Unitless(100.0));
 
         let scenario = MarketScenario::new(
             date!(2024 - 01 - 02),

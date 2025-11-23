@@ -336,11 +336,7 @@ fn find_active_period_and_elapsed<'a>(
             if let Some(ref ex) = cfg.ex_coupon {
                 let ex_date = if let Some(cal_id) = &ex.calendar_id {
                     if let Some(cal) = calendar_by_id(cal_id) {
-                        advance_business_days(
-                            cal,
-                            inputs.end,
-                            -(ex.days_before_coupon as i32),
-                        )
+                        advance_business_days(cal, inputs.end, -(ex.days_before_coupon as i32))
                     } else {
                         // Calendar not found: fallback to calendar days
                         inputs.end - Duration::days(ex.days_before_coupon as i64)

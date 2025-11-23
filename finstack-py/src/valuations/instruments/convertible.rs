@@ -1,6 +1,6 @@
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::core_to_py;
 use crate::valuations::cashflow::builder::{PyFixedCouponSpec, PyFloatingCouponSpec};
 use crate::valuations::common::PyInstrumentType;
@@ -389,7 +389,8 @@ impl PyConvertibleBond {
         let notional_money = extract_money(&notional).context("notional")?;
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
         if fixed_coupon.is_some() && floating_coupon.is_some() {
             return Err(PyValueError::new_err(

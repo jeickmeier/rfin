@@ -634,13 +634,11 @@ fn test_capital_structure_cashflows_accessors() {
         10_000.0
     );
     assert_eq!(
-        cs.get_principal("INST-001", &period)
-            .expect("principal"),
+        cs.get_principal("INST-001", &period).expect("principal"),
         25_000.0
     );
     assert_eq!(
-        cs.get_debt_balance("INST-001", &period)
-            .expect("balance"),
+        cs.get_debt_balance("INST-001", &period).expect("balance"),
         500_000.0
     );
     assert_eq!(
@@ -652,8 +650,7 @@ fn test_capital_structure_cashflows_accessors() {
         25_000.0
     );
     assert_eq!(
-        cs.get_total_debt_balance(&period)
-            .expect("total balance"),
+        cs.get_total_debt_balance(&period).expect("total balance"),
         500_000.0
     );
 

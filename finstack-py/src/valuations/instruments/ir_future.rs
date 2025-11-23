@@ -1,6 +1,6 @@
 use crate::core::common::args::DayCountArg;
-use crate::core::money::{extract_money, PyMoney};
 use crate::core::dates::utils::py_to_date;
+use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
@@ -90,8 +90,10 @@ impl PyInterestRateFuture {
         let fixing = py_to_date(&fixing_date).context("fixing_date")?;
         let start = py_to_date(&period_start).context("period_start")?;
         let end = py_to_date(&period_end).context("period_end")?;
-        let discount_curve_id = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let forward_curve_id = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
+        let discount_curve_id =
+            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+        let forward_curve_id =
+            CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract().context("day_count")?;
             value

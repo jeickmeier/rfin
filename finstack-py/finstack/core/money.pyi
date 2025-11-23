@@ -10,19 +10,57 @@ from typing import Union, Tuple
 from .currency import Currency
 
 class Money:
-    """Represent a currency-tagged monetary amount with safe arithmetic semantics.
+    """Currency-tagged monetary amount with type-safe arithmetic.
+
+    Money represents a monetary value with an associated currency. All arithmetic
+    operations require matching currencies, preventing accidental cross-currency
+    calculations. Money instances are immutable and respect currency-specific
+    decimal places for formatting.
 
     Parameters
     ----------
     amount : float
-        Scalar value expressed in minor units defined by currency.
+        Scalar monetary value. The interpretation depends on the currency's
+        decimal places (e.g., 100.50 for USD represents $100.50, while 100 for
+        JPY represents ¥100).
     currency : str or Currency
-        ISO code or Currency instance describing the legal tender.
+        Currency identifier. Can be an ISO code string (e.g., "USD") or a
+        :class:`Currency` instance.
 
     Returns
     -------
     Money
-        Money wrapper supporting arithmetic, formatting, and tuple conversions.
+        Immutable money object supporting arithmetic, formatting, and
+        conversions.
+
+    Raises
+    ------
+    ValueError
+        If the currency code is invalid or if arithmetic operations involve
+        mismatched currencies.
+
+    Examples
+    --------
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> usd = Money(100.50, "USD")
+        >>> eur = Money(50.0, Currency("EUR"))
+        >>> total = usd + Money(20.0, "USD")
+        >>> print((usd.format(), total.amount, eur.currency.code))
+        ('USD 100.50', 120.5, 'EUR')
+
+    Notes
+    -----
+    - Money objects are immutable and hashable
+    - All arithmetic requires matching currencies (enforced at runtime)
+    - Formatting respects currency-specific decimal places
+    - Use :meth:`from_config` to control ingest rounding behavior
+    - Use :meth:`zero` to create zero amounts in a specific currency
+
+    See Also
+    --------
+    :class:`Currency`: Currency identification and metadata
+    :class:`FinstackConfig`: Configuration for rounding and decimal scales
     """
 
     def __init__(self, amount: float, currency: Union[str, Currency]) -> None: ...
@@ -46,9 +84,12 @@ class Money:
         
     Examples
     --------
-    >>> cfg = FinstackConfig()
-    >>> cfg.set_ingest_scale("JPY", 4)
-    >>> Money.from_config(123.4567, "JPY", cfg)
+        >>> from finstack.core.config import FinstackConfig
+        >>> from finstack.core.money import Money
+        >>> cfg = FinstackConfig()
+        >>> cfg.set_ingest_scale("JPY", 4)
+        >>> Money.from_config(123.4567, "JPY", cfg).amount
+        123.4567
     """
 
     @classmethod
@@ -134,41 +175,49 @@ class Money:
     """
 
     def checked_add(self, other: Money) -> Money: ...
-    """Add another money amount (same currency required).
+    """Add another money amount with explicit currency checking.
+    
+    This method performs addition with explicit error handling. For most use
+    cases, the ``+`` operator is preferred, which calls this method internally.
     
     Parameters
     ----------
     other : Money
-        Money to add (must have same currency).
+        Money amount to add. Must have the same currency as this instance.
         
     Returns
     -------
     Money
-        Sum of the two amounts.
+        Sum of the two amounts in the same currency.
         
     Raises
     ------
     ValueError
-        If currencies don't match.
+        If currencies don't match. The error message will indicate which
+        currencies were involved.
     """
 
     def checked_sub(self, other: Money) -> Money: ...
-    """Subtract another money amount (same currency required).
+    """Subtract another money amount with explicit currency checking.
+    
+    This method performs subtraction with explicit error handling. For most use
+    cases, the ``-`` operator is preferred, which calls this method internally.
     
     Parameters
     ----------
     other : Money
-        Money to subtract (must have same currency).
+        Money amount to subtract. Must have the same currency as this instance.
         
     Returns
     -------
     Money
-        Difference of the two amounts.
+        Difference of the two amounts in the same currency.
         
     Raises
     ------
     ValueError
-        If currencies don't match.
+        If currencies don't match. The error message will indicate which
+        currencies were involved.
     """
 
     def __repr__(self) -> str: ...
