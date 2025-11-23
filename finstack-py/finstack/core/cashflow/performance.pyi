@@ -7,6 +7,4 @@ def npv(
     base_date: Optional[date] = None,
     day_count: Optional[str] = None,
 ) -> float: ...
-
 def irr_periodic(amounts: List[float], guess: Optional[float] = None) -> float: ...
-

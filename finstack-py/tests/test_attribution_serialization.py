@@ -159,9 +159,7 @@ def test_attribution_from_json_with_waterfall() -> None:
             },
             "as_of_t0": "2025-01-15",
             "as_of_t1": "2025-01-16",
-            "method": {
-                "Waterfall": ["Carry", "RatesCurves", "CreditCurves"]
-            },
+            "method": {"Waterfall": ["Carry", "RatesCurves", "CreditCurves"]},
         },
     }
 
@@ -252,4 +250,3 @@ def test_attribution_from_json_with_config() -> None:
     # This will fail with missing curve error, but confirms JSON parsing works
     with pytest.raises(Exception, match=r"(USD-OIS|not found)"):
         attribute_pnl_from_json(spec_json)
-

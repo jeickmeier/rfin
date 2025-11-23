@@ -1,10 +1,12 @@
+pub(crate) mod bumps;
 pub(crate) mod context;
+pub(crate) mod diff;
 pub(crate) mod dividends;
 pub(crate) mod fx;
-pub(crate) mod interp;
 pub(crate) mod scalars;
 pub(crate) mod surfaces;
 pub(crate) mod term_structures;
+pub mod volatility;
 
 #[allow(unused_imports)]
 pub use context::PyMarketContext;
@@ -12,8 +14,6 @@ pub use context::PyMarketContext;
 pub use dividends::{PyDividendEvent, PyDividendSchedule, PyDividendScheduleBuilder};
 #[allow(unused_imports)]
 pub use fx::{PyFxConfig, PyFxConversionPolicy, PyFxMatrix, PyFxRateResult};
-#[allow(unused_imports)]
-pub use interp::{PyExtrapolationPolicy, PyInterpStyle};
 #[allow(unused_imports)]
 pub use scalars::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 #[allow(unused_imports)]
@@ -38,9 +38,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let mut exports: Vec<&str> = Vec::new();
 
-    let interp_exports = interp::register(py, &module)?;
-    exports.extend(interp_exports.iter().copied());
-
     let term_exports = term_structures::register(py, &module)?;
     exports.extend(term_exports.iter().copied());
 
@@ -58,6 +55,15 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let context_exports = context::register(py, &module)?;
     exports.extend(context_exports.iter().copied());
+
+    let bump_exports = bumps::register(py, &module)?;
+    exports.extend(bump_exports.iter().copied());
+
+    let diff_exports = diff::register(py, &module)?;
+    exports.extend(diff_exports.iter().copied());
+
+    let volatility_exports = volatility::register(py, &module)?;
+    exports.extend(volatility_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

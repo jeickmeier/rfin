@@ -20,6 +20,7 @@ from typing import Any
 @dataclass
 class MethodInfo:
     """Information about a class method."""
+
     name: str
     is_static: bool
     is_property: bool
@@ -30,6 +31,7 @@ class MethodInfo:
 @dataclass
 class ClassInfo:
     """Information about a class."""
+
     name: str
     methods: list[MethodInfo]
     properties: list[str]
@@ -39,6 +41,7 @@ class ClassInfo:
 @dataclass
 class FunctionInfo:
     """Information about a standalone function."""
+
     name: str
     signature: str = ""
 
@@ -46,6 +49,7 @@ class FunctionInfo:
 @dataclass
 class ModuleInfo:
     """Information about a module."""
+
     name: str
     path: str
     classes: list[ClassInfo]
@@ -88,11 +92,11 @@ class PythonAPIExtractor:
                 class_name = self._extract_class_name(lines, i)
                 if class_name:
                     methods = self._extract_methods(lines, i, class_name)
-                    classes.append(ClassInfo(
-                        name=class_name,
-                        methods=methods,
-                        properties=[m.name for m in methods if m.is_property]
-                    ))
+                    classes.append(
+                        ClassInfo(
+                            name=class_name, methods=methods, properties=[m.name for m in methods if m.is_property]
+                        )
+                    )
 
             # Look for pyfunction
             elif "#[pyfunction]" in line:
@@ -107,7 +111,7 @@ class PythonAPIExtractor:
             path=str(rust_file.relative_to(self.src_root)),
             classes=classes,
             functions=functions,
-            submodules=[]
+            submodules=[],
         )
 
     def _extract_class_name(self, lines: list[str], start_idx: int) -> str:
@@ -158,12 +162,14 @@ class PythonAPIExtractor:
                     method_name = self._extract_method_name(func_line)
 
                     if method_name and not method_name.startswith("_"):
-                        methods.append(MethodInfo(
-                            name=method_name,
-                            is_static=is_static or is_new,
-                            is_property=is_property,
-                            is_classmethod=is_classmethod
-                        ))
+                        methods.append(
+                            MethodInfo(
+                                name=method_name,
+                                is_static=is_static or is_new,
+                                is_property=is_property,
+                                is_classmethod=is_classmethod,
+                            )
+                        )
 
             i += 1
 
@@ -187,11 +193,7 @@ class PythonAPIExtractor:
 
     def scan_directory(self, directory: Path, module_prefix: str = "") -> dict[str, Any]:
         """Recursively scan directory for binding files."""
-        api_tree = {
-            "modules": {},
-            "classes": [],
-            "functions": []
-        }
+        api_tree = {"modules": {}, "classes": [], "functions": []}
 
         for rust_file in directory.glob("*.rs"):
             if rust_file.name in ["mod.rs", "lib.rs"]:
@@ -203,7 +205,7 @@ class PythonAPIExtractor:
             api_tree["modules"][module_name] = {
                 "path": module_info.path,
                 "classes": [asdict(c) for c in module_info.classes],
-                "functions": [asdict(f) for f in module_info.functions]
+                "functions": [asdict(f) for f in module_info.functions],
             }
 
             # Collect all classes and functions at top level too
@@ -223,11 +225,7 @@ class PythonAPIExtractor:
 
     def extract_all(self) -> dict[str, Any]:
         """Extract all APIs from the Python bindings."""
-        result = {
-            "binding": "python",
-            "source_root": str(self.src_root),
-            "api": {}
-        }
+        result = {"binding": "python", "source_root": str(self.src_root), "api": {}}
 
         # Scan major modules
         for module_dir in ["core", "valuations", "statements", "scenarios", "portfolio"]:
@@ -260,10 +258,8 @@ def main() -> int:
     sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
     sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
 
-
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

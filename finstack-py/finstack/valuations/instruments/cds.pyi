@@ -7,6 +7,7 @@ from ..common import InstrumentType
 
 class CDSPayReceive:
     """Pay/receive indicator for CDS premium leg."""
+
     PAY_PROTECTION: "CDSPayReceive"
     RECEIVE_PROTECTION: "CDSPayReceive"
 

@@ -39,22 +39,21 @@ class RevolvingCredit:
     def recovery_rate(self) -> float: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def utilization_rate(self) -> float:
         """Calculate current utilization rate (drawn / commitment)."""
         ...
-    
+
     def undrawn_amount(self) -> Money:
         """Calculate current undrawn amount (available capacity)."""
         ...
-    
+
     def is_deterministic(self) -> bool:
         """Check if the facility uses deterministic cashflows."""
         ...
-    
+
     def is_stochastic(self) -> bool:
         """Check if the facility uses stochastic utilization."""
         ...
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

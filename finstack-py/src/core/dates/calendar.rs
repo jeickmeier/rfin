@@ -1,6 +1,6 @@
 use crate::core::common::args::BusinessDayConventionArg;
 use crate::core::common::pycmp::richcmp_eq_ne;
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{
     calendar_not_found, core_to_py, unknown_business_day_convention, PyContext,
 };

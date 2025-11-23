@@ -10,6 +10,7 @@ from ..cashflow.builder import ScheduleParams
 
 class TrsSide:
     """Total return swap side wrapper."""
+
     RECEIVE_TOTAL_RETURN: "TrsSide"
     PAY_TOTAL_RETURN: "TrsSide"
 

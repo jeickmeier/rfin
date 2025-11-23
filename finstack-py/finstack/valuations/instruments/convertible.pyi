@@ -8,6 +8,7 @@ from ..cashflow.builder import FixedCouponSpec, FloatingCouponSpec
 
 class ConversionEvent:
     """Convertible conversion event wrapper."""
+
     QUALIFIED_IPO: "ConversionEvent"
     CHANGE_OF_CONTROL: "ConversionEvent"
     @classmethod
@@ -26,12 +27,14 @@ class ConversionPolicy:
 
 class AntiDilutionPolicy:
     """Anti-dilution policy wrapper."""
+
     NONE: "AntiDilutionPolicy"
     FULL_RATCHET: "AntiDilutionPolicy"
     WEIGHTED_AVERAGE: "AntiDilutionPolicy"
 
 class DividendAdjustment:
     """Dividend adjustment policy wrapper."""
+
     NONE: "DividendAdjustment"
     ADJUST_PRICE: "DividendAdjustment"
     ADJUST_RATIO: "DividendAdjustment"

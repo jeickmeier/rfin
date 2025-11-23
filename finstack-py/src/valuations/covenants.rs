@@ -1,4 +1,5 @@
 use crate::core::dates::periods::PyPeriodId;
+use crate::core::dates::utils::date_to_py;
 use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
@@ -192,7 +193,7 @@ impl PyCovenantForecast {
     fn test_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
         let list = PyList::empty(py);
         for d in &self.inner.test_dates {
-            list.append(crate::core::utils::date_to_py(py, *d)?)?;
+            list.append(date_to_py(py, *d)?)?;
         }
         Ok(list.into())
     }
@@ -217,14 +218,14 @@ impl PyCovenantForecast {
     #[getter]
     fn first_breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         match self.inner.first_breach_date {
-            Some(d) => crate::core::utils::date_to_py(py, d),
+            Some(d) => date_to_py(py, d),
             None => Ok(py.None()),
         }
     }
 
     #[getter]
     fn min_headroom_date(&self, py: Python<'_>) -> PyResult<PyObject> {
-        crate::core::utils::date_to_py(py, self.inner.min_headroom_date)
+        date_to_py(py, self.inner.min_headroom_date)
     }
 
     #[getter]
@@ -326,7 +327,7 @@ impl PyFutureBreach {
 
     #[getter]
     fn breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
-        crate::core::utils::date_to_py(py, self.inner.breach_date)
+        date_to_py(py, self.inner.breach_date)
     }
 
     #[getter]

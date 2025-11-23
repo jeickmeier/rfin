@@ -10,7 +10,7 @@
 //! `rate(from, to, on, policy)` to evaluate an FX rate for a given date.
 use crate::core::currency::PyCurrency;
 // use crate::core::common::args::{ExtrapolationPolicyArg, CurrencyArg};
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};

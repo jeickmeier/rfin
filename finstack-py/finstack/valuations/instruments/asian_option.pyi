@@ -6,6 +6,7 @@ from ...core.money import Money
 
 class AveragingMethod:
     """Averaging method enumeration."""
+
     ARITHMETIC: "AveragingMethod"
     GEOMETRIC: "AveragingMethod"
 

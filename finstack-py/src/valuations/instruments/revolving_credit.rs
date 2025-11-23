@@ -1,7 +1,7 @@
 use crate::core::currency::PyCurrency;
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::PyMoney;
-use crate::core::utils::date_to_py;
+use crate::core::dates::utils::date_to_py;
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
 use crate::valuations::results::PyValuationResult;
@@ -277,7 +277,7 @@ impl PyRevolvingCredit {
     ///     >>> pv = rc.value(market, date.today())
     ///     >>> print(f"PV: {pv}")
     fn value(&self, market: &PyMarketContext, as_of: Bound<'_, pyo3::PyAny>) -> PyResult<PyMoney> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use finstack_valuations::instruments::common::traits::Instrument;
 
         let as_of_date = py_to_date(&as_of)?;
@@ -312,7 +312,7 @@ impl PyRevolvingCredit {
         as_of: Bound<'_, pyo3::PyAny>,
         metrics: Vec<String>,
     ) -> PyResult<PyValuationResult> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use finstack_valuations::instruments::common::traits::Instrument;
         use finstack_valuations::metrics::MetricId;
 
@@ -352,7 +352,7 @@ impl PyRevolvingCredit {
         market: &PyMarketContext,
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyCashFlowSchedule> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use finstack_valuations::cashflow::traits::CashflowProvider;
 
         let as_of_date = py_to_date(&as_of)?;
@@ -381,7 +381,7 @@ impl PyRevolvingCredit {
         market: &PyMarketContext,
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyMoney> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 
         let as_of_date = py_to_date(&as_of)?;
@@ -419,7 +419,7 @@ impl PyRevolvingCredit {
         market: &PyMarketContext,
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyEnhancedMonteCarloResult> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 
         let as_of_date = py_to_date(&as_of)?;

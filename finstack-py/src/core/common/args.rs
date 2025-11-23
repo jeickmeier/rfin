@@ -1,6 +1,7 @@
 use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
+use crate::core::math::interp::{PyExtrapolationPolicy, PyInterpStyle};
 use crate::errors::{unknown_business_day_convention, unknown_rounding_mode};
 use finstack_core::config::RoundingMode;
 use finstack_core::currency::Currency;
@@ -112,7 +113,7 @@ pub struct InterpStyleArg(pub InterpStyle);
 
 impl<'py> FromPyObject<'py> for InterpStyleArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(py) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() {
+        if let Ok(py) = obj.extract::<PyRef<PyInterpStyle>>() {
             return Ok(InterpStyleArg(py.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
@@ -142,7 +143,7 @@ pub struct ExtrapolationPolicyArg(pub ExtrapolationPolicy);
 impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if let Ok(py) =
-            obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>()
+            obj.extract::<PyRef<PyExtrapolationPolicy>>()
         {
             return Ok(ExtrapolationPolicyArg(py.inner));
         }

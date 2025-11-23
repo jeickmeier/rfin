@@ -1,6 +1,6 @@
 //! Python bindings for performance measurement utilities: IRR, XIRR, and NPV.
 
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::{irr_periodic, npv_performance};
 use pyo3::prelude::*;

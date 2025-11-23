@@ -5,7 +5,7 @@
 //! handling, business-day convention+calendar, and end-of-month alignment—then
 //! call `build()` to produce an immutable `Schedule` of dates.
 use super::calendar::{PyBusinessDayConvention, PyCalendar};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::dates::{Frequency, ScheduleBuilder, ScheduleSpec, StubKind};
 use pyo3::exceptions::PyValueError;

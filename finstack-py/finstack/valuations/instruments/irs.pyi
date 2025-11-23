@@ -10,6 +10,7 @@ from ..common import InstrumentType
 
 class PayReceive:
     """Pay/receive direction for swap fixed-leg cashflows."""
+
     PAY_FIXED: "PayReceive"
     RECEIVE_FIXED: "PayReceive"
 

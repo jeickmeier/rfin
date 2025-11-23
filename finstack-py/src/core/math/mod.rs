@@ -1,9 +1,11 @@
 mod callable;
 mod distributions;
 mod integration;
+pub(crate) mod interp;
 mod linalg;
 mod random;
 mod solver;
+mod solver_multi;
 mod special_functions;
 mod stats;
 mod summation;
@@ -23,6 +25,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
             "- distributions: binomial probabilities and related logarithms\n",
             "- integration: Simpson/trapezoidal rules and Gauss-Legendre/Hermite quadrature\n",
             "- solver: Newton and Brent root finders\n",
+            "- interp: interpolation and extrapolation styles\n",
             "- random: SimpleRng and Box-Muller transforms\n",
             "All functions accept Python callables where appropriate and return floats."
         ),
@@ -36,8 +39,14 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let integration_exports = integration::register(py, &module)?;
     exports.extend(integration_exports.iter().copied());
 
+    let interp_exports = interp::register(py, &module)?;
+    exports.extend(interp_exports.iter().copied());
+
     let solver_exports = solver::register(py, &module)?;
     exports.extend(solver_exports.iter().copied());
+
+    let multi_exports = solver_multi::register(py, &module)?;
+    exports.extend(multi_exports.iter().copied());
 
     let special_exports = special_functions::register(py, &module)?;
     exports.extend(special_exports.iter().copied());

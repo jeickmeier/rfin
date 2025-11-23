@@ -7,7 +7,7 @@ use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
     PyBaseCorrelationCurve, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
 };
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use crate::errors::core_to_py;
 use finstack_core::market_data::context::MarketContext as CoreMarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};

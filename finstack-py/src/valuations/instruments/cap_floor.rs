@@ -1,7 +1,7 @@
 use crate::core::common::args::DayCountArg;
 // use crate::errors::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};

@@ -1,7 +1,7 @@
 //! Python bindings for Portfolio.
 
 use crate::core::currency::PyCurrency;
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::types::{PyEntity, PyPosition};
 use finstack_portfolio::Portfolio;

@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyType;
 
 use crate::core::money::extract_money;
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 
 /// Amortization specification for principal over time.
 #[pyclass(

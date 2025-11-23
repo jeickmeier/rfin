@@ -1,6 +1,6 @@
 // Reverted start_date
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::date_to_py;
+use crate::core::dates::utils::date_to_py;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cliquet_option::CliquetOption;
 use pyo3::prelude::*;
@@ -60,7 +60,7 @@ impl PyCliquetOption {
         vol_surface: Bound<'_, PyAny>,
         div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
         use crate::errors::PyContext;
         use finstack_core::dates::DayCount;
 

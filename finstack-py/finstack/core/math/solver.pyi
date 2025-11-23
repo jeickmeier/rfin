@@ -6,7 +6,6 @@ and Brent's method.
 
 from typing import Callable, Optional
 
-
 class NewtonSolver:
     """Newton's method for root finding.
 
@@ -26,7 +25,6 @@ class NewtonSolver:
         max_iterations: Optional[int] = None,
         fd_step: Optional[float] = None,
     ) -> None: ...
-
     @property
     def tolerance(self) -> float: ...
     """Get the convergence tolerance.
@@ -107,7 +105,6 @@ class NewtonSolver:
 
     def __repr__(self) -> str: ...
 
-
 class BrentSolver:
     """Brent's method for root finding.
 
@@ -130,7 +127,6 @@ class BrentSolver:
         bracket_expansion: Optional[float] = None,
         initial_bracket_size: Optional[float] = None,
     ) -> None: ...
-
     @property
     def tolerance(self) -> float: ...
     """Get the convergence tolerance.
@@ -229,4 +225,3 @@ class BrentSolver:
     """
 
     def __repr__(self) -> str: ...
-

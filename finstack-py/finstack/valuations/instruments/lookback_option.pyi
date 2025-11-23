@@ -6,6 +6,7 @@ from ...core.money import Money
 
 class LookbackType:
     """Lookback option type."""
+
     FIXED_STRIKE: "LookbackType"
     FLOATING_STRIKE: "LookbackType"
     @classmethod

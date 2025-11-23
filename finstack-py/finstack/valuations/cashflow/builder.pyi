@@ -24,7 +24,7 @@ class AmortizationSpec:
     @classmethod
     def linear_to(cls, final_notional: Money) -> AmortizationSpec:
         """Linear amortization to final notional.
-        
+
         Args:
             final_notional: Final notional amount.
         """
@@ -36,7 +36,7 @@ class AmortizationSpec:
         schedule: List[Tuple[date | str, Money]],
     ) -> AmortizationSpec:
         """Step amortization with remaining notional.
-        
+
         Args:
             schedule: List of (date, remaining_notional) pairs.
         """
@@ -45,7 +45,7 @@ class AmortizationSpec:
     @classmethod
     def percent_per_period(cls, pct: float) -> AmortizationSpec:
         """Percentage amortization per period.
-        
+
         Args:
             pct: Percentage per period (e.g., 0.05 = 5%).
         """
@@ -57,7 +57,7 @@ class AmortizationSpec:
         items: List[Tuple[date | str, Money]],
     ) -> AmortizationSpec:
         """Custom principal amortization.
-        
+
         Args:
             items: List of (date, principal_amount) pairs.
         """

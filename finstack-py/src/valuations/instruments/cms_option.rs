@@ -2,7 +2,7 @@ use crate::core::common::args::DayCountArg;
 use crate::core::common::labels::normalize_label;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cms_option::CmsOption;

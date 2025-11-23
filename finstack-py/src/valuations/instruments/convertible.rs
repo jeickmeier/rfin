@@ -1,6 +1,6 @@
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::core_to_py;
 use crate::valuations::cashflow::builder::{PyFixedCouponSpec, PyFloatingCouponSpec};
 use crate::valuations::common::PyInstrumentType;

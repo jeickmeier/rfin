@@ -88,4 +88,3 @@ Returns
 float
     Sample in [0.0, 1.0].
 """
-

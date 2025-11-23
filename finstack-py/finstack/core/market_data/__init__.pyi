@@ -6,22 +6,31 @@ This module provides comprehensive market data handling:
 - FX: Foreign exchange rates and conversion policies
 - Scalars: Market prices and time series
 - Context: Market data aggregation and management
+- Volatility: Volatility conventions and pricing models
+- Bumps: Scenario specification helpers
+- Diff: Market movement measurement utilities
+
+Note: Interpolation types have moved to finstack.core.math.interp
 """
 
+from . import bumps
 from . import context
+from . import diff
 from . import dividends
 from . import fx
-from . import interp
 from . import scalars
 from . import surfaces
 from . import term_structures
+from . import volatility
 
 __all__ = [
+    "bumps",
     "context",
+    "diff",
     "dividends",
     "fx",
-    "interp",
     "scalars",
     "surfaces",
     "term_structures",
+    "volatility",
 ]

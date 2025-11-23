@@ -4,6 +4,7 @@
 //! inflation curves, volatility surfaces, FX matrices, scalars and time series.
 //! Used by valuation routines to resolve dependencies by id. Insertion helpers
 //! replace existing entries by id; retrieval raises `ValueError` when missing.
+use super::bumps::PyMarketBump;
 use super::dividends::PyDividendSchedule;
 use super::fx::PyFxMatrix;
 use super::scalars::{PyMarketScalar, PyScalarTimeSeries};
@@ -16,9 +17,10 @@ use crate::errors::core_to_py;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule};
+use pyo3::types::{PyDict, PyIterator, PyList, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
+use pyo3::exceptions::PyTypeError;
 
 /// Aggregates curves, surfaces, FX matrices, and scalar data for pricing.
 ///
@@ -85,6 +87,32 @@ impl PyMarketContext {
         Self {
             inner: self.inner.clone(),
         }
+    }
+
+    #[pyo3(text_signature = "(self, bumps)")]
+    /// Apply market bumps and return a new context with shifted data.
+    ///
+    /// Parameters
+    /// ----------
+    /// bumps : Sequence[MarketBump]
+    ///     Iterable of :class:`MarketBump` objects describing the shifts.
+    ///
+    /// Returns
+    /// -------
+    /// MarketContext
+    ///     New context instance containing bumped market data.
+    fn apply_bumps(&self, bumps: Bound<'_, PyAny>) -> PyResult<Self> {
+        let iter = PyIterator::from_object(&bumps)?;
+        let mut parsed = Vec::new();
+        for item in iter {
+            let obj = item?;
+            let bump = obj
+                .extract::<PyRef<PyMarketBump>>()
+                .map_err(|_| PyTypeError::new_err("bumps must contain MarketBump objects"))?;
+            parsed.push(bump.inner.clone());
+        }
+        let bumped = self.inner.apply_bumps(&parsed).map_err(core_to_py)?;
+        Ok(Self { inner: bumped })
     }
 
     #[pyo3(text_signature = "(self, curve)")]

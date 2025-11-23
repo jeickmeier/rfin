@@ -74,7 +74,7 @@ def test_discount_curve_df() -> None:
         "USD-TEST",
         date(2024, 1, 1),
         [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75), (10.0, 0.50)],  # (time, df) tuples
-        day_count="act_365f"
+        day_count="act_365f",
     )
 
     # Test df at 1 year
@@ -114,7 +114,9 @@ def test_period_building() -> None:
 
     # Check period IDs and actual flags
     periods = plan.periods
-    for i, (expected_id, expected_is_actual) in enumerate(zip(expected["period_ids"], expected["is_actual"], strict=False)):
+    for i, (expected_id, expected_is_actual) in enumerate(
+        zip(expected["period_ids"], expected["is_actual"], strict=False)
+    ):
         assert periods[i].id.code == expected_id
         assert periods[i].is_actual == expected_is_actual
 
@@ -123,10 +125,7 @@ def test_discount_curve_zero_rate() -> None:
     """Test that discount curve provides consistent zero rates."""
     # Simple test
     curve = DiscountCurve(
-        "USD-TEST",
-        date(2024, 1, 1),
-        [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75), (10.0, 0.50)],
-        day_count="act_365f"
+        "USD-TEST", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75), (10.0, 0.50)], day_count="act_365f"
     )
 
     # Verify zero rate consistency
@@ -136,6 +135,7 @@ def test_discount_curve_zero_rate() -> None:
 
     # Should be able to recover df from zero rate
     import math
+
     recovered_df = math.exp(-zero * time)
 
     assert abs(df - recovered_df) < 0.01
@@ -183,4 +183,3 @@ def test_irs_valuation() -> None:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

@@ -188,4 +188,3 @@ def test_goal_seek_invalid_target_period() -> None:
             driver_node="revenue",
             update_model=False,
         )
-

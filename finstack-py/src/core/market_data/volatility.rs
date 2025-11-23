@@ -24,7 +24,7 @@ use pyo3::{Bound, PyRef};
 ///     Convention descriptor.
 #[pyclass(
     name = "VolatilityConvention",
-    module = "finstack.core.volatility",
+    module = "finstack.core.market_data.volatility",
     frozen
 )]
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -18,6 +18,7 @@ from typing import Any
 @dataclass
 class ParityIssue:
     """Represents a parity issue between bindings."""
+
     category: str  # "missing_in_wasm", "missing_in_python", "name_mismatch", etc.
     item_type: str  # "class", "method", "function"
     item_name: str
@@ -73,25 +74,51 @@ class APIComparator:
         # Known instruments list
         all_instruments = {
             # Fixed Income
-            "Bond", "Deposit", "InterestRateSwap", "ForwardRateAgreement",
-            "Swaption", "BasisSwap", "InterestRateOption", "InterestRateFuture",
+            "Bond",
+            "Deposit",
+            "InterestRateSwap",
+            "ForwardRateAgreement",
+            "Swaption",
+            "BasisSwap",
+            "InterestRateOption",
+            "InterestRateFuture",
             # FX
-            "FxSpot", "FxOption", "FxSwap", "FxBarrierOption",
+            "FxSpot",
+            "FxOption",
+            "FxSwap",
+            "FxBarrierOption",
             # Credit
-            "CreditDefaultSwap", "CDSIndex", "CdsTranche", "CdsOption",
+            "CreditDefaultSwap",
+            "CDSIndex",
+            "CdsTranche",
+            "CdsOption",
             # Equity
-            "Equity", "EquityOption", "EquityTotalReturnSwap",
-            "FiIndexTotalReturnSwap", "VarianceSwap",
+            "Equity",
+            "EquityOption",
+            "EquityTotalReturnSwap",
+            "FiIndexTotalReturnSwap",
+            "VarianceSwap",
             # Inflation
-            "InflationLinkedBond", "InflationSwap",
+            "InflationLinkedBond",
+            "InflationSwap",
             # Structured
-            "Basket", "StructuredCredit", "PrivateMarketsFund",
-            "ConvertibleBond", "Repo",
+            "Basket",
+            "StructuredCredit",
+            "PrivateMarketsFund",
+            "ConvertibleBond",
+            "Repo",
             # Exotic Options
-            "AsianOption", "BarrierOption", "LookbackOption", "CliquetOption",
-            "QuantoOption", "Autocallable", "CmsOption", "RangeAccrual",
+            "AsianOption",
+            "BarrierOption",
+            "LookbackOption",
+            "CliquetOption",
+            "QuantoOption",
+            "Autocallable",
+            "CmsOption",
+            "RangeAccrual",
             # Private Credit
-            "TermLoan", "RevolvingCredit"
+            "TermLoan",
+            "RevolvingCredit",
         }
 
         in_both, only_python, only_wasm = self.compare_classes()
@@ -110,17 +137,25 @@ class APIComparator:
             "missing_in_python": sorted(missing_in_python),
             "missing_in_wasm": sorted(missing_in_wasm),
             "python_instruments": sorted(python_instruments),
-            "wasm_instruments": sorted(wasm_instruments)
+            "wasm_instruments": sorted(wasm_instruments),
         }
 
     def compare_calibration(self) -> dict[str, Any]:
         """Compare calibration API coverage."""
         calibration_classes = {
-            "DiscountCurveCalibrator", "ForwardCurveCalibrator",
-            "HazardCurveCalibrator", "InflationCurveCalibrator",
-            "VolSurfaceCalibrator", "BaseCorrelationCalibrator",
-            "SimpleCalibration", "CalibrationConfig", "CalibrationReport",
-            "RatesQuote", "CreditQuote", "VolQuote", "InflationQuote"
+            "DiscountCurveCalibrator",
+            "ForwardCurveCalibrator",
+            "HazardCurveCalibrator",
+            "InflationCurveCalibrator",
+            "VolSurfaceCalibrator",
+            "BaseCorrelationCalibrator",
+            "SimpleCalibration",
+            "CalibrationConfig",
+            "CalibrationReport",
+            "RatesQuote",
+            "CreditQuote",
+            "VolQuote",
+            "InflationQuote",
         }
 
         in_both, only_python, only_wasm = self.compare_classes()
@@ -133,7 +168,7 @@ class APIComparator:
             "in_python": len(python_cal),
             "in_wasm": len(wasm_cal),
             "missing_in_python": sorted(calibration_classes - python_cal),
-            "missing_in_wasm": sorted(calibration_classes - wasm_cal)
+            "missing_in_wasm": sorted(calibration_classes - wasm_cal),
         }
 
     def generate_report(self) -> str:
@@ -158,29 +193,21 @@ class APIComparator:
             "## Instrument Coverage",
             "",
             f"- **Expected instruments:** {instruments['total_expected']}",
-            f"- **In Python:** {instruments['in_python']} ({instruments['in_python']*100//instruments['total_expected']}%)",
-            f"- **In WASM:** {instruments['in_wasm']} ({instruments['in_wasm']*100//instruments['total_expected']}%)",
+            f"- **In Python:** {instruments['in_python']} ({instruments['in_python'] * 100 // instruments['total_expected']}%)",
+            f"- **In WASM:** {instruments['in_wasm']} ({instruments['in_wasm'] * 100 // instruments['total_expected']}%)",
             f"- **In both:** {instruments['in_both']}",
             "",
         ]
 
         if instruments["missing_in_python"]:
-            lines.extend([
-                "### Missing in Python",
-                "",
-                "```"
-            ])
+            lines.extend(["### Missing in Python", "", "```"])
             for instr in instruments["missing_in_python"]:
                 lines.append(f"- {instr}")
             lines.append("```")
             lines.append("")
 
         if instruments["missing_in_wasm"]:
-            lines.extend([
-                "### Missing in WASM",
-                "",
-                "```"
-            ])
+            lines.extend(["### Missing in WASM", "", "```"])
             for instr in instruments["missing_in_wasm"]:
                 lines.append(f"- {instr}")
             lines.append("```")
@@ -190,28 +217,20 @@ class APIComparator:
             "## Calibration API Coverage",
             "",
             f"- **Expected calibration types:** {calibration['total_expected']}",
-            f"- **In Python:** {calibration['in_python']} ({calibration['in_python']*100//calibration['total_expected']}%)",
-            f"- **In WASM:** {calibration['in_wasm']} ({calibration['in_wasm']*100//calibration['total_expected']}%)",
+            f"- **In Python:** {calibration['in_python']} ({calibration['in_python'] * 100 // calibration['total_expected']}%)",
+            f"- **In WASM:** {calibration['in_wasm']} ({calibration['in_wasm'] * 100 // calibration['total_expected']}%)",
             "",
         ])
 
         if calibration["missing_in_python"]:
-            lines.extend([
-                "### Missing in Python",
-                "",
-                "```"
-            ])
+            lines.extend(["### Missing in Python", "", "```"])
             for cal in calibration["missing_in_python"]:
                 lines.append(f"- {cal}")
             lines.append("```")
             lines.append("")
 
         if calibration["missing_in_wasm"]:
-            lines.extend([
-                "### Missing in WASM",
-                "",
-                "```"
-            ])
+            lines.extend(["### Missing in WASM", "", "```"])
             for cal in calibration["missing_in_wasm"]:
                 lines.append(f"- {cal}")
             lines.append("```")
@@ -224,7 +243,7 @@ class APIComparator:
             "",
             f"**Count:** {len(in_both)}",
             "",
-            "```"
+            "```",
         ])
         for cls in sorted(in_both):
             lines.append(f"✓ {cls}")
@@ -232,26 +251,14 @@ class APIComparator:
         lines.append("")
 
         if only_python:
-            lines.extend([
-                "### Classes Only in Python",
-                "",
-                f"**Count:** {len(only_python)}",
-                "",
-                "```"
-            ])
+            lines.extend(["### Classes Only in Python", "", f"**Count:** {len(only_python)}", "", "```"])
             for cls in sorted(only_python):
                 lines.append(f"- {cls}")
             lines.append("```")
             lines.append("")
 
         if only_wasm:
-            lines.extend([
-                "### Classes Only in WASM",
-                "",
-                f"**Count:** {len(only_wasm)}",
-                "",
-                "```"
-            ])
+            lines.extend(["### Classes Only in WASM", "", f"**Count:** {len(only_wasm)}", "", "```"])
             for cls in sorted(only_wasm):
                 lines.append(f"- {cls}")
             lines.append("```")
@@ -288,16 +295,28 @@ class APIComparator:
         ])
 
         if instruments["missing_in_wasm"]:
-            lines.append(f"1. **Add {len(instruments['missing_in_wasm'])} missing instruments to WASM:** " + ", ".join(instruments["missing_in_wasm"][:3]) + ("..." if len(instruments["missing_in_wasm"]) > 3 else ""))
+            lines.append(
+                f"1. **Add {len(instruments['missing_in_wasm'])} missing instruments to WASM:** "
+                + ", ".join(instruments["missing_in_wasm"][:3])
+                + ("..." if len(instruments["missing_in_wasm"]) > 3 else "")
+            )
 
         if instruments["missing_in_python"]:
-            lines.append(f"2. **Add {len(instruments['missing_in_python'])} missing instruments to Python:** " + ", ".join(instruments["missing_in_python"][:3]) + ("..." if len(instruments["missing_in_python"]) > 3 else ""))
+            lines.append(
+                f"2. **Add {len(instruments['missing_in_python'])} missing instruments to Python:** "
+                + ", ".join(instruments["missing_in_python"][:3])
+                + ("..." if len(instruments["missing_in_python"]) > 3 else "")
+            )
 
         if calibration["missing_in_wasm"]:
-            lines.append(f"3. **Complete calibration API in WASM:** {len(calibration['missing_in_wasm'])} types missing")
+            lines.append(
+                f"3. **Complete calibration API in WASM:** {len(calibration['missing_in_wasm'])} types missing"
+            )
 
         if calibration["missing_in_python"]:
-            lines.append(f"4. **Complete calibration API in Python:** {len(calibration['missing_in_python'])} types missing")
+            lines.append(
+                f"4. **Complete calibration API in Python:** {len(calibration['missing_in_python'])} types missing"
+            )
 
         lines.extend([
             "",
@@ -324,7 +343,7 @@ class APIComparator:
             "",
             "---",
             "",
-            "*This report was automatically generated. Do not edit manually.*"
+            "*This report was automatically generated. Do not edit manually.*",
         ])
 
         return "\n".join(lines)
@@ -359,10 +378,8 @@ def main() -> int:
     output_file = project_root / "PARITY_AUDIT.md"
     output_file.write_text(report)
 
-
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

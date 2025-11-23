@@ -1,11 +1,11 @@
-use super::interp::{parse_extrapolation, parse_interp};
+use crate::core::math::interp::{parse_extrapolation, parse_interp, PyExtrapolationPolicy, PyInterpStyle};
 use crate::core::common::args::{
     extract_float_pairs, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg,
 };
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::discounting::npv_static;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
@@ -136,7 +136,7 @@ impl PyDiscountCurve {
                 if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                     v
                 } else if let Ok(py_style) =
-                    obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+                    obj.extract::<PyRef<PyInterpStyle>>()
                 {
                     py_style.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
@@ -154,7 +154,7 @@ impl PyDiscountCurve {
                 if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
                     v
                 } else if let Ok(py_ex) =
-                    obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>()
+                    obj.extract::<PyRef<PyExtrapolationPolicy>>()
                 {
                     py_ex.inner
                 } else if let Ok(name) = obj.extract::<&str>() {
@@ -422,7 +422,7 @@ impl PyForwardCurve {
             let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                 v
             } else if let Ok(py_style) =
-                obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+                obj.extract::<PyRef<PyInterpStyle>>()
             {
                 py_style.inner
             } else if let Ok(name) = obj.extract::<&str>() {
@@ -783,7 +783,7 @@ impl PyInflationCurve {
                 if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
                     v
                 } else if let Ok(py_style) =
-                    obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+                    obj.extract::<PyRef<PyInterpStyle>>()
                 {
                     py_style.inner
                 } else if let Ok(name) = obj.extract::<&str>() {

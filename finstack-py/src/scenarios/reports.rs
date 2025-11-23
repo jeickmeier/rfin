@@ -1,6 +1,6 @@
 //! Report types from scenario execution.
 
-use crate::core::utils::date_to_py;
+use crate::core::dates::utils::date_to_py;
 use finstack_scenarios::adapters::RollForwardReport;
 use finstack_scenarios::engine::ApplicationReport;
 use pyo3::prelude::*;

@@ -2,7 +2,7 @@
 
 use crate::core::dates::periods::PyPeriodId;
 use crate::core::market_data::context::PyMarketContext;
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
@@ -450,7 +450,7 @@ impl PyEvaluatorWithContext {
         market_ctx: &crate::core::market_data::context::PyMarketContext,
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
 
         let as_of_date = py_to_date(as_of)?;
         let inner = finstack_statements::evaluator::Evaluator::with_market_context(

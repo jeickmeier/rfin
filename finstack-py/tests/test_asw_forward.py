@@ -85,5 +85,3 @@ class TestAswForward:
 
         assert math.isfinite(par)
         assert math.isfinite(mkt)
-
-

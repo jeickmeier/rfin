@@ -390,7 +390,7 @@ impl PySimulatedPath {
         py: Python,
         base_date: Bound<'_, PyAny>,
     ) -> PyResult<Vec<(PyObject, f64)>> {
-        use crate::core::utils::{date_to_py, py_to_date};
+        use crate::core::dates::utils::{date_to_py, py_to_date};
 
         let base = py_to_date(&base_date)?;
         let mut result = Vec::new();

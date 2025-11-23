@@ -1,6 +1,6 @@
 //! Python bindings for P&L attribution.
 
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::map_error;
 use finstack_core::prelude::FinstackConfig;
 use finstack_valuations::attribution::{
@@ -694,8 +694,8 @@ pub fn attribute_portfolio_pnl(
     method: Option<&PyAttributionMethod>,
 ) -> PyResult<PyPortfolioAttribution> {
     // Convert Python dates to Rust dates
-    let date_t0 = crate::core::utils::py_to_date(as_of_t0)?;
-    let date_t1 = crate::core::utils::py_to_date(as_of_t1)?;
+    let date_t0 = py_to_date(as_of_t0)?;
+    let date_t1 = py_to_date(as_of_t1)?;
 
     // Get attribution method (default to Parallel)
     let method_inner = method

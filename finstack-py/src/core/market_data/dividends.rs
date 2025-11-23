@@ -15,7 +15,7 @@
 //! ```
 use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::market_data::dividends::{
     DividendEvent, DividendKind, DividendSchedule, DividendScheduleBuilder,

@@ -1,5 +1,5 @@
 use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::autocallable::{Autocallable, FinalPayoffType};
 use pyo3::exceptions::PyValueError;

@@ -1,7 +1,7 @@
 //! Python bindings for PortfolioBuilder.
 
 use crate::core::currency::PyCurrency;
-use crate::core::utils::py_to_date;
+use crate::core::dates::utils::py_to_date;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::portfolio::PyPortfolio;
 use crate::portfolio::types::{extract_entity, extract_position};

@@ -433,7 +433,7 @@ impl PyModelBuilder {
         maturity_date: &Bound<'_, PyAny>,
         discount_curve_id: String,
     ) -> PyResult<()> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
 
         let issue = py_to_date(issue_date)?;
         let maturity = py_to_date(maturity_date)?;
@@ -496,7 +496,7 @@ impl PyModelBuilder {
         discount_curve_id: String,
         forward_curve_id: String,
     ) -> PyResult<()> {
-        use crate::core::utils::py_to_date;
+        use crate::core::dates::utils::py_to_date;
 
         let start = py_to_date(start_date)?;
         let maturity = py_to_date(maturity_date)?;

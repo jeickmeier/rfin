@@ -21,6 +21,7 @@ from typing import Any
 @dataclass
 class MethodInfo:
     """Information about a class method."""
+
     name: str
     is_static: bool
     is_constructor: bool
@@ -31,6 +32,7 @@ class MethodInfo:
 @dataclass
 class ClassInfo:
     """Information about a WASM-bindgen class."""
+
     name: str
     js_name: str  # JavaScript-exported name
     methods: list[MethodInfo]
@@ -40,6 +42,7 @@ class ClassInfo:
 @dataclass
 class FunctionInfo:
     """Information about a standalone WASM function."""
+
     name: str
     js_name: str  # JavaScript-exported name
 
@@ -47,6 +50,7 @@ class FunctionInfo:
 @dataclass
 class ModuleInfo:
     """Information about a module."""
+
     name: str
     path: str
     classes: list[ClassInfo]
@@ -103,10 +107,7 @@ class WasmAPIExtractor:
             i += 1
 
         return ModuleInfo(
-            name=module_name,
-            path=str(rust_file.relative_to(self.src_root)),
-            classes=classes,
-            functions=functions
+            name=module_name, path=str(rust_file.relative_to(self.src_root)), classes=classes, functions=functions
         )
 
     def _extract_js_name(self, decorator_line: str) -> str:
@@ -143,10 +144,7 @@ class WasmAPIExtractor:
         methods = self._find_methods_for_struct(lines, struct_name)
 
         return ClassInfo(
-            name=rust_name,
-            js_name=final_name,
-            methods=methods,
-            properties=[m.name for m in methods if m.is_getter]
+            name=rust_name, js_name=final_name, methods=methods, properties=[m.name for m in methods if m.is_getter]
         )
 
     def _find_methods_for_struct(self, lines: list[str], struct_name: str) -> list[MethodInfo]:
@@ -211,13 +209,15 @@ class WasmAPIExtractor:
                 method_name = self._extract_method_name(func_line)
 
                 if method_name and not method_name.startswith("_"):
-                    methods.append(MethodInfo(
-                        name=method_name,
-                        is_static=is_static,
-                        is_constructor=is_constructor,
-                        is_getter=is_getter,
-                        js_name=js_name if js_name else method_name
-                    ))
+                    methods.append(
+                        MethodInfo(
+                            name=method_name,
+                            is_static=is_static,
+                            is_constructor=is_constructor,
+                            is_getter=is_getter,
+                            js_name=js_name if js_name else method_name,
+                        )
+                    )
 
             i += 1
 
@@ -234,10 +234,7 @@ class WasmAPIExtractor:
         if not func_name:
             return None
 
-        return FunctionInfo(
-            name=func_name,
-            js_name=js_name if js_name else func_name
-        )
+        return FunctionInfo(name=func_name, js_name=js_name if js_name else func_name)
 
     def _extract_method_name(self, line: str) -> str:
         """Extract method/function name from definition."""
@@ -252,10 +249,7 @@ class WasmAPIExtractor:
     def extract_exports_from_lib(self, lib_file: Path) -> dict[str, list[str]]:
         """Extract pub use exports from lib.rs to get the public API surface."""
         content = lib_file.read_text()
-        exports = {
-            "types": [],
-            "functions": []
-        }
+        exports = {"types": [], "functions": []}
 
         for raw_line in content.split("\n"):
             line = raw_line.strip()
@@ -286,11 +280,7 @@ class WasmAPIExtractor:
 
     def scan_directory(self, directory: Path, module_prefix: str = "") -> dict[str, Any]:
         """Recursively scan directory for binding files."""
-        api_tree = {
-            "modules": {},
-            "classes": [],
-            "functions": []
-        }
+        api_tree = {"modules": {}, "classes": [], "functions": []}
 
         for rust_file in directory.glob("*.rs"):
             if rust_file.name in ["mod.rs", "wrapper.rs"]:
@@ -302,7 +292,7 @@ class WasmAPIExtractor:
             api_tree["modules"][module_name] = {
                 "path": module_info.path,
                 "classes": [asdict(c) for c in module_info.classes],
-                "functions": [asdict(f) for f in module_info.functions]
+                "functions": [asdict(f) for f in module_info.functions],
             }
 
             api_tree["classes"].extend([c.js_name for c in module_info.classes])
@@ -321,11 +311,7 @@ class WasmAPIExtractor:
 
     def extract_all(self) -> dict[str, Any]:
         """Extract all APIs from the WASM bindings."""
-        result = {
-            "binding": "wasm",
-            "source_root": str(self.src_root),
-            "api": {}
-        }
+        result = {"binding": "wasm", "source_root": str(self.src_root), "api": {}}
 
         # First, extract exports from lib.rs
         lib_file = self.src_root / "lib.rs"
@@ -363,10 +349,8 @@ def main() -> int:
     sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
     sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
 
-
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

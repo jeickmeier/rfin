@@ -8,5 +8,4 @@ pub mod expr;
 pub mod market_data;
 pub mod math;
 pub mod money;
-pub mod utils;
-pub mod volatility;
+pub mod types;

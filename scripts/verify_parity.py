@@ -12,7 +12,6 @@ Usage:
     python scripts/verify_parity.py
 """
 
-
 from pathlib import Path
 import sys
 

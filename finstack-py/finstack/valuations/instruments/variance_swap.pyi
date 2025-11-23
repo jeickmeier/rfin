@@ -9,11 +9,13 @@ from ..common import InstrumentType
 
 class VarianceDirection:
     """Pay/receive wrapper for variance swap payoffs."""
+
     PAY: "VarianceDirection"
     RECEIVE: "VarianceDirection"
 
 class RealizedVarianceMethod:
     """Realized variance calculation method wrapper."""
+
     CLOSE_TO_CLOSE: "RealizedVarianceMethod"
     PARKINSON: "RealizedVarianceMethod"
     GARMAN_KLASS: "RealizedVarianceMethod"

@@ -3,6 +3,8 @@
 //! This module exposes `InterpStyle` and `ExtrapolationPolicy` to Python,
 //! providing canonical labels and parsing helpers. Use these values to
 //! configure curve/surface behavior between and beyond known knots.
+//!
+//! This is the canonical location for interpolation types.
 use crate::core::common::labels::normalize_label;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
@@ -21,13 +23,13 @@ use pyo3::types::{PyList, PyModule, PyType};
 /// InterpStyle
 ///     Enum value defining interpolation behaviour.
 #[pyclass(
-    module = "finstack.core.market_data.interp",
+    module = "finstack.core.math.interp",
     name = "InterpStyle",
     frozen
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyInterpStyle {
-    pub(crate) inner: InterpStyle,
+    pub inner: InterpStyle,
 }
 
 impl PyInterpStyle {
@@ -124,13 +126,13 @@ impl PyInterpStyle {
 /// ExtrapolationPolicy
 ///     Enum value describing extrapolation behaviour.
 #[pyclass(
-    module = "finstack.core.market_data.interp",
+    module = "finstack.core.math.interp",
     name = "ExtrapolationPolicy",
     frozen
 )]
 #[derive(Clone, Copy, Debug)]
 pub struct PyExtrapolationPolicy {
-    pub(crate) inner: ExtrapolationPolicy,
+    pub inner: ExtrapolationPolicy,
 }
 
 impl PyExtrapolationPolicy {
@@ -203,7 +205,7 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(py, "interp")?;
     module.setattr(
         "__doc__",
-        "Interpolation and extrapolation enums used by term structures.",
+        "Interpolation and extrapolation methods for term structures.",
     )?;
     module.add_class::<PyInterpStyle>()?;
     module.add_class::<PyExtrapolationPolicy>()?;
@@ -243,3 +245,4 @@ pub(crate) fn parse_extrapolation(policy: Option<&str>) -> PyResult<Extrapolatio
         None => Ok(ExtrapolationPolicy::FlatZero),
     }
 }
+

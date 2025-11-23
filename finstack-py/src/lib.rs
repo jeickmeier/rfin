@@ -44,14 +44,8 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     core::explain::register(py, &core_mod)?;
     core::market_data::register(py, &core_mod)?;
     core::math::register(py, &core_mod)?;
-    core::volatility::register(py, &core_mod)?;
-
-    let expr_mod = PyModule::new(py, "expr")?;
-    expr_mod.setattr(
-        "__doc__",
-        "Placeholder for forthcoming finstack-core expression bindings.",
-    )?;
-    core_mod.add_submodule(&expr_mod)?;
+    core::types::register(py, &core_mod)?;
+    core::expr::register(py, &core_mod)?;
 
     let core_exports = PyList::new(
         py,
@@ -64,7 +58,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "explain",
             "market_data",
             "math",
-            "volatility",
+            "types",
             "expr",
         ],
     )?;
@@ -82,7 +76,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         "explain",
         "market_data",
         "math",
-        "volatility",
+        "types",
         "expr",
     ] {
         if let Ok(sub) = core_mod.getattr(name) {
@@ -175,6 +169,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "explain",
             "market_data",
             "math",
+            "types",
             "volatility",
             "expr",
             "valuations",

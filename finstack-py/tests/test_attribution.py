@@ -52,37 +52,23 @@ def test_bond_attribution_parallel() -> None:
         0.05,  # 5% coupon
         date(2025, 1, 1),
         date(2030, 1, 1),
-        "USD-OIS"
+        "USD-OIS",
     )
 
     # Create discount curve at T₀
-    curve_t0 = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 15),
-        [(0.0, 1.0), (5.0, 0.82)]
-    )
+    curve_t0 = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market_t0 = MarketContext()
     market_t0.insert_discount(curve_t0)
 
     # Create discount curve at T₁ (rates increased)
-    curve_t1 = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 16),
-        [(0.0, 1.0), (5.0, 0.78)]
-    )
+    curve_t1 = DiscountCurve("USD-OIS", date(2025, 1, 16), [(0.0, 1.0), (5.0, 0.78)])
 
     market_t1 = MarketContext()
     market_t1.insert_discount(curve_t1)
 
     # Run attribution
-    attr = attribute_pnl(
-        bond,
-        market_t0,
-        market_t1,
-        date(2025, 1, 15),
-        date(2025, 1, 16)
-    )
+    attr = attribute_pnl(bond, market_t0, market_t1, date(2025, 1, 15), date(2025, 1, 16))
 
     # Verify structure
     assert attr is not None
@@ -105,29 +91,16 @@ def test_bond_attribution_waterfall() -> None:
     """Test waterfall attribution for a bond."""
     # Create bond and markets (reusing from above)
     bond = Bond.fixed_semiannual(
-        "TEST-BOND",
-        Money(1_000_000, "USD"),
-        0.05,
-        date(2025, 1, 1),
-        date(2030, 1, 1),
-        "USD-OIS"
+        "TEST-BOND", Money(1_000_000, "USD"), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
     )
 
-    curve = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 15),
-        [(0.0, 1.0), (5.0, 0.82)]
-    )
+    curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
     market.insert_discount(curve)
 
     # Waterfall attribution
-    method = AttributionMethod.waterfall([
-        "carry",
-        "rates_curves",
-        "fx"
-    ])
+    method = AttributionMethod.waterfall(["carry", "rates_curves", "fx"])
 
     attr = attribute_pnl(
         bond,
@@ -135,7 +108,7 @@ def test_bond_attribution_waterfall() -> None:
         market,  # Same market for this test
         date(2025, 1, 15),
         date(2025, 1, 16),
-        method=method
+        method=method,
     )
 
     # Waterfall should have minimal residual
@@ -145,28 +118,15 @@ def test_bond_attribution_waterfall() -> None:
 def test_attribution_exports() -> None:
     """Test CSV and explain exports."""
     bond = Bond.fixed_semiannual(
-        "TEST-BOND",
-        Money(1_000_000, "USD"),
-        0.05,
-        date(2025, 1, 1),
-        date(2030, 1, 1),
-        "USD-OIS"
+        "TEST-BOND", Money(1_000_000, "USD"), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
     )
 
-    curve = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 15),
-        [(0.0, 1.0), (5.0, 0.82)]
-    )
+    curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
     market.insert_discount(curve)
 
-    attr = attribute_pnl(
-        bond, market, market,
-        date(2025, 1, 15),
-        date(2025, 1, 16)
-    )
+    attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 
     # Test CSV export
     csv = attr.to_csv()
@@ -183,28 +143,15 @@ def test_attribution_exports() -> None:
 def test_attribution_tolerance_check() -> None:
     """Test residual tolerance checking."""
     bond = Bond.fixed_semiannual(
-        "TEST-BOND",
-        Money(1_000_000, "USD"),
-        0.05,
-        date(2025, 1, 1),
-        date(2030, 1, 1),
-        "USD-OIS"
+        "TEST-BOND", Money(1_000_000, "USD"), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
     )
 
-    curve = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 15),
-        [(0.0, 1.0), (5.0, 0.82)]
-    )
+    curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
     market.insert_discount(curve)
 
-    attr = attribute_pnl(
-        bond, market, market,
-        date(2025, 1, 15),
-        date(2025, 1, 16)
-    )
+    attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 
     # Test tolerance checking
     # 1% tolerance should pass for most cases
@@ -214,28 +161,15 @@ def test_attribution_tolerance_check() -> None:
 def test_attribution_detail_access() -> None:
     """Test accessing detailed attribution breakdowns."""
     bond = Bond.fixed_semiannual(
-        "TEST-BOND",
-        Money(1_000_000, "USD"),
-        0.05,
-        date(2025, 1, 1),
-        date(2030, 1, 1),
-        "USD-OIS"
+        "TEST-BOND", Money(1_000_000, "USD"), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
     )
 
-    curve = DiscountCurve(
-        "USD-OIS",
-        date(2025, 1, 15),
-        [(0.0, 1.0), (5.0, 0.82)]
-    )
+    curve = DiscountCurve("USD-OIS", date(2025, 1, 15), [(0.0, 1.0), (5.0, 0.82)])
 
     market = MarketContext()
     market.insert_discount(curve)
 
-    attr = attribute_pnl(
-        bond, market, market,
-        date(2025, 1, 15),
-        date(2025, 1, 16)
-    )
+    attr = attribute_pnl(bond, market, market, date(2025, 1, 15), date(2025, 1, 16))
 
     # Check if rates detail is available
     if attr.rates_detail:
@@ -249,4 +183,3 @@ def test_attribution_detail_access() -> None:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

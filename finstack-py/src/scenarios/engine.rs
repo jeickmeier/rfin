@@ -1,7 +1,7 @@
 //! Scenario engine and execution context.
 
+use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
-use crate::core::utils::py_to_date;
 use crate::scenarios::error::scenario_to_py;
 use crate::scenarios::reports::PyApplicationReport;
 use crate::scenarios::spec::PyScenarioSpec;
@@ -123,7 +123,7 @@ impl PyExecutionContext {
     /// date
     ///     Valuation date.
     fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
-        crate::core::utils::date_to_py(py, self.as_of)
+        date_to_py(py, self.as_of)
     }
 
     #[setter]

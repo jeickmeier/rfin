@@ -6,6 +6,7 @@ from ...core.money import Money
 
 class BarrierType:
     """Barrier type enumeration."""
+
     UP_AND_OUT: "BarrierType"
     UP_AND_IN: "BarrierType"
     DOWN_AND_OUT: "BarrierType"

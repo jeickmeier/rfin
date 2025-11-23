@@ -8,7 +8,6 @@ from typing import List, Optional, Union
 from datetime import date
 from .calendar import Calendar, BusinessDayConvention
 
-
 class Frequency:
     """Payment frequency specification.
 
@@ -38,7 +37,6 @@ class Frequency:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-
 class StubKind:
     """Stub period handling for irregular schedules.
 
@@ -57,7 +55,6 @@ class StubKind:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-
 class ScheduleBuilder:
     """Builder for payment schedules.
 
@@ -66,34 +63,21 @@ class ScheduleBuilder:
     """
 
     def __init__(self, start: Union[str, date], end: Union[str, date]) -> None: ...
-
     def frequency(self, frequency: Frequency) -> "ScheduleBuilder": ...
-
     def stub_rule(self, stub: StubKind) -> "ScheduleBuilder": ...
-
-    def adjust_with(
-        self, convention: BusinessDayConvention, calendar: Calendar
-    ) -> "ScheduleBuilder": ...
-
+    def adjust_with(self, convention: BusinessDayConvention, calendar: Calendar) -> "ScheduleBuilder": ...
     def end_of_month(self, enabled: bool) -> "ScheduleBuilder": ...
-
     def cds_imm(self) -> "ScheduleBuilder": ...
-
     def build(self) -> "Schedule": ...
-
     def __repr__(self) -> str: ...
-
 
 class Schedule:
     """A payment schedule with dates and metadata."""
 
     @property
     def dates(self) -> List[date]: ...
-
     def __len__(self) -> int: ...
-
     def __repr__(self) -> str: ...
-
 
 class ScheduleSpec:
     """Serializable specification describing how to build a schedule."""
@@ -110,7 +94,6 @@ class ScheduleSpec:
         cds_imm_mode: bool = ...,
         graceful: bool = ...,
     ) -> None: ...
-
     def build(self) -> Schedule: ...
     """Materialize the described schedule."""
 
@@ -123,9 +106,7 @@ class ScheduleSpec:
 
     @property
     def calendar_id(self) -> Optional[str]: ...
-
     @property
     def frequency(self) -> Frequency: ...
-
     @property
     def stub(self) -> StubKind: ...

@@ -7,7 +7,6 @@ for financial modeling and reporting.
 from typing import List, Optional
 from datetime import date
 
-
 class FiscalConfig:
     """Fiscal calendar configuration.
 
@@ -16,73 +15,51 @@ class FiscalConfig:
     """
 
     def __init__(self, start_month: int, start_day: int) -> None: ...
-
     @classmethod
     def CALENDAR_YEAR(cls) -> "FiscalConfig": ...
-
     @classmethod
     def US_FEDERAL(cls) -> "FiscalConfig": ...
-
     @classmethod
     def UK(cls) -> "FiscalConfig": ...
-
     @classmethod
     def JAPAN(cls) -> "FiscalConfig": ...
-
     @classmethod
     def CANADA(cls) -> "FiscalConfig": ...
-
     @classmethod
     def AUSTRALIA(cls) -> "FiscalConfig": ...
-
     @classmethod
     def GERMANY(cls) -> "FiscalConfig": ...
-
     @classmethod
     def FRANCE(cls) -> "FiscalConfig": ...
-
     @property
     def start_month(self) -> int: ...
-
     @property
     def start_day(self) -> int: ...
-
     def __repr__(self) -> str: ...
-
 
 class PeriodId:
     """Period identifier for quarters, months, weeks, halves, or years."""
 
     @classmethod
     def quarter(cls, year: int, quarter: int) -> "PeriodId": ...
-
     @classmethod
     def month(cls, year: int, month: int) -> "PeriodId": ...
-
     @classmethod
     def week(cls, year: int, week: int) -> "PeriodId": ...
-
     @classmethod
     def half(cls, year: int, half: int) -> "PeriodId": ...
-
     @classmethod
     def annual(cls, year: int) -> "PeriodId": ...
-
     @classmethod
     def parse(cls, code: str) -> "PeriodId": ...
-
     @property
     def code(self) -> str: ...
-
     @property
     def year(self) -> int: ...
-
     @property
     def index(self) -> int: ...
-
     @property
     def kind(self) -> str: ...
-
     def periods_per_year(self) -> int: ...
     """Number of periods per year implied by the period kind."""
 
@@ -95,39 +72,29 @@ class PeriodId:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-
 class Period:
     """A time period with start/end dates and metadata."""
 
     @property
     def id(self) -> PeriodId: ...
-
     def start(self) -> date: ...
-
     def end(self) -> date: ...
-
     @property
     def is_actual(self) -> bool: ...
-
     def __repr__(self) -> str: ...
-
 
 class PeriodPlan:
     """A collection of periods for financial modeling."""
 
     @property
     def periods(self) -> List[Period]: ...
-
     def __len__(self) -> int: ...
-
     def __repr__(self) -> str: ...
 
-
 def build_periods(range: str, actuals_until: Optional[str] = None) -> PeriodPlan: ...
+
 """Build calendar periods from a range expression."""
 
+def build_fiscal_periods(range: str, config: FiscalConfig, actuals_until: Optional[str] = None) -> PeriodPlan: ...
 
-def build_fiscal_periods(
-    range: str, config: FiscalConfig, actuals_until: Optional[str] = None
-) -> PeriodPlan: ...
 """Build fiscal periods from a range expression using a FiscalConfig."""

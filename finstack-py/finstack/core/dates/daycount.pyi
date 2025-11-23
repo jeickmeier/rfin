@@ -146,7 +146,6 @@ class DayCountContextState:
         frequency: Optional["Frequency"] = ...,
         bus_basis: Optional[int] = ...,
     ) -> None: ...
-
     @classmethod
     def from_context(cls, ctx: DayCountContext) -> DayCountContextState: ...
     """Create a DTO from a runtime context."""
@@ -163,10 +162,8 @@ class DayCountContextState:
 
     @property
     def calendar_id(self) -> Optional[str]: ...
-
     @property
     def frequency(self) -> Optional["Frequency"]: ...
-
     @property
     def bus_basis(self) -> Optional[int]: ...
 
