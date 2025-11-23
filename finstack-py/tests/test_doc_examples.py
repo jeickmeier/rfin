@@ -10,6 +10,7 @@ a workflow) are skipped with a note.
 
 import ast
 import builtins
+from collections.abc import Callable
 import contextlib
 from pathlib import Path
 import re
@@ -31,7 +32,7 @@ except ImportError as e:
     pytest.skip(f"finstack not available: {e}", allow_module_level=True)
 
 
-def extract_code_blocks_from_docstring(docstring: str) -> list[str]:
+def extract_code_blocks_from_docstring(docstring: str) -> list[str]:  # noqa: C901
     """Extract code blocks from a docstring.
 
     Looks for code blocks marked with `>>>` (interactive Python prompt)
@@ -113,9 +114,9 @@ def extract_examples_from_pyi_file(pyi_path: Path) -> list[tuple[str, str, str]]
     examples = []
 
     try:
-        with open(pyi_path, encoding="utf-8") as f:
+        with pyi_path.open(encoding="utf-8") as f:
             content = f.read()
-    except Exception:
+    except OSError:
         return examples
 
     # Parse the file to find class/function definitions
@@ -161,12 +162,7 @@ def extract_examples_regex(content: str, pyi_path: Path) -> list[tuple[str, str,
 
 def find_pyi_files(root: Path) -> list[Path]:
     """Find all .pyi files in a directory tree."""
-    pyi_files = []
-    for path in root.rglob("*.pyi"):
-        # Skip __pycache__ and other hidden directories
-        if "__pycache__" not in str(path):
-            pyi_files.append(path)
-    return sorted(pyi_files)
+    return sorted([path for path in root.rglob("*.pyi") if "__pycache__" not in str(path)])
 
 
 def is_runnable_example(code: str) -> bool:
@@ -186,7 +182,7 @@ def is_runnable_example(code: str) -> bool:
             return False
 
     # Skip if it's only comments
-    non_comment_lines = [l for l in code.split("\n") if l.strip() and not l.strip().startswith("#")]
+    non_comment_lines = [line for line in code.split("\n") if line.strip() and not line.strip().startswith("#")]
     if not non_comment_lines:
         return False
 
@@ -207,7 +203,7 @@ def is_runnable_example(code: str) -> bool:
         return True
 
 
-def create_simple_market_context():
+def create_simple_market_context() -> "finstack.core.market_data.context.MarketContext":
     """Create a simple MarketContext with basic USD curves for testing."""
     from datetime import date
 
@@ -246,13 +242,14 @@ def create_simple_market_context():
             base_date=date(2024, 1, 1),
         )
         ctx.insert_forward(forward_curve)
-    except:
+    except Exception:  # noqa: S110, BLE001
+        # Forward curve insertion may fail if not supported
         pass
 
     return ctx
 
 
-def create_simple_metric_registry():
+def create_simple_metric_registry() -> "finstack.valuations.metrics.MetricRegistry":
     """Create a simple MetricRegistry for testing."""
     import finstack
 
@@ -260,7 +257,7 @@ def create_simple_metric_registry():
     return finstack.valuations.metrics.MetricRegistry.standard()
 
 
-def create_simple_pricer_registry():
+def create_simple_pricer_registry() -> "finstack.valuations.pricer.PricerRegistry":
     """Create a simple PricerRegistry for testing."""
     import finstack
 
@@ -278,10 +275,10 @@ for pyi_file in find_pyi_files(PYI_ROOT):
 
 
 # Generate test functions dynamically
-def make_test_function(example_id: str, code: str, context: str):
+def make_test_function(example_id: str, code: str, context: str) -> Callable[[], None]:  # noqa: C901, PLR0915
     """Create a test function for an example."""
 
-    def test_example() -> None:
+    def test_example() -> None:  # noqa: C901, PLR0915
         """Test a docstring example."""
         # Skip if clearly incomplete
         if not is_runnable_example(code):
@@ -451,8 +448,8 @@ def make_test_function(example_id: str, code: str, context: str):
                     if needs_market_var:
                         namespace["market"] = test_ctx
                     if needs_curve_var:
-                        namespace["curve"] = test_ctx.get_discount("USD")
-                except Exception:
+                        namespace["curve"] = test_ctx.discount("USD")
+                except (AttributeError, RuntimeError):
                     # If we can't create the context, don't fail - just continue without it
                     # The test will fail naturally if the variable is needed but missing
                     pass
@@ -471,14 +468,15 @@ def make_test_function(example_id: str, code: str, context: str):
                     # Try PricerRegistry
                     elif "PricerRegistry" in code or "price_with_metrics" in code:
                         namespace["registry"] = create_simple_pricer_registry()
-                except Exception:
+                except (AttributeError, RuntimeError):
                     pass
 
             # Preprocess code to handle import statements
             # Replace problematic import paths with working ones
             code_lines = code.split("\n")
             processed_lines = []
-            for line in code_lines:
+            for line_item in code_lines:
+                line = line_item
                 # Fix cashflow.performance imports
                 if "from finstack.core.cashflow.performance import" in line:
                     line = line.replace(
@@ -546,93 +544,7 @@ def make_test_function(example_id: str, code: str, context: str):
                     processed_code = "\n".join(line[min_indent:] if len(line) > min_indent else line for line in lines)
 
             # Execute the code
-            exec(processed_code, namespace)
-            # Replace problematic import paths with working ones
-            code_lines = code.split("\n")
-            processed_lines = []
-            for line in code_lines:
-                # Fix cashflow.performance imports
-                if "from finstack.core.cashflow.performance import" in line:
-                    line = line.replace(
-                        "from finstack.core.cashflow.performance import", "from finstack.core.cashflow import"
-                    )
-                # Fix import paths that don't work
-                if "from finstack.valuations.cashflow.builder import" in line:
-                    line = line.replace(
-                        "from finstack.valuations.cashflow.builder import", "from finstack.valuations.cashflow import"
-                    )
-                # Fix market_data imports - DiscountCurve, etc. are in term_structures
-                if "from finstack.core.market_data import DiscountCurve" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import DiscountCurve",
-                        "from finstack.core.market_data.term_structures import DiscountCurve",
-                    )
-                if "from finstack.core.market_data import ForwardCurve" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import ForwardCurve",
-                        "from finstack.core.market_data.term_structures import ForwardCurve",
-                    )
-                if "from finstack.core.market_data import HazardCurve" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import HazardCurve",
-                        "from finstack.core.market_data.term_structures import HazardCurve",
-                    )
-                if "from finstack.core.market_data import InflationCurve" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import InflationCurve",
-                        "from finstack.core.market_data.term_structures import InflationCurve",
-                    )
-                if "from finstack.core.market_data import VolSurface" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import VolSurface",
-                        "from finstack.core.market_data.surfaces import VolSurface",
-                    )
-                if "from finstack.core.market_data import MarketContext" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import MarketContext",
-                        "from finstack.core.market_data.context import MarketContext",
-                    )
-                if "from finstack.core.market_data import FxMatrix" in line:
-                    line = line.replace(
-                        "from finstack.core.market_data import FxMatrix",
-                        "from finstack.core.market_data.fx import FxMatrix",
-                    )
-                # Only skip imports that are definitely already in namespace and would cause ImportError
-                # Be conservative - only skip if the import path doesn't exist as a module
-                if "from finstack.core.dates.periods import build_periods" in line:
-                    # Skip - build_periods is already in namespace
-                    continue
-                if "from finstack.core.dates.periods import build_fiscal_periods" in line:
-                    # Skip - build_fiscal_periods is already in namespace
-                    continue
-                processed_lines.append(line)
-            processed_code = "\n".join(processed_lines)
-
-            # Strip leading whitespace from the first line if present (common in extracted examples)
-            if processed_code and processed_code[0] == " ":
-                lines = processed_code.split("\n")
-                # Find the minimum indentation of non-empty lines
-                min_indent = min((len(line) - len(line.lstrip()) for line in lines if line.strip()), default=0)
-                if min_indent > 0:
-                    # Remove the minimum indentation from all lines
-                    processed_code = "\n".join(line[min_indent:] if len(line) > min_indent else line for line in lines)
-
-            # Check if example needs special setup
-            needs_market_context = "MarketContext" in code or "ctx" in code or "market" in code.lower()
-            needs_discount_curve = "discount_curve" in code.lower() or "DiscountCurve" in code
-
-            # Provide common test fixtures if needed
-            if needs_market_context or needs_discount_curve:
-                try:
-                    ctx = create_simple_market_context()
-                    namespace["ctx"] = ctx
-                    namespace["market"] = ctx
-                    namespace["discount_curve"] = ctx.get_discount("USD") if ctx else None
-                except:
-                    pass
-
-            # Execute the code
-            exec(processed_code, namespace)
+            exec(processed_code, namespace)  # noqa: S102
 
         except NameError as e:
             # Missing import or name - try to provide it from namespace
@@ -642,8 +554,8 @@ def make_test_function(example_id: str, code: str, context: str):
                 # Try again with explicit assignment
                 try:
                     # Re-execute with name explicitly available
-                    exec(f"{name} = namespace['{name}']\n" + processed_code, namespace)
-                except Exception:
+                    exec(f"{name} = namespace['{name}']\n" + processed_code, namespace)  # noqa: S102
+                except (NameError, AttributeError, RuntimeError):
                     pytest.skip(f"Example requires name not available: {e}")
             else:
                 pytest.skip(f"Example requires imports not available: {e}")
@@ -653,12 +565,12 @@ def make_test_function(example_id: str, code: str, context: str):
             if "cashflow.performance" in import_str:
                 # Already handled above, but try again
                 try:
-                    exec(processed_code, namespace)
-                except Exception:
+                    exec(processed_code, namespace)  # noqa: S102
+                except (ImportError, AttributeError, RuntimeError):
                     pytest.skip(f"Example requires import: {e}")
             else:
                 pytest.skip(f"Example requires import: {e}")
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError) as e:
             # Other errors - fail the test
             pytest.fail(f"Example failed in {context}:\n{code}\n\nError: {type(e).__name__}: {e}")
 

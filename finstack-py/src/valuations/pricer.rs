@@ -275,7 +275,7 @@ impl PyPricerRegistry {
         market: &PyMarketContext,
         forward_curve: &str,
         float_margin_bp: f64,
-        dirty_price_ccy: Option<f64>,
+        dirty_price_ccy: f64,
     ) -> PyResult<(f64, f64)> {
         let InstrumentHandle {
             instrument: inst, ..
@@ -311,7 +311,7 @@ impl PyPricerRegistry {
             as_of,
             forward_curve,
             float_margin_bp,
-            dirty_price_ccy,
+            Some(dirty_price_ccy),
         )
         .map_err(core_to_py)?;
         Ok((par, mkt))

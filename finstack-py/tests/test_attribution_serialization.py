@@ -86,13 +86,6 @@ def test_attribution_from_json_minimal() -> None:
         attribute_pnl_from_json(spec_json)
 
 
-def test_attribution_result_to_json() -> None:
-    """Test attribution_result_to_json serialization."""
-    # Skip this test - it requires fully populated markets which are complex to set up
-    # The function signature is validated in the stub file
-    pytest.skip("Requires complex market setup - signature validated in stubs")
-
-
 def test_attribution_from_json_with_waterfall() -> None:
     """Test JSON attribution with waterfall method."""
     from finstack.valuations import attribute_pnl_from_json

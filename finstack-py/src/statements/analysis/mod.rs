@@ -9,7 +9,9 @@ use finstack_statements::analysis::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
-use pyo3::Bound;
+use pyo3::{wrap_pyfunction, Bound};
+use std::cmp::Ordering;
+use std::str::FromStr;
 
 /// Parameter specification for sensitivity analysis.
 #[pyclass(
@@ -298,6 +300,86 @@ impl PySensitivityResult {
     }
 }
 
+/// Tornado chart entry summarizing downside and upside impacts.
+#[pyclass(module = "finstack.statements.analysis", name = "TornadoEntry", frozen)]
+#[derive(Clone)]
+pub struct PyTornadoEntry {
+    parameter_id: String,
+    downside_impact: f64,
+    upside_impact: f64,
+}
+
+impl PyTornadoEntry {
+    fn new_internal(parameter_id: String, downside: f64, upside: f64) -> Self {
+        Self {
+            parameter_id,
+            downside_impact: downside,
+            upside_impact: upside,
+        }
+    }
+}
+
+#[pymethods]
+impl PyTornadoEntry {
+    #[new]
+    fn new(parameter_id: String, downside_impact: f64, upside_impact: f64) -> Self {
+        Self::new_internal(parameter_id, downside_impact, upside_impact)
+    }
+
+    #[getter]
+    fn parameter_id(&self) -> &str {
+        &self.parameter_id
+    }
+
+    #[getter]
+    fn downside_impact(&self) -> f64 {
+        self.downside_impact
+    }
+
+    #[getter]
+    fn upside_impact(&self) -> f64 {
+        self.upside_impact
+    }
+
+    #[getter]
+    fn swing(&self) -> f64 {
+        self.upside_impact - self.downside_impact
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TornadoEntry(parameter_id='{}', downside={}, upside={})",
+            self.parameter_id, self.downside_impact, self.upside_impact
+        )
+    }
+}
+
+/// Generate tornado chart entries from a sensitivity result.
+#[pyfunction]
+#[pyo3(signature = (result, metric))]
+fn generate_tornado_chart(
+    result: &PySensitivityResult,
+    metric: &str,
+) -> PyResult<Vec<PyTornadoEntry>> {
+    let (node_id, period_hint) = parse_metric_target(metric)?;
+    let mut entries = Vec::new();
+
+    for param in &result.inner.config.parameters {
+        if let Some(entry) = build_tornado_entry(&result.inner, param, node_id, period_hint) {
+            entries.push(entry);
+        }
+    }
+
+    entries.sort_by(|a, b| {
+        b.swing()
+            .abs()
+            .partial_cmp(&a.swing().abs())
+            .unwrap_or(Ordering::Equal)
+    });
+
+    Ok(entries)
+}
+
 /// Sensitivity analyzer for financial models.
 #[pyclass(
     module = "finstack.statements.analysis",
@@ -369,6 +451,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PySensitivityScenario>()?;
     module.add_class::<PySensitivityResult>()?;
     module.add_class::<PySensitivityAnalyzer>()?;
+    module.add_class::<PyTornadoEntry>()?;
+    module.add_function(wrap_pyfunction!(generate_tornado_chart, &module)?)?;
 
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
@@ -380,5 +464,98 @@ pub(crate) fn register<'py>(
         "SensitivityScenario",
         "SensitivityResult",
         "SensitivityAnalyzer",
+        "TornadoEntry",
+        "generate_tornado_chart",
     ])
+}
+
+fn build_tornado_entry(
+    result: &SensitivityResult,
+    param: &ParameterSpec,
+    metric_node: &str,
+    period_hint: Option<finstack_core::dates::PeriodId>,
+) -> Option<PyTornadoEntry> {
+    let mut min_record: Option<(f64, f64)> = None;
+    let mut max_record: Option<(f64, f64)> = None;
+    let mut baseline_metric = None;
+
+    for scenario in &result.scenarios {
+        let param_value = scenario.parameter_values.get(&param.node_id)?;
+        let metric_value = extract_metric_value(&scenario.results, metric_node, period_hint)?;
+
+        if approx_equal(*param_value, param.base_value) {
+            baseline_metric = Some(metric_value);
+        }
+
+        match &mut min_record {
+            Some((current_value, current_metric)) => {
+                if *param_value < *current_value {
+                    *current_value = *param_value;
+                    *current_metric = metric_value;
+                }
+            }
+            None => {
+                min_record = Some((*param_value, metric_value));
+            }
+        }
+
+        match &mut max_record {
+            Some((current_value, current_metric)) => {
+                if *param_value > *current_value {
+                    *current_value = *param_value;
+                    *current_metric = metric_value;
+                }
+            }
+            None => {
+                max_record = Some((*param_value, metric_value));
+            }
+        }
+    }
+
+    let base = baseline_metric
+        .or_else(|| min_record.map(|(_, value)| value))
+        .or_else(|| max_record.map(|(_, value)| value))?;
+
+    let downside = min_record.map(|(_, value)| value - base).unwrap_or(0.0);
+    let upside = max_record.map(|(_, value)| value - base).unwrap_or(0.0);
+
+    Some(PyTornadoEntry::new_internal(
+        param.node_id.clone(),
+        downside,
+        upside,
+    ))
+}
+
+fn extract_metric_value(
+    results: &finstack_statements::results::Results,
+    node_id: &str,
+    period_hint: Option<finstack_core::dates::PeriodId>,
+) -> Option<f64> {
+    if let Some(period) = period_hint {
+        results.get(node_id, &period)
+    } else {
+        results
+            .nodes
+            .get(node_id)
+            .and_then(|periods| periods.values().next().copied())
+    }
+}
+
+fn parse_metric_target(metric: &str) -> PyResult<(&str, Option<finstack_core::dates::PeriodId>)> {
+    if let Some((node, period_code)) = metric.split_once('@') {
+        let trimmed = period_code.trim();
+        let period = finstack_core::dates::PeriodId::from_str(trimmed).map_err(|err| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Invalid period identifier '{trimmed}': {err}"
+            ))
+        })?;
+        Ok((node.trim(), Some(period)))
+    } else {
+        Ok((metric.trim(), None))
+    }
+}
+
+fn approx_equal(lhs: f64, rhs: f64) -> bool {
+    let scale = lhs.abs().max(rhs.abs()).max(1.0);
+    (lhs - rhs).abs() <= 1e-9 * scale
 }

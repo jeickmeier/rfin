@@ -638,5 +638,9 @@ pub(crate) fn register<'py>(
     let exports = ["MarketContext"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
+    for name in exports {
+        let attr = module.getattr(name)?;
+        parent.setattr(name, attr)?;
+    }
     Ok(exports.to_vec())
 }

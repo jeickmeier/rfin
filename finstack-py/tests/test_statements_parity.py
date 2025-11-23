@@ -46,8 +46,14 @@ class TestDataFrameExport:
         """Test long-format DataFrame export."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
-        builder.value("cogs", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(60000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
+        builder.value("cogs", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(60000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(60000.0)),
+        ])
         model = builder.build()
 
         evaluator = Evaluator.new()
@@ -61,7 +67,10 @@ class TestDataFrameExport:
         """Test wide-format DataFrame export."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         model = builder.build()
 
         evaluator = Evaluator.new()
@@ -75,8 +84,14 @@ class TestDataFrameExport:
         """Test filtered long-format DataFrame export."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
-        builder.value("cogs", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(60000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
+        builder.value("cogs", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(60000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(60000.0)),
+        ])
         builder.compute("gross_profit", "revenue - cogs")
         model = builder.build()
 
@@ -96,7 +111,8 @@ class TestCapitalStructure:
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q4", None)
 
-        notional = Money(10_000_000.0, Currency.USD)
+        from finstack.core.currency import USD
+        notional = Money(10_000_000.0, USD)
         issue_date = date(2025, 1, 1)
         maturity_date = date(2030, 1, 1)
 
@@ -111,7 +127,8 @@ class TestCapitalStructure:
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q4", None)
 
-        notional = Money(5_000_000.0, Currency.USD)
+        from finstack.core.currency import USD
+        notional = Money(5_000_000.0, USD)
         start_date = date(2025, 1, 1)
         maturity_date = date(2030, 1, 1)
 
@@ -153,7 +170,10 @@ class TestMetricsIntegration:
         """Test loading built-in metrics."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         builder.value("cogs", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(40000.0))])
         builder.with_builtin_metrics()
         model = builder.build()
@@ -165,7 +185,10 @@ class TestMetricsIntegration:
         """Test adding a specific metric from built-in registry."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         builder.value("cogs", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(40000.0))])
         builder.add_metric("fin.gross_margin")
         model = builder.build()
@@ -180,7 +203,10 @@ class TestMetricsIntegration:
 
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         builder.value("cogs", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(40000.0))])
         builder.add_metric_from_registry("fin.gross_margin", registry)
         model = builder.build()
@@ -196,7 +222,8 @@ class TestValueMethods:
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
 
-        money_val = Money(100000.0, Currency.USD)
+        from finstack.core.currency import USD
+        money_val = Money(100000.0, USD)
         builder.value_money("revenue", [(PeriodId.quarter(2025, 1), money_val)])
         model = builder.build()
 
@@ -218,7 +245,7 @@ class TestMixedNodeBuilder:
     def test_mixed_node_with_values_and_forecast(self) -> None:
         """Test creating a mixed node with values and forecast."""
         builder = ModelBuilder.new("test")
-        builder.periods("2025Q1..Q4", "2025Q2")
+        builder.periods("2025Q1..Q4", "2025Q1")  # Q1 is actuals, Q2-Q4 use forecast
 
         # Create mixed node
         mixed = builder.mixed("revenue")
@@ -229,7 +256,8 @@ class TestMixedNodeBuilder:
 
         model = builder.build()
         assert "revenue" in model.nodes
-        assert model.nodes["revenue"].node_type == NodeType.MIXED
+        # Check that node_type is MIXED by comparing the inner enum value
+        assert str(model.nodes["revenue"].node_type) == "Mixed"
 
     def test_mixed_node_with_formula(self) -> None:
         """Test mixed node with fallback formula."""
@@ -303,7 +331,10 @@ class TestAnalysisModule:
         """Test diagonal sensitivity analysis."""
         builder = ModelBuilder.new("sensitivity_test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         builder.compute("cogs", "revenue * 0.6")
         builder.compute("gross_profit", "revenue - cogs")
         model = builder.build()
@@ -525,7 +556,10 @@ class TestReportsModule:
         """Test debt summary report."""
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("total_debt", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1000000.0))])
+        builder.value("total_debt", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1000000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(1000000.0)),
+        ])
         model = builder.build()
 
         evaluator = Evaluator.new()
@@ -543,7 +577,7 @@ class TestComprehensiveParity:
         """Test a complete workflow using multiple features."""
         # Build model with various features
         builder = ModelBuilder.new("comprehensive_test")
-        builder.periods("2025Q1..Q4", "2025Q2")
+        builder.periods("2025Q1..Q4", "2025Q1")  # Q1 is actuals, Q2-Q4 use forecast
 
         # Add various node types
         builder.value(
@@ -551,6 +585,8 @@ class TestComprehensiveParity:
             [
                 (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
                 (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110000.0)),
+                (PeriodId.quarter(2025, 3), AmountOrScalar.scalar(120000.0)),
+                (PeriodId.quarter(2025, 4), AmountOrScalar.scalar(130000.0)),
             ],
         )
         builder.compute("cogs", "revenue * 0.4")
@@ -611,7 +647,10 @@ class TestComprehensiveParity:
         """Test model and results serialization."""
         builder = ModelBuilder.new("roundtrip_test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         builder.compute("cogs", "revenue * 0.6")
         model = builder.build()
 
@@ -643,7 +682,10 @@ class TestExtensions:
         # This is a basic test - corkscrew requires specific node patterns
         builder = ModelBuilder.new("test")
         builder.periods("2025Q1..Q2", None)
-        builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value("revenue", [
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100000.0)),
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(100000.0)),
+        ])
         model = builder.build()
 
         evaluator = Evaluator.new()

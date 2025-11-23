@@ -1,8 +1,9 @@
 """Fixed-income bond instrument with convenience constructors."""
 
-from typing import Optional, List, Tuple, Any, TypedDict
+from typing import Optional, List, Tuple, Any, TypedDict, Union, overload
 from datetime import date
 from ...core.money import Money
+from ...core.currency import Currency
 from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
@@ -17,6 +18,33 @@ class CallScheduleItem(TypedDict):
 class PutScheduleItem(TypedDict):
     date: date
     price_pct: float
+
+class BondBuilder:
+    """Fluent builder returned by :meth:`Bond.builder` when only an ID is provided."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, amount: float) -> BondBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> BondBuilder: ...
+    def money(self, money: Money) -> BondBuilder: ...
+    def issue(self, issue: date) -> BondBuilder: ...
+    def maturity(self, maturity: date) -> BondBuilder: ...
+    def disc_id(self, curve_id: str) -> BondBuilder: ...
+    def credit_curve(self, curve_id: Optional[str] = ...) -> BondBuilder: ...
+    def coupon_rate(self, rate: float) -> BondBuilder: ...
+    def frequency(self, frequency: Union[Frequency, str, int]) -> BondBuilder: ...
+    def day_count(self, day_count: Union[DayCount, str]) -> BondBuilder: ...
+    def bdc(self, bdc: Union[BusinessDayConvention, str]) -> BondBuilder: ...
+    def stub(self, stub: Union[StubKind, str]) -> BondBuilder: ...
+    def calendar(self, calendar_id: Optional[str] = ...) -> BondBuilder: ...
+    def amortization(self, amortization: Optional[AmortizationSpec] = ...) -> BondBuilder: ...
+    def call_schedule(self, schedule: List[CallScheduleItem]) -> BondBuilder: ...
+    def put_schedule(self, schedule: List[PutScheduleItem]) -> BondBuilder: ...
+    def quoted_clean_price(self, price: Optional[float] = ...) -> BondBuilder: ...
+    def forward_curve(self, curve_id: Optional[str] = ...) -> BondBuilder: ...
+    def float_margin_bp(self, margin_bp: float) -> BondBuilder: ...
+    def float_gearing(self, gearing: float) -> BondBuilder: ...
+    def float_reset_lag_days(self, lag_days: int) -> BondBuilder: ...
+    def build(self) -> "Bond": ...
 
 class Bond:
     """Fixed-income bond instrument for pricing and risk analysis.
@@ -214,6 +242,10 @@ class Bond:
         ...
 
     @classmethod
+    @overload
+    def builder(cls, instrument_id: str) -> BondBuilder: ...
+    @classmethod
+    @overload
     def builder(
         cls,
         instrument_id: str,
@@ -237,7 +269,45 @@ class Bond:
         float_gearing: Optional[float] = None,
         float_reset_lag_days: Optional[int] = None,
     ) -> Bond: ...
+    @classmethod
+    def builder(
+        cls,
+        instrument_id: str,
+        notional: Optional[Money] = ...,
+        issue: Optional[date] = ...,
+        maturity: Optional[date] = ...,
+        discount_curve: Optional[str] = ...,
+        *,
+        coupon_rate: Optional[float] = None,
+        frequency: Optional[Frequency] = None,
+        day_count: Optional[DayCount] = None,
+        bdc: Optional[BusinessDayConvention] = None,
+        calendar_id: Optional[str] = None,
+        stub: Optional[StubKind] = None,
+        amortization: Optional[AmortizationSpec] = None,
+        call_schedule: Optional[List[CallScheduleItem]] = None,
+        put_schedule: Optional[List[PutScheduleItem]] = None,
+        quoted_clean_price: Optional[float] = None,
+        forward_curve: Optional[str] = None,
+        float_margin_bp: Optional[float] = None,
+        float_gearing: Optional[float] = None,
+        float_reset_lag_days: Optional[int] = None,
+    ) -> Union[BondBuilder, Bond]: ...
     """Create a fully customizable bond with advanced features.
+
+    Calling :meth:`Bond.builder` with only ``instrument_id`` returns a
+    :class:`BondBuilder` for fluent chaining::
+
+        >>> bond = (
+        ...     Bond.builder("CORP-2029")
+        ...     .notional(1_000_000.0)
+        ...     .currency("USD")
+        ...     .coupon_rate(0.045)
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .build()
+        ... )
 
     Builder method supporting all bond features including amortization,
     call/put schedules, floating-rate specifications, and custom conventions.
@@ -384,6 +454,9 @@ class Bond:
     ) -> Bond:
         """Create a floating-rate note (FRN) using SOFR-like conventions."""
         ...
+
+    @property
+    def id(self) -> str: ...
 
     @property
     def instrument_id(self) -> str:

@@ -9,7 +9,6 @@ class AggregatedMetric:
     Contains portfolio-wide totals as well as breakdowns by entity.
 
     """
-    """
 
     @property
     def metric_id(self) -> str:

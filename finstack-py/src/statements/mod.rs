@@ -34,13 +34,21 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     // Register submodules
     let types_exports = types::register(py, &module)?;
+    promote_exports(&module, "types", &types_exports)?;
     let builder_exports = builder::register(py, &module)?;
+    promote_exports(&module, "builder", &builder_exports)?;
     let evaluator_exports = evaluator::register(py, &module)?;
+    promote_exports(&module, "evaluator", &evaluator_exports)?;
     let extensions_exports = extensions::register(py, &module)?;
+    promote_exports(&module, "extensions", &extensions_exports)?;
     let registry_exports = registry::register(py, &module)?;
+    promote_exports(&module, "registry", &registry_exports)?;
     let analysis_exports = analysis::register(py, &module)?;
+    promote_exports(&module, "analysis", &analysis_exports)?;
     let explain_exports = explain::register(py, &module)?;
+    promote_exports(&module, "explain", &explain_exports)?;
     let reports_exports = reports::register(py, &module)?;
+    promote_exports(&module, "reports", &reports_exports)?;
 
     // Collect all exports
     let mut all_exports = Vec::new();
@@ -60,5 +68,24 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     parent.add_submodule(&module)?;
     parent.setattr("statements", &module)?;
 
+    Ok(())
+}
+
+fn promote_exports<'py>(
+    parent: &Bound<'py, PyModule>,
+    submodule_name: &str,
+    exports: &[&str],
+) -> PyResult<()> {
+    if exports.is_empty() {
+        return Ok(());
+    }
+    let submodule_any = parent.getattr(submodule_name)?;
+    let submodule = submodule_any.downcast::<PyModule>()?;
+    for &name in exports {
+        if submodule.hasattr(name)? {
+            let attr = submodule.getattr(name)?;
+            parent.setattr(name, attr)?;
+        }
+    }
     Ok(())
 }

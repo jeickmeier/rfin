@@ -1,14 +1,33 @@
+use crate::core::currency::PyCurrency;
+use crate::core::dates::calendar::PyBusinessDayConvention;
+use crate::core::dates::daycount::PyDayCount;
+use crate::core::dates::schedule::{PyFrequency, PyStubKind};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
+use crate::valuations::cashflow::specs::PyAmortizationSpec;
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
+use finstack_valuations::instruments::bond::{
+    CallPut, CallPutSchedule, CashflowSpec,
+};
+use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::PricingOverrides;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyObject, PyRef, PyRefMut};
 use std::fmt;
+
+use finstack_valuations::cashflow::builder::specs::{
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+};
 
 /// Fixed-income bond instrument with convenience constructors.
 #[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]
@@ -20,6 +39,498 @@ pub struct PyBond {
 impl PyBond {
     pub(crate) fn new(inner: Bond) -> Self {
         Self { inner }
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BondBuilder",
+    unsendable
+)]
+pub struct PyBondBuilder {
+    instrument_id: InstrumentId,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<Currency>,
+    issue: Option<time::Date>,
+    maturity: Option<time::Date>,
+    discount_curve: Option<CurveId>,
+    credit_curve: Option<CurveId>,
+    frequency: Frequency,
+    day_count: DayCount,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<String>,
+    stub: StubKind,
+    amortization: Option<ValAmortizationSpec>,
+    call_put: Option<CallPutSchedule>,
+    coupon_rate: f64,
+    quoted_clean_price: Option<f64>,
+    forward_curve: Option<CurveId>,
+    float_margin_bp: f64,
+    float_gearing: f64,
+    float_reset_lag_days: i32,
+}
+
+impl PyBondBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_notional_amount: None,
+            pending_currency: None,
+            issue: None,
+            maturity: None,
+            discount_curve: None,
+            credit_curve: None,
+            frequency: Frequency::semi_annual(),
+            day_count: DayCount::Thirty360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+            amortization: None,
+            call_put: None,
+            coupon_rate: 0.0,
+            quoted_clean_price: None,
+            forward_curve: None,
+            float_margin_bp: 0.0,
+            float_gearing: 1.0,
+            float_reset_lag_days: 2,
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn make_cashflow_spec(&self) -> CashflowSpec {
+        let calendar_id = self.calendar_id.clone();
+        if let Some(fwd) = &self.forward_curve {
+            CashflowSpec::Floating(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: fwd.clone(),
+                    spread_bp: self.float_margin_bp,
+                    gearing: self.float_gearing,
+                    gearing_includes_spread: true,
+                    floor_bp: None,
+                    all_in_floor_bp: None,
+                    cap_bp: None,
+                    index_cap_bp: None,
+                    reset_freq: self.frequency,
+                    reset_lag_days: self.float_reset_lag_days,
+                    dc: self.day_count,
+                    bdc: self.bdc,
+                    calendar_id: calendar_id.clone(),
+                    fixing_calendar_id: calendar_id,
+                },
+                coupon_type: CouponType::Cash,
+                freq: self.frequency,
+                stub: self.stub,
+            })
+        } else {
+            let base = CashflowSpec::Fixed(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: self.coupon_rate,
+                freq: self.frequency,
+                dc: self.day_count,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id.clone(),
+                stub: self.stub,
+            });
+            if let Some(amort) = &self.amortization {
+                CashflowSpec::amortizing(base, amort.clone())
+            } else {
+                base
+            }
+        }
+    }
+
+    fn ensure_ready(&mut self) -> PyResult<()> {
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        let maturity = self.maturity.ok_or_else(|| {
+            PyValueError::new_err("Maturity date must be provided via maturity().")
+        })?;
+        if self.issue.is_none() {
+            let fallback = maturity
+                .checked_sub(time::Duration::days(365))
+                .unwrap_or(maturity);
+            self.issue = Some(fallback);
+        }
+        if self.discount_curve.is_none() {
+            return Err(PyValueError::new_err(
+                "Discount curve must be provided via disc_id().",
+            ));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+
+    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Frequency> {
+        if let Ok(py_freq) = value.extract::<PyRef<PyFrequency>>() {
+            return Ok(py_freq.inner);
+        }
+        if let Ok(name) = value.extract::<&str>() {
+            let normalized = name.to_lowercase();
+            return match normalized.as_str() {
+                "annual" | "1y" | "yearly" => Ok(Frequency::annual()),
+                "semiannual" | "semi_annual" | "2y" | "6m" | "semi" => Ok(Frequency::semi_annual()),
+                "quarterly" | "qtr" | "3m" => Ok(Frequency::quarterly()),
+                "monthly" | "1m" => Ok(Frequency::monthly()),
+                "biweekly" | "2w" => Ok(Frequency::biweekly()),
+                "weekly" | "1w" => Ok(Frequency::weekly()),
+                "daily" | "1d" => Ok(Frequency::daily()),
+                other => Frequency::from_payments_per_year(other.parse::<u32>().map_err(|_| {
+                    PyValueError::new_err(
+                        "frequency() expects Frequency, name, or payments per year",
+                    )
+                })?)
+                .map_err(|msg| PyValueError::new_err(msg)),
+            };
+        }
+        if let Ok(payments) = value.extract::<u32>() {
+            return Frequency::from_payments_per_year(payments)
+                .map_err(|msg| PyValueError::new_err(msg));
+        }
+        Err(PyTypeError::new_err(
+            "frequency() expects Frequency, str, or int payments_per_year",
+        ))
+    }
+
+    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
+        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
+            return Ok(py_dc.inner);
+        }
+        if let Ok(name) = value.extract::<&str>() {
+            return match name.to_lowercase().as_str() {
+                "act_360" | "act/360" => Ok(DayCount::Act360),
+                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
+                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
+                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported day count '{other}'"
+                ))),
+            };
+        }
+        Err(PyTypeError::new_err("day_count() expects DayCount or str"))
+    }
+
+    fn parse_bdc(value: &Bound<'_, PyAny>) -> PyResult<BusinessDayConvention> {
+        if let Ok(py_bdc) = value.extract::<PyRef<PyBusinessDayConvention>>() {
+            return Ok(py_bdc.inner);
+        }
+        if let Ok(name) = value.extract::<&str>() {
+            return match name.to_lowercase().as_str() {
+                "following" => Ok(BusinessDayConvention::Following),
+                "modified_following" | "mod_following" | "modifiedfollowing" => {
+                    Ok(BusinessDayConvention::ModifiedFollowing)
+                }
+                "preceding" => Ok(BusinessDayConvention::Preceding),
+                "modified_preceding" | "mod_preceding" | "modifiedpreceding" => {
+                    Ok(BusinessDayConvention::ModifiedPreceding)
+                }
+                "unadjusted" => Ok(BusinessDayConvention::Unadjusted),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported business day convention '{other}'"
+                ))),
+            };
+        }
+        Err(PyTypeError::new_err(
+            "bdc() expects BusinessDayConvention or str",
+        ))
+    }
+
+    fn parse_stub(value: &Bound<'_, PyAny>) -> PyResult<StubKind> {
+        if let Ok(py_stub) = value.extract::<PyRef<PyStubKind>>() {
+            return Ok(py_stub.inner);
+        }
+        if let Ok(name) = value.extract::<&str>() {
+            return match name.to_lowercase().as_str() {
+                "none" => Ok(StubKind::None),
+                "short_front" => Ok(StubKind::ShortFront),
+                "short_back" => Ok(StubKind::ShortBack),
+                "long_front" => Ok(StubKind::LongFront),
+                "long_back" => Ok(StubKind::LongBack),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported stub kind '{other}'"
+                ))),
+            };
+        }
+        Err(PyTypeError::new_err("stub() expects StubKind or str"))
+    }
+
+    fn set_calendar(&mut self, value: Option<String>) {
+        self.calendar_id = value;
+    }
+
+    fn call_put_mut(&mut self) -> &mut CallPutSchedule {
+        self.call_put.get_or_insert_with(CallPutSchedule::default)
+    }
+}
+
+#[pymethods]
+impl PyBondBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let parsed = Self::parse_currency(currency)?;
+        slf.pending_currency = Some(parsed);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, issue)")]
+    fn issue<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        issue: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let issue_date = py_to_date(&issue).context("issue")?;
+        slf.issue = Some(issue_date);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
+        slf.maturity = Some(maturity_date);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve = Some(CurveId::new(&curve_id));
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, curve_id=None)",
+        signature = (curve_id=None)
+    )]
+    fn credit_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: Option<String>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.credit_curve = curve_id.map(|id| CurveId::new(&id));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, rate)")]
+    fn coupon_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if rate < 0.0 {
+            return Err(PyValueError::new_err("coupon_rate must be non-negative"));
+        }
+        slf.coupon_rate = rate;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, frequency)")]
+    fn frequency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        frequency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.frequency = Self::parse_frequency(&frequency)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.day_count = Self::parse_day_count(&day_count)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, bdc)")]
+    fn bdc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        bdc: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.bdc = Self::parse_bdc(&bdc)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, stub)")]
+    fn stub<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        stub: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.stub = Self::parse_stub(&stub)?;
+        Ok(slf)
+    }
+
+    #[pyo3(
+        text_signature = "($self, calendar_id=None)",
+        signature = (calendar_id=None)
+    )]
+    fn calendar<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        calendar_id: Option<String>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.set_calendar(calendar_id);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, amortization=None)")]
+    fn amortization(
+        mut slf: PyRefMut<'_, Self>,
+        amortization: Option<PyAmortizationSpec>,
+    ) -> PyRefMut<'_, Self> {
+        slf.amortization = amortization.map(|spec| spec.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, schedule)")]
+    fn call_schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        schedule: Vec<(Bound<'py, PyAny>, f64)>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let mut calls = Vec::with_capacity(schedule.len());
+        for (date, price) in schedule {
+            calls.push(CallPut {
+                date: py_to_date(&date)?,
+                price_pct_of_par: price,
+            });
+        }
+        slf.call_put_mut().calls = calls;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, schedule)")]
+    fn put_schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        schedule: Vec<(Bound<'py, PyAny>, f64)>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let mut puts = Vec::with_capacity(schedule.len());
+        for (date, price) in schedule {
+            puts.push(CallPut {
+                date: py_to_date(&date)?,
+                price_pct_of_par: price,
+            });
+        }
+        slf.call_put_mut().puts = puts;
+        Ok(slf)
+    }
+
+    #[pyo3(
+        text_signature = "($self, price=None)",
+        signature = (price=None)
+    )]
+    fn quoted_clean_price(mut slf: PyRefMut<'_, Self>, price: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.quoted_clean_price = price;
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, curve_id=None)",
+        signature = (curve_id=None)
+    )]
+    fn forward_curve(
+        mut slf: PyRefMut<'_, Self>,
+        curve_id: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.forward_curve = curve_id.map(|id| CurveId::new(&id));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, margin_bp)")]
+    fn float_margin_bp(mut slf: PyRefMut<'_, Self>, margin_bp: f64) -> PyRefMut<'_, Self> {
+        slf.float_margin_bp = margin_bp;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, gearing)")]
+    fn float_gearing(mut slf: PyRefMut<'_, Self>, gearing: f64) -> PyRefMut<'_, Self> {
+        slf.float_gearing = gearing;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, lag_days)")]
+    fn float_reset_lag_days(mut slf: PyRefMut<'_, Self>, lag_days: i32) -> PyRefMut<'_, Self> {
+        slf.float_reset_lag_days = lag_days;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBond> {
+        slf.ensure_ready()?;
+        let money = slf.notional_money().expect("validated by ensure_ready");
+        let issue = slf.issue.expect("validated by ensure_ready");
+        let maturity = slf.maturity.expect("validated by ensure_ready");
+        let discount = slf
+            .discount_curve
+            .clone()
+            .expect("validated by ensure_ready");
+
+        let mut builder = Bond::builder()
+            .id(slf.instrument_id.clone())
+            .notional(money)
+            .issue(issue)
+            .maturity(maturity)
+            .discount_curve_id(discount)
+            .cashflow_spec(slf.make_cashflow_spec())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None);
+
+        if let Some(credit) = slf.credit_curve.clone() {
+            builder = builder.credit_curve_id_opt(Some(credit));
+        }
+
+        if let Some(px) = slf.quoted_clean_price {
+            builder = builder.pricing_overrides(PricingOverrides::default().with_clean_price(px));
+        }
+
+        if let Some(schedule) = slf.call_put.clone() {
+            if schedule.has_options() {
+                builder = builder.call_put_opt(Some(schedule));
+            }
+        }
+
+        builder.build().map(PyBond::new).map_err(core_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        "BondBuilder(...)".to_string()
     }
 }
 
@@ -168,72 +679,110 @@ impl PyBond {
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, notional, issue, maturity, discount_curve, *, coupon_rate=None, frequency=None, day_count=None, bdc=None, calendar_id=None, stub=None, amortization=None, call_schedule=None, put_schedule=None, quoted_clean_price=None, forward_curve=None, float_margin_bp=None, float_gearing=None, float_reset_lag_days=None)"
+        text_signature = "(cls, instrument_id, notional=None, issue=None, maturity=None, discount_curve=None, /, *, coupon_rate=None, frequency=None, day_count=None, bdc=None, calendar_id=None, stub=None, amortization=None, call_schedule=None, put_schedule=None, quoted_clean_price=None, forward_curve=None, float_margin_bp=None, float_gearing=None, float_reset_lag_days=None)",
+        signature = (
+            instrument_id,
+            notional=None,
+            issue=None,
+            maturity=None,
+            discount_curve=None,
+            *,
+            coupon_rate=None,
+            frequency=None,
+            day_count=None,
+            bdc=None,
+            calendar_id=None,
+            stub=None,
+            amortization=None,
+            call_schedule=None,
+            put_schedule=None,
+            quoted_clean_price=None,
+            forward_curve=None,
+            float_margin_bp=None,
+            float_gearing=None,
+            float_reset_lag_days=None,
+        )
     )]
     #[allow(clippy::too_many_arguments)]
-    /// Create a bond via builder parameters. Supports amortization and call/put.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
-    ///     issue: Issue date of the bond.
-    ///     maturity: Maturity date of the bond.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///     coupon_rate: Optional fixed coupon rate in decimal form.
-    ///     frequency: Optional payment frequency.
-    ///     day_count: Optional day-count convention.
-    ///     bdc: Optional business-day convention.
-    ///     calendar_id: Optional calendar identifier for scheduling.
-    ///     stub: Optional stub kind for schedule construction.
-    ///     amortization: Optional amortization specification.
-    ///     call_schedule: Optional list of (date, price %) call events.
-    ///     put_schedule: Optional list of (date, price %) put events.
-    ///     quoted_clean_price: Optional quoted clean price for overrides.
-    ///     forward_curve: Optional forward curve identifier for float spec.
-    ///     float_margin_bp: Optional floating margin in basis points.
-    ///     float_gearing: Optional gearing multiplier for float leg.
-    ///     float_reset_lag_days: Optional reset lag in days for float leg.
-    ///
-    /// Returns:
-    ///     Bond: Fully specified bond instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    ///     RuntimeError: When the underlying builder detects invalid input.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
+    /// Start a fluent builder (``Bond.builder(\"ID\")``) or build immediately using
+    /// the legacy full-argument signature.
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: Bound<'py, PyAny>,
+        notional: Option<Bound<'py, PyAny>>,
+        issue: Option<Bound<'py, PyAny>>,
+        maturity: Option<Bound<'py, PyAny>>,
+        discount_curve: Option<Bound<'py, PyAny>>,
         coupon_rate: Option<f64>,
-        frequency: Option<crate::core::dates::schedule::PyFrequency>,
-        day_count: Option<crate::core::dates::daycount::PyDayCount>,
-        bdc: Option<crate::core::dates::calendar::PyBusinessDayConvention>,
+        frequency: Option<PyFrequency>,
+        day_count: Option<PyDayCount>,
+        bdc: Option<PyBusinessDayConvention>,
         calendar_id: Option<&str>,
-        stub: Option<crate::core::dates::schedule::PyStubKind>,
-        amortization: Option<crate::valuations::cashflow::specs::PyAmortizationSpec>,
-        call_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
-        put_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
+        stub: Option<PyStubKind>,
+        amortization: Option<PyAmortizationSpec>,
+        call_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
+        put_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
         quoted_clean_price: Option<f64>,
-        forward_curve: Option<Bound<'_, PyAny>>,
+        forward_curve: Option<Bound<'py, PyAny>>,
         float_margin_bp: Option<f64>,
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyObject> {
         use crate::errors::PyContext;
+
+        let py = cls.py();
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+
+        let wants_builder = notional.is_none()
+            && issue.is_none()
+            && maturity.is_none()
+            && discount_curve.is_none()
+            && coupon_rate.is_none()
+            && frequency.is_none()
+            && day_count.is_none()
+            && bdc.is_none()
+            && calendar_id.is_none()
+            && stub.is_none()
+            && amortization.is_none()
+            && call_schedule.is_none()
+            && put_schedule.is_none()
+            && quoted_clean_price.is_none()
+            && forward_curve.is_none()
+            && float_margin_bp.is_none()
+            && float_gearing.is_none()
+            && float_reset_lag_days.is_none();
+
+        if wants_builder {
+            let builder = PyBondBuilder::new_with_id(id);
+            let handle = Py::new(py, builder)?;
+            return Ok(handle.into());
+        }
+
+        let notional = notional.ok_or_else(|| {
+            PyValueError::new_err(
+                "notional is required when calling Bond.builder with full arguments",
+            )
+        })?;
+        let issue = issue.ok_or_else(|| {
+            PyValueError::new_err(
+                "issue date is required when calling Bond.builder with full arguments",
+            )
+        })?;
+        let maturity = maturity.ok_or_else(|| {
+            PyValueError::new_err(
+                "maturity date is required when calling Bond.builder with full arguments",
+            )
+        })?;
+        let discount_curve = discount_curve.ok_or_else(|| {
+            PyValueError::new_err(
+                "discount_curve is required when calling Bond.builder with full arguments",
+            )
+        })?;
+
         let amt = extract_money(&notional).context("notional")?;
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-
-        // Build the cashflow_spec from the provided parameters
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        use finstack_valuations::cashflow::builder::specs::{
-            CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
-        };
 
         let freq = frequency
             .map(|f| f.inner)
@@ -246,7 +795,6 @@ impl PyBond {
         let calendar_str = calendar_id.map(|s| s.to_string());
 
         let cashflow_spec = if let Some(fwd) = forward_curve {
-            // Floating-rate bond
             let forward_curve_id = CurveId::new(fwd.extract::<&str>()?);
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
@@ -270,7 +818,6 @@ impl PyBond {
                 stub: stub_val,
             })
         } else {
-            // Fixed-rate bond
             let rate = coupon_rate.unwrap_or(0.0);
             if let Some(am) = amortization.as_ref() {
                 CashflowSpec::amortizing(
@@ -307,9 +854,7 @@ impl PyBond {
             .cashflow_spec(cashflow_spec);
 
         if let Some(px) = quoted_clean_price {
-            builder = builder.pricing_overrides(
-                finstack_valuations::instruments::PricingOverrides::default().with_clean_price(px),
-            );
+            builder = builder.pricing_overrides(PricingOverrides::default().with_clean_price(px));
         }
 
         if call_schedule.is_some() || put_schedule.is_some() {
@@ -333,10 +878,9 @@ impl PyBond {
             builder = builder.call_put_opt(Some(cps));
         }
 
-        builder
-            .build()
-            .map(Self::new)
-            .map_err(crate::errors::core_to_py)
+        let bond = builder.build().map_err(core_to_py)?;
+        let handle = Py::new(py, PyBond::new(bond))?;
+        Ok(handle.into())
     }
 
     #[classmethod]
@@ -376,7 +920,7 @@ impl PyBond {
             disc,
             quoted_clean,
         )
-        .map_err(crate::errors::core_to_py)?;
+        .map_err(core_to_py)?;
 
         if let Some(fwd) = forward_curve {
             // Update cashflow_spec to floating if forward curve is provided
@@ -458,6 +1002,11 @@ impl PyBond {
     ///
     /// Returns:
     ///     str: Unique identifier assigned to the instrument.
+    #[getter]
+    fn id(&self) -> &str {
+        self.inner.id.as_str()
+    }
+
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
@@ -563,5 +1112,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyBond>()?;
-    Ok(vec!["Bond"])
+    module.add_class::<PyBondBuilder>()?;
+    Ok(vec!["Bond", "BondBuilder"])
 }

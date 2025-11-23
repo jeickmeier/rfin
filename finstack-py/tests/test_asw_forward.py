@@ -57,9 +57,9 @@ class TestAswForward:
         bond, market = _build_market_and_bond()
         registry = create_standard_registry()
 
-        with pytest.raises(KeyError, match="dirty_price_ccy"):
-            # Omit dirty_price_ccy so the underlying Rust helper sees None and
-            # surfaces an InputError::NotFound("dirty_price_ccy") → KeyError.
+        with pytest.raises((TypeError, KeyError), match="dirty_price_ccy|missing.*required"):
+            # dirty_price_ccy is now required, so omitting it should raise TypeError
+            # or if validation happens in Rust, it might raise KeyError
             registry.asw_forward(
                 bond,
                 market,
@@ -80,7 +80,7 @@ class TestAswForward:
             market,
             "USD-SOFR-3M",
             25.0,
-            dirty_price_ccy=dirty_price_ccy,
+            dirty_price_ccy,
         )
 
         assert math.isfinite(par)

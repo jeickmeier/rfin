@@ -424,8 +424,7 @@ impl PyDependencyTracer {
     }
 }
 
-#[pyfunction]
-#[pyo3(signature = (tree))]
+#[pyfunction(signature = (tree), name = "render_tree_ascii")]
 /// Render dependency tree as ASCII art.
 ///
 /// Parameters
@@ -441,8 +440,7 @@ fn py_render_tree_ascii(tree: &PyDependencyTree) -> String {
     render_tree_ascii(&tree.inner)
 }
 
-#[pyfunction]
-#[pyo3(signature = (tree, results, period))]
+#[pyfunction(signature = (tree, results, period), name = "render_tree_detailed")]
 /// Render dependency tree with values from results.
 ///
 /// Parameters
