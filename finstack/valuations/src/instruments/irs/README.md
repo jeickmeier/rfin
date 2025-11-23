@@ -661,7 +661,7 @@ When contributing to the IRS module:
 2. Add comprehensive tests for new features
 3. Update this README with usage examples
 4. Cite market standards and ISDA conventions where applicable
-5. Run `make lint` and `make test` before submitting changes
+5. Run `make lint` and `make test-rust` before submitting changes
 
 ---
 

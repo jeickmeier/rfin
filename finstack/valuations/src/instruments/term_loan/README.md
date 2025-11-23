@@ -727,7 +727,7 @@ When contributing to the term_loan module:
 3. **Add tests**: Unit, integration, and property tests
 4. **Maintain determinism**: Use Decimal, stable ordering, and predictable algorithms
 5. **Preserve serde stability**: Do not rename fields; use deprecation for removals
-6. **Run lints and tests**: `make lint && make test` before committing
+6. **Run lints and tests**: `make lint && make test-rust` before committing
 
 ---
 

@@ -792,7 +792,7 @@ Add comprehensive rustdoc:
 - [ ] Added metrics (if applicable)
 - [ ] Added tests (construction, pricing, JSON roundtrip)
 - [ ] Added comprehensive documentation
-- [ ] Ran `make lint` and `make test`
+- [ ] Ran `make lint` and `make test-rust`
 
 ## Design Principles
 

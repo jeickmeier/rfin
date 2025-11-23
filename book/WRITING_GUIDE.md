@@ -329,7 +329,7 @@ make book-build
 make doc
 
 # Run doc tests (ensures code examples work)
-make test-doc
+make test-rust-doc
 ```
 
 ## Getting Help

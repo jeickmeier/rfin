@@ -62,7 +62,7 @@ These standards apply to all Rust crates in the Finstack workspace (`finstack/co
 - Use realistic but small inputs to keep benches and tests fast; document scaling assumptions.
 
 ### CI and local workflow
-- Run `make lint` and `make test` before committing. Fix failures rather than adding ignores.
+- Run `make lint` and `make test-rust` before committing. Fix failures rather than adding ignores.
 - Tests must be hermetic: no network, no external services, no reliance on machine configuration.
 - If enabling new features behind flags (e.g., parallel), ensure CI executes representative test matrices.
 

@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test test-slow test-doc doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
+.PHONY: help setup-python build build-prod test test-slow test-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
 
 help:
 	@echo "Available targets:"
@@ -7,9 +7,10 @@ help:
 	@echo "  build-prod    - Build all crates optimized without debug info"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test           - Run all tests (cargo-nextest)"
-	@echo "  test-slow      - Run all tests incl. slow (cargo-nextest)"
-	@echo "  test-doc       - Run documentation tests only"
+	@echo "  test           - Run Rust tests (cargo-nextest)"
+	@echo "  test-slow      - Run all Rust tests incl. slow (cargo-nextest)"
+	@echo "  test-doc       - Run Rust documentation tests only"
+	@echo "  test-python    - Run Python tests in finstack-py"
 	@echo ""
 	@echo "Benchmarking & Profiling:"
 	@echo "  bench-perf         - Run all benchmarks with optimized profile"
@@ -54,14 +55,18 @@ build:
 build-prod:
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
-test: install-nextest
+test-rust: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --max-fail=10
 
-test-slow: install-nextest
+test-rust-slow: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow
 
-test-doc:
+test-rust-doc:
 	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
+
+test-python:
+	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python tests (https://github.com/astral-sh/uv)."; exit 1; }
+	cd finstack-py && uv run pytest tests -v
 
 doc:
 	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open

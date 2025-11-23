@@ -612,7 +612,7 @@ cargo test -p finstack-valuations -- --ignored
 make lint
 
 # Run all tests
-make test
+make test-rust
 
 # Build Python bindings (after Rust changes)
 make python-dev
@@ -643,7 +643,7 @@ When adding new features:
 4. Maintain currency-safety invariants
 5. Preserve determinism (serial ≡ parallel)
 6. Update relevant README.md files
-7. Run `make lint` and `make test` before committing
+7. Run `make lint` and `make test-rust` before committing
 
 For questions or feature requests, please open an issue or contact the Finstack team.
 
