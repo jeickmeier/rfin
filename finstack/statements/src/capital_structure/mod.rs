@@ -51,6 +51,8 @@
 mod builder;
 pub mod integration;
 mod types;
+pub mod waterfall;
 
 pub use integration::*;
 pub use types::*;
+pub use waterfall::*;

@@ -96,6 +96,7 @@ fn test_term_loan_in_capital_structure_placeholder() {
         meta: indexmap::IndexMap::new(),
         reporting_currency: None,
         fx_policy: None,
+        waterfall: None,
     };
 
     // Verify it serializes correctly

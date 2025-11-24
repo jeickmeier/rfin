@@ -12,6 +12,7 @@ use crate::types::{FinancialModelSpec, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
 use indexmap::IndexMap;
+use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -138,9 +139,16 @@ impl Evaluator {
             .map(|(i, node_id)| (node_id.clone(), i))
             .collect();
 
-        // Compute capital structure cashflows if market context is provided
-        let cs_cashflows = if let (Some(market_ctx), Some(as_of)) = (market_ctx, as_of) {
-            self.compute_cs_cashflows(model, market_ctx, as_of)?
+        // Initialize capital structure state for dynamic evaluation
+        let mut cs_state = if let (Some(_market_ctx), Some(_as_of)) = (market_ctx, as_of) {
+            Some(crate::capital_structure::CapitalStructureState::new())
+        } else {
+            None
+        };
+
+        // Pre-compute instruments if market context is available
+        let instruments = if let (Some(_market_ctx), Some(_as_of)) = (market_ctx, as_of) {
+            self.build_instruments(model)?
         } else {
             None
         };
@@ -151,15 +159,32 @@ impl Evaluator {
 
         // Sequential evaluation for all models
         for period in &model.periods {
-            let period_results = self.evaluate_period(
-                model,
-                &period.id,
-                period.is_actual,
-                &eval_order,
-                &node_to_column,
-                &historical,
-                cs_cashflows.as_ref(),
-            )?;
+            let period_results = if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
+                (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
+            {
+                self.evaluate_period_dynamic(
+                    model,
+                    period,
+                    period.is_actual,
+                    &eval_order,
+                    &node_to_column,
+                    &historical,
+                    market_ctx,
+                    as_of,
+                    insts,
+                    state,
+                )?
+            } else {
+                self.evaluate_period(
+                    model,
+                    &period.id,
+                    period.is_actual,
+                    &eval_order,
+                    &node_to_column,
+                    &historical,
+                    None,
+                )?
+            };
 
             // Store in results
             for (node_id, value) in &period_results {
@@ -171,7 +196,12 @@ impl Evaluator {
             }
 
             // Add to historical context for next period
-            historical.insert(period.id, period_results);
+            historical.insert(period.id, period_results.clone());
+
+            // Advance CS state for next period
+            if let Some(ref mut state) = cs_state {
+                state.advance_period();
+            }
         }
 
         // Infer and populate node value types from model
@@ -292,6 +322,179 @@ impl Evaluator {
         Ok(())
     }
 
+    /// Build instruments from model specifications.
+    ///
+    /// Returns a map of instrument IDs to CashflowProvider trait objects.
+    fn build_instruments(
+        &self,
+        model: &FinancialModelSpec,
+    ) -> Result<Option<IndexMap<String, std::sync::Arc<dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync>>>> {
+        use crate::capital_structure::integration;
+        use crate::types::DebtInstrumentSpec;
+        use finstack_valuations::cashflow::traits::CashflowProvider;
+
+        let cs_spec = match &model.capital_structure {
+            Some(cs) => cs,
+            None => return Ok(None),
+        };
+
+        let mut instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
+            IndexMap::new();
+
+        for debt_spec in &cs_spec.debt_instruments {
+            let (id, instrument) = match debt_spec {
+                DebtInstrumentSpec::Bond { id, .. }
+                | DebtInstrumentSpec::Swap { id, .. }
+                | DebtInstrumentSpec::TermLoan { id, .. }
+                | DebtInstrumentSpec::Generic { id, .. } => {
+                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
+                    (id.clone(), instrument)
+                }
+            };
+            instruments.insert(id, instrument);
+        }
+
+        Ok(Some(instruments))
+    }
+
+    /// Evaluate a period with dynamic capital structure support.
+    ///
+    /// This method:
+    /// 1. Pre-Model: Calculate contractual CS flows based on opening balances
+    /// 2. Model Eval: Evaluate standard model nodes
+    /// 3. Post-Model: Run waterfall logic to calculate sweeps/prepayments
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_period_dynamic(
+        &mut self,
+        model: &FinancialModelSpec,
+        period: &finstack_core::dates::Period,
+        is_actual: bool,
+        eval_order: &[String],
+        node_to_column: &IndexMap<String, usize>,
+        historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
+        market_ctx: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        instruments: &IndexMap<String, std::sync::Arc<dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync>>,
+        cs_state: &mut crate::capital_structure::CapitalStructureState,
+    ) -> Result<IndexMap<String, f64>> {
+        use crate::capital_structure::integration;
+        use indexmap::IndexMap;
+
+        // Step 1: Pre-Model - Calculate contractual flows based on opening balances
+        let mut contractual_flows: IndexMap<String, crate::capital_structure::CashflowBreakdown> = IndexMap::new();
+        
+        for (instrument_id, instrument) in instruments {
+            // Get currency from instrument's first cashflow
+            let temp_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+            let currency = temp_schedule
+                .flows
+                .first()
+                .map(|cf| cf.amount.currency())
+                .unwrap_or(finstack_core::currency::Currency::USD);
+            let opening_balance = cs_state.get_opening_balance(instrument_id.as_str(), currency);
+            
+            let (breakdown, closing_balance) = integration::calculate_period_flows(
+                instrument.as_ref(),
+                period,
+                opening_balance,
+                market_ctx,
+                as_of,
+            )?;
+            
+            contractual_flows.insert(instrument_id.to_string(), breakdown.clone());
+            cs_state.set_closing_balance(instrument_id.to_string(), closing_balance);
+        }
+
+        // Create initial context with contractual CS flows
+        let mut cs_cashflows = crate::capital_structure::CapitalStructureCashflows::new();
+        for (inst_id, breakdown) in &contractual_flows {
+            let mut period_map: indexmap::IndexMap<finstack_core::dates::PeriodId, crate::capital_structure::CashflowBreakdown> = indexmap::IndexMap::new();
+            period_map.insert(period.id, breakdown.clone());
+            cs_cashflows.by_instrument.insert(
+                inst_id.clone(),
+                period_map,
+            );
+        }
+
+        let mut context = EvaluationContext::new(
+            period.id,
+            node_to_column.clone(),
+            historical.clone(),
+        );
+        context.capital_structure_cashflows = Some(cs_cashflows.clone());
+
+        // Step 2: Model Eval - Evaluate standard model nodes
+        for node_id in eval_order {
+            let node_spec = model
+                .get_node(node_id)
+                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+
+            if node_spec.where_text.is_some() {
+                let where_key = format!("__where__{}", node_id);
+                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
+                    let where_result = crate::evaluator::formula::evaluate_formula(where_expr, &context)?;
+                    if where_result == 0.0 {
+                        context.set_value(node_id, 0.0)?;
+                        continue;
+                    }
+                }
+            }
+
+            let source = crate::evaluator::precedence::resolve_node_value(node_spec, &period.id, is_actual)?;
+
+            let value = match source {
+                crate::evaluator::precedence::NodeValueSource::Value(v) => v,
+                crate::evaluator::precedence::NodeValueSource::Forecast => {
+                    crate::evaluator::forecast_eval::evaluate_forecast(
+                        node_spec,
+                        model,
+                        &period.id,
+                        &context,
+                        &mut self.forecast_cache,
+                    )?
+                }
+                crate::evaluator::precedence::NodeValueSource::Formula(_) => {
+                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
+                        Error::eval(format!("No compiled formula for node '{}'", node_id))
+                    })?;
+                    crate::evaluator::formula::evaluate_formula(expr, &context)?
+                }
+            };
+
+            context.set_value(node_id, value)?;
+        }
+
+        // Step 3: Post-Model - Run waterfall logic if configured
+        if let Some(cs_spec) = &model.capital_structure {
+            if let Some(waterfall_spec) = &cs_spec.waterfall {
+                let updated_flows = crate::capital_structure::waterfall::execute_waterfall(
+                    &period.id,
+                    &context,
+                    waterfall_spec,
+                    cs_state,
+                    &contractual_flows,
+                )?;
+
+                // Update CS cashflows with sweep amounts
+                for (inst_id, breakdown) in &updated_flows {
+                    if let Some(period_map) = cs_cashflows.by_instrument.get_mut(inst_id) {
+                        period_map.insert(period.id, breakdown.clone());
+                    } else {
+                        let mut period_map: indexmap::IndexMap<finstack_core::dates::PeriodId, crate::capital_structure::CashflowBreakdown> = indexmap::IndexMap::new();
+                        period_map.insert(period.id, breakdown.clone());
+                        cs_cashflows.by_instrument.insert(
+                            inst_id.clone(),
+                            period_map,
+                        );
+                    }
+                }
+                context.capital_structure_cashflows = Some(cs_cashflows);
+            }
+        }
+
+        Ok(context.into_results())
+    }
+
     /// Compute capital structure cashflows from model's instrument specifications.
     ///
     /// This is a private method that encapsulates all capital structure computation logic.
@@ -304,6 +507,7 @@ impl Evaluator {
     ///
     /// # Returns
     /// Returns `Some(cashflows)` if capital structure is defined, `None` otherwise.
+    #[allow(dead_code)] // Kept for backward compatibility, may be used in future
     fn compute_cs_cashflows(
         &self,
         model: &FinancialModelSpec,

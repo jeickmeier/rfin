@@ -16,15 +16,16 @@ use finstack_valuations::instruments::{Bond, InterestRateSwap};
 /// Returns a mutable reference to the capital structure spec, creating an empty
 /// instance if one is not already present.
 fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut CapitalStructureSpec {
-    builder
-        .capital_structure
-        .get_or_insert_with(|| CapitalStructureSpec {
-            debt_instruments: vec![],
-            equity_instruments: vec![],
-            meta: indexmap::IndexMap::new(),
-            reporting_currency: None,
-            fx_policy: None,
-        })
+        builder
+            .capital_structure
+            .get_or_insert_with(|| CapitalStructureSpec {
+                debt_instruments: vec![],
+                equity_instruments: vec![],
+                meta: indexmap::IndexMap::new(),
+                reporting_currency: None,
+                fx_policy: None,
+                waterfall: None,
+            })
 }
 
 impl<State> ModelBuilder<State> {
@@ -197,6 +198,34 @@ impl<State> ModelBuilder<State> {
     /// Set the FX conversion policy used when converting capital-structure cashflows.
     pub fn fx_policy(mut self, policy: finstack_core::money::fx::FxConversionPolicy) -> Self {
         ensure_capital_structure(&mut self).fx_policy = Some(policy);
+        self
+    }
+
+    /// Configure waterfall specification for dynamic cash flow allocation.
+    ///
+    /// # Arguments
+    /// * `waterfall_spec` - Waterfall configuration with ECF sweep and PIK toggle settings
+    ///
+    /// # Example
+    /// ```ignore
+    /// use finstack_statements::capital_structure::{WaterfallSpec, EcfSweepSpec};
+    ///
+    /// let waterfall = WaterfallSpec {
+    ///     ecf_sweep: Some(EcfSweepSpec {
+    ///         ebitda_node: "ebitda".to_string(),
+    ///         taxes_node: Some("taxes".to_string()),
+    ///         capex_node: Some("capex".to_string()),
+    ///         working_capital_node: Some("wc_change".to_string()),
+    ///         sweep_percentage: 0.5,  // 50% sweep
+    ///         target_instrument_id: Some("TL-A".to_string()),
+    ///     }),
+    ///     ..WaterfallSpec::default()
+    /// };
+    ///
+    /// builder.waterfall(waterfall);
+    /// ```
+    pub fn waterfall(mut self, waterfall_spec: crate::capital_structure::WaterfallSpec) -> Self {
+        ensure_capital_structure(&mut self).waterfall = Some(waterfall_spec);
         self
     }
 

@@ -33,7 +33,7 @@
 
 *   **Build:** Failed initially (`finstack-py` compilation error). **Fixed.**
 *   **Lints:** `make lint` passed cleanly. `clippy` is enforcing strict rules (no panics, etc.).
-*   **Tests:** `make tes-rust` failed initially due to stale binaries and one expectation mismatch. **Fixed** (all tests passed after clean & fix).
+*   **Tests:** `make test-rust` failed initially due to stale binaries and one expectation mismatch. **Fixed** (all tests passed after clean & fix).
 
 ### Formatting & Editions
 

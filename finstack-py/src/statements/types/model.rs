@@ -62,6 +62,7 @@ impl PyCapitalStructureSpec {
             meta: IndexMap::new(),
             reporting_currency: None,
             fx_policy: None,
+            waterfall: None,
         })
     }
 

@@ -111,6 +111,10 @@ pub struct CapitalStructureSpec {
     /// Optional FX conversion policy override (defaults to CashflowDate)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_policy: Option<finstack_core::money::fx::FxConversionPolicy>,
+
+    /// Optional waterfall specification for dynamic cash flow allocation
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waterfall: Option<crate::capital_structure::WaterfallSpec>,
 }
 
 /// Debt instrument specification.

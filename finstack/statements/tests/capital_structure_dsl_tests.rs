@@ -406,6 +406,7 @@ fn test_aggregate_instrument_cashflows() {
         meta: IndexMap::new(),
         reporting_currency: None,
         fx_policy: None,
+        waterfall: None,
     };
     let cashflows =
         aggregate_instrument_cashflows(&dummy_spec, &instruments, &periods, &market_ctx, as_of);

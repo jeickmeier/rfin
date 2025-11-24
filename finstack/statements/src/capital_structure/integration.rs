@@ -9,13 +9,95 @@ use crate::types::DebtInstrumentSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::MarketContext;
-use finstack_core::money::fx::FxQuery;
+use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use std::sync::Arc;
+
+/// Calculate contractual flows for a single period.
+///
+/// This helper extracts flows for a specific period from an instrument's full schedule,
+/// returning a CashflowBreakdown for that period. Used for dynamic period-by-period evaluation.
+///
+/// # Arguments
+/// * `instrument` - The instrument to calculate flows for
+/// * `period` - The period to extract flows for
+/// * `opening_balance` - Opening balance at the start of the period
+/// * `market_ctx` - Market context for pricing
+/// * `as_of` - Valuation date
+///
+/// # Returns
+/// CashflowBreakdown for the period and closing balance
+pub fn calculate_period_flows(
+    instrument: &dyn CashflowProvider,
+    period: &Period,
+    opening_balance: Money,
+    market_ctx: &MarketContext,
+    as_of: Date,
+) -> Result<(CashflowBreakdown, Money)> {
+    let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+    let currency = opening_balance.currency();
+    let mut breakdown = CashflowBreakdown::with_currency(currency);
+
+    // Extract flows that fall within this period
+    for cf in &full_schedule.flows {
+        if cf.date >= period.start && cf.date < period.end {
+            let abs_value = if cf.amount.amount() < 0.0 {
+                Money::new(-cf.amount.amount(), cf.amount.currency())
+            } else {
+                cf.amount
+            };
+
+            match cf.kind {
+                CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
+                    breakdown.interest_expense_cash += abs_value;
+                }
+                CFKind::Amortization => {
+                    breakdown.principal_payment += abs_value;
+                }
+                CFKind::Notional if cf.amount.amount() > 0.0 => {
+                    breakdown.principal_payment += abs_value;
+                }
+                CFKind::Fee => {
+                    breakdown.fees += abs_value;
+                }
+                CFKind::PIK => {
+                    breakdown.interest_expense_pik += abs_value;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Get closing balance from outstanding_by_date
+    let outstanding_path = full_schedule.outstanding_by_date();
+    let closing_balance = outstanding_path
+        .iter()
+        .rev()
+        .find(|(date, _)| *date >= period.start && *date < period.end)
+        .map(|(_, balance)| {
+            if balance.amount() < 0.0 {
+                Money::new(-balance.amount(), balance.currency())
+            } else {
+                *balance
+            }
+        })
+        .unwrap_or_else(|| {
+            // If no flows in period, use opening balance adjusted by flows
+            opening_balance
+                .checked_sub(breakdown.principal_payment)
+                .unwrap_or_else(|_| Money::new(0.0, currency))
+                .checked_add(breakdown.interest_expense_pik)
+                .unwrap_or_else(|_| Money::new(0.0, currency))
+        });
+
+    breakdown.debt_balance = closing_balance;
+
+    Ok((breakdown, closing_balance))
+}
 
 /// Aggregate cashflows from instruments by period using valuations infrastructure.
 ///
