@@ -3,6 +3,7 @@
 //! This module provides Python bindings for the financial statement modeling engine,
 //! including types, builders, evaluators, extensions, and the metric registry system.
 
+pub(crate) mod adjustments;
 pub(crate) mod analysis;
 pub(crate) mod builder;
 pub(crate) mod error;
@@ -33,6 +34,8 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     )?;
 
     // Register submodules
+    let adjustments_exports = adjustments::register(py, &module)?;
+    promote_exports(&module, "adjustments", &adjustments_exports)?;
     let types_exports = types::register(py, &module)?;
     promote_exports(&module, "types", &types_exports)?;
     let builder_exports = builder::register(py, &module)?;
@@ -52,6 +55,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     // Collect all exports
     let mut all_exports = Vec::new();
+    all_exports.extend(adjustments_exports);
     all_exports.extend(types_exports);
     all_exports.extend(builder_exports);
     all_exports.extend(evaluator_exports);

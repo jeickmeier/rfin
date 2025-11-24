@@ -11,7 +11,9 @@ use crate::evaluator::results::{Results, ResultsMeta};
 use crate::types::{FinancialModelSpec, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
+use finstack_core::money::Money;
 use indexmap::IndexMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
@@ -139,6 +141,17 @@ impl Evaluator {
             .map(|(i, node_id)| (node_id.clone(), i))
             .collect();
 
+        let cs_formula_nodes: HashSet<String> = model
+            .nodes
+            .iter()
+            .filter_map(|(node_id, spec)| {
+                spec.formula_text
+                    .as_deref()
+                    .filter(|formula| formula.contains("cs."))
+                    .map(|_| node_id.clone())
+            })
+            .collect();
+
         // Initialize capital structure state for dynamic evaluation
         let mut cs_state = if let (Some(_market_ctx), Some(_as_of)) = (market_ctx, as_of) {
             Some(crate::capital_structure::CapitalStructureState::new())
@@ -153,38 +166,89 @@ impl Evaluator {
             None
         };
 
+        if let (Some(state), Some(insts), Some(market_ctx), Some(as_of_date), Some(first_period)) = (
+            cs_state.as_mut(),
+            instruments.as_ref(),
+            market_ctx,
+            as_of,
+            model.periods.first(),
+        ) {
+            for (instrument_id, instrument) in insts {
+                let schedule = instrument.build_full_schedule(market_ctx, as_of_date)?;
+                let mut opening_balance = schedule
+                    .outstanding_by_date()
+                    .iter()
+                    .filter(|(d, _)| *d <= first_period.start)
+                    .map(|(_, outstanding)| {
+                        if outstanding.amount() < 0.0 {
+                            Money::new(-outstanding.amount(), outstanding.currency())
+                        } else {
+                            *outstanding
+                        }
+                    })
+                    .last()
+                    .unwrap_or_else(|| {
+                        schedule
+                            .outstanding_by_date()
+                            .first()
+                            .map(|(_, outstanding)| {
+                                if outstanding.amount() < 0.0 {
+                                    Money::new(-outstanding.amount(), outstanding.currency())
+                                } else {
+                                    *outstanding
+                                }
+                            })
+                            .unwrap_or_else(|| {
+                                schedule
+                                    .flows
+                                    .first()
+                                    .map(|cf| Money::new(0.0, cf.amount.currency()))
+                                    .unwrap_or_else(|| {
+                                        Money::new(0.0, finstack_core::currency::Currency::USD)
+                                    })
+                            })
+                    });
+
+                state
+                    .opening_balances
+                    .insert(instrument_id.clone(), opening_balance);
+            }
+        }
+
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut results = Results::new();
 
         // Sequential evaluation for all models
         for period in &model.periods {
-            let period_results = if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
-                (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
-            {
-                self.evaluate_period_dynamic(
-                    model,
-                    period,
-                    period.is_actual,
-                    &eval_order,
-                    &node_to_column,
-                    &historical,
-                    market_ctx,
-                    as_of,
-                    insts,
-                    state,
-                )?
-            } else {
-                self.evaluate_period(
-                    model,
-                    &period.id,
-                    period.is_actual,
-                    &eval_order,
-                    &node_to_column,
-                    &historical,
-                    None,
-                )?
-            };
+            let period_results =
+                if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
+                    (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
+                {
+                    self.evaluate_period_dynamic(
+                        model,
+                        period,
+                        period.is_actual,
+                        &eval_order,
+                        &node_to_column,
+                        &historical,
+                        market_ctx,
+                        as_of,
+                        insts,
+                        state,
+                        &cs_formula_nodes,
+                    )?
+                } else {
+                    self.evaluate_period(
+                        model,
+                        &period.id,
+                        period.is_actual,
+                        &eval_order,
+                        &node_to_column,
+                        &historical,
+                        None,
+                    )?
+                };
 
             // Store in results
             for (node_id, value) in &period_results {
@@ -328,7 +392,16 @@ impl Evaluator {
     fn build_instruments(
         &self,
         model: &FinancialModelSpec,
-    ) -> Result<Option<IndexMap<String, std::sync::Arc<dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync>>>> {
+    ) -> Result<
+        Option<
+            IndexMap<
+                String,
+                std::sync::Arc<
+                    dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync,
+                >,
+            >,
+        >,
+    > {
         use crate::capital_structure::integration;
         use crate::types::DebtInstrumentSpec;
         use finstack_valuations::cashflow::traits::CashflowProvider;
@@ -374,15 +447,22 @@ impl Evaluator {
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         market_ctx: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-        instruments: &IndexMap<String, std::sync::Arc<dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync>>,
+        instruments: &IndexMap<
+            String,
+            std::sync::Arc<
+                dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync,
+            >,
+        >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
+        cs_formula_nodes: &HashSet<String>,
     ) -> Result<IndexMap<String, f64>> {
         use crate::capital_structure::integration;
         use indexmap::IndexMap;
 
         // Step 1: Pre-Model - Calculate contractual flows based on opening balances
-        let mut contractual_flows: IndexMap<String, crate::capital_structure::CashflowBreakdown> = IndexMap::new();
-        
+        let mut contractual_flows: IndexMap<String, crate::capital_structure::CashflowBreakdown> =
+            IndexMap::new();
+
         for (instrument_id, instrument) in instruments {
             // Get currency from instrument's first cashflow
             let temp_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
@@ -392,7 +472,7 @@ impl Evaluator {
                 .map(|cf| cf.amount.currency())
                 .unwrap_or(finstack_core::currency::Currency::USD);
             let opening_balance = cs_state.get_opening_balance(instrument_id.as_str(), currency);
-            
+
             let (breakdown, closing_balance) = integration::calculate_period_flows(
                 instrument.as_ref(),
                 period,
@@ -400,27 +480,55 @@ impl Evaluator {
                 market_ctx,
                 as_of,
             )?;
-            
+
             contractual_flows.insert(instrument_id.to_string(), breakdown.clone());
             cs_state.set_closing_balance(instrument_id.to_string(), closing_balance);
         }
 
+        // Helper to recompute capital structure totals for the current period
+        let period_id = period.id;
+        let recompute_totals =
+            |cashflows: &mut crate::capital_structure::CapitalStructureCashflows| {
+                let mut total_breakdown: Option<crate::capital_structure::CashflowBreakdown> = None;
+
+                for breakdown in cashflows
+                    .by_instrument
+                    .values()
+                    .filter_map(|period_map| period_map.get(&period_id))
+                {
+                    if let Some(total) = &mut total_breakdown {
+                        total.interest_expense_cash += breakdown.interest_expense_cash;
+                        total.interest_expense_pik += breakdown.interest_expense_pik;
+                        total.principal_payment += breakdown.principal_payment;
+                        total.fees += breakdown.fees;
+                        total.debt_balance += breakdown.debt_balance;
+                    } else {
+                        total_breakdown = Some(breakdown.clone());
+                    }
+                }
+
+                if let Some(total) = total_breakdown {
+                    cashflows.totals.insert(period_id, total.clone());
+                    cashflows.reporting_currency = Some(total.interest_expense_cash.currency());
+                }
+            };
+
         // Create initial context with contractual CS flows
         let mut cs_cashflows = crate::capital_structure::CapitalStructureCashflows::new();
         for (inst_id, breakdown) in &contractual_flows {
-            let mut period_map: indexmap::IndexMap<finstack_core::dates::PeriodId, crate::capital_structure::CashflowBreakdown> = indexmap::IndexMap::new();
-            period_map.insert(period.id, breakdown.clone());
-            cs_cashflows.by_instrument.insert(
-                inst_id.clone(),
-                period_map,
-            );
+            let mut period_map: indexmap::IndexMap<
+                finstack_core::dates::PeriodId,
+                crate::capital_structure::CashflowBreakdown,
+            > = indexmap::IndexMap::new();
+            period_map.insert(period_id, breakdown.clone());
+            cs_cashflows
+                .by_instrument
+                .insert(inst_id.clone(), period_map);
         }
+        recompute_totals(&mut cs_cashflows);
 
-        let mut context = EvaluationContext::new(
-            period.id,
-            node_to_column.clone(),
-            historical.clone(),
-        );
+        let mut context =
+            EvaluationContext::new(period_id, node_to_column.clone(), historical.clone());
         context.capital_structure_cashflows = Some(cs_cashflows.clone());
 
         // Step 2: Model Eval - Evaluate standard model nodes
@@ -432,7 +540,8 @@ impl Evaluator {
             if node_spec.where_text.is_some() {
                 let where_key = format!("__where__{}", node_id);
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = crate::evaluator::formula::evaluate_formula(where_expr, &context)?;
+                    let where_result =
+                        crate::evaluator::formula::evaluate_formula(where_expr, &context)?;
                     if where_result == 0.0 {
                         context.set_value(node_id, 0.0)?;
                         continue;
@@ -440,7 +549,8 @@ impl Evaluator {
                 }
             }
 
-            let source = crate::evaluator::precedence::resolve_node_value(node_spec, &period.id, is_actual)?;
+            let source =
+                crate::evaluator::precedence::resolve_node_value(node_spec, &period.id, is_actual)?;
 
             let value = match source {
                 crate::evaluator::precedence::NodeValueSource::Value(v) => v,
@@ -468,7 +578,7 @@ impl Evaluator {
         if let Some(cs_spec) = &model.capital_structure {
             if let Some(waterfall_spec) = &cs_spec.waterfall {
                 let updated_flows = crate::capital_structure::waterfall::execute_waterfall(
-                    &period.id,
+                    &period_id,
                     &context,
                     waterfall_spec,
                     cs_state,
@@ -478,17 +588,35 @@ impl Evaluator {
                 // Update CS cashflows with sweep amounts
                 for (inst_id, breakdown) in &updated_flows {
                     if let Some(period_map) = cs_cashflows.by_instrument.get_mut(inst_id) {
-                        period_map.insert(period.id, breakdown.clone());
+                        period_map.insert(period_id, breakdown.clone());
                     } else {
-                        let mut period_map: indexmap::IndexMap<finstack_core::dates::PeriodId, crate::capital_structure::CashflowBreakdown> = indexmap::IndexMap::new();
-                        period_map.insert(period.id, breakdown.clone());
-                        cs_cashflows.by_instrument.insert(
-                            inst_id.clone(),
-                            period_map,
-                        );
+                        let mut period_map: indexmap::IndexMap<
+                            finstack_core::dates::PeriodId,
+                            crate::capital_structure::CashflowBreakdown,
+                        > = indexmap::IndexMap::new();
+                        period_map.insert(period_id, breakdown.clone());
+                        cs_cashflows
+                            .by_instrument
+                            .insert(inst_id.clone(), period_map);
                     }
                 }
+                recompute_totals(&mut cs_cashflows);
                 context.capital_structure_cashflows = Some(cs_cashflows);
+            }
+        }
+
+        if context.capital_structure_cashflows.is_some() && !cs_formula_nodes.is_empty() {
+            for node_id in cs_formula_nodes {
+                if let Some(node_spec) = model.get_node(node_id) {
+                    let source = resolve_node_value(node_spec, &period.id, is_actual)?;
+
+                    if matches!(source, NodeValueSource::Formula(_)) {
+                        if let Some(expr) = self.compiled_cache.get(node_id) {
+                            let value = evaluate_formula(expr, &context)?;
+                            context.set_value(node_id, value)?;
+                        }
+                    }
+                }
             }
         }
 

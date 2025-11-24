@@ -4,6 +4,7 @@ pub(crate) mod forecast;
 pub(crate) mod model;
 pub(crate) mod node;
 pub(crate) mod value;
+pub(crate) mod waterfall;
 
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -21,6 +22,7 @@ pub(crate) fn register<'py>(
     forecast::register(py, &module)?;
     value::register(py, &module)?;
     model::register(py, &module)?;
+    waterfall::register(py, &module)?;
 
     parent.add_submodule(&module)?;
     parent.setattr("types", &module)?;
@@ -35,5 +37,9 @@ pub(crate) fn register<'py>(
         "FinancialModelSpec",
         "CapitalStructureSpec",
         "DebtInstrumentSpec",
+        "WaterfallSpec",
+        "EcfSweepSpec",
+        "PikToggleSpec",
+        "PaymentPriority",
     ])
 }

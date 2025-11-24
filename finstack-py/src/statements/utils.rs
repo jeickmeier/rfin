@@ -36,14 +36,31 @@ pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyObject 
 pub(crate) fn py_to_json(value: &Bound<'_, PyAny>) -> pyo3::PyResult<serde_json::Value> {
     if value.is_none() {
         Ok(serde_json::Value::Null)
-    } else if let Ok(s) = value.extract::<String>() {
-        Ok(serde_json::json!(s))
+    } else if let Ok(b) = value.extract::<bool>() {
+        // Check bool before numbers (bool is a subtype of int in Python)
+        Ok(serde_json::json!(b))
     } else if let Ok(i) = value.extract::<i64>() {
         Ok(serde_json::json!(i))
     } else if let Ok(f) = value.extract::<f64>() {
         Ok(serde_json::json!(f))
-    } else if let Ok(b) = value.extract::<bool>() {
-        Ok(serde_json::json!(b))
+    } else if let Ok(s) = value.extract::<String>() {
+        Ok(serde_json::json!(s))
+    } else if let Ok(dict) = value.downcast::<PyDict>() {
+        // Handle dictionaries recursively
+        let mut map = serde_json::Map::new();
+        for (key, val) in dict.iter() {
+            let key_str = key.extract::<String>()?;
+            let val_json = py_to_json(&val)?;
+            map.insert(key_str, val_json);
+        }
+        Ok(serde_json::Value::Object(map))
+    } else if let Ok(list) = value.downcast::<PyList>() {
+        // Handle lists recursively
+        let mut arr = Vec::new();
+        for item in list.iter() {
+            arr.push(py_to_json(&item)?);
+        }
+        Ok(serde_json::Value::Array(arr))
     } else if let Ok(v) = value.extract::<Vec<f64>>() {
         Ok(serde_json::json!(v))
     } else if let Ok(v) = value.extract::<Vec<String>>() {

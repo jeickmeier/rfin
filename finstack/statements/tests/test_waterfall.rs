@@ -23,22 +23,40 @@ fn test_ecf_sweep_basic() {
         .value(
             "ebitda",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_100_000.0),
+                ),
             ],
         )
         .value(
             "taxes",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(220_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(220_000.0),
+                ),
             ],
         )
         .value(
             "capex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
             ],
         )
         .add_bond(
@@ -56,7 +74,7 @@ fn test_ecf_sweep_basic() {
                 taxes_node: Some("taxes".to_string()),
                 capex_node: Some("capex".to_string()),
                 working_capital_node: None,
-                sweep_percentage: 0.5, // 50% sweep
+                sweep_percentage: 0.5,      // 50% sweep
                 target_instrument_id: None, // Apply to all
             }),
             ..WaterfallSpec::default()
@@ -85,4 +103,3 @@ fn test_ecf_sweep_basic() {
         Some(1_000_000.0)
     );
 }
-

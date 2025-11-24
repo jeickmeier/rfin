@@ -4,6 +4,7 @@ from typing import Any, List, Dict
 from ..types.model import FinancialModelSpec
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar
+from ..types.waterfall import WaterfallSpec
 from ...core.dates.periods import Period, PeriodId
 from .mixed_builder import MixedNodeBuilder
 
@@ -274,6 +275,14 @@ class ModelBuilder:
         Args:
             id: Unique instrument identifier
             spec: JSON specification for the debt instrument
+        """
+        ...
+
+    def waterfall(self, waterfall_spec: WaterfallSpec) -> None:
+        """Configure waterfall specification for dynamic cash flow allocation.
+
+        Args:
+            waterfall_spec: Waterfall configuration with ECF sweep and PIK toggle settings
         """
         ...
 

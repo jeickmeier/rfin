@@ -1,6 +1,7 @@
 //! Financial model specification bindings.
 
 use super::node::PyNodeSpec;
+use super::waterfall::PyWaterfallSpec;
 use crate::core::dates::periods::PyPeriod;
 use crate::statements::utils::json_to_py;
 use finstack_statements::types::{CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec};
@@ -28,7 +29,7 @@ impl PyCapitalStructureSpec {
 #[pymethods]
 impl PyCapitalStructureSpec {
     #[new]
-    #[pyo3(text_signature = "(debt_instruments=None, equity_instruments=None)")]
+    #[pyo3(text_signature = "(debt_instruments=None, equity_instruments=None, waterfall=None)")]
     /// Create a capital structure specification.
     ///
     /// Parameters
@@ -37,6 +38,8 @@ impl PyCapitalStructureSpec {
     ///     Debt instruments
     /// equity_instruments : list, optional
     ///     Equity instruments (future expansion)
+    /// waterfall : WaterfallSpec, optional
+    ///     Waterfall configuration for dynamic cash flow allocation
     ///
     /// Returns
     /// -------
@@ -45,6 +48,7 @@ impl PyCapitalStructureSpec {
     fn new_py(
         debt_instruments: Option<Vec<PyDebtInstrumentSpec>>,
         equity_instruments: Option<Vec<PyObject>>,
+        waterfall: Option<PyWaterfallSpec>,
     ) -> Self {
         let debt_instruments = debt_instruments
             .map(|v| v.into_iter().map(|d| d.inner).collect())
@@ -62,7 +66,7 @@ impl PyCapitalStructureSpec {
             meta: IndexMap::new(),
             reporting_currency: None,
             fx_policy: None,
-            waterfall: None,
+            waterfall: waterfall.map(|w| w.inner),
         })
     }
 
@@ -79,6 +83,20 @@ impl PyCapitalStructureSpec {
             .iter()
             .map(|d| PyDebtInstrumentSpec::new(d.clone()))
             .collect()
+    }
+
+    #[getter]
+    /// Get waterfall spec.
+    ///
+    /// Returns
+    /// -------
+    /// WaterfallSpec | None
+    ///     Waterfall configuration if set
+    fn waterfall(&self) -> Option<PyWaterfallSpec> {
+        self.inner
+            .waterfall
+            .as_ref()
+            .map(|w| PyWaterfallSpec { inner: w.clone() })
     }
 
     /// Convert to JSON string.

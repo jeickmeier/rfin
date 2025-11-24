@@ -17,6 +17,12 @@ from .forecast import (
 from .value import (
     AmountOrScalar,
 )
+from .waterfall import (
+    PaymentPriority,
+    EcfSweepSpec,
+    PikToggleSpec,
+    WaterfallSpec,
+)
 
 __all__ = [
     "NodeType",
@@ -28,4 +34,8 @@ __all__ = [
     "FinancialModelSpec",
     "CapitalStructureSpec",
     "DebtInstrumentSpec",
+    "PaymentPriority",
+    "EcfSweepSpec",
+    "PikToggleSpec",
+    "WaterfallSpec",
 ]

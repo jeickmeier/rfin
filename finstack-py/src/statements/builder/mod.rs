@@ -5,6 +5,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::types::forecast::PyForecastSpec;
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::statements::types::value::PyAmountOrScalar;
+use crate::statements::types::waterfall::PyWaterfallSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
 use finstack_statements::types::AmountOrScalar;
@@ -395,6 +396,33 @@ impl PyModelBuilder {
                     .unwrap(),
             );
             *builder = new_builder.with_meta(key, json_value);
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Must call periods() first"))
+        }
+    }
+
+    #[pyo3(text_signature = "(self, waterfall_spec)")]
+    /// Configure waterfall specification for dynamic cash flow allocation.
+    ///
+    /// Parameters
+    /// ----------
+    /// waterfall_spec : WaterfallSpec
+    ///     Waterfall configuration with ECF sweep and PIK toggle settings
+    ///
+    /// Returns
+    /// -------
+    /// ModelBuilder
+    ///     Builder instance for chaining
+    fn waterfall(&mut self, waterfall_spec: PyWaterfallSpec) -> PyResult<()> {
+        if let BuilderState::Ready(builder) = &mut self.state {
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
+            *builder = new_builder.waterfall(waterfall_spec.inner);
             Ok(())
         } else {
             Err(PyValueError::new_err("Must call periods() first"))

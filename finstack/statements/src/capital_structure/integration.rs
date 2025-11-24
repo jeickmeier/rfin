@@ -507,8 +507,16 @@ pub fn build_any_instrument_from_spec(
             }
 
             // Try as TermLoan (bank debt)
-            if let Ok(term_loan) = TermLoan::deserialize(json_spec) {
-                return Ok(Arc::new(term_loan));
+            match TermLoan::deserialize(json_spec) {
+                Ok(term_loan) => return Ok(Arc::new(term_loan)),
+                Err(e) => {
+                    eprintln!("TermLoan deserialization error for '{}': {:?}", id, e);
+                    eprintln!(
+                        "JSON spec: {}",
+                        serde_json::to_string_pretty(json_spec)
+                            .unwrap_or_else(|_| "failed to serialize".to_string())
+                    );
+                }
             }
 
             // Try as Deposit (cash management)

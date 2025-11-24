@@ -55,6 +55,13 @@ pub fn execute_waterfall(
         // Get opening balance for this instrument
         let opening_balance = state.get_opening_balance(&instrument_id, currency);
 
+        // If PIK mode is enabled, move cash interest into PIK bucket
+        let is_pik_enabled = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
+        if is_pik_enabled {
+            breakdown.interest_expense_pik += breakdown.interest_expense_cash;
+            breakdown.interest_expense_cash = Money::new(0.0, currency);
+        }
+
         // Apply sweep if this is the target instrument
         let sweep_for_instrument = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
             if ecf_spec
@@ -66,10 +73,7 @@ pub fn execute_waterfall(
                 // Limit sweep to outstanding balance
                 let max_sweep = opening_balance;
                 if sweep_amount.currency() == currency {
-                    Money::new(
-                        sweep_amount.amount().min(max_sweep.amount()),
-                        currency,
-                    )
+                    Money::new(sweep_amount.amount().min(max_sweep.amount()), currency)
                 } else {
                     Money::new(0.0, currency)
                 }
@@ -108,12 +112,10 @@ fn evaluate_pik_toggle(
     state: &mut CapitalStructureState,
 ) -> Result<()> {
     let _ = state; // Will be used when we update PIK mode for all instruments
-    // Try to get liquidity metric value from context
-    // For now, we'll try to evaluate it as a node reference
-    // In a full implementation, this might need to parse and evaluate a formula
-    let metric_value = context
-        .get_value(&pik_spec.liquidity_metric)
-        .unwrap_or(0.0);
+                   // Try to get liquidity metric value from context
+                   // For now, we'll try to evaluate it as a node reference
+                   // In a full implementation, this might need to parse and evaluate a formula
+    let metric_value = context.get_value(&pik_spec.liquidity_metric).unwrap_or(0.0);
 
     let enable_pik = metric_value < pik_spec.threshold;
 
@@ -174,7 +176,9 @@ fn calculate_ecf_sweep(
 }
 
 /// Get base currency from contractual flows (assumes all same currency for now).
-fn get_base_currency(flows: &IndexMap<String, CashflowBreakdown>) -> finstack_core::currency::Currency {
+fn get_base_currency(
+    flows: &IndexMap<String, CashflowBreakdown>,
+) -> finstack_core::currency::Currency {
     flows
         .values()
         .next()
@@ -229,17 +233,14 @@ fn update_cumulative_metrics(
 mod tests {
     use super::*;
     use crate::capital_structure::types::{
-        CashflowBreakdown, CapitalStructureState, EcfSweepSpec, PaymentPriority, WaterfallSpec,
+        CapitalStructureState, CashflowBreakdown, EcfSweepSpec, PaymentPriority, WaterfallSpec,
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::PeriodId;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
 
-    fn build_context(
-        period: PeriodId,
-        values: &[(&str, f64)],
-    ) -> EvaluationContext {
+    fn build_context(period: PeriodId, values: &[(&str, f64)]) -> EvaluationContext {
         let mut node_to_column = IndexMap::new();
         for (idx, (name, _)) in values.iter().enumerate() {
             node_to_column.insert((*name).to_string(), idx);
@@ -382,4 +383,3 @@ mod tests {
         assert_eq!(state.pik_mode.get("TL-PIK"), Some(&false));
     }
 }
-

@@ -2,6 +2,7 @@
 
 from typing import Optional, List, Dict, Any
 from ..core.dates.periods import Period
+from .waterfall import WaterfallSpec
 
 class CapitalStructureSpec:
     """Capital structure specification.
@@ -13,12 +14,14 @@ class CapitalStructureSpec:
         self,
         debt_instruments: Optional[List[DebtInstrumentSpec]] = None,
         equity_instruments: Optional[List[Any]] = None,
+        waterfall: Optional[WaterfallSpec] = None,
     ) -> None:
         """Create a capital structure specification.
 
         Args:
             debt_instruments: Debt instruments
             equity_instruments: Equity instruments (future expansion)
+            waterfall: Waterfall configuration for dynamic cash flow allocation
 
         Returns:
             CapitalStructureSpec: Capital structure spec
@@ -31,6 +34,15 @@ class CapitalStructureSpec:
 
         Returns:
             list[DebtInstrumentSpec]: Debt instruments
+        """
+        ...
+
+    @property
+    def waterfall(self) -> Optional[WaterfallSpec]:
+        """Get waterfall spec.
+
+        Returns:
+            WaterfallSpec | None: Waterfall configuration if set
         """
         ...
 

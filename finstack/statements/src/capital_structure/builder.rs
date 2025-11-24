@@ -16,16 +16,16 @@ use finstack_valuations::instruments::{Bond, InterestRateSwap};
 /// Returns a mutable reference to the capital structure spec, creating an empty
 /// instance if one is not already present.
 fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut CapitalStructureSpec {
-        builder
-            .capital_structure
-            .get_or_insert_with(|| CapitalStructureSpec {
-                debt_instruments: vec![],
-                equity_instruments: vec![],
-                meta: indexmap::IndexMap::new(),
-                reporting_currency: None,
-                fx_policy: None,
-                waterfall: None,
-            })
+    builder
+        .capital_structure
+        .get_or_insert_with(|| CapitalStructureSpec {
+            debt_instruments: vec![],
+            equity_instruments: vec![],
+            meta: indexmap::IndexMap::new(),
+            reporting_currency: None,
+            fx_policy: None,
+            waterfall: None,
+        })
 }
 
 impl<State> ModelBuilder<State> {
