@@ -226,7 +226,9 @@ class TestPricingErrors:
         )
 
         # Pricing with invalid model should raise error
-        with pytest.raises((finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match="Unknown model|invalid"):
+        with pytest.raises(
+            (finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match="Unknown model|invalid"
+        ):
             registry.price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market)
 
 

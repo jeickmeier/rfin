@@ -14,9 +14,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond::{
-    CallPut, CallPutSchedule, CashflowSpec,
-};
+use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use pyo3::exceptions::{PyTypeError, PyValueError};

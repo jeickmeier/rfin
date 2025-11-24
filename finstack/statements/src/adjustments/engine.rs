@@ -4,8 +4,8 @@ use crate::adjustments::types::{
     Adjustment, AdjustmentCap, AdjustmentValue, AppliedAdjustment, NormalizationConfig,
     NormalizationResult,
 };
-use crate::evaluator::Results;
 use crate::error::{Error, Result};
+use crate::evaluator::Results;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -21,10 +21,12 @@ impl NormalizationEngine {
         let mut normalization_results = Vec::new();
 
         // Get the target node values
-        let target_values = results
-            .nodes
-            .get(&config.target_node)
-            .ok_or_else(|| Error::eval(format!("Target node '{}' not found in results", config.target_node)))?;
+        let target_values = results.nodes.get(&config.target_node).ok_or_else(|| {
+            Error::eval(format!(
+                "Target node '{}' not found in results",
+                config.target_node
+            ))
+        })?;
 
         // Iterate over all periods where the target node has a value
         for (period_id, &base_value) in target_values {
@@ -33,11 +35,7 @@ impl NormalizationEngine {
 
             for adjustment in &config.adjustments {
                 // Calculate raw adjustment amount
-                let raw_amount = Self::calculate_adjustment_value(
-                    adjustment,
-                    *period_id,
-                    results,
-                )?;
+                let raw_amount = Self::calculate_adjustment_value(adjustment, *period_id, results)?;
 
                 // Apply cap if present
                 let (capped_amount, is_capped) = if let Some(cap) = &adjustment.cap {
@@ -91,15 +89,15 @@ impl NormalizationEngine {
         results: &Results,
     ) -> Result<f64> {
         match &adjustment.value {
-            AdjustmentValue::Fixed { amounts } => {
-                Ok(*amounts.get(&period_id).unwrap_or(&0.0))
-            }
-            AdjustmentValue::PercentageOfNode { node_id, percentage } => {
-                let node_values = results
-                    .nodes
-                    .get(node_id)
-                    .ok_or_else(|| Error::eval(format!("Reference node '{}' not found", node_id)))?;
-                
+            AdjustmentValue::Fixed { amounts } => Ok(*amounts.get(&period_id).unwrap_or(&0.0)),
+            AdjustmentValue::PercentageOfNode {
+                node_id,
+                percentage,
+            } => {
+                let node_values = results.nodes.get(node_id).ok_or_else(|| {
+                    Error::eval(format!("Reference node '{}' not found", node_id))
+                })?;
+
                 let value = node_values.get(&period_id).unwrap_or(&0.0);
                 Ok(value * percentage)
             }
@@ -124,7 +122,7 @@ impl NormalizationEngine {
                 .nodes
                 .get(base_node)
                 .ok_or_else(|| Error::eval(format!("Cap base node '{}' not found", base_node)))?;
-            
+
             let base_value = base_values.get(&period_id).unwrap_or(&0.0);
             base_value.abs() * cap.value // Usually caps are based on absolute magnitude or positive EBITDA
         } else {
@@ -159,7 +157,7 @@ mod tests {
         revenue.insert(PeriodId::quarter(2025, 1), 1000.0);
         revenue.insert(PeriodId::quarter(2025, 2), 1200.0);
         results.nodes.insert("Revenue".to_string(), revenue);
-        
+
         results
     }
 
@@ -203,10 +201,10 @@ mod tests {
         // Q1 EBITDA = 100. Cap = 20. Raw = 50. Result = 20 (Capped).
         let mut amounts = IndexMap::new();
         amounts.insert(PeriodId::quarter(2025, 1), 50.0);
-        
+
         let adj = Adjustment::fixed("syn", "Synergies", amounts)
             .with_cap(Some("EBITDA".to_string()), 0.20);
-        
+
         let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for capped adjustment");
@@ -230,7 +228,7 @@ mod tests {
 
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for merge test");
-        
+
         NormalizationEngine::merge_into_results(&mut results, &normalized, "Adjusted EBITDA");
 
         assert!(results.nodes.contains_key("Adjusted EBITDA"));

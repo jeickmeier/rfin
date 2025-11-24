@@ -457,7 +457,6 @@ class Bond:
 
     @property
     def id(self) -> str: ...
-
     @property
     def instrument_id(self) -> str:
         """Instrument identifier.

@@ -162,7 +162,6 @@ class InterestRateSwap:
     @classmethod
     @overload
     def builder(cls, instrument_id: str) -> InterestRateSwapBuilder: ...
-
     @classmethod
     @overload
     def builder(
@@ -186,7 +185,6 @@ class InterestRateSwap:
         calendar: Optional[str] = None,
         stub: Optional[StubKind] = None,
     ) -> "InterestRateSwap": ...
-
     @classmethod
     def builder(
         cls,
@@ -234,10 +232,8 @@ class InterestRateSwapBuilder:
     def calendar(self, calendar_id: Optional[str] = ...) -> InterestRateSwapBuilder: ...
     def reset_lag_days(self, days: int) -> InterestRateSwapBuilder: ...
     def build(self) -> InterestRateSwap: ...
-
     @property
     def id(self) -> str: ...
-
     @property
     def instrument_id(self) -> str: ...
     @property

@@ -178,6 +178,7 @@ def test_simple_calibration_flow_and_report() -> None:
     )
     # Use DiscountCurveCalibrator instead of SimpleCalibration
     from finstack.core.currency import Currency
+
     calibrator = cal.DiscountCurveCalibrator("USD-OIS", base_date, Currency("USD"))
     calibrator = calibrator.with_config(custom_cfg)
 

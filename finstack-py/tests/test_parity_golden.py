@@ -192,15 +192,13 @@ def test_bond_pricing_treasury() -> None:
     # Create simple market context with discount curve
     market = MarketContext()
     discount_curve = DiscountCurve(
-        "USD-OIS",
-        date(2024, 1, 1),
-        [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
-        day_count="act_365f"
+        "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
     )
     market.insert_discount(discount_curve)
 
     # Price the bond
     from finstack.valuations.pricer import create_standard_registry
+
     registry = create_standard_registry()
     # Use "discounting" model key like in test_roundtrips.py
     result = registry.price(bond, "discounting", market, date(2024, 1, 1))
@@ -233,27 +231,26 @@ def test_irs_valuation() -> None:
     # Create simple market context with discount and forward curves
     market = MarketContext()
     discount_curve = DiscountCurve(
-        "USD-OIS",
-        date(2024, 1, 1),
-        [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)],
-        day_count="act_365f"
+        "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
     )
     market.insert_discount(discount_curve)
 
     # Create a simple forward curve (flat for testing)
     from finstack.core.market_data.term_structures import ForwardCurve
+
     # ForwardCurve takes: id, tenor_years, knots (list of (time, rate) tuples), base_date, day_count
     forward_curve = ForwardCurve(
         "USD-LIBOR",
         0.25,  # 3-month tenor
         [(0.0, 0.04), (1.0, 0.04), (5.0, 0.04)],
         base_date=date(2024, 1, 1),
-        day_count=DayCount.ACT_360
+        day_count=DayCount.ACT_360,
     )
     market.insert_forward(forward_curve)
 
     # Price the swap
     from finstack.valuations.pricer import create_standard_registry
+
     registry = create_standard_registry()
     # Use "discounting" model key like in test_roundtrips.py
     result = registry.price(irs, "discounting", market, date(2024, 1, 1))

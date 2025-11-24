@@ -102,7 +102,7 @@ def test_goal_seek_interest_coverage() -> None:
     assert abs(coverage - 2.0) < 0.15  # Allow tolerance for forecast calculations
 
     # Also verify Q1 revenue is in reasonable range
-    expected_q1_revenue = 66_666.67 / (1.05 ** 3)
+    expected_q1_revenue = 66_666.67 / (1.05**3)
     assert abs(solved - expected_q1_revenue) < 5000.0  # Allow larger tolerance
 
 

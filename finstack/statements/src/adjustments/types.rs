@@ -127,7 +127,11 @@ impl NormalizationConfig {
 
 impl Adjustment {
     /// Create a fixed amount adjustment.
-    pub fn fixed(id: impl Into<String>, name: impl Into<String>, amounts: IndexMap<PeriodId, f64>) -> Self {
+    pub fn fixed(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        amounts: IndexMap<PeriodId, f64>,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
