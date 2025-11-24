@@ -3,7 +3,9 @@ use crate::core::dates::utils::date_to_py;
 use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
-use finstack_valuations::covenants::engine::{Covenant, CovenantSpec, CovenantType, ThresholdTest};
+use finstack_valuations::covenants::engine::{
+    Covenant, CovenantScope, CovenantSpec, CovenantType, SpringingCondition, ThresholdTest,
+};
 use finstack_valuations::covenants::forward::{
     CovenantForecast as ValCovForecast, CovenantForecastConfig as ValCovForecastConfig,
     McConfig as ValMcConfig, ModelTimeSeries,
@@ -68,6 +70,17 @@ impl PyCovenantType {
         }
     }
 
+    #[pyo3(text_signature = "(metric, limit)")]
+    #[staticmethod]
+    pub fn basket(metric: &str, limit: f64) -> Self {
+        Self {
+            inner: CovenantType::Basket {
+                name: metric.to_string(),
+                limit,
+            },
+        }
+    }
+
     #[pyo3(text_signature = "(metric, comparator, threshold)")]
     #[staticmethod]
     pub fn custom(metric: &str, comparator: &str, threshold: f64) -> PyResult<Self> {
@@ -108,6 +121,20 @@ impl PyCovenant {
             ),
         }
     }
+
+    #[pyo3(text_signature = "(scope)")]
+    pub fn with_scope(&self, scope: &PyCovenantScope) -> Self {
+        let mut inner = self.inner.clone();
+        inner.scope = scope.inner.clone();
+        Self { inner }
+    }
+
+    #[pyo3(text_signature = "(condition)")]
+    pub fn with_springing_condition(&self, condition: &PySpringingCondition) -> Self {
+        let mut inner = self.inner.clone();
+        inner.springing_condition = Some(condition.inner.clone());
+        Self { inner }
+    }
 }
 
 #[pyclass(
@@ -136,6 +163,81 @@ impl PyCovenantSpec {
 
 #[pyclass(
     module = "finstack.valuations.covenants",
+    name = "CovenantScope",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyCovenantScope {
+    pub(crate) inner: CovenantScope,
+}
+
+#[pymethods]
+impl PyCovenantScope {
+    #[staticmethod]
+    pub fn maintenance() -> Self {
+        Self {
+            inner: CovenantScope::Maintenance,
+        }
+    }
+
+    #[staticmethod]
+    pub fn incurrence() -> Self {
+        Self {
+            inner: CovenantScope::Incurrence,
+        }
+    }
+
+    fn __repr__(&self) -> &'static str {
+        match self.inner {
+            CovenantScope::Maintenance => "<CovenantScope.Maintenance>",
+            CovenantScope::Incurrence => "<CovenantScope.Incurrence>",
+        }
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "SpringingCondition",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PySpringingCondition {
+    pub(crate) inner: SpringingCondition,
+}
+
+#[pymethods]
+impl PySpringingCondition {
+    #[new]
+    #[pyo3(text_signature = "(metric_id, comparator, threshold)")]
+    pub fn new(metric_id: &str, comparator: &str, threshold: f64) -> PyResult<Self> {
+        let test = match comparator.to_ascii_lowercase().as_str() {
+            "maximum" | "le" | "lte" | "<=" => ThresholdTest::Maximum(threshold),
+            "minimum" | "ge" | "gte" | ">=" => ThresholdTest::Minimum(threshold),
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown comparator: {} (expected 'maximum' or 'minimum')",
+                    other
+                )))
+            }
+        };
+        Ok(Self {
+            inner: SpringingCondition {
+                metric_id: finstack_valuations::metrics::MetricId::custom(metric_id),
+                test,
+            },
+        })
+    }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "<SpringingCondition metric='{}'>",
+            self.inner.metric_id.as_str()
+        ))
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.covenants",
     name = "CovenantForecastConfig",
     frozen
 )]
@@ -148,20 +250,27 @@ pub struct PyCovenantForecastConfig {
 impl PyCovenantForecastConfig {
     #[new]
     #[pyo3(
-        text_signature = "(stochastic=False, num_paths=0, volatility=None, seed=None, antithetic=False)"
+        text_signature = "(stochastic=False, num_paths=0, volatility=None, seed=None, antithetic=False)",
+        signature = (
+            stochastic = None,
+            num_paths = None,
+            volatility = None,
+            seed = None,
+            antithetic = None
+        )
     )]
     pub fn new(
         stochastic: Option<bool>,
         num_paths: Option<usize>,
-        volatility: Option<Option<f64>>,
-        seed: Option<Option<u64>>,
+        volatility: Option<f64>,
+        seed: Option<u64>,
         antithetic: Option<bool>,
     ) -> Self {
         let mut cfg = ValCovForecastConfig::default();
         cfg.stochastic = stochastic.unwrap_or(false);
         cfg.num_paths = num_paths.unwrap_or(0);
-        cfg.volatility = volatility.unwrap_or(None);
-        cfg.random_seed = seed.unwrap_or(None);
+        cfg.volatility = volatility;
+        cfg.random_seed = seed;
         if antithetic.unwrap_or(false) {
             cfg.mc = Some(ValMcConfig {
                 seed: cfg.random_seed.unwrap_or(42),
@@ -410,6 +519,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCovenantType>()?;
     module.add_class::<PyCovenant>()?;
     module.add_class::<PyCovenantSpec>()?;
+    module.add_class::<PyCovenantScope>()?;
+    module.add_class::<PySpringingCondition>()?;
     module.add_class::<PyCovenantForecastConfig>()?;
     module.add_class::<PyCovenantForecast>()?;
     module.add_class::<PyFutureBreach>()?;
@@ -419,6 +530,8 @@ pub(crate) fn register<'py>(
         "CovenantType",
         "Covenant",
         "CovenantSpec",
+        "CovenantScope",
+        "SpringingCondition",
         "CovenantForecastConfig",
         "CovenantForecast",
         "FutureBreach",

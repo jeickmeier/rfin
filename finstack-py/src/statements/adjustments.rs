@@ -3,12 +3,11 @@ use finstack_core::dates::PeriodId;
 use finstack_statements::adjustments::engine::NormalizationEngine as RustNormalizationEngine;
 use finstack_statements::adjustments::types::{
     Adjustment as RustAdjustment, AdjustmentCap as RustAdjustmentCap,
-    AdjustmentValue as RustAdjustmentValue, NormalizationConfig as RustNormalizationConfig,
-    NormalizationResult as RustNormalizationResult,
+    NormalizationConfig as RustNormalizationConfig, NormalizationResult as RustNormalizationResult,
 };
 use indexmap::IndexMap;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::PyModule;
 use pyo3::Bound;
 use std::collections::HashMap;
 use std::str::FromStr;

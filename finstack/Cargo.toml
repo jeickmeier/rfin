@@ -21,7 +21,7 @@ all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
 # Cross-cutting capability features
 serde = []  # Delegated to subcrates (enabled by default in most)
 parallel = ["finstack_core/parallel", "finstack_valuations/parallel"]
-dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes", "dep:polars"]
+dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
@@ -30,10 +30,11 @@ finstack_valuations = { package = "finstack-valuations", path = "valuations", op
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
 finstack_io = { package = "finstack-io", path = "io", optional = true }
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
-time = { version = "0.3", features = ["macros"] }
-serde_json = "1.0"
+
+[dev-dependencies]
 indexmap = { version = "2", features = ["serde"] }
-polars = { version = "0.51", optional = true, default-features = false }
+serde_json = "1.0"
+time = { version = "0.3", features = ["macros"] }
 
 # Core Examples
 

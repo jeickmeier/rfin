@@ -145,9 +145,12 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
                     "CovenantType",
                     "Covenant",
                     "CovenantSpec",
+                    "CovenantScope",
+                    "SpringingCondition",
                     "CovenantForecastConfig",
                     "CovenantForecast",
                     "forecast_covenant",
+                    "forecast_breaches",
                 ] {
                     if let Ok(value) = cov_mod.getattr(attr) {
                         m.setattr(attr, &value)?;
@@ -185,9 +188,12 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "CovenantType",
             "Covenant",
             "CovenantSpec",
+            "CovenantScope",
+            "SpringingCondition",
             "CovenantForecastConfig",
             "CovenantForecast",
             "forecast_covenant",
+            "forecast_breaches",
             "FinstackError",
             "ConfigurationError",
             "MissingCurveError",

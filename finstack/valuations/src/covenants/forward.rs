@@ -5,7 +5,7 @@
 //! statements-specific adapter is provided behind the `statements_bridge` feature
 //! so this module remains usable without introducing a crate cycle.
 
-use crate::covenants::engine::{CovenantSpec, CovenantType, ThresholdTest};
+use crate::covenants::engine::{CovenantSpec, CovenantType, SpringingCondition, ThresholdTest};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::error::Error;
 use finstack_core::error::InputError;
@@ -152,6 +152,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     let mut test_dates: Vec<Date> = Vec::with_capacity(periods.len());
     let mut thresholds: Vec<f64> = Vec::with_capacity(periods.len());
     let mut values: Vec<f64> = Vec::with_capacity(periods.len());
+    let mut activation_flags: Vec<bool> = Vec::with_capacity(periods.len());
 
     for pid in periods {
         let date = model.period_end_date(pid);
@@ -159,6 +160,10 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         let thr = base_threshold_from_spec(&covenant.covenant.covenant_type)
             .ok_or(finstack_core::error::Error::Input(InputError::Invalid))?;
         thresholds.push(thr);
+
+        let is_active =
+            springing_condition_active(covenant.covenant.springing_condition.as_ref(), model, pid)?;
+        activation_flags.push(is_active);
 
         let v = metric_value_for_spec(covenant, model, pid).ok_or_else(|| {
             Error::from(finstack_core::error::InputError::NotFound {
@@ -169,13 +174,13 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     }
 
     // Deterministic headroom and breach flag
-    let headroom: Vec<f64> = values
+    let mut headroom: Vec<f64> = values
         .iter()
         .zip(thresholds.iter())
         .map(|(&v, &t)| compute_headroom(v, t, comparator))
         .collect();
 
-    let deterministic_breach_prob: Vec<f64> = values
+    let mut deterministic_breach_prob: Vec<f64> = values
         .iter()
         .zip(thresholds.iter())
         .map(|(&v, &t)| match comparator {
@@ -183,6 +188,13 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
             Comparator::GreaterOrEqual => (v < t) as u8 as f64,
         })
         .collect();
+
+    for (i, active) in activation_flags.iter().enumerate() {
+        if !active {
+            headroom[i] = f64::INFINITY;
+            deterministic_breach_prob[i] = 0.0;
+        }
+    }
 
     #[cfg(feature = "mc")]
     let mut breach_probability = deterministic_breach_prob.clone();
@@ -202,6 +214,10 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
 
         // For each test date, estimate breach probability
         for i in 0..values.len() {
+            if !activation_flags[i] {
+                breach_probability[i] = 0.0;
+                continue;
+            }
             let base = values[i];
             let thr = thresholds[i];
             let mut breaches = 0usize;
@@ -252,6 +268,9 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     let first_breach_date = (0..values.len()).find_map(|i| {
         let v = values[i];
         let t = thresholds[i];
+        if !activation_flags[i] {
+            return None;
+        }
         match comparator {
             Comparator::LessOrEqual => (v > t).then_some(test_dates[i]),
             Comparator::GreaterOrEqual => (v < t).then_some(test_dates[i]),
@@ -321,7 +340,8 @@ fn comparator_for(cov: &CovenantType) -> Comparator {
     match cov {
         CovenantType::MaxDebtToEBITDA { .. }
         | CovenantType::MaxTotalLeverage { .. }
-        | CovenantType::MaxSeniorLeverage { .. } => Comparator::LessOrEqual,
+        | CovenantType::MaxSeniorLeverage { .. }
+        | CovenantType::Basket { .. } => Comparator::LessOrEqual,
         CovenantType::MinInterestCoverage { .. }
         | CovenantType::MinFixedChargeCoverage { .. }
         | CovenantType::MinAssetCoverage { .. } => Comparator::GreaterOrEqual,
@@ -346,14 +366,20 @@ fn base_threshold_from_spec(cov: &CovenantType) -> Option<f64> {
         CovenantType::Custom { test, .. } => match test {
             ThresholdTest::Maximum(t) | ThresholdTest::Minimum(t) => Some(*t),
         },
+        CovenantType::Basket { limit, .. } => Some(*limit),
         _ => None,
     }
 }
 
 fn compute_headroom(value: f64, threshold: f64, cmp: Comparator) -> f64 {
+    let denom = if threshold.abs() < f64::EPSILON {
+        1.0
+    } else {
+        threshold
+    };
     match cmp {
-        Comparator::LessOrEqual => (threshold - value) / threshold,
-        Comparator::GreaterOrEqual => (value - threshold) / threshold,
+        Comparator::LessOrEqual => (threshold - value) / denom,
+        Comparator::GreaterOrEqual => (value - threshold) / denom,
     }
 }
 
@@ -381,7 +407,30 @@ fn metric_value_for_spec<MTS: ModelTimeSeries>(
         CovenantType::MaxSeniorLeverage { .. } => model.get_scalar("senior_leverage", period),
         CovenantType::MinAssetCoverage { .. } => model.get_scalar("asset_coverage", period),
         CovenantType::Custom { metric, .. } => model.get_scalar(metric, period),
+        CovenantType::Basket { name, .. } => model.get_scalar(name, period),
         CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => Some(1.0),
+    }
+}
+
+fn springing_condition_active<MTS: ModelTimeSeries>(
+    condition: Option<&SpringingCondition>,
+    model: &MTS,
+    period: &PeriodId,
+) -> Result<bool> {
+    if let Some(cond) = condition {
+        let metric_name = cond.metric_id.as_str();
+        let value = model.get_scalar(metric_name, period).ok_or_else(|| {
+            Error::from(InputError::NotFound {
+                id: format!("springing_metric:{metric_name}"),
+            })
+        })?;
+        let active = match cond.test {
+            ThresholdTest::Maximum(threshold) => value <= threshold,
+            ThresholdTest::Minimum(threshold) => value >= threshold,
+        };
+        Ok(active)
+    } else {
+        Ok(true)
     }
 }
 

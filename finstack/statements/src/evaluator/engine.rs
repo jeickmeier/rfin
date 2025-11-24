@@ -175,7 +175,7 @@ impl Evaluator {
         ) {
             for (instrument_id, instrument) in insts {
                 let schedule = instrument.build_full_schedule(market_ctx, as_of_date)?;
-                let mut opening_balance = schedule
+                let opening_balance = schedule
                     .outstanding_by_date()
                     .iter()
                     .filter(|(d, _)| *d <= first_period.start)
@@ -186,7 +186,7 @@ impl Evaluator {
                             *outstanding
                         }
                     })
-                    .last()
+                    .next_back()
                     .unwrap_or_else(|| {
                         schedule
                             .outstanding_by_date()

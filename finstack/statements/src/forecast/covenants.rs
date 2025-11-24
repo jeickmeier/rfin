@@ -4,14 +4,19 @@
 //! and the covenant engine, allowing for future compliance checking.
 
 use crate::evaluator::Results;
-use crate::types::FinancialModelSpec;
+use crate::types::{FinancialModelSpec, ForecastMethod};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::Result;
-use finstack_valuations::covenants::engine::CovenantEngine;
+use finstack_valuations::covenants::engine::{CovenantEngine, CovenantSpec};
 use finstack_valuations::covenants::forward::{
-    forecast_breaches_generic, CovenantForecastConfig, FutureBreach, ModelTimeSeries,
+    forecast_breaches_generic, forecast_covenant_generic,
+    CovenantForecast as ValuationCovenantForecast, FutureBreach, ModelTimeSeries,
 };
 use time::Month;
+
+pub use finstack_valuations::covenants::forward::CovenantForecastConfig;
+/// Forecast output envelope for covenant compliance projections.
+pub type CovenantForecast = ValuationCovenantForecast;
 
 /// Adapter to use Statements Results as a ModelTimeSeries.
 pub struct StatementsAdapter<'a> {
@@ -66,6 +71,43 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
     }
 }
 
+/// Forecast a single covenant's future compliance using statement results.
+pub fn forecast_covenant(
+    covenant: &CovenantSpec,
+    model: &FinancialModelSpec,
+    base_case: &Results,
+    periods: &[PeriodId],
+    config: CovenantForecastConfig,
+) -> Result<CovenantForecast> {
+    let adapter = StatementsAdapter::new(base_case, Some(model));
+    let mut cfg = config;
+    if cfg.volatility.is_none() {
+        if let Some(driver) = default_driver_node_id(covenant) {
+            if let Some((sigma, seed)) = extract_sigma_and_seed(model, driver) {
+                cfg.volatility = Some(sigma);
+                if cfg.random_seed.is_none() {
+                    cfg.random_seed = Some(seed);
+                }
+            }
+        }
+    }
+    forecast_covenant_generic(covenant, &adapter, periods, cfg)
+}
+
+/// Forecast multiple covenants with shared statement inputs.
+pub fn forecast_covenants(
+    covenants: &[CovenantSpec],
+    model: &FinancialModelSpec,
+    base_case: &Results,
+    periods: &[PeriodId],
+    config: CovenantForecastConfig,
+) -> Result<Vec<CovenantForecast>> {
+    covenants
+        .iter()
+        .map(|c| forecast_covenant(c, model, base_case, periods, config.clone()))
+        .collect()
+}
+
 /// Forecast covenant breaches based on statement results.
 ///
 /// # Arguments
@@ -95,6 +137,54 @@ pub fn forecast_breaches(
 
     let adapter = StatementsAdapter::new(results, model);
     forecast_breaches_generic(covenants, &adapter, &periods, config)
+}
+
+fn default_driver_node_id(spec: &CovenantSpec) -> Option<&'static str> {
+    use finstack_valuations::covenants::engine::CovenantType;
+    match &spec.covenant.covenant_type {
+        CovenantType::MaxDebtToEBITDA { .. } => Some("ebitda"),
+        CovenantType::MinInterestCoverage { .. } => Some("ebit"),
+        CovenantType::MinFixedChargeCoverage { .. } => Some("ebitda"),
+        CovenantType::MaxTotalLeverage { .. } => Some("ebitda"),
+        CovenantType::MaxSeniorLeverage { .. } => Some("ebitda"),
+        CovenantType::MinAssetCoverage { .. }
+        | CovenantType::Negative { .. }
+        | CovenantType::Affirmative { .. }
+        | CovenantType::Custom { .. }
+        | CovenantType::Basket { .. } => None,
+    }
+}
+
+fn extract_sigma_and_seed(model: &FinancialModelSpec, node_id: &str) -> Option<(f64, u64)> {
+    let node = model.nodes.get(node_id)?;
+    let spec = node.forecast.as_ref()?;
+    match spec.method {
+        ForecastMethod::Normal | ForecastMethod::LogNormal => {
+            let sigma = spec.params.get("std_dev")?.as_f64()?;
+            let seed = spec.params.get("seed")?.as_u64()?;
+            Some((sigma, seed))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(feature = "dataframes")]
+/// Convert a covenant forecast into a Polars DataFrame for downstream analysis.
+pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
+    use polars::prelude::*;
+    let dates = forecast
+        .test_dates
+        .iter()
+        .map(|d| d.to_string())
+        .collect::<Vec<_>>();
+    df![
+        "test_date" => dates,
+        "projected_value" => forecast.projected_values.clone(),
+        "threshold" => forecast.thresholds.clone(),
+        "headroom" => forecast.headroom.clone(),
+        "breach_prob" => forecast.breach_probability.clone()
+    ]
+    .expect("dataframe build")
 }
 
 #[cfg(test)]

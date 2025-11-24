@@ -8,6 +8,24 @@
 
 use crate::covenants::CovenantReport;
 // Covenant type definitions were previously under loan; re-introduce minimal versions locally
+/// Whether a covenant is tested periodically or only upon an action.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CovenantScope {
+    /// Tested on a schedule (e.g., quarterly leverage tests).
+    Maintenance,
+    /// Tested only upon specific actions (e.g., incurrence of debt).
+    Incurrence,
+}
+
+/// Optional activation condition for springing covenants.
+#[derive(Clone, Debug)]
+pub struct SpringingCondition {
+    /// Metric that controls activation (e.g., revolver utilization).
+    pub metric_id: MetricId,
+    /// Threshold test applied to the metric.
+    pub test: ThresholdTest,
+}
+
 /// Financial covenant specification with test frequency and consequences.
 #[derive(Clone, Debug)]
 pub struct Covenant {
@@ -21,6 +39,10 @@ pub struct Covenant {
     pub consequences: Vec<CovenantConsequence>,
     /// Whether the covenant is currently active
     pub is_active: bool,
+    /// Whether the covenant is maintenance or incurrence.
+    pub scope: CovenantScope,
+    /// Optional activation condition for springing covenants.
+    pub springing_condition: Option<SpringingCondition>,
 }
 
 impl Covenant {
@@ -35,6 +57,8 @@ impl Covenant {
             cure_period_days: Some(30),
             consequences: Vec::new(),
             is_active: true,
+            scope: CovenantScope::Maintenance,
+            springing_condition: None,
         }
     }
 
@@ -47,6 +71,18 @@ impl Covenant {
     /// Add a consequence for covenant breach
     pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self {
         self.consequences.push(consequence);
+        self
+    }
+
+    /// Set covenant scope (maintenance vs incurrence).
+    pub fn with_scope(mut self, scope: CovenantScope) -> Self {
+        self.scope = scope;
+        self
+    }
+
+    /// Attach a springing condition that controls activation.
+    pub fn with_springing_condition(mut self, condition: SpringingCondition) -> Self {
+        self.springing_condition = Some(condition);
         self
     }
 
@@ -77,6 +113,9 @@ impl Covenant {
                 ThresholdTest::Maximum(v) => format!("{} ≤ {:.2}", metric, v),
                 ThresholdTest::Minimum(v) => format!("{} ≥ {:.2}", metric, v),
             },
+            CovenantType::Basket { name, limit } => {
+                format!("{} Utilization ≤ {:.2}", name, limit)
+            }
         }
     }
 }
@@ -130,6 +169,13 @@ pub enum CovenantType {
         metric: String,
         /// Threshold test (min or max)
         test: ThresholdTest,
+    },
+    /// Basket tracking covenant (e.g., available debt baskets)
+    Basket {
+        /// Basket identifier/metric name
+        name: String,
+        /// Maximum allowed utilization of the basket
+        limit: f64,
     },
 }
 
@@ -352,28 +398,35 @@ impl CovenantEngine {
             }
 
             // Evaluate the covenant
-            let (passed, actual_value, threshold) = self.evaluate_spec(spec, context)?;
+            let evaluation = self.evaluate_spec(spec, context)?;
 
-            let mut report = if passed {
+            let mut report = if evaluation.passed {
                 CovenantReport::passed(&covenant_type)
             } else {
                 CovenantReport::failed(&covenant_type)
             };
 
-            if let Some(value) = actual_value {
+            if let Some(value) = evaluation.actual_value {
                 report = report.with_actual(value);
             }
-            if let Some(thresh) = threshold {
+            if let Some(thresh) = evaluation.threshold {
                 report = report.with_threshold(thresh);
+            }
+            if let Some(hr) = evaluation.headroom {
+                report = report.with_headroom(hr);
             }
 
             // Check for cure period
-            if !passed {
+            if !evaluation.passed {
                 if let Some(breach) = self.find_active_breach(&covenant_type, test_date) {
                     if breach.cure_deadline.is_some_and(|d| test_date <= d) {
                         report = report.with_details("In cure period");
                     }
                 }
+            }
+
+            if let Some(detail) = evaluation.detail {
+                report = report.with_details(&detail);
             }
 
             reports.insert(covenant_type, report);
@@ -480,6 +533,9 @@ impl CovenantEngine {
                 ThresholdTest::Maximum(t) => format!("{} <= {:.2}", metric, t),
                 ThresholdTest::Minimum(t) => format!("{} >= {:.2}", metric, t),
             },
+            CovenantType::Basket { name, limit } => {
+                format!("{} Utilization ≤ {:.2}", name, limit)
+            }
         }
     }
 
@@ -487,11 +543,36 @@ impl CovenantEngine {
         &self,
         spec: &CovenantSpec,
         context: &mut MetricContext,
-    ) -> finstack_core::Result<(bool, Option<f64>, Option<f64>)> {
+    ) -> finstack_core::Result<SpecEvaluation> {
+        // Springing conditions: skip evaluation until activation criteria met.
+        if let Some(condition) = &spec.covenant.springing_condition {
+            let condition_value = self.get_metric_value(context, &condition.metric_id)?;
+            let condition_met = match condition.test {
+                ThresholdTest::Maximum(t) => condition_value <= t,
+                ThresholdTest::Minimum(t) => condition_value >= t,
+            };
+
+            if !condition_met {
+                return Ok(SpecEvaluation {
+                    passed: true,
+                    actual_value: None,
+                    threshold: None,
+                    headroom: None,
+                    detail: Some("Springing condition not met".to_string()),
+                });
+            }
+        }
+
         // Use custom evaluator if provided
         if let Some(ref evaluator) = spec.custom_evaluator {
             let passed = evaluator(context)?;
-            return Ok((passed, None, None));
+            return Ok(SpecEvaluation {
+                passed,
+                actual_value: None,
+                threshold: None,
+                headroom: None,
+                detail: None,
+            });
         }
 
         // Otherwise use metric-based evaluation
@@ -533,13 +614,26 @@ impl CovenantEngine {
                 };
                 (value, threshold)
             }
-            _ => return Ok((true, None, None)), // Non-financial covenants pass by default
+            CovenantType::Basket { name, limit } => {
+                let value = self.get_metric_value(context, &MetricId::custom(name))?;
+                (value, *limit)
+            }
+            _ => {
+                return Ok(SpecEvaluation {
+                    passed: true,
+                    actual_value: None,
+                    threshold: None,
+                    headroom: None,
+                    detail: None,
+                })
+            }
         };
 
         let passed = match &spec.covenant.covenant_type {
             CovenantType::MaxDebtToEBITDA { .. }
             | CovenantType::MaxTotalLeverage { .. }
-            | CovenantType::MaxSeniorLeverage { .. } => metric_value <= threshold,
+            | CovenantType::MaxSeniorLeverage { .. }
+            | CovenantType::Basket { .. } => metric_value <= threshold,
             CovenantType::MinInterestCoverage { .. }
             | CovenantType::MinFixedChargeCoverage { .. }
             | CovenantType::MinAssetCoverage { .. } => metric_value >= threshold,
@@ -550,7 +644,19 @@ impl CovenantEngine {
             _ => true,
         };
 
-        Ok((passed, Some(metric_value), Some(threshold)))
+        let headroom = Some(headroom_for(
+            &spec.covenant.covenant_type,
+            metric_value,
+            threshold,
+        ));
+
+        Ok(SpecEvaluation {
+            passed,
+            actual_value: Some(metric_value),
+            threshold: Some(threshold),
+            headroom,
+            detail: None,
+        })
     }
 
     fn get_metric_value(
@@ -643,6 +749,41 @@ impl CovenantEngine {
                 })
             }
         }
+    }
+}
+
+struct SpecEvaluation {
+    passed: bool,
+    actual_value: Option<f64>,
+    threshold: Option<f64>,
+    headroom: Option<f64>,
+    detail: Option<String>,
+}
+
+fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
+    let denom = if threshold.abs() < f64::EPSILON {
+        1.0
+    } else {
+        threshold
+    };
+
+    match cov {
+        CovenantType::MaxDebtToEBITDA { .. }
+        | CovenantType::MaxTotalLeverage { .. }
+        | CovenantType::MaxSeniorLeverage { .. }
+        | CovenantType::Basket { .. }
+        | CovenantType::Custom {
+            test: ThresholdTest::Maximum(_),
+            ..
+        } => (threshold - value) / denom,
+        CovenantType::MinInterestCoverage { .. }
+        | CovenantType::MinFixedChargeCoverage { .. }
+        | CovenantType::MinAssetCoverage { .. }
+        | CovenantType::Custom {
+            test: ThresholdTest::Minimum(_),
+            ..
+        } => (value - threshold) / denom,
+        _ => 0.0,
     }
 }
 
@@ -1064,5 +1205,94 @@ mod tests {
                 "Accelerate Maturity"
             ]
         );
+    }
+
+    #[test]
+    fn springing_condition_controls_activation() {
+        let mut engine = CovenantEngine::new();
+        let springing = SpringingCondition {
+            metric_id: MetricId::custom("utilization"),
+            test: ThresholdTest::Minimum(0.5),
+        };
+        let covenant = Covenant::new(
+            CovenantType::MaxTotalLeverage { threshold: 5.0 },
+            Frequency::quarterly(),
+        )
+        .with_springing_condition(springing);
+
+        engine.add_spec(CovenantSpec::with_metric(
+            covenant,
+            MetricId::custom("total_leverage"),
+        ));
+
+        let test_date = date(2025, 3, 31);
+        let ctx_instrument = TestInstrument::new("SPRING-TEST", date(2026, 3, 31));
+        let mut ctx = metric_context(&ctx_instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 5.5);
+        ctx.computed.insert(MetricId::custom("utilization"), 0.4);
+
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("Total Leverage <= 5.00x")
+            .expect("springing covenant present");
+        assert!(report.passed, "should auto-pass when inactive");
+        assert_eq!(
+            report.details.as_deref(),
+            Some("Springing condition not met")
+        );
+
+        ctx.computed.insert(MetricId::custom("utilization"), 0.75);
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("Total Leverage <= 5.00x")
+            .expect("springing covenant present");
+        assert!(!report.passed, "breach should surface once active");
+        assert!(report.details.is_none());
+    }
+
+    #[test]
+    fn basket_covenant_reports_headroom() {
+        let mut engine = CovenantEngine::new();
+        let covenant = Covenant::new(
+            CovenantType::Basket {
+                name: "general_debt".to_string(),
+                limit: 100.0,
+            },
+            Frequency::quarterly(),
+        );
+        engine.add_spec(CovenantSpec::with_metric(
+            covenant,
+            MetricId::custom("general_debt"),
+        ));
+
+        let test_date = date(2025, 6, 30);
+        let ctx_instrument = TestInstrument::new("BASKET-TEST", date(2026, 6, 30));
+        let mut ctx = metric_context(&ctx_instrument, test_date);
+        ctx.computed.insert(MetricId::custom("general_debt"), 80.0);
+
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("general_debt Utilization ≤ 100.00")
+            .expect("basket covenant present");
+        assert!(report.passed);
+        assert_eq!(report.headroom, Some(0.20));
+
+        ctx.computed.insert(MetricId::custom("general_debt"), 120.0);
+        let reports = engine
+            .evaluate(&mut ctx, test_date)
+            .expect("evaluation succeeds");
+        let report = reports
+            .get("general_debt Utilization ≤ 100.00")
+            .expect("basket covenant present");
+        assert!(!report.passed);
+        assert!(report
+            .headroom
+            .is_some_and(|h| h < 0.0 && (h + 0.20).abs() < 1e-6));
     }
 }

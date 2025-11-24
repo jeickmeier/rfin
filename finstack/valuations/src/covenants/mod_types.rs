@@ -17,6 +17,9 @@ pub struct CovenantReport {
 
     /// Details or explanation
     pub details: Option<String>,
+
+    /// Cushion relative to threshold (positive => passing buffer)
+    pub headroom: Option<f64>,
 }
 
 impl CovenantReport {
@@ -28,6 +31,7 @@ impl CovenantReport {
             actual_value: None,
             threshold: None,
             details: None,
+            headroom: None,
         }
     }
 
@@ -39,6 +43,7 @@ impl CovenantReport {
             actual_value: None,
             threshold: None,
             details: None,
+            headroom: None,
         }
     }
 
@@ -57,6 +62,12 @@ impl CovenantReport {
     /// Add details to the report.
     pub fn with_details(mut self, details: &str) -> Self {
         self.details = Some(details.to_string());
+        self
+    }
+
+    /// Attach headroom (positive = cushion, negative = deficit).
+    pub fn with_headroom(mut self, headroom: f64) -> Self {
+        self.headroom = Some(headroom);
         self
     }
 }
