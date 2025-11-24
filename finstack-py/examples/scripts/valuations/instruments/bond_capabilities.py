@@ -185,27 +185,19 @@ def main():
     mreg = MetricRegistry.standard()
     print("Metric registry available:", len(mreg.available_metrics()))
 
-    # Build a standard fixed bond with a quoted clean price for metrics (positional args to satisfy binding)
+    # Build a standard fixed bond with a quoted clean price for metrics
     fixed_for_metrics = Bond.builder(
-        "BOND-FIXED-METRICS",           # instrument_id
-        notional,                        # notional
-        issue,                           # issue
-        maturity,                        # maturity
-        "USD-OIS",                      # discount_curve
-        0.05,                            # coupon_rate (Option)
-        Frequency.SEMI_ANNUAL,           # frequency (Option)
-        DayCount.THIRTY_360,             # day_count (Option)
-        BusinessDayConvention.FOLLOWING, # bdc (Option)
-        None,                            # calendar_id (Option)
-        StubKind.NONE,                   # stub (Option)
-        None,                            # amortization (Option)
-        None,                            # call_schedule (Option)
-        None,                            # put_schedule (Option)
-        100.5,                           # quoted_clean_price (Option)
-        None,                            # forward_curve (Option)
-        None,                            # float_margin_bp (Option)
-        None,                            # float_gearing (Option)
-        None,                            # float_reset_lag_days (Option)
+        instrument_id="BOND-FIXED-METRICS",
+        notional=notional,
+        issue=issue,
+        maturity=maturity,
+        discount_curve="USD-OIS",
+        coupon_rate=0.05,
+        frequency=Frequency.SEMI_ANNUAL,
+        day_count=DayCount.THIRTY_360,
+        bdc=BusinessDayConvention.FOLLOWING,
+        stub=StubKind.NONE,
+        quoted_clean_price=100.5,
     )
 
     # Price with metrics for the standard fixed-rate bond
