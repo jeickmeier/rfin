@@ -139,7 +139,8 @@ class TestCalibrationErrors:
             assert curve is not None
         except (finstack.ParameterError, finstack.ValidationError, ValueError) as e:
             # If it fails, that's also valid - check error mentions insufficient data
-            assert "at least" in str(e).lower() or "insufficient" in str(e).lower() or "too few" in str(e).lower()
+            error_msg = str(e).lower()
+            assert "at least" in error_msg or "insufficient" in error_msg or "too few" in error_msg
 
     def test_calibration_with_non_monotonic_knots(self) -> None:
         """Non-monotonic times should raise ParameterError."""
@@ -163,7 +164,8 @@ class TestCalibrationErrors:
             assert curve is not None
         except (finstack.ParameterError, finstack.CalibrationError, ValueError) as e:
             # If it fails, check error mentions ordering
-            assert any(word in str(e).lower() for word in ["monotonic", "increasing", "decreasing", "order", "sorted"])
+            error_msg = str(e).lower()
+            assert any(word in error_msg for word in ["monotonic", "increasing", "decreasing", "order", "sorted"])
 
 
 class TestValidationErrors:

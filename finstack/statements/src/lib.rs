@@ -15,6 +15,7 @@
 //! - **Dynamic metric registry** (no recompilation needed)
 //! - **Currency-safe arithmetic** with explicit FX handling
 //! - **Deterministic evaluation**
+//! - **EBITDA normalization & adjustments** with audited add-backs and cap policies
 //!
 //! ## Quick Start
 //!
@@ -43,6 +44,7 @@
 //! - **types**: Wire types for serialization (`NodeSpec`, `FinancialModelSpec`)
 //! - **builder**: Type-safe builder API with compile-time state enforcement
 //! - **error**: Comprehensive error types with context
+//! - **adjustments**: Normalization engine plus add-back specs/caps for adjusted EBITDA
 //!
 //! ## Implementation Status
 //!
@@ -99,7 +101,15 @@
 //! - ✅ Corkscrew extension (balance sheet roll-forward validation)
 //! - ✅ Credit scorecard extension (rating assignment)
 //! - ✅ Results export to Polars DataFrames
+//!
+//! ### Phase 8: Adjustments Module ✅
+//! - ✅ Normalization engine that reads evaluated nodes and produces adjusted metrics
+//! - ✅ Add-backs tracker with detailed audit trail (raw/capped amounts per period)
+//! - ✅ Capping policies tied to base nodes (e.g., synergies capped at % of EBITDA)
+//! - ✅ Merge helpers for stamping Adjusted EBITDA (or other normalized nodes) back into results
+//! - ✅ Serializable configs for adjustments to enable registry-driven workflows
 
+pub mod adjustments;
 pub mod analysis;
 pub mod builder;
 pub mod capital_structure;

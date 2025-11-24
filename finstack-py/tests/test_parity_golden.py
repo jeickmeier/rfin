@@ -170,11 +170,11 @@ def test_money_formatting() -> None:
 
 def test_bond_pricing_treasury() -> None:
     """Test treasury bond pricing against golden values."""
-    from finstack.valuations.instruments import Bond
-    from finstack.core.market_data import MarketContext
     from finstack.core.dates import DayCount
     from finstack.core.dates.schedule import Frequency
-    
+    from finstack.core.market_data import MarketContext
+    from finstack.valuations.instruments import Bond
+
     # Create a simple treasury bond
     bond = (
         Bond.builder("TREASURY-001")
@@ -188,7 +188,7 @@ def test_bond_pricing_treasury() -> None:
         .disc_id("USD-OIS")
         .build()
     )
-    
+
     # Create simple market context with discount curve
     market = MarketContext()
     discount_curve = DiscountCurve(
@@ -198,14 +198,13 @@ def test_bond_pricing_treasury() -> None:
         day_count="act_365f"
     )
     market.insert_discount(discount_curve)
-    
+
     # Price the bond
     from finstack.valuations.pricer import create_standard_registry
     registry = create_standard_registry()
-    # price(instrument, model, market, as_of=None)
     # Use "discounting" model key like in test_roundtrips.py
     result = registry.price(bond, "discounting", market, date(2024, 1, 1))
-    
+
     # Basic validation - bond should have a positive value
     assert result.value.amount > 0
     assert result.value.currency.code == "USD"
@@ -213,11 +212,11 @@ def test_bond_pricing_treasury() -> None:
 
 def test_irs_valuation() -> None:
     """Test interest rate swap valuation against golden values."""
-    from finstack.valuations.instruments import InterestRateSwap
-    from finstack.core.market_data import MarketContext
     from finstack.core.dates import DayCount
     from finstack.core.dates.schedule import Frequency
-    
+    from finstack.core.market_data import MarketContext
+    from finstack.valuations.instruments import InterestRateSwap
+
     # Create a simple interest rate swap
     irs = (
         InterestRateSwap.builder("IRS-001")
@@ -230,7 +229,7 @@ def test_irs_valuation() -> None:
         .fwd_id("USD-LIBOR")
         .build()
     )
-    
+
     # Create simple market context with discount and forward curves
     market = MarketContext()
     discount_curve = DiscountCurve(
@@ -240,7 +239,7 @@ def test_irs_valuation() -> None:
         day_count="act_365f"
     )
     market.insert_discount(discount_curve)
-    
+
     # Create a simple forward curve (flat for testing)
     from finstack.core.market_data.term_structures import ForwardCurve
     # ForwardCurve takes: id, tenor_years, knots (list of (time, rate) tuples), base_date, day_count
@@ -252,14 +251,13 @@ def test_irs_valuation() -> None:
         day_count=DayCount.ACT_360
     )
     market.insert_forward(forward_curve)
-    
+
     # Price the swap
     from finstack.valuations.pricer import create_standard_registry
     registry = create_standard_registry()
-    # price(instrument, model, market, as_of=None)
     # Use "discounting" model key like in test_roundtrips.py
     result = registry.price(irs, "discounting", market, date(2024, 1, 1))
-    
+
     # Basic validation - swap should have a value (could be positive or negative)
     assert result.value.currency.code == "USD"
 

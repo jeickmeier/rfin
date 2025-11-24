@@ -144,7 +144,7 @@ class TestFrequencyConversions:
             ("daily", Frequency.DAILY),
         ]
 
-        for string_format, expected_freq in test_cases:
+        for _string_format, expected_freq in test_cases:
             # Test by building a schedule with the frequency
             schedule = ScheduleBuilder.new(dt.date(2024, 1, 15), dt.date(2024, 7, 15)).frequency(expected_freq).build()
 

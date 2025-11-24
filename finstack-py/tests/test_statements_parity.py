@@ -8,7 +8,6 @@ from datetime import date
 
 import pytest
 
-from finstack.core.currency import Currency
 from finstack.core.dates import PeriodId
 from finstack.core.money import Money
 from finstack.statements import (
@@ -24,7 +23,6 @@ from finstack.statements import (
     ForecastSpec,
     FormulaExplainer,
     ModelBuilder,
-    NodeType,
     ParameterSpec,
     PLSummaryReport,
     Registry,
