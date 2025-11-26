@@ -3,6 +3,43 @@
 //! Implements curve-consistent short-rate trees for pricing callable/putable bonds
 //! and calculating Option-Adjusted Spread (OAS). Uses industry-standard models
 //! like Ho-Lee and Black-Derman-Toy.
+//!
+//! # Volatility Conventions
+//!
+//! **Critical**: The volatility parameter interpretation depends on the model type:
+//!
+//! | Model | Vol Type | Parameter | Formula | Typical Range |
+//! |-------|----------|-----------|---------|---------------|
+//! | Ho-Lee | Normal/Absolute | σ (bps/yr) | dr = θdt + σdW | 50-150 bps (0.005-0.015) |
+//! | BDT | Lognormal/Relative | σ (%) | dr/r = θdt + σdW | 15-30% (0.15-0.30) |
+//!
+//! ## Converting Between Conventions
+//!
+//! Use [`normal_to_lognormal_vol`] and [`lognormal_to_normal_vol`] to convert:
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
+//!     normal_to_lognormal_vol, lognormal_to_normal_vol
+//! };
+//!
+//! // Given 100 bps normal vol at a 5% rate level
+//! let normal_vol = 0.01;  // 100 bps
+//! let rate_level = 0.05;  // 5%
+//!
+//! // Convert to lognormal: 100bp / 5% = 20% lognormal
+//! let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level);
+//! assert!((lognormal_vol - 0.20).abs() < 1e-10);
+//!
+//! // Convert back: 20% × 5% = 100 bps normal
+//! let back_to_normal = lognormal_to_normal_vol(lognormal_vol, rate_level);
+//! assert!((back_to_normal - normal_vol).abs() < 1e-10);
+//! ```
+//!
+//! ## Calibration Sources
+//!
+//! - **Swaption market**: ATM swaption vols are typically quoted in normal (bps)
+//! - **Cap/floor market**: Often quoted in lognormal (Black vol)
+//! - **Historical**: Calculate from rate time series
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
@@ -14,35 +51,338 @@ use super::tree_framework::{
     TreeGreeks, TreeModel, TreeValuator,
 };
 
-/// Short-rate tree model types
+// ============================================================================
+// Volatility Conversion Functions
+// ============================================================================
+
+/// Convert normal (absolute) volatility to lognormal (relative) volatility.
+///
+/// # Formula
+///
+/// σ_lognormal = σ_normal / rate_level
+///
+/// # Arguments
+///
+/// * `normal_vol` - Normal volatility in decimal (e.g., 0.01 = 100 bps/yr)
+/// * `rate_level` - Reference rate level for conversion (e.g., 0.05 = 5%)
+///
+/// # Returns
+///
+/// Lognormal volatility in decimal (e.g., 0.20 = 20%)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::normal_to_lognormal_vol;
+///
+/// // 100 bps normal vol at 5% rate → 20% lognormal
+/// let lognormal = normal_to_lognormal_vol(0.01, 0.05);
+/// assert!((lognormal - 0.20).abs() < 1e-10);
+///
+/// // 80 bps normal vol at 4% rate → 20% lognormal
+/// let lognormal = normal_to_lognormal_vol(0.008, 0.04);
+/// assert!((lognormal - 0.20).abs() < 1e-10);
+/// ```
+///
+/// # Panics
+///
+/// Panics if `rate_level` is zero or negative.
+#[inline]
+pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> f64 {
+    assert!(
+        rate_level > 0.0,
+        "rate_level must be positive for lognormal conversion"
+    );
+    normal_vol / rate_level
+}
+
+/// Convert lognormal (relative) volatility to normal (absolute) volatility.
+///
+/// # Formula
+///
+/// σ_normal = σ_lognormal × rate_level
+///
+/// # Arguments
+///
+/// * `lognormal_vol` - Lognormal volatility in decimal (e.g., 0.20 = 20%)
+/// * `rate_level` - Reference rate level for conversion (e.g., 0.05 = 5%)
+///
+/// # Returns
+///
+/// Normal volatility in decimal (e.g., 0.01 = 100 bps/yr)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::lognormal_to_normal_vol;
+///
+/// // 20% lognormal at 5% rate → 100 bps normal
+/// let normal = lognormal_to_normal_vol(0.20, 0.05);
+/// assert!((normal - 0.01).abs() < 1e-10);
+///
+/// // 25% lognormal at 4% rate → 100 bps normal
+/// let normal = lognormal_to_normal_vol(0.25, 0.04);
+/// assert!((normal - 0.01).abs() < 1e-10);
+/// ```
+#[inline]
+pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> f64 {
+    lognormal_vol * rate_level
+}
+
+/// Default normal (absolute) volatility for Ho-Lee model.
+///
+/// 100 basis points per year, typical for developed market government bonds
+/// in a normal rate environment (2-5% rates).
+pub const DEFAULT_NORMAL_VOL: f64 = 0.01; // 100 bps/yr
+
+/// Default lognormal (relative) volatility for Black-Derman-Toy model.
+///
+/// 20% annualized, typical for developed market government bonds.
+/// This corresponds to ~100 bps normal vol at a 5% rate level.
+pub const DEFAULT_LOGNORMAL_VOL: f64 = 0.20; // 20%
+
+// ============================================================================
+// Short-Rate Model Types
+// ============================================================================
+
+/// Short-rate tree model types.
+///
+/// Each model has distinct volatility conventions and mathematical properties:
+///
+/// | Model | Vol Type | Negative Rates | Mean Reversion | Use Case |
+/// |-------|----------|----------------|----------------|----------|
+/// | Ho-Lee | Normal | ✅ Yes | ❌ No | Low/negative rate environments |
+/// | BDT | Lognormal | ❌ No | ✅ Yes | Traditional positive rate environments |
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShortRateModel {
-    /// Ho-Lee model (additive normal rates, handles negative rates)
+    /// Ho-Lee model: Gaussian/normal short rates.
+    ///
+    /// ## Rate Dynamics
+    /// ```text
+    /// dr = θ(t)dt + σdW
+    /// ```
+    /// where:
+    /// - `θ(t)` is calibrated to match the discount curve
+    /// - `σ` is the **normal volatility** (absolute, in rate units like 0.01 = 100 bps)
+    ///
+    /// ## Properties
+    /// - ✅ Handles negative rates naturally
+    /// - ❌ No mean reversion (rates can drift arbitrarily)
+    /// - Analytically tractable
+    ///
+    /// ## Typical Volatility Range
+    /// - Low rates (<2%): 50-80 bps (0.005-0.008)
+    /// - Normal rates (2-5%): 80-120 bps (0.008-0.012)
+    /// - High rates (>5%): 100-150 bps (0.010-0.015)
+    /// - Crisis: 150-300 bps (0.015-0.030)
     HoLee,
-    /// Black-Derman-Toy model (lognormal rates, mean-reverting)
+
+    /// Black-Derman-Toy model: Lognormal short rates with mean reversion.
+    ///
+    /// ## Rate Dynamics
+    /// ```text
+    /// d(ln r) = [θ(t) - a·ln(r)]dt + σdW
+    /// ```
+    /// where:
+    /// - `θ(t)` is calibrated to match the discount curve
+    /// - `a` is the mean reversion speed
+    /// - `σ` is the **lognormal volatility** (relative, like 0.20 = 20%)
+    ///
+    /// ## Properties
+    /// - ❌ Cannot handle negative rates (rates stay positive)
+    /// - ✅ Mean reversion prevents extreme rate scenarios
+    /// - Lognormal distribution matches cap/floor market conventions
+    ///
+    /// ## Typical Volatility Range
+    /// - Low vol environment: 10-15% (0.10-0.15)
+    /// - Normal market: 15-25% (0.15-0.25)
+    /// - High vol/stress: 25-40% (0.25-0.40)
+    ///
+    /// ## Important
+    /// ⚠️ The default 1% volatility in legacy code is **far too low** for BDT.
+    /// Use [`DEFAULT_LOGNORMAL_VOL`] (20%) or calibrate to swaption market.
     BlackDermanToy,
 }
 
-/// Configuration for short-rate tree construction
+/// Configuration for short-rate tree construction.
+///
+/// # Volatility Convention
+///
+/// ⚠️ **Critical**: The `volatility` field has different interpretations depending on the model:
+///
+/// | Model | Volatility Type | Example |
+/// |-------|-----------------|---------|
+/// | [`ShortRateModel::HoLee`] | Normal (absolute) | 0.01 = 100 bps/yr |
+/// | [`ShortRateModel::BlackDermanToy`] | Lognormal (relative) | 0.20 = 20%/yr |
+///
+/// Use the helper constructors ([`ShortRateTreeConfig::ho_lee`], [`ShortRateTreeConfig::bdt`])
+/// or conversion functions ([`normal_to_lognormal_vol`], [`lognormal_to_normal_vol`])
+/// to avoid convention errors.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
+///     ShortRateTreeConfig, ShortRateModel, DEFAULT_NORMAL_VOL, DEFAULT_LOGNORMAL_VOL,
+/// };
+///
+/// // Ho-Lee with 100 bps normal vol (recommended for negative rate environments)
+/// let ho_lee = ShortRateTreeConfig::ho_lee(100, 0.01);
+/// assert_eq!(ho_lee.model, ShortRateModel::HoLee);
+///
+/// // BDT with 20% lognormal vol (recommended for positive rate environments)
+/// let bdt = ShortRateTreeConfig::bdt(100, 0.20, 0.03);
+/// assert_eq!(bdt.model, ShortRateModel::BlackDermanToy);
+///
+/// // Use defaults with model-appropriate volatility
+/// let ho_lee_default = ShortRateTreeConfig::default_ho_lee(100);
+/// assert_eq!(ho_lee_default.volatility, DEFAULT_NORMAL_VOL);
+///
+/// let bdt_default = ShortRateTreeConfig::default_bdt(100);
+/// assert_eq!(bdt_default.volatility, DEFAULT_LOGNORMAL_VOL);
+/// ```
 #[derive(Clone, Debug)]
 pub struct ShortRateTreeConfig {
-    /// Number of time steps
+    /// Number of time steps in the tree.
+    ///
+    /// More steps improve accuracy but increase computation time O(n²).
+    /// Typical values: 50 (fast), 100 (standard), 200+ (high precision).
     pub steps: usize,
-    /// Tree model type
+
+    /// Tree model type determining rate dynamics and volatility interpretation.
     pub model: ShortRateModel,
-    /// Interest rate volatility (annualized)
+
+    /// Interest rate volatility (annualized).
+    ///
+    /// ⚠️ **Interpretation depends on model**:
+    /// - **Ho-Lee**: Normal volatility in rate units (0.01 = 100 bps/yr)
+    /// - **BDT**: Lognormal volatility as proportion (0.20 = 20%/yr)
+    ///
+    /// See [`ShortRateModel`] for typical ranges per model type.
     pub volatility: f64,
-    /// Mean reversion parameter (for mean-reverting models)
+
+    /// Mean reversion parameter (for mean-reverting models like BDT).
+    ///
+    /// Controls how quickly rates revert to the long-term mean.
+    /// - Typical values: 0.01-0.10 (1-10% per year)
+    /// - Higher values = faster reversion, less rate dispersion
+    /// - Only used by BDT; ignored by Ho-Lee
     pub mean_reversion: Option<f64>,
 }
 
 impl Default for ShortRateTreeConfig {
+    /// Default configuration using Ho-Lee model with appropriate normal volatility.
+    ///
+    /// For BDT model, use [`ShortRateTreeConfig::default_bdt`] instead.
     fn default() -> Self {
+        Self::default_ho_lee(100)
+    }
+}
+
+impl ShortRateTreeConfig {
+    /// Create a Ho-Lee configuration with specified normal volatility.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Number of tree steps (50-200 typical)
+    /// * `normal_vol` - Normal volatility in rate units (e.g., 0.01 = 100 bps/yr)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
+    ///
+    /// // 100 steps, 80 bps normal vol
+    /// let config = ShortRateTreeConfig::ho_lee(100, 0.008);
+    /// ```
+    pub fn ho_lee(steps: usize, normal_vol: f64) -> Self {
         Self {
-            steps: 100,
+            steps,
             model: ShortRateModel::HoLee,
-            volatility: 0.01, // 1% default volatility
+            volatility: normal_vol,
             mean_reversion: None,
+        }
+    }
+
+    /// Create a Black-Derman-Toy configuration with specified lognormal volatility.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Number of tree steps (50-200 typical)
+    /// * `lognormal_vol` - Lognormal volatility (e.g., 0.20 = 20%/yr)
+    /// * `mean_reversion` - Mean reversion speed (e.g., 0.03 = 3%/yr)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
+    ///
+    /// // 100 steps, 20% lognormal vol, 3% mean reversion
+    /// let config = ShortRateTreeConfig::bdt(100, 0.20, 0.03);
+    /// ```
+    pub fn bdt(steps: usize, lognormal_vol: f64, mean_reversion: f64) -> Self {
+        Self {
+            steps,
+            model: ShortRateModel::BlackDermanToy,
+            volatility: lognormal_vol,
+            mean_reversion: Some(mean_reversion),
+        }
+    }
+
+    /// Create Ho-Lee configuration with default normal volatility (100 bps).
+    ///
+    /// Suitable for developed market government bonds in normal rate environments.
+    pub fn default_ho_lee(steps: usize) -> Self {
+        Self::ho_lee(steps, DEFAULT_NORMAL_VOL)
+    }
+
+    /// Create BDT configuration with default lognormal volatility (20%).
+    ///
+    /// Suitable for developed market government bonds with positive rates.
+    /// Uses 3% mean reversion as default.
+    pub fn default_bdt(steps: usize) -> Self {
+        Self::bdt(steps, DEFAULT_LOGNORMAL_VOL, 0.03)
+    }
+
+    /// Create configuration from normal volatility, automatically selecting
+    /// the appropriate model based on rate environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Number of tree steps
+    /// * `normal_vol` - Normal volatility in rate units (e.g., 0.01 = 100 bps)
+    /// * `rate_level` - Current/reference rate level for model selection
+    ///
+    /// # Model Selection
+    ///
+    /// - If `rate_level < 0.01` (1%): Uses Ho-Lee (handles negative rates)
+    /// - Otherwise: Uses BDT with converted lognormal vol
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
+    ///     ShortRateTreeConfig, ShortRateModel,
+    /// };
+    ///
+    /// // Low rate environment → Ho-Lee
+    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005);
+    /// assert_eq!(config.model, ShortRateModel::HoLee);
+    ///
+    /// // Normal rate environment → BDT with converted vol
+    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05);
+    /// assert_eq!(config.model, ShortRateModel::BlackDermanToy);
+    /// // 100 bps / 5% = 20% lognormal
+    /// assert!((config.volatility - 0.20).abs() < 1e-10);
+    /// ```
+    pub fn from_normal_vol(steps: usize, normal_vol: f64, rate_level: f64) -> Self {
+        if rate_level < 0.01 {
+            // Low/negative rate environment: use Ho-Lee
+            Self::ho_lee(steps, normal_vol)
+        } else {
+            // Positive rate environment: use BDT with converted vol
+            let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level);
+            Self::bdt(steps, lognormal_vol, 0.03)
         }
     }
 }
@@ -62,7 +402,7 @@ pub struct ShortRateTree {
 }
 
 impl ShortRateTree {
-    /// Create a new short-rate tree with the given configuration
+    /// Create a new short-rate tree with the given configuration.
     pub fn new(config: ShortRateTreeConfig) -> Self {
         Self {
             config,
@@ -73,24 +413,59 @@ impl ShortRateTree {
         }
     }
 
-    /// Create a Ho-Lee tree with specified parameters
-    pub fn ho_lee(steps: usize, volatility: f64) -> Self {
-        Self::new(ShortRateTreeConfig {
-            steps,
-            model: ShortRateModel::HoLee,
-            volatility,
-            mean_reversion: None,
-        })
+    /// Create a Ho-Lee tree with specified normal (absolute) volatility.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Number of tree steps (50-200 typical)
+    /// * `normal_vol` - Normal volatility in rate units (e.g., 0.01 = 100 bps/yr)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
+    ///
+    /// // Ho-Lee with 100 bps annual volatility
+    /// let tree = ShortRateTree::ho_lee(100, 0.01);
+    /// ```
+    pub fn ho_lee(steps: usize, normal_vol: f64) -> Self {
+        Self::new(ShortRateTreeConfig::ho_lee(steps, normal_vol))
     }
 
-    /// Create a Black-Derman-Toy tree with specified parameters
-    pub fn black_derman_toy(steps: usize, volatility: f64, mean_reversion: f64) -> Self {
-        Self::new(ShortRateTreeConfig {
-            steps,
-            model: ShortRateModel::BlackDermanToy,
-            volatility,
-            mean_reversion: Some(mean_reversion),
-        })
+    /// Create a Black-Derman-Toy tree with specified lognormal (relative) volatility.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Number of tree steps (50-200 typical)
+    /// * `lognormal_vol` - Lognormal volatility (e.g., 0.20 = 20%/yr)
+    /// * `mean_reversion` - Mean reversion speed (e.g., 0.03 = 3%/yr)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
+    ///
+    /// // BDT with 20% lognormal volatility, 3% mean reversion
+    /// let tree = ShortRateTree::black_derman_toy(100, 0.20, 0.03);
+    /// ```
+    ///
+    /// # Warning
+    ///
+    /// ⚠️ The volatility parameter is **lognormal** (relative), not normal (absolute).
+    /// A value of 0.20 means 20% annual rate volatility, not 20 bps.
+    /// Use [`lognormal_to_normal_vol`] to convert from normal if needed.
+    pub fn black_derman_toy(steps: usize, lognormal_vol: f64, mean_reversion: f64) -> Self {
+        Self::new(ShortRateTreeConfig::bdt(steps, lognormal_vol, mean_reversion))
+    }
+
+    /// Create a Ho-Lee tree with default normal volatility (100 bps).
+    pub fn default_ho_lee(steps: usize) -> Self {
+        Self::new(ShortRateTreeConfig::default_ho_lee(steps))
+    }
+
+    /// Create a BDT tree with default lognormal volatility (20%).
+    pub fn default_bdt(steps: usize) -> Self {
+        Self::new(ShortRateTreeConfig::default_bdt(steps))
     }
 
     /// Calibrate the tree to match a given discount curve
@@ -553,8 +928,141 @@ mod tests {
 
     #[test]
     fn test_bdt_tree_creation() {
-        let tree = ShortRateTree::black_derman_toy(25, 0.02, 0.1);
+        // BDT with realistic 20% lognormal volatility
+        let tree = ShortRateTree::black_derman_toy(25, 0.20, 0.03);
         assert_eq!(tree.config.model, ShortRateModel::BlackDermanToy);
-        assert_eq!(tree.config.mean_reversion, Some(0.1));
+        assert_eq!(tree.config.volatility, 0.20);
+        assert_eq!(tree.config.mean_reversion, Some(0.03));
+    }
+
+    // ========================================================================
+    // Volatility Conversion Tests
+    // ========================================================================
+
+    #[test]
+    fn test_normal_to_lognormal_vol_conversion() {
+        // 100 bps normal vol at 5% rate → 20% lognormal
+        let lognormal = normal_to_lognormal_vol(0.01, 0.05);
+        assert!((lognormal - 0.20).abs() < 1e-10);
+
+        // 80 bps normal vol at 4% rate → 20% lognormal
+        let lognormal = normal_to_lognormal_vol(0.008, 0.04);
+        assert!((lognormal - 0.20).abs() < 1e-10);
+
+        // 50 bps normal vol at 2.5% rate → 20% lognormal
+        let lognormal = normal_to_lognormal_vol(0.005, 0.025);
+        assert!((lognormal - 0.20).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lognormal_to_normal_vol_conversion() {
+        // 20% lognormal at 5% rate → 100 bps normal
+        let normal = lognormal_to_normal_vol(0.20, 0.05);
+        assert!((normal - 0.01).abs() < 1e-10);
+
+        // 25% lognormal at 4% rate → 100 bps normal
+        let normal = lognormal_to_normal_vol(0.25, 0.04);
+        assert!((normal - 0.01).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_vol_conversion_roundtrip() {
+        let original_normal = 0.012; // 120 bps
+        let rate_level = 0.045; // 4.5%
+
+        let lognormal = normal_to_lognormal_vol(original_normal, rate_level);
+        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level);
+
+        assert!(
+            (back_to_normal - original_normal).abs() < 1e-15,
+            "Roundtrip conversion should be exact"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "rate_level must be positive")]
+    fn test_normal_to_lognormal_panics_on_zero_rate() {
+        normal_to_lognormal_vol(0.01, 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "rate_level must be positive")]
+    fn test_normal_to_lognormal_panics_on_negative_rate() {
+        normal_to_lognormal_vol(0.01, -0.01);
+    }
+
+    // ========================================================================
+    // Config Factory Tests
+    // ========================================================================
+
+    #[test]
+    fn test_config_ho_lee_factory() {
+        let config = ShortRateTreeConfig::ho_lee(100, 0.008);
+        assert_eq!(config.steps, 100);
+        assert_eq!(config.model, ShortRateModel::HoLee);
+        assert_eq!(config.volatility, 0.008);
+        assert_eq!(config.mean_reversion, None);
+    }
+
+    #[test]
+    fn test_config_bdt_factory() {
+        let config = ShortRateTreeConfig::bdt(100, 0.20, 0.03);
+        assert_eq!(config.steps, 100);
+        assert_eq!(config.model, ShortRateModel::BlackDermanToy);
+        assert_eq!(config.volatility, 0.20);
+        assert_eq!(config.mean_reversion, Some(0.03));
+    }
+
+    #[test]
+    fn test_config_default_ho_lee() {
+        let config = ShortRateTreeConfig::default_ho_lee(50);
+        assert_eq!(config.steps, 50);
+        assert_eq!(config.model, ShortRateModel::HoLee);
+        assert_eq!(config.volatility, DEFAULT_NORMAL_VOL);
+    }
+
+    #[test]
+    fn test_config_default_bdt() {
+        let config = ShortRateTreeConfig::default_bdt(50);
+        assert_eq!(config.steps, 50);
+        assert_eq!(config.model, ShortRateModel::BlackDermanToy);
+        assert_eq!(config.volatility, DEFAULT_LOGNORMAL_VOL);
+    }
+
+    #[test]
+    fn test_config_from_normal_vol_low_rates() {
+        // Low rate environment → should use Ho-Lee
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005);
+        assert_eq!(config.model, ShortRateModel::HoLee);
+        assert_eq!(config.volatility, 0.008); // Unchanged
+    }
+
+    #[test]
+    fn test_config_from_normal_vol_normal_rates() {
+        // Normal rate environment → should use BDT with converted vol
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05);
+        assert_eq!(config.model, ShortRateModel::BlackDermanToy);
+        // 100 bps / 5% = 20% lognormal
+        assert!((config.volatility - 0.20).abs() < 1e-10);
+    }
+
+    // ========================================================================
+    // Tree Factory Tests
+    // ========================================================================
+
+    #[test]
+    fn test_tree_default_ho_lee() {
+        let tree = ShortRateTree::default_ho_lee(75);
+        assert_eq!(tree.config.steps, 75);
+        assert_eq!(tree.config.model, ShortRateModel::HoLee);
+        assert_eq!(tree.config.volatility, DEFAULT_NORMAL_VOL);
+    }
+
+    #[test]
+    fn test_tree_default_bdt() {
+        let tree = ShortRateTree::default_bdt(75);
+        assert_eq!(tree.config.steps, 75);
+        assert_eq!(tree.config.model, ShortRateModel::BlackDermanToy);
+        assert_eq!(tree.config.volatility, DEFAULT_LOGNORMAL_VOL);
     }
 }

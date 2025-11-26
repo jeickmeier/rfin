@@ -28,6 +28,7 @@ use finstack_core::dates::{Date, DateExt};
 use finstack_core::error::InputError;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -261,25 +262,21 @@ impl HazardBondEngine {
         }
 
         // Alive leg: survival-weighted PV of holder-view coupons and principal.
-        // Use Money accumulation to mirror the discount engine's numerics.
+        // Use Kahan summation from finstack-core for numerical stability.
         let ccy = bond.notional.currency();
-        let mut pv_cf = Money::new(0.0, ccy);
-        for (d, amt) in &flows {
-            if *d <= settle_date {
-                continue;
-            }
-            if amt.amount() == 0.0 {
-                continue;
-            }
-            let idx = dates
-                .binary_search(d)
-                .expect("Cashflow date should be on hazard pricing grid");
-            let df = dfs[idx];
-            let s = surv[idx];
-            let df_surv = df * s;
-            let pv_cf_flow = *amt * df_surv;
-            pv_cf = (pv_cf + pv_cf_flow)?;
-        }
+        let pv_values: Vec<f64> = flows
+            .iter()
+            .filter(|(d, amt)| *d > settle_date && amt.amount() != 0.0)
+            .map(|(d, amt)| {
+                let idx = dates
+                    .binary_search(d)
+                    .expect("Cashflow date should be on hazard pricing grid");
+                let df = dfs[idx];
+                let s = surv[idx];
+                amt.amount() * df * s
+            })
+            .collect();
+        let pv_cf = Money::new(kahan_sum(pv_values), ccy);
 
         // Recovery leg: FRP on outstanding notional.
         let mut pv_rec = 0.0;

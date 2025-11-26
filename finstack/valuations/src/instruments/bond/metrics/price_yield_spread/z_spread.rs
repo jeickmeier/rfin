@@ -11,35 +11,99 @@ use std::cell::RefCell;
 /// Z-spread root-finding algorithm. The bracket width scales with bond maturity
 /// to handle both short-dated and long-dated bonds efficiently.
 ///
+/// # Tolerance Design Rationale
+///
+/// The Z-spread tolerance is specified on the **spread axis** (in decimal, not bp).
+/// The default `1e-10` (0.001 bp) is chosen to ensure:
+///
+/// 1. **Price accuracy**: For a 10Y bond with duration ~8, a spread tolerance
+///    of `1e-10` translates to price error < `$0.00001` per $1000 face.
+///
+/// 2. **Consistency with YTM**: Same order of magnitude as YTM solver tolerance
+///    ensures consistent precision across all yield/spread metrics.
+///
+/// ## Tolerance-to-Price Sensitivity
+///
+/// The relationship between spread tolerance and price accuracy:
+///
+/// ```text
+/// Price Error ≈ Duration × Notional × Spread Tolerance
+///
+/// Example: Duration = 8, Notional = $1,000,000, Tolerance = 1e-10
+/// Price Error ≈ 8 × 1,000,000 × 1e-10 = $0.0008
+/// ```
+///
+/// ## Recommended Tolerances by Use Case
+///
+/// | Use Case | Tolerance | Spread Precision | Price Error ($1M) |
+/// |----------|-----------|------------------|-------------------|
+/// | Regulatory | `1e-12` | < 0.0001 bp | < $0.0001 |
+/// | Trading | `1e-10` | < 0.01 bp | < $0.01 |
+/// | Screening | `1e-8` | < 1 bp | < $1 |
+///
+/// # Maturity-Aware Bracketing
+///
+/// The initial bracket scales with maturity to handle both IG and HY:
+///
+/// ```text
+/// bracket = min(base_bracket × (1 + years/30), max_bracket)
+/// ```
+///
+/// This ensures:
+/// - Short-dated IG bonds: tight ±500-1000 bp bracket → fast convergence
+/// - Long-dated HY bonds: wider ±1500-3000 bp bracket → robust coverage
+///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_valuations::instruments::bond::metrics::price_yield_spread::ZSpreadSolverConfig;
 ///
-/// let config = ZSpreadSolverConfig {
-///     tolerance: 1e-12,        // Tighter tolerance
-///     base_bracket_bp: 2000.0, // Wider initial bracket
-///     max_bracket_bp: 5000.0,  // Higher cap for long maturities
+/// // Default production configuration
+/// let default = ZSpreadSolverConfig::default();
+///
+/// // Tighter tolerance for regulatory reporting
+/// let regulatory = ZSpreadSolverConfig {
+///     tolerance: 1e-12,
+///     base_bracket_bp: 1000.0,
+///     max_bracket_bp: 3000.0,
+/// };
+///
+/// // Wider bracket for distressed debt screening
+/// let distressed = ZSpreadSolverConfig {
+///     tolerance: 1e-8,
+///     base_bracket_bp: 2000.0,
+///     max_bracket_bp: 5000.0,
 /// };
 /// ```
 #[derive(Clone, Debug)]
 pub struct ZSpreadSolverConfig {
-    /// Convergence tolerance for the Z-spread solver (on the spread axis).
+    /// Convergence tolerance for the Z-spread solver (on the spread axis, decimal).
     ///
-    /// Default: `1e-10`, which typically achieves price residuals well below
-    /// `1e-6 * notional` for investment-grade and high-yield bonds.
+    /// Default: `1e-10` (~0.01 bp precision), which typically achieves price
+    /// residuals well below `$0.01` per $1M face for all credit qualities.
+    ///
+    /// # Interpretation
+    ///
+    /// The solver stops when the price residual (model vs target) is less than
+    /// `tolerance × duration × notional`, ensuring proportional accuracy.
     pub tolerance: f64,
 
     /// Base half-width of the initial search bracket, in basis points.
     ///
-    /// Short-dated IG credit is usually well inside ±100–300 bp, but we
-    /// default to a **wide** ±1000 bp range to comfortably cover HY.
+    /// Short-dated IG credit typically has spreads in 50-300 bp range, but
+    /// we default to ±1000 bp to comfortably cover HY (300-800 bp) and
+    /// distressed (800+ bp) names without manual configuration.
+    ///
+    /// # Maturity Scaling
+    ///
+    /// The actual bracket is scaled by maturity:
+    /// `actual_bracket = base_bracket × (1 + years/30)`
     pub base_bracket_bp: f64,
 
     /// Maximum half-width of the initial search bracket after maturity scaling.
     ///
-    /// Provides safety for distressed/long-dated names without exploding the
-    /// initial search domain.
+    /// Caps the bracket for very long-dated bonds (30Y+) to prevent excessive
+    /// search domains that could slow convergence.
     pub max_bracket_bp: f64,
 }
 

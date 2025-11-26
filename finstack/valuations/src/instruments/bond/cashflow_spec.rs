@@ -124,13 +124,23 @@ impl CashflowSpec {
     ///
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `gearing`: 1.0
-    /// - `reset_lag_days`: 2 (T-2 convention)
+    /// - `reset_lag_days`: 2 (T-2 convention, standard for SOFR)
     /// - `floor_bp`: None
     /// - `cap_bp`: None
     /// - `reset_freq`: Same as payment frequency
     /// - `bdc`: Following
     /// - `stub`: None
     /// - `calendar_id`: None
+    ///
+    /// # Market Conventions for Reset Lag
+    ///
+    /// Different indices use different reset lag conventions:
+    /// - **SOFR**: T-2 (2 business days before period start)
+    /// - **EURIBOR**: T-2
+    /// - **LIBOR (legacy)**: T-0 to T-2 depending on currency
+    /// - **SONIA**: T-0 (same day)
+    ///
+    /// Use `floating_with_reset_lag()` to specify a non-default reset lag.
     ///
     /// # Returns
     ///
@@ -143,7 +153,7 @@ impl CashflowSpec {
     /// use finstack_core::dates::{Frequency, DayCount};
     /// use finstack_core::types::CurveId;
     ///
-    /// // FRN: 3M SOFR + 200bps, quarterly payments
+    /// // FRN: 3M SOFR + 200bps, quarterly payments (default T-2 reset)
     /// let spec = CashflowSpec::floating(
     ///     CurveId::new("USD-SOFR-3M"),
     ///     200.0,  // 200 basis points
@@ -154,9 +164,69 @@ impl CashflowSpec {
     ///
     /// # See Also
     ///
-    /// For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
-    /// and wrap in `CashflowSpec::Floating(...)`.
+    /// - `floating_with_reset_lag()` for custom reset lag
+    /// - For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
+    ///   and wrap in `CashflowSpec::Floating(...)`.
     pub fn floating(index_id: CurveId, margin_bp: f64, freq: Frequency, dc: DayCount) -> Self {
+        Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, 2)
+    }
+
+    /// Create a floating-rate specification with explicit reset lag.
+    ///
+    /// # Arguments
+    ///
+    /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
+    /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
+    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
+    /// * `reset_lag_days` - Number of business days before period start for rate fixing
+    ///
+    /// # Market Conventions for Reset Lag
+    ///
+    /// | Index | Standard Reset Lag |
+    /// |-------|-------------------|
+    /// | SOFR | T-2 (2 days) |
+    /// | EURIBOR | T-2 (2 days) |
+    /// | SONIA | T-0 (same day) |
+    /// | TONA | T-2 (2 days) |
+    /// | LIBOR (legacy) | T-0 to T-2 |
+    ///
+    /// # Returns
+    ///
+    /// A `CashflowSpec::Floating` variant with the specified parameters.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::types::CurveId;
+    ///
+    /// // SONIA-linked FRN with T-0 reset (same day fixing)
+    /// let sonia_frn = CashflowSpec::floating_with_reset_lag(
+    ///     CurveId::new("GBP-SONIA"),
+    ///     150.0,  // 150 basis points
+    ///     Frequency::quarterly(),
+    ///     DayCount::Act365F,
+    ///     0,  // T-0 reset for SONIA
+    /// );
+    ///
+    /// // SOFR-linked FRN with standard T-2 reset
+    /// let sofr_frn = CashflowSpec::floating_with_reset_lag(
+    ///     CurveId::new("USD-SOFR-3M"),
+    ///     200.0,
+    ///     Frequency::quarterly(),
+    ///     DayCount::Act360,
+    ///     2,  // T-2 reset for SOFR
+    /// );
+    /// ```
+    pub fn floating_with_reset_lag(
+        index_id: CurveId,
+        margin_bp: f64,
+        freq: Frequency,
+        dc: DayCount,
+        reset_lag_days: i32,
+    ) -> Self {
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,
@@ -168,7 +238,7 @@ impl CashflowSpec {
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: freq,
-                reset_lag_days: 2,
+                reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,

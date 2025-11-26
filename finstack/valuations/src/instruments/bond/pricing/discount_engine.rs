@@ -2,6 +2,7 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DateExt;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -145,7 +146,6 @@ impl BondEngine {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
         let ccy = flows[0].1.currency();
-        let mut total = Money::new(0.0, ccy);
 
         // Initialize explanation trace if requested
         let mut trace = if explain.enabled {
@@ -196,6 +196,10 @@ impl BondEngine {
         // curve's own date mapping.
         let df_settle = disc.df_on_date_curve(settle_date);
 
+        // Collect PV values for Kahan summation (O(1) error growth vs O(n) for naive sum).
+        // This is particularly important for long-dated bonds (50Y+ monthly-pay).
+        let mut pv_values: Vec<f64> = Vec::with_capacity(flows.len());
+
         for (d, amt) in &flows {
             if *d <= settle_date {
                 continue;
@@ -209,7 +213,7 @@ impl BondEngine {
                 1.0
             };
             let pv_cf = *amt * df;
-            total = (total + pv_cf)?;
+            pv_values.push(pv_cf.amount());
 
             // Add trace entry if explanation is enabled
             if let Some(ref mut t) = trace {
@@ -227,6 +231,9 @@ impl BondEngine {
                 );
             }
         }
+
+        // Use Kahan compensated summation from finstack-core for numerical stability
+        let total = Money::new(kahan_sum(pv_values), ccy);
         Ok((total, trace))
     }
 }

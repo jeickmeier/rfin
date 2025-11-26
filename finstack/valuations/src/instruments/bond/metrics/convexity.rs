@@ -55,12 +55,19 @@ impl MetricCalculator for ConvexityCalculator {
             })
         })?;
 
-        // Bump size: configurable via context overrides, default 1 bp
+        // Bump size: configurable via context overrides, default 20 bp
+        // 
+        // Market standard note: Industry practice typically uses 10-25bp for convexity
+        // calculations (larger than duration bumps) to reduce numerical noise in the
+        // second derivative approximation. The default of 20bp balances precision and
+        // stability for most instruments.
+        // Market standard: 20bp bump for convexity calculation
+        // This balances numerical stability with accuracy for the second derivative
         let dy = context
             .pricing_overrides
             .as_ref()
             .and_then(|po| po.ytm_bump_decimal)
-            .unwrap_or(1e-4);
+            .unwrap_or(20e-4); // 20 bps
 
         // Calculate prices with yield bumps for numerical convexity
         let (p0, p_up, p_dn) = {

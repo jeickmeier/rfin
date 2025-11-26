@@ -8,32 +8,83 @@ use std::cell::RefCell;
 
 /// Configuration for the discount margin solver.
 ///
-/// # Tolerance and Bracketing
+/// # Tolerance Design Rationale
 ///
-/// The DM solver uses Brent's method on the discount margin (decimal) space.
-/// Defaults are tuned for production use:
-/// - `tolerance = 1e-10` (tight enough for sub-penny price accuracy)
-/// - Base bracket of **±500 bp** for short-dated FRNs
-/// - Maturity-aware widening up to **±1000–1500 bp** for longer tenors
+/// The DM (discount margin) tolerance is specified on the **spread axis** (decimal).
+/// The default `1e-10` (~0.01 bp) is chosen to ensure:
 ///
-/// Bracket sizes are specified in basis points and automatically converted to
-/// decimal space for the underlying solver.
+/// 1. **Price accuracy**: For typical FRNs, this yields price errors < $0.01 per $1M face.
+///
+/// 2. **Consistency**: Same precision as Z-spread and YTM solvers for coherent
+///    cross-metric analysis.
+///
+/// ## FRN-Specific Considerations
+///
+/// Discount margin for FRNs is inherently more stable than fixed-rate yields because:
+/// - Floating coupons reset to market rates, reducing duration
+/// - Price sensitivity to DM is lower (typically 0.01-0.05% per bp for short-dated)
+///
+/// This allows slightly tighter brackets than fixed-rate bond Z-spreads.
+///
+/// ## Recommended Tolerances
+///
+/// | Use Case | Tolerance | DM Precision |
+/// |----------|-----------|--------------|
+/// | Regulatory | `1e-12` | < 0.0001 bp |
+/// | Trading | `1e-10` | < 0.01 bp |
+/// | Screening | `1e-8` | < 1 bp |
+///
+/// # Maturity-Aware Bracketing
+///
+/// FRN spreads are typically tighter than fixed-rate credit spreads:
+/// - Investment grade FRNs: 20-100 bp
+/// - High yield FRNs: 200-500 bp
+/// - Distressed: 500+ bp
+///
+/// The bracket scales with maturity: `bracket = base × (1 + years/30)`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::DiscountMarginSolverConfig;
+///
+/// // Default for standard FRNs
+/// let default = DiscountMarginSolverConfig::default();
+///
+/// // Tighter for IG FRN trading
+/// let ig_config = DiscountMarginSolverConfig {
+///     tolerance: 1e-12,
+///     base_bracket_bp: 300.0,
+///     max_bracket_bp: 800.0,
+/// };
+///
+/// // Wider for leveraged loan / HY FRN screening
+/// let hy_config = DiscountMarginSolverConfig {
+///     tolerance: 1e-8,
+///     base_bracket_bp: 800.0,
+///     max_bracket_bp: 2000.0,
+/// };
+/// ```
 #[derive(Clone, Debug)]
 pub struct DiscountMarginSolverConfig {
-    /// Convergence tolerance for the DM root finder (on the DM axis).
+    /// Convergence tolerance for the DM root finder (on the DM axis, decimal).
     ///
-    /// Default: `1e-10`. This is consistent with production YTM guidance and
-    /// typically yields price residuals well below `1e-6 * notional`.
+    /// Default: `1e-10` (~0.01 bp precision). This is consistent with other
+    /// spread solvers (Z-spread, OAS) and yields sub-penny price accuracy.
     pub tolerance: f64,
 
     /// Base half-width of the initial search bracket, in basis points.
     ///
-    /// For example, `500.0` corresponds to an initial ±500 bp range for
-    /// short-dated FRNs. Longer maturities widen this range automatically.
+    /// FRNs typically have tighter spreads than fixed-rate bonds:
+    /// - IG: 20-100 bp
+    /// - HY: 200-500 bp
+    ///
+    /// Default of ±500 bp covers most FRN universe without excessive searching.
     pub base_bracket_bp: f64,
 
-    /// Maximum half-width of the initial search bracket, in basis points, after
-    /// maturity scaling is applied. Acts as a safety clamp for pathological cases.
+    /// Maximum half-width of the initial search bracket (in bp) after maturity scaling.
+    ///
+    /// Caps the bracket for long-dated FRNs (rare, but possible in structured products).
     pub max_bracket_bp: f64,
 }
 
