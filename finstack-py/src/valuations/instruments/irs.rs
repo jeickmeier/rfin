@@ -481,9 +481,9 @@ impl PyInterestRateSwapBuilder {
     fn calendar<'py>(
         mut slf: PyRefMut<'py, Self>,
         calendar_id: Option<&str>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
+    ) -> PyRefMut<'py, Self> {
         slf.calendar_id = calendar_id.map(|c| c.to_string());
-        Ok(slf)
+        slf
     }
 
     #[pyo3(text_signature = "($self, days)")]

@@ -486,13 +486,11 @@ pub fn py_forecast_breaches(
     let _adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
 
     // We need periods. The Rust `forecast_breaches` extracts them from results.
-    // But here we are calling `forecast_breaches_generic` via `finstack_statements::forecast::covenants::forecast_breaches`.
-    // Wait, `finstack_statements::forecast::covenants::forecast_breaches` takes `&Results` and `&CovenantEngine`.
-    // So I can use that!
+    // Using `finstack_statements::analysis::covenants::forecast_breaches` which takes `&Results` and `&CovenantEngine`.
 
     let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
 
-    finstack_statements::forecast::covenants::forecast_breaches(
+    finstack_statements::analysis::covenants::forecast_breaches(
         &base_case.inner,
         &engine,
         Some(&model.inner),

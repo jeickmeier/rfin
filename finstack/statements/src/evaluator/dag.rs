@@ -296,8 +296,22 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 /// Extract node dependencies from a formula string.
 ///
 /// Uses shared formula utilities to find standalone identifier references.
+/// This specifically uses `extract_direct_dependencies` which parses the AST
+/// and ignores references inside `lag()` and `shift()` calls, allowing for
+/// temporal cycles (like corkscrews) without blocking the DAG.
 fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> IndexSet<String> {
-    crate::utils::formula::extract_identifiers(formula, all_node_ids)
+    match crate::utils::formula::extract_direct_dependencies(formula) {
+        Ok(direct_deps) => direct_deps
+            .intersection(all_node_ids)
+            .cloned()
+            .collect(),
+        Err(_) => {
+            // Fallback to string-based extraction if parsing fails
+            // This shouldn't happen given validate_formula_references ran first,
+            // but good for robustness.
+            crate::utils::formula::extract_identifiers(formula, all_node_ids)
+        }
+    }
 }
 
 /// Suggest similar identifiers for a typo using Levenshtein distance.
@@ -444,5 +458,30 @@ mod tests {
         assert_eq!(deps.len(), 2);
         assert!(deps.contains("revenue"));
         assert!(deps.contains("cogs"));
+    }
+
+    #[test]
+    fn test_lag_breaks_cycle() {
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q2", None)
+            .expect("test should succeed")
+            .compute("a", "lag(b, 1)") // a depends on b (lagged)
+            .expect("test should succeed")
+            .compute("b", "a + 1") // b depends on a (direct)
+            .expect("test should succeed")
+            .build()
+            .expect("test should succeed");
+
+        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
+
+        // Should NOT detect cycle because a's dependency on b is lagged
+        let result = graph.detect_cycles();
+        assert!(result.is_ok());
+
+        // Order should be a then b (since b depends on a, and a depends on nothing in current period)
+        let order = evaluate_order(&graph).expect("test should succeed");
+        let a_pos = order.iter().position(|n| n == "a").expect("node a should exist");
+        let b_pos = order.iter().position(|n| n == "b").expect("node b should exist");
+        assert!(a_pos < b_pos);
     }
 }

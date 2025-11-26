@@ -1,14 +1,33 @@
-//! Sensitivity analysis and corporate valuation for financial statement models.
+//! Analysis tools for financial statement models.
 //!
-//! This module provides tools for running parameter sweeps, analyzing
-//! how changes in assumptions affect model outputs, and performing DCF valuations.
+//! This module provides tools for:
+//! - **Sensitivity analysis** - Parameter sweeps and tornado charts
+//! - **Goal seeking** - Find input values that achieve target outputs
+//! - **Corporate valuation** - DCF and enterprise value calculations
+//! - **Reports** - Formatted output for P&L summaries and credit assessment
+//! - **Dependency tracing** - Identify direct and transitive dependencies
+//! - **Formula explanation** - Break down calculations step-by-step
+//! - **Forecast backtesting** - Evaluate forecast accuracy
+//! - **Covenant analysis** - Detect covenant breaches
 
+pub mod backtesting;
 pub mod corporate;
+pub mod covenants;
+pub mod dependency_trace;
+pub mod formula_explain;
 pub mod goal_seek;
+pub mod reports;
 pub mod sensitivity;
 pub mod types;
+pub mod visualization;
 
+pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use corporate::{evaluate_dcf, CorporateValuationResult};
+pub use covenants::forecast_breaches;
+pub use dependency_trace::{DependencyTracer, DependencyTree};
+pub use formula_explain::{Explanation, ExplanationStep, FormulaExplainer};
 pub use goal_seek::goal_seek;
+pub use reports::{Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder};
 pub use sensitivity::SensitivityAnalyzer;
 pub use types::{ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult};
+pub use visualization::{render_tree_ascii, render_tree_detailed};

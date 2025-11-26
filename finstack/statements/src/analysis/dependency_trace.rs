@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::DependencyGraph;
-/// # use finstack_statements::explain::DependencyTracer;
+/// # use finstack_statements::analysis::DependencyTracer;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = ModelBuilder::new("demo")
 ///     .periods("2025Q1..Q2", None)?
@@ -107,7 +107,7 @@ impl<'a> DependencyTracer<'a> {
     /// ```rust
     /// # use finstack_statements::builder::ModelBuilder;
     /// # use finstack_statements::evaluator::DependencyGraph;
-    /// # use finstack_statements::explain::DependencyTracer;
+    /// # use finstack_statements::analysis::DependencyTracer;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let model = ModelBuilder::new("demo")
     /// #     .periods("2025Q1..Q2", None)?
@@ -259,7 +259,7 @@ impl DependencyTree {
     ///
     /// ASCII tree string suitable for console output
     pub fn to_string_ascii(&self) -> String {
-        crate::explain::visualization::render_tree_ascii(self)
+        super::visualization::render_tree_ascii(self)
     }
 }
 

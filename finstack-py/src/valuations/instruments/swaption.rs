@@ -242,9 +242,9 @@ fn construct_swaption(
     let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
 
     let mut swaption = if payer {
-        Swaption::new_payer(id.clone(), &params, disc, fwd, vol_surface_id)
+        Swaption::new_payer(id, &params, disc, fwd, vol_surface_id)
     } else {
-        Swaption::new_receiver(id.clone(), &params, disc, fwd, vol_surface_id)
+        Swaption::new_receiver(id, &params, disc, fwd, vol_surface_id)
     };
 
     swaption.exercise = exercise_style;

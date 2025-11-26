@@ -3,7 +3,7 @@
 use crate::core::dates::periods::PyPeriodId;
 use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::reports::{
+use finstack_statements::analysis::{
     Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder,
 };
 use finstack_statements::types::DebtInstrumentSpec;
@@ -13,7 +13,7 @@ use pyo3::{wrap_pyfunction, Bound};
 use std::fmt::Write as FmtWrite;
 
 /// Alignment options for table columns.
-#[pyclass(module = "finstack.statements.reports", name = "Alignment", frozen)]
+#[pyclass(module = "finstack.statements.analysis", name = "Alignment", frozen)]
 #[derive(Clone, Copy)]
 pub struct PyAlignment {
     inner: Alignment,
@@ -42,7 +42,7 @@ impl PyAlignment {
 }
 
 /// Builder for ASCII and Markdown tables.
-#[pyclass(module = "finstack.statements.reports", name = "TableBuilder")]
+#[pyclass(module = "finstack.statements.analysis", name = "TableBuilder")]
 pub struct PyTableBuilder {
     inner: TableBuilder,
 }
@@ -125,7 +125,7 @@ impl PyTableBuilder {
 }
 
 /// P&L summary report.
-#[pyclass(module = "finstack.statements.reports", name = "PLSummaryReport")]
+#[pyclass(module = "finstack.statements.analysis", name = "PLSummaryReport")]
 pub struct PyPLSummaryReport {
     results: PyResults,
     line_items: Vec<String>,
@@ -221,7 +221,7 @@ impl PyPLSummaryReport {
 
 /// Credit assessment report.
 #[pyclass(
-    module = "finstack.statements.reports",
+    module = "finstack.statements.analysis",
     name = "CreditAssessmentReport"
 )]
 pub struct PyCreditAssessmentReport {
@@ -294,7 +294,7 @@ impl PyCreditAssessmentReport {
 }
 
 /// Debt summary report providing a quick view of capital structure.
-#[pyclass(module = "finstack.statements.reports", name = "DebtSummaryReport")]
+#[pyclass(module = "finstack.statements.analysis", name = "DebtSummaryReport")]
 #[derive(Clone)]
 pub struct PyDebtSummaryReport {
     model: PyFinancialModelSpec,
@@ -359,22 +359,17 @@ fn print_debt_summary(model: &PyFinancialModelSpec, results: &PyResults, as_of: 
     println!("{}", report.to_string());
 }
 
+/// Register reports types with the analysis module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
+    module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(_py, "reports")?;
-    module.setattr("__doc__", "Convenience reporting for financial statements.")?;
-
     module.add_class::<PyAlignment>()?;
     module.add_class::<PyTableBuilder>()?;
     module.add_class::<PyPLSummaryReport>()?;
     module.add_class::<PyCreditAssessmentReport>()?;
     module.add_class::<PyDebtSummaryReport>()?;
-    module.add_function(wrap_pyfunction!(print_debt_summary, &module)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("reports", &module)?;
+    module.add_function(wrap_pyfunction!(print_debt_summary, module)?)?;
 
     Ok(vec![
         "Alignment",
@@ -388,7 +383,7 @@ pub(crate) fn register<'py>(
 
 fn render_debt_summary(
     model: &finstack_statements::types::FinancialModelSpec,
-    results: &finstack_statements::results::Results,
+    results: &finstack_statements::evaluator::Results,
     as_of: finstack_core::dates::PeriodId,
 ) -> String {
     let mut output = String::new();

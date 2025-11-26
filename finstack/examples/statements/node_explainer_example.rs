@@ -5,7 +5,7 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::{DependencyGraph, Evaluator};
-use finstack_statements::explain::{DependencyTracer, FormulaExplainer};
+use finstack_statements::analysis::{DependencyTracer, FormulaExplainer};
 use finstack_statements::types::AmountOrScalar;
 use finstack_statements::Result;
 

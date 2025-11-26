@@ -11,6 +11,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -65,7 +66,7 @@ pub struct VolSurfaceCalibrator {
     /// Interpolation used for the output surface
     pub surface_interp: SurfaceInterp,
     /// Optional discount curve id for risk-free rates used in forward extraction
-    pub discount_id: Option<String>,
+    pub discount_id: Option<CurveId>,
 }
 
 impl VolSurfaceCalibrator {
@@ -122,7 +123,7 @@ impl VolSurfaceCalibrator {
     }
 
     /// Set the discount curve id to use for risk-free rates when extracting forwards.
-    pub fn with_discount_id(mut self, discount_id: impl Into<String>) -> Self {
+    pub fn with_discount_id(mut self, discount_id: impl Into<CurveId>) -> Self {
         self.discount_id = Some(discount_id.into());
         self
     }

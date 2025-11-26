@@ -196,7 +196,7 @@ impl Results {
     /// Schema: `(node_id: Utf8, period_id: Utf8, value: Float64)`
     #[cfg(feature = "dataframes")]
     pub fn to_polars_long(&self) -> Result<polars::prelude::DataFrame> {
-        crate::results::export::to_polars_long(self)
+        super::export::to_polars_long(self)
     }
 
     /// Export to Polars long format with node filtering.
@@ -210,7 +210,7 @@ impl Results {
         &self,
         node_filter: &[&str],
     ) -> Result<polars::prelude::DataFrame> {
-        crate::results::export::to_polars_long_filtered(self, node_filter)
+        super::export::to_polars_long_filtered(self, node_filter)
     }
 
     /// Export to Polars wide format DataFrame.
@@ -218,6 +218,6 @@ impl Results {
     /// Schema: `(period_id: Utf8, <node1>: Float64, <node2>: Float64, ...)`
     #[cfg(feature = "dataframes")]
     pub fn to_polars_wide(&self) -> Result<polars::prelude::DataFrame> {
-        crate::results::export::to_polars_wide(self)
+        super::export::to_polars_wide(self)
     }
 }

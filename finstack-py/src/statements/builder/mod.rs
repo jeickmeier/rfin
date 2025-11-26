@@ -8,6 +8,7 @@ use crate::statements::types::value::PyAmountOrScalar;
 use crate::statements::types::waterfall::PyWaterfallSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
+use finstack_statements::templates::{TemplatesExtension, VintageExtension};
 use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -735,6 +736,98 @@ impl PyModelBuilder {
             );
             let spec = new_builder.build().map_err(stmt_to_py)?;
             Ok(PyFinancialModelSpec::new(spec))
+        } else {
+            Err(PyValueError::new_err("Must call periods() first"))
+        }
+    }
+
+    #[pyo3(text_signature = "(self, name, increases, decreases)")]
+    /// Add a roll-forward structure to the model.
+    ///
+    /// This creates:
+    /// - `{name}_beg`: Beginning balance (linked to previous period's ending balance)
+    /// - `{name}_end`: Ending balance (Begin + Increases - Decreases)
+    ///
+    /// Parameters
+    /// ----------
+    /// name : str
+    ///     Base name for the roll-forward (e.g., "arr")
+    /// increases : list[str]
+    ///     List of node IDs that increase the balance
+    /// decreases : list[str]
+    ///     List of node IDs that decrease the balance
+    ///
+    /// Returns
+    /// -------
+    /// ModelBuilder
+    ///     Builder instance for chaining
+    fn add_roll_forward(
+        &mut self,
+        name: String,
+        increases: Vec<String>,
+        decreases: Vec<String>,
+    ) -> PyResult<()> {
+        if let BuilderState::Ready(builder) = &mut self.state {
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
+
+            // Convert Vec<String> to Vec<&str>
+            let inc_refs: Vec<&str> = increases.iter().map(|s| s.as_str()).collect();
+            let dec_refs: Vec<&str> = decreases.iter().map(|s| s.as_str()).collect();
+
+            *builder = new_builder
+                .add_roll_forward(&name, &inc_refs, &dec_refs)
+                .map_err(stmt_to_py)?;
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Must call periods() first"))
+        }
+    }
+
+    #[pyo3(text_signature = "(self, name, new_volume_node, decay_curve)")]
+    /// Add a vintage buildup (cohort analysis) structure.
+    ///
+    /// This models a "stack" of layers (cohorts) where each layer is generated
+    /// by a "new volume" node and then decays/evolves according to a curve.
+    ///
+    /// The total value is the sum of all active cohorts:
+    /// `Total[t] = Sum(NewVolume[t-k] * Curve[k])` for k = 0..curve_len
+    ///
+    /// Parameters
+    /// ----------
+    /// name : str
+    ///     Name of the resulting total node (e.g., "revenue")
+    /// new_volume_node : str
+    ///     Node ID for the new volume per period (e.g., "new_sales")
+    /// decay_curve : list[float]
+    ///     Multipliers for the vintage curve (index 0 = inception, 1 = next period, etc.)
+    ///
+    /// Returns
+    /// -------
+    /// ModelBuilder
+    ///     Builder instance for chaining
+    fn add_vintage_buildup(
+        &mut self,
+        name: String,
+        new_volume_node: String,
+        decay_curve: Vec<f64>,
+    ) -> PyResult<()> {
+        if let BuilderState::Ready(builder) = &mut self.state {
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
+
+            *builder = new_builder
+                .add_vintage_buildup(&name, &new_volume_node, &decay_curve)
+                .map_err(stmt_to_py)?;
+            Ok(())
         } else {
             Err(PyValueError::new_err("Must call periods() first"))
         }

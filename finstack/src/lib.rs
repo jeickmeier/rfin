@@ -20,4 +20,4 @@ pub use finstack_io as io;
 
 // Bridge modules that wire multiple subcrates together
 #[cfg(all(feature = "valuations", feature = "statements"))]
-pub use finstack_statements::forecast::covenants;
+pub use finstack_statements::analysis::covenants;

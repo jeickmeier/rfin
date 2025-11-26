@@ -83,12 +83,38 @@ pub fn is_standalone_identifier(
 pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<String>> {
     let ast = parse_formula(formula)?;
     let mut identifiers = IndexSet::new();
-    collect_identifiers_from_ast(&ast, &mut identifiers);
+    collect_identifiers_from_ast(&ast, &mut identifiers, false);
+    Ok(identifiers)
+}
+
+/// Extract direct dependencies (ignoring lagged references) from a formula.
+///
+/// This parses the formula AST and collects identifiers, but skips traversal
+/// into `lag()` and `shift()` function calls. This allows breaking cycles
+/// using temporal lag.
+///
+/// # Arguments
+///
+/// * `formula` - The formula string to analyze
+///
+/// # Returns
+///
+/// Returns a set of identifiers that are direct dependencies in the current period.
+pub fn extract_direct_dependencies(formula: &str) -> crate::error::Result<IndexSet<String>> {
+    let ast = parse_formula(formula)?;
+    let mut identifiers = IndexSet::new();
+    collect_identifiers_from_ast(&ast, &mut identifiers, true);
     Ok(identifiers)
 }
 
 /// Recursively collect identifiers from an AST node.
-fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<String>) {
+///
+/// # Arguments
+/// * `expr` - Expression to traverse
+/// * `identifiers` - Set to collect identifiers into
+/// * `ignore_lag` - If true, do not traverse into `lag()` or `shift()` calls
+///   (except when the offset is a literal 0, which is a current-period dependency)
+fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<String>, ignore_lag: bool) {
     match expr {
         StmtExpr::Literal(_) => {}
         StmtExpr::NodeRef(name) => {
@@ -103,15 +129,30 @@ fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<Stri
             identifiers.insert(encoded);
         }
         StmtExpr::BinOp { left, right, .. } => {
-            collect_identifiers_from_ast(left, identifiers);
-            collect_identifiers_from_ast(right, identifiers);
+            collect_identifiers_from_ast(left, identifiers, ignore_lag);
+            collect_identifiers_from_ast(right, identifiers, ignore_lag);
         }
         StmtExpr::UnaryOp { operand, .. } => {
-            collect_identifiers_from_ast(operand, identifiers);
+            collect_identifiers_from_ast(operand, identifiers, ignore_lag);
         }
-        StmtExpr::Call { args, .. } => {
+        StmtExpr::Call { func, args } => {
+            // If ignoring lag, skip traversal for lag/shift functions
+            // EXCEPT when the offset is a literal 0 (which means current-period dependency)
+            if ignore_lag && (func == "lag" || func == "shift") {
+                // Check if second argument is literal 0 - if so, this is a current-period
+                // dependency and we should traverse the first argument
+                if args.len() >= 2 {
+                    if let StmtExpr::Literal(offset) = &args[1] {
+                        if *offset == 0.0 {
+                            // Zero offset means current period - traverse the first argument
+                            collect_identifiers_from_ast(&args[0], identifiers, ignore_lag);
+                        }
+                    }
+                }
+                return;
+            }
             for arg in args {
-                collect_identifiers_from_ast(arg, identifiers);
+                collect_identifiers_from_ast(arg, identifiers, ignore_lag);
             }
         }
         StmtExpr::IfThenElse {
@@ -119,9 +160,9 @@ fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<Stri
             then_expr,
             else_expr,
         } => {
-            collect_identifiers_from_ast(condition, identifiers);
-            collect_identifiers_from_ast(then_expr, identifiers);
-            collect_identifiers_from_ast(else_expr, identifiers);
+            collect_identifiers_from_ast(condition, identifiers, ignore_lag);
+            collect_identifiers_from_ast(then_expr, identifiers, ignore_lag);
+            collect_identifiers_from_ast(else_expr, identifiers, ignore_lag);
         }
     }
 }
@@ -346,5 +387,37 @@ mod tests {
 
         // Should replace longer identifiers first to avoid partial replacement
         assert_eq!(result, "fin.ebitda_margin + fin.ebitda");
+    }
+
+    #[test]
+    fn test_extract_direct_dependencies_ignore_lag() {
+        let formula = "revenue + lag(cogs, 1)";
+        let deps = extract_direct_dependencies(formula).expect("should parse");
+        assert!(deps.contains("revenue"));
+        assert!(!deps.contains("cogs"));
+    }
+
+    #[test]
+    fn test_extract_direct_dependencies_zero_shift_included() {
+        // shift(x, 0) should include x as a direct dependency since it refers to current period
+        let formula = "shift(revenue, 0)";
+        let deps = extract_direct_dependencies(formula).expect("should parse");
+        assert!(deps.contains("revenue"));
+    }
+
+    #[test]
+    fn test_extract_direct_dependencies_zero_lag_included() {
+        // lag(x, 0) should include x as a direct dependency since it refers to current period
+        let formula = "lag(revenue, 0)";
+        let deps = extract_direct_dependencies(formula).expect("should parse");
+        assert!(deps.contains("revenue"));
+    }
+
+    #[test]
+    fn test_extract_direct_dependencies_nonzero_shift_excluded() {
+        // shift(x, 1) should NOT include x as a direct dependency
+        let formula = "shift(revenue, 1)";
+        let deps = extract_direct_dependencies(formula).expect("should parse");
+        assert!(!deps.contains("revenue"));
     }
 }

@@ -42,8 +42,8 @@ pub struct Ready;
 #[derive(Debug)]
 pub struct ModelBuilder<State> {
     id: String,
-    periods: Vec<Period>,
-    nodes: IndexMap<String, NodeSpec>,
+    pub(crate) periods: Vec<Period>,
+    pub(crate) nodes: IndexMap<String, NodeSpec>,
     meta: IndexMap<String, serde_json::Value>,
     pub(crate) capital_structure: Option<crate::types::CapitalStructureSpec>,
     alias_registry: Option<crate::registry::AliasRegistry>,

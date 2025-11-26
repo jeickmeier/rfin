@@ -4,6 +4,15 @@
 //! analysis capabilities. Extensions can process models and results to provide additional
 //! insights, validations, or transformations.
 //!
+//! # Built-in Extensions
+//!
+//! - **Corkscrew** - Balance sheet roll-forward validation
+//! - **CreditScorecard** - Credit rating assignment based on metrics
+//!
+//! For sensitivity analysis and explanation functionality, use the dedicated modules:
+//! - [`crate::analysis`] - Sensitivity analysis, goal seek, DCF valuation
+//! - [`crate::explain`] - Dependency tracing and formula explanation
+//!
 //! # Examples
 //!
 //! ```rust,ignore
@@ -34,17 +43,13 @@
 //! ```
 
 mod corkscrew;
-mod explainer;
 mod plugin;
 mod registry;
 mod scorecards;
-mod sensitivity;
 
 pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
-pub use explainer::ExplainerExtension;
 pub use plugin::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus,
 };
 pub use registry::ExtensionRegistry;
 pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};
-pub use sensitivity::SensitivityExtension;

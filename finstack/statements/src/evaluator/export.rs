@@ -1,9 +1,9 @@
 //! DataFrame export functionality for Results.
 
 #[cfg(feature = "dataframes")]
-use crate::error::Result;
+use super::Results;
 #[cfg(feature = "dataframes")]
-use crate::evaluator::Results;
+use crate::error::Result;
 #[cfg(feature = "dataframes")]
 use finstack_core::dates::PeriodId;
 #[cfg(feature = "dataframes")]
@@ -209,7 +209,7 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
 #[cfg(all(test, feature = "dataframes"))]
 mod tests {
     use super::*;
-    use crate::evaluator::ResultsMeta;
+    use super::super::ResultsMeta;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
 

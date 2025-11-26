@@ -5,7 +5,7 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::reports::{CreditAssessmentReport, PLSummaryReport, Report};
+use finstack_statements::analysis::{CreditAssessmentReport, PLSummaryReport, Report};
 use finstack_statements::types::AmountOrScalar;
 use finstack_statements::Result;
 

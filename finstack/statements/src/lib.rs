@@ -116,12 +116,10 @@ pub mod capital_structure;
 pub mod dsl;
 pub mod error;
 pub mod evaluator;
-pub mod explain;
 pub mod extensions;
 pub mod forecast;
 pub mod registry;
-pub mod reports;
-pub mod results;
+pub mod templates;
 pub mod types;
 pub(crate) mod utils;
 
@@ -148,6 +146,7 @@ pub mod prelude {
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
         ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
     };
+    pub use crate::templates::{TemplatesExtension, VintageExtension};
     pub use crate::registry::Registry;
     pub use crate::types::{
         AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,

@@ -10,6 +10,8 @@
 mod context;
 mod dag;
 mod engine;
+#[cfg(feature = "dataframes")]
+mod export;
 mod forecast_eval;
 pub(crate) mod formula;
 mod precedence;
@@ -20,3 +22,7 @@ pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::{Evaluator, EvaluatorWithContext};
 pub use precedence::{resolve_node_value, NodeValueSource};
 pub use results::{NumericMode, Results, ResultsMeta};
+
+// Re-export DataFrame functionality when polars feature is enabled
+#[cfg(feature = "dataframes")]
+pub use export::{to_polars_long, to_polars_long_filtered, to_polars_wide};

@@ -247,7 +247,7 @@ impl PyResults {
     /// # │ margin_pct  │ 2025Q1    │ 0.35       │ null         │ null     │ scalar     │
     /// # └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
     fn to_polars_long(&self) -> PyResult<pyo3_polars::PyDataFrame> {
-        use finstack_statements::results::to_polars_long;
+        use finstack_statements::evaluator::to_polars_long;
 
         let df = to_polars_long(&self.inner).map_err(stmt_to_py)?;
         Ok(pyo3_polars::PyDataFrame(df))
@@ -274,7 +274,7 @@ impl PyResults {
     /// # │ 2025Q2    │ 105000.0   │ 63000.0  │
     /// # └───────────┴────────────┴──────────┘
     fn to_polars_wide(&self) -> PyResult<pyo3_polars::PyDataFrame> {
-        use finstack_statements::results::to_polars_wide;
+        use finstack_statements::evaluator::to_polars_wide;
 
         let df = to_polars_wide(&self.inner).map_err(stmt_to_py)?;
         Ok(pyo3_polars::PyDataFrame(df))
@@ -303,7 +303,7 @@ impl PyResults {
         &self,
         node_filter: Vec<String>,
     ) -> PyResult<pyo3_polars::PyDataFrame> {
-        use finstack_statements::results::to_polars_long_filtered;
+        use finstack_statements::evaluator::to_polars_long_filtered;
 
         let node_filter_refs: Vec<&str> = node_filter.iter().map(|s| s.as_str()).collect();
         let df = to_polars_long_filtered(&self.inner, &node_filter_refs).map_err(stmt_to_py)?;

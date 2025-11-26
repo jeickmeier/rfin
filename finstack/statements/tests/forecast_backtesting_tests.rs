@@ -1,6 +1,6 @@
 //! Tests for forecast backtesting and error metrics.
 
-use finstack_statements::forecast::{backtest_forecast, ForecastMetrics};
+use finstack_statements::analysis::{backtest_forecast, ForecastMetrics};
 
 mod common;
 use common::assert_close;

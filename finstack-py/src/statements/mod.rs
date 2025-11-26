@@ -2,16 +2,24 @@
 //!
 //! This module provides Python bindings for the financial statement modeling engine,
 //! including types, builders, evaluators, extensions, and the metric registry system.
+//!
+//! ## Module Structure (mirrors Rust)
+//!
+//! - **types** - Wire types for serialization
+//! - **builder** - Type-safe builder API
+//! - **evaluator** - Evaluation engine
+//! - **analysis** - Analysis tools (sensitivity, dependency tracing, reports)
+//! - **extensions** - Plugin framework
+//! - **registry** - Dynamic metric registry
+//! - **adjustments** - EBITDA normalization
 
 pub(crate) mod adjustments;
 pub(crate) mod analysis;
 pub(crate) mod builder;
 pub(crate) mod error;
 pub(crate) mod evaluator;
-pub(crate) mod explain;
 pub(crate) mod extensions;
 pub(crate) mod registry;
-pub(crate) mod reports;
 pub(crate) mod types;
 pub(crate) mod utils;
 
@@ -33,7 +41,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         ),
     )?;
 
-    // Register submodules
+    // Register submodules (matches Rust structure)
     let adjustments_exports = adjustments::register(py, &module)?;
     promote_exports(&module, "adjustments", &adjustments_exports)?;
     let types_exports = types::register(py, &module)?;
@@ -48,10 +56,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     promote_exports(&module, "registry", &registry_exports)?;
     let analysis_exports = analysis::register(py, &module)?;
     promote_exports(&module, "analysis", &analysis_exports)?;
-    let explain_exports = explain::register(py, &module)?;
-    promote_exports(&module, "explain", &explain_exports)?;
-    let reports_exports = reports::register(py, &module)?;
-    promote_exports(&module, "reports", &reports_exports)?;
 
     // Collect all exports
     let mut all_exports = Vec::new();
@@ -62,8 +66,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(extensions_exports);
     all_exports.extend(registry_exports);
     all_exports.extend(analysis_exports);
-    all_exports.extend(explain_exports);
-    all_exports.extend(reports_exports);
 
     // Set __all__ for the module
     let all_list = PyList::new(py, &all_exports)?;

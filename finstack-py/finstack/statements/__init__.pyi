@@ -4,6 +4,14 @@ This module provides tools for building, evaluating, and analyzing
 financial statement models with deterministic evaluation, currency-safe
 arithmetic, and support for forecasting methods, extensions, and dynamic
 metric registries.
+
+Module Structure (mirrors Rust):
+- types - Wire types for serialization
+- builder - Type-safe builder API
+- evaluator - Evaluation engine
+- analysis - Analysis tools (sensitivity, dependency tracing, reports)
+- extensions - Plugin framework
+- registry - Dynamic metric registry
 """
 
 from .types import (
@@ -18,7 +26,7 @@ from .types import (
     DebtInstrumentSpec,
 )
 from .builder import ModelBuilder
-from .evaluator import ResultsMeta, Results, Evaluator
+from .evaluator import ResultsMeta, Results, Evaluator, EvaluatorWithContext, DependencyGraph
 from .extensions import (
     ExtensionMetadata,
     ExtensionStatus,
@@ -35,6 +43,7 @@ from .registry import (
     UnitType,
 )
 from .analysis import (
+    # Sensitivity Analysis
     ParameterSpec,
     SensitivityMode,
     SensitivityConfig,
@@ -43,8 +52,7 @@ from .analysis import (
     SensitivityAnalyzer,
     TornadoEntry,
     generate_tornado_chart,
-)
-from .explain import (
+    # Dependency Tracing & Formula Explanation
     ExplanationStep,
     Explanation,
     FormulaExplainer,
@@ -52,12 +60,7 @@ from .explain import (
     DependencyTracer,
     render_tree_ascii,
     render_tree_detailed,
-)
-from .evaluator import (
-    EvaluatorWithContext,
-    DependencyGraph,
-)
-from .reports import (
+    # Reports
     Alignment,
     TableBuilder,
     PLSummaryReport,
@@ -98,7 +101,7 @@ __all__ = [
     "MetricDefinition",
     "MetricRegistry",
     "UnitType",
-    # Analysis
+    # Analysis (Sensitivity)
     "ParameterSpec",
     "SensitivityMode",
     "SensitivityConfig",
@@ -107,7 +110,7 @@ __all__ = [
     "SensitivityAnalyzer",
     "TornadoEntry",
     "generate_tornado_chart",
-    # Explain
+    # Analysis (Dependency Tracing & Explanation)
     "ExplanationStep",
     "Explanation",
     "FormulaExplainer",
@@ -115,7 +118,7 @@ __all__ = [
     "DependencyTracer",
     "render_tree_ascii",
     "render_tree_detailed",
-    # Reports
+    # Analysis (Reports)
     "Alignment",
     "TableBuilder",
     "PLSummaryReport",

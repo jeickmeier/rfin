@@ -5,9 +5,13 @@ use crate::instruments::barrier_option::types::BarrierOption;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+
+// DayCountCtx is only used by MC pricer
+#[cfg(feature = "mc")]
+use finstack_core::dates::DayCountCtx;
 
 // MC-specific imports
 #[cfg(feature = "mc")]

@@ -4,7 +4,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::{PyDependencyGraph, PyResults};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::statements::types::node::PyNodeType;
-use finstack_statements::explain::{
+use finstack_statements::analysis::{
     render_tree_ascii, render_tree_detailed, DependencyTracer, DependencyTree, Explanation,
     ExplanationStep, FormulaExplainer,
 };
@@ -14,7 +14,7 @@ use pyo3::Bound;
 
 /// Step in a formula calculation breakdown.
 #[pyclass(
-    module = "finstack.statements.explain",
+    module = "finstack.statements.analysis",
     name = "ExplanationStep",
     frozen
 )]
@@ -83,7 +83,7 @@ impl PyExplanationStep {
 }
 
 /// Detailed explanation of a node's calculation.
-#[pyclass(module = "finstack.statements.explain", name = "Explanation", frozen)]
+#[pyclass(module = "finstack.statements.analysis", name = "Explanation", frozen)]
 #[derive(Clone)]
 pub struct PyExplanation {
     inner: Explanation,
@@ -163,7 +163,7 @@ impl PyExplanation {
 
 /// Formula explainer for financial models.
 #[pyclass(
-    module = "finstack.statements.explain",
+    module = "finstack.statements.analysis",
     name = "FormulaExplainer",
     unsendable
 )]
@@ -233,7 +233,7 @@ impl PyFormulaExplainer {
 
 /// Hierarchical dependency tree structure.
 #[pyclass(
-    module = "finstack.statements.explain",
+    module = "finstack.statements.analysis",
     name = "DependencyTree",
     frozen
 )]
@@ -303,7 +303,7 @@ impl PyDependencyTree {
 
 /// Dependency tracer for financial models.
 #[pyclass(
-    module = "finstack.statements.explain",
+    module = "finstack.statements.analysis",
     name = "DependencyTracer",
     unsendable
 )]
@@ -464,30 +464,18 @@ fn py_render_tree_detailed(
     render_tree_detailed(&tree.inner, &results.inner, &period.inner)
 }
 
+/// Register explain types with the analysis module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
+    module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(_py, "explain")?;
-    module.setattr(
-        "__doc__",
-        concat!(
-            "Node explanation and dependency tracing.\n\n",
-            "This module provides tools for understanding how financial statement nodes ",
-            "are calculated and what dependencies they have."
-        ),
-    )?;
-
     module.add_class::<PyExplanationStep>()?;
     module.add_class::<PyExplanation>()?;
     module.add_class::<PyFormulaExplainer>()?;
     module.add_class::<PyDependencyTree>()?;
     module.add_class::<PyDependencyTracer>()?;
-    module.add_function(wrap_pyfunction!(py_render_tree_ascii, &module)?)?;
-    module.add_function(wrap_pyfunction!(py_render_tree_detailed, &module)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("explain", &module)?;
+    module.add_function(wrap_pyfunction!(py_render_tree_ascii, module)?)?;
+    module.add_function(wrap_pyfunction!(py_render_tree_detailed, module)?)?;
 
     Ok(vec![
         "ExplanationStep",

@@ -1,7 +1,7 @@
 //! Tree visualization utilities.
 
 use crate::evaluator::Results;
-use crate::explain::DependencyTree;
+use super::DependencyTree;
 use finstack_core::dates::PeriodId;
 
 /// Render dependency tree as ASCII art.
@@ -19,7 +19,7 @@ use finstack_core::dates::PeriodId;
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::DependencyGraph;
-/// # use finstack_statements::explain::{DependencyTracer, render_tree_ascii};
+/// # use finstack_statements::analysis::{DependencyTracer, render_tree_ascii};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let model = ModelBuilder::new("demo")
 /// #     .periods("2025Q1..Q2", None)?
@@ -64,7 +64,7 @@ pub fn render_tree_ascii(tree: &DependencyTree) -> String {
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::{DependencyGraph, Evaluator};
-/// # use finstack_statements::explain::{DependencyTracer, render_tree_detailed};
+/// # use finstack_statements::analysis::{DependencyTracer, render_tree_detailed};
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let model = ModelBuilder::new("demo")
@@ -179,7 +179,7 @@ mod tests {
     use super::*;
     use crate::builder::ModelBuilder;
     use crate::evaluator::{DependencyGraph, Evaluator};
-    use crate::explain::DependencyTracer;
+    use crate::analysis::DependencyTracer;
 
     #[test]
     fn test_render_tree_ascii() {

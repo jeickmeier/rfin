@@ -1,4 +1,13 @@
 //! Analysis module bindings for financial models.
+//!
+//! This module provides Python bindings for analysis tools including:
+//! - **Sensitivity analysis** - Parameter sweeps and tornado charts
+//! - **Dependency tracing** - Identify direct and transitive dependencies
+//! - **Formula explanation** - Break down calculations step-by-step
+//! - **Reports** - Formatted output for P&L summaries and credit assessment
+
+mod explain;
+mod reports;
 
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyResults;
@@ -12,6 +21,7 @@ use pyo3::types::{PyDict, PyModule};
 use pyo3::{wrap_pyfunction, Bound};
 use std::cmp::Ordering;
 use std::str::FromStr;
+
 
 /// Parameter specification for sensitivity analysis.
 #[pyclass(
@@ -436,15 +446,23 @@ impl PySensitivityAnalyzer {
 }
 
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
+    py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(_py, "analysis")?;
+    let module = PyModule::new(py, "analysis")?;
     module.setattr(
         "__doc__",
-        "Sensitivity analysis for financial statement models.",
+        concat!(
+            "Analysis tools for financial statement models.\n\n",
+            "This module provides tools for:\n",
+            "- Sensitivity analysis - Parameter sweeps and tornado charts\n",
+            "- Dependency tracing - Identify direct and transitive dependencies\n",
+            "- Formula explanation - Break down calculations step-by-step\n",
+            "- Reports - Formatted output for P&L summaries and credit assessment"
+        ),
     )?;
 
+    // Sensitivity analysis types
     module.add_class::<PyParameterSpec>()?;
     module.add_class::<PySensitivityMode>()?;
     module.add_class::<PySensitivityConfig>()?;
@@ -454,10 +472,17 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTornadoEntry>()?;
     module.add_function(wrap_pyfunction!(generate_tornado_chart, &module)?)?;
 
+    // Register explain types (dependency tracing, formula explanation)
+    let explain_exports = explain::register(py, &module)?;
+
+    // Register reports types (table builder, P&L summary, credit assessment)
+    let reports_exports = reports::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
-    Ok(vec![
+    // Collect all exports
+    let mut all_exports = vec![
         "ParameterSpec",
         "SensitivityMode",
         "SensitivityConfig",
@@ -466,7 +491,11 @@ pub(crate) fn register<'py>(
         "SensitivityAnalyzer",
         "TornadoEntry",
         "generate_tornado_chart",
-    ])
+    ];
+    all_exports.extend(explain_exports);
+    all_exports.extend(reports_exports);
+
+    Ok(all_exports)
 }
 
 fn build_tornado_entry(
@@ -527,7 +556,7 @@ fn build_tornado_entry(
 }
 
 fn extract_metric_value(
-    results: &finstack_statements::results::Results,
+    results: &finstack_statements::evaluator::Results,
     node_id: &str,
     period_hint: Option<finstack_core::dates::PeriodId>,
 ) -> Option<f64> {

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::Evaluator;
-/// # use finstack_statements::explain::FormulaExplainer;
+/// # use finstack_statements::analysis::FormulaExplainer;
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = ModelBuilder::new("demo")
