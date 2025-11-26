@@ -3,16 +3,40 @@
 //! This module defines the `CdsOption` data structure and integrates with the
 //! common instrument trait via `impl_instrument!`. All pricing math and metrics
 //! are implemented in the `pricing/` and `metrics/` submodules.
+//!
+//! # Validation
+//!
+//! `CdsOption::try_new` validates all inputs at construction time:
+//! - Strike spread must be positive (≤0 is invalid)
+//! - Option expiry must precede underlying CDS maturity
+//! - Recovery rate must be in (0, 1)
+//! - Index factor must be in (0, 1] when specified
+//! - Implied volatility override must be in (0, 5] when specified
+//!
+//! # Volatility Convention
+//!
+//! All volatilities are expressed as **lognormal (Black) volatility** in decimal form.
+//! For example, 30% volatility is represented as 0.30.
 
 use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
 use super::parameters::CdsOptionParams;
+
+/// Minimum valid recovery rate (exclusive lower bound).
+pub const MIN_RECOVERY_RATE: f64 = 0.0;
+/// Maximum valid recovery rate (exclusive upper bound).
+pub const MAX_RECOVERY_RATE: f64 = 1.0;
+/// Minimum valid implied volatility (exclusive lower bound).
+pub const MIN_IMPLIED_VOL: f64 = 0.0;
+/// Maximum valid implied volatility (inclusive upper bound).
+/// 500% lognormal vol is extremely high but theoretically valid.
+pub const MAX_IMPLIED_VOL: f64 = 5.0;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
@@ -65,7 +89,73 @@ impl crate::metrics::HasCreditCurve for CdsOption {
 }
 
 impl CdsOption {
+    /// Validate the CdsOption parameters.
+    fn validate(&self) -> finstack_core::Result<()> {
+        // Strike validation
+        if self.strike_spread_bp <= super::parameters::MIN_STRIKE_SPREAD_BP {
+            return Err(finstack_core::Error::Validation(format!(
+                "strike_spread_bp must be positive, got {}",
+                self.strike_spread_bp
+            )));
+        }
+        if self.strike_spread_bp > super::parameters::MAX_STRIKE_SPREAD_BP {
+            return Err(finstack_core::Error::Validation(format!(
+                "strike_spread_bp {} exceeds maximum {} bp",
+                self.strike_spread_bp,
+                super::parameters::MAX_STRIKE_SPREAD_BP
+            )));
+        }
+
+        // Date validation
+        if self.expiry >= self.cds_maturity {
+            return Err(finstack_core::Error::Validation(format!(
+                "option expiry ({}) must be before CDS maturity ({})",
+                self.expiry, self.cds_maturity
+            )));
+        }
+
+        // Recovery rate validation
+        if self.recovery_rate <= MIN_RECOVERY_RATE || self.recovery_rate >= MAX_RECOVERY_RATE {
+            return Err(finstack_core::Error::Validation(format!(
+                "recovery_rate must be in (0, 1), got {}",
+                self.recovery_rate
+            )));
+        }
+
+        // Index factor validation
+        if let Some(factor) = self.index_factor {
+            if factor <= 0.0 || factor > 1.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "index_factor must be in (0, 1], got {}",
+                    factor
+                )));
+            }
+        }
+
+        // Implied volatility override validation
+        if let Some(vol) = self.pricing_overrides.implied_volatility {
+            if vol <= MIN_IMPLIED_VOL {
+                return Err(finstack_core::Error::Validation(format!(
+                    "implied_volatility must be positive, got {}",
+                    vol
+                )));
+            }
+            if vol > MAX_IMPLIED_VOL {
+                tracing::warn!(
+                    implied_vol = vol,
+                    max_vol = MAX_IMPLIED_VOL,
+                    "Implied volatility {} exceeds typical maximum {}. This may indicate a data error.",
+                    vol,
+                    MAX_IMPLIED_VOL
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     /// Create a canonical example CDS option (call on CDS spread).
+    #[must_use]
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
@@ -89,30 +179,34 @@ impl CdsOption {
         )
     }
 
-    /// Create a new credit option using parameter structs.
+    /// Create a new credit option using parameter structs with validation.
     ///
-    /// Inputs separation:
+    /// # Arguments
+    ///
+    /// - `id`: Unique instrument identifier
     /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
     /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
     /// - `discount_curve_id`: discount curve identifier for discounting cashflows
     /// - `vol_surface_id`: volatility surface identifier for the CDS option
     ///
-    /// Note: `credit_id` is sourced from `credit_params` to avoid duplication.
-    pub fn new(
+    /// # Errors
+    ///
+    /// Returns an error if any validation fails. See [`CdsOptionParams`] for parameter constraints.
+    pub fn try_new(
         id: impl Into<InstrumentId>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         vol_surface_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
-        Self {
+    ) -> finstack_core::Result<Self> {
+        let option = Self {
             id: id.into(),
             strike_spread_bp: option_params.strike_spread_bp,
             option_type: option_params.option_type,
             exercise_style: ExerciseStyle::European,
             expiry: option_params.expiry,
             cds_maturity: option_params.cds_maturity,
-            day_count: DayCount::Act360,
+            day_count: option_params.day_count,
             notional: option_params.notional,
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
@@ -124,7 +218,54 @@ impl CdsOption {
             underlying_is_index: option_params.underlying_is_index,
             index_factor: option_params.index_factor,
             forward_spread_adjust_bp: option_params.forward_spread_adjust_bp,
+        };
+        option.validate()?;
+        Ok(option)
+    }
+
+    /// Create a new credit option using parameter structs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if inputs are invalid. For fallible construction, use [`try_new`](Self::try_new).
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Unique instrument identifier
+    /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
+    /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
+    /// - `discount_curve_id`: discount curve identifier for discounting cashflows
+    /// - `vol_surface_id`: volatility surface identifier for the CDS option
+    #[must_use]
+    pub fn new(
+        id: impl Into<InstrumentId>,
+        option_params: &CdsOptionParams,
+        credit_params: &CreditParams,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
+        vol_surface_id: impl Into<finstack_core::types::CurveId>,
+    ) -> Self {
+        Self::try_new(id, option_params, credit_params, discount_curve_id, vol_surface_id)
+            .expect("Invalid CdsOption parameters")
+    }
+
+    /// Set implied volatility override with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `vol` - Lognormal (Black) volatility in decimal form (e.g., 0.30 for 30%)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if volatility is not positive.
+    pub fn with_implied_vol(mut self, vol: f64) -> finstack_core::Result<Self> {
+        if vol <= MIN_IMPLIED_VOL {
+            return Err(finstack_core::Error::Validation(format!(
+                "implied_volatility must be positive, got {}",
+                vol
+            )));
         }
+        self.pricing_overrides.implied_volatility = Some(vol);
+        Ok(self)
     }
 
     /// Calculate the net present value of this CDS option
@@ -137,187 +278,144 @@ impl CdsOption {
         pricer.npv(self, curves, as_of)
     }
 
-    /// Calculate delta of this CDS option
+    /// Extract common pricing inputs for Greek calculations.
+    ///
+    /// This helper consolidates the repeated logic for computing:
+    /// - Time to expiry (t)
+    /// - Forward spread (fwd_bp)
+    /// - Implied volatility (sigma)
+    /// - Risky annuity
+    ///
+    /// Returns `None` if the option has expired (t <= 0).
+    fn pricing_inputs(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Option<CdsOptionPricingInputs>> {
+        let ctx = DayCountCtx::default();
+
+        // Time to expiry
+        let t = self.day_count.year_fraction(as_of, self.expiry, ctx)?;
+        if t <= 0.0 {
+            return Ok(None);
+        }
+
+        // Forward spread in bp
+        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
+        let current_tenor = self.day_count.year_fraction(as_of, self.cds_maturity, ctx)?;
+        let fwd_bp = if current_tenor > 0.0 {
+            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
+        } else {
+            self.strike_spread_bp
+        };
+
+        // Volatility (use override if present, else surface)
+        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
+            v
+        } else {
+            curves
+                .surface_ref(self.vol_surface_id.as_str())?
+                .value_clamped(t, self.strike_spread_bp)
+        };
+
+        // Risky annuity
+        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
+
+        Ok(Some(CdsOptionPricingInputs {
+            t,
+            fwd_bp,
+            sigma,
+            risky_annuity,
+        }))
+    }
+
+    /// Calculate delta of this CDS option.
+    ///
+    /// Delta measures the sensitivity of the option value to changes in the forward spread.
+    /// Returns the dollar value change per 100% change in spread.
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let t = self.day_count.year_fraction(
-            as_of,
-            self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        if t <= 0.0 {
+        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
             return Ok(0.0);
-        }
-
-        // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
-        let current_tenor = self.day_count.year_fraction(
-            as_of,
-            self.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            self.strike_spread_bp
-        };
-
-        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
-            v
-        } else {
-            curves
-                .surface_ref(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike_spread_bp)
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
-        let delta = pricer.delta(self, fwd_bp, risky_annuity, sigma, t);
+        let delta = pricer.delta(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
         Ok(delta * self.notional.amount())
     }
 
-    /// Calculate gamma of this CDS option
+    /// Calculate gamma of this CDS option.
+    ///
+    /// Gamma measures the rate of change of delta with respect to the forward spread.
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let t = self.day_count.year_fraction(
-            as_of,
-            self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        if t <= 0.0 {
+        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
             return Ok(0.0);
-        }
-
-        // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
-        let current_tenor = self.day_count.year_fraction(
-            as_of,
-            self.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            self.strike_spread_bp
-        };
-
-        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
-            v
-        } else {
-            curves
-                .surface_ref(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike_spread_bp)
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
-        let gamma = pricer.gamma(self, fwd_bp, risky_annuity, sigma, t);
+        let gamma = pricer.gamma(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
         Ok(gamma * self.notional.amount())
     }
 
-    /// Calculate vega of this CDS option
+    /// Calculate vega of this CDS option.
+    ///
+    /// Vega measures the sensitivity of the option value to changes in implied volatility.
+    /// Returns the dollar value change per 1% change in volatility.
     pub fn vega(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let t = self.day_count.year_fraction(
-            as_of,
-            self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        if t <= 0.0 {
+        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
             return Ok(0.0);
-        }
-
-        // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
-        let current_tenor = self.day_count.year_fraction(
-            as_of,
-            self.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            self.strike_spread_bp
-        };
-
-        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
-            v
-        } else {
-            curves
-                .surface_ref(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike_spread_bp)
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
-        let vega = pricer.vega(self, fwd_bp, risky_annuity, sigma, t);
+        let vega = pricer.vega(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
         Ok(vega * self.notional.amount())
     }
 
-    /// Calculate theta of this CDS option
+    /// Calculate theta of this CDS option using finite differences.
+    ///
+    /// Theta measures the sensitivity of the option value to the passage of time.
+    /// This implementation uses a full finite-difference approach that captures
+    /// both the Black formula time decay and the risky annuity decay.
+    ///
+    /// # Returns
+    ///
+    /// The dollar value change per day (negative for long positions).
     pub fn theta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let t = self.day_count.year_fraction(
-            as_of,
-            self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        // Risk-free rate proxy from discount curve at expiry
-        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
-        let r = disc.zero(t);
-
-        // Forward spread in bp
-        let hazard_curve = curves.get_hazard(&self.credit_curve_id)?;
-        let current_tenor = self.day_count.year_fraction(
-            as_of,
-            self.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            self.strike_spread_bp
-        };
-
-        let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
-            v
-        } else {
-            curves
-                .surface(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike_spread_bp)
-        };
-
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
-        let theta = pricer.theta(self, fwd_bp, risky_annuity, r, sigma, t);
-        Ok(theta * self.notional.amount())
+        pricer.theta_finite_diff(self, curves, as_of)
     }
 
-    /// Calculate implied volatility of this CDS option
+    /// Calculate implied volatility of this CDS option.
+    ///
+    /// Solves for the Black volatility σ such that model price(σ) = target_price.
+    ///
+    /// # Arguments
+    ///
+    /// * `curves` - Market context with discount and hazard curves
+    /// * `as_of` - Valuation date
+    /// * `target_price` - The observed market price to match
+    /// * `initial_guess` - Optional starting point for the solver (defaults to surface vol or 20%)
+    ///
+    /// # Returns
+    ///
+    /// The implied lognormal volatility in decimal form (e.g., 0.30 for 30%).
     pub fn implied_vol(
         &self,
         curves: &finstack_core::market_data::MarketContext,
@@ -328,6 +426,22 @@ impl CdsOption {
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
         pricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }
+}
+
+/// Common pricing inputs for CDS option Greeks calculations.
+///
+/// This struct consolidates the computed market inputs needed by all Greek methods,
+/// eliminating code duplication while maintaining clear ownership of the computation.
+#[derive(Debug, Clone, Copy)]
+pub struct CdsOptionPricingInputs {
+    /// Time to expiry in years
+    pub t: f64,
+    /// Forward CDS spread in basis points
+    pub fwd_bp: f64,
+    /// Implied volatility (lognormal, decimal)
+    pub sigma: f64,
+    /// Risky annuity (RPV01) in years
+    pub risky_annuity: f64,
 }
 
 impl crate::instruments::common::traits::Instrument for CdsOption {

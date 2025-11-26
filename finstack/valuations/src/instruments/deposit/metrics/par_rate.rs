@@ -1,5 +1,11 @@
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
+/// Minimum year fraction for par rate calculation.
+///
+/// Year fractions below this threshold are considered too small for meaningful
+/// par rate calculation (approximately 8.6 seconds).
+const MIN_YEAR_FRACTION: f64 = 1e-6;
+
 /// Calculates par rate for deposits.
 ///
 /// Computes the simple rate that makes the deposit worth par (face value) at
@@ -7,6 +13,12 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 ///
 /// # Dependencies
 /// Requires `DfStart`, `DfEnd`, and `Yf` metrics to be computed first.
+///
+/// # Errors
+/// Returns an error if:
+/// - Any required metric is missing
+/// - Year fraction is too small (< 1e-6) for meaningful calculation
+/// - Division would produce extreme values
 pub struct DepositParRateCalculator;
 
 impl MetricCalculator for DepositParRateCalculator {
@@ -21,7 +33,7 @@ impl MetricCalculator for DepositParRateCalculator {
             .copied()
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "deposit_quote_rate".to_string(),
+                    id: "DfStart (required for par rate calculation)".to_string(),
                 })
             })?;
         let df_e = context
@@ -30,7 +42,7 @@ impl MetricCalculator for DepositParRateCalculator {
             .copied()
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "deposit_quote_rate".to_string(),
+                    id: "DfEnd (required for par rate calculation)".to_string(),
                 })
             })?;
         let yf = context
@@ -39,12 +51,24 @@ impl MetricCalculator for DepositParRateCalculator {
             .copied()
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "deposit_quote_rate".to_string(),
+                    id: "Yf (required for par rate calculation)".to_string(),
                 })
             })?;
 
-        if yf == 0.0 {
-            return Ok(0.0);
+        // Guard against near-zero year fractions that would produce extreme rates
+        if yf.abs() < MIN_YEAR_FRACTION {
+            return Err(finstack_core::Error::Validation(format!(
+                "Year fraction {:.2e} is too small for par rate calculation (minimum: {:.0e})",
+                yf, MIN_YEAR_FRACTION
+            )));
+        }
+
+        // Guard against zero or negative discount factors
+        if df_e <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "End discount factor must be positive, got {:.6}",
+                df_e
+            )));
         }
 
         Ok((df_s / df_e - 1.0) / yf)

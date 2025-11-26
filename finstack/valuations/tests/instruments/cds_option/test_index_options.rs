@@ -108,16 +108,21 @@ fn test_index_vs_single_name() {
 }
 
 #[test]
-fn test_index_factor_zero() {
-    // Index factor of 0 should give zero value
+fn test_very_small_index_factor() {
+    // Very small index factor should give very small value
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);
 
-    let option = CdsOptionBuilder::new().with_index(0.0).build(as_of);
+    // Test with smallest practical index factor (1%)
+    let option_small = CdsOptionBuilder::new().with_index(0.01).build(as_of);
+    let option_full = CdsOptionBuilder::new().with_index(1.0).build(as_of);
 
-    let pv = option.value(&market, as_of).unwrap().amount();
+    let pv_small = option_small.value(&market, as_of).unwrap().amount();
+    let pv_full = option_full.value(&market, as_of).unwrap().amount();
 
-    assert_in_range(pv, -1e-10, 1e-10, "Index factor 0 should give ~0 value");
+    // Small factor should give proportionally smaller value
+    let ratio = pv_small / pv_full;
+    assert_approx_eq(ratio, 0.01, 0.001, "Very small index factor should scale linearly");
 }
 
 #[test]

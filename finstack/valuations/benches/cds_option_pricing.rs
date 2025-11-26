@@ -38,6 +38,7 @@ fn create_cds_option(
         underlying_is_index: false,
         index_factor: None,
         forward_spread_adjust_bp: 0.0,
+        day_count: finstack_core::dates::DayCount::Act360,
     };
 
     let credit_params = CreditParams {

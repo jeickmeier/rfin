@@ -44,6 +44,13 @@
 //! - **DV01**: Interest rate sensitivity
 //! - **CS01**: Credit spread sensitivity
 //!
+//! # Numerical Constants
+//!
+//! This module uses centralized numerical tolerances for consistency:
+//! - `ZERO_TOLERANCE`: General zero comparison threshold (1e-8)
+//! - `UTILIZATION_CHANGE_THRESHOLD`: Threshold for detecting utilization changes (1e-6)
+//! - `INTERPOLATION_TOLERANCE`: Tolerance for interpolation equality checks (1e-10)
+//!
 //! # See Also
 //!
 //! - [`RevolvingCredit`] for instrument struct
@@ -57,6 +64,32 @@ pub mod pricer;
 pub mod types;
 
 mod utils;
+
+// ============================================================================
+// Numerical Constants
+// ============================================================================
+// Centralized thresholds for numerical stability and consistency across the module.
+
+/// General zero comparison threshold for numerical stability.
+/// Used for comparing floating-point values to zero.
+pub const ZERO_TOLERANCE: f64 = 1e-8;
+
+/// Threshold for detecting significant utilization changes.
+/// Changes smaller than this are treated as noise and ignored.
+pub const UTILIZATION_CHANGE_THRESHOLD: f64 = 1e-6;
+
+/// Tolerance for interpolation equality checks.
+/// Used when comparing time points or interpolation boundaries.
+pub const INTERPOLATION_TOLERANCE: f64 = 1e-10;
+
+/// Minimum spread value for CIR process stability.
+/// Ensures spreads don't go to exactly zero, which would cause numerical issues.
+pub const MIN_CIR_SPREAD: f64 = 1e-8;
+
+/// Maximum allowed recovery rate (exclusive).
+/// Recovery rate must be strictly less than 1.0 to avoid division by zero
+/// in hazard-to-spread mapping: λ = s / (1 - R).
+pub const MAX_RECOVERY_RATE: f64 = 1.0 - 1e-6;
 
 // Re-export main types
 pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};

@@ -8,6 +8,12 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 ///
 /// # Dependencies
 /// Requires `DfStart` and `Yf` metrics to be computed first.
+///
+/// # Errors
+/// Returns an error if:
+/// - Quote rate is missing from the deposit
+/// - Required metrics are missing
+/// - Denominator (1 + rate × year_fraction) is zero or negative
 pub struct DfEndFromQuoteCalculator;
 
 impl MetricCalculator for DfEndFromQuoteCalculator {
@@ -20,7 +26,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
 
         let r = deposit.quote_rate.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "deposit_quote_rate".to_string(),
+                id: "QuoteRate (required for implied DF calculation)".to_string(),
             })
         })?;
 
@@ -30,7 +36,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .copied()
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "deposit_quote_rate".to_string(),
+                    id: "DfStart (required for implied DF calculation)".to_string(),
                 })
             })?;
         let yf = context
@@ -39,10 +45,20 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .copied()
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "deposit_quote_rate".to_string(),
+                    id: "Yf (required for implied DF calculation)".to_string(),
                 })
             })?;
 
-        Ok(df_s / (1.0 + r * yf))
+        // Guard against zero or negative denominator which would produce
+        // invalid discount factors (inf or negative)
+        let denominator = 1.0 + r * yf;
+        if denominator <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Invalid discount factor denominator: 1 + rate({:.4}) × yf({:.4}) = {:.6} must be positive",
+                r, yf, denominator
+            )));
+        }
+
+        Ok(df_s / denominator)
     }
 }

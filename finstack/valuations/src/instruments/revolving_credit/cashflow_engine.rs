@@ -630,7 +630,7 @@ impl<'a> CashflowEngine<'a> {
             // Handle principal flows from utilization changes
             // At period_end, utilization changes from start to end value for use in the next period
             let utilization_change = utilization_end - prev_utilization;
-            if utilization_change.abs() > 1e-6 {
+            if utilization_change.abs() > super::UTILIZATION_CHANGE_THRESHOLD {
                 let principal_change = self.facility.commitment_amount * utilization_change;
                 // Draw (increase) is negative for lender, repay (decrease) is positive
                 flows.push(CashFlow {

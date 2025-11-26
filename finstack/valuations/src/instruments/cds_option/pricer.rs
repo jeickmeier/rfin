@@ -325,8 +325,14 @@ impl CdsOptionPricer {
         scale * risky_annuity * forward * self.config.bp_per_unit * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
-    /// Theta per year, rate-sensitive term uses r provided by caller.
-    pub fn theta(
+    /// Analytical theta per day using Black-76 formula.
+    ///
+    /// # Note
+    ///
+    /// This is the analytical approximation that only captures the Black formula
+    /// time decay (dBlack/dt) but not the risky annuity decay (dA/dt).
+    /// For complete theta including annuity decay, use [`theta_finite_diff`](Self::theta_finite_diff).
+    pub fn theta_analytical(
         &self,
         option: &CdsOption,
         forward_spread_bp: f64,
@@ -355,9 +361,8 @@ impl CdsOptionPricer {
         // Theta = dV/dt.
         // V = A * Black
         // dV/dt = dA/dt * Black + A * dBlack/dt
-        // Currently we only implement the dBlack/dt part (Standard Theta).
-        // dA/dt is usually ignored or handled via Theta-decay of A separately (Theta due to annuity time decay).
-        // We will scale the Black Theta by A.
+        // This analytical version only computes A * dBlack/dt.
+        // For complete theta, use theta_finite_diff.
 
         match option.option_type {
             OptionType::Call => {
@@ -373,6 +378,56 @@ impl CdsOptionPricer {
                     / self.config.theta_days_per_year
             }
         }
+    }
+
+    /// Finite-difference theta (complete, including risky annuity decay).
+    ///
+    /// Computes theta by repricing the option with a 1-day time shift.
+    /// This captures both the Black formula time decay and the risky annuity decay,
+    /// providing a complete theta measure.
+    ///
+    /// # Formula
+    ///
+    /// θ = (V(t - dt) - V(t)) / dt
+    ///
+    /// where dt = 1/365 (one calendar day).
+    ///
+    /// # Returns
+    ///
+    /// The dollar value change per day (typically negative for long positions).
+    pub fn theta_finite_diff(
+        &self,
+        option: &CdsOption,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<f64> {
+        use time::Duration;
+
+        // Time step: 1 calendar day
+        let dt_years = 1.0 / self.config.theta_days_per_year;
+
+        // Check if already expired
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= dt_years {
+            return Ok(0.0);
+        }
+
+        // Base PV at as_of
+        let pv_base = self.npv(option, curves, as_of)?.amount();
+
+        // Shifted PV at as_of + 1 day (moving forward in time reduces time to expiry)
+        let as_of_shifted = as_of + Duration::days(1);
+        let pv_shifted = self.npv(option, curves, as_of_shifted)?.amount();
+
+        // Theta = (PV_shifted - PV_base) / dt
+        // Since we moved forward in time by 1 day, this gives daily theta
+        let theta = pv_shifted - pv_base;
+
+        Ok(theta)
     }
 
     fn risky_annuity_from_pricer(

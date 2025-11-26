@@ -3,7 +3,10 @@ use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Quoted rate passthrough for deposits.
 ///
-/// Returns the quoted simple rate from the instrument; errors if missing.
+/// Returns the quoted simple rate from the instrument.
+///
+/// # Errors
+/// Returns an error if the deposit does not have a quoted rate set.
 pub struct QuoteRateCalculator;
 
 impl MetricCalculator for QuoteRateCalculator {
@@ -11,7 +14,7 @@ impl MetricCalculator for QuoteRateCalculator {
         let deposit: &Deposit = context.instrument_as()?;
         deposit.quote_rate.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "deposit_quote_rate".to_string(),
+                id: "QuoteRate (deposit has no quoted rate set)".to_string(),
             })
         })
     }

@@ -350,10 +350,16 @@ impl McConfig {
     /// describing the validation failure.
     pub fn validate(&self) -> finstack_core::Result<()> {
         use finstack_core::error::InputError;
+        use super::MAX_RECOVERY_RATE;
 
-        // Validate recovery rate
-        if self.recovery_rate < 0.0 || self.recovery_rate > 1.0 {
-            return Err(InputError::Invalid.into());
+        // Validate recovery rate: must be in [0, 1) to avoid division by zero
+        // in hazard-to-spread mapping: λ = s / (1 - R)
+        if self.recovery_rate < 0.0 || self.recovery_rate >= MAX_RECOVERY_RATE {
+            return Err(finstack_core::Error::Validation(format!(
+                "Recovery rate must be in [0, {:.6}), got {}",
+                MAX_RECOVERY_RATE,
+                self.recovery_rate
+            )));
         }
 
         // Validate correlation matrix if provided
@@ -503,15 +509,14 @@ pub enum UtilizationProcess {
     },
 }
 
-// Implement HasCreditCurve for generic CS01 calculator (when hazard curve is present)
-// Note: This will return an error if hazard_curve_id is None
+// Implement HasCreditCurve for generic CS01 calculator.
+// Returns hazard_curve_id if present, otherwise falls back to discount_curve_id.
+// CS01 will fail at runtime if no hazard curve exists in market data, which is acceptable.
 impl crate::metrics::HasCreditCurve for RevolvingCredit {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        // Return the hazard curve id if present, otherwise panic
-        // (CS01 calculator will fail gracefully if this field is None)
         self.hazard_curve_id
             .as_ref()
-            .expect("RevolvingCredit::hazard_curve_id must be set for CS01 calculation")
+            .unwrap_or(&self.discount_curve_id)
     }
 }
 
@@ -538,6 +543,14 @@ impl RevolvingCredit {
     /// Check if the facility uses stochastic utilization.
     pub fn is_stochastic(&self) -> bool {
         matches!(self.draw_repay_spec, DrawRepaySpec::Stochastic(_))
+    }
+
+    /// Check if the facility has a credit curve configured for CS01 calculations.
+    ///
+    /// Returns `true` if `hazard_curve_id` is set, indicating that credit risk
+    /// sensitivity (CS01) calculations are meaningful for this facility.
+    pub fn has_credit_curve(&self) -> bool {
+        self.hazard_curve_id.is_some()
     }
 }
 

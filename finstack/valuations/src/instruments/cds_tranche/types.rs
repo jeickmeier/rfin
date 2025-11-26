@@ -249,6 +249,54 @@ impl CdsTranche {
         pricer.calculate_correlation_delta(self, curves, as_of)
     }
 
+    /// Calculate accrued premium on the tranche.
+    ///
+    /// Returns the premium accrued since the last payment date, calculated on
+    /// the outstanding notional (after any realized losses).
+    ///
+    /// # Returns
+    ///
+    /// The accrued premium amount in the tranche currency. This represents:
+    /// - For protection buyer: amount owed to seller
+    /// - For protection seller: amount receivable from buyer
+    ///
+    /// # Use Cases
+    ///
+    /// - Dirty vs clean price calculation: `dirty_price = clean_price + accrued`
+    /// - Settlement amount calculation
+    /// - Mark-to-market accounting
+    pub fn accrued_premium(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_accrued_premium(self, curves, as_of)
+    }
+
+    /// Calculate detailed jump-to-default metrics including min, max, and average.
+    ///
+    /// For heterogeneous portfolios, provides the full distribution of JTD impacts.
+    pub fn jump_to_default_detail(
+        &self,
+        curves: &MarketContext,
+    ) -> finstack_core::Result<pricer::JumpToDefaultResult> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_jump_to_default_detail(self, curves)
+    }
+
+    /// Get the expected loss curve for diagnostic purposes.
+    ///
+    /// Returns (Date, EL_fraction) pairs showing cumulative expected loss over time.
+    pub fn expected_loss_curve(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, f64)>> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.get_expected_loss_curve(self, curves, as_of)
+    }
+
     // Builder now provided by derive
 }
 

@@ -250,7 +250,7 @@ impl RevolvingCreditPricer {
                         .amount()
                 };
 
-                // Integrate over intervals
+                // Integrate over intervals using ISDA-style trapezoidal integration
                 let mut prev_date = as_of;
                 for i in 0..future_grid.len() {
                     let curr_date = future_grid[i];
@@ -259,8 +259,7 @@ impl RevolvingCreditPricer {
 
                     let prob_default = (prev_sp - curr_sp).max(0.0);
 
-                    // Discount using mid-point of interval for better accuracy
-                    // t_df = (t_prev + t_curr) / 2
+                    // Compute discount factors at interval endpoints
                     let t_prev = disc_dc
                         .year_fraction(
                             disc_curve.base_date(),
@@ -277,13 +276,17 @@ impl RevolvingCreditPricer {
                         )
                         .unwrap_or(0.0);
 
-                    let t_mid = (t_prev + t_curr) / 2.0;
-                    let df = disc_curve.df(t_mid);
+                    // Use average of endpoint discount factors (ISDA CDS standard)
+                    // This is more accurate than using the midpoint time's DF,
+                    // especially for steep discount curves and longer intervals.
+                    let df_prev = disc_curve.df(t_prev);
+                    let df_curr = disc_curve.df(t_curr);
+                    let df_avg = (df_prev + df_curr) / 2.0;
 
-                    // Exposure Average
+                    // Exposure Average (trapezoidal)
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
 
-                    let recovery_flow = exposure_avg * facility.recovery_rate * df * prob_default;
+                    let recovery_flow = exposure_avg * facility.recovery_rate * df_avg * prob_default;
                     total_pv += recovery_flow;
 
                     prev_sp = curr_sp;
@@ -463,13 +466,21 @@ impl RevolvingCreditPricer {
             path_results.push(result);
         }
 
-        // Compute MC statistics
+        // Compute MC statistics using Bessel-corrected variance (N-1 denominator)
+        // for unbiased standard error estimation
         let pvs: Vec<f64> = path_results.iter().map(|r| r.pv.amount()).collect();
-        let mean = pvs.iter().sum::<f64>() / pvs.len() as f64;
-        let variance = pvs.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / pvs.len() as f64;
-        let stderr = (variance / pvs.len() as f64).sqrt();
+        let n = pvs.len() as f64;
+        let mean = pvs.iter().sum::<f64>() / n;
 
-        // Compute 95% confidence interval (assuming normality)
+        // Use N-1 for unbiased variance estimation (Bessel's correction)
+        let variance = if pvs.len() > 1 {
+            pvs.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)
+        } else {
+            0.0 // Single path case
+        };
+        let stderr = (variance / n).sqrt();
+
+        // Compute 95% confidence interval (assuming asymptotic normality via CLT)
         let z_95 = 1.96;
         let ci_low = mean - z_95 * stderr;
         let ci_high = mean + z_95 * stderr;
@@ -498,6 +509,16 @@ impl RevolvingCreditPricer {
     /// Interpolates survival from the credit spread path to match cashflow dates.
     ///
     /// Uses the relation: hazard_rate = credit_spread / (1 - recovery_rate)
+    ///
+    /// # Arguments
+    ///
+    /// * `credit_spreads` - Credit spread values at each time point
+    /// * `time_points` - Time grid in years from commitment date
+    /// * `_payment_dates` - Payment dates (unused but kept for API compatibility)
+    /// * `cashflow_dates` - Dates at which to compute survival probabilities
+    /// * `recovery_rate` - Recovery rate for hazard-to-spread mapping
+    /// * `commitment_date` - Facility commitment date
+    /// * `day_count` - Optional day count convention (defaults to Act365F if None)
     fn compute_dynamic_survival_at_dates(
         credit_spreads: &[f64],
         time_points: &[f64],
@@ -507,6 +528,8 @@ impl RevolvingCreditPricer {
         commitment_date: Date,
     ) -> Result<Vec<f64>> {
         use finstack_core::dates::{DayCount, DayCountCtx};
+        // Use Act365F for time grid consistency with path generation
+        // (path time_points are computed using facility.day_count)
         let dc = DayCount::Act365F;
 
         // First, compute cumulative hazard at each payment date
@@ -529,7 +552,7 @@ impl RevolvingCreditPricer {
 
             // Find the bracketing payment dates
             let hazard_at_cf = if let Some(idx) = time_points.iter().position(|&t| t >= t_cf) {
-                if idx == 0 || (time_points[idx] - t_cf).abs() < 1e-10 {
+                if idx == 0 || (time_points[idx] - t_cf).abs() < super::super::INTERPOLATION_TOLERANCE {
                     // At or before first point
                     cumulative_hazards[idx.min(cumulative_hazards.len() - 1)]
                 } else {
@@ -539,7 +562,7 @@ impl RevolvingCreditPricer {
                     let h0 = cumulative_hazards[idx - 1];
                     let h1 = cumulative_hazards[idx];
 
-                    let alpha = (t_cf - t0) / (t1 - t0).max(1e-10);
+                    let alpha = (t_cf - t0) / (t1 - t0).max(super::super::INTERPOLATION_TOLERANCE);
                     h0 + alpha * (h1 - h0)
                 }
             } else {

@@ -1,86 +1,96 @@
-//! Internal Rate of Return (IRR) calculations for revolving credit facilities.
+//! Internal Rate of Return (IRR) utilities for revolving credit facilities.
 //!
-//! Provides IRR calculation utility functions for cashflow analysis. These are not
-//! auto-calculated metrics (unlike DV01, CS01, etc.) because IRR calculation depends
-//! on the cashflow perspective (lender vs borrower) and should be explicitly controlled
-//! by the user.
+//! This module provides convenience functions for IRR calculation specific to
+//! revolving credit cashflows. For general IRR calculations, use the functions
+//! from `finstack_core::cashflow`:
+//!
+//! - [`finstack_core::cashflow::xirr::xirr`] - XIRR for irregular dated cashflows
+//! - [`finstack_core::cashflow::xirr::xirr_with_daycount`] - XIRR with custom day count
+//! - [`finstack_core::cashflow::performance::irr_periodic`] - IRR for periodic cashflows
+//!
+//! # Facility-Specific Function
+//!
+//! - [`calculate_path_irr`]: Converts time-fraction cashflows (from MC paths) to dates
+//!   and computes XIRR. This is useful when working with path-based data where
+//!   cashflows are specified as `(time_in_years, amount)` tuples.
 //!
 //! # Usage
 //!
-//! These functions are intended for manual IRR calculation on cashflow schedules:
-//!
 //! ```rust,ignore
+//! use finstack_core::cashflow::xirr::xirr;
 //! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
 //!
-//! let cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
-//! let irr = calculate_path_irr(&cashflows, base_date, day_count);
+//! // For dated cashflows, use core's xirr directly:
+//! let dated_cashflows = vec![
+//!     (Date::from_ymd(2025, 1, 1), -1_000_000.0),
+//!     (Date::from_ymd(2026, 1, 1), 1_050_000.0),
+//! ];
+//! let irr = xirr(&dated_cashflows, None).ok();
+//!
+//! // For MC path data with time fractions:
+//! let path_cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
+//! let irr = calculate_path_irr(&path_cashflows, base_date, DayCount::Act365F);
 //! ```
 
 use finstack_core::cashflow::xirr::xirr;
 use finstack_core::dates::{Date, DayCount};
 
-/// Calculate IRR from path cashflows.
+/// Calculate IRR from Monte Carlo path cashflows (time fractions).
 ///
-/// Computes the annualized Internal Rate of Return using XIRR for irregular cashflows.
-/// The cashflows are assumed to be from the lender's perspective:
-/// - Negative: principal deployment (outflow from lender)
-/// - Positive: receipts (interest, fees, principal repayment)
+/// Convenience function that converts time-fraction cashflows to dates and
+/// computes XIRR using `finstack_core::cashflow::xirr::xirr`.
+///
+/// This is primarily useful for revolving credit Monte Carlo simulations where
+/// cashflows are generated as `(time_in_years, amount)` tuples relative to
+/// a base date.
+///
+/// For dated cashflows, use `finstack_core::cashflow::xirr::xirr` directly.
 ///
 /// # Arguments
 ///
 /// * `cashflows` - Vector of (time_in_years, amount) tuples
 /// * `base_date` - Base date for time calculations
-/// * `day_count` - Day count convention to use
+/// * `day_count` - Day count convention (used to determine year basis for conversion)
 ///
 /// # Returns
 ///
-/// IRR as an annualized decimal (e.g., 0.08 for 8% annual return), or None if IRR doesn't exist.
+/// IRR as an annualized decimal, or None if IRR doesn't exist or calculation fails.
 ///
 /// # Example
 ///
 /// ```rust,ignore
 /// use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
 /// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
 ///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+/// let base = Date::from_calendar_date(2025, 1, 1).unwrap();
 /// let cashflows = vec![
 ///     (0.0, -1_000_000.0),    // Initial deployment
-///     (0.25, 12_500.0),       // Interest + fees (Q1)
-///     (0.5, 12_500.0),        // Interest + fees (Q2)
-///     (0.75, 12_500.0),       // Interest + fees (Q3)
-///     (1.0, 1_012_500.0),     // Final interest + principal return
+///     (0.25, 12_500.0),       // Q1 interest
+///     (1.0, 1_012_500.0),     // Final payment
 /// ];
 ///
 /// let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
-/// assert!(irr.is_some());
-/// assert!(irr.expect("should succeed") > 0.04); // Should be ~5% IRR
 /// ```
 pub fn calculate_path_irr(
     cashflows: &[(f64, f64)],
     base_date: Date,
-    _day_count: DayCount,
+    day_count: DayCount,
 ) -> Option<f64> {
-    // XIRR requires at least 2 cashflows with sign change
     if cashflows.len() < 2 {
         return None;
     }
 
-    // Check for sign change (required for IRR to exist)
-    let has_positive = cashflows.iter().any(|(_, amt)| *amt > 0.0);
-    let has_negative = cashflows.iter().any(|(_, amt)| *amt < 0.0);
-    if !has_positive || !has_negative {
-        return None;
-    }
+    // Determine year basis from day count for time-to-date conversion
+    let days_per_year = match day_count {
+        DayCount::Act360 | DayCount::Thirty360 | DayCount::ThirtyE360 => 360.0,
+        _ => 365.0, // Act365F, Act365L, ActAct, etc.
+    };
 
-    // Convert time_in_years to dates for XIRR
+    // Convert time fractions to dates
     let dated_cashflows: Vec<(Date, f64)> = cashflows
         .iter()
         .filter_map(|(time_years, amount)| {
-            // Convert years to days (approximate, using 365.25 days/year)
-            let days = (*time_years * 365.25).round() as i64;
-
-            // Add days to base date
+            let days = (*time_years * days_per_year).round() as i64;
             base_date
                 .checked_add(time::Duration::days(days))
                 .map(|date| (date, *amount))
@@ -91,42 +101,15 @@ pub fn calculate_path_irr(
         return None;
     }
 
-    // Use XIRR from finstack_core
+    // Delegate to core's xirr
     xirr(&dated_cashflows, None).ok()
 }
 
-/// Calculate IRR from simple evenly-spaced cashflows.
+/// Re-export core's periodic IRR for convenience.
 ///
-/// Uses periodic IRR for evenly-spaced cashflows (simpler than XIRR).
-/// Assumes cashflows occur at periods 0, 1, 2, ... with equal spacing.
-///
-/// # Arguments
-///
-/// * `amounts` - Cashflow amounts at each period
-///
-/// # Returns
-///
-/// IRR as a decimal per period (e.g., 0.02 for 2% per period), or None if IRR doesn't exist.
-///
-/// # Note
-///
-/// For quarterly periods, convert to annual IRR using: `(1 + quarterly_irr)^4 - 1`
-pub fn calculate_periodic_irr(amounts: &[f64]) -> Option<f64> {
-    use finstack_core::cashflow::performance::irr_periodic;
-
-    if amounts.len() < 2 {
-        return None;
-    }
-
-    // Check for sign change
-    let has_positive = amounts.iter().any(|&amt| amt > 0.0);
-    let has_negative = amounts.iter().any(|&amt| amt < 0.0);
-    if !has_positive || !has_negative {
-        return None;
-    }
-
-    irr_periodic(amounts, None).ok()
-}
+/// For evenly-spaced cashflows, use this instead of XIRR.
+/// See [`finstack_core::cashflow::performance::irr_periodic`] for full documentation.
+pub use finstack_core::cashflow::performance::irr_periodic as calculate_periodic_irr;
 
 #[cfg(test)]
 mod tests {
@@ -155,7 +138,6 @@ mod tests {
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Quarterly payments: deploy 1M, receive 12.5k quarterly + 1M at end
-        // ~5% annual IRR
         let cashflows = vec![
             (0.0, -1_000_000.0),
             (0.25, 12_500.0),
@@ -167,7 +149,6 @@ mod tests {
         let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
         assert!(irr.is_some());
         let irr_val = irr.expect("should have IRR");
-        // Should be around 5% annual
         assert!(
             irr_val > 0.04 && irr_val < 0.06,
             "Expected ~5% IRR, got {}",
@@ -184,35 +165,5 @@ mod tests {
 
         let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
         assert!(irr.is_none());
-    }
-
-    #[test]
-    fn test_calculate_periodic_irr() {
-        // Simple: invest 100, get back 110 next period = 10% per period
-        let amounts = vec![-100.0, 110.0];
-        let irr = calculate_periodic_irr(&amounts);
-        assert!(irr.is_some());
-        let irr_val = irr.expect("should have IRR");
-        assert!(
-            (irr_val - 0.1).abs() < 0.001,
-            "Expected 10% IRR, got {}",
-            irr_val
-        );
-    }
-
-    #[test]
-    fn test_calculate_periodic_irr_multiple_periods() {
-        // Quarterly: invest 1000, receive 25/quarter + 1000 at end
-        // 25*4 = 100 annual on 1000 = 10% annual, ~2.41% quarterly
-        let amounts = vec![-1000.0, 25.0, 25.0, 25.0, 1025.0];
-        let irr = calculate_periodic_irr(&amounts);
-        assert!(irr.is_some());
-        let irr_val = irr.expect("should have IRR");
-        // Should be around 2.4% per quarter
-        assert!(
-            irr_val > 0.02 && irr_val < 0.03,
-            "Expected ~2.4% quarterly IRR, got {}",
-            irr_val
-        );
     }
 }

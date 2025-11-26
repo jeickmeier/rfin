@@ -237,3 +237,124 @@ fn test_greeks_reasonable_magnitude() {
     assert_non_negative(gamma, "Gamma");
     assert_positive(vega, "Vega");
 }
+
+/// Put-call parity test for CDS options.
+///
+/// # Market Standard
+///
+/// For CDS options on forward spreads, put-call parity is:
+///
+/// ```text
+/// C - P = A × (F - K)
+/// ```
+///
+/// where:
+/// - C = call option value
+/// - P = put option value  
+/// - A = risky annuity (RPV01)
+/// - F = forward CDS spread
+/// - K = strike spread
+///
+/// This is a fundamental no-arbitrage relationship that must hold.
+#[test]
+fn test_put_call_parity() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let notional = 10_000_000.0;
+
+    // Get forward spread from a reference option
+    let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
+
+    // Test parity at multiple strikes
+    for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
+        let call = CdsOptionBuilder::new()
+            .call()
+            .strike(strike)
+            .expiry_months(12)
+            .cds_maturity_months(60)
+            .notional(notional, finstack_core::currency::Currency::USD)
+            .implied_vol(0.30)
+            .build(as_of);
+
+        let put = CdsOptionBuilder::new()
+            .put()
+            .strike(strike)
+            .expiry_months(12)
+            .cds_maturity_months(60)
+            .notional(notional, finstack_core::currency::Currency::USD)
+            .implied_vol(0.30)
+            .build(as_of);
+
+        let call_pv = call.value(&market, as_of).unwrap().amount();
+        let put_pv = put.value(&market, as_of).unwrap().amount();
+
+        // Compute forward spread and risky annuity
+        let forward = pricer.forward_spread_bp(&call, &market, as_of).unwrap();
+        let ra = pricer.risky_annuity(&call, &market, as_of).unwrap();
+
+        // Put-call parity: C - P = A × N × (F - K) / 10000
+        // where 10000 converts bp to decimal
+        let lhs = call_pv - put_pv;
+        let rhs = ra * notional * (forward - strike) / 10000.0;
+
+        // Allow reasonable numerical tolerance (0.1% of notional)
+        let tolerance = notional * 0.001;
+        let diff = (lhs - rhs).abs();
+
+        assert!(
+            diff < tolerance,
+            "Put-call parity violated at strike={}: C-P={}, A×N×(F-K)/10000={}, diff={}, tol={}",
+            strike,
+            lhs,
+            rhs,
+            diff,
+            tolerance
+        );
+    }
+}
+
+#[test]
+fn test_put_call_parity_at_forward() {
+    // Special case: at-the-forward (ATF), call and put should have equal value
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let notional = 10_000_000.0;
+
+    let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
+
+    // Get forward spread
+    let temp_option = CdsOptionBuilder::new().build(as_of);
+    let forward = pricer.forward_spread_bp(&temp_option, &market, as_of).unwrap();
+
+    // Create call and put at forward strike
+    let call = CdsOptionBuilder::new()
+        .call()
+        .strike(forward)
+        .expiry_months(12)
+        .cds_maturity_months(60)
+        .notional(notional, finstack_core::currency::Currency::USD)
+        .implied_vol(0.30)
+        .build(as_of);
+
+    let put = CdsOptionBuilder::new()
+        .put()
+        .strike(forward)
+        .expiry_months(12)
+        .cds_maturity_months(60)
+        .notional(notional, finstack_core::currency::Currency::USD)
+        .implied_vol(0.30)
+        .build(as_of);
+
+    let call_pv = call.value(&market, as_of).unwrap().amount();
+    let put_pv = put.value(&market, as_of).unwrap().amount();
+
+    // ATF: C ≈ P (allow 5% relative tolerance due to discrete forward calculation)
+    let rel_diff = (call_pv - put_pv).abs() / call_pv.max(put_pv);
+    assert!(
+        rel_diff < 0.05,
+        "ATF call and put should be approximately equal: C={}, P={}, rel_diff={}",
+        call_pv,
+        put_pv,
+        rel_diff
+    );
+}

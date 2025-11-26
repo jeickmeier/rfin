@@ -151,21 +151,52 @@ impl crate::instruments::common::traits::CurveDependencies for Deposit {
     }
 }
 
+impl Deposit {
+    /// Validate the deposit parameters.
+    ///
+    /// Checks that:
+    /// - End date is after start date
+    /// - Notional is positive
+    ///
+    /// This is called automatically during cashflow generation and pricing.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        // Validate date ordering
+        if self.end <= self.start {
+            return Err(finstack_core::Error::Validation(format!(
+                "Deposit end date ({}) must be after start date ({})",
+                self.end, self.start
+            )));
+        }
+
+        // Validate positive notional
+        if self.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Deposit notional must be positive, got {}",
+                self.notional.amount()
+            )));
+        }
+
+        Ok(())
+    }
+}
+
 impl CashflowProvider for Deposit {
     fn build_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
+        // Validate deposit parameters before building schedule
+        self.validate()?;
+
         // True single-period deposit: two flows with simple interest
-        let yf = self
-            .day_count
-            .year_fraction(
-                self.start,
-                self.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+        // Propagate year fraction errors instead of silently defaulting to 0
+        let yf = self.day_count.year_fraction(
+            self.start,
+            self.end,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+
         let r = self.quote_rate.unwrap_or(0.0);
         let redemption = self.notional * (1.0 + r * yf);
         Ok(vec![
