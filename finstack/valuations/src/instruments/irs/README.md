@@ -9,6 +9,8 @@ A production-grade implementation of interest rate swaps following ISDA 2006/202
 - [Overview](#overview)
 - [Module Structure](#module-structure)
 - [Core Features](#core-features)
+- [Numerical Stability](#numerical-stability)
+- [Input Validation](#input-validation)
 - [Usage Examples](#usage-examples)
 - [Available Metrics](#available-metrics)
 - [Market Standards](#market-standards)
@@ -31,8 +33,9 @@ Basis swaps have their own instrument type -- TODO: Should we consolidate?
 
 ### Key Characteristics
 
-- **Deterministic**: Decimal-based arithmetic for accounting-grade accuracy
+- **Deterministic**: Kahan compensated summation for reproducible results
 - **Currency-safe**: No implicit cross-currency operations
+- **Numerically stable**: Guards against division by near-zero, overflow, and underflow
 - **Market-standard**: ISDA 2006/2021 conventions with citations
 - **Production-ready**: Comprehensive validation, error handling, and edge case coverage
 
@@ -131,6 +134,87 @@ Multiple formats:
 - **Signed dated flows**: Simple `(Date, Money)` pairs
 - **Full schedules**: Complete `CashFlowSchedule` with CFKind metadata
 - **Leg-specific schedules**: Separate fixed and floating leg schedules
+
+---
+
+## Numerical Stability
+
+The IRS module implements several numerical stability measures to ensure accurate, deterministic results:
+
+### Kahan Compensated Summation
+
+All PV and annuity calculations use **Kahan compensated summation** to minimize floating-point rounding errors:
+
+```rust
+// Annuity calculation uses kahan_sum internally
+let annuity = kahan_sum(terms);  // O(n) with O(1) error growth instead of O(√n)
+```
+
+This is critical for long-dated swaps (30Y+ = 120+ quarterly payments) where naive summation can accumulate significant errors.
+
+### Division Guards
+
+Par rate calculations guard against division by near-zero annuity:
+
+```rust
+const ANNUITY_EPSILON: f64 = 1e-12;
+
+if annuity.abs() < ANNUITY_EPSILON {
+    return Err(Error::Validation("Annuity too small for par rate calculation"));
+}
+```
+
+This prevents NaN/Inf results for expired swaps, degenerate schedules, or extreme discounting scenarios.
+
+### Discount Factor Guards
+
+The pricer guards against near-zero discount factors:
+
+```rust
+const DF_EPSILON: f64 = 1e-10;
+
+if df_as_of.abs() < DF_EPSILON {
+    return Err(Error::Validation("Discount factor below stability threshold"));
+}
+```
+
+This protects against extreme rate scenarios (ISDA stress tests range from -10% to +50%).
+
+### References
+
+- Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors." *Communications of the ACM*
+- Higham, N. J. (1993). "The Accuracy of Floating Point Summation." *SIAM Journal on Scientific Computing*
+
+---
+
+## Input Validation
+
+All convenience constructors (`create_usd_swap`, `example`) automatically validate swap parameters. Use `InterestRateSwap::validate()` for manual validation.
+
+### Validated Parameters
+
+| Parameter | Validation Rule | Error Message |
+|-----------|-----------------|---------------|
+| Date range | `end > start` for both legs | "Invalid leg date range" |
+| Notional | `> 1e-6` (NOTIONAL_EPSILON) | "Invalid notional: must be positive" |
+| Fixed rate | `abs(rate) <= 100.0` (±10000%) | "Invalid fixed rate: exceeds maximum magnitude" |
+
+### Example
+
+```rust
+// Automatic validation in convenience constructors
+let swap = InterestRateSwap::create_usd_swap(
+    id, notional, fixed_rate, start, end, side
+)?;  // Returns Err if validation fails
+
+// Manual validation for builder pattern
+let swap = InterestRateSwap::builder()
+    .id(id)
+    .notional(notional)
+    // ...
+    .build()?;
+swap.validate()?;  // Explicit validation
+```
 
 ---
 
@@ -374,6 +458,28 @@ Per ISDA and US market practice:
 - **SONIA (GBP)**: 5-day lookback (BoE)
 - **€STR (EUR)**: 2-day shift (ECB)
 - **TONA (JPY)**: 2-day lag (JSCC)
+
+### Day-Count Convention Notes
+
+The USD standard uses different day-count conventions for different purposes:
+
+- **Fixed leg accrual**: 30/360 (Bond Basis)
+- **Floating leg accrual**: ACT/360 (Money Market)
+- **Discount curve**: Typically ACT/365F or ACT/360 depending on construction
+
+This day-count mismatch between accrual and discounting is **market-standard** and reflects the different conventions used in bond vs money markets. The impact on par rates is typically < 0.5bp for USD swaps.
+
+### Compounded-in-Arrears Approximation
+
+For overnight-indexed swaps (OIS) with `CompoundedInArrears` compounding, the current implementation uses the **discount curve identity**:
+
+```text
+PV_float = N × (DF(start) - DF(end)) + spread_annuity
+```
+
+This identity is **exact** when the forward curve matches the discount curve (i.e., single-curve OIS pricing). For multi-curve scenarios with basis spreads, this is an approximation that may differ from true daily compounding by a few basis points.
+
+The `lookback_days` and `observation_shift` parameters are stored for documentation and future implementation but do not currently affect the pricing calculation when using the discount curve identity.
 
 ---
 

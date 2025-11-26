@@ -1,3 +1,19 @@
+//! Interest Rate Swap pricing implementation.
+//!
+//! Provides NPV calculation for vanilla IRS and OIS swaps using multi-curve
+//! pricing framework (separate discount and forward curves).
+//!
+//! # Numerical Stability
+//!
+//! All PV summations use Kahan compensated summation to minimize floating-point
+//! rounding errors, which is critical for long-dated swaps (30Y+) with many
+//! periods. This ensures deterministic, accurate results across platforms.
+//!
+//! # References
+//!
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
+//! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
+
 // Using generic pricer implementation to eliminate boilerplate
 pub use crate::instruments::common::GenericDiscountingPricer;
 
@@ -5,6 +21,7 @@ use crate::instruments::irs::InterestRateSwap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -137,6 +154,11 @@ impl InterestRateSwap {
     /// discounting performed relative to `as_of` so seasoned swaps are handled
     /// consistently with other instruments.
     ///
+    /// # Numerical Stability
+    ///
+    /// Uses Kahan compensated summation for the spread annuity calculation,
+    /// ensuring accurate results for long-dated OIS swaps with many periods.
+    ///
     /// # Errors
     ///
     /// Returns a validation error if the valuation date discount factor is below
@@ -158,7 +180,8 @@ impl InterestRateSwap {
             // Use shared float-leg schedule to build spread annuity
             let sched = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
 
-            let mut annuity = 0.0;
+            // Collect terms for Kahan summation
+            let mut terms = Vec::with_capacity(sched.flows.len());
             for cf in &sched.flows {
                 if cf.kind != crate::cashflow::primitives::CFKind::FloatReset {
                     continue;
@@ -170,10 +193,13 @@ impl InterestRateSwap {
 
                 let alpha = cf.accrual_factor;
                 let df = relative_df(disc, as_of, cf.date)?;
-                annuity += alpha * df;
+                terms.push(alpha * df);
             }
 
-            if annuity != 0.0 {
+            // Use Kahan compensated summation for numerical stability
+            let annuity = kahan_sum(terms);
+
+            if annuity.abs() > f64::EPSILON {
                 pv += self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * annuity;
             }
         }
@@ -223,6 +249,11 @@ impl InterestRateSwap {
     ///
     /// Present value of the fixed leg in the swap's notional currency.
     ///
+    /// # Numerical Stability
+    ///
+    /// Uses Kahan compensated summation for accurate PV calculation on
+    /// long-dated swaps with many periods (30Y+ = 60+ semi-annual payments).
+    ///
     /// # Errors
     ///
     /// Returns a validation error if the valuation date discount factor is below
@@ -234,8 +265,8 @@ impl InterestRateSwap {
     ) -> finstack_core::Result<Money> {
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
 
-        // Sum discounted coupon flows from as_of date
-        let mut total = Money::new(0.0, self.notional.currency());
+        // Collect discounted flows for Kahan summation
+        let mut terms = Vec::with_capacity(sched.flows.len());
 
         for cf in &sched.flows {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
@@ -248,11 +279,13 @@ impl InterestRateSwap {
 
                 // Discount from as_of for correct theta
                 let df = relative_df(disc, as_of, cf.date)?;
-                let disc_amt = cf.amount * df;
-                total = (total + disc_amt)?;
+                terms.push(cf.amount.amount() * df);
             }
         }
-        Ok(total)
+
+        // Use Kahan compensated summation for numerical stability
+        let total = kahan_sum(terms);
+        Ok(Money::new(total, self.notional.currency()))
     }
 
     /// Compute PV of floating leg (helper for value calculation).
@@ -271,6 +304,11 @@ impl InterestRateSwap {
     /// # Returns
     ///
     /// Present value of the floating leg in the swap's notional currency.
+    ///
+    /// # Numerical Stability
+    ///
+    /// Uses Kahan compensated summation for accurate PV calculation on
+    /// long-dated swaps with many periods (30Y+ = 120+ quarterly payments).
     ///
     /// # Errors
     ///
@@ -302,7 +340,8 @@ impl InterestRateSwap {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        let mut total = Money::new(0.0, self.notional.currency());
+        // Collect discounted flows for Kahan summation
+        let mut terms = Vec::with_capacity(dates.len());
         let base = disc.base_date();
 
         // Iterate over accrual periods [prev, d], matching standard IRS conventions.
@@ -356,14 +395,16 @@ impl InterestRateSwap {
                 0.0
             };
             let rate = f + (self.float.spread_bp * BP_TO_DECIMAL);
-            let coupon = self.notional * (rate * yf);
+            let coupon_amount = self.notional.amount() * rate * yf;
 
             // Discount from as_of for correct theta
             let df = relative_df(disc, as_of, d)?;
-            let disc_amt = coupon * df;
-            total = (total + disc_amt)?;
+            terms.push(coupon_amount * df);
         }
-        Ok(total)
+
+        // Use Kahan compensated summation for numerical stability
+        let total = kahan_sum(terms);
+        Ok(Money::new(total, self.notional.currency()))
     }
 }
 

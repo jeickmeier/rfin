@@ -2,6 +2,43 @@
 //!
 //! Defines how floating rate coupons are calculated based on the
 //! underlying reference rate (LIBOR, SOFR, SONIA, etc.).
+//!
+//! # Implementation Notes
+//!
+//! ## Compounded-in-Arrears Approximation
+//!
+//! For overnight-indexed swaps (OIS) with `CompoundedInArrears` compounding,
+//! the current implementation uses the **discount curve identity**:
+//!
+//! ```text
+//! PV_float = N × (DF(start) - DF(end)) + spread_annuity
+//! ```
+//!
+//! This identity is **exact** when the forward curve matches the discount curve
+//! (i.e., single-curve OIS pricing). For multi-curve scenarios with basis
+//! spreads, this is an approximation that may differ from true daily compounding
+//! by a few basis points.
+//!
+//! The true daily compounding formula per ISDA 2021 is:
+//!
+//! ```text
+//! Coupon = N × [∏(1 + r_i × dcf_i) - 1]
+//! ```
+//!
+//! where the product is taken over daily observations. This requires daily
+//! fixing data and is computationally more expensive.
+//!
+//! ## Lookback and Observation Shift
+//!
+//! The `lookback_days` and `observation_shift` parameters are stored for
+//! documentation and future implementation but do not currently affect
+//! the pricing calculation when using the discount curve identity.
+//!
+//! # References
+//!
+//! - **ISDA 2021 Definitions**: Compounded RFR conventions
+//! - **ARRC** (Alternative Reference Rates Committee): SOFR conventions
+//! - **BoE** (Bank of England): SONIA conventions
 
 /// Method for calculating floating leg coupon payments.
 ///

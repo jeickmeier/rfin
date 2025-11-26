@@ -27,18 +27,37 @@
 //! This method is exact only for unseasoned swaps where `as_of <= start_date`.
 //! For seasoned swaps, use the forward-based method instead.
 //!
+//! # Numerical Stability
+//!
+//! - Uses Kahan compensated summation for PV calculations
+//! - Guards against division by near-zero annuity with ANNUITY_EPSILON threshold
+//! - Returns descriptive errors for degenerate cases (expired swaps, invalid schedules)
+//!
 //! # References
 //!
 //! - **ISDA 2006 Definitions**: Section 7.1 - Par Swap Rates
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
+//! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
 use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::kahan_sum;
 
 /// Basis points to decimal conversion factor.
 const BP_TO_DECIMAL: f64 = 1e-4;
+
+/// Minimum threshold for annuity values to avoid division by near-zero.
+///
+/// Set to 1e-12 to protect against:
+/// - Expired swaps (no future cashflows)
+/// - Very short stub periods
+/// - Extreme discounting scenarios
+///
+/// This aligns with ISDA stress testing requirements and ensures numerical
+/// stability for par rate calculations.
+const ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Par rate calculator for interest rate swaps.
 ///
@@ -62,7 +81,7 @@ impl MetricCalculator for ParRateCalculator {
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
         match method {
-            ParRateMethod::ForwardBased => par_rate_forward_based(irs, &*context, &disc),
+            ParRateMethod::ForwardBased => par_rate_forward_based(irs, context, &disc),
             ParRateMethod::DiscountRatio => {
                 // (P(as_of,T0) - P(as_of,Tn)) / Sum alpha_i P(as_of,Ti)
                 // This formulation is only exact for unseasoned swaps where
@@ -78,13 +97,16 @@ impl MetricCalculator for ParRateCalculator {
                 );
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {
-                    return Ok(0.0);
+                    return Err(finstack_core::error::Error::Validation(
+                        "Par rate calculation failed: swap schedule has fewer than 2 dates. \
+                         Check that start and end dates are valid and frequency allows at least one period.".into()
+                    ));
                 }
 
                 // For seasoned swaps (`as_of` after the start date), fall back to the
                 // forward-based method, which is robust for live trades.
                 if as_of > dates[0] {
-                    return par_rate_forward_based(irs, &*context, &disc);
+                    return par_rate_forward_based(irs, context, &disc);
                 }
 
                 // Numerator: P(as_of,T0) - P(as_of,Tn)
@@ -97,7 +119,8 @@ impl MetricCalculator for ParRateCalculator {
                 let num = p0 - pn;
 
                 // Denominator: Sum alpha_i P(as_of,Ti) for future cashflows
-                let mut den = 0.0;
+                // Use Kahan summation for numerical stability
+                let mut terms = Vec::with_capacity(dates.len());
                 let mut prev = dates[0];
                 for &d in &dates[1..] {
                     // Only include future cashflows
@@ -112,11 +135,20 @@ impl MetricCalculator for ParRateCalculator {
                         finstack_core::dates::DayCountCtx::default(),
                     )?;
                     let p = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
-                    den += alpha * p;
+                    terms.push(alpha * p);
                     prev = d;
                 }
-                if den == 0.0 {
-                    return Ok(0.0);
+                
+                let den = kahan_sum(terms);
+                
+                // Guard against division by near-zero annuity
+                if den.abs() < ANNUITY_EPSILON {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "Par rate calculation failed: annuity ({:.2e}) is below numerical stability \
+                         threshold ({:.2e}). This may indicate an expired swap, degenerate schedule, \
+                         or extreme discounting scenario.",
+                        den, ANNUITY_EPSILON
+                    )));
                 }
                 Ok(num / den)
             }
@@ -127,6 +159,12 @@ impl MetricCalculator for ParRateCalculator {
 /// Forward-based par rate calculation used for both the default method and
 /// as a fallback when the discount-ratio method is not applicable (e.g. for
 /// seasoned swaps where `as_of` is after the fixed leg start date).
+///
+/// # Numerical Stability
+///
+/// - Uses Kahan compensated summation for PV accumulation
+/// - Guards against division by near-zero annuity with ANNUITY_EPSILON threshold
+/// - Returns descriptive errors for degenerate cases
 fn par_rate_forward_based(
     irs: &InterestRateSwap,
     ctx: &MetricContext,
@@ -137,10 +175,17 @@ fn par_rate_forward_based(
     let as_of = ctx.as_of;
     let base = disc.base_date();
 
-    // Annuity is sum(yf*df) in years
-    let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0); // This is fine - it's from a hashmap, not a calculation
-    if annuity == 0.0 {
-        return Ok(0.0);
+    // Annuity is sum(yf*df) in years (computed with Kahan summation in AnnuityCalculator)
+    let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
+    
+    // Guard against division by near-zero annuity
+    if annuity.abs() < ANNUITY_EPSILON {
+        return Err(finstack_core::error::Error::Validation(format!(
+            "Par rate calculation failed: annuity ({:.2e}) is below numerical stability \
+             threshold ({:.2e}). This may indicate an expired swap, degenerate schedule, \
+             or extreme discounting scenario.",
+            annuity, ANNUITY_EPSILON
+        )));
     }
 
     let fs = crate::cashflow::builder::build_dates(
@@ -153,10 +198,14 @@ fn par_rate_forward_based(
     );
     let schedule: Vec<Date> = fs.dates;
     if schedule.len() < 2 {
-        return Ok(0.0);
+        return Err(finstack_core::error::Error::Validation(
+            "Par rate calculation failed: floating leg schedule has fewer than 2 dates. \
+             Check that start and end dates are valid and frequency allows at least one period.".into()
+        ));
     }
 
-    let mut pv = 0.0;
+    // Collect terms for Kahan summation
+    let mut terms = Vec::with_capacity(schedule.len());
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
         // Only include future cashflows
@@ -200,9 +249,12 @@ fn par_rate_forward_based(
         // Use shared helper - handles epsilon validation and relative DF calculation
         let df = crate::instruments::irs::pricer::relative_df(disc, as_of, d)?;
 
-        pv += coupon * df;
+        terms.push(coupon * df);
         prev = d;
     }
+
+    // Use Kahan compensated summation for numerical stability
+    let pv = kahan_sum(terms);
 
     // Par rate = float_pv / (notional * annuity)
     // Annuity is sum(yf*df), so this gives: pv / (notional * sum(yf*df))

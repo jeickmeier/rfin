@@ -29,7 +29,7 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 /// Represents a standard interest rate swap where one party pays
 /// a fixed rate and the other pays a floating rate plus spread.
 ///
-/// # Market Standards & Citations (Week 5)
+/// # Market Standards & Citations
 ///
 /// ## ISDA Definitions
 ///
@@ -47,9 +47,27 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 /// - **Reset Lag:** T-2 (2 business days before period start)
 /// - **Discounting:** OIS curve (post-2008 multi-curve framework)
 ///
+/// ## Day-Count Convention Notes
+///
+/// The USD standard uses different day-count conventions for different purposes:
+/// - **Fixed leg accrual:** 30/360 (Bond Basis)
+/// - **Floating leg accrual:** ACT/360 (Money Market)
+/// - **Discount curve:** Typically ACT/365F or ACT/360 depending on construction
+///
+/// This day-count mismatch between accrual and discounting is market-standard
+/// and reflects the different conventions used in bond vs money markets.
+/// The impact on par rates is typically < 0.5bp for USD swaps.
+///
+/// ## Validation
+///
+/// All convenience constructors (`create_usd_swap`, `example`) automatically
+/// validate the swap parameters. Use [`InterestRateSwap::validate()`] to
+/// check swaps constructed via the builder pattern.
+///
 /// ## References
 ///
 /// - ISDA 2006 Definitions (incorporating 2008 Supplement for OIS)
+/// - ISDA 2021 Definitions (for RFR compounding conventions)
 /// - "Interest Rate Swaps and Their Derivatives" by Amir Sadr
 /// - Bloomberg SWPM function documentation
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
@@ -105,7 +123,92 @@ impl IRSScheduleConfig {
     }
 }
 
+/// Minimum notional threshold for numerical stability.
+///
+/// Notionals below this threshold may cause numerical issues in pricing
+/// due to floating-point precision limits.
+const NOTIONAL_EPSILON: f64 = 1e-6;
+
+/// Maximum allowed rate magnitude for validation.
+///
+/// Rates with absolute value exceeding this threshold are considered
+/// non-physical and rejected. This corresponds to ±10000% rates which
+/// are far beyond any reasonable market scenario.
+const MAX_RATE_MAGNITUDE: f64 = 100.0;
+
 impl InterestRateSwap {
+    /// Validate swap parameters for market-standard compliance.
+    ///
+    /// Checks:
+    /// - Date ranges: `end > start` for both legs
+    /// - Notional: must be positive (> NOTIONAL_EPSILON)
+    /// - Fixed rate: must be within reasonable bounds
+    /// - Leg consistency: start/end dates should match between legs
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error with a descriptive message if any
+    /// parameter is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::instruments::irs::InterestRateSwap;
+    ///
+    /// let swap = InterestRateSwap::example()?;
+    /// swap.validate()?; // Passes for valid swap
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        // Validate fixed leg date range
+        if self.fixed.end <= self.fixed.start {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Invalid fixed leg date range: end ({}) must be after start ({})",
+                self.fixed.end, self.fixed.start
+            )));
+        }
+
+        // Validate floating leg date range
+        if self.float.end <= self.float.start {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Invalid floating leg date range: end ({}) must be after start ({})",
+                self.float.end, self.float.start
+            )));
+        }
+
+        // Validate notional is positive
+        if self.notional.amount() <= NOTIONAL_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Invalid notional: {} must be positive (> {:.0e}). \
+                 Negative notional is semantically ambiguous; use PayReceive to control direction.",
+                self.notional.amount(), NOTIONAL_EPSILON
+            )));
+        }
+
+        // Validate fixed rate is within reasonable bounds
+        if self.fixed.rate.abs() > MAX_RATE_MAGNITUDE {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Invalid fixed rate: {:.2}% exceeds maximum allowed magnitude ({:.0}%). \
+                 This may indicate a units error (rate should be decimal, e.g., 0.05 for 5%).",
+                self.fixed.rate * 100.0, MAX_RATE_MAGNITUDE * 100.0
+            )));
+        }
+
+        // Warn-level check: legs should typically have matching date ranges
+        // (Not an error, but log for diagnostics in debug builds)
+        #[cfg(debug_assertions)]
+        if self.fixed.start != self.float.start || self.fixed.end != self.float.end {
+            tracing::warn!(
+                swap_id = %self.id,
+                "IRS legs have mismatched date ranges: fixed ({} to {}), float ({} to {}). \
+                 This may be intentional for complex structures.",
+                self.fixed.start, self.fixed.end, self.float.start, self.float.end
+            );
+        }
+
+        Ok(())
+    }
+
     /// Create a standard USD OIS-discounted IRS using ISDA market conventions.
     ///
     /// This is the primary convenience constructor used throughout tests and
@@ -114,6 +217,12 @@ impl InterestRateSwap {
     /// - Forward curve: `USD-SOFR-3M`
     /// - Fixed leg: semi-annual, 30/360, Modified Following
     /// - Float leg: quarterly, ACT/360, Modified Following, 2-day reset lag
+    ///
+    /// # Validation
+    ///
+    /// Automatically validates the swap after construction. Returns an error
+    /// if date ranges are invalid, notional is non-positive, or rates are
+    /// outside reasonable bounds.
     ///
     /// # Errors
     ///
@@ -140,13 +249,17 @@ impl InterestRateSwap {
     ///
     /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
     ///
+    /// # Validation
+    ///
+    /// Automatically validates the swap after construction.
+    ///
     /// # Errors
     ///
     /// Returns an error if example construction fails (e.g., invalid dates).
     pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
-        Self::builder()
+        let swap = Self::builder()
             .id(InstrumentId::new("IRS-5Y-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed)
@@ -198,10 +311,17 @@ impl InterestRateSwap {
                 compounding: Default::default(),
                 fixing_calendar_id: None,
             })
-            .build()
+            .build()?;
+        
+        // Validate the swap parameters
+        swap.validate()?;
+        
+        Ok(swap)
     }
 
     /// Helper to construct a swap with specified curve configuration.
+    ///
+    /// Automatically validates the swap after construction.
     fn create_swap_with_config(
         id: InstrumentId,
         notional: Money,
@@ -239,13 +359,18 @@ impl InterestRateSwap {
             compounding: Default::default(),
             fixing_calendar_id: None,
         };
-        Self::builder()
+        let swap = Self::builder()
             .id(id)
             .notional(notional)
             .side(side)
             .fixed(fixed)
             .float(float)
-            .build()
+            .build()?;
+        
+        // Validate the swap parameters
+        swap.validate()?;
+        
+        Ok(swap)
     }
 }
 

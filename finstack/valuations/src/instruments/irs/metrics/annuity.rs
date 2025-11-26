@@ -29,14 +29,22 @@
 //! compounding configuration affects coupon accrual (handled in cashflow
 //! builders), not the annuity weight calculation itself.
 //!
+//! # Numerical Stability
+//!
+//! Uses Kahan compensated summation to minimize floating-point rounding errors,
+//! which is critical for long-dated swaps (30Y+) with many periods. This ensures
+//! deterministic, accurate results across platforms.
+//!
 //! # References
 //!
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
 //! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities*. Chapter 4.
+//! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
+use finstack_core::math::kahan_sum;
 
 /// Fixed-leg annuity calculator for interest rate swaps.
 ///
@@ -65,7 +73,9 @@ impl MetricCalculator for AnnuityCalculator {
             return Ok(0.0);
         }
 
-        let mut annuity = 0.0;
+        // Collect terms for Kahan summation to ensure numerical stability
+        // for long-dated swaps with many periods (30Y+ = 120+ quarterly payments)
+        let mut terms = Vec::with_capacity(dates.len());
         let mut prev = dates[0];
 
         for &d in &dates[1..] {
@@ -87,9 +97,15 @@ impl MetricCalculator for AnnuityCalculator {
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity
             // weight, so the annuity is just sum(alpha * DF).
-            annuity += yf * df;
+            terms.push(yf * df);
             prev = d;
         }
+
+        // Use Kahan compensated summation for numerical stability
+        // This is critical for 30Y swaps where naive summation can accumulate
+        // significant floating-point errors across 120+ periods
+        let annuity = kahan_sum(terms);
+
         // Return annuity in dollar terms
         // Note: Just return sum(yf * df) without scaling - the raw sum is what's needed
         // for par rate calculations and other metrics
