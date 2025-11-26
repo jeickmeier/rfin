@@ -30,7 +30,12 @@ pub enum CDSConvention {
 }
 
 impl CDSConvention {
-    /// Get the standard day count convention
+    /// Get the standard day count convention.
+    ///
+    /// Per ISDA standards:
+    /// - North America/Europe: ACT/360
+    /// - Asia: ACT/365F
+    #[must_use]
     pub fn day_count(&self) -> DayCount {
         match self {
             CDSConvention::IsdaNa | CDSConvention::IsdaEu => DayCount::Act360,
@@ -39,30 +44,54 @@ impl CDSConvention {
         }
     }
 
-    /// Get the standard payment frequency
+    /// Get the standard payment frequency (quarterly for all conventions).
+    #[must_use]
     pub fn frequency(&self) -> Frequency {
         Frequency::quarterly()
     }
 
-    /// Get the standard business day convention
+    /// Get the standard business day convention.
+    ///
+    /// Per ISDA 2014 Credit Derivatives Definitions Section 4.12, CDS payment
+    /// dates use **Modified Following** to prevent dates from rolling into
+    /// the next month.
+    #[must_use]
     pub fn business_day_convention(&self) -> BusinessDayConvention {
-        BusinessDayConvention::Following
+        BusinessDayConvention::ModifiedFollowing
     }
 
-    /// Get the standard stub convention
+    /// Get the standard stub convention.
+    #[must_use]
     pub fn stub_convention(&self) -> StubKind {
         StubKind::ShortFront
     }
 
-    /// Get the standard settlement delay in business days
+    /// Get the standard settlement delay in business days.
     ///
     /// Returns the number of business days between trade date and settlement
     /// for standard CDS conventions by region.
+    #[must_use]
     pub fn settlement_delay(&self) -> u16 {
         match self {
             CDSConvention::IsdaNa | CDSConvention::IsdaEu => 3,
             CDSConvention::IsdaAs => 3, // Most Asian markets use 3 days (some use 2)
             CDSConvention::Custom => 3, // Default to 3 days
+        }
+    }
+
+    /// Get the default holiday calendar identifier for this convention.
+    ///
+    /// Returns the standard calendar for business day adjustments:
+    /// - North America: `nyse` (New York Stock Exchange)
+    /// - Europe: `target` (TARGET2 / ECB)
+    /// - Asia: `jpto` (Tokyo Stock Exchange)
+    #[must_use]
+    pub fn default_calendar(&self) -> &'static str {
+        match self {
+            CDSConvention::IsdaNa => "nyse",
+            CDSConvention::IsdaEu => "target",
+            CDSConvention::IsdaAs => "jpto",
+            CDSConvention::Custom => "nyse", // Default to NYSE
         }
     }
 }
@@ -181,7 +210,7 @@ impl CreditDefaultSwap {
                 freq,
                 stub,
                 bdc,
-                calendar_id: None,
+                calendar_id: Some(convention.default_calendar().to_string()),
                 dc,
                 spread_bp,
                 discount_curve_id: discount_curve_id.into(),
@@ -225,7 +254,7 @@ impl CreditDefaultSwap {
                 freq,
                 stub,
                 bdc,
-                calendar_id: None,
+                calendar_id: Some(convention.default_calendar().to_string()),
                 dc,
                 spread_bp,
                 discount_curve_id: discount_curve_id.into(),
@@ -275,7 +304,7 @@ impl CreditDefaultSwap {
                 freq,
                 stub,
                 bdc,
-                calendar_id: None,
+                calendar_id: Some(convention.default_calendar().to_string()),
                 dc,
                 spread_bp,
                 discount_curve_id: discount_curve_id.into(),
@@ -288,6 +317,19 @@ impl CreditDefaultSwap {
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
+    }
+
+    /// Validate recovery rate is within valid bounds [0, 1].
+    ///
+    /// Returns an error if recovery rate is outside the valid range.
+    pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
+        if !(0.0..=1.0).contains(&recovery_rate) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Recovery rate must be between 0.0 and 1.0, got {}",
+                recovery_rate
+            )));
+        }
+        Ok(())
     }
 
     /// Build premium leg cashflows
