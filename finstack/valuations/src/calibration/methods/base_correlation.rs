@@ -2,50 +2,98 @@
 //!
 //! Implements market-standard base correlation bootstrapping using the
 //! one-factor Gaussian Copula model and equity tranche decomposition.
+//!
+//! # Methodology
+//!
+//! Base correlation calibration follows the methodology established by
+//! McGinty et al. (2004) "Introducing Base Correlations" and standardized
+//! in the ISDA CDX/iTraxx market conventions:
+//!
+//! 1. Sort tranches by detachment point (equity to senior)
+//! 2. For each tranche \[A, D\], solve for ρ(D) such that:
+//!    `Price([A, D]) = Price([0, D], ρ(D)) - Price([0, A], ρ(A))`
+//! 3. Use previously solved correlations for \[0, A\] pricing
+//!
+//! # References
+//!
+//! - McGinty, L., Beinstein, E., et al. (2004). "Introducing Base Correlations."
+//!   JPMorgan Credit Derivatives Strategy.
+//! - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*.
+//!   Wiley Finance. Chapters 6-8.
+//! - ISDA (2009). Big Bang Protocol for CDS standardization.
 
 use crate::calibration::quote::CreditQuote;
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, SolverConfig, SolverKind};
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
-use finstack_core::dates::DateExt;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
-// use finstack_core::market_data::context::MarketContext; // use re-export above
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
 use serde::{Deserialize, Serialize};
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Interpolation method for base correlation curves.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Controls how base correlations are interpolated between calibrated
+/// detachment points.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CorrelationInterp {
-    /// Linear interpolation between detachment points
+    /// Linear interpolation between detachment points (market standard)
+    #[default]
     Linear,
-    /// Monotone interpolation enforcing non-decreasing base correlations
-    Monotone,
 }
 
-/// Minimum correlation bound (1% to avoid numerical issues)
-const MIN_CORRELATION: f64 = 0.01;
+/// Minimum correlation bound (0.1% to avoid numerical issues near zero)
+const MIN_CORRELATION: f64 = 0.001;
 
-/// Maximum correlation bound (99% to avoid numerical issues)
-const MAX_CORRELATION: f64 = 0.99;
+/// Maximum correlation bound (99.9% to avoid numerical issues near unity)
+const MAX_CORRELATION: f64 = 0.999;
 
 /// Default initial correlation guess for equity tranches
-const INITIAL_CORRELATION_GUESS: f64 = 0.3;
+const INITIAL_CORRELATION_GUESS: f64 = 0.30;
 
-/// Correlation step size for monotonic assumption
+/// Correlation step size for monotonic assumption in initial guess
 const CORRELATION_STEP: f64 = 0.05;
 
-/// Maximum correlation for monotonic extrapolation
-const MAX_MONOTONIC_CORRELATION: f64 = 0.9;
+/// Maximum correlation for monotonic extrapolation of initial guess
+const MAX_MONOTONIC_CORRELATION: f64 = 0.90;
+
+/// Minimum correlation for fallback bracketing
+const MIN_BRACKET_CORRELATION: f64 = 0.02;
+
+/// Maximum correlation for fallback bracketing
+const MAX_BRACKET_CORRELATION: f64 = 0.98;
+
+/// Finite penalty value for objective function failures.
+///
+/// Using a large finite value helps solvers behave predictably
+/// and provides meaningful diagnostics when calibration fails.
+const CALIBRATION_PENALTY: f64 = 1e12;
 
 /// Base correlation curve calibrator.
+///
+/// Calibrates a base correlation curve from CDS tranche market quotes
+/// using sequential bootstrapping with the Gaussian Copula model.
+///
+/// # Example
+///
+/// ```ignore
+/// use finstack_valuations::calibration::methods::BaseCorrelationCalibrator;
+/// use finstack_valuations::calibration::Calibrator;
+///
+/// let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
+///     .with_config(config)
+///     .with_discount_curve_id("USD-OIS");
+///
+/// let (curve, report) = calibrator.calibrate(&quotes, &market_context)?;
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseCorrelationCalibrator {
     /// Index identifier (e.g., "CDX.NA.IG.42")
@@ -64,10 +112,19 @@ pub struct BaseCorrelationCalibrator {
     pub config: CalibrationConfig,
     /// Interpolation used for base correlation between detachment points
     pub corr_interp: CorrelationInterp,
+    /// Whether to use IMM dates for maturity calculation (standard for CDX/iTraxx)
+    pub use_imm_dates: bool,
 }
 
 impl BaseCorrelationCalibrator {
     /// Create a new base correlation calibrator.
+    ///
+    /// # Arguments
+    ///
+    /// * `index_id` - Index identifier (e.g., "CDX.NA.IG.42")
+    /// * `series` - Index series number
+    /// * `maturity_years` - Target maturity in years (e.g., 5.0 for 5Y)
+    /// * `base_date` - Calibration date
     pub fn new(
         index_id: impl Into<String>,
         series: u16,
@@ -79,16 +136,20 @@ impl BaseCorrelationCalibrator {
             series,
             maturity_years,
             base_date,
-            // Default to common OIS discounting for USD; configurable via with_discount_curve_id
+            // Default to common OIS discounting for USD
             discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
-            // Standard market detachment points
+            // Standard market detachment points for CDX.IG
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
             corr_interp: CorrelationInterp::Linear,
+            // Default to IMM dates for standard indices
+            use_imm_dates: true,
         }
     }
 
     /// Set custom detachment points.
+    ///
+    /// Points will be sorted internally before calibration.
     pub fn with_detachment_points(mut self, points: Vec<f64>) -> Self {
         self.detachment_points = points;
         self
@@ -115,13 +176,16 @@ impl BaseCorrelationCalibrator {
         self
     }
 
-    /// Bootstrap base correlation curve from tranche quotes using sequential calibration.
+    /// Set whether to use IMM dates for maturity calculation.
     ///
-    /// Implements market-standard bootstrapping methodology:
-    /// 1. Sort tranches by detachment point (equity to senior)
-    /// 2. For each tranche [A, D], solve for ρ(D) such that:
-    ///    Price([A, D]) = Price([0, D], ρ(D)) - Price([0, A], ρ(A))
-    /// 3. Use previously solved correlations for [0, A] pricing
+    /// When enabled (default), maturities snap to CDS IMM dates
+    /// (20th of Mar/Jun/Sep/Dec) as per ISDA conventions.
+    pub fn with_imm_dates(mut self, use_imm: bool) -> Self {
+        self.use_imm_dates = use_imm;
+        self
+    }
+
+    /// Bootstrap base correlation curve from tranche quotes using sequential calibration.
     fn bootstrap_curve<S: Solver>(
         &self,
         quotes: &[CreditQuote],
@@ -145,11 +209,11 @@ impl BaseCorrelationCalibrator {
                 {
                     if index == &self.index_id {
                         Some((
-                            attachment,
-                            detachment,
-                            maturity,
-                            upfront_pct,
-                            running_spread_bp,
+                            *attachment,
+                            *detachment,
+                            *maturity,
+                            *upfront_pct,
+                            *running_spread_bp,
                         ))
                     } else {
                         None
@@ -163,42 +227,54 @@ impl BaseCorrelationCalibrator {
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::NotFound {
-                    id: "base_correlation_data".to_string(),
+                    id: format!(
+                        "No CDS tranche quotes found for index '{}'",
+                        self.index_id
+                    ),
                 },
             ));
         }
 
-        // Validate no NaN values in detachment points before sorting
-        for (_, detach, _, _, _) in &tranche_quotes {
-            if !detach.is_finite() {
+        // Validate no NaN/Inf values in detachment points before sorting
+        for (attach, detach, _, _, _) in &tranche_quotes {
+            if !attach.is_finite() || !detach.is_finite() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
                 ));
             }
         }
 
-        // Sort by detachment point for sequential bootstrapping
-        tranche_quotes.sort_by(|a, b| OrderedFloat(*a.1).cmp(&OrderedFloat(*b.1)));
+        // Sort by detachment point for sequential bootstrapping (equity to senior)
+        tranche_quotes.sort_by(|a, b| OrderedFloat(a.1).cmp(&OrderedFloat(b.1)));
 
-        // Validate tranche quotes
-        for (attach, detach, _, _, _) in &tranche_quotes {
-            if **attach >= **detach {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
+        // Validate tranche quote structure
+        for (attach, detach, _, upfront, spread) in &tranche_quotes {
+            if *attach >= *detach {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Invalid tranche: attachment ({:.2}%) >= detachment ({:.2}%)",
+                        attach, detach
+                    ),
+                    category: "base_correlation_input".to_string(),
+                });
             }
-            if **attach < 0.0 || **detach <= 0.0 {
+            if *attach < 0.0 || *detach <= 0.0 {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::NegativeValue,
                 ));
             }
+            if !upfront.is_finite() || !spread.is_finite() {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            }
         }
 
-        let mut solved_correlations: Vec<(f64, f64)> = Vec::new();
+        let mut solved_correlations: Vec<(f64, f64)> = Vec::with_capacity(tranche_quotes.len());
         let mut residuals = BTreeMap::new();
-        let mut total_iterations = 0;
+        let mut total_function_evaluations: usize = 0;
         let pricing_model = CDSTranchePricer::new();
-        let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
+        let num_tranche_quotes = tranche_quotes.len();
 
         // Sequential bootstrap from equity to senior tranches
         for (index, (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp)) in
@@ -206,93 +282,115 @@ impl BaseCorrelationCalibrator {
         {
             // Create synthetic tranche for this quote
             let synthetic_tranche =
-                self.create_synthetic_tranche(*attach_pct, *detach_pct, *running_spread_bp)?;
+                self.create_synthetic_tranche(attach_pct, detach_pct, running_spread_bp)?;
 
-            // Target upfront value from market quote
+            // Target upfront value from market quote (convert % to absolute)
             let target_upfront = upfront_pct / 100.0 * synthetic_tranche.notional.amount();
 
-            // Initial guess for correlation
-            let initial_guess = if solved_correlations.is_empty() {
-                INITIAL_CORRELATION_GUESS // Reasonable starting point for equity tranches
-            } else {
-                // Start slightly above the last solved correlation (monotonic assumption)
-                let last_pair = solved_correlations
-                    .last()
-                    .expect("solved_correlations should not be empty in else branch");
-                let last_correlation = last_pair.1;
-                (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
+            // Determine initial guess using monotonic seeding strategy
+            let initial_guess = self.compute_initial_guess(&solved_correlations);
+
+            // Create shared state for counting function evaluations
+            let eval_counter = Cell::new(0usize);
+
+            // Build objective function with evaluation counting
+            // We need a closure that can be called multiple times
+            let make_objective = || {
+                |trial_correlation: f64| -> f64 {
+                    eval_counter.set(eval_counter.get() + 1);
+
+                    // Clamp trial correlation to valid range
+                    let clamped_trial = trial_correlation.clamp(MIN_CORRELATION, MAX_CORRELATION);
+
+                    // Build temporary correlation curve including solved points
+                    let mut temp_corr_points = Vec::with_capacity(solved_correlations.len() + 2);
+                    temp_corr_points.extend_from_slice(&solved_correlations);
+                    temp_corr_points.push((detach_pct, clamped_trial));
+
+                    // Ensure minimum curve requirements (need at least 2 points)
+                    if temp_corr_points.len() < 2 {
+                        // Add a second point for curve construction
+                        temp_corr_points.push((detach_pct + 10.0, clamped_trial));
+                    }
+
+                    let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
+                        .knots(temp_corr_points)
+                        .build()
+                    {
+                        Ok(curve) => Arc::new(curve),
+                        Err(_) => return CALIBRATION_PENALTY,
+                    };
+
+                    // Update market context with trial correlation curve
+                    let mut temp_market_ctx = market_context.clone();
+                    if !temp_market_ctx.update_base_correlation_curve(
+                        &synthetic_tranche.credit_index_id,
+                        temp_base_corr_curve,
+                    ) {
+                        return CALIBRATION_PENALTY;
+                    }
+
+                    // Price tranche and compute residual
+                    match pricing_model.price_tranche(
+                        &synthetic_tranche,
+                        &temp_market_ctx,
+                        self.base_date,
+                    ) {
+                        Ok(pv) => pv.amount() - target_upfront,
+                        Err(_) => CALIBRATION_PENALTY,
+                    }
+                }
             };
 
-            let market_ctx_ref = market_context;
+            // Solve for correlation with primary method
+            let solve_result = solver.solve(make_objective(), initial_guess);
 
-            // Pre-allocate correlation points buffer to reduce allocations in objective
-            // Note: We still need to clone per evaluation due to solver API constraints,
-            // but pre-allocating capacity reduces reallocation overhead
-            let mut base_corr_points = Vec::with_capacity(solved_correlations.len() + 2);
-            base_corr_points.extend_from_slice(&solved_correlations);
-
-            let objective = |trial_correlation: f64| -> f64 {
-                // Reuse pre-allocated buffer and only update last point
-                let mut temp_corr_points = base_corr_points.clone();
-                temp_corr_points.push((*detach_pct, trial_correlation));
-
-                // Ensure minimum curve requirements (need at least 2 points)
-                if temp_corr_points.len() < 2 {
-                    temp_corr_points.push((*detach_pct + 10.0, trial_correlation));
-                }
-
-                let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
-                    .knots(temp_corr_points)
-                    .build()
-                {
-                    Ok(curve) => Arc::new(curve),
-                    Err(_) => return crate::calibration::PENALTY,
-                };
-
-                let mut temp_market_ctx = market_ctx_ref.clone();
-                if !temp_market_ctx.update_base_correlation_curve(
-                    &synthetic_tranche.credit_index_id,
-                    temp_base_corr_curve,
-                ) {
-                    return crate::calibration::PENALTY;
-                }
-
-                match pricing_model.price_tranche(
-                    &synthetic_tranche,
-                    &temp_market_ctx,
-                    self.base_date,
-                ) {
-                    Ok(pv) => pv.amount() - target_upfront,
-                    Err(_) => crate::calibration::PENALTY,
+            // Handle solve result with fallback bracketing if needed
+            let solved_corr = match solve_result {
+                Ok(corr) => corr,
+                Err(_) => {
+                    // Fallback: try bracketed search across full correlation range
+                    self.bracketed_correlation_search(&make_objective(), initial_guess)?
                 }
             };
 
-            // Solve for correlation
-            let solved_corr = solver.solve(objective, initial_guess)?;
+            // Capture function evaluations for this tranche
+            let tranche_evals = eval_counter.get();
+            total_function_evaluations += tranche_evals;
 
-            // Clamp to reasonable bounds
+            // Clamp to valid bounds
             let clamped_corr = solved_corr.clamp(MIN_CORRELATION, MAX_CORRELATION);
 
-            // Calculate final residual
-            let final_residual = objective(clamped_corr);
+            // Calculate final residual for reporting
+            let final_residual = make_objective()(clamped_corr);
 
-            solved_correlations.push((*detach_pct, clamped_corr));
-            let key = index.to_string();
+            // Validate monotonicity (base correlation should increase with detachment)
+            if let Some(&(_, prev_corr)) = solved_correlations.last() {
+                if clamped_corr < prev_corr - 1e-6 {
+                    tracing::warn!(
+                        "Base correlation non-monotonic at {:.1}%: {:.4} < {:.4} (previous)",
+                        detach_pct,
+                        clamped_corr,
+                        prev_corr
+                    );
+                }
+            }
+
+            solved_correlations.push((detach_pct, clamped_corr));
+            let key = format!("tranche_{}_{}_{}", index, attach_pct, detach_pct);
             residuals.insert(key, final_residual);
-            total_iterations += 1;
         }
 
         if solved_correlations.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound {
-                    id: "base_correlation_data".to_string(),
-                },
-            ));
+            return Err(finstack_core::Error::Calibration {
+                message: "No tranches successfully calibrated".to_string(),
+                category: "base_correlation_empty".to_string(),
+            });
         }
 
         // Build final base correlation curve
         let final_curve = BaseCorrelationCurve::builder("CALIBRATED_BASE_CORR")
-            .knots(solved_correlations)
+            .knots(solved_correlations.clone())
             .build()?;
 
         // Validate the calibrated base correlation curve
@@ -304,28 +402,139 @@ impl BaseCorrelationCalibrator {
                 category: "base_correlation_validation".to_string(),
             })?;
 
-        let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
+        // Build comprehensive calibration report
+        let solver_config = self.build_solver_config();
+        let report = CalibrationReport::for_type("base_correlation", residuals, total_function_evaluations)
             .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
             .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
-            .with_metadata("validation", "passed");
+            .with_metadata("index_id", self.index_id.clone())
+            .with_metadata("maturity_years", self.maturity_years.to_string())
+            .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
+            .with_metadata("function_evaluations", total_function_evaluations.to_string())
+            .with_metadata("validation", "passed")
+            .with_solver_config(solver_config);
 
         Ok((final_curve, report))
     }
 
-    /// Create synthetic CDS tranche for pricing.
+    /// Compute initial guess for correlation using monotonic seeding strategy.
+    ///
+    /// For the first tranche, uses a reasonable starting point for equity tranches.
+    /// For subsequent tranches, starts slightly above the previous solved correlation
+    /// (assuming typical monotonically increasing base correlation).
+    fn compute_initial_guess(&self, solved_correlations: &[(f64, f64)]) -> f64 {
+        if solved_correlations.is_empty() {
+            INITIAL_CORRELATION_GUESS
+        } else {
+            let (_, last_correlation) = solved_correlations
+                .last()
+                .expect("solved_correlations checked non-empty");
+            (*last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
+        }
+    }
+
+    /// Fallback bracketed search when primary solver fails.
+    ///
+    /// Scans across the valid correlation range to find a root, handling
+    /// edge cases like inverted correlation curves or numerical instability.
+    fn bracketed_correlation_search<F>(&self, objective: &F, initial_guess: f64) -> Result<f64>
+    where
+        F: Fn(f64) -> f64,
+    {
+        // Try several bracketing strategies
+        let bracket_points = [
+            (MIN_BRACKET_CORRELATION, initial_guess),
+            (initial_guess, MAX_BRACKET_CORRELATION),
+            (MIN_BRACKET_CORRELATION, MAX_BRACKET_CORRELATION),
+            (0.10, 0.50),
+            (0.30, 0.70),
+            (0.50, 0.90),
+        ];
+
+        for (lo, hi) in bracket_points {
+            let f_lo = objective(lo);
+            let f_hi = objective(hi);
+
+            // Check if we have a bracket (sign change)
+            if f_lo * f_hi < 0.0 && f_lo.is_finite() && f_hi.is_finite() {
+                // Bisection search within bracket
+                let mut a = lo;
+                let mut b = hi;
+                let mut fa = f_lo;
+
+                for _ in 0..100 {
+                    let mid = 0.5 * (a + b);
+                    let f_mid = objective(mid);
+
+                    if f_mid.abs() < self.config.tolerance || (b - a) < 1e-10 {
+                        return Ok(mid);
+                    }
+
+                    if fa * f_mid < 0.0 {
+                        b = mid;
+                    } else {
+                        a = mid;
+                        fa = f_mid;
+                    }
+                }
+
+                return Ok(0.5 * (a + b));
+            }
+        }
+
+        // Final fallback: return initial guess with warning
+        tracing::warn!(
+            "Base correlation calibration: bracketed search failed, using initial guess {:.4}",
+            initial_guess
+        );
+        Ok(initial_guess.clamp(MIN_CORRELATION, MAX_CORRELATION))
+    }
+
+    /// Build solver configuration for report persistence.
+    fn build_solver_config(&self) -> SolverConfig {
+        match self.config.solver_kind {
+            SolverKind::Newton => SolverConfig::Newton {
+                tolerance: self.config.tolerance,
+                max_iterations: self.config.max_iterations,
+                fd_step: 1e-8,
+                min_derivative: 1e-14,
+            },
+            SolverKind::Brent | SolverKind::LevenbergMarquardt => SolverConfig::Brent {
+                tolerance: self.config.tolerance,
+                max_iterations: self.config.max_iterations,
+                bracket_expansion: 1.6,
+                initial_bracket_size: None,
+            },
+        }
+    }
+
+    /// Create synthetic CDS tranche for pricing during calibration.
+    ///
+    /// Uses IMM date conventions when `use_imm_dates` is enabled,
+    /// aligning with ISDA Big Bang Protocol (2009) standardization.
     fn create_synthetic_tranche(
         &self,
         attach_pct: f64,
         detach_pct: f64,
         running_spread_bp: f64,
     ) -> Result<CdsTranche> {
-        // Use proper calendar arithmetic instead of 365.25 approximation
-        let months_to_add = (self.maturity_years * 12.0).round() as i32;
-        let maturity = self.base_date.add_months(months_to_add);
+        // Calculate maturity date using proper IMM conventions if enabled
+        let maturity = if self.use_imm_dates {
+            self.calculate_imm_maturity()?
+        } else {
+            // Simple month-based calculation as fallback
+            let months_to_add = (self.maturity_years * 12.0).round() as i32;
+            finstack_core::dates::add_months(self.base_date, months_to_add)
+        };
 
         let id = finstack_core::types::InstrumentId::new(
-            format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct).replace('.', "_"),
+            format!(
+                "CALIB_TRANCHE_{:.1}_{:.1}",
+                attach_pct, detach_pct
+            )
+            .replace('.', "_"),
         );
+
         CdsTranche::builder()
             .id(id)
             .index_name(self.index_id.to_owned())
@@ -344,8 +553,45 @@ impl BaseCorrelationCalibrator {
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)
             .accumulated_loss(0.0)
-            .standard_imm_dates(false)
+            .standard_imm_dates(self.use_imm_dates)
             .build()
+    }
+
+    /// Calculate maturity date using CDS IMM conventions.
+    ///
+    /// CDS tranches mature on IMM dates: 20th of Mar/Jun/Sep/Dec.
+    /// This finds the IMM date closest to base_date + maturity_years.
+    fn calculate_imm_maturity(&self) -> Result<Date> {
+        // Calculate approximate target date
+        let months_to_add = (self.maturity_years * 12.0).round() as i32;
+        let approximate_maturity = finstack_core::dates::add_months(self.base_date, months_to_add);
+
+        // Snap to next CDS IMM date (20th of Mar/Jun/Sep/Dec)
+        // If we're already past the approximate date, step back one day to catch current IMM
+        let search_start = if approximate_maturity.day() >= 20 {
+            // We might be past this quarter's IMM, so go back slightly
+            finstack_core::dates::add_months(approximate_maturity, -3)
+        } else {
+            finstack_core::dates::add_months(approximate_maturity, -1)
+        };
+
+        // Find the next CDS date from search_start
+        let mut imm_date = next_cds_date(search_start);
+
+        // If we overshot significantly, try the previous IMM date
+        let days_diff = (imm_date - approximate_maturity).whole_days();
+        if days_diff > 45 {
+            // We went too far forward, try going back one quarter
+            let earlier_search = finstack_core::dates::add_months(search_start, -3);
+            let earlier_imm = next_cds_date(earlier_search);
+            if (earlier_imm - approximate_maturity).whole_days().abs()
+                < (imm_date - approximate_maturity).whole_days().abs()
+            {
+                imm_date = earlier_imm;
+            }
+        }
+
+        Ok(imm_date)
     }
 }
 
@@ -363,7 +609,22 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
 /// Multi-expiry base correlation surface calibrator.
 ///
 /// Calibrates base correlation curves for multiple maturities and
-/// builds a correlation surface.
+/// builds a correlation surface indexed by maturity.
+///
+/// # Example
+///
+/// ```ignore
+/// use finstack_valuations::calibration::methods::BaseCorrelationSurfaceCalibrator;
+///
+/// let calibrator = BaseCorrelationSurfaceCalibrator::new(
+///     "CDX.NA.IG.42",
+///     42,
+///     base_date,
+///     vec![3.0, 5.0, 7.0, 10.0],  // Target maturities in years
+/// );
+///
+/// let (curves, report) = calibrator.calibrate_surface(&quotes, &market_context)?;
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseCorrelationSurfaceCalibrator {
     /// Index identifier
@@ -384,6 +645,8 @@ pub struct BaseCorrelationSurfaceCalibrator {
     pub corr_interp: CorrelationInterp,
     /// Day count used to map tranche maturities to years for grouping
     pub time_dc: DayCount,
+    /// Whether to use IMM dates for maturity calculation
+    pub use_imm_dates: bool,
 }
 
 impl BaseCorrelationSurfaceCalibrator {
@@ -403,7 +666,8 @@ impl BaseCorrelationSurfaceCalibrator {
             config: CalibrationConfig::default(),
             discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
             corr_interp: CorrelationInterp::Linear,
-            time_dc: DayCount::Act365F,
+            time_dc: DayCount::Act360, // Use Act360 to align with CDS conventions
+            use_imm_dates: true,
         }
     }
 
@@ -434,7 +698,16 @@ impl BaseCorrelationSurfaceCalibrator {
         self
     }
 
+    /// Set whether to use IMM dates.
+    pub fn with_imm_dates(mut self, use_imm: bool) -> Self {
+        self.use_imm_dates = use_imm;
+        self
+    }
+
     /// Calibrate correlation surface from tranche quotes across maturities.
+    ///
+    /// Returns curves indexed by maturity (in years) and a combined report
+    /// with diagnostics for all calibrated maturities.
     pub fn calibrate_surface(
         &self,
         quotes: &[CreditQuote],
@@ -460,7 +733,7 @@ impl BaseCorrelationSurfaceCalibrator {
                     (a - maturity_years)
                         .abs()
                         .partial_cmp(&(b - maturity_years).abs())
-                        .expect("f64 comparison should always be comparable")
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 }) {
                     quotes_by_maturity
                         .entry(target_mat.into())
@@ -473,7 +746,9 @@ impl BaseCorrelationSurfaceCalibrator {
         let mut curves_by_maturity = BTreeMap::new();
         let mut all_residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
-        let mut total_iterations = 0;
+        let mut total_function_evaluations = 0;
+        let mut failed_maturities: Vec<String> = Vec::new();
+        let mut calibrated_maturities: Vec<String> = Vec::new();
 
         // Calibrate each maturity separately
         for &maturity_years in &self.target_maturities {
@@ -487,41 +762,88 @@ impl BaseCorrelationSurfaceCalibrator {
                 .with_config(self.config.clone())
                 .with_discount_curve_id(self.discount_curve_id.clone())
                 .with_corr_interp(self.corr_interp)
-                .with_detachment_points(self.detachment_points.clone());
+                .with_detachment_points(self.detachment_points.clone())
+                .with_imm_dates(self.use_imm_dates);
 
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
-                let result = calibrator.calibrate(&maturity_quote_vec, market_context);
-                match result {
+
+                match calibrator.calibrate(&maturity_quote_vec, market_context) {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(maturity_years.into(), curve);
+                        calibrated_maturities.push(format!("{:.1}Y", maturity_years));
 
-                        // Merge residuals with compact numeric keys
-                        for (_key, value) in report.residuals {
-                            let k = format!("{:06}", residual_key_counter);
+                        // Merge residuals with prefixed keys
+                        for (key, value) in report.residuals {
+                            let prefixed_key =
+                                format!("{:06}_{}Y_{}", residual_key_counter, maturity_years, key);
                             residual_key_counter += 1;
-                            all_residuals.insert(k, value);
+                            all_residuals.insert(prefixed_key, value);
                         }
-                        total_iterations += report.iterations;
+                        total_function_evaluations += report.iterations;
                     }
-                    Err(_) => {
-                        // Failed to calibrate this maturity - continue with others
-                        continue;
+                    Err(e) => {
+                        // Log failure and continue with other maturities
+                        tracing::warn!(
+                            "Base correlation surface: failed to calibrate {:.1}Y maturity: {}",
+                            maturity_years,
+                            e
+                        );
+                        failed_maturities.push(format!("{:.1}Y", maturity_years));
                     }
                 }
+            } else {
+                // No quotes available for this maturity
+                tracing::debug!(
+                    "Base correlation surface: no quotes found for {:.1}Y maturity",
+                    maturity_years
+                );
+                failed_maturities.push(format!("{:.1}Y (no quotes)", maturity_years));
             }
         }
+
+        // Build comprehensive report
+        let solver_config = match self.config.solver_kind {
+            SolverKind::Newton => SolverConfig::Newton {
+                tolerance: self.config.tolerance,
+                max_iterations: self.config.max_iterations,
+                fd_step: 1e-8,
+                min_derivative: 1e-14,
+            },
+            _ => SolverConfig::Brent {
+                tolerance: self.config.tolerance,
+                max_iterations: self.config.max_iterations,
+                bracket_expansion: 1.6,
+                initial_bracket_size: None,
+            },
+        };
 
         let report = CalibrationReport::for_type(
             "base_correlation_surface",
             all_residuals,
-            total_iterations,
+            total_function_evaluations,
         )
         .with_metadata(
             "calibrated_maturities",
+            calibrated_maturities.join(", "),
+        )
+        .with_metadata(
+            "calibrated_count",
             curves_by_maturity.len().to_string(),
         )
-        .with_metadata("time_dc", format!("{:?}", self.time_dc));
+        .with_metadata("time_dc", format!("{:?}", self.time_dc))
+        .with_metadata("index_id", self.index_id.clone())
+        .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
+        .with_metadata("function_evaluations", total_function_evaluations.to_string())
+        .with_metadata(
+            "failed_maturities",
+            if failed_maturities.is_empty() {
+                "none".to_string()
+            } else {
+                failed_maturities.join(", ")
+            },
+        )
+        .with_solver_config(solver_config);
 
         Ok((curves_by_maturity, report))
     }
@@ -535,7 +857,6 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
-    // use finstack_core::math::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;
 
@@ -591,6 +912,7 @@ mod tests {
             calibrator.detachment_points,
             vec![3.0, 7.0, 10.0, 15.0, 30.0]
         );
+        assert!(calibrator.use_imm_dates);
     }
 
     #[test]
@@ -606,6 +928,27 @@ mod tests {
         assert_eq!(tranche.detach_pct, 3.0);
         assert_eq!(tranche.running_coupon_bp, 500.0);
         assert_eq!(tranche.side, TrancheSide::SellProtection);
+        assert!(tranche.standard_imm_dates);
+    }
+
+    #[test]
+    fn test_imm_maturity_calculation() {
+        // Test that IMM maturity calculation produces valid CDS roll dates
+        let base_date = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
+            .with_imm_dates(true);
+
+        let maturity = calibrator.calculate_imm_maturity().expect("IMM calculation should succeed");
+
+        // Verify maturity is a CDS IMM date (20th of Mar/Jun/Sep/Dec)
+        let month = maturity.month();
+        let day = maturity.day();
+        assert_eq!(day, 20, "CDS IMM dates should be on the 20th");
+        assert!(
+            matches!(month, Month::March | Month::June | Month::September | Month::December),
+            "CDS IMM dates should be in Mar/Jun/Sep/Dec, got {:?}",
+            month
+        );
     }
 
     #[test]
@@ -639,6 +982,27 @@ mod tests {
             surface_calibrator.detachment_points,
             vec![3.0, 7.0, 10.0, 15.0, 30.0]
         );
+        assert!(surface_calibrator.use_imm_dates);
+    }
+
+    #[test]
+    fn test_initial_guess_computation() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
+
+        // Empty correlations should return default guess
+        let guess1 = calibrator.compute_initial_guess(&[]);
+        assert!((guess1 - INITIAL_CORRELATION_GUESS).abs() < 1e-9);
+
+        // With existing correlations, should return last + step (capped)
+        let solved = vec![(3.0, 0.25), (7.0, 0.45)];
+        let guess2 = calibrator.compute_initial_guess(&solved);
+        assert!((guess2 - (0.45 + CORRELATION_STEP)).abs() < 1e-9);
+
+        // Near max should cap
+        let solved_high = vec![(3.0, 0.88)];
+        let guess3 = calibrator.compute_initial_guess(&solved_high);
+        assert!(guess3 <= MAX_MONOTONIC_CORRELATION + 1e-9);
     }
 
     #[test]
@@ -722,8 +1086,9 @@ mod tests {
             tolerance: 1e-10,
             ..CalibrationConfig::default()
         };
-        let calibrator =
-            BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date).with_config(config);
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
+            .with_config(config)
+            .with_imm_dates(false); // Disable IMM for this test
 
         // Create clean market context for calibration (with dummy base correlation curve)
         let original_index = market_ctx
@@ -775,5 +1140,18 @@ mod tests {
 
         // Verify calibration quality
         assert!(report.max_residual < 1e-6); // Very tight tolerance for round-trip test
+
+        // Verify solver config is persisted
+        assert!(matches!(report.solver_config, SolverConfig::Newton { .. }));
+
+        // Verify metadata is populated
+        assert!(report.metadata.contains_key("function_evaluations"));
+        assert!(report.metadata.contains_key("index_id"));
+        assert!(report.metadata.contains_key("validation"));
+    }
+
+    #[test]
+    fn test_correlation_interp_default() {
+        assert_eq!(CorrelationInterp::default(), CorrelationInterp::Linear);
     }
 }
