@@ -230,8 +230,19 @@ pub fn xirr_with_daycount(
     let initial_guess = match guess {
         Some(g) => g,
         None => {
-            // Expanded candidate set to cover negative rate environments
-            let candidates: &[f64] = &[-0.5, -0.05, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0];
+            // Extended candidate set covering:
+            // - Negative returns: -90% to -5% (distressed investments)
+            // - Low returns: 0-10% (traditional fixed income)
+            // - Normal returns: 10-30% (typical PE/RE)
+            // - High returns: 50-200% (VC, turnaround)
+            // - Extreme returns: 300-500% (early-stage VC, unicorns)
+            let candidates: &[f64] = &[
+                -0.9, -0.5, -0.2, -0.05, // Negative returns
+                0.0, 0.01, 0.05, 0.1, // Low returns
+                0.15, 0.2, 0.25, 0.3, // Normal PE/RE returns
+                0.5, 0.75, 1.0, 1.5, // High returns
+                2.0, 3.0, 5.0, // Extreme VC returns
+            ];
             let mut best = 0.1;
             let mut best_abs = f64::INFINITY;
             for &g in candidates {
@@ -585,5 +596,72 @@ mod tests {
         // Should be approximately 0.1%
         assert!(result > 0.0 && result < 0.01);
         assert!((result - 0.001).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_xirr_high_return_vc_scenario() {
+        // Test high-return VC scenario (common in early-stage investing)
+        // Investment: $100K at t=0, exit: $500K at t=1.5 years
+        // Expected IRR ≈ 200% (5x MOIC over 1.5 years)
+        let flows = vec![
+            (
+                Date::from_calendar_date(2022, Month::January, 1).expect("Valid test date"),
+                -100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2023, Month::July, 1).expect("Valid test date"),
+                500_000.0,
+            ),
+        ];
+
+        let result = xirr(&flows, None).expect("XIRR should succeed for high-return VC scenario");
+
+        // 5x return over 1.5 years → IRR should be roughly 200-250%
+        assert!(
+            result > 1.5 && result < 3.0,
+            "VC scenario IRR should be ~200%+, got {:.1}%",
+            result * 100.0
+        );
+    }
+
+    #[test]
+    fn test_xirr_j_curve_pe_scenario() {
+        // Test J-curve pattern typical in PE: early drawdowns, late distributions
+        let flows = vec![
+            (
+                Date::from_calendar_date(2020, Month::January, 1).expect("Valid test date"),
+                -400_000.0,
+            ), // Initial commitment
+            (
+                Date::from_calendar_date(2020, Month::July, 1).expect("Valid test date"),
+                -300_000.0,
+            ), // Second drawdown
+            (
+                Date::from_calendar_date(2021, Month::January, 1).expect("Valid test date"),
+                -300_000.0,
+            ), // Third drawdown
+            (
+                Date::from_calendar_date(2022, Month::January, 1).expect("Valid test date"),
+                200_000.0,
+            ), // First distribution
+            (
+                Date::from_calendar_date(2023, Month::January, 1).expect("Valid test date"),
+                400_000.0,
+            ), // Second distribution
+            (
+                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                800_000.0,
+            ), // Exit distribution
+        ];
+
+        let result = xirr(&flows, None).expect("XIRR should succeed for J-curve PE scenario");
+
+        // Total invested: 1M, total returned: 1.4M over ~4 years
+        // Expected IRR: ~10-15%
+        assert!(
+            result > 0.05 && result < 0.25,
+            "J-curve PE IRR should be ~10-15%, got {:.1}%",
+            result * 100.0
+        );
     }
 }

@@ -528,6 +528,15 @@ impl HazardCurveBuilder {
     }
 
     /// Validate input and build the [`HazardCurve`].
+    ///
+    /// # Validation
+    ///
+    /// - Base date must be explicitly set (not the default 1970-01-01)
+    /// - At least one knot point required
+    /// - All hazard rates must be non-negative and finite
+    /// - Hazard rates > 10.0 trigger a warning (implies >99.995% 1Y default prob)
+    /// - Recovery rate must be in [0, 1]
+    /// - Knot times must be strictly increasing
     pub fn build(self) -> crate::Result<HazardCurve> {
         // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
         if self.base
@@ -539,10 +548,32 @@ impl HazardCurveBuilder {
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        // Validate non-negative hazard rates
-        if self.points.iter().any(|&(_, l)| l < 0.0) {
-            return Err(InputError::NegativeValue.into());
+
+        // Validate hazard rates: non-negative and finite
+        for &(t, lambda) in &self.points {
+            if lambda < 0.0 {
+                return Err(InputError::NegativeValue.into());
+            }
+            if !lambda.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+            // Sanity check: λ > 10 implies > 99.995% default probability over 1 year
+            // This is almost certainly a data error (units confusion, etc.)
+            if lambda > 10.0 {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "Warning: Hazard rate {:.4} at t={:.2}y implies >99.995% 1Y default probability. \
+                    Check for units confusion (annual vs bps).",
+                    lambda, t
+                );
+            }
         }
+
+        // Validate recovery rate bounds
+        if !(0.0..=1.0).contains(&self.recovery_rate) {
+            return Err(InputError::Invalid.into());
+        }
+
         let mut points = self.points;
         points.sort_by(|a, b| {
             a.0.partial_cmp(&b.0)

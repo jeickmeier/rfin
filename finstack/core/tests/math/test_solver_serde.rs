@@ -3,7 +3,7 @@
 #[cfg(feature = "serde")]
 mod tests {
     use finstack_core::math::integration::GaussHermiteQuadrature;
-    use finstack_core::math::random::{RandomNumberGenerator, SimpleRng};
+    use finstack_core::math::random::{RandomNumberGenerator, TestRng};
     use finstack_core::math::solver::{BrentSolver, NewtonSolver};
 
     #[test]
@@ -75,8 +75,8 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_rng_serde() {
-        let mut rng = SimpleRng::new(42);
+    fn test_test_rng_serde() {
+        let mut rng = TestRng::new(42);
 
         // Generate some values to change internal state
         let _val1 = rng.uniform();
@@ -86,7 +86,7 @@ mod tests {
         let json = serde_json::to_string(&rng).unwrap();
 
         // Deserialize
-        let mut deserialized: SimpleRng = serde_json::from_str(&json).unwrap();
+        let mut deserialized: TestRng = serde_json::from_str(&json).unwrap();
 
         // Both RNGs should now produce the same sequence
         let val3_orig = rng.uniform();

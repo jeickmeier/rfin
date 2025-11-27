@@ -1,14 +1,48 @@
 //! Random number generation for Monte Carlo simulations.
 //!
 //! Provides trait-based interface for random number generators with deterministic
-//! seed-based RNG for testing and basic simulations. For production Monte Carlo,
-//! implement the trait with more sophisticated generators (PCG, Mersenne Twister).
+//! seed-based RNG for testing and basic simulations.
 //!
 //! # Components
 //!
 //! - [`RandomNumberGenerator`]: Trait for pluggable RNG implementations
-//! - [`SimpleRng`]: Linear congruential generator for testing
+//! - [`TestRng`]: Linear congruential generator for **testing only** (NOT for production)
 //! - [`box_muller_transform`], [`box_muller_polar`]: Normal variate generation
+//!
+//! # Production Use
+//!
+//! **WARNING**: [`TestRng`] uses a simple LCG algorithm that is **NOT suitable for
+//! production Monte Carlo simulations**. For production use:
+//!
+//! 1. Implement [`RandomNumberGenerator`] with a cryptographically secure or
+//!    statistically robust RNG from a crate like `rand`:
+//!    - **PCG64**: Fast, statistically excellent (recommended for simulations)
+//!    - **ChaCha8/12/20**: Cryptographically secure when needed
+//!    - **Xoshiro256++**: Fast, good statistical properties
+//!
+//! 2. Example production implementation:
+//!
+//! ```ignore
+//! use rand::prelude::*;
+//! use rand_pcg::Pcg64;
+//!
+//! struct ProductionRng(Pcg64);
+//!
+//! impl ProductionRng {
+//!     fn new(seed: u64) -> Self {
+//!         Self(Pcg64::seed_from_u64(seed))
+//!     }
+//! }
+//!
+//! impl RandomNumberGenerator for ProductionRng {
+//!     fn uniform(&mut self) -> f64 { self.0.gen() }
+//!     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
+//!         use rand_distr::{Distribution, Normal};
+//!         Normal::new(mean, std_dev).unwrap().sample(&mut self.0)
+//!     }
+//!     fn bernoulli(&mut self, p: f64) -> bool { self.0.gen::<f64>() < p }
+//! }
+//! ```
 //!
 //! # References
 //!
@@ -20,8 +54,11 @@
 //!   - Marsaglia, G., & Bray, T. A. (1964). "A Convenient Method for Generating
 //!     Normal Variables." *SIAM Review*, 6(3), 260-264.
 //!
-//! - **Linear Congruential Generators**:
-//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 7.1.
+//! - **Production RNGs**:
+//!   - O'Neill, M. E. (2014). "PCG: A Family of Simple Fast Space-Efficient
+//!     Statistically Good Algorithms for Random Number Generation."
+//!   - L'Ecuyer, P. (2017). "Random Number Generation." In *Handbook of
+//!     Computational Statistics* (2nd ed.). Springer.
 
 /// Random number generator trait for statistical sampling.
 ///
@@ -38,19 +75,54 @@ pub trait RandomNumberGenerator {
     fn bernoulli(&mut self, p: f64) -> bool;
 }
 
-/// Simple deterministic RNG for testing and basic simulations.
+/// Deterministic RNG for **testing only** — NOT for production Monte Carlo.
 ///
-/// Uses a linear congruential generator for reproducible results.
-/// For production Monte Carlo, use more sophisticated generators.
+/// Uses a simple linear congruential generator (LCG) that provides:
+/// - **Deterministic**: Same seed → same sequence (reproducible tests)
+/// - **Fast**: Minimal overhead for unit tests
+/// - **Portable**: No external dependencies
+///
+/// # ⚠️ WARNING: Not for Production Use
+///
+/// This LCG has **poor statistical properties** and is unsuitable for:
+/// - Monte Carlo simulations (VaR, CVA, option pricing)
+/// - Any risk-sensitive computation
+/// - Large-scale sampling (>10⁶ samples)
+///
+/// **Issues with LCG for production**:
+/// - Short period (2³² in 32-bit variant)
+/// - Correlated low-order bits
+/// - Fails many statistical tests (TestU01, PractRand)
+///
+/// For production, implement [`RandomNumberGenerator`] with PCG64, ChaCha, or
+/// Xoshiro256++. See module documentation for example.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::random::{TestRng, RandomNumberGenerator};
+///
+/// // For unit tests only
+/// let mut rng = TestRng::new(42);
+/// let u = rng.uniform();
+/// assert!((0.0..1.0).contains(&u));
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SimpleRng {
+pub struct TestRng {
     state: u64,
     cached_normal: Option<f64>, // Instance-based cache for Box-Muller
 }
 
-impl SimpleRng {
-    /// Create a new RNG with the given seed
+/// Type alias for backwards compatibility (deprecated).
+#[deprecated(since = "0.2.0", note = "Use TestRng instead; SimpleRng implies production-readiness")]
+pub type SimpleRng = TestRng;
+
+impl TestRng {
+    /// Create a new RNG with the given seed.
+    ///
+    /// The same seed will always produce the same sequence of random numbers,
+    /// making tests deterministic and reproducible.
     pub fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_add(1), // Avoid zero state
@@ -58,15 +130,16 @@ impl SimpleRng {
         }
     }
 
-    /// Generate next random bits using LCG
+    /// Generate next random bits using LCG.
     fn next_u64(&mut self) -> u64 {
         // Simple LCG parameters (from Numerical Recipes)
+        // Note: These parameters are chosen for speed, not quality
         self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
         self.state
     }
 }
 
-impl RandomNumberGenerator for SimpleRng {
+impl RandomNumberGenerator for TestRng {
     fn uniform(&mut self) -> f64 {
         // Convert to [0, 1) using upper bits for better quality
         let bits = self.next_u64() >> 11; // Use upper 53 bits for double precision
@@ -114,6 +187,14 @@ impl RandomNumberGenerator for SimpleRng {
 /// z₂ = √(-2 ln u₁) sin(2π u₂)
 /// ```
 ///
+/// # Numerical Details
+///
+/// Uses `f64::MIN_POSITIVE` (~2.2e-308) for clamping to allow extreme tail
+/// values up to ±37σ while preventing -∞ from ln(0). The clamp at 1-ε
+/// prevents numerical issues when u1 is very close to 1.
+///
+/// Achievable range: |z| ≤ √(-2 ln(2.2e-308)) ≈ 37.7
+///
 /// # Examples
 ///
 /// ```rust
@@ -130,10 +211,17 @@ impl RandomNumberGenerator for SimpleRng {
 #[inline]
 pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
     use std::f64::consts::PI;
-    // Clamp u1 away from 0 and 1 to prevent -inf or inf in log
-    // This prevents NaN/inf propagation in Monte Carlo paths
-    const EPS: f64 = 1e-300;
-    let u1_safe = u1.clamp(EPS, 1.0 - EPS);
+
+    // Use smallest positive f64 to allow extreme tail sampling (up to ~37σ)
+    // while preventing -inf from ln(0). The 1.0 - EPS upper bound prevents
+    // numerical issues when u1 rounds to exactly 1.0.
+    //
+    // With EPS = MIN_POSITIVE (~2.2e-308):
+    //   -2 * ln(2.2e-308) ≈ 1418, so sqrt ≈ 37.7
+    //   This allows sampling ~37σ events (probability ~1e-300)
+    const EPS: f64 = f64::MIN_POSITIVE;
+    let u1_safe = u1.clamp(EPS, 1.0 - f64::EPSILON);
+
     let r = (-2.0 * u1_safe.ln()).sqrt();
     let theta = 2.0 * PI * u2;
     let z1 = r * theta.cos();
@@ -171,8 +259,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_rng_uniform() {
-        let mut rng = SimpleRng::new(42);
+    fn test_test_rng_uniform() {
+        let mut rng = TestRng::new(42);
 
         // Test that values are in [0, 1)
         for _ in 0..100 {
@@ -182,9 +270,9 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_rng_deterministic() {
-        let mut rng1 = SimpleRng::new(42);
-        let mut rng2 = SimpleRng::new(42);
+    fn test_test_rng_deterministic() {
+        let mut rng1 = TestRng::new(42);
+        let mut rng2 = TestRng::new(42);
 
         // Same seed should produce same sequence
         for _ in 0..10 {
@@ -193,8 +281,8 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_rng_normal() {
-        let mut rng = SimpleRng::new(42);
+    fn test_test_rng_normal() {
+        let mut rng = TestRng::new(42);
 
         // Test basic properties
         let sample = rng.normal(0.0, 1.0);
@@ -206,8 +294,8 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_rng_bernoulli() {
-        let mut rng = SimpleRng::new(42);
+    fn test_test_rng_bernoulli() {
+        let mut rng = TestRng::new(42);
 
         // Test extreme probabilities
         assert!(!rng.bernoulli(0.0));
@@ -232,7 +320,7 @@ mod tests {
         assert!(z2.is_finite());
 
         // Test with many samples
-        let mut rng = SimpleRng::new(42);
+        let mut rng = TestRng::new(42);
         let mut samples = Vec::new();
         for _ in 0..500 {
             let u1 = rng.uniform();
@@ -252,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_box_muller_polar() {
-        let mut rng = SimpleRng::new(42);
+        let mut rng = TestRng::new(42);
         let gen_u01 = || rng.uniform();
 
         let (z1, z2) = box_muller_polar(gen_u01);

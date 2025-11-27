@@ -42,10 +42,10 @@
 //!
 //! ```
 //! use finstack_core::math::distributions::sample_beta;
-//! use finstack_core::math::random::SimpleRng;
+//! use finstack_core::math::random::TestRng;
 //! use finstack_core::math::RandomNumberGenerator;
 //!
-//! let mut rng = SimpleRng::new(42);
+//! let mut rng = TestRng::new(42);
 //!
 //! // Sample recovery rate from Beta(4, 2) - peaked around 60-70%
 //! let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
@@ -227,7 +227,7 @@ pub fn log_factorial(n: usize) -> f64 {
     }
 }
 
-/// Sample from Beta(α, β) distribution using transformation method.
+/// Sample from Beta(α, β) distribution using the gamma ratio method.
 ///
 /// Generates random samples from the Beta distribution, commonly used for
 /// modeling random variables constrained to [0,1] such as recovery rates,
@@ -258,6 +258,14 @@ pub fn log_factorial(n: usize) -> f64 {
 ///
 /// Random sample x ∈ [0, 1] from Beta(α, β)
 ///
+/// # Algorithm
+///
+/// Uses the gamma ratio method (Devroye, 1986):
+/// If X ~ Gamma(α, 1) and Y ~ Gamma(β, 1), then X/(X+Y) ~ Beta(α, β)
+///
+/// Gamma samples are generated using Marsaglia & Tsang's method for shape ≥ 1,
+/// with Ahrens-Dieter transformation for shape < 1.
+///
 /// # Use Cases
 ///
 /// - **Recovery rates**: Beta(4, 2) models senior unsecured recovery ~60-70%
@@ -269,10 +277,10 @@ pub fn log_factorial(n: usize) -> f64 {
 ///
 /// ```rust
 /// use finstack_core::math::distributions::sample_beta;
-/// use finstack_core::math::random::SimpleRng;
+/// use finstack_core::math::random::TestRng;
 /// use finstack_core::math::RandomNumberGenerator;
 ///
-/// let mut rng = SimpleRng::new(42);
+/// let mut rng = TestRng::new(42);
 ///
 /// // Sample recovery rate: Beta(4, 2) peaked around 65%
 /// let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
@@ -288,21 +296,84 @@ pub fn log_factorial(n: usize) -> f64 {
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
 ///   Distributions, Volume 2* (2nd ed.). Wiley. Chapter 25 (Beta distribution).
 /// - Devroye, L. (1986). *Non-Uniform Random Variate Generation*. Springer.
-///   Chapter 9 (Beta distribution sampling).
+///   Chapter 9 (Beta distribution sampling via gamma ratio).
+/// - Marsaglia, G., & Tsang, W. W. (2000). "A Simple Method for Generating Gamma
+///   Variables." *ACM Transactions on Mathematical Software*, 26(3), 363-372.
 pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -> f64 {
-    // Use inverse transform for simple cases
+    // Special case: Beta(1, 1) = Uniform[0, 1]
     if alpha == 1.0 && beta == 1.0 {
         return rng.uniform();
     }
 
-    // Simplified beta sampling for common cases using transformation method
-    let u1 = rng.uniform();
-    let u2 = rng.uniform();
+    // Use gamma ratio method: X/(X+Y) ~ Beta(α, β) where X ~ Gamma(α), Y ~ Gamma(β)
+    let x = sample_gamma(rng, alpha);
+    let y = sample_gamma(rng, beta);
 
-    // Use transformation method for beta(alpha, beta)
-    let x = u1.powf(1.0 / alpha);
-    let y = u2.powf(1.0 / beta);
+    // Guard against division by zero (extremely rare, but defensive)
+    if x + y == 0.0 {
+        return 0.5; // Fallback to mean for degenerate case
+    }
     x / (x + y)
+}
+
+/// Sample from Gamma(shape, 1) distribution using Marsaglia-Tsang method.
+///
+/// This is an internal helper for Beta sampling. Uses rejection sampling with
+/// Marsaglia & Tsang's "squeeze" method for shape ≥ 1, and Ahrens-Dieter
+/// transformation for shape < 1.
+///
+/// # Arguments
+///
+/// * `rng` - Random number generator
+/// * `shape` - Shape parameter (α > 0)
+///
+/// # Returns
+///
+/// Random sample from Gamma(shape, 1)
+///
+/// # References
+///
+/// - Marsaglia, G., & Tsang, W. W. (2000). "A Simple Method for Generating Gamma
+///   Variables." *ACM Transactions on Mathematical Software*, 26(3), 363-372.
+fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
+    if shape < 1.0 {
+        // Ahrens-Dieter transformation for shape < 1:
+        // If X ~ Gamma(shape + 1), then X * U^(1/shape) ~ Gamma(shape)
+        let u = rng.uniform();
+        // Clamp u away from 0 to prevent ln(0) issues
+        let u_safe = u.max(1e-300);
+        return sample_gamma(rng, shape + 1.0) * u_safe.powf(1.0 / shape);
+    }
+
+    // Marsaglia-Tsang method for shape >= 1
+    let d = shape - 1.0 / 3.0;
+    let c = 1.0 / (9.0 * d).sqrt();
+
+    loop {
+        // Generate normal variate using Box-Muller
+        let x = rng.normal(0.0, 1.0);
+        let v = 1.0 + c * x;
+
+        if v > 0.0 {
+            let v = v * v * v; // v^3
+            let u = rng.uniform();
+            let x2 = x * x;
+
+            // Squeeze test (fast accept)
+            if u < 1.0 - 0.0331 * x2 * x2 {
+                return d * v;
+            }
+
+            // Full rejection test
+            // Clamp u and v away from 0 to prevent ln(0)
+            let u_safe = u.max(1e-300);
+            let v_safe = v.max(1e-300);
+            if u_safe.ln() < 0.5 * x2 + d * (1.0 - v_safe + v_safe.ln()) {
+                return d * v;
+            }
+        }
+        // Reject and retry
+    }
 }
 
 #[cfg(test)]
@@ -356,9 +427,9 @@ mod tests {
 
     #[test]
     fn test_sample_beta() {
-        use super::super::random::SimpleRng;
+        use super::super::random::TestRng;
 
-        let mut rng = SimpleRng::new(42);
+        let mut rng = TestRng::new(42);
 
         // Test uniform case (alpha=1, beta=1)
         let uniform_sample = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
@@ -371,5 +442,70 @@ mod tests {
         for sample in samples {
             assert!((0.0..=1.0).contains(&sample));
         }
+    }
+
+    #[test]
+    fn test_sample_beta_statistics() {
+        use super::super::random::TestRng;
+
+        let mut rng = TestRng::new(12345);
+        let n_samples = 10_000;
+
+        // Test Beta(4, 2) - expected mean = 4/(4+2) = 0.6667
+        let alpha: f64 = 4.0;
+        let beta_param: f64 = 2.0;
+        let expected_mean = alpha / (alpha + beta_param);
+        let expected_var = (alpha * beta_param) / ((alpha + beta_param).powi(2) * (alpha + beta_param + 1.0));
+
+        let samples: Vec<f64> = (0..n_samples)
+            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, alpha, beta_param))
+            .collect();
+
+        let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
+        let sample_var = samples.iter().map(|x| (x - sample_mean).powi(2)).sum::<f64>() / (n_samples - 1) as f64;
+
+        // Allow 5% relative error for mean (statistical tolerance)
+        assert!(
+            (sample_mean - expected_mean).abs() < 0.05 * expected_mean,
+            "Beta(4,2) mean: expected {:.4}, got {:.4}",
+            expected_mean,
+            sample_mean
+        );
+
+        // Allow 20% relative error for variance (higher tolerance due to sampling variance)
+        assert!(
+            (sample_var - expected_var).abs() < 0.20 * expected_var,
+            "Beta(4,2) variance: expected {:.4}, got {:.4}",
+            expected_var,
+            sample_var
+        );
+    }
+
+    #[test]
+    fn test_sample_beta_small_shape() {
+        use super::super::random::TestRng;
+
+        // Test with shape parameters < 1 (uses Ahrens-Dieter transformation)
+        let mut rng = TestRng::new(9999);
+        let samples: Vec<f64> = (0..1000)
+            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5))
+            .collect();
+
+        // All samples should be in [0, 1]
+        for sample in &samples {
+            assert!(
+                (0.0..=1.0).contains(sample),
+                "Beta(0.5, 0.5) sample {} out of bounds",
+                sample
+            );
+        }
+
+        // Beta(0.5, 0.5) is the arcsine distribution with mean = 0.5
+        let sample_mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        assert!(
+            (sample_mean - 0.5).abs() < 0.1,
+            "Beta(0.5, 0.5) mean: expected ~0.5, got {:.4}",
+            sample_mean
+        );
     }
 }

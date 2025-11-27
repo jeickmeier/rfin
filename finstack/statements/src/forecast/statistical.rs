@@ -6,7 +6,7 @@
 
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
-use finstack_core::math::random::{RandomNumberGenerator, SimpleRng};
+use finstack_core::math::random::{RandomNumberGenerator, TestRng};
 use indexmap::IndexMap;
 
 /// Normal distribution forecast (deterministic with seed).
@@ -79,7 +79,9 @@ pub fn normal_forecast(
     }
 
     // Initialize RNG with seed
-    let mut rng = SimpleRng::new(seed);
+    // Note: TestRng is for deterministic testing; for production Monte Carlo,
+    // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
+    let mut rng = TestRng::new(seed);
 
     let mut results = IndexMap::new();
 
@@ -166,7 +168,9 @@ pub fn lognormal_forecast(
     }
 
     // Initialize RNG with seed
-    let mut rng = SimpleRng::new(seed);
+    // Note: TestRng is for deterministic testing; for production Monte Carlo,
+    // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
+    let mut rng = TestRng::new(seed);
 
     let mut results = IndexMap::new();
 
