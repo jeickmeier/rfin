@@ -375,17 +375,17 @@ fn test_put_rho_negative() {
 }
 
 #[test]
-fn test_cds_cs01_positive_magnitude() {
-    // CDS CS01 is reported as positive magnitude (absolute change per 1bp spread change)
-    // Note: The directional effect depends on the CDS side (buy vs sell protection)
-    // and whether the CDS is at-market or off-market
+fn test_cds_cs01_protection_buyer_positive() {
+    // Protection buyer CS01 should be positive: when spreads widen, the protection
+    // leg value increases more than premium payments owed, benefiting the buyer.
+    // This is the market-standard directional sign convention.
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_valuations::instruments::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::buy_protection(
-        "CS01_TEST",
+        "CS01_BUY_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
         as_of,
@@ -434,11 +434,343 @@ fn test_cds_cs01_positive_magnitude() {
     let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
     let cs01 = *results.get(&MetricId::Cs01).unwrap();
 
-    // CS01 is reported as positive magnitude (absolute value)
-    // The implementation uses .abs() to return magnitude
+    // Protection buyer benefits from spread widening, so CS01 > 0
     assert!(
         cs01 > 0.0,
-        "CDS CS01 should be positive (magnitude), got {}",
+        "Protection buyer CS01 should be positive, got {}",
         cs01
+    );
+}
+
+#[test]
+fn test_cds_cs01_protection_seller_negative() {
+    // Protection seller CS01 should be negative: when spreads widen, the seller's
+    // liability increases more than premium income, hurting the seller.
+    // This validates that CS01 sign correctly reflects position direction.
+    let as_of = date!(2025 - 01 - 01);
+
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
+    let cds = CreditDefaultSwap::sell_protection(
+        "CS01_SELL_TEST",
+        Money::new(1_000_000.0, Currency::USD),
+        200.0, // 200bp spread
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+        "HAZARD",
+    );
+
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (1.0f64, (-0.05f64).exp()),
+            (2.0f64, (-0.10f64).exp()),
+            (3.0f64, (-0.15f64).exp()),
+            (4.0f64, (-0.20f64).exp()),
+            (5.0f64, (-0.25f64).exp()),
+        ])
+        .build()
+        .unwrap();
+
+    let hazard_curve = HazardCurve::builder("HAZARD")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .recovery_rate(0.4)
+        .knots([
+            (0.0f64, 0.02f64),
+            (1.0f64, 0.025f64),
+            (2.0f64, 0.03f64),
+            (3.0f64, 0.035f64),
+            (4.0f64, 0.04f64),
+            (5.0f64, 0.045f64),
+        ])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_hazard(hazard_curve);
+
+    let registry = standard_registry();
+    let pv = cds.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+
+    let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
+    let cs01 = *results.get(&MetricId::Cs01).unwrap();
+
+    // Protection seller is hurt by spread widening, so CS01 < 0
+    assert!(
+        cs01 < 0.0,
+        "Protection seller CS01 should be negative, got {}",
+        cs01
+    );
+}
+
+#[test]
+fn test_cds_cs01_opposite_signs() {
+    // Verify that buy and sell protection CS01 have opposite signs for the same market.
+    // This is a fundamental property: they are opposite positions.
+    let as_of = date!(2025 - 01 - 01);
+
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
+    let cds_buy = CreditDefaultSwap::buy_protection(
+        "CS01_BUY",
+        Money::new(1_000_000.0, Currency::USD),
+        200.0,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+        "HAZARD",
+    );
+
+    let cds_sell = CreditDefaultSwap::sell_protection(
+        "CS01_SELL",
+        Money::new(1_000_000.0, Currency::USD),
+        200.0,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+        "HAZARD",
+    );
+
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (1.0f64, (-0.05f64).exp()),
+            (2.0f64, (-0.10f64).exp()),
+            (3.0f64, (-0.15f64).exp()),
+            (4.0f64, (-0.20f64).exp()),
+            (5.0f64, (-0.25f64).exp()),
+        ])
+        .build()
+        .unwrap();
+
+    let hazard_curve = HazardCurve::builder("HAZARD")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .recovery_rate(0.4)
+        .knots([
+            (0.0f64, 0.02f64),
+            (1.0f64, 0.025f64),
+            (2.0f64, 0.03f64),
+            (3.0f64, 0.035f64),
+            (4.0f64, 0.04f64),
+            (5.0f64, 0.045f64),
+        ])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_hazard(hazard_curve);
+
+    let registry = standard_registry();
+
+    // Compute CS01 for buy protection
+    let pv_buy = cds_buy.value(&market, as_of).unwrap();
+    let mut context_buy = MetricContext::new(Arc::new(cds_buy), Arc::new(market.clone()), as_of, pv_buy);
+    let results_buy = registry.compute(&[MetricId::Cs01], &mut context_buy).unwrap();
+    let cs01_buy = *results_buy.get(&MetricId::Cs01).unwrap();
+
+    // Compute CS01 for sell protection
+    let pv_sell = cds_sell.value(&market, as_of).unwrap();
+    let mut context_sell = MetricContext::new(Arc::new(cds_sell), Arc::new(market), as_of, pv_sell);
+    let results_sell = registry.compute(&[MetricId::Cs01], &mut context_sell).unwrap();
+    let cs01_sell = *results_sell.get(&MetricId::Cs01).unwrap();
+
+    // Buy and sell should have opposite signs
+    assert!(
+        cs01_buy * cs01_sell < 0.0,
+        "Buy CS01 ({}) and sell CS01 ({}) should have opposite signs",
+        cs01_buy,
+        cs01_sell
+    );
+
+    // Their magnitudes should be approximately equal
+    let diff_pct = ((cs01_buy.abs() - cs01_sell.abs()) / cs01_buy.abs()).abs();
+    assert!(
+        diff_pct < 0.01,
+        "Buy and sell CS01 magnitudes should be approximately equal: buy={}, sell={}, diff={:.2}%",
+        cs01_buy.abs(),
+        cs01_sell.abs(),
+        diff_pct * 100.0
+    );
+}
+
+#[test]
+fn test_put_call_parity() {
+    // Put-Call Parity: C - P = S·exp(-q·T) - K·exp(-r·T)
+    // This fundamental arbitrage relationship validates consistency of option pricing.
+    // For ATM options, C - P ≈ (forward - strike) * DF when forward ≈ spot * exp((r-q)*T)
+    use finstack_core::dates::DayCountCtx;
+    
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+    let strike = 100.0; // ATM
+    let rate = 0.05;
+    let div_yield = 0.02;
+    let vol = 0.25;
+
+    // Create call option
+    let call = EquityOption {
+        id: "PARITY_CALL".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 1.0, // Unit notional for cleaner parity check
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "AAPL".into(),
+        vol_surface_id: "AAPL_VOL".into(),
+        div_yield_id: Some("AAPL_DIV".into()),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    // Create put option with same parameters
+    let put = EquityOption {
+        id: "PARITY_PUT".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Put,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 1.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "AAPL".into(),
+        vol_surface_id: "AAPL_VOL".into(),
+        div_yield_id: Some("AAPL_DIV".into()),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let market = create_option_market(as_of, spot, vol, rate, div_yield);
+
+    // Price both options
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
+
+    // Calculate time to expiry in years (Act365F is simple: T = days / 365)
+    let t = DayCount::Act365F
+        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .unwrap();
+
+    // Put-call parity: C - P = S·exp(-q·T) - K·exp(-r·T)
+    // Forward price: F = S·exp((r-q)·T) = S·exp(-q·T)·exp(r·T)
+    // Discounted forward: S·exp(-q·T)
+    // Discounted strike: K·exp(-r·T)
+    let forward_value = spot * (-div_yield * t).exp();
+    let strike_pv = strike * (-rate * t).exp();
+    let parity_rhs = forward_value - strike_pv;
+    let parity_lhs = call_pv.amount() - put_pv.amount();
+
+    // Parity should hold within 1% relative tolerance
+    // (small numerical differences can occur due to different pricing paths)
+    let parity_error = (parity_lhs - parity_rhs).abs();
+    let relative_error = parity_error / parity_rhs.abs().max(1e-10);
+    assert!(
+        relative_error < 0.01,
+        "Put-call parity violated: C-P = {:.6}, S·exp(-q·T) - K·exp(-r·T) = {:.6}, rel_error = {:.4}%",
+        parity_lhs,
+        parity_rhs,
+        relative_error * 100.0
+    );
+}
+
+#[test]
+fn test_put_call_parity_delta_relationship() {
+    // Derivative of put-call parity with respect to spot:
+    // ∂/∂S (C - P) = ∂/∂S (S·exp(-q·T) - K·exp(-r·T))
+    // Delta_C - Delta_P = exp(-q·T)
+    // For small div yield: Delta_C - Delta_P ≈ 1 (normalized per share)
+    use finstack_core::dates::DayCountCtx;
+    
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+    let strike = 100.0;
+    let rate = 0.05;
+    let div_yield = 0.02;
+    let vol = 0.25;
+
+    let call = EquityOption {
+        id: "DELTA_PARITY_CALL".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 1.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "AAPL".into(),
+        vol_surface_id: "AAPL_VOL".into(),
+        div_yield_id: Some("AAPL_DIV".into()),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let put = EquityOption {
+        id: "DELTA_PARITY_PUT".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Put,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 1.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "AAPL".into(),
+        vol_surface_id: "AAPL_VOL".into(),
+        div_yield_id: Some("AAPL_DIV".into()),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let market = create_option_market(as_of, spot, vol, rate, div_yield);
+    let registry = standard_registry();
+
+    // Compute deltas
+    let call_pv = call.value(&market, as_of).unwrap();
+    let mut call_context = MetricContext::new(Arc::new(call), Arc::new(market.clone()), as_of, call_pv);
+    let call_results = registry.compute(&[MetricId::Delta], &mut call_context).unwrap();
+    let call_delta = *call_results.get(&MetricId::Delta).unwrap();
+
+    let put_pv = put.value(&market, as_of).unwrap();
+    let mut put_context = MetricContext::new(Arc::new(put), Arc::new(market), as_of, put_pv);
+    let put_results = registry.compute(&[MetricId::Delta], &mut put_context).unwrap();
+    let put_delta = *put_results.get(&MetricId::Delta).unwrap();
+
+    // Delta_C - Delta_P = exp(-q·T)
+    let t = DayCount::Act365F
+        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .unwrap();
+    let expected_diff = (-div_yield * t).exp();
+    let actual_diff = call_delta - put_delta;
+
+    // Allow 1% tolerance for numerical differences
+    let error = (actual_diff - expected_diff).abs() / expected_diff;
+    assert!(
+        error < 0.01,
+        "Delta parity violated: Delta_C - Delta_P = {:.6}, exp(-q·T) = {:.6}, error = {:.2}%",
+        actual_diff,
+        expected_diff,
+        error * 100.0
     );
 }

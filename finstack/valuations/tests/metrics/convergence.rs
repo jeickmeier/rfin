@@ -142,30 +142,40 @@ fn test_equity_option_all_analytical_greeks() {
 }
 
 #[test]
-fn test_bucketed_dv01_sums_to_total() {
-    // Bucketed DV01 should approximately sum to total DV01
+fn test_bucketed_dv01_computed_correctly() {
+    // Test that bucketed DV01 computes reasonable values for each key-rate bucket.
+    //
+    // NOTE: The current key-rate bump implementation in finstack-core computes
+    // forward-segment sensitivities (bumping all DFs after the target segment),
+    // not fully localized key-rate sensitivities. This is a valid approach but
+    // means bucketed DV01 may not sum exactly to parallel DV01.
+    //
+    // For strict sum-to-parallel behavior, the core library would need to implement
+    // par-rate bumping (bump par instruments and re-bootstrap) or fully localized
+    // triangular key-rate bumps.
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_valuations::instruments::bond::Bond;
     let bond = Bond::fixed(
         "BUCKETED_TEST",
         Money::new(100.0, Currency::USD),
-        0.05,
+        0.05, // 5% coupon
         as_of,
-        date!(2030 - 01 - 01),
+        date!(2030 - 01 - 01), // 5 year bond
         "USD-OIS",
     );
 
+    let rate: f64 = 0.05;
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
         .knots([
             (0.0f64, 1.0f64),
-            (1.0f64, (-0.05f64).exp()),
-            (2.0f64, (-0.10f64).exp()),
-            (3.0f64, (-0.15f64).exp()),
-            (4.0f64, (-0.20f64).exp()),
-            (5.0f64, (-0.25f64).exp()),
+            (1.0f64, (-rate * 1.0f64).exp()),
+            (2.0f64, (-rate * 2.0f64).exp()),
+            (3.0f64, (-rate * 3.0f64).exp()),
+            (5.0f64, (-rate * 5.0f64).exp()),
+            (10.0f64, (-rate * 10.0f64).exp()),
         ])
         .build()
         .unwrap();
@@ -188,37 +198,49 @@ fn test_bucketed_dv01_sums_to_total() {
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
 
-        // Note: Bucketed DV01 (key-rate duration) and total DV01 (modified duration) are
-        // fundamentally different measures:
-        // - Bucketed DV01: sensitivity to localized rate changes at specific maturities
-        // - Total DV01: sensitivity to parallel shifts across the entire curve
-        //
-        // They should be similar for well-distributed cashflows, but may differ significantly
-        // for simple curves or bonds with concentrated cashflows. For this test, we verify
-        // that bucketed DV01 produces reasonable values (non-zero, finite) but don't require
-        // an exact match to total DV01.
+        // Verify basic properties
         assert!(
             sum_bucketed.is_finite(),
             "Bucketed DV01 sum should be finite, got {}",
             sum_bucketed
         );
 
-        // If the sum is reasonably close (within 50%), that's a bonus, but not required
-        let sum_abs = sum_bucketed.abs();
-        let total_abs = total_dv01.abs();
-        if total_abs > 1e-6 {
-            let diff_pct = (sum_abs - total_abs).abs() / total_abs;
-            // Log the difference but don't fail if it's large - these are different metrics
-            if diff_pct > 0.50 {
-                eprintln!(
-                    "Note: Bucketed DV01 sum ({}) differs from total DV01 ({}) by {:.1}% - \
-                     this is expected as they measure different sensitivities",
-                    sum_abs,
-                    total_abs,
-                    diff_pct * 100.0
-                );
-            }
-        }
+        assert!(
+            total_dv01.abs() > 1e-6,
+            "Total DV01 should be non-trivial, got {}",
+            total_dv01
+        );
+
+        // Both should be negative for a long fixed-rate bond
+        assert!(
+            total_dv01 < 0.0,
+            "Parallel DV01 should be negative for long bond, got {}",
+            total_dv01
+        );
+
+        // The 5y bucket should capture most of the sensitivity (principal at maturity)
+        let five_year_dv01 = series
+            .iter()
+            .find(|(k, _)| k == "5y")
+            .map(|(_, v)| *v)
+            .unwrap_or(0.0);
+
+        assert!(
+            five_year_dv01 < 0.0,
+            "5Y bucket DV01 should be negative, got {}",
+            five_year_dv01
+        );
+
+        // 5y bucket should capture a significant portion of total sensitivity
+        // (at least 30% for a 5-year bond with large principal payment)
+        let five_year_contribution = five_year_dv01.abs() / total_dv01.abs();
+        assert!(
+            five_year_contribution > 0.30,
+            "5Y bucket should capture >30% of total DV01, got {:.1}%",
+            five_year_contribution * 100.0
+        );
+    } else {
+        panic!("Bucketed DV01 series should be populated");
     }
 }
 
