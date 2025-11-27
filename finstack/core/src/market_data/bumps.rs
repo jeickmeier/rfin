@@ -37,8 +37,23 @@ pub enum BumpType {
     /// Parallel shift across all maturities.
     #[default]
     Parallel,
-    /// Key-rate bump at specific maturity.
+    /// Key-rate bump at specific maturity (shifts all DFs beyond target segment).
+    ///
+    /// This variant applies a simple step-function bump where all discount factors
+    /// beyond the target segment are uniformly shifted. For industry-standard
+    /// triangular key-rate DV01 that localizes impact around the target tenor,
+    /// use [`TriangularKeyRate`](Self::TriangularKeyRate).
     KeyRate {
+        /// Time in years at which to apply the key-rate bump.
+        time_years: f64,
+    },
+    /// Triangular key-rate bump at specific maturity (industry standard).
+    ///
+    /// This implements the market-standard key-rate DV01 methodology where the
+    /// bump peaks at the target tenor and linearly decays to zero at adjacent
+    /// curve knots (per Tuckman/Fabozzi). This localizes the rate impact to
+    /// a specific maturity bucket without affecting distant tenors.
+    TriangularKeyRate {
         /// Time in years at which to apply the key-rate bump.
         time_years: f64,
     },
@@ -242,6 +257,9 @@ impl Bumpable for DiscountCurve {
                 BumpType::KeyRate { time_years } => self
                     .try_with_key_rate_bump_years(time_years, spec.value)
                     .ok(),
+                BumpType::TriangularKeyRate { time_years } => self
+                    .try_with_triangular_key_rate_bump(time_years, spec.value)
+                    .ok(),
             }
         } else {
             None
@@ -296,6 +314,15 @@ impl Bumpable for ForwardCurve {
                 // For key-rate bumps, only support additive rate bumps
                 if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
                     self.try_with_key_rate_bump_years(time_years, spec.value)
+                        .ok()
+                } else {
+                    None
+                }
+            }
+            BumpType::TriangularKeyRate { time_years } => {
+                // For triangular key-rate bumps, only support additive rate bumps
+                if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
+                    self.try_with_triangular_key_rate_bump(time_years, spec.value)
                         .ok()
                 } else {
                     None

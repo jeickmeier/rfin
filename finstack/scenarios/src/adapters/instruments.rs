@@ -1,7 +1,9 @@
 //! Instrument-level shock adapters.
 //!
-//! Applies metadata-driven price and spread shocks to instrument collections,
+//! Applies price and spread shocks to instrument collections via pricing overrides,
 //! enabling `OperationSpec` variants to affect subsets of a portfolio by type.
+//! When instruments support pricing_overrides_mut(), shocks are applied functionally.
+//! Otherwise, shocks are stored as metadata attributes for downstream processing.
 
 use crate::error::Result;
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -12,15 +14,20 @@ use finstack_valuations::pricer::InstrumentType;
 /// # Arguments
 /// - `instruments`: Slice of instrument trait objects to mutate.
 /// - `instrument_types`: Instrument types that should receive the shock.
-/// - `pct`: Percentage change to attach as metadata.
+/// - `pct`: Percentage change (e.g., -3.0 for -3% price shock).
 ///
 /// # Returns
 /// [`Result`](crate::error::Result) containing the number of instruments that
 /// were updated.
 ///
-/// # Errors
-/// Currently always returns `Ok`; the [`Result`](crate::error::Result) wrapper
-/// is reserved for future validation failures.
+/// # Pricing Effect
+///
+/// When the instrument supports `pricing_overrides_mut()`, the shock is applied
+/// to the `scenario_price_shock_pct` field, which affects actual pricing:
+/// - New price = Base price × (1 + shock_pct/100)
+///
+/// For instruments without pricing override support, the shock is stored as
+/// metadata for downstream processing.
 ///
 /// # Examples
 /// ```rust
@@ -38,18 +45,23 @@ pub fn apply_instrument_type_price_shock(
     pct: f64,
 ) -> Result<usize> {
     let mut count = 0;
+    let shock_decimal = pct / 100.0; // Convert percentage to decimal
 
     for instrument in instruments.iter_mut() {
         let inst_type = instrument.key();
 
         if instrument_types.contains(&inst_type) {
-            // Apply price shock via attributes or pricing overrides
-            // For now, store the shock as a metadata attribute
-            let shock_str = format!("{:.4}", pct);
-            instrument
-                .attributes_mut()
-                .meta
-                .insert("scenario_price_shock_pct".to_string(), shock_str);
+            // Try to apply via scenario_overrides for functional pricing effect
+            if let Some(overrides) = instrument.scenario_overrides_mut() {
+                overrides.scenario_price_shock_pct = Some(shock_decimal);
+            } else {
+                // Fallback: store as metadata for downstream processing
+                let shock_str = format!("{:.6}", shock_decimal);
+                instrument
+                    .attributes_mut()
+                    .meta
+                    .insert("scenario_price_shock_pct".to_string(), shock_str);
+            }
             count += 1;
         }
     }
@@ -62,15 +74,20 @@ pub fn apply_instrument_type_price_shock(
 /// # Arguments
 /// - `instruments`: Slice of instrument trait objects to mutate.
 /// - `instrument_types`: Instrument types that should receive the spread shock.
-/// - `bp`: Basis-point change to attach as metadata.
+/// - `bp`: Basis-point change (e.g., 25.0 for +25bp spread widening).
 ///
 /// # Returns
 /// [`Result`](crate::error::Result) containing the number of instruments that
 /// were updated.
 ///
-/// # Errors
-/// Currently always returns `Ok`; errors may be introduced in the future to
-/// surface validation failures.
+/// # Pricing Effect
+///
+/// When the instrument supports `pricing_overrides_mut()`, the shock is applied
+/// to the `scenario_spread_shock_bp` field, which affects actual pricing:
+/// - New spread = Base spread + shock_bp
+///
+/// For instruments without pricing override support, the shock is stored as
+/// metadata for downstream processing.
 ///
 /// # Examples
 /// ```rust
@@ -93,17 +110,63 @@ pub fn apply_instrument_type_spread_shock(
         let inst_type = instrument.key();
 
         if instrument_types.contains(&inst_type) {
-            // Apply spread shock via attributes
-            let shock_str = format!("{:.2}", bp);
-            instrument
-                .attributes_mut()
-                .meta
-                .insert("scenario_spread_shock_bp".to_string(), shock_str);
+            // Try to apply via scenario_overrides for functional pricing effect
+            if let Some(overrides) = instrument.scenario_overrides_mut() {
+                overrides.scenario_spread_shock_bp = Some(bp);
+            } else {
+                // Fallback: store as metadata for downstream processing
+                let shock_str = format!("{:.2}", bp);
+                instrument
+                    .attributes_mut()
+                    .meta
+                    .insert("scenario_spread_shock_bp".to_string(), shock_str);
+            }
             count += 1;
         }
     }
 
     Ok(count)
+}
+
+/// Clear all scenario shocks from instruments.
+///
+/// Removes any scenario price or spread shocks that were previously applied,
+/// resetting instruments to their base pricing state.
+///
+/// # Arguments
+/// - `instruments`: Slice of instrument trait objects to clear shocks from.
+///
+/// # Returns
+/// Number of instruments that had shocks cleared.
+pub fn clear_instrument_shocks(instruments: &mut [Box<dyn Instrument>]) -> usize {
+    let mut count = 0;
+
+    for instrument in instruments.iter_mut() {
+        let mut had_shock = false;
+
+        // Clear scenario overrides if supported
+        if let Some(overrides) = instrument.scenario_overrides_mut() {
+            if overrides.has_scenario_shock() {
+                overrides.clear_scenario_shocks();
+                had_shock = true;
+            }
+        }
+
+        // Also clear metadata attributes
+        let attrs = instrument.attributes_mut();
+        if attrs.meta.remove("scenario_price_shock_pct").is_some() {
+            had_shock = true;
+        }
+        if attrs.meta.remove("scenario_spread_shock_bp").is_some() {
+            had_shock = true;
+        }
+
+        if had_shock {
+            count += 1;
+        }
+    }
+
+    count
 }
 
 #[cfg(test)]

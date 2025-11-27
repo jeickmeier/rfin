@@ -41,6 +41,7 @@
 //!     model: &mut model,
 //!     instruments: None,
 //!     rate_bindings: None,
+//!     calendar: None,
 //!     as_of,
 //! };
 //!
@@ -59,5 +60,6 @@ pub mod utils;
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
 pub use spec::{
-    CurveKind, InstrumentType, OperationSpec, ScenarioSpec, TenorMatchMode, VolSurfaceKind,
+    Compounding, CurveKind, InstrumentType, OperationSpec, RateBindingSpec, ScenarioSpec,
+    TenorMatchMode, VolSurfaceKind,
 };

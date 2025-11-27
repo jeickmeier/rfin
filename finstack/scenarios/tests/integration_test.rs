@@ -49,6 +49,7 @@ fn test_curve_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -96,6 +97,7 @@ fn test_equity_price_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -183,6 +185,7 @@ fn test_vol_surface_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -226,6 +229,7 @@ fn test_base_correlation_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

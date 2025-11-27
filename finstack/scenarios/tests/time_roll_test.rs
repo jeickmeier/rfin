@@ -34,6 +34,7 @@ fn test_time_roll_1_day() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -71,6 +72,7 @@ fn test_time_roll_1_month() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -105,6 +107,7 @@ fn test_time_roll_1_year() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -168,6 +171,7 @@ fn test_time_roll_with_bond_carry() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

@@ -29,6 +29,7 @@ use indexmap::IndexMap;
 ///   and to calculate carry/theta for time rolls.
 /// - `rate_bindings`: Optional mapping from statement node identifiers to
 ///   market curve identifiers; used to sync statement rates after curve shocks.
+/// - `calendar`: Optional holiday calendar for calendar-aware tenor calculations.
 /// - `as_of`: Valuation date that operations reference.
 ///
 /// # Examples
@@ -46,6 +47,7 @@ use indexmap::IndexMap;
 ///     model: &mut model,
 ///     instruments: None,
 ///     rate_bindings: None,
+///     calendar: None,
 ///     as_of,
 /// };
 ///
@@ -64,6 +66,9 @@ pub struct ExecutionContext<'a> {
 
     /// Optional mapping from statement node IDs to curve IDs for automatic rate updates.
     pub rate_bindings: Option<IndexMap<String, String>>,
+
+    /// Optional holiday calendar for calendar-aware tenor calculations.
+    pub calendar: Option<&'a dyn finstack_core::dates::HolidayCalendar>,
 
     /// Valuation date for context.
     pub as_of: time::Date,
@@ -245,6 +250,7 @@ impl ScenarioEngine {
     ///     model: &mut model,
     ///     instruments: None,
     ///     rate_bindings: None,
+    ///     calendar: None,
     ///     as_of,
     /// };
     ///

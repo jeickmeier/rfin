@@ -407,6 +407,81 @@ impl HazardCurve {
         builder.build()
     }
 
+    /// Roll the curve forward by a specified number of days.
+    ///
+    /// This creates a new curve with:
+    /// - Base date advanced by `days`
+    /// - Knot times shifted backwards (t' = t - dt_years)
+    /// - Points with t' <= 0 are filtered out (expired)
+    /// - Hazard rates are preserved (no carry/theta adjustment)
+    ///
+    /// # Arguments
+    /// * `days` - Number of days to roll forward
+    ///
+    /// # Returns
+    /// A new hazard curve with updated base date and shifted knots.
+    ///
+    /// # Errors
+    /// Returns an error if fewer than 2 knot points remain after filtering expired points.
+    pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
+        let dt_years = days as f64 / 365.0;
+        let new_base = self.base + time::Duration::days(days);
+
+        // Shift knots and filter expired points
+        let rolled_points: Vec<(f64, f64)> = self
+            .knot_points()
+            .filter_map(|(t, lambda)| {
+                let new_t = t - dt_years;
+                if new_t > 0.0 {
+                    Some((new_t, lambda))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if rolled_points.len() < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        // Also roll par spread points
+        let rolled_par_points: Vec<(f64, f64)> = self
+            .par_spread_points()
+            .filter_map(|(t, spread)| {
+                let new_t = t - dt_years;
+                if new_t > 0.0 {
+                    Some((new_t, spread))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut builder = HazardCurve::builder(self.id.clone())
+            .base_date(new_base)
+            .recovery_rate(self.recovery_rate)
+            .day_count(self.day_count)
+            .knots(rolled_points)
+            .par_interp(self.par_interp);
+
+        if let Some(ref issuer) = self.issuer {
+            builder = builder.issuer(issuer.clone());
+        }
+        if let Some(seniority) = self.seniority {
+            builder = builder.seniority(seniority);
+        }
+        if let Some(currency) = self.currency {
+            builder = builder.currency(currency);
+        }
+
+        // Add rolled par spread points if any
+        if !rolled_par_points.is_empty() {
+            builder = builder.par_spreads(rolled_par_points);
+        }
+
+        builder.build()
+    }
+
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
     pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {

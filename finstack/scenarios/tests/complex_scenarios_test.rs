@@ -68,6 +68,7 @@ fn test_fx_equity_curve_combo() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -150,6 +151,7 @@ fn test_statements_rate_bindings_curve() {
         model: &mut model,
         instruments: None,
         rate_bindings,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -208,6 +210,7 @@ fn test_time_roll_with_market_shocks() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -265,6 +268,7 @@ fn test_conflicting_operations_last_wins() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -377,6 +381,7 @@ fn test_multiple_statement_operations() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

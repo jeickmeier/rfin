@@ -48,6 +48,7 @@ fn test_tenor_exact_match() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -89,6 +90,7 @@ fn test_tenor_exact_not_found() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -130,6 +132,7 @@ fn test_tenor_interpolate_mode() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

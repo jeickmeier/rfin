@@ -454,3 +454,65 @@ pub enum TenorMatchMode {
     #[default]
     Interpolate,
 }
+
+/// Configuration for rate binding between curves and statement nodes.
+///
+/// Specifies how to extract a rate from a market curve and link it to a
+/// statement forecast node. This enables automatic propagation of market
+/// rate shocks to financial statement projections.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::spec::RateBindingSpec;
+/// use finstack_scenarios::spec::Compounding;
+///
+/// let binding = RateBindingSpec {
+///     node_id: "InterestRate".into(),
+///     curve_id: "USD_SOFR".into(),
+///     tenor: "1Y".into(),
+///     compounding: Compounding::Continuous,
+///     day_count: None, // Use curve's day count
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RateBindingSpec {
+    /// Statement node ID to receive the rate.
+    pub node_id: String,
+
+    /// Curve ID to extract rate from.
+    pub curve_id: String,
+
+    /// Tenor for rate extraction (e.g., "3M", "1Y").
+    pub tenor: String,
+
+    /// Compounding convention for rate conversion.
+    #[serde(default)]
+    pub compounding: Compounding,
+
+    /// Day count convention override. If None, uses curve's convention.
+    #[serde(default)]
+    pub day_count: Option<String>,
+}
+
+/// Compounding convention for rate conversions.
+///
+/// Used when extracting rates from curves to convert between
+/// different quoting conventions (e.g., from continuous to annual).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Compounding {
+    /// Simple interest (no compounding).
+    Simple,
+    /// Continuous compounding (default).
+    #[default]
+    Continuous,
+    /// Annual compounding (1 per year).
+    Annual,
+    /// Semi-annual compounding (2 per year).
+    SemiAnnual,
+    /// Quarterly compounding (4 per year).
+    Quarterly,
+    /// Monthly compounding (12 per year).
+    Monthly,
+}

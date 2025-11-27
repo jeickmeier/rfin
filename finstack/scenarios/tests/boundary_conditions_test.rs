@@ -37,6 +37,7 @@ fn test_zero_percent_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -76,6 +77,7 @@ fn test_negative_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -115,6 +117,7 @@ fn test_very_large_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -153,6 +156,7 @@ fn test_shock_nonexistent_market_data() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -184,6 +188,7 @@ fn test_shock_nonexistent_statement_node() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -277,6 +282,7 @@ fn test_curve_parallel_shock_zero_bp() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -317,6 +323,7 @@ fn test_statement_shock_negative_percent() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -357,6 +364,7 @@ fn test_curve_shock_nonexistent_curve() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -397,6 +405,7 @@ fn test_statement_assign_extreme_value() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

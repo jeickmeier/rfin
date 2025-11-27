@@ -132,6 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -213,6 +214,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         model: &mut model_horizon,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

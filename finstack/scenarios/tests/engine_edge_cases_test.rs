@@ -31,6 +31,7 @@ fn test_empty_operations_list() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -70,6 +71,7 @@ fn test_multiple_operations_same_target_last_wins() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -179,6 +181,7 @@ fn test_warnings_missing_equity() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -217,6 +220,7 @@ fn test_warnings_attribute_based_operations() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -260,6 +264,7 @@ fn test_rate_binding_missing_curve() {
         model: &mut model,
         instruments: None,
         rate_bindings,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -299,6 +304,7 @@ fn test_rate_binding_missing_node() {
         model: &mut model,
         instruments: None,
         rate_bindings,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -336,6 +342,7 @@ fn test_time_roll_with_apply_shocks_false() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -377,6 +384,7 @@ fn test_time_roll_with_apply_shocks_true() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

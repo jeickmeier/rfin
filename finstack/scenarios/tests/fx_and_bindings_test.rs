@@ -47,6 +47,7 @@ fn test_fx_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -96,6 +97,7 @@ fn test_fx_shock_preserves_other_quotes() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -165,6 +167,7 @@ fn test_rate_binding() {
         model: &mut model,
         instruments: None,
         rate_bindings,
+        calendar: None,
         as_of: base_date,
     };
 

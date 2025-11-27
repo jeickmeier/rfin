@@ -54,6 +54,22 @@ pub struct PricingOverrides {
     /// Term loan specific overrides
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub term_loan: Option<TermLoanOverrides>,
+
+    // ----- Scenario Shock Fields -----
+
+    /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
+    ///
+    /// When set, the model price is multiplied by (1 + scenario_price_shock_pct).
+    /// This allows scenario analysis to apply uniform price shocks to instruments.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub scenario_price_shock_pct: Option<f64>,
+
+    /// Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).
+    ///
+    /// When set, this spread shock is added to the instrument's pricing spread.
+    /// For credit instruments, this translates to a wider/tighter spread.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub scenario_spread_shock_bp: Option<f64>,
 }
 
 impl PricingOverrides {
@@ -138,6 +154,53 @@ impl PricingOverrides {
     pub fn with_rate_bump(mut self, bump_bp: f64) -> Self {
         self.rate_bump_bp = Some(bump_bp);
         self
+    }
+
+    /// Apply a scenario price shock (as decimal percentage).
+    ///
+    /// The shock is applied as a multiplier: `price * (1 + shock_pct)`.
+    /// For example, -0.05 represents a -5% price shock.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    ///
+    /// // Apply a -10% price shock
+    /// let overrides = PricingOverrides::none().with_price_shock_pct(-0.10);
+    /// assert_eq!(overrides.scenario_price_shock_pct, Some(-0.10));
+    /// ```
+    pub fn with_price_shock_pct(mut self, shock_pct: f64) -> Self {
+        self.scenario_price_shock_pct = Some(shock_pct);
+        self
+    }
+
+    /// Apply a scenario spread shock (in basis points).
+    ///
+    /// The shock is added to any existing spread: `spread + shock_bp`.
+    /// For example, 50.0 represents a +50bp spread widening.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    ///
+    /// // Apply a +25bp spread widening
+    /// let overrides = PricingOverrides::none().with_spread_shock_bp(25.0);
+    /// assert_eq!(overrides.scenario_spread_shock_bp, Some(25.0));
+    /// ```
+    pub fn with_spread_shock_bp(mut self, shock_bp: f64) -> Self {
+        self.scenario_spread_shock_bp = Some(shock_bp);
+        self
+    }
+
+    /// Clear any scenario shocks applied to this override.
+    pub fn clear_scenario_shocks(&mut self) {
+        self.scenario_price_shock_pct = None;
+        self.scenario_spread_shock_bp = None;
+    }
+
+    /// Check if any scenario shock is applied.
+    pub fn has_scenario_shock(&self) -> bool {
+        self.scenario_price_shock_pct.is_some() || self.scenario_spread_shock_bp.is_some()
     }
 }
 // tests moved to end of file to satisfy clippy::items_after_test_module

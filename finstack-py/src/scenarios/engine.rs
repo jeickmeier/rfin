@@ -300,6 +300,7 @@ impl PyScenarioEngine {
             model: &mut model_borrow.inner,
             instruments: instruments_option,
             rate_bindings,
+            calendar: None, // Calendar-aware operations not yet exposed to Python
             as_of: context.as_of,
         };
 

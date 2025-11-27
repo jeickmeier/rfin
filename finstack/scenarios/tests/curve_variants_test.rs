@@ -44,6 +44,7 @@ fn test_forecast_curve_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -89,6 +90,7 @@ fn test_hazard_curve_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -136,6 +138,7 @@ fn test_inflation_curve_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -180,6 +183,7 @@ fn test_forecast_curve_node_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -220,6 +224,7 @@ fn test_hazard_curve_node_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -267,6 +272,7 @@ fn test_inflation_curve_node_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -305,6 +311,7 @@ fn test_discount_curve_id_preservation() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -388,6 +395,7 @@ fn test_all_curve_types_in_one_scenario() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

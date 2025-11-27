@@ -207,6 +207,14 @@ pub enum InputError {
     /// Unknown or unsupported currency code supplied by the caller.
     #[error("Unknown currency code")]
     UnknownCurrency,
+    /// Invalid tenor string format.
+    #[error("Invalid tenor '{tenor}': {reason}")]
+    InvalidTenor {
+        /// The tenor string that failed to parse.
+        tenor: String,
+        /// Reason for the parsing failure.
+        reason: String,
+    },
     /// Fallback for miscellaneous validation problems not yet covered by a specific variant.
     #[error("Invalid input data")]
     Invalid,

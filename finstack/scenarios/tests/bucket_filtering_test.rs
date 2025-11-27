@@ -49,6 +49,7 @@ fn test_vol_bucket_filtering_by_tenor() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -113,6 +114,7 @@ fn test_vol_bucket_filtering_by_strike() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -166,6 +168,7 @@ fn test_basecorr_bucket_filtering() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

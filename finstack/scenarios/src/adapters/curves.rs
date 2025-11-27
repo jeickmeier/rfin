@@ -271,9 +271,9 @@ pub fn apply_curve_node_shock(
                             .map_err(|e| Error::Internal(format!("Failed to bump curve: {}", e)))?
                     }
                     TenorMatchMode::Interpolate => {
-                        // Use key-rate bump (localized shock)
+                        // Use triangular key-rate bump (industry-standard localized shock)
                         base_curve
-                            .try_with_key_rate_bump_years(tenor_years, *bp)
+                            .try_with_triangular_key_rate_bump(tenor_years, *bp)
                             .map_err(|e| {
                                 Error::Internal(format!("Failed to key-rate bump curve: {}", e))
                             })?

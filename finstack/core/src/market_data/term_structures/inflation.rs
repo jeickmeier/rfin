@@ -247,6 +247,53 @@ impl InflationCurve {
     pub fn base_cpi(&self) -> f64 {
         self.base_cpi
     }
+
+    /// Roll the curve forward by a specified number of days.
+    ///
+    /// This creates a new curve with:
+    /// - Knot times shifted backwards (t' = t - dt_years)
+    /// - Points with t' <= 0 are filtered out (expired)
+    /// - CPI levels are preserved
+    /// - Base CPI is updated to the interpolated value at the roll time
+    ///
+    /// # Arguments
+    /// * `days` - Number of days to roll forward
+    ///
+    /// # Returns
+    /// A new inflation curve with shifted knots and updated base CPI.
+    ///
+    /// # Errors
+    /// Returns an error if no knot points remain after filtering expired points.
+    pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
+        let dt_years = days as f64 / 365.0;
+
+        // Get the new base CPI by interpolating at the roll time
+        let new_base_cpi = self.cpi(dt_years);
+
+        // Shift knots and filter expired points
+        let rolled_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.cpi_levels.iter())
+            .filter_map(|(&t, &cpi)| {
+                let new_t = t - dt_years;
+                if new_t > 0.0 {
+                    Some((new_t, cpi))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if rolled_points.is_empty() {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        InflationCurve::builder(self.id.clone())
+            .base_cpi(new_base_cpi)
+            .knots(rolled_points)
+            .build()
+    }
 }
 
 // Minimal trait implementation for polymorphism where needed

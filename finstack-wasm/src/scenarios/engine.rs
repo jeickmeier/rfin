@@ -82,6 +82,7 @@ impl JsScenarioEngine {
             model: &mut context.inner_model,
             instruments: None,
             rate_bindings: None,
+            calendar: None, // Calendar-aware operations not yet exposed to WASM
             as_of: context.as_of,
         };
 

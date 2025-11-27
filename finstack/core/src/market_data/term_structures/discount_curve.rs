@@ -384,6 +384,10 @@ impl DiscountCurve {
     /// If the curve has fewer than 2 knots, falls back to a parallel bump.
     ///
     /// Returns an error if the bumped curve violates validation constraints.
+    ///
+    /// # Note
+    /// For industry-standard key-rate DV01 with triangular weighting that localizes
+    /// impact around the target tenor, use [`try_with_triangular_key_rate_bump`](Self::try_with_triangular_key_rate_bump).
     pub fn try_with_key_rate_bump_years(&self, t: f64, bp: f64) -> crate::Result<Self> {
         if self.knots.len() < 2 {
             return self.try_with_parallel_bump(bp);
@@ -427,6 +431,171 @@ impl DiscountCurve {
             .base_date(self.base)
             .day_count(self.day_count)
             .knots(bumped_points)
+            .set_interp(self.style)
+            .extrapolation(self.extrapolation)
+            .build()
+    }
+
+    /// Create a new curve with a triangular key-rate bump (industry standard).
+    ///
+    /// This implements the market-standard key-rate DV01 bump using triangular
+    /// weighting (per Tuckman/Fabozzi). The shock peaks at the target tenor `t`
+    /// and linearly decays to zero at adjacent curve knots, localizing the rate
+    /// impact to a specific maturity bucket.
+    ///
+    /// # Algorithm
+    ///
+    /// For each knot point `k`:
+    /// - If `k < t_prev`: weight = 0 (unaffected)
+    /// - If `t_prev <= k <= t`: weight increases linearly from 0 to 1
+    /// - If `t <= k <= t_next`: weight decreases linearly from 1 to 0
+    /// - If `k > t_next`: weight = 0 (unaffected)
+    ///
+    /// The discount factor is then bumped: `df_bumped = df * exp(-bump * weight * k)`
+    ///
+    /// # Arguments
+    /// * `t` - Target time in years at which to apply the key-rate bump
+    /// * `bp` - Bump size in basis points (100bp = 1%)
+    ///
+    /// # Returns
+    /// A new discount curve with the triangular key-rate bump applied.
+    ///
+    /// # Errors
+    /// Returns an error if the bumped curve violates validation constraints.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use time::{Date, Month};
+    ///
+    /// let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let curve = DiscountCurve::builder("USD_OIS")
+    ///     .base_date(base_date)
+    ///     .knots(vec![(1.0, 0.98), (2.0, 0.96), (5.0, 0.90), (10.0, 0.80)])
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// // Apply 10bp bump at 5Y - effect peaks at 5Y, decays to 2Y and 10Y
+    /// let bumped = curve.try_with_triangular_key_rate_bump(5.0, 10.0).unwrap();
+    /// ```
+    pub fn try_with_triangular_key_rate_bump(&self, t: f64, bp: f64) -> crate::Result<Self> {
+        if self.knots.len() < 2 {
+            return self.try_with_parallel_bump(bp);
+        }
+
+        let times = &self.knots;
+        let bump_rate = bp / 10_000.0;
+
+        // Find the indices bracketing the target time
+        // We need: t_prev < t <= t_target <= t_next
+        let (i_prev, i_next) = find_bracket_indices(times, t);
+
+        // Get the actual times at the bracket indices
+        let t_prev = if i_prev > 0 {
+            times[i_prev - 1]
+        } else {
+            0.0 // Use 0 as the left boundary if target is at or before first knot
+        };
+        let t_next = times.get(i_next).copied().unwrap_or(times[times.len() - 1]);
+
+        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
+
+        for (&knot_t, &df) in self.knots.iter().zip(self.dfs.iter()) {
+            // Calculate triangular weight: peaks at t, decays to 0 at neighbors
+            let weight = if knot_t <= t_prev {
+                0.0
+            } else if knot_t <= t {
+                // Rising edge: 0 at t_prev, 1 at t
+                let denom = (t - t_prev).max(1e-10);
+                (knot_t - t_prev) / denom
+            } else if knot_t <= t_next {
+                // Falling edge: 1 at t, 0 at t_next
+                let denom = (t_next - t).max(1e-10);
+                (t_next - knot_t) / denom
+            } else {
+                0.0
+            };
+
+            // Apply weighted bump: df_bumped = df * exp(-bump * weight * t)
+            // Using the knot time in the exponent for proper discounting effect
+            let new_df = df * (-bump_rate * weight * knot_t).exp();
+            bumped_points.push((knot_t, new_df));
+        }
+
+        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
+        DiscountCurve::builder(new_id)
+            .base_date(self.base)
+            .day_count(self.day_count)
+            .knots(bumped_points)
+            .set_interp(self.style)
+            .extrapolation(self.extrapolation)
+            .build()
+    }
+
+    /// Roll the curve forward by a specified number of days.
+    ///
+    /// This creates a new curve with:
+    /// - Base date advanced by `days`
+    /// - Knot times shifted backwards (t' = t - dt_years)
+    /// - Points with t' <= 0 are filtered out (expired)
+    /// - Discount factors are preserved (no carry/theta adjustment)
+    ///
+    /// This is the "constant curves" or "pure roll-down" scenario where discount
+    /// factors at each calendar date remain the same, but maturity times are
+    /// re-measured from the new base date.
+    ///
+    /// # Arguments
+    /// * `days` - Number of days to roll forward
+    ///
+    /// # Returns
+    /// A new discount curve with updated base date and shifted knots.
+    ///
+    /// # Errors
+    /// Returns an error if fewer than 2 knot points remain after filtering expired points.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use time::{Date, Month};
+    ///
+    /// let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let curve = DiscountCurve::builder("USD_OIS")
+    ///     .base_date(base_date)
+    ///     .knots(vec![(0.5, 0.99), (1.0, 0.98), (2.0, 0.96), (5.0, 0.90)])
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// // Roll 6 months forward - the 0.5Y point expires
+    /// let rolled = curve.roll_forward(182).unwrap();
+    /// assert!(rolled.knots().len() < curve.knots().len());
+    /// ```
+    pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
+        let dt_years = days as f64 / 365.0;
+        let new_base = self.base + time::Duration::days(days);
+
+        // Shift knots and filter expired points
+        let rolled_points: Vec<(f64, f64)> = self
+            .knots
+            .iter()
+            .zip(self.dfs.iter())
+            .filter_map(|(&t, &df)| {
+                let new_t = t - dt_years;
+                if new_t > 0.0 {
+                    Some((new_t, df))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if rolled_points.len() < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        DiscountCurve::builder(self.id.clone())
+            .base_date(new_base)
+            .day_count(self.day_count)
+            .knots(rolled_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
             .build()
@@ -851,6 +1020,35 @@ fn validate_forward_rates(knots: &[f64], dfs: &[f64], min_rate: f64) -> crate::R
         }
     }
     Ok(())
+}
+
+/// Find bracket indices for triangular key-rate bumps.
+///
+/// Returns (i_prev, i_next) where:
+/// - i_prev: index of the first knot >= t (or 0 if t is before all knots)
+/// - i_next: index of the first knot > t (or last index if t is at or after all knots)
+fn find_bracket_indices(times: &[f64], t: f64) -> (usize, usize) {
+    // Find first index where knot >= t
+    let i_prev = times
+        .iter()
+        .position(|&knot| knot >= t)
+        .unwrap_or(times.len() - 1);
+
+    // Find first index where knot > t
+    let i_next = times
+        .iter()
+        .position(|&knot| knot > t)
+        .unwrap_or(times.len() - 1)
+        .max(i_prev);
+
+    // Ensure i_next is at least i_prev + 1 when possible
+    let i_next = if i_next == i_prev && i_next < times.len() - 1 {
+        i_next + 1
+    } else {
+        i_next
+    };
+
+    (i_prev, i_next)
 }
 
 // -----------------------------------------------------------------------------

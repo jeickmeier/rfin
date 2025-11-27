@@ -68,6 +68,9 @@ pub use schedule_iter::{Frequency, Schedule, ScheduleBuilder, ScheduleSpec, Stub
 pub use calendar::composite::CompositeCalendar;
 
 mod imm;
+mod tenor;
+
+pub use tenor::{Tenor, TenorUnit};
 
 pub use imm::{
     imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, next_imm_option_expiry,

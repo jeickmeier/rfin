@@ -60,6 +60,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -125,6 +126,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -187,6 +189,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -253,6 +256,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -316,6 +320,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -375,6 +380,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -432,6 +438,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 
@@ -496,6 +503,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of,
     };
 

@@ -93,15 +93,29 @@ impl PyBumpType {
         }
     }
 
+    #[staticmethod]
+    #[pyo3(text_signature = "(time_years)")]
+    fn triangular_key_rate(time_years: f64) -> Self {
+        Self {
+            inner: BumpType::TriangularKeyRate { time_years },
+        }
+    }
+
     #[getter]
     fn is_key_rate(&self) -> bool {
         matches!(self.inner, BumpType::KeyRate { .. })
     }
 
     #[getter]
+    fn is_triangular_key_rate(&self) -> bool {
+        matches!(self.inner, BumpType::TriangularKeyRate { .. })
+    }
+
+    #[getter]
     fn time_years(&self) -> Option<f64> {
         match self.inner {
             BumpType::KeyRate { time_years } => Some(time_years),
+            BumpType::TriangularKeyRate { time_years } => Some(time_years),
             _ => None,
         }
     }
@@ -110,6 +124,9 @@ impl PyBumpType {
         match self.inner {
             BumpType::Parallel => "BumpType.PARALLEL".to_string(),
             BumpType::KeyRate { time_years } => format!("BumpType.KeyRate({time_years})"),
+            BumpType::TriangularKeyRate { time_years } => {
+                format!("BumpType.TriangularKeyRate({time_years})")
+            }
         }
     }
 }

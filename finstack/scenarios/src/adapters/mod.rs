@@ -14,3 +14,4 @@ pub mod time_roll;
 pub mod vol;
 
 pub use time_roll::RollForwardReport;
+pub use vol::ArbitrageViolation;

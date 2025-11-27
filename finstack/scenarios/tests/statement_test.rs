@@ -63,6 +63,7 @@ fn test_statement_forecast_percent() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -126,6 +127,7 @@ fn test_statement_forecast_assign() {
         model: &mut model,
         instruments: None,
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

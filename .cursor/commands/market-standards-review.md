@@ -1,7 +1,7 @@
 # 🧪 Market-Standards Code Review Prompt — Financial Pricing & Analytics Library
 
 **Role:** You are a senior quant engineer and code reviewer.
-**Objective:** Review the attached financial pricing & analytics library code against *market standards* across: **conventions** (e.g., ISDA and exchange norms), **math**, **algorithms**, **numerical stability**, **performance**, **safety**, and **API/design quality**.
+**Objective:** Review the attached financial pricing & analytics library code against *market standards* across: **conventions** (e.g., ISDA and exchange norms), **math**, **algorithms**, **numerical stability**, **performance**, **safety**, **analytics**, and **API/design quality**.
 **Important:** Do **not** assume functionality. First *discover* the codes components from the code itself, then assess them.
 
 ---

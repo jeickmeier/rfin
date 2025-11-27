@@ -92,6 +92,7 @@ pub struct RollForwardReport {
 ///     model: &mut model,
 ///     instruments: None,
 ///     rate_bindings: None,
+///     calendar: None,
 ///     as_of,
 /// };
 /// let report = apply_time_roll_forward(&mut ctx, "1M")?;
@@ -103,28 +104,38 @@ pub fn apply_time_roll_forward(
     ctx: &mut ExecutionContext,
     period_str: &str,
 ) -> Result<RollForwardReport> {
+    use crate::error::Error;
+
     let old_date = ctx.as_of;
     let days = parse_period_to_days(period_str)?;
 
     // Calculate new date by adding days
     let new_date = old_date + time::Duration::days(days);
 
-    // Note: Proper curve rolling would require:
-    // 1. Adjusting all curve base dates
-    // 2. Removing expired knot points
-    // 3. Shifting remaining knots forward in time
-    // For now, we simply update the as_of date and compute carry
-
-    // Update as_of in context
-    ctx.as_of = new_date;
-
-    // Calculate carry and market value changes for instruments
+    // Calculate carry and market value changes for instruments BEFORE rolling curves
+    // This ensures we capture the true carry (time value change with constant curves)
     let (instrument_carry, instrument_mv_change, total_carry, total_mv_change) =
         if let Some(instruments) = ctx.instruments.as_ref() {
             calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, days)?
         } else {
             (Vec::new(), Vec::new(), IndexMap::new(), IndexMap::new())
         };
+
+    // Roll all curves forward (adjusts base dates, shifts knots, filters expired)
+    // This is the "constant curves" scenario - rates at calendar dates stay the same,
+    // but maturities are re-measured from the new base date
+    let rolled_market = ctx.market.roll_forward(days).map_err(|e| {
+        Error::Internal(format!(
+            "Failed to roll market data forward by {} days: {}",
+            days, e
+        ))
+    })?;
+
+    // Replace market context with rolled version
+    *ctx.market = rolled_market;
+
+    // Update as_of in context
+    ctx.as_of = new_date;
 
     Ok(RollForwardReport {
         old_date,

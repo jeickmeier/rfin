@@ -76,17 +76,29 @@ fn test_instrument_type_price_shock_matching() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 2, "Should shock 2 bonds");
 
-    // Verify shock was applied to metadata
+    // Verify shock was applied via scenario_overrides (for instruments that support it)
+    // or metadata (for instruments that don't)
     for instrument in &instruments {
-        let meta = &instrument.attributes().meta;
-        assert!(meta.contains_key("scenario_price_shock_pct"));
-        assert_eq!(meta.get("scenario_price_shock_pct").unwrap(), "-5.0000");
+        // Bond supports scenario_overrides_mut(), so check there
+        if let Some(overrides) = instrument.scenario_overrides() {
+            assert!(
+                overrides.scenario_price_shock_pct.is_some(),
+                "scenario_price_shock_pct should be set in pricing_overrides"
+            );
+            let shock = overrides.scenario_price_shock_pct.unwrap();
+            assert!((shock - (-0.05)).abs() < 1e-6, "Expected -0.05 decimal, got {}", shock);
+        } else {
+            // Fallback for instruments without scenario_overrides
+            let meta = &instrument.attributes().meta;
+            assert!(meta.contains_key("scenario_price_shock_pct"));
+        }
     }
 }
 
@@ -133,16 +145,28 @@ fn test_instrument_type_spread_shock_matching() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    // Verify shock metadata
-    let meta = &instruments[0].attributes().meta;
-    assert!(meta.contains_key("scenario_spread_shock_bp"));
-    assert_eq!(meta.get("scenario_spread_shock_bp").unwrap(), "100.00");
+    // Verify shock via scenario_overrides (for instruments that support it)
+    // Bond supports scenario_overrides_mut(), so check there
+    if let Some(overrides) = instruments[0].scenario_overrides() {
+        assert!(
+            overrides.scenario_spread_shock_bp.is_some(),
+            "scenario_spread_shock_bp should be set in pricing_overrides"
+        );
+        let shock = overrides.scenario_spread_shock_bp.unwrap();
+        assert!((shock - 100.0).abs() < 1e-6, "Expected 100.0 bp, got {}", shock);
+    } else {
+        // Fallback for instruments without scenario_overrides
+        let meta = &instruments[0].attributes().meta;
+        assert!(meta.contains_key("scenario_spread_shock_bp"));
+        assert_eq!(meta.get("scenario_spread_shock_bp").unwrap(), "100.00");
+    }
 }
 
 #[test]
@@ -170,6 +194,7 @@ fn test_instrument_shock_empty_list() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -220,6 +245,7 @@ fn test_instrument_shock_no_matching_types() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -250,6 +276,7 @@ fn test_instrument_shock_without_instruments_provided() {
         model: &mut model,
         instruments: None, // No instruments provided
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 
@@ -322,6 +349,7 @@ fn test_instrument_shock_multiple_types() {
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: base_date,
     };
 

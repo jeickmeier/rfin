@@ -72,6 +72,7 @@ pub fn apply_scenario(
         model: &mut model,
         instruments: Some(&mut instruments),
         rate_bindings: None,
+        calendar: None,
         as_of: portfolio.as_of,
     };
 
