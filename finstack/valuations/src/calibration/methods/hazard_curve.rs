@@ -3,9 +3,30 @@
 //! Calibrates a piecewise-constant hazard curve by matching CDS par spreads
 //! sequentially across maturities using an objective that drives the CDS NPV
 //! to ~0 at the quoted spread.
+//!
+//! # Market Standards
+//!
+//! This implementation follows the **ISDA CDS Standard Model (2009)** for:
+//! - Day count conventions (ACT/360 for NA/EU, ACT/365F for Asia)
+//! - Quarterly premium payment schedules (20th of Mar/Jun/Sep/Dec)
+//! - Recovery rate assumptions (40% for senior unsecured, 25% for subordinated)
+//! - Settlement timing (T+3 for upfront payments per Big Bang protocol)
+//!
+//! # Recovery Rate Handling
+//!
+//! The calibrator enforces recovery rate consistency between quotes and the
+//! calibrator configuration. All quotes for a given entity must use the same
+//! recovery rate assumption as specified in the calibrator constructor.
+//!
+//! # References
+//!
+//! - ISDA (2009). "ISDA CDS Standard Model." Version 1.8.2.
+//! - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*. Wiley.
+//! - Markit (2009). "CDS Curve Bootstrapping Guide."
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::constants::time as time_constants;
 use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use finstack_core::market_data::context::MarketContext;
@@ -14,18 +35,44 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
+use smallvec::SmallVec;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// Type alias for hazard curve knots stored on stack (up to 16 tenors).
+/// This avoids heap allocations for typical CDS curves (1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 20Y, 30Y).
+type HazardKnots = SmallVec<[(f64, f64); 16]>;
+
+/// Recovery rate tolerance for consistency validation (0.01 = 1 percentage point).
+const RECOVERY_TOLERANCE: f64 = 0.01;
+
 /// Hazard curve bootstrapper using CDS par spreads.
+///
+/// # Example
+///
+/// ```ignore
+/// use finstack_valuations::calibration::methods::HazardCurveCalibrator;
+/// use finstack_valuations::calibration::{Calibrator, CreditQuote};
+///
+/// let calibrator = HazardCurveCalibrator::new(
+///     "CORP",
+///     Seniority::Senior,
+///     0.40,  // Recovery rate must match quotes
+///     base_date,
+///     Currency::USD,
+///     "USD-OIS",
+/// );
+///
+/// let (hazard_curve, report) = calibrator.calibrate(&quotes, &market_context)?;
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HazardCurveCalibrator {
     /// Reference entity name
     pub entity: String,
     /// Seniority level (metadata)
     pub seniority: Seniority,
-    /// Recovery rate assumption
+    /// Recovery rate assumption (must match all quote recovery rates)
     pub recovery_rate: f64,
     /// Base date for the curve
     pub base_date: finstack_core::dates::Date,
@@ -33,6 +80,8 @@ pub struct HazardCurveCalibrator {
     pub currency: Currency,
     /// Discount curve identifier for collateral discounting
     pub discount_curve_id: CurveId,
+    /// CDS convention for day count and schedule generation
+    pub convention: CDSConvention,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Interpolation used when reporting quoted par spreads from the calibrated curve
@@ -42,11 +91,43 @@ pub struct HazardCurveCalibrator {
 impl HazardCurveCalibrator {
     /// Helper to determine default discount curve ID from currency.
     /// Uses common market conventions for collateral.
+    #[must_use]
     pub fn default_discount_curve_id(currency: Currency) -> CurveId {
         CurveId::new(format!("{}-OIS", currency))
     }
 
+    /// Determine default CDS convention from currency.
+    ///
+    /// - USD/CAD: ISDA North America (ACT/360)
+    /// - EUR/GBP/CHF: ISDA Europe (ACT/360)
+    /// - JPY/HKD/SGD/AUD/NZD: ISDA Asia (ACT/365F)
+    #[must_use]
+    pub fn default_convention(currency: Currency) -> CDSConvention {
+        match currency {
+            Currency::USD | Currency::CAD => CDSConvention::IsdaNa,
+            Currency::EUR | Currency::GBP | Currency::CHF => CDSConvention::IsdaEu,
+            Currency::JPY | Currency::HKD | Currency::SGD | Currency::AUD | Currency::NZD => {
+                CDSConvention::IsdaAs
+            }
+            _ => CDSConvention::IsdaNa, // Default to NA for other currencies
+        }
+    }
+
     /// Create a new hazard curve calibrator.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - Reference entity name (must match `entity` field in quotes)
+    /// * `seniority` - Debt seniority level for the curve
+    /// * `recovery_rate` - Recovery rate assumption (must match all quote recovery rates)
+    /// * `base_date` - Valuation date for the curve
+    /// * `currency` - Currency of protection leg
+    /// * `discount_curve_id` - Identifier for the discount curve used in PV calculations
+    ///
+    /// # Note
+    ///
+    /// Uses default CDS convention based on currency. For explicit convention control,
+    /// use `with_convention()` builder method.
     pub fn new(
         entity: impl Into<String>,
         seniority: Seniority,
@@ -55,6 +136,10 @@ impl HazardCurveCalibrator {
         currency: Currency,
         discount_curve_id: impl Into<CurveId>,
     ) -> Self {
+        debug_assert!(
+            (0.0..=1.0).contains(&recovery_rate),
+            "Recovery rate must be in [0, 1]"
+        );
         Self {
             entity: entity.into(),
             seniority,
@@ -62,6 +147,7 @@ impl HazardCurveCalibrator {
             base_date,
             currency,
             discount_curve_id: discount_curve_id.into(),
+            convention: Self::default_convention(currency),
             config: CalibrationConfig::default(),
             par_interp: ParInterp::Linear,
         }
@@ -87,16 +173,86 @@ impl HazardCurveCalibrator {
         )
     }
 
+    /// Set the CDS convention for day count and schedule generation.
+    ///
+    /// By default, the convention is inferred from currency. Use this method
+    /// to override with a specific convention.
+    #[must_use]
+    pub fn with_convention(mut self, convention: CDSConvention) -> Self {
+        self.convention = convention;
+        self
+    }
+
     /// Set calibration configuration.
+    #[must_use]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
     }
 
     /// Set the interpolation used for reporting par spreads from the hazard curve.
+    #[must_use]
     pub fn with_par_interp(mut self, method: ParInterp) -> Self {
         self.par_interp = method;
         self
+    }
+
+    /// Generate adaptive grid for root bracketing based on initial guess.
+    ///
+    /// Creates a log-spaced grid spanning approximately 4 orders of magnitude
+    /// around the initial guess. This handles both investment-grade (low spreads)
+    /// and distressed (high spreads) credits effectively.
+    fn adaptive_grid(initial_guess: f64) -> [f64; 16] {
+        let center = initial_guess.clamp(1e-6, 2.0);
+        let log_center = center.log10();
+
+        // Generate grid spanning from ~1e-6 to ~2.0 (200% hazard rate)
+        // with more density around the expected region
+        let low_exp = (log_center - 2.0).max(-6.0);
+        let high_exp = (log_center + 1.5).min(0.3); // Max ~2.0
+
+        let step = (high_exp - low_exp) / 15.0;
+
+        let mut grid = [0.0; 16];
+        for (i, g) in grid.iter_mut().enumerate() {
+            *g = 10f64.powf(low_exp + step * i as f64);
+        }
+        grid
+    }
+
+    /// Validate recovery rate consistency between quotes and calibrator.
+    fn validate_recovery_consistency(&self, quotes: &[CreditQuote]) -> Result<()> {
+        for q in quotes {
+            let (entity, quote_recovery) = match q {
+                CreditQuote::CDS {
+                    entity,
+                    recovery_rate,
+                    ..
+                } => (entity, *recovery_rate),
+                CreditQuote::CDSUpfront {
+                    entity,
+                    recovery_rate,
+                    ..
+                } => (entity, *recovery_rate),
+                _ => continue,
+            };
+
+            // Only validate quotes for this entity
+            if entity != &self.entity {
+                continue;
+            }
+
+            if (quote_recovery - self.recovery_rate).abs() > RECOVERY_TOLERANCE {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Recovery rate mismatch for entity '{}': quote has {:.1}% but calibrator expects {:.1}%. \
+                     All quotes must use the same recovery rate as specified in the calibrator.",
+                    entity,
+                    quote_recovery * 100.0,
+                    self.recovery_rate * 100.0
+                )));
+            }
+        }
+        Ok(())
     }
 
     fn bootstrap_internal<S: finstack_core::math::Solver>(
@@ -105,6 +261,12 @@ impl HazardCurveCalibrator {
         solver: &S,
         discount_curve_opt: Option<&dyn Discounting>,
     ) -> Result<(HazardCurve, CalibrationReport)> {
+        // Validate recovery rate consistency upfront
+        self.validate_recovery_consistency(quotes)?;
+
+        // Get day count from convention
+        let day_count = self.convention.day_count();
+
         // Extract CDS quotes for this entity and sort by maturity
         let mut cds_quotes: Vec<(finstack_core::dates::Date, f64, Option<f64>)> = quotes
             .iter()
@@ -134,31 +296,54 @@ impl HazardCurveCalibrator {
             ));
         }
 
+        // Validate all spreads are positive (zero or negative spreads are invalid)
+        for (maturity, spread_bp, _) in &cds_quotes {
+            if *spread_bp <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CDS spread must be positive, got {} bp for maturity {}. \
+                     Zero or negative spreads imply no credit risk and cannot be calibrated.",
+                    spread_bp, maturity
+                )));
+            }
+        }
+
         // Sort by maturity using total_cmp for safe float comparison
         cds_quotes.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Sequentially solve hazards per tenor to match market PV≈0
-        let mut hazard_knots: Vec<(f64, f64)> = Vec::new();
-        let mut par_knots: Vec<(f64, f64)> = Vec::new();
+        // Use SmallVec to avoid heap allocations for typical curve sizes
+        let mut hazard_knots: HazardKnots = SmallVec::new();
+        let mut par_knots: HazardKnots = SmallVec::new();
         let mut residuals: BTreeMap<String, f64> = BTreeMap::new();
         let mut total_iterations: usize = 0;
 
+        // Get settlement discount factor for upfront quotes (T+3 settlement)
+        let settlement_delay_days = self.convention.settlement_delay() as f64;
+        let business_days_per_year = match self.convention {
+            CDSConvention::IsdaNa => time_constants::BUSINESS_DAYS_PER_YEAR_US,
+            CDSConvention::IsdaEu => time_constants::BUSINESS_DAYS_PER_YEAR_UK,
+            CDSConvention::IsdaAs => time_constants::BUSINESS_DAYS_PER_YEAR_JP,
+            CDSConvention::Custom => time_constants::BUSINESS_DAYS_PER_YEAR_US,
+        };
+        let settlement_delay_years = settlement_delay_days / business_days_per_year;
+
         for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {
-            // ISDA time axis
-            let tenor_years = CDSConvention::IsdaNa
-                .day_count()
+            // Time axis using convention day count
+            let tenor_years = day_count
                 .year_fraction(
                     self.base_date,
                     *maturity,
                     finstack_core::dates::DayCountCtx::default(),
                 )
-                .unwrap_or(0.0);
+                .map_err(|_| {
+                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+                })?;
+
             if tenor_years <= 0.0 {
                 continue;
             }
 
             // Synthetic CDS at market spread
-            // Create CDS constants for static lifetime requirements
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
@@ -166,7 +351,7 @@ impl HazardCurveCalibrator {
                 format!("CALIB_CDS_{}", maturity),
                 Money::new(10_000_000.0, self.currency),
                 PayReceive::PayFixed,
-                CDSConvention::IsdaNa,
+                self.convention,
                 *market_spread_bp,
                 self.base_date,
                 *maturity,
@@ -177,21 +362,23 @@ impl HazardCurveCalibrator {
 
             let pricer = CDSPricer::new();
 
-            // Pre-allocate hazard knots buffer to reduce allocations in objective
-            let mut hazard_so_far = Vec::with_capacity(hazard_knots.len() + 1);
-            hazard_so_far.extend_from_slice(&hazard_knots);
+            // Copy current knots for use in closure (avoids clone on each iteration)
+            let knots_snapshot: HazardKnots = hazard_knots.clone();
+            let convention = self.convention;
+            let recovery_rate = self.recovery_rate;
+            let base_date = self.base_date;
 
             let objective = |trial_lambda: f64| -> f64 {
                 // Build temporary hazard curve with prior segments + trial point
-                // Reuse pre-allocated buffer
-                let mut temp_knots = hazard_so_far.clone();
+                // Use SmallVec to avoid heap allocation
+                let mut temp_knots: HazardKnots = knots_snapshot.clone();
                 temp_knots.push((tenor_years, trial_lambda.max(0.0)));
 
                 let temp_curve = HazardCurve::builder("TEMP_CALIB")
-                    .base_date(self.base_date)
-                    .day_count(CDSConvention::IsdaNa.day_count())
-                    .recovery_rate(self.recovery_rate)
-                    .knots(temp_knots)
+                    .base_date(base_date)
+                    .day_count(convention.day_count())
+                    .recovery_rate(recovery_rate)
+                    .knots(temp_knots.into_vec())
                     .build();
 
                 let temp_curve = match temp_curve {
@@ -204,7 +391,7 @@ impl HazardCurveCalibrator {
                 };
 
                 // Calculate CDS NPV
-                let npv_result = pricer.npv(&cds, disc, &temp_curve, self.base_date);
+                let npv_result = pricer.npv(&cds, disc, &temp_curve, base_date);
                 let npv = match npv_result {
                     Ok(pv) => pv.amount(),
                     Err(_) => return crate::calibration::PENALTY,
@@ -217,30 +404,32 @@ impl HazardCurveCalibrator {
                         npv / cds.notional.amount()
                     }
                     Some(upfront_pct) => {
-                        // Upfront quote: PV should equal upfront payment
-                        let expected_upfront = cds.notional.amount() * upfront_pct / 100.0;
+                        // Upfront quote: Apply T+3 settlement discounting per ISDA Big Bang
+                        let settlement_df = disc.df(settlement_delay_years);
+                        let expected_upfront =
+                            cds.notional.amount() * upfront_pct / 100.0 * settlement_df;
                         (npv - expected_upfront) / cds.notional.amount()
                     }
                 }
             };
 
-            // Initial guess: last solved λ or s/(1-R)
+            // Initial guess: last solved λ or s/(1-R) approximation
             let initial_guess = hazard_knots
                 .last()
                 .map(|&(_, l)| l)
                 .unwrap_or(*market_spread_bp / 10000.0 / (1.0 - self.recovery_rate));
 
-            // Bracket scan over positive lambdas to improve robustness
-            let grid: [f64; 14] = [
-                1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.5, 1.0,
-            ];
+            // Use adaptive grid based on initial guess for robust bracketing
+            let grid = Self::adaptive_grid(initial_guess);
             let mut solved = initial_guess.max(1e-6);
+            let mut bracket_found = false;
             let mut last: Option<(f64, f64)> = None;
+
             for &x in &grid {
                 let v = objective(x);
                 if let Some((px, pv)) = last {
                     if pv.is_finite() && v.is_finite() && pv.signum() != v.signum() {
-                        // Use configured 1D solver within bracket midpoint
+                        // Found bracket - use configured 1D solver
                         let guess = 0.5 * (px + x);
                         solved = crate::calibration::solve_1d(
                             self.config.solver_kind.clone(),
@@ -249,15 +438,53 @@ impl HazardCurveCalibrator {
                             objective,
                             guess,
                         )?;
+                        bracket_found = true;
                         break;
                     }
                 }
                 last = Some((x, v));
             }
 
-            // If bracket search didn't resolve, fall back to direct solve
-            if !solved.is_finite() || solved <= 0.0 {
-                solved = solver.solve(objective, initial_guess.max(1e-6))?;
+            // If bracket search didn't resolve, try bounded fallback with narrow grid
+            if !bracket_found || !solved.is_finite() || solved <= 0.0 {
+                // Narrow grid around initial guess as fallback
+                let narrow_grid = [
+                    initial_guess * 0.01,
+                    initial_guess * 0.1,
+                    initial_guess * 0.5,
+                    initial_guess,
+                    initial_guess * 2.0,
+                    initial_guess * 5.0,
+                    initial_guess * 10.0,
+                    initial_guess * 100.0,
+                ];
+
+                let mut narrow_found = false;
+                let mut last_narrow: Option<(f64, f64)> = None;
+
+                for &x in &narrow_grid {
+                    let v = objective(x);
+                    if let Some((px, pv)) = last_narrow {
+                        if pv.is_finite() && v.is_finite() && pv.signum() != v.signum() {
+                            let guess = 0.5 * (px + x);
+                            solved = crate::calibration::solve_1d(
+                                self.config.solver_kind.clone(),
+                                self.config.tolerance,
+                                self.config.max_iterations,
+                                objective,
+                                guess,
+                            )?;
+                            narrow_found = true;
+                            break;
+                        }
+                    }
+                    last_narrow = Some((x, v));
+                }
+
+                // Final fallback to unbounded solver if narrow grid also fails
+                if !narrow_found || !solved.is_finite() || solved <= 0.0 {
+                    solved = solver.solve(objective, initial_guess.max(1e-6))?;
+                }
             }
 
             // Validate hazard rate is positive (market standards requirement)
@@ -265,8 +492,12 @@ impl HazardCurveCalibrator {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Calibrated hazard rate {:.6} for maturity {} is not positive. \
-                         This indicates either invalid market data or calibration failure.",
-                        solved, maturity
+                         This indicates either invalid market data or calibration failure. \
+                         Spread: {:.1}bp, Recovery: {:.1}%",
+                        solved,
+                        maturity,
+                        market_spread_bp,
+                        self.recovery_rate * 100.0
                     ),
                     category: "hazard_curve_negative_rate".to_string(),
                 });
@@ -292,10 +523,10 @@ impl HazardCurveCalibrator {
             .seniority(self.seniority)
             .currency(self.currency)
             .recovery_rate(self.recovery_rate)
-            .day_count(CDSConvention::IsdaNa.day_count())
+            .day_count(day_count)
             .base_date(self.base_date)
-            .knots(hazard_knots)
-            .par_spreads(par_knots)
+            .knots(hazard_knots.into_vec())
+            .par_spreads(par_knots.into_vec())
             .par_interp(self.par_interp)
             .build()?;
 
@@ -314,6 +545,7 @@ impl HazardCurveCalibrator {
         let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
             .with_metadata("entity", self.entity.clone())
             .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
+            .with_metadata("convention", format!("{:?}", self.convention))
             .with_metadata("par_interp", format!("{:?}", self.par_interp))
             .with_metadata("validation", "passed");
 

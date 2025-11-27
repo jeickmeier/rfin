@@ -2,6 +2,44 @@
 //!
 //! This module provides calibration for tenor-specific forward curves (e.g., 1M, 3M, 6M SOFR)
 //! in a multi-curve framework where discounting is performed using a separate OIS curve.
+//!
+//! # Multi-Curve Framework
+//!
+//! Post-2008 market practice requires separate curves for discounting (OIS) and forward
+//! rate projection. This calibrator builds forward curves using:
+//! - FRA quotes (short end)
+//! - Interest rate futures (with convexity adjustment)
+//! - Swap quotes (tenor-specific)
+//! - Basis swap quotes (relative to another forward curve)
+//!
+//! # Basis Swap Calibration
+//!
+//! **Important**: When using basis swap quotes, the reference leg's forward curve must
+//! already exist in the provided `MarketContext`. For example, to calibrate a 3M SOFR
+//! forward curve using 3M vs 6M basis swaps, the 6M SOFR forward curve must be
+//! pre-calibrated and present in the context.
+//!
+//! For simultaneous multi-curve calibration, consider using a `MultiCurveCalibrator`
+//! (if available) or calibrating curves in sequence from the most liquid to least liquid.
+//!
+//! # Examples
+//!
+//! ```ignore
+//! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
+//! use finstack_valuations::calibration::CalibrationConfig;
+//!
+//! // Create calibrator for emerging market
+//! let calibrator = ForwardCurveCalibrator::new(
+//!     "TRY-TRLIBOR-3M-FWD",
+//!     0.25,
+//!     base_date,
+//!     Currency::TRY,
+//!     "TRY-OIS-DISC",
+//! )
+//! .with_config(CalibrationConfig::conservative());
+//!
+//! let (curve, report) = calibrator.calibrate(&quotes, &context)?;
+//! ```
 
 use crate::calibration::{
     config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
@@ -29,6 +67,12 @@ use std::collections::BTreeMap;
 ///
 /// Calibrates a tenor-specific forward curve (e.g., 3M SOFR) using market instruments
 /// while discounting with a separate OIS curve.
+///
+/// # Convexity Adjustment
+///
+/// For interest rate futures, convexity adjustments are applied automatically
+/// using currency-specific Hull-White/Ho-Lee parameters. Override with
+/// `with_convexity_params()` for custom calibration.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
@@ -41,18 +85,34 @@ pub struct ForwardCurveCalibrator {
     pub currency: Currency,
     /// Discount curve identifier for PV calculations
     pub discount_curve_id: CurveId,
-    /// Day count for time axis
+    /// Day count for time axis (used for curve knot times, not accrual)
     pub time_dc: DayCount,
     /// Interpolation style for forward rates
     pub solve_interp: InterpStyle,
-    /// Calibration configuration
+    /// Calibration configuration (includes rate bounds)
     pub config: CalibrationConfig,
-    /// Optional calendar identifier for schedule generation
+    /// Optional calendar identifier for schedule generation and business day adjustments
     pub calendar_id: Option<String>,
+    /// Optional custom convexity parameters for futures pricing.
+    /// If None, uses currency-specific defaults.
+    #[serde(default)]
+    pub convexity_params: Option<super::convexity::ConvexityParameters>,
 }
 
 impl ForwardCurveCalibrator {
     /// Create a new forward curve calibrator.
+    ///
+    /// # Arguments
+    /// * `fwd_curve_id` - Identifier for the forward curve being calibrated
+    /// * `tenor_years` - Tenor of the forward rate (e.g., 0.25 for 3M)
+    /// * `base_date` - Valuation date / curve base date
+    /// * `currency` - Currency (used for defaults and convexity parameters)
+    /// * `discount_curve_id` - OIS discount curve for present value calculations
+    ///
+    /// # Defaults
+    /// - Time day-count: ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY
+    /// - Rate bounds: Currency-appropriate defaults
+    /// - Convexity: Currency-specific Hull-White parameters
     pub fn new(
         fwd_curve_id: impl Into<CurveId>,
         tenor_years: f64,
@@ -66,6 +126,8 @@ impl ForwardCurveCalibrator {
             Currency::GBP | Currency::JPY => DayCount::Act365F,
             _ => DayCount::Act365F,
         };
+        // Use default calibration config
+        let config = CalibrationConfig::default();
         Self {
             fwd_curve_id: fwd_curve_id.into(),
             tenor_years,
@@ -74,8 +136,9 @@ impl ForwardCurveCalibrator {
             discount_curve_id: discount_curve_id.into(),
             time_dc: default_time_dc,
             solve_interp: InterpStyle::Linear,
-            config: CalibrationConfig::default(),
+            config,
             calendar_id: None,
+            convexity_params: None,
         }
     }
 
@@ -97,9 +160,35 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    /// Set an optional calendar identifier for schedule generation.
+    /// Set an optional calendar identifier for schedule generation and business day adjustments.
+    ///
+    /// When set, FRA fixing dates will be adjusted using proper business day conventions.
+    #[must_use]
     pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
         self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Set custom convexity parameters for futures pricing.
+    ///
+    /// Override the default currency-specific convexity adjustment calculation.
+    /// Useful when you have calibrated Hull-White parameters from swaption volatility.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use finstack_valuations::calibration::methods::convexity::{ConvexityParameters, VolatilitySource};
+    ///
+    /// let calibrator = ForwardCurveCalibrator::new(...)
+    ///     .with_convexity_params(
+    ///         ConvexityParameters::usd_sofr()
+    ///             .with_mean_reversion(0.05)
+    ///             .with_volatility(VolatilitySource::custom(0.0085))
+    ///     );
+    /// ```
+    #[must_use]
+    pub fn with_convexity_params(mut self, params: super::convexity::ConvexityParameters) -> Self {
+        self.convexity_params = Some(params);
         self
     }
 
@@ -137,12 +226,14 @@ impl ForwardCurveCalibrator {
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
-        // Scan grid used to establish a bracket for forward-rate solves
-        const FWD_SCAN_POINTS: [f64; 19] = [
-            -0.05, -0.025, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30,
-            0.35, 0.40, 0.45, 0.50, 0.55,
+        // Extended scan grid for root bracketing, covering extreme rate scenarios.
+        // Includes denser points near zero and extends to high rates for EM currencies.
+        const FWD_SCAN_POINTS: [f64; 35] = [
+            -0.10, -0.05, -0.03, -0.02, -0.01, -0.005, 0.0, 0.002, 0.005, 0.01, 0.015, 0.02, 0.025,
+            0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.075, 0.10, 0.125, 0.15, 0.20, 0.25, 0.30, 0.40,
+            0.50, 0.60, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00,
         ];
-        // Validate quotes
+        // Validate quotes with day-count consistency checks
         self.validate_quotes(quotes)?;
 
         // Get discount curve (presence check)

@@ -110,17 +110,20 @@ fn test_par_rate_sensitivity_to_curve_steepness() {
 
 #[test]
 fn test_par_rate_zero_for_zero_period() {
-    // Setup
+    // Setup - zero period deposit (start == end) is now invalid
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base).start(base).end(base).build();
 
-    // Execute
-    let par = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
+    // Execute - should fail validation (end must be after start)
+    let result = dep.npv(&ctx, base);
 
-    // Validate - zero period should give zero par rate
-    assert!(par.abs() < RATE_TOLERANCE);
+    // Validate - zero period deposits are invalid
+    assert!(
+        result.is_err(),
+        "Zero period deposit should fail validation"
+    );
 }
 
 #[test]

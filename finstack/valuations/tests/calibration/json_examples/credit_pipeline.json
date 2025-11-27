@@ -91,6 +91,7 @@
           "base_date": "2025-01-01",
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
+          "convention": "IsdaNa",
           "config": {
             "tolerance": 1e-10,
             "max_iterations": 100,
@@ -147,6 +148,7 @@
           "base_date": "2025-01-01",
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
+          "convention": "IsdaNa",
           "config": {
             "tolerance": 1e-10,
             "max_iterations": 100,

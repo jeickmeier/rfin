@@ -6,17 +6,19 @@ use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
+use time::Duration;
 
 #[test]
 fn summable_vs_non_summable_metrics() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     // Deposit supports standard metrics via helper; we request defaults in portfolio valuation
     let dep = Deposit::builder()
         .id("DEP_1M".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()

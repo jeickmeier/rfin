@@ -9,16 +9,18 @@ use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
+use time::Duration;
 
 #[test]
 fn grouping_and_multi_attribute_aggregation() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     let dep1 = Deposit::builder()
         .id("D1".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -27,7 +29,7 @@ fn grouping_and_multi_attribute_aggregation() {
         .id("D2".into())
         .notional(Money::new(500_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
@@ -72,12 +74,13 @@ fn grouping_and_multi_attribute_aggregation() {
 #[test]
 fn dataframe_exports_have_expected_columns() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()

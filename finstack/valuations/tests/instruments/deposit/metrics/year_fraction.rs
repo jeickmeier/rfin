@@ -102,15 +102,18 @@ fn test_yf_scales_with_period_length() {
 
 #[test]
 fn test_yf_zero_period() {
-    // Setup - same start and end date
+    // Setup - same start and end date (now invalid)
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base).start(base).end(base).build();
 
-    // Execute
-    let yf = compute_metric(&dep, &ctx, base, MetricId::Yf);
+    // Execute - should fail validation (end must be after start)
+    let result = dep.npv(&ctx, base);
 
-    // Validate - zero period should give zero year fraction
-    assert!(yf.abs() < 1e-12, "YF: {}", yf);
+    // Validate - zero period deposits are invalid
+    assert!(
+        result.is_err(),
+        "Zero period deposit should fail validation"
+    );
 }

@@ -10,7 +10,7 @@ use finstack_valuations::metrics::MetricId;
 
 #[test]
 fn test_zero_period_deposit() {
-    // Setup - start == end
+    // Setup - start == end (invalid - should fail validation)
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
@@ -20,11 +20,14 @@ fn test_zero_period_deposit() {
         .quote_rate(0.05)
         .build();
 
-    // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    // Execute - should fail validation (end must be after start)
+    let result = dep.npv(&ctx, base);
 
-    // Validate - PV should be close to zero (no time value)
-    assert!(pv.amount().abs() < 1e-9, "PV: {}", pv.amount());
+    // Validate - zero period deposits are invalid
+    assert!(
+        result.is_err(),
+        "Zero period deposit should fail validation"
+    );
 }
 
 #[test]

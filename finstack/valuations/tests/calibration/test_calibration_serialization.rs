@@ -354,6 +354,7 @@ fn test_validation_config_serialization() {
         min_fwd_inflation: -0.20,
         max_fwd_inflation: 0.50,
         max_volatility: 5.0,
+        allow_negative_rates: true, // Support EUR/JPY/CHF environments
     };
 
     let restored = roundtrip_json(&config);

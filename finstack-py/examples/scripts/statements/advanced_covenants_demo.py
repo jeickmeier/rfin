@@ -108,7 +108,7 @@ def main() -> int:
 
     window = periods[4:12]  # focus on 2025Q1..2026Q4
     window_ids = [p.id for p in window]
-    cfg = CovenantForecastConfig()  # deterministic forward projection
+    cfg = CovenantForecastConfig(stochastic=False, num_paths=0, volatility=None, seed=None, antithetic=False)  # deterministic forward projection
 
     springing = SpringingCondition("rcf_utilization", "minimum", 0.35)
     leverage_cov = (

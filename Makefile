@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test test-slow test-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
 
 help:
 	@echo "Available targets:"
@@ -7,9 +7,9 @@ help:
 	@echo "  build-prod    - Build all crates optimized without debug info"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test           - Run Rust tests (cargo-nextest)"
-	@echo "  test-slow      - Run all Rust tests incl. slow (cargo-nextest)"
-	@echo "  test-doc       - Run Rust documentation tests only"
+	@echo "  test-rust      - Run Rust tests (cargo-nextest)"
+	@echo "  test-rust-slow - Run all Rust tests incl. slow (cargo-nextest)"
+	@echo "  test-rust-doc  - Run Rust documentation tests only"
 	@echo "  test-python    - Run Python tests in finstack-py"
 	@echo ""
 	@echo "Benchmarking & Profiling:"

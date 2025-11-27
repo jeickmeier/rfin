@@ -6,17 +6,19 @@ use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
 use finstack_portfolio::{PortfolioBuilder, PortfolioError, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
+use time::Duration;
 
 #[test]
 fn cross_currency_conversion_uses_fx_matrix() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     // EUR deposit valued with USD base; FX = 1.10 EUR→USD
     let dep = Deposit::builder()
         .id("DEP_EUR".into())
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
         .build()
@@ -46,7 +48,7 @@ fn cross_currency_conversion_uses_fx_matrix() {
     let config = FinstackConfig::default();
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
 
-    // With zero-rate curve and same-day start/end, PV ~= notional; FX applied to convert to USD
+    // With zero-rate curve, PV ~= notional; FX applied to convert to USD
     let pos_val = valuation.get_position_value("POS_EUR").unwrap();
     assert_eq!(pos_val.value_native.currency(), Currency::EUR);
     assert_eq!(pos_val.value_base.currency(), Currency::USD);
@@ -55,13 +57,14 @@ fn cross_currency_conversion_uses_fx_matrix() {
 #[test]
 fn missing_fx_matrix_errors_for_cross_currency() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     // EUR deposit, portfolio base USD, but no FX in market
     let dep = Deposit::builder()
         .id("DEP_EUR".into())
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
         .build()
@@ -96,7 +99,6 @@ fn missing_fx_matrix_errors_for_cross_currency() {
 
 #[test]
 fn quantity_scaling_and_entity_totals() {
-    use time::Duration;
     let as_of = base_date();
     let end_date = as_of + Duration::days(90);
 

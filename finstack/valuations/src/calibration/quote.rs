@@ -89,22 +89,24 @@ impl RatesQuote {
         }
     }
 
-    /// Check if this quote is suitable for OIS discount curve calibration
+    /// Check if this quote is suitable for OIS discount curve calibration.
+    ///
+    /// Uses the OIS index registry for accurate classification. This method
+    /// returns `true` for:
+    /// - Deposits (always suitable for short-end discount curve)
+    /// - Swaps referencing overnight rate indices (SOFR, SONIA, €STR, etc.)
+    ///
+    /// Returns `false` for:
+    /// - FRAs (require forward curves)
+    /// - Futures (require forward curves)
+    /// - Swaps referencing term rates (LIBOR, EURIBOR, Term SOFR)
+    /// - Basis swaps (require separate forward curves)
     pub fn is_ois_suitable(&self) -> bool {
         match self {
             RatesQuote::Deposit { .. } => true,
-            // OIS swaps would have index like "SOFR", "EONIA", etc.
             RatesQuote::Swap { index, .. } => {
-                // Tokenize and match exact tokens to avoid false positives like "13MOIS"
-                let up = index.as_ref().to_uppercase();
-                let ascii = up.replace('€', "E");
-                let tokens: Vec<String> = ascii
-                    .split(|c: char| !c.is_ascii_alphanumeric())
-                    .map(|s| s.to_string())
-                    .collect();
-                STANDARD_OIS_INDICES
-                    .iter()
-                    .any(|&ois| tokens.iter().any(|t| t == ois))
+                // Use the registry for accurate overnight rate classification
+                is_overnight_index(index.as_ref())
             }
             _ => false,
         }
@@ -353,7 +355,296 @@ impl Default for FutureSpecs {
 }
 
 /// Standard OIS index tokens used for identifying OIS instruments.
+#[allow(dead_code)]
 pub const STANDARD_OIS_INDICES: &[&str] = &[
     "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA", "CORRA", "AONIA", "SARON",
     "SORA",
 ];
+
+// ============================================================================
+// OIS Index Registry - Market-Standard Overnight Rate Classification
+// ============================================================================
+
+/// Rate index family classification for multi-curve framework.
+///
+/// Distinguishes overnight rates (used for discounting) from term rates
+/// (used for floating leg projection in non-OIS swaps).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RateIndexFamily {
+    /// Overnight rates: SOFR, SONIA, €STR, TONA, etc.
+    /// Used for OIS curves and collateralized discounting.
+    Overnight,
+    /// Term rates: 3M LIBOR, 6M EURIBOR, Term SOFR, etc.
+    /// Used for floating leg projection, require separate forward curves.
+    Term,
+}
+
+/// Detailed information about a rate index.
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub struct RateIndexInfo {
+    /// Rate index family (overnight vs term)
+    pub family: RateIndexFamily,
+    /// Currency associated with this index
+    pub currency: Currency,
+    /// Standard day count convention
+    pub day_count: DayCount,
+    /// Settlement lag in business days (T+0, T+1, T+2)
+    pub settlement_days: i32,
+}
+
+impl RateIndexInfo {
+    /// Create an overnight rate index info
+    #[allow(dead_code)]
+    pub const fn overnight(currency: Currency, day_count: DayCount, settlement_days: i32) -> Self {
+        Self {
+            family: RateIndexFamily::Overnight,
+            currency,
+            day_count,
+            settlement_days,
+        }
+    }
+
+    /// Create a term rate index info
+    #[allow(dead_code)]
+    pub const fn term(currency: Currency, day_count: DayCount, settlement_days: i32) -> Self {
+        Self {
+            family: RateIndexFamily::Term,
+            currency,
+            day_count,
+            settlement_days,
+        }
+    }
+}
+
+/// Registry entry for a known rate index.
+struct IndexEntry {
+    /// Canonical tokens that identify this index (uppercase, without special chars)
+    tokens: &'static [&'static str],
+    /// Index metadata
+    info: RateIndexInfo,
+}
+
+/// Static registry of known rate indices with market-standard conventions.
+///
+/// This registry provides accurate classification of rate indices for:
+/// - OIS vs term rate distinction (multi-curve framework)
+/// - Currency-specific settlement conventions
+/// - Day count conventions per index
+static INDEX_REGISTRY: &[IndexEntry] = &[
+    // USD Overnight Rates
+    IndexEntry {
+        tokens: &["SOFR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::USD,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    IndexEntry {
+        tokens: &["EFFR", "FEDFUNDS", "FF"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::USD,
+            day_count: DayCount::Act360,
+            settlement_days: 1,
+        },
+    },
+    // EUR Overnight Rates
+    IndexEntry {
+        tokens: &["ESTR", "ESTER", "STR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::EUR,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    IndexEntry {
+        tokens: &["EONIA"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::EUR,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    // GBP Overnight Rates (T+0 settlement!)
+    IndexEntry {
+        tokens: &["SONIA"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::GBP,
+            day_count: DayCount::Act365F,
+            settlement_days: 0, // GBP settles T+0
+        },
+    },
+    // JPY Overnight Rates
+    IndexEntry {
+        tokens: &["TONA", "TONAR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::JPY,
+            day_count: DayCount::Act365F,
+            settlement_days: 2,
+        },
+    },
+    // CHF Overnight Rates
+    IndexEntry {
+        tokens: &["SARON"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::CHF,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    // AUD Overnight Rates
+    IndexEntry {
+        tokens: &["AONIA"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::AUD,
+            day_count: DayCount::Act365F,
+            settlement_days: 1,
+        },
+    },
+    // CAD Overnight Rates
+    IndexEntry {
+        tokens: &["CORRA"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::CAD,
+            day_count: DayCount::Act365F,
+            settlement_days: 1,
+        },
+    },
+    // SGD Overnight Rates
+    IndexEntry {
+        tokens: &["SORA"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::SGD,
+            day_count: DayCount::Act365F,
+            settlement_days: 2,
+        },
+    },
+    // Generic OIS marker (matches "USD-OIS", "EUR-OIS", etc.)
+    IndexEntry {
+        tokens: &["OIS"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Overnight,
+            currency: Currency::USD, // Default, currency should be inferred from context
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    // Term Rates (explicitly NOT overnight)
+    IndexEntry {
+        tokens: &["LIBOR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Term,
+            currency: Currency::USD,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    IndexEntry {
+        tokens: &["EURIBOR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Term,
+            currency: Currency::EUR,
+            day_count: DayCount::Act360,
+            settlement_days: 2,
+        },
+    },
+    IndexEntry {
+        tokens: &["TIBOR"],
+        info: RateIndexInfo {
+            family: RateIndexFamily::Term,
+            currency: Currency::JPY,
+            day_count: DayCount::Act365F,
+            settlement_days: 2,
+        },
+    },
+];
+
+/// Lookup rate index information from an index identifier string.
+///
+/// Parses the index string and matches against the registry. Returns `None`
+/// if the index is not recognized (caller should treat as term rate).
+///
+/// # Examples
+///
+/// ```ignore
+/// use finstack_valuations::calibration::quote::lookup_index_info;
+///
+/// let info = lookup_index_info("USD-SOFR-OIS");
+/// assert!(info.is_some());
+/// assert_eq!(info.unwrap().family, RateIndexFamily::Overnight);
+///
+/// let libor = lookup_index_info("3M-USD-LIBOR");
+/// assert!(libor.is_some());
+/// assert_eq!(libor.unwrap().family, RateIndexFamily::Term);
+/// ```
+pub fn lookup_index_info(index: &str) -> Option<RateIndexInfo> {
+    // Normalize: uppercase, replace € with E, split into tokens
+    let normalized = index.to_uppercase().replace('€', "E");
+    let tokens: Vec<&str> = normalized
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    // Check each registry entry
+    for entry in INDEX_REGISTRY {
+        for &entry_token in entry.tokens {
+            // Match if any token in the index string matches this entry
+            if tokens.contains(&entry_token) {
+                return Some(entry.info.clone());
+            }
+        }
+    }
+
+    None
+}
+
+/// Check if an index identifier represents an overnight rate.
+///
+/// Uses the index registry for accurate classification. Returns `false`
+/// for unrecognized indices (conservative default).
+pub fn is_overnight_index(index: &str) -> bool {
+    lookup_index_info(index)
+        .map(|info| info.family == RateIndexFamily::Overnight)
+        .unwrap_or(false)
+}
+
+/// Get settlement days for a currency (default if index not found).
+///
+/// Market-standard settlement conventions:
+/// - USD: T+2
+/// - EUR: T+2
+/// - GBP: T+0
+/// - JPY: T+2
+/// - Others: T+2 (default)
+pub fn settlement_days_for_currency(currency: Currency) -> i32 {
+    match currency {
+        Currency::GBP => 0,  // GBP settles same-day
+        Currency::AUD | Currency::CAD => 1,  // T+1 for AUD/CAD
+        _ => 2,  // T+2 for USD, EUR, JPY, CHF, and others
+    }
+}
+
+/// Get the standard day count convention for a currency's discount curve.
+///
+/// Market conventions:
+/// - USD, EUR, CHF: ACT/360
+/// - GBP, JPY, AUD, CAD: ACT/365F
+pub fn standard_day_count_for_currency(currency: Currency) -> DayCount {
+    match currency {
+        Currency::GBP | Currency::JPY | Currency::AUD | Currency::CAD | Currency::NZD => {
+            DayCount::Act365F
+        }
+        _ => DayCount::Act360,
+    }
+}

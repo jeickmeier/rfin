@@ -144,7 +144,16 @@ impl CurveValidator for DiscountCurve {
             return Ok(());
         }
 
-        // Discount factors must be monotonically decreasing
+        // For negative rate environments, DF can be > 1.0 at the short end
+        // and may not decrease monotonically if negative rates persist
+        if config.allow_negative_rates {
+            // For negative rate curves, we skip strict monotonicity
+            // but still check that forward rates are within reasonable bounds
+            // (handled by validate_no_arbitrage)
+            return Ok(());
+        }
+
+        // Strict monotonicity for positive rate environments
         let mut prev_df = 1.0;
 
         for &t in DF_MONO_POINTS {
@@ -165,7 +174,10 @@ impl CurveValidator for DiscountCurve {
     }
 
     fn validate_bounds(&self, config: &ValidationConfig) -> Result<()> {
-        // Check that discount factors are in (0, 1]
+        // Check that discount factors are in (0, max_df]
+        // For negative rate environments, DF can exceed 1.0 at short end
+        let max_df = if config.allow_negative_rates { 1.5 } else { 1.0 };
+
         for &t in DF_BOUNDS_POINTS {
             let df = self.df(t);
 
@@ -178,12 +190,14 @@ impl CurveValidator for DiscountCurve {
                 )));
             }
 
-            if df > 1.0 {
+            if df > max_df {
                 return Err(Error::Validation(format!(
-                    "Discount factor {:.6} exceeds 1.0 at t={} in {}",
+                    "Discount factor {:.6} exceeds {:.1} at t={} in {} (max DF for {} rate environment)",
                     df,
+                    max_df,
                     t,
-                    self.id().as_str()
+                    self.id().as_str(),
+                    if config.allow_negative_rates { "negative" } else { "positive" }
                 )));
             }
         }
@@ -769,6 +783,9 @@ pub struct ValidationConfig {
     pub max_fwd_inflation: f64,
     /// Maximum allowed volatility (default 5.0 = 500%)
     pub max_volatility: f64,
+    /// Allow negative rate environments (DF > 1.0 at short end)
+    #[serde(default)]
+    pub allow_negative_rates: bool,
 }
 
 impl Default for ValidationConfig {
@@ -786,6 +803,7 @@ impl Default for ValidationConfig {
             min_fwd_inflation: -0.20,
             max_fwd_inflation: 0.50,
             max_volatility: 5.0,
+            allow_negative_rates: true, // Support EUR/JPY/CHF negative rate environments
         }
     }
 }
@@ -834,7 +852,12 @@ mod tests {
             .build()
             .expect("should build invalid curve for testing");
 
-        assert!(invalid_curve.validate_monotonicity(&config).is_err());
+        // Use strict config (no negative rates allowed) to test monotonicity validation
+        let strict_config = ValidationConfig {
+            allow_negative_rates: false,
+            ..config.clone()
+        };
+        assert!(invalid_curve.validate_monotonicity(&strict_config).is_err());
     }
 
     #[test]

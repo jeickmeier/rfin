@@ -74,17 +74,20 @@ fn test_dv01_increases_with_maturity() {
 
 #[test]
 fn test_dv01_zero_for_zero_period() {
-    // Setup
+    // Setup - zero period deposit (start == end) is now invalid
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep = DepositBuilder::new(base).start(base).end(base).build();
 
-    // Execute
-    let dv01 = compute_metric(&dep, &ctx, base, MetricId::Dv01);
+    // Execute - should fail validation (end must be after start)
+    let result = dep.npv(&ctx, base);
 
-    // Validate
-    assert!(dv01.abs() < 1e-10);
+    // Validate - zero period deposits are invalid
+    assert!(
+        result.is_err(),
+        "Zero period deposit should fail validation"
+    );
 }
 
 #[test]

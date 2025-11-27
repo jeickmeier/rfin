@@ -15,17 +15,20 @@ use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
 use finstack_valuations::instruments::deposit::Deposit;
 #[cfg(feature = "scenarios")]
 use std::sync::Arc;
+#[cfg(feature = "scenarios")]
+use time::Duration;
 
 #[cfg(feature = "scenarios")]
 #[test]
 fn apply_and_revalue_succeeds() {
     let as_of = base_date();
+    let end_date = as_of + Duration::days(30);
 
     let dep = Deposit::builder()
         .id("D".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .build()
