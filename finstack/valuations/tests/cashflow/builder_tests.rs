@@ -355,3 +355,220 @@ fn try_builder_methods_error_before_principal() {
         "try_fixed_cf should succeed when principal set"
     );
 }
+
+// =============================================================================
+// Market Standards Review - Additional Day Count Convention Tests
+// =============================================================================
+
+#[test]
+fn stub_period_thirty360_produces_proportional_accrual() {
+    // Test that stub periods with 30/360 day count produce proportionally smaller accrued amounts
+    // Market convention: 30/360 treats each month as 30 days and each year as 360 days
+    let issue = Date::from_calendar_date(2025, Month::February, 10).unwrap(); // Irregular start (10th)
+    let maturity = Date::from_calendar_date(2026, Month::February, 15).unwrap(); // Regular end (15th)
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: 0.06, // 6% annual rate
+        freq: Frequency::semi_annual(),
+        dc: DayCount::Thirty360, // Market standard for corporate bonds
+        bdc: BusinessDayConvention::Following,
+        calendar_id: None,
+        stub: StubKind::None,
+    };
+
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let mut b = CashFlowSchedule::builder();
+    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
+    let schedule = b.build().unwrap();
+
+    // Find coupon flows only
+    let coupon_flows: Vec<&CashFlow> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+        .collect();
+
+    // Should have at least one stub period
+    let stubs: Vec<&&CashFlow> = coupon_flows.iter().filter(|cf| cf.kind == CFKind::Stub).collect();
+    let regular: Vec<&&CashFlow> = coupon_flows.iter().filter(|cf| cf.kind == CFKind::Fixed).collect();
+
+    assert!(!stubs.is_empty(), "Should have at least one stub period");
+    assert!(!regular.is_empty(), "Should have at least one regular period");
+
+    // Regular semi-annual coupon should be approximately 3% of notional (6% / 2)
+    // Stub period should be smaller due to shorter accrual period
+    let regular_amount = regular[0].amount.amount();
+    let stub_amount = stubs[0].amount.amount();
+
+    // Regular should be close to 30,000 (1M * 6% * 0.5)
+    assert!(
+        (regular_amount - 30_000.0).abs() < 1000.0,
+        "Regular coupon should be ~30,000, got {}",
+        regular_amount
+    );
+
+    // Stub should be smaller than regular (shorter period)
+    assert!(
+        stub_amount < regular_amount,
+        "Stub ({}) should be smaller than regular ({}) due to shorter period",
+        stub_amount,
+        regular_amount
+    );
+}
+
+// =============================================================================
+// Market Standards Review - PSA/SDA Golden Value Tests
+// =============================================================================
+
+#[test]
+fn psa_smm_golden_values() {
+    // PSA (Public Securities Association) Prepayment Model Golden Values
+    // 100% PSA ramps to 6% CPR over 30 months, then stays flat
+    // SMM = 1 - (1 - CPR)^(1/12)
+    use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+    use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+    let model = PrepaymentModelSpec::psa_100();
+
+    // Month 0: 0% CPR → 0% SMM
+    let smm_0 = model.smm(0);
+    assert!(
+        smm_0.abs() < 1e-10,
+        "PSA at month 0 should be 0% SMM, got {}",
+        smm_0
+    );
+
+    // Month 15: 3% CPR (halfway through ramp) → ~0.2536% SMM
+    let smm_15 = model.smm(15);
+    let cpr_15 = smm_to_cpr(smm_15);
+    assert!(
+        (cpr_15 - 0.03).abs() < 0.001,
+        "PSA at month 15 should be 3% CPR, got {}",
+        cpr_15
+    );
+
+    // Month 30: 6% CPR (end of ramp) → ~0.5143% SMM
+    let smm_30 = model.smm(30);
+    let expected_smm_30 = cpr_to_smm(0.06);
+    assert!(
+        (smm_30 - expected_smm_30).abs() < 1e-10,
+        "PSA at month 30 should be {} SMM, got {}",
+        expected_smm_30,
+        smm_30
+    );
+
+    // Month 60: Still 6% CPR (flat after ramp)
+    let smm_60 = model.smm(60);
+    assert!(
+        (smm_60 - expected_smm_30).abs() < 1e-10,
+        "PSA at month 60 should still be {} SMM, got {}",
+        expected_smm_30,
+        smm_60
+    );
+
+    // 150% PSA should be 1.5x the base values
+    let model_150 = PrepaymentModelSpec::psa_150();
+    let smm_30_150 = model_150.smm(30);
+    let cpr_30_150 = smm_to_cpr(smm_30_150);
+    assert!(
+        (cpr_30_150 - 0.09).abs() < 0.001,
+        "150% PSA at month 30 should be 9% CPR, got {}",
+        cpr_30_150
+    );
+}
+
+#[test]
+fn sda_mdr_golden_values() {
+    // SDA (Standard Default Assumption) Model Golden Values
+    // SDA peaks at month 30 with 6% CDR, then declines to 3% terminal over next 30 months
+    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::DefaultModelSpec;
+
+    let model = DefaultModelSpec::sda_100();
+
+    // Month 0: 0% CDR
+    let mdr_0 = model.mdr(0);
+    assert!(
+        mdr_0.abs() < 1e-10,
+        "SDA at month 0 should be 0% MDR, got {}",
+        mdr_0
+    );
+
+    // Month 15: 3% CDR (halfway to peak)
+    let mdr_15 = model.mdr(15);
+    let cdr_15 = smm_to_cpr(mdr_15);
+    assert!(
+        (cdr_15 - 0.03).abs() < 0.001,
+        "SDA at month 15 should be 3% CDR, got {}",
+        cdr_15
+    );
+
+    // Month 30: 6% CDR (peak)
+    let mdr_30 = model.mdr(30);
+    let cdr_30 = smm_to_cpr(mdr_30);
+    assert!(
+        (cdr_30 - 0.06).abs() < 0.001,
+        "SDA at month 30 should be 6% CDR (peak), got {}",
+        cdr_30
+    );
+
+    // Month 60: 3% CDR (terminal, 30 months after peak)
+    let mdr_60 = model.mdr(60);
+    let cdr_60 = smm_to_cpr(mdr_60);
+    assert!(
+        (cdr_60 - 0.03).abs() < 0.001,
+        "SDA at month 60 should be 3% CDR (terminal), got {}",
+        cdr_60
+    );
+
+    // Month 90: Still 3% CDR (flat after terminal)
+    let mdr_90 = model.mdr(90);
+    let cdr_90 = smm_to_cpr(mdr_90);
+    assert!(
+        (cdr_90 - 0.03).abs() < 0.001,
+        "SDA at month 90 should still be 3% CDR, got {}",
+        cdr_90
+    );
+}
+
+#[test]
+fn cpr_smm_conversion_roundtrip_precision() {
+    // Test that CPR ↔ SMM conversion maintains precision across range
+    // Formula: SMM = 1 - (1 - CPR)^(1/12)
+    //          CPR = 1 - (1 - SMM)^12
+    use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+
+    let test_cprs = [0.0, 0.01, 0.03, 0.06, 0.10, 0.15, 0.20, 0.50];
+
+    for &cpr in &test_cprs {
+        let smm = cpr_to_smm(cpr);
+        let cpr_back = smm_to_cpr(smm);
+
+        assert!(
+            (cpr - cpr_back).abs() < 1e-12,
+            "CPR {} roundtrip failed: got {}",
+            cpr,
+            cpr_back
+        );
+
+        // SMM should always be less than CPR (except for 0)
+        if cpr > 0.0 {
+            assert!(
+                smm < cpr,
+                "SMM ({}) should be less than CPR ({})",
+                smm,
+                cpr
+            );
+        }
+    }
+
+    // Verify specific golden value: 6% CPR ≈ 0.5143% SMM
+    let smm_6pct = cpr_to_smm(0.06);
+    assert!(
+        (smm_6pct - 0.005143).abs() < 0.0001,
+        "6% CPR should convert to ~0.5143% SMM, got {}",
+        smm_6pct
+    );
+}

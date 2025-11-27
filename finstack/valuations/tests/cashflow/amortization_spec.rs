@@ -211,3 +211,126 @@ fn test_amortization_spec_default() {
     let default_spec = AmortizationSpec::default();
     assert!(matches!(default_spec, AmortizationSpec::None));
 }
+
+// =============================================================================
+// Edge Case Tests (Market Standards Review - Safety)
+// =============================================================================
+
+#[test]
+fn test_amortization_spec_percent_nan_rejected() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod { pct: f64::NAN },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err(), "NaN percentage should be rejected");
+}
+
+#[test]
+fn test_amortization_spec_percent_infinity_rejected() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod {
+            pct: f64::INFINITY,
+        },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err(), "Infinite percentage should be rejected");
+}
+
+#[test]
+fn test_amortization_spec_percent_neg_infinity_rejected() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod {
+            pct: f64::NEG_INFINITY,
+        },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err(), "Negative infinite percentage should be rejected");
+}
+
+#[test]
+fn test_amortization_spec_percent_negative_rejected() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod { pct: -0.05 },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err(), "Negative percentage should be rejected");
+}
+
+#[test]
+fn test_amortization_spec_percent_over_100_rejected() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod { pct: 1.5 },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err(), "Percentage over 100% should be rejected");
+}
+
+#[test]
+fn test_amortization_spec_percent_zero_ok() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod { pct: 0.0 },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_ok(), "0% percentage should be valid (edge case)");
+}
+
+#[test]
+fn test_amortization_spec_percent_100_ok() {
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::PercentPerPeriod { pct: 1.0 },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_ok(), "100% percentage should be valid (edge case)");
+}
+
+#[test]
+fn test_amortization_spec_step_remaining_empty_ok() {
+    // Empty schedule means no amortization events - should be valid
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::StepRemaining { schedule: vec![] },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_ok(), "Empty step schedule should be valid (no amortization)");
+}
+
+#[test]
+fn test_amortization_spec_custom_principal_empty_ok() {
+    // Empty custom principal means no exchanges - should be valid
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::CustomPrincipal { items: vec![] },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_ok(), "Empty custom principal should be valid (no exchanges)");
+}
+
+#[test]
+fn test_amortization_spec_linear_to_zero_ok() {
+    // Full amortization to zero is a valid scenario (e.g., fully amortizing loan)
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::LinearTo {
+            final_notional: Money::new(0.0, Currency::USD),
+        },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_ok(), "Linear amortization to zero should be valid");
+}

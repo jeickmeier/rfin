@@ -470,3 +470,147 @@ fn test_pv_by_period_credit_adjusted() {
         .unwrap_or(0.0);
     assert!((q1_pv - 85.5).abs() < 1e-10);
 }
+
+// =============================================================================
+// Market Standards Review - Day Count Convention Tests
+// =============================================================================
+
+#[test]
+fn pv_with_ctx_act365f_year_fraction() {
+    // Test Act/365 Fixed day count produces correct year fractions
+    // Market standard: actual days / 365
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+
+    // Flow at Jan 15 = 14 days from Jan 1
+    // Year fraction = 14/365 ≈ 0.03836
+    let flows = vec![(d(2025, 1, 15), Money::new(1000.0, Currency::USD))];
+
+    let curve = FlatDiscountCurve {
+        id: CurveId::new("USD-OIS"),
+        base,
+        df_const: 1.0, // No discounting to isolate day count effect
+    };
+
+    let dc_ctx = DayCountCtx::default();
+
+    let result = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx);
+    assert!(result.is_ok(), "Act365F should not require special context");
+}
+
+#[test]
+fn pv_with_ctx_act360_year_fraction() {
+    // Test Act/360 day count (money market convention)
+    // Market standard: actual days / 360
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+
+    let flows = vec![(d(2025, 1, 31), Money::new(1000.0, Currency::USD))];
+
+    let curve = FlatDiscountCurve {
+        id: CurveId::new("USD-OIS"),
+        base,
+        df_const: 1.0,
+    };
+
+    let dc_ctx = DayCountCtx::default();
+
+    let result = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act360, dc_ctx);
+    assert!(result.is_ok(), "Act360 should not require special context");
+}
+
+#[test]
+fn pv_with_ctx_thirty360_year_fraction() {
+    // Test 30/360 day count (corporate bond convention)
+    // Market standard: each month = 30 days, year = 360 days
+    let base = d(2025, 1, 15);
+    let periods = quarters_2025();
+
+    // Flow at Jul 15 = exactly 6 months = 180 days (30/360)
+    // Year fraction = 180/360 = 0.5
+    let flows = vec![(d(2025, 7, 15), Money::new(1000.0, Currency::USD))];
+
+    let curve = FlatDiscountCurve {
+        id: CurveId::new("USD-OIS"),
+        base,
+        df_const: 1.0,
+    };
+
+    let dc_ctx = DayCountCtx::default();
+
+    let result = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Thirty360, dc_ctx);
+    assert!(result.is_ok(), "30/360 should not require special context");
+}
+
+#[test]
+fn pv_with_ctx_actact_isma_requires_frequency() {
+    // Act/Act ISMA (ISDA-2006) requires frequency in context
+    // This is the convention used for many government bonds
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+    let flows = vec![(d(2025, 2, 15), Money::new(100.0, Currency::USD))];
+
+    let curve = FlatDiscountCurve {
+        id: CurveId::new("USD-OIS"),
+        base,
+        df_const: 0.95,
+    };
+
+    // Without frequency - should error
+    let dc_ctx_no_freq = DayCountCtx {
+        frequency: None,
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let result =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActActIsma, dc_ctx_no_freq);
+    assert!(
+        result.is_err(),
+        "ActActIsma without frequency should error"
+    );
+
+    // With frequency - should succeed
+    let dc_ctx_with_freq = DayCountCtx {
+        frequency: Some(Frequency::semi_annual()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let result =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActActIsma, dc_ctx_with_freq);
+    assert!(
+        result.is_ok(),
+        "ActActIsma with frequency should succeed"
+    );
+}
+
+#[test]
+fn pv_with_ctx_actact_isda_no_frequency_required() {
+    // Act/Act ISDA does NOT require frequency - it uses actual days / actual days in year
+    // This distinguishes it from Act/Act ISMA which needs coupon frequency
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+    let flows = vec![(d(2025, 2, 15), Money::new(100.0, Currency::USD))];
+
+    let curve = FlatDiscountCurve {
+        id: CurveId::new("USD-OIS"),
+        base,
+        df_const: 0.95,
+    };
+
+    // Without frequency - should still work
+    let dc_ctx = DayCountCtx {
+        frequency: None,
+        calendar: None,
+        bus_basis: None,
+    };
+
+    // Note: ActAct (ISDA) uses calendar year (365 or 366 for leap years)
+    let result =
+        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActAct, dc_ctx);
+    assert!(
+        result.is_ok(),
+        "ActAct (ISDA) should not require frequency context"
+    );
+}
