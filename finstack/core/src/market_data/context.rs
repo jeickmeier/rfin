@@ -1928,7 +1928,7 @@ impl MarketContext {
                     found = true;
                 }
             } else if let Ok(original) = self.get_inflation_ref(cid) {
-                if let BumpType::KeyRate { time_years } = bump_spec.bump_type {
+                if let BumpType::TriangularKeyRate { target_bucket, .. } = bump_spec.bump_type {
                     // Inflation curves don't support key-rate bumps directly; apply a bucketed factor to the closest knot.
                     if let Some(delta) = bump_spec.additive_fraction() {
                         let mut points: Vec<(f64, f64)> = original
@@ -1938,8 +1938,8 @@ impl MarketContext {
                             .zip(original.cpi_levels().iter().copied())
                             .collect();
                         if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
-                            let da = (a.1 .0 - time_years).abs();
-                            let db = (b.1 .0 - time_years).abs();
+                            let da = (a.1 .0 - target_bucket).abs();
+                            let db = (b.1 .0 - target_bucket).abs();
                             da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
                         }) {
                             points[idx].1 *= 1.0 + delta;

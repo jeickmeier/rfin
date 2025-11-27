@@ -84,18 +84,24 @@ fn discount_curve_builder_rejects_invalid_input() {
 }
 
 #[test]
-fn discount_curve_key_rate_bump_targets_segment() {
+fn discount_curve_triangular_key_rate_bump_targets_bucket() {
     let curve = DiscountCurve::builder("KR")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
         .build()
         .unwrap();
 
-    let bumped = curve.try_with_key_rate_bump_years(1.2, 25.0).unwrap();
+    // Triangular bump centered at 1.0, with neighbors at 0.0 and 2.0
+    let bumped = curve
+        .try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 25.0)
+        .unwrap();
 
-    // First segment untouched, later segments scaled
+    // DF at t=0 is unchanged (weight = 0 at t=0)
     assert_eq!(bumped.df(0.0), curve.df(0.0));
-    assert!(bumped.df(1.5) < curve.df(1.5));
+    // DF at t=1 has maximum bump (weight = 1.0 at target)
+    assert!(bumped.df(1.0) < curve.df(1.0));
+    // DF at t=2 is unchanged (weight = 0 at t=2)
+    assert_eq!(bumped.df(2.0), curve.df(2.0));
 }
 
 #[test]
@@ -287,7 +293,7 @@ fn test_try_with_parallel_bump_returns_error_on_invalid_curve() {
 }
 
 #[test]
-fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
+fn test_triangular_key_rate_bump_returns_error_on_invalid_curve() {
     // Create a valid base curve
     let curve = DiscountCurve::builder("VALID-KR")
         .base_date(sample_base_date())
@@ -295,19 +301,19 @@ fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
         .build()
         .unwrap();
 
-    // Normal key-rate bump should succeed
-    let bumped_ok = curve.try_with_key_rate_bump_years(1.5, 15.0);
+    // Normal triangular key-rate bump should succeed
+    let bumped_ok = curve.try_with_triangular_key_rate_bump_neighbors(0.5, 1.5, 2.5, 15.0);
     assert!(
         bumped_ok.is_ok(),
-        "Valid key-rate bump should succeed: {:?}",
+        "Valid triangular key-rate bump should succeed: {:?}",
         bumped_ok.err()
     );
 
-    // Extreme bump might cause issues, but should return error not panic
-    let bumped_extreme = curve.try_with_key_rate_bump_years(1.0, 1000.0);
+    // Extreme bump with allow_non_monotonic should still work
+    let bumped_extreme = curve.try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 1000.0);
     // Either succeeds or returns typed error - no panic
     match bumped_extreme {
-        Ok(_) => {} // Success is fine
+        Ok(_) => {} // Success is fine (allow_non_monotonic is enabled)
         Err(e) => {
             // Error should be typed, not panic
             assert!(

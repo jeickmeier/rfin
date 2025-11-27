@@ -235,8 +235,8 @@ pub use sensitivities::cs01::{
     standard_credit_cs01_buckets, GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
 };
 pub use sensitivities::dv01::{
-    standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig, Dv01ComputationMode,
-    UnifiedDv01Calculator,
+    format_bucket_label, standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig,
+    Dv01ComputationMode, ParRateContext, UnifiedDv01Calculator,
 };
 pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,

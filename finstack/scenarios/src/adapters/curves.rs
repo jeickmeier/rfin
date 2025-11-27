@@ -272,8 +272,17 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Use triangular key-rate bump (industry-standard localized shock)
+                        // For scenarios, we use the tenor as the center of the triangle
+                        // with default neighbors at +/- 50% of the tenor
+                        let prev_bucket = (tenor_years * 0.5).max(0.0);
+                        let next_bucket = tenor_years * 1.5;
                         base_curve
-                            .try_with_triangular_key_rate_bump(tenor_years, *bp)
+                            .try_with_triangular_key_rate_bump_neighbors(
+                                prev_bucket,
+                                tenor_years,
+                                next_bucket,
+                                *bp,
+                            )
                             .map_err(|e| {
                                 Error::Internal(format!("Failed to key-rate bump curve: {}", e))
                             })?

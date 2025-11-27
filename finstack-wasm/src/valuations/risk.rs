@@ -61,16 +61,24 @@ pub fn krd_dv01_ladder(
     let mut bucket_labels = Vec::new();
     let mut dv01_values = Vec::new();
 
-    for t in buckets {
+    for (i, &t) in buckets.iter().enumerate() {
         let label = if t < 1.0 {
             format!("{}m", (t * 12.0).round() as i32)
         } else {
             format!("{}y", t as i32)
         };
 
-        // Bump curve at this key rate
+        // Compute bucket neighbors for triangular key-rate bump
+        let prev_bucket = if i == 0 { 0.0 } else { buckets[i - 1] };
+        let next_bucket = if i == buckets.len() - 1 {
+            f64::INFINITY
+        } else {
+            buckets[i + 1]
+        };
+
+        // Bump curve at this key rate using triangular weights
         let bumped = disc
-            .try_with_key_rate_bump_years(t, bump)
+            .try_with_triangular_key_rate_bump_neighbors(prev_bucket, t, next_bucket, bump)
             .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 
@@ -138,16 +146,24 @@ pub fn cs01_ladder(
     let mut bucket_labels = Vec::new();
     let mut cs01_values = Vec::new();
 
-    for t in buckets {
+    for (i, &t) in buckets.iter().enumerate() {
         let label = if t < 1.0 {
             format!("{}m", (t * 12.0).round() as i32)
         } else {
             format!("{}y", t as i32)
         };
 
-        // Bump curve at this key rate
+        // Compute bucket neighbors for triangular key-rate bump
+        let prev_bucket = if i == 0 { 0.0 } else { buckets[i - 1] };
+        let next_bucket = if i == buckets.len() - 1 {
+            f64::INFINITY
+        } else {
+            buckets[i + 1]
+        };
+
+        // Bump curve at this key rate using triangular weights
         let bumped = disc
-            .try_with_key_rate_bump_years(t, bump)
+            .try_with_triangular_key_rate_bump_neighbors(prev_bucket, t, next_bucket, bump)
             .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 

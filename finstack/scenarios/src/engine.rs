@@ -8,7 +8,6 @@
 //! - collect reporting metadata about how many operations ran and whether any
 //!   warnings were produced during execution
 
-use crate::error::Error;
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
@@ -415,59 +414,31 @@ impl ScenarioEngine {
                     nodes,
                     match_mode,
                 } => {
-                    if *curve_kind == crate::spec::CurveKind::Hazard {
-                        return Err(Error::UnsupportedOperation {
-                            operation: "hazard curves don't expose knots for node shocks".into(),
-                            target: curve_id.clone(),
-                        });
-                    }
-                    for (tenor, bp) in nodes {
-                        match crate::utils::parse_tenor_to_years(tenor) {
-                            Ok(years) => {
-                                // If Exact, ensure pillar exists; otherwise warn and skip
-                                if *match_mode == crate::spec::TenorMatchMode::Exact {
-                                    let has_pillar = match curve_kind {
-                                        crate::spec::CurveKind::Discount => ctx
-                                            .market
-                                            .get_discount_ref(curve_id)
-                                            .map(|c| {
-                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
-                                            })
-                                            .unwrap_or(false),
-                                        crate::spec::CurveKind::Forecast => ctx
-                                            .market
-                                            .get_forward_ref(curve_id)
-                                            .map(|c| {
-                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
-                                            })
-                                            .unwrap_or(false),
-                                        crate::spec::CurveKind::Hazard => true, // unreachable due to guard above
-                                        crate::spec::CurveKind::Inflation => ctx
-                                            .market
-                                            .get_inflation_ref(curve_id)
-                                            .map(|c| {
-                                                c.knots().iter().any(|t| (t - years).abs() < 1e-6)
-                                            })
-                                            .unwrap_or(false),
-                                    };
-                                    if !has_pillar {
-                                        return Err(Error::tenor_not_found(
-                                            tenor.clone(),
-                                            curve_id.clone(),
-                                        ));
+                    // Apply node shocks directly using the adapter function
+                    match crate::adapters::curves::apply_curve_node_shock(
+                        ctx.market,
+                        *curve_kind,
+                        curve_id,
+                        nodes,
+                        *match_mode,
+                    ) {
+                        Ok(()) => applied += 1,
+                        Err(e) => {
+                            // Return errors for hazard curves and tenor not found (exact mode failures)
+                            match &e {
+                                crate::error::Error::UnsupportedOperation { .. }
+                                | crate::error::Error::TenorNotFound { .. } => return Err(e),
+                                _ => {
+                                    // For other errors, convert to warning unless it's a hazard curve
+                                    if *curve_kind == crate::spec::CurveKind::Hazard {
+                                        return Err(e);
                                     }
+                                    warnings.push(format!(
+                                        "Curve node shock failed for {}: {}",
+                                        curve_id, e
+                                    ));
                                 }
-
-                                market_bumps.push(MarketBump::Curve {
-                                    id: CurveId::from(curve_id.as_str()),
-                                    spec: BumpSpec::key_rate_bp(years, *bp),
-                                });
-                                applied += 1;
                             }
-                            Err(e) => warnings.push(format!(
-                                "Tenor parsing failed for {} on {}: {}",
-                                tenor, curve_id, e
-                            )),
                         }
                     }
                 }

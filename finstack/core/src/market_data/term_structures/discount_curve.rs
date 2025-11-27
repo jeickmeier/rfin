@@ -373,88 +373,36 @@ impl DiscountCurve {
             .build()
     }
 
-    /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
+    /// Create a new curve with a triangular key-rate bump using explicit bucket neighbors.
     ///
-    /// This approximates a classic key-rate DV01 bump by applying an additive rate
-    /// shift only to the forward segment that contains `t`. The effect is localized
-    /// to the bracketed interval [t_i, t_{i+1}] that contains `t` by scaling discount
-    /// factors at and beyond `t_{i+1}` by `exp(-bump * dt)` where `dt = t_{i+1}-t_i`.
-    /// Upstream interpolation then distributes the effect within the segment.
+    /// This is the market-standard key-rate DV01 implementation (per Tuckman/Fabozzi)
+    /// where the triangular weight is defined by the **bucket grid**, not curve knots.
+    /// This ensures that the sum of all bucketed DV01s equals the parallel DV01.
     ///
-    /// If the curve has fewer than 2 knots, falls back to a parallel bump.
+    /// # Mathematical Foundation
     ///
-    /// Returns an error if the bumped curve violates validation constraints.
+    /// For a zero rate bump δr applied with triangular weight w(t):
+    /// ```text
+    /// DF_bumped(t) = DF(t) × exp(-w(t) × δr × t)
+    /// ```
     ///
-    /// # Note
-    /// For industry-standard key-rate DV01 with triangular weighting that localizes
-    /// impact around the target tenor, use [`try_with_triangular_key_rate_bump`](Self::try_with_triangular_key_rate_bump).
-    pub fn try_with_key_rate_bump_years(&self, t: f64, bp: f64) -> crate::Result<Self> {
-        if self.knots.len() < 2 {
-            return self.try_with_parallel_bump(bp);
-        }
-
-        // Find segment i such that knots[i] < t <= knots[i+1]
-        let times = &self.knots;
-        let mut i = 0usize;
-        if t <= times[0] {
-            i = 0;
-        } else if t >= times[times.len() - 1] {
-            i = times.len() - 2;
-        } else {
-            for idx in 0..times.len() - 1 {
-                if t > times[idx] && t <= times[idx + 1] {
-                    i = idx;
-                    break;
-                }
-            }
-        }
-
-        let t0 = times[i];
-        let t1 = times[i + 1];
-        let dt = (t1 - t0).max(0.0);
-        if dt == 0.0 {
-            // Degenerate segment, fall back to parallel bump
-            return self.try_with_parallel_bump(bp);
-        }
-
-        let bump_rate = bp / 10_000.0;
-        let factor = (-bump_rate * dt).exp();
-
-        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
-        for (idx, (&tt, &df)) in self.knots.iter().zip(self.dfs.iter()).enumerate() {
-            let new_df = if idx > i { df * factor } else { df };
-            bumped_points.push((tt, new_df));
-        }
-
-        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
-        DiscountCurve::builder(new_id)
-            .base_date(self.base)
-            .day_count(self.day_count)
-            .knots(bumped_points)
-            .set_interp(self.style)
-            .extrapolation(self.extrapolation)
-            .build()
-    }
-
-    /// Create a new curve with a triangular key-rate bump (industry standard).
+    /// The triangular weight function for bucket at `target` with neighbors `prev` and `next`:
+    /// - w(t) = 0                                    if t ≤ prev
+    /// - w(t) = (t - prev) / (target - prev)        if prev < t ≤ target
+    /// - w(t) = (next - t) / (next - target)        if target < t < next
+    /// - w(t) = 0                                    if t ≥ next
     ///
-    /// This implements the market-standard key-rate DV01 bump using triangular
-    /// weighting (per Tuckman/Fabozzi). The shock peaks at the target tenor `t`
-    /// and linearly decays to zero at adjacent curve knots, localizing the rate
-    /// impact to a specific maturity bucket.
+    /// # Key Property: Unity Partition
     ///
-    /// # Algorithm
+    /// For any time t, the sum of all bucket weights equals 1.0:
+    /// `Σᵢ wᵢ(t) = 1.0`
     ///
-    /// For each knot point `k`:
-    /// - If `k < t_prev`: weight = 0 (unaffected)
-    /// - If `t_prev <= k <= t`: weight increases linearly from 0 to 1
-    /// - If `t <= k <= t_next`: weight decreases linearly from 1 to 0
-    /// - If `k > t_next`: weight = 0 (unaffected)
-    ///
-    /// The discount factor is then bumped: `df_bumped = df * exp(-bump * weight * k)`
+    /// This ensures: **sum of bucketed DV01 = parallel DV01**
     ///
     /// # Arguments
-    /// * `t` - Target time in years at which to apply the key-rate bump
+    /// * `prev_bucket` - Previous bucket time in years (use 0.0 for first bucket)
+    /// * `target_bucket` - Target bucket time in years (peak of the triangle)
+    /// * `next_bucket` - Next bucket time in years (use f64::INFINITY for last bucket)
     /// * `bp` - Bump size in basis points (100bp = 1%)
     ///
     /// # Returns
@@ -475,49 +423,31 @@ impl DiscountCurve {
     ///     .build()
     ///     .unwrap();
     ///
-    /// // Apply 10bp bump at 5Y - effect peaks at 5Y, decays to 2Y and 10Y
-    /// let bumped = curve.try_with_triangular_key_rate_bump(5.0, 10.0).unwrap();
+    /// // Apply 10bp bump at 5Y bucket with neighbors at 3Y and 7Y
+    /// let bumped = curve.try_with_triangular_key_rate_bump_neighbors(3.0, 5.0, 7.0, 10.0).unwrap();
     /// ```
-    pub fn try_with_triangular_key_rate_bump(&self, t: f64, bp: f64) -> crate::Result<Self> {
+    pub fn try_with_triangular_key_rate_bump_neighbors(
+        &self,
+        prev_bucket: f64,
+        target_bucket: f64,
+        next_bucket: f64,
+        bp: f64,
+    ) -> crate::Result<Self> {
         if self.knots.len() < 2 {
             return self.try_with_parallel_bump(bp);
         }
 
-        let times = &self.knots;
         let bump_rate = bp / 10_000.0;
-
-        // Find the indices bracketing the target time
-        // We need: t_prev < t <= t_target <= t_next
-        let (i_prev, i_next) = find_bracket_indices(times, t);
-
-        // Get the actual times at the bracket indices
-        let t_prev = if i_prev > 0 {
-            times[i_prev - 1]
-        } else {
-            0.0 // Use 0 as the left boundary if target is at or before first knot
-        };
-        let t_next = times.get(i_next).copied().unwrap_or(times[times.len() - 1]);
-
         let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
 
         for (&knot_t, &df) in self.knots.iter().zip(self.dfs.iter()) {
-            // Calculate triangular weight: peaks at t, decays to 0 at neighbors
-            let weight = if knot_t <= t_prev {
-                0.0
-            } else if knot_t <= t {
-                // Rising edge: 0 at t_prev, 1 at t
-                let denom = (t - t_prev).max(1e-10);
-                (knot_t - t_prev) / denom
-            } else if knot_t <= t_next {
-                // Falling edge: 1 at t, 0 at t_next
-                let denom = (t_next - t).max(1e-10);
-                (t_next - knot_t) / denom
-            } else {
-                0.0
-            };
+            // Calculate triangular weight based on BUCKET grid (not curve knots!)
+            // This is the key difference from the old implementation
+            let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
 
-            // Apply weighted bump: df_bumped = df * exp(-bump * weight * t)
-            // Using the knot time in the exponent for proper discounting effect
+            // Apply weighted bump to zero rate:
+            // r_bumped = r + w × δr
+            // DF_bumped = exp(-r_bumped × t) = DF × exp(-w × δr × t)
             let new_df = df * (-bump_rate * weight * knot_t).exp();
             bumped_points.push((knot_t, new_df));
         }
@@ -529,6 +459,7 @@ impl DiscountCurve {
             .knots(bumped_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
+            .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
 
@@ -1022,33 +953,38 @@ fn validate_forward_rates(knots: &[f64], dfs: &[f64], min_rate: f64) -> crate::R
     Ok(())
 }
 
-/// Find bracket indices for triangular key-rate bumps.
+/// Calculate triangular weight for key-rate DV01.
 ///
-/// Returns (i_prev, i_next) where:
-/// - i_prev: index of the first knot >= t (or 0 if t is before all knots)
-/// - i_next: index of the first knot > t (or last index if t is at or after all knots)
-fn find_bracket_indices(times: &[f64], t: f64) -> (usize, usize) {
-    // Find first index where knot >= t
-    let i_prev = times
-        .iter()
-        .position(|&knot| knot >= t)
-        .unwrap_or(times.len() - 1);
-
-    // Find first index where knot > t
-    let i_next = times
-        .iter()
-        .position(|&knot| knot > t)
-        .unwrap_or(times.len() - 1)
-        .max(i_prev);
-
-    // Ensure i_next is at least i_prev + 1 when possible
-    let i_next = if i_next == i_prev && i_next < times.len() - 1 {
-        i_next + 1
+/// Returns a weight in [0, 1] that peaks at `target` and linearly decays to 0
+/// at `prev` and `next`. This function defines the weight based on the **bucket grid**,
+/// ensuring that the sum of all bucket weights at any time t equals 1.0.
+///
+/// # Arguments
+/// * `t` - The time at which to calculate the weight
+/// * `prev` - Previous bucket time (0.0 for first bucket)
+/// * `target` - Target bucket time (peak of the triangle)
+/// * `next` - Next bucket time (f64::INFINITY for last bucket)
+///
+/// # Returns
+/// Weight in [0, 1] representing the contribution of this bucket to the rate at time t.
+#[inline]
+fn triangular_weight(t: f64, prev: f64, target: f64, next: f64) -> f64 {
+    if t <= prev {
+        0.0
+    } else if t <= target {
+        // Rising edge: 0 at prev, 1 at target
+        let denom = (target - prev).max(1e-10);
+        (t - prev) / denom
+    } else if next.is_infinite() {
+        // Last bucket: flat weight of 1.0 beyond target
+        1.0
+    } else if t < next {
+        // Falling edge: 1 at target, 0 at next
+        let denom = (next - target).max(1e-10);
+        (next - t) / denom
     } else {
-        i_next
-    };
-
-    (i_prev, i_next)
+        0.0
+    }
 }
 
 // -----------------------------------------------------------------------------

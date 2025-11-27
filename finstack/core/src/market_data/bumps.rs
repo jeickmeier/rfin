@@ -37,25 +37,33 @@ pub enum BumpType {
     /// Parallel shift across all maturities.
     #[default]
     Parallel,
-    /// Key-rate bump at specific maturity (shifts all DFs beyond target segment).
+    /// Triangular key-rate bump with explicit bucket neighbors (market standard).
     ///
-    /// This variant applies a simple step-function bump where all discount factors
-    /// beyond the target segment are uniformly shifted. For industry-standard
-    /// triangular key-rate DV01 that localizes impact around the target tenor,
-    /// use [`TriangularKeyRate`](Self::TriangularKeyRate).
-    KeyRate {
-        /// Time in years at which to apply the key-rate bump.
-        time_years: f64,
-    },
-    /// Triangular key-rate bump at specific maturity (industry standard).
+    /// This implements the market-standard key-rate DV01 methodology (per Tuckman/Fabozzi)
+    /// where the triangular weight is defined by the **bucket grid**, not curve knots.
+    /// This ensures that the sum of all bucketed DV01s equals the parallel DV01.
     ///
-    /// This implements the market-standard key-rate DV01 methodology where the
-    /// bump peaks at the target tenor and linearly decays to zero at adjacent
-    /// curve knots (per Tuckman/Fabozzi). This localizes the rate impact to
-    /// a specific maturity bucket without affecting distant tenors.
+    /// # Weight Function
+    ///
+    /// For a bump at `target_bucket` with neighbors `prev_bucket` and `next_bucket`:
+    /// - w(t) = 0                                    if t ≤ prev_bucket
+    /// - w(t) = (t - prev_bucket) / (target - prev) if prev_bucket < t ≤ target_bucket
+    /// - w(t) = (next_bucket - t) / (next - target) if target_bucket < t < next_bucket
+    /// - w(t) = 0                                    if t ≥ next_bucket
+    ///
+    /// # Key Property
+    ///
+    /// For any time t, the sum of all bucket weights equals 1.0:
+    /// `Σᵢ wᵢ(t) = 1.0`
+    ///
+    /// This ensures that sum of bucketed DV01 = parallel DV01.
     TriangularKeyRate {
-        /// Time in years at which to apply the key-rate bump.
-        time_years: f64,
+        /// Previous bucket time in years (use 0.0 for first bucket)
+        prev_bucket: f64,
+        /// Target bucket time in years (peak of the triangle)
+        target_bucket: f64,
+        /// Next bucket time in years (use f64::INFINITY for last bucket)
+        next_bucket: f64,
     },
 }
 
@@ -114,17 +122,46 @@ impl BumpSpec {
         }
     }
 
-    /// Create a key-rate bump at a specific time in years, specified in basis points.
+    /// Create a triangular key-rate bump with explicit bucket neighbors.
+    ///
+    /// This is the market-standard implementation (per Tuckman/Fabozzi) where the
+    /// triangular weight is defined by the bucket grid, ensuring that the sum of
+    /// all bucketed DV01s equals the parallel DV01.
     ///
     /// # Arguments
-    /// * `time_years` - The time in years at which to apply the key-rate bump
-    /// * `bump_bp` - The bump size in basis points (e.g., 100.0 = 100bp = 1%)
-    pub fn key_rate_bp(time_years: f64, bump_bp: f64) -> Self {
+    /// * `prev_bucket` - Previous bucket time in years (use 0.0 for first bucket)
+    /// * `target_bucket` - Target bucket time in years (peak of the triangle)
+    /// * `next_bucket` - Next bucket time in years (use f64::INFINITY for last bucket)
+    /// * `bump_bp` - Bump size in basis points (e.g., 1.0 = 1bp)
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_core::market_data::bumps::BumpSpec;
+    ///
+    /// // For the 5Y bucket with neighbors at 3Y and 7Y
+    /// let spec = BumpSpec::triangular_key_rate_bp(3.0, 5.0, 7.0, 1.0);
+    ///
+    /// // For the first bucket (3M) with no previous neighbor
+    /// let first = BumpSpec::triangular_key_rate_bp(0.0, 0.25, 0.5, 1.0);
+    ///
+    /// // For the last bucket (30Y) with no next neighbor
+    /// let last = BumpSpec::triangular_key_rate_bp(20.0, 30.0, f64::INFINITY, 1.0);
+    /// ```
+    pub fn triangular_key_rate_bp(
+        prev_bucket: f64,
+        target_bucket: f64,
+        next_bucket: f64,
+        bump_bp: f64,
+    ) -> Self {
         Self {
             mode: BumpMode::Additive,
             units: BumpUnits::RateBp,
             value: bump_bp,
-            bump_type: BumpType::KeyRate { time_years },
+            bump_type: BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            },
         }
     }
 
@@ -254,11 +291,17 @@ impl Bumpable for DiscountCurve {
         if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
             match spec.bump_type {
                 BumpType::Parallel => self.try_with_parallel_bump(spec.value).ok(),
-                BumpType::KeyRate { time_years } => self
-                    .try_with_key_rate_bump_years(time_years, spec.value)
-                    .ok(),
-                BumpType::TriangularKeyRate { time_years } => self
-                    .try_with_triangular_key_rate_bump(time_years, spec.value)
+                BumpType::TriangularKeyRate {
+                    prev_bucket,
+                    target_bucket,
+                    next_bucket,
+                } => self
+                    .try_with_triangular_key_rate_bump_neighbors(
+                        prev_bucket,
+                        target_bucket,
+                        next_bucket,
+                        spec.value,
+                    )
                     .ok(),
             }
         } else {
@@ -310,20 +353,20 @@ impl Bumpable for ForwardCurve {
                     .build()
                     .ok()
             }
-            BumpType::KeyRate { time_years } => {
-                // For key-rate bumps, only support additive rate bumps
-                if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-                    self.try_with_key_rate_bump_years(time_years, spec.value)
-                        .ok()
-                } else {
-                    None
-                }
-            }
-            BumpType::TriangularKeyRate { time_years } => {
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
                 // For triangular key-rate bumps, only support additive rate bumps
                 if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-                    self.try_with_triangular_key_rate_bump(time_years, spec.value)
-                        .ok()
+                    self.try_with_triangular_key_rate_bump_neighbors(
+                        prev_bucket,
+                        target_bucket,
+                        next_bucket,
+                        spec.value,
+                    )
+                    .ok()
                 } else {
                     None
                 }

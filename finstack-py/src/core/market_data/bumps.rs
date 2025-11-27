@@ -85,25 +85,31 @@ impl PyBumpType {
         inner: BumpType::Parallel,
     };
 
+    /// Create a triangular key-rate bump type.
+    ///
+    /// This is the market-standard key-rate DV01 methodology (per Tuckman/Fabozzi).
+    /// The triangular weight peaks at `target_bucket` and decays to zero at the neighbors.
+    ///
+    /// # Arguments
+    /// * `prev_bucket` - Previous bucket time in years (use 0.0 for first bucket)
+    /// * `target_bucket` - Target bucket time in years (peak of the triangle)
+    /// * `next_bucket` - Next bucket time in years (use float('inf') for last bucket)
+    ///
+    /// # Example
+    /// ```python
+    /// # For the 5Y bucket with neighbors at 3Y and 7Y
+    /// bt = BumpType.triangular_key_rate(3.0, 5.0, 7.0)
+    /// ```
     #[staticmethod]
-    #[pyo3(text_signature = "(time_years)")]
-    fn key_rate(time_years: f64) -> Self {
+    #[pyo3(text_signature = "(prev_bucket, target_bucket, next_bucket)")]
+    fn triangular_key_rate(prev_bucket: f64, target_bucket: f64, next_bucket: f64) -> Self {
         Self {
-            inner: BumpType::KeyRate { time_years },
+            inner: BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            },
         }
-    }
-
-    #[staticmethod]
-    #[pyo3(text_signature = "(time_years)")]
-    fn triangular_key_rate(time_years: f64) -> Self {
-        Self {
-            inner: BumpType::TriangularKeyRate { time_years },
-        }
-    }
-
-    #[getter]
-    fn is_key_rate(&self) -> bool {
-        matches!(self.inner, BumpType::KeyRate { .. })
     }
 
     #[getter]
@@ -112,10 +118,9 @@ impl PyBumpType {
     }
 
     #[getter]
-    fn time_years(&self) -> Option<f64> {
+    fn target_bucket(&self) -> Option<f64> {
         match self.inner {
-            BumpType::KeyRate { time_years } => Some(time_years),
-            BumpType::TriangularKeyRate { time_years } => Some(time_years),
+            BumpType::TriangularKeyRate { target_bucket, .. } => Some(target_bucket),
             _ => None,
         }
     }
@@ -123,9 +128,14 @@ impl PyBumpType {
     fn __repr__(&self) -> String {
         match self.inner {
             BumpType::Parallel => "BumpType.PARALLEL".to_string(),
-            BumpType::KeyRate { time_years } => format!("BumpType.KeyRate({time_years})"),
-            BumpType::TriangularKeyRate { time_years } => {
-                format!("BumpType.TriangularKeyRate({time_years})")
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
+                format!(
+                    "BumpType.TriangularKeyRate(prev={prev_bucket}, target={target_bucket}, next={next_bucket})"
+                )
             }
         }
     }
@@ -164,10 +174,27 @@ impl PyBumpSpec {
         }
     }
 
+    /// Create a triangular key-rate bump specification.
+    ///
+    /// This is the market-standard implementation (per Tuckman/Fabozzi) where the
+    /// triangular weight is defined by the bucket grid, ensuring that the sum of
+    /// all bucketed DV01s equals the parallel DV01.
+    ///
+    /// # Arguments
+    /// * `prev_bucket` - Previous bucket time in years (use 0.0 for first bucket)
+    /// * `target_bucket` - Target bucket time in years (peak of the triangle)
+    /// * `next_bucket` - Next bucket time in years (use float('inf') for last bucket)
+    /// * `bump_bp` - Bump size in basis points (e.g., 1.0 = 1bp)
     #[staticmethod]
-    fn key_rate_bp(time_years: f64, bump_bp: f64) -> Self {
+    #[pyo3(text_signature = "(prev_bucket, target_bucket, next_bucket, bump_bp)")]
+    fn triangular_key_rate_bp(
+        prev_bucket: f64,
+        target_bucket: f64,
+        next_bucket: f64,
+        bump_bp: f64,
+    ) -> Self {
         Self {
-            inner: BumpSpec::key_rate_bp(time_years, bump_bp),
+            inner: BumpSpec::triangular_key_rate_bp(prev_bucket, target_bucket, next_bucket, bump_bp),
         }
     }
 
