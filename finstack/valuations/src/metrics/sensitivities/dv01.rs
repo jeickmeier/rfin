@@ -477,9 +477,7 @@ where
         let mut total_dv01 = 0.0;
 
         for (i, (curve_id, _kind)) in curves.iter().enumerate() {
-            let (metric_id, should_compute) = if curves.len() == 1 {
-                (MetricId::BucketedDv01, true)
-            } else if i == 0 {
+            let (metric_id, should_compute) = if curves.len() == 1 || i == 0 {
                 (MetricId::BucketedDv01, true)
             } else {
                 (
@@ -582,9 +580,7 @@ where
         let mut total_dv01 = 0.0;
 
         for (i, (curve_id, _kind)) in curves.iter().enumerate() {
-            let (metric_id, should_compute) = if curves.len() == 1 {
-                (MetricId::BucketedDv01, true)
-            } else if i == 0 {
+            let (metric_id, should_compute) = if curves.len() == 1 || i == 0 {
                 (MetricId::BucketedDv01, true)
             } else {
                 (

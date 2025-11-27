@@ -146,6 +146,13 @@ impl MetricId {
     /// OAS - Option-adjusted spread
     pub const Oas: Self = Self(Cow::Borrowed("oas"));
 
+    /// Embedded option value for callable/putable bonds (in currency units)
+    ///
+    /// For callable bonds: V_call = P_straight - P_callable (positive, issuer owns call)
+    /// For putable bonds: V_put = P_putable - P_straight (positive, investor owns put)
+    /// Returns 0 for bonds without embedded options.
+    pub const EmbeddedOptionValue: Self = Self(Cow::Borrowed("embedded_option_value"));
+
     /// I-spread - Yield over interpolated swap curve
     pub const ISpread: Self = Self(Cow::Borrowed("i_spread"));
 
@@ -661,6 +668,7 @@ impl MetricId {
         MetricId::Convexity,
         MetricId::ZSpread,
         MetricId::Oas,
+        MetricId::EmbeddedOptionValue,
         MetricId::ISpread,
         MetricId::DiscountMargin,
         MetricId::GSpread,

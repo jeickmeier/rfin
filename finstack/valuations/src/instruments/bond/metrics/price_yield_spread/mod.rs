@@ -4,6 +4,8 @@
 pub mod asw;
 /// Discount margin calculator
 pub mod dm;
+/// Embedded option value calculator
+pub mod embedded_option_value;
 /// I-spread (interpolated spread) calculator
 pub mod i_spread;
 /// Option-adjusted spread (OAS) calculator
@@ -22,6 +24,7 @@ pub use asw::{
     AssetSwapParFwdCalculator,
 };
 pub use dm::{DiscountMarginCalculator, DiscountMarginSolverConfig};
+pub use embedded_option_value::EmbeddedOptionValueCalculator;
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
