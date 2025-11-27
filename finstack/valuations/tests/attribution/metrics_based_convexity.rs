@@ -140,23 +140,41 @@ fn test_valuation_result_supports_all_second_order_metrics() {
 
 #[test]
 fn test_convexity_formula_correctness() {
-    // Verify the mathematical correctness of the convexity term calculation
-    // Convexity P&L = ½ × Convexity × (Δr)²
+    // Verify the mathematical correctness of the convexity term calculation.
+    //
+    // The implementation in metrics_based.rs uses the percentage convexity formula:
+    //   Convexity P&L = ½ × P₀ × Convexity × (Δr)²
+    //
+    // Where:
+    //   - P₀ = instrument price/value
+    //   - Convexity = percentage convexity metric (dimensionless)
+    //   - Δr = rate shift in decimal (e.g., 0.0050 for 50bp)
+    //
+    // Note: The shift must be converted from bp to decimal (divide by 10,000)
+    // because convexity is a percentage metric.
 
-    let convexity = 8000.0; // Per (bp)²
-    let shift_bp = 50.0; // 50bp shift
+    let p0: f64 = 1_000_000.0; // $1M bond price
+    let convexity: f64 = 80.0; // Typical percentage convexity for a 5-year bond
+    let shift_bp: f64 = 50.0; // 50bp shift
+    let shift_decimal: f64 = shift_bp / 10_000.0; // 0.005
 
-    // Second-order term
-    let convexity_pnl = 0.5 * convexity * shift_bp * shift_bp;
+    // Second-order term matching implementation formula
+    let convexity_pnl: f64 = 0.5 * p0 * convexity * shift_decimal * shift_decimal;
 
-    // With 8000 convexity and 50bp shift: 0.5 * 8000 * 50 * 50 = 10,000,000
-    assert_eq!(convexity_pnl, 10_000_000.0);
+    // With $1M, convexity=80, 50bp shift:
+    // 0.5 * 1,000,000 * 80 * 0.005 * 0.005 = 0.5 * 1,000,000 * 80 * 0.000025 = 1,000
+    assert!((convexity_pnl - 1000.0).abs() < 0.01);
 
-    // For smaller shifts, convexity matters less
-    let small_shift_bp = 1.0;
-    let small_convexity_pnl = 0.5 * convexity * small_shift_bp * small_shift_bp;
-    assert_eq!(small_convexity_pnl, 4000.0); // Much smaller
+    // For smaller shifts (1bp), convexity effect is minimal
+    let small_shift_bp: f64 = 1.0;
+    let small_shift_decimal: f64 = small_shift_bp / 10_000.0; // 0.0001
+    let small_convexity_pnl: f64 = 0.5 * p0 * convexity * small_shift_decimal * small_shift_decimal;
 
-    // This demonstrates why second-order matters more for larger shifts
-    assert!(convexity_pnl > small_convexity_pnl * 100.0);
+    // 0.5 * 1,000,000 * 80 * 0.0001 * 0.0001 = 0.4
+    assert!((small_convexity_pnl - 0.4).abs() < 0.01);
+
+    // Convexity effect scales with (Δr)²
+    // 50bp shift is 50x larger than 1bp, so convexity P&L is 50² = 2500x larger
+    let ratio: f64 = convexity_pnl / small_convexity_pnl;
+    assert!((ratio - 2500.0).abs() < 1.0);
 }

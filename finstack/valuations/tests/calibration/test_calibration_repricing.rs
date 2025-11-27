@@ -1,7 +1,13 @@
-//! Calibration repricing tests with 0.1bp tolerance requirements.
+//! Calibration repricing tests with tolerance requirements.
 //!
-//! Verifies that calibrated curves can reprice input instruments to within 0.1bp tolerances.
-//! For swaps, this means PV error should be within 0.1bp * |DV01|.
+//! Verifies that calibrated curves can reprice input instruments to within specified tolerances.
+//! - Deposits: $1 per $1M notional (~0.1bp for short deposits)
+//! - OIS Swaps: 10bp * |DV01| (due to schedule generation approximations)
+//! - FRAs: ~1.5bp (multi-curve framework inherent limitations)
+//!
+//! Note: Tighter tolerances (0.1bp) are achievable with exact schedule alignment
+//! between calibration instruments and repricing. Current implementation uses
+//! approximate schedules for simplicity.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -18,9 +24,11 @@ use finstack_valuations::metrics::MetricCalculator;
 use time::Month;
 
 const NOTIONAL: f64 = 1_000_000.0; // $1M notional
-// OIS swap calibration has inherent schedule generation approximations
-// that can cause repricing differences of a few bp
-const TOLERANCE_BP: f64 = 10.0; // 10bp tolerance for OIS swaps
+
+/// OIS swap repricing tolerance in basis points.
+/// Schedule generation approximations can cause repricing differences of several bp.
+/// For tighter tolerances, ensure exact schedule alignment between calibration and pricing.
+const OIS_SWAP_TOLERANCE_BP: f64 = 10.0;
 
 /// Calculate DV01 for a swap using the metrics system.
 fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date) -> f64 {
@@ -43,13 +51,13 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
     dv01_calc.calculate(&mut metric_ctx).unwrap()
 }
 
-/// Calculate tolerance for a swap based on DV01: 0.1bp * |DV01|
-fn swap_tolerance_from_dv01(dv01: f64) -> f64 {
-    TOLERANCE_BP * dv01.abs()
+/// Calculate tolerance for a swap based on DV01: tolerance_bp * |DV01|
+fn swap_tolerance_from_dv01(dv01: f64, tolerance_bp: f64) -> f64 {
+    tolerance_bp * dv01.abs()
 }
 
 #[test]
-fn test_discount_curve_swap_repricing_0_1bp() {
+fn test_discount_curve_swap_repricing_10bp() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Use tighter tolerance for calibration
@@ -166,15 +174,16 @@ fn test_discount_curve_swap_repricing_0_1bp() {
 
             let pv = swap.value(&ctx, base_date).unwrap();
             let dv01 = calculate_swap_dv01(&swap, &ctx, base_date);
-            let tolerance = swap_tolerance_from_dv01(dv01);
+            let tolerance = swap_tolerance_from_dv01(dv01, OIS_SWAP_TOLERANCE_BP);
 
             // Ensure minimum tolerance of $1 for very small DV01s
             let final_tolerance = tolerance.max(1.0);
 
             assert!(
                 pv.amount().abs() <= final_tolerance,
-                "Swap at {} should reprice within 0.1bp tolerance. PV: ${:.2}, DV01: ${:.2}, Tolerance: ${:.2}",
+                "Swap at {} should reprice within {}bp tolerance. PV: ${:.2}, DV01: ${:.2}, Tolerance: ${:.2}",
                 maturity,
+                OIS_SWAP_TOLERANCE_BP,
                 pv.amount(),
                 dv01,
                 final_tolerance
@@ -256,8 +265,13 @@ fn test_discount_curve_deposit_repricing() {
     }
 }
 
+/// FRA repricing tolerance per $1M notional (~1.5bp for 90-day FRAs).
+/// Multi-curve forward calibration has inherent limitations that prevent
+/// tighter fits without dedicated multi-curve simultaneous calibration.
+const FRA_TOLERANCE_DOLLARS: f64 = 150.0;
+
 #[test]
-fn test_forward_curve_fra_repricing_0_1bp() {
+fn test_forward_curve_fra_repricing_1_5bp() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // First calibrate discount curve
@@ -356,19 +370,12 @@ fn test_forward_curve_fra_repricing_0_1bp() {
 
             let pv = fra.value(&ctx, base_date).unwrap();
 
-            // Note: FRA calibration with forward curves has inherent limitations.
-            // Multi-curve frameworks calibrate forward and discount curves separately,
-            // allowing better fit to FRA quotes. Here we use a relaxed tolerance.
-            // For production use requiring tight FRA calibration, use multi-curve framework.
-            //
-            // Tolerance: $150 per $1M notional (roughly 1.5bp for 90-day FRAs)
-            let tolerance = 150.0;
             assert!(
-                pv.amount().abs() <= tolerance,
-                "FRA from {} to {} should reprice within ${}. PV: ${:.2}",
+                pv.amount().abs() <= FRA_TOLERANCE_DOLLARS,
+                "FRA from {} to {} should reprice within ${} (~1.5bp). PV: ${:.2}",
                 start,
                 end,
-                tolerance,
+                FRA_TOLERANCE_DOLLARS,
                 pv.amount()
             );
         }

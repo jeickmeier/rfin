@@ -71,12 +71,34 @@ fn test_bond_attribution_parallel() {
     // Should have some P&L from curve shift
     assert_ne!(attribution.total_pnl.amount(), 0.0);
 
-    // Should have positive carry (bond earns over time)
-    // Note: May be zero or small for 1-day period
-
-    // Should have non-zero rates curve P&L (rates increased, bond value decreased)
-    // Exact values depend on bond pricing, but structure should be populated
+    // Currency must be USD
     assert_eq!(attribution.total_pnl.currency(), Currency::USD);
+
+    // Directional assertions for market-standard bond behavior:
+    //
+    // 1. Carry should be non-negative for a coupon-bearing bond
+    //    (bond earns coupon income over time, though may be small for 1-day period)
+    assert!(
+        attribution.carry.amount() >= -0.01,
+        "Carry should be non-negative for coupon bond, got {}",
+        attribution.carry.amount()
+    );
+
+    // 2. Rates increased (DF at 5Y went from 0.82 to 0.78, implying higher rates)
+    //    Bond value should decrease when rates increase → negative rates P&L
+    assert!(
+        attribution.rates_curves_pnl.amount() < 0.0,
+        "Rates P&L should be negative when rates increase (bond value decreases), got {}",
+        attribution.rates_curves_pnl.amount()
+    );
+
+    // 3. Residual should be relatively small for a simple bond attribution
+    let residual_pct = attribution.meta.residual_pct.abs();
+    assert!(
+        residual_pct < 20.0,
+        "Residual percentage should be < 20% for parallel attribution, got {:.1}%",
+        residual_pct
+    );
 }
 
 #[test]

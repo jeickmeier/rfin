@@ -125,7 +125,32 @@ fn test_conversion_shift_measurement() {
 
 #[test]
 fn test_model_params_none_for_plain_instruments() {
-    // Plain bonds and deposits don't have model parameters
-    // This is verified in the extract_model_params function
-    // which returns ModelParamsSnapshot::None for unsupported types
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::create_date;
+    use finstack_core::money::Money;
+    use finstack_valuations::attribution::model_params::extract_model_params;
+    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::Instrument;
+    use std::sync::Arc;
+    use time::Month;
+
+    // Plain bonds don't have model parameters (no prepayment/default/recovery models)
+    let bond = Bond::fixed(
+        "PLAIN-BOND-001",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        create_date(2024, Month::January, 1).unwrap(),
+        create_date(2029, Month::January, 1).unwrap(),
+        "USD-OIS",
+    );
+
+    let bond_instrument: Arc<dyn Instrument> = Arc::new(bond);
+    let params = extract_model_params(&bond_instrument);
+
+    // Plain bond should return None for model parameters
+    assert!(
+        matches!(params, ModelParamsSnapshot::None),
+        "Plain bond should have ModelParamsSnapshot::None, got {:?}",
+        params
+    );
 }

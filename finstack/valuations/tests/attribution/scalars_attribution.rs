@@ -9,19 +9,26 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 
+/// Placeholder test for equity price scalar attribution.
+///
+/// This test is ignored pending completion of equity pricing scalar lookup.
+/// The required infrastructure (extract_scalars, restore_scalars) is in place,
+/// but equity instruments need to use price_id consistently for attribution
+/// to detect spot price changes automatically.
+///
+/// TODO: Enable once equity pricing correctly uses AAPL-SPOT or EQUITY-SPOT
+/// conventions for scalar attribution.
 #[test]
+#[ignore = "Equity scalar attribution pending price_id implementation"]
 fn test_equity_price_scalar_attribution() {
-    // NOTE: This test is currently a placeholder. Equity pricing has specific
-    // requirements for market scalar lookup (AAPL, AAPL-SPOT, EQUITY-SPOT).
-    // The test demonstrates the structure but doesn't verify full attribution
-    // until equity pricing is enhanced for scalar attribution.
-
-    // The test infrastructure is in place:
+    // Infrastructure verified by other tests in this file:
     // 1. extract_scalars() correctly extracts prices
     // 2. restore_scalars() correctly restores prices
-    // 3. Attribution will automatically detect scalar changes
-
-    // TODO: Update this test once equity pricing uses price_id correctly
+    // 3. Attribution framework detects scalar changes
+    //
+    // Missing: Equity option instrument using MarketContext.price(equity_id)
+    // for spot price lookup during pricing.
+    unimplemented!("Enable once equity pricing uses price_id for scalars");
 }
 
 #[test]
