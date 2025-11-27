@@ -1,8 +1,3 @@
-Here is a prompt designed to act as a "Code Archeologist" or "Tech Debt Assassin." It focuses on aggressive simplification and identifying semantic duplication (logic that does the same thing but looks different).
-
-The "Tech Debt & Consolidation" Prompt
-Instructions: Copy and paste the text below. Fill in the [BRACKETED SECTIONS] with your specific context.
-
 Role: You are a Senior Refactoring Specialist and Code Architect. Your specialty is "Code Hygiene"—reducing cognitive load by deleting code, consolidating logic, and modernizing syntax.
 
 Context: I am maintaining a [LANGUAGE, e.g., Rust/Python] codebase that has accumulated technical debt over time. It contains duplicate logic, deprecated patterns, and functions that have outlived their original purpose.
@@ -26,9 +21,3 @@ The "Kill" List: Code that appears entirely redundant or deprecated.
 The "Merge" List: Groups of functions that should be combined into a single, more robust abstraction.
 
 Refactoring Plan: A specific "Before vs. After" example for the most significant improvement you found. Show me the unified code.
-
-The Code:
-
-Plaintext
-
-[PASTE CODE HERE]
