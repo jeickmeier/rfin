@@ -439,7 +439,11 @@ fn build_credit_spread_params(
 ///
 /// Uses the specified day count convention for consistent time fraction calculations
 /// across the facility's cashflow engine and path generation.
-fn dates_to_times(payment_dates: &[Date], commitment_date: Date, day_count: DayCount) -> Result<Vec<f64>> {
+fn dates_to_times(
+    payment_dates: &[Date],
+    commitment_date: Date,
+    day_count: DayCount,
+) -> Result<Vec<f64>> {
     payment_dates
         .iter()
         .map(|&date| day_count.year_fraction(commitment_date, date, DayCountCtx::default()))

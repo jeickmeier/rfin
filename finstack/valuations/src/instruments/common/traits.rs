@@ -640,7 +640,9 @@ pub trait Instrument: Send + Sync {
     ///     }
     /// }
     /// ```
-    fn scenario_overrides_mut(&mut self) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
         None
     }
 
@@ -650,7 +652,9 @@ pub trait Instrument: Send + Sync {
     ///
     /// `Some(&PricingOverrides)` if the instrument supports pricing overrides,
     /// `None` otherwise.
-    fn scenario_overrides(&self) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         None
     }
 

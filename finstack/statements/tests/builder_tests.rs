@@ -512,3 +512,118 @@ fn test_amount_or_scalar_from_conversions() {
     assert_eq!(amount.value(), 1000.0);
     assert_eq!(amount.currency(), Some(Currency::USD));
 }
+
+// ============================================================================
+// Node ID Validation Tests
+// ============================================================================
+
+/// Test that node IDs containing the reserved __cs__ prefix are rejected.
+/// This prefix is used internally for capital structure references.
+#[test]
+fn test_reserved_cs_prefix_rejected_in_value() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "__cs__bad_node",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100.0),
+            )],
+        )
+        .build();
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("reserved") || err.contains("__cs__"),
+        "Expected error about reserved prefix, got: {}",
+        err
+    );
+}
+
+/// Test that node IDs containing __cs__ anywhere are rejected.
+#[test]
+fn test_reserved_cs_prefix_in_middle_rejected() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue__cs__hidden",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100.0),
+            )],
+        )
+        .build();
+
+    assert!(result.is_err());
+}
+
+/// Test that node IDs starting with __ (double underscore) are rejected.
+/// This prefix is reserved for internal use.
+#[test]
+fn test_double_underscore_prefix_rejected_in_compute() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .compute("__internal_node", "100");
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("reserved") || err.contains("__"),
+        "Expected error about reserved prefix, got: {}",
+        err
+    );
+}
+
+/// Test that normal node IDs without reserved prefixes are accepted.
+#[test]
+fn test_normal_node_ids_accepted() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100.0),
+            )],
+        )
+        .value(
+            "_single_underscore",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(50.0),
+            )],
+        )
+        .value(
+            "node_with__double_inside",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(25.0),
+            )],
+        )
+        .compute("gross_profit", "revenue * 0.4")
+        .unwrap()
+        .build();
+
+    assert!(result.is_ok());
+}
+
+/// Test that mixed node builder also validates node IDs.
+#[test]
+fn test_reserved_prefix_rejected_in_mixed_node() {
+    let result = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .mixed("__bad_mixed")
+        .values(&[(
+            PeriodId::quarter(2025, 1),
+            AmountOrScalar::scalar(100.0),
+        )])
+        .try_finish();
+
+    assert!(result.is_err());
+}

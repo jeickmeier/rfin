@@ -669,8 +669,14 @@ impl DiscountCurveCalibrator {
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
             .with_metadata("currency", self.currency.to_string())
-            .with_metadata("curve_day_count", format!("{:?}", self.effective_curve_day_count()))
-            .with_metadata("settlement_days", self.effective_settlement_days().to_string())
+            .with_metadata(
+                "curve_day_count",
+                format!("{:?}", self.effective_curve_day_count()),
+            )
+            .with_metadata(
+                "settlement_days",
+                self.effective_settlement_days().to_string(),
+            )
             .with_metadata("validation", "passed");
 
         // Attach explanation trace if present
@@ -1719,7 +1725,8 @@ mod tests {
 
     #[test]
     fn test_calibrator_settlement_date() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let base_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
 
         // USD should use T+2
         let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
@@ -1801,17 +1808,26 @@ mod tests {
 
         // Overnight indices
         assert!(is_overnight_index("SOFR"), "SOFR should be overnight");
-        assert!(is_overnight_index("USD-SOFR"), "USD-SOFR should be overnight");
+        assert!(
+            is_overnight_index("USD-SOFR"),
+            "USD-SOFR should be overnight"
+        );
         assert!(is_overnight_index("SONIA"), "SONIA should be overnight");
         assert!(is_overnight_index("ESTR"), "ESTR should be overnight");
-        assert!(is_overnight_index("EUR-€STR"), "EUR-€STR should be overnight");
+        assert!(
+            is_overnight_index("EUR-€STR"),
+            "EUR-€STR should be overnight"
+        );
         assert!(is_overnight_index("TONA"), "TONA should be overnight");
 
         // Term indices (NOT overnight)
         assert!(!is_overnight_index("LIBOR"), "LIBOR should be term");
         assert!(!is_overnight_index("3M-LIBOR"), "3M-LIBOR should be term");
         assert!(!is_overnight_index("EURIBOR"), "EURIBOR should be term");
-        assert!(!is_overnight_index("6M-EURIBOR"), "6M-EURIBOR should be term");
+        assert!(
+            !is_overnight_index("6M-EURIBOR"),
+            "6M-EURIBOR should be term"
+        );
 
         // Edge cases - should NOT match
         assert!(
@@ -1838,8 +1854,8 @@ mod tests {
 
         let knots = vec![
             (0.0, 1.0),
-            (0.25, 1.0025),  // -1% rate for 90 days: DF = 1/(1+(-0.01)*0.25) ≈ 1.0025
-            (0.5, 1.002),    // Slightly lower negative rate
+            (0.25, 1.0025), // -1% rate for 90 days: DF = 1/(1+(-0.01)*0.25) ≈ 1.0025
+            (0.5, 1.002),   // Slightly lower negative rate
         ];
 
         let curve = DiscountCurve::builder("TEST-NEG")
@@ -1854,11 +1870,7 @@ mod tests {
         let df_0 = curve.df(0.0);
         let df_90d = curve.df(0.25);
 
-        assert!(
-            (df_0 - 1.0).abs() < 1e-10,
-            "DF(0) should be 1.0: {}",
-            df_0
-        );
+        assert!((df_0 - 1.0).abs() < 1e-10, "DF(0) should be 1.0: {}", df_0);
         assert!(
             df_90d > 1.0,
             "DF at 90 days should exceed 1.0: {} (expected 1.0025)",
@@ -1918,10 +1930,7 @@ mod tests {
         );
 
         // Residuals should still be tight
-        assert!(
-            report.success,
-            "Calibration should report success"
-        );
+        assert!(report.success, "Calibration should report success");
         assert!(
             report.max_residual < 1e-4,
             "Max residual should be small: {}",

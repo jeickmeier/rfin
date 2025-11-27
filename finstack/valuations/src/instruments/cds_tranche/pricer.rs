@@ -396,9 +396,9 @@ impl CDSTranchePricer {
         // TODO: Enhance with proper business day calendar support when available
         let mut date = as_of;
         for _ in 0..settlement_lag {
-            date = date
-                .next_day()
-                .ok_or(finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+            date = date.next_day().ok_or(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))?;
         }
         Ok(date)
     }
@@ -883,27 +883,27 @@ impl CDSTranchePricer {
             for &th in probit_i {
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
                 let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
-                
+
                 // Improved grid quantization: use floor and distribute fractionally
                 let loss_exact = weight * lgd / grid_step;
                 let loss_floor = loss_exact.floor() as usize;
                 let frac = loss_exact - loss_floor as f64;
-                
+
                 // Need at least loss_floor + 2 bins for fractional distribution
                 let new_len = pmf.len() + loss_floor + 2;
                 let mut next = vec![0.0f64; new_len.min(max_points)];
-                
+
                 // Convolution with Bernoulli(p) using fractional bin distribution
                 for (i, &mass) in pmf.iter().enumerate() {
                     // No default case: mass stays at position i
                     if i < next.len() {
-                    next[i] += mass * (1.0 - p);
+                        next[i] += mass * (1.0 - p);
                     }
-                    
+
                     // Default case: distribute mass between floor and ceiling bins
                     let j_floor = i + loss_floor;
                     let j_ceil = j_floor + 1;
-                    
+
                     if j_floor < next.len() {
                         // Mass at floor bin (weighted by 1 - frac)
                         next[j_floor] += mass * p * (1.0 - frac);
@@ -916,7 +916,7 @@ impl CDSTranchePricer {
                         next[j_floor] += mass * p * frac;
                     }
                 }
-                
+
                 pmf = next;
                 if pmf.len() > max_points {
                     pmf.truncate(max_points);
@@ -1436,7 +1436,9 @@ impl CDSTranchePricer {
             test_tranche.running_coupon_bp = spread;
 
             // Calculate NPV at current spread
-            let npv = self.price_tranche(&test_tranche, market_ctx, as_of)?.amount();
+            let npv = self
+                .price_tranche(&test_tranche, market_ctx, as_of)?
+                .amount();
 
             // Check convergence (NPV close to zero)
             if npv.abs() < self.params.par_spread_tolerance * tranche.notional.amount() {
@@ -1526,13 +1528,13 @@ impl CDSTranchePricer {
             // One-sided forward difference (legacy behavior)
             let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
             let bumped_index = self.bump_index_hazard(original_index_arc, delta_lambda)?;
-        let bumped_market_ctx = market_ctx
-            .clone()
-            .insert_credit_index(&tranche.credit_index_id, bumped_index);
-        let bumped_pv = self
-            .price_tranche(tranche, &bumped_market_ctx, as_of)?
-            .amount();
-        Ok(bumped_pv - base_pv)
+            let bumped_market_ctx = market_ctx
+                .clone()
+                .insert_credit_index(&tranche.credit_index_id, bumped_index);
+            let bumped_pv = self
+                .price_tranche(tranche, &bumped_market_ctx, as_of)?
+                .amount();
+            Ok(bumped_pv - base_pv)
         }
     }
 
@@ -1594,25 +1596,25 @@ impl CDSTranchePricer {
         } else {
             // One-sided forward difference (legacy behavior)
             let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
-        let bumped_corr_curve =
-            self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
+            let bumped_corr_curve =
+                self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
 
-        let bumped_index = CreditIndexData::builder()
-            .num_constituents(original_index_arc.num_constituents)
-            .recovery_rate(original_index_arc.recovery_rate)
-            .index_credit_curve(std::sync::Arc::clone(
-                &original_index_arc.index_credit_curve,
-            ))
-            .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
-            .build()?;
+            let bumped_index = CreditIndexData::builder()
+                .num_constituents(original_index_arc.num_constituents)
+                .recovery_rate(original_index_arc.recovery_rate)
+                .index_credit_curve(std::sync::Arc::clone(
+                    &original_index_arc.index_credit_curve,
+                ))
+                .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
+                .build()?;
 
-        let bumped_market_ctx = market_ctx
-            .clone()
-            .insert_credit_index(&tranche.credit_index_id, bumped_index);
-        let bumped_pv = self
-            .price_tranche(tranche, &bumped_market_ctx, as_of)?
-            .amount();
-        Ok((bumped_pv - base_pv) / bump_abs)
+            let bumped_market_ctx = market_ctx
+                .clone()
+                .insert_credit_index(&tranche.credit_index_id, bumped_index);
+            let bumped_pv = self
+                .price_tranche(tranche, &bumped_market_ctx, as_of)?
+                .amount();
+            Ok((bumped_pv - base_pv) / bump_abs)
         }
     }
 
@@ -1693,36 +1695,35 @@ impl CDSTranchePricer {
             let individual_loss = individual_weight * loss_given_default;
 
             // Check if this loss hits the tranche layer
-        if individual_loss <= attach_frac {
-            // Loss doesn't reach the tranche
+            if individual_loss <= attach_frac {
+                // Loss doesn't reach the tranche
                 impacts.push(0.0);
                 continue;
-        }
+            }
 
             impacting_count += 1;
 
-        // Calculate how much of the individual loss hits the tranche
-        let tranche_hit = if individual_loss >= detach_frac {
-            // Loss fully exhausts the tranche
-            tranche_width
-        } else {
-            // Loss partially hits the tranche
-            individual_loss - attach_frac
-        };
+            // Calculate how much of the individual loss hits the tranche
+            let tranche_hit = if individual_loss >= detach_frac {
+                // Loss fully exhausts the tranche
+                tranche_width
+            } else {
+                // Loss partially hits the tranche
+                individual_loss - attach_frac
+            };
 
-        // Convert to tranche notional impact
-        let impact_on_tranche_fraction = tranche_hit / tranche_width;
+            // Convert to tranche notional impact
+            let impact_on_tranche_fraction = tranche_hit / tranche_width;
             let impact_amount = impact_on_tranche_fraction * tranche_notional;
             impacts.push(impact_amount);
         }
 
         // Calculate min, max, average
-        let (min, max, sum) = impacts.iter().fold(
-            (f64::MAX, f64::MIN, 0.0),
-            |(min, max, sum), &impact| {
+        let (min, max, sum) = impacts
+            .iter()
+            .fold((f64::MAX, f64::MIN, 0.0), |(min, max, sum), &impact| {
                 (min.min(impact), max.max(impact), sum + impact)
-            },
-        );
+            });
 
         let average = if !impacts.is_empty() {
             sum / (impacts.len() as f64)
@@ -1785,11 +1786,7 @@ impl CDSTranchePricer {
             .unwrap_or(start_date);
 
         // Find the next payment date after as_of
-        let next_payment = payment_dates
-            .iter()
-            .filter(|&&d| d > as_of)
-            .min()
-            .copied();
+        let next_payment = payment_dates.iter().filter(|&&d| d > as_of).min().copied();
 
         // If no next payment, we're past maturity
         let _next_payment = match next_payment {
@@ -2680,8 +2677,8 @@ mod tests {
         let tranche_params = CDSTrancheParams::new(
             "CDX.NA.IG.42",
             42,
-            3.0,   // attach at 3%
-            3.5,   // detach at 3.5% (0.5% width)
+            3.0, // attach at 3%
+            3.5, // detach at 3.5% (0.5% width)
             Money::new(1_000_000.0, Currency::USD),
             maturity,
             500.0,
@@ -2699,7 +2696,10 @@ mod tests {
         // Should price without panicking
         let pv = model.price_tranche(&tranche, &market_ctx, as_of);
         assert!(pv.is_ok(), "Thin tranche should price successfully");
-        assert!(pv.expect("PV should be Ok").amount().is_finite(), "Thin tranche PV should be finite");
+        assert!(
+            pv.expect("PV should be Ok").amount().is_finite(),
+            "Thin tranche PV should be finite"
+        );
     }
 
     #[test]
@@ -2717,7 +2717,7 @@ mod tests {
             100.0, // full portfolio detachment
             Money::new(10_000_000.0, Currency::USD),
             maturity,
-            25.0,  // Very low spread for super senior
+            25.0, // Very low spread for super senior
         );
         let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
         let tranche = CdsTranche::new(
@@ -2734,7 +2734,10 @@ mod tests {
         // Super senior should have very low expected loss
         let el = model.calculate_expected_loss(&tranche, &market_ctx);
         assert!(el.is_ok());
-        assert!(el.expect("Expected loss should be Ok") >= 0.0, "Expected loss should be non-negative");
+        assert!(
+            el.expect("Expected loss should be Ok") >= 0.0,
+            "Expected loss should be non-negative"
+        );
     }
 
     #[test]
@@ -2773,7 +2776,9 @@ mod tests {
         // Correlation delta should be finite
         let corr_delta = model.calculate_correlation_delta(&tranche, &market_ctx, as_of);
         assert!(corr_delta.is_ok());
-        assert!(corr_delta.expect("Correlation delta should be Ok").is_finite());
+        assert!(corr_delta
+            .expect("Correlation delta should be Ok")
+            .is_finite());
     }
 
     #[test]
@@ -2910,11 +2915,13 @@ mod tests {
 
         // At inception, accrued should be minimal
         let inception = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let accrued_at_inception = model.calculate_accrued_premium(&tranche, &market_ctx, inception);
+        let accrued_at_inception =
+            model.calculate_accrued_premium(&tranche, &market_ctx, inception);
         assert!(accrued_at_inception.is_ok());
-        
+
         // Mid-quarter, accrued should be positive
-        let mid_quarter = Date::from_calendar_date(2025, Month::February, 15).expect("Valid test date");
+        let mid_quarter =
+            Date::from_calendar_date(2025, Month::February, 15).expect("Valid test date");
         let accrued_mid = model.calculate_accrued_premium(&tranche, &market_ctx, mid_quarter);
         assert!(accrued_mid.is_ok());
         let accrued = accrued_mid.expect("Accrued premium should be Ok");

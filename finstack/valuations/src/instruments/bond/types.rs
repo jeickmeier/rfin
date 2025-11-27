@@ -790,7 +790,9 @@ impl crate::instruments::common::traits::Instrument for Bond {
         Some(&mut self.pricing_overrides)
     }
 
-    fn scenario_overrides(&self) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
 }

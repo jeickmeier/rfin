@@ -629,9 +629,9 @@ pub fn is_overnight_index(index: &str) -> bool {
 /// - Others: T+2 (default)
 pub fn settlement_days_for_currency(currency: Currency) -> i32 {
     match currency {
-        Currency::GBP => 0,  // GBP settles same-day
-        Currency::AUD | Currency::CAD => 1,  // T+1 for AUD/CAD
-        _ => 2,  // T+2 for USD, EUR, JPY, CHF, and others
+        Currency::GBP => 0,                 // GBP settles same-day
+        Currency::AUD | Currency::CAD => 1, // T+1 for AUD/CAD
+        _ => 2,                             // T+2 for USD, EUR, JPY, CHF, and others
     }
 }
 

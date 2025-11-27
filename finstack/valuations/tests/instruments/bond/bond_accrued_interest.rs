@@ -2,6 +2,10 @@
 //!
 //! Validates Linear, Compounded (ICMA Rule 251), and Indexed accrual conventions
 //! against known market calculations.
+//!
+//! Note: These tests exercise the core `accrual::accrued_interest_amount()` function
+//! directly. For metrics-interface tests (via `MetricId::Accrued`), see
+//! `metrics/accrued.rs` which validates the integration with the metrics framework.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};

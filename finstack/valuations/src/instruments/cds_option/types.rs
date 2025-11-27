@@ -244,8 +244,14 @@ impl CdsOption {
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         vol_surface_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        Self::try_new(id, option_params, credit_params, discount_curve_id, vol_surface_id)
-            .expect("Invalid CdsOption parameters")
+        Self::try_new(
+            id,
+            option_params,
+            credit_params,
+            discount_curve_id,
+            vol_surface_id,
+        )
+        .expect("Invalid CdsOption parameters")
     }
 
     /// Set implied volatility override with validation.
@@ -302,7 +308,9 @@ impl CdsOption {
 
         // Forward spread in bp
         let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
-        let current_tenor = self.day_count.year_fraction(as_of, self.cds_maturity, ctx)?;
+        let current_tenor = self
+            .day_count
+            .year_fraction(as_of, self.cds_maturity, ctx)?;
         let fwd_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -345,7 +353,13 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let delta = pricer.delta(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
+        let delta = pricer.delta(
+            self,
+            inputs.fwd_bp,
+            inputs.risky_annuity,
+            inputs.sigma,
+            inputs.t,
+        );
         Ok(delta * self.notional.amount())
     }
 
@@ -362,7 +376,13 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let gamma = pricer.gamma(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
+        let gamma = pricer.gamma(
+            self,
+            inputs.fwd_bp,
+            inputs.risky_annuity,
+            inputs.sigma,
+            inputs.t,
+        );
         Ok(gamma * self.notional.amount())
     }
 
@@ -380,7 +400,13 @@ impl CdsOption {
         };
 
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        let vega = pricer.vega(self, inputs.fwd_bp, inputs.risky_annuity, inputs.sigma, inputs.t);
+        let vega = pricer.vega(
+            self,
+            inputs.fwd_bp,
+            inputs.risky_annuity,
+            inputs.sigma,
+            inputs.t,
+        );
         Ok(vega * self.notional.amount())
     }
 

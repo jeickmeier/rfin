@@ -134,8 +134,14 @@ impl CdsOptionParams {
         notional: Money,
         option_type: OptionType,
     ) -> Self {
-        Self::try_new(strike_spread_bp, expiry, cds_maturity, notional, option_type)
-            .expect("Invalid CdsOptionParams")
+        Self::try_new(
+            strike_spread_bp,
+            expiry,
+            cds_maturity,
+            notional,
+            option_type,
+        )
+        .expect("Invalid CdsOptionParams")
     }
 
     /// Create credit call option parameters (option to buy protection).

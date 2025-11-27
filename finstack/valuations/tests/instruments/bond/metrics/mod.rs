@@ -7,7 +7,6 @@
 //! - `ytm`: Yield to maturity
 //! - `duration`: Macaulay and modified duration
 //! - `convexity`: Bond convexity
-//! - `dv01`: Dollar value of a basis point
 //! - `spreads`: Z-spread and I-spread
 //! - `asw`: Asset swap spreads (par, market, forward variants)
 //! - `dm`: Discount margin for FRNs
@@ -15,6 +14,9 @@
 //! - `oas`: Option-adjusted spread
 //! - `ytw`: Yield to worst
 //! - `theta`: Time decay
+//!
+//! Note: DV01 tests are consolidated in `tests/metrics/tests/dv01.rs` which provides
+//! comprehensive coverage across Bond, IRS, and Deposit instruments.
 
 mod accrued;
 mod asw;
@@ -22,7 +24,6 @@ mod convexity;
 mod cs01;
 mod dm;
 mod duration;
-mod dv01;
 mod oas;
 mod prices;
 mod spreads;

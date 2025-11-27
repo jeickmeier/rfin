@@ -138,9 +138,9 @@ impl MetricCalculator for ParRateCalculator {
                     terms.push(alpha * p);
                     prev = d;
                 }
-                
+
                 let den = kahan_sum(terms);
-                
+
                 // Guard against division by near-zero annuity
                 if den.abs() < ANNUITY_EPSILON {
                     return Err(finstack_core::error::Error::Validation(format!(
@@ -177,7 +177,7 @@ fn par_rate_forward_based(
 
     // Annuity is sum(yf*df) in years (computed with Kahan summation in AnnuityCalculator)
     let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
-    
+
     // Guard against division by near-zero annuity
     if annuity.abs() < ANNUITY_EPSILON {
         return Err(finstack_core::error::Error::Validation(format!(
@@ -200,7 +200,8 @@ fn par_rate_forward_based(
     if schedule.len() < 2 {
         return Err(finstack_core::error::Error::Validation(
             "Par rate calculation failed: floating leg schedule has fewer than 2 dates. \
-             Check that start and end dates are valid and frequency allows at least one period.".into()
+             Check that start and end dates are valid and frequency allows at least one period."
+                .into(),
         ));
     }
 

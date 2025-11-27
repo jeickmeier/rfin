@@ -1,4 +1,9 @@
-//! Accrued interest calculator tests.
+//! Accrued interest calculator tests via the metrics framework.
+//!
+//! These tests validate accrued interest calculation through the `MetricId::Accrued`
+//! interface. For direct tests of the underlying `accrual::accrued_interest_amount()`
+//! function (including Linear vs Compounded, ex-coupon, and amortizing scenarios),
+//! see `../bond_accrued_interest.rs`.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

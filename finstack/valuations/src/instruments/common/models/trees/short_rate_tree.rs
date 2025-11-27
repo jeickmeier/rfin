@@ -455,7 +455,11 @@ impl ShortRateTree {
     /// A value of 0.20 means 20% annual rate volatility, not 20 bps.
     /// Use [`lognormal_to_normal_vol`] to convert from normal if needed.
     pub fn black_derman_toy(steps: usize, lognormal_vol: f64, mean_reversion: f64) -> Self {
-        Self::new(ShortRateTreeConfig::bdt(steps, lognormal_vol, mean_reversion))
+        Self::new(ShortRateTreeConfig::bdt(
+            steps,
+            lognormal_vol,
+            mean_reversion,
+        ))
     }
 
     /// Create a Ho-Lee tree with default normal volatility (100 bps).

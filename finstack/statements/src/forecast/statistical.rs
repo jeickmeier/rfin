@@ -87,7 +87,8 @@ pub fn normal_forecast(
 
     for period_id in forecast_periods {
         // Box-Muller transform for normal distribution
-        let u1 = rng.uniform();
+        // Guard against u1=0.0 which would cause ln(0) = -infinity
+        let u1 = rng.uniform().max(f64::MIN_POSITIVE);
         let u2 = rng.uniform();
 
         let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
@@ -167,6 +168,13 @@ pub fn lognormal_forecast(
         )));
     }
 
+    // Warn on degenerate distribution (all values will be identical)
+    if std_dev == 0.0 {
+        log::warn!(
+            "LogNormal forecast with std_dev=0.0 produces degenerate distribution (all values identical)"
+        );
+    }
+
     // Initialize RNG with seed
     // Note: TestRng is for deterministic testing; for production Monte Carlo,
     // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
@@ -176,7 +184,8 @@ pub fn lognormal_forecast(
 
     for period_id in forecast_periods {
         // Box-Muller transform for normal distribution
-        let u1 = rng.uniform();
+        // Guard against u1=0.0 which would cause ln(0) = -infinity
+        let u1 = rng.uniform().max(f64::MIN_POSITIVE);
         let u2 = rng.uniform();
 
         let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();

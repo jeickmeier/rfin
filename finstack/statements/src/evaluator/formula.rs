@@ -3,6 +3,23 @@
 //! Arithmetic operators are handled locally for performance and separation of
 //! concerns, while statistical/time-series functions delegate to the shared
 //! `finstack-core` helpers.
+//!
+//! # Numerical Behavior
+//!
+//! ## NaN Handling
+//! - Division by zero → NaN (with log warning)
+//! - Missing historical values in lag/shift → NaN
+//! - Insufficient data for variance (< 2 values) → NaN
+//! - pct_change with near-zero denominator → NaN (with log warning)
+//!
+//! ## Overflow Protection
+//! - Compound growth (`growth_pct`) errors on overflow
+//! - Growth rates > 100% produce warnings
+//!
+//! ## Precision
+//! - Equality comparisons use EPSILON = 1e-10
+//! - Suitable for rate comparisons (0.01 bp precision)
+//! - Monetary comparisons should use the `Money` type for currency safety
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
@@ -12,22 +29,32 @@ use std::collections::BTreeMap;
 
 /// Epsilon value for floating point comparisons.
 ///
-/// Set to 1e-10 for rate/ratio comparisons (basis point precision level).
-/// This is appropriate for:
-/// - Interest rate comparisons (0.01 basis point precision)
-/// - Ratio comparisons (leverage, margins)
-/// - Percentage change comparisons
-/// - Equality comparisons in DSL (== and != operators)
+/// # Value: 1e-10
+///
+/// This epsilon is used for:
+/// - **Equality comparisons** (`==`, `!=`): Values within ±1e-10 are considered equal
+/// - **Near-zero guards**: Division and percentage change operations
+///
+/// # Precision Guarantees
+/// - Rate/ratio comparisons: ±0.01 basis points (0.0001%)
+/// - Interest rate comparisons: sub-basis point precision
+/// - Monetary values: Suitable for values up to ~$1 trillion before precision loss
+///
+/// # Examples
+/// ```text
+/// 100_000_000.0 == 100_000_000.0000000001  // true (within epsilon)
+/// 100_000_000.0 == 100_000_001.0            // false (exceeds epsilon)
+/// 0.0001 == 0.00010000000001                // true (within epsilon)
+/// ```
 ///
 /// # Breaking Change (v2.0)
 ///
 /// As of version 2.0, the DSL `==` and `!=` operators use approximate equality
 /// with this epsilon tolerance. This prevents spurious inequality from floating-point
-/// rounding errors. For example:
-/// - `100000.0 == 100000.0000000001` returns `true` (within epsilon)
-/// - `100000.0 == 100001.0` returns `false` (exceeds epsilon)
+/// rounding errors.
 ///
-/// Note: For currency comparisons, use the Money type and currency-safe logic, not raw f64 arithmetic.
+/// # Note
+/// For currency-safe comparisons with explicit rounding, use the `Money` type.
 const EPSILON: f64 = 1e-10;
 
 /// Convert boolean to f64 (1.0 for true, 0.0 for false).
@@ -238,6 +265,10 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
                 BinOp::Mul => left_val * right_val,
                 BinOp::Div => {
                     if right_val == 0.0 {
+                        log::warn!(
+                            "Division by zero in formula evaluation (period: {:?})",
+                            context.period_id
+                        );
                         f64::NAN
                     } else {
                         left_val / right_val
@@ -398,6 +429,10 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 {
                     if lagged_value.abs() < EPSILON {
                         // Avoid division by zero
+                        log::warn!(
+                            "pct_change() division by near-zero lagged value in period {:?}",
+                            context.period_id
+                        );
                         Ok(f64::NAN)
                     } else {
                         Ok((current_value - lagged_value) / lagged_value)

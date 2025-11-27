@@ -23,14 +23,16 @@
 //! - ISDA (2009). Big Bang Protocol for CDS standardization.
 
 use crate::calibration::quote::CreditQuote;
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, SolverConfig, SolverKind};
+use crate::calibration::{
+    CalibrationConfig, CalibrationReport, Calibrator, SolverConfig, SolverKind,
+};
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
 use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DayCount, Frequency};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
@@ -227,10 +229,7 @@ impl BaseCorrelationCalibrator {
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::NotFound {
-                    id: format!(
-                        "No CDS tranche quotes found for index '{}'",
-                        self.index_id
-                    ),
+                    id: format!("No CDS tranche quotes found for index '{}'", self.index_id),
                 },
             ));
         }
@@ -313,13 +312,14 @@ impl BaseCorrelationCalibrator {
                         temp_corr_points.push((detach_pct + 10.0, clamped_trial));
                     }
 
-                    let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
-                        .knots(temp_corr_points)
-                        .build()
-                    {
-                        Ok(curve) => Arc::new(curve),
-                        Err(_) => return CALIBRATION_PENALTY,
-                    };
+                    let temp_base_corr_curve =
+                        match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
+                            .knots(temp_corr_points)
+                            .build()
+                        {
+                            Ok(curve) => Arc::new(curve),
+                            Err(_) => return CALIBRATION_PENALTY,
+                        };
 
                     // Update market context with trial correlation curve
                     let mut temp_market_ctx = market_context.clone();
@@ -404,15 +404,19 @@ impl BaseCorrelationCalibrator {
 
         // Build comprehensive calibration report
         let solver_config = self.build_solver_config();
-        let report = CalibrationReport::for_type("base_correlation", residuals, total_function_evaluations)
-            .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
-            .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
-            .with_metadata("index_id", self.index_id.clone())
-            .with_metadata("maturity_years", self.maturity_years.to_string())
-            .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
-            .with_metadata("function_evaluations", total_function_evaluations.to_string())
-            .with_metadata("validation", "passed")
-            .with_solver_config(solver_config);
+        let report =
+            CalibrationReport::for_type("base_correlation", residuals, total_function_evaluations)
+                .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
+                .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
+                .with_metadata("index_id", self.index_id.clone())
+                .with_metadata("maturity_years", self.maturity_years.to_string())
+                .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
+                .with_metadata(
+                    "function_evaluations",
+                    total_function_evaluations.to_string(),
+                )
+                .with_metadata("validation", "passed")
+                .with_solver_config(solver_config);
 
         Ok((final_curve, report))
     }
@@ -528,11 +532,7 @@ impl BaseCorrelationCalibrator {
         };
 
         let id = finstack_core::types::InstrumentId::new(
-            format!(
-                "CALIB_TRANCHE_{:.1}_{:.1}",
-                attach_pct, detach_pct
-            )
-            .replace('.', "_"),
+            format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct).replace('.', "_"),
         );
 
         CdsTranche::builder()
@@ -823,18 +823,15 @@ impl BaseCorrelationSurfaceCalibrator {
             all_residuals,
             total_function_evaluations,
         )
-        .with_metadata(
-            "calibrated_maturities",
-            calibrated_maturities.join(", "),
-        )
-        .with_metadata(
-            "calibrated_count",
-            curves_by_maturity.len().to_string(),
-        )
+        .with_metadata("calibrated_maturities", calibrated_maturities.join(", "))
+        .with_metadata("calibrated_count", curves_by_maturity.len().to_string())
         .with_metadata("time_dc", format!("{:?}", self.time_dc))
         .with_metadata("index_id", self.index_id.clone())
         .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
-        .with_metadata("function_evaluations", total_function_evaluations.to_string())
+        .with_metadata(
+            "function_evaluations",
+            total_function_evaluations.to_string(),
+        )
         .with_metadata(
             "failed_maturities",
             if failed_maturities.is_empty() {
@@ -934,18 +931,24 @@ mod tests {
     #[test]
     fn test_imm_maturity_calculation() {
         // Test that IMM maturity calculation produces valid CDS roll dates
-        let base_date = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
-        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
-            .with_imm_dates(true);
+        let base_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let calibrator =
+            BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date).with_imm_dates(true);
 
-        let maturity = calibrator.calculate_imm_maturity().expect("IMM calculation should succeed");
+        let maturity = calibrator
+            .calculate_imm_maturity()
+            .expect("IMM calculation should succeed");
 
         // Verify maturity is a CDS IMM date (20th of Mar/Jun/Sep/Dec)
         let month = maturity.month();
         let day = maturity.day();
         assert_eq!(day, 20, "CDS IMM dates should be on the 20th");
         assert!(
-            matches!(month, Month::March | Month::June | Month::September | Month::December),
+            matches!(
+                month,
+                Month::March | Month::June | Month::September | Month::December
+            ),
             "CDS IMM dates should be in Mar/Jun/Sep/Dec, got {:?}",
             month
         );

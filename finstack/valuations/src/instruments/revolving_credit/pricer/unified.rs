@@ -286,7 +286,8 @@ impl RevolvingCreditPricer {
                     // Exposure Average (trapezoidal)
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
 
-                    let recovery_flow = exposure_avg * facility.recovery_rate * df_avg * prob_default;
+                    let recovery_flow =
+                        exposure_avg * facility.recovery_rate * df_avg * prob_default;
                     total_pv += recovery_flow;
 
                     prev_sp = curr_sp;
@@ -552,7 +553,9 @@ impl RevolvingCreditPricer {
 
             // Find the bracketing payment dates
             let hazard_at_cf = if let Some(idx) = time_points.iter().position(|&t| t >= t_cf) {
-                if idx == 0 || (time_points[idx] - t_cf).abs() < super::super::INTERPOLATION_TOLERANCE {
+                if idx == 0
+                    || (time_points[idx] - t_cf).abs() < super::super::INTERPOLATION_TOLERANCE
+                {
                     // At or before first point
                     cumulative_hazards[idx.min(cumulative_hazards.len() - 1)]
                 } else {

@@ -491,3 +491,104 @@ fn test_lognormal_forecast_always_positive() {
     assert!(results.get("revenue", &PeriodId::quarter(2025, 3)).unwrap() > 0.0);
     assert!(results.get("revenue", &PeriodId::quarter(2025, 4)).unwrap() > 0.0);
 }
+
+/// Test that overflow in compound growth is detected and returns an error.
+#[test]
+fn test_growth_pct_overflow_error() {
+    use finstack_statements::forecast::growth_pct;
+
+    // Use extreme growth rate (10000% per period) to trigger overflow
+    // With rate=100, starting at 1e10: 1e10 * 101^150 > f64::MAX (1.8e308)
+    // After 100 periods we're at ~1e210, need ~50 more to overflow
+    let periods: Vec<_> = (0..200)
+        .map(|i| PeriodId::quarter(2025 + i / 4, ((i % 4) as u8) + 1))
+        .collect();
+
+    let mut params = indexmap::IndexMap::new();
+    params.insert("rate".to_string(), serde_json::json!(100.0)); // 10000% per period
+
+    let result = growth_pct(1e10, &periods, &params);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Overflow"));
+}
+
+/// Test that high growth rates (>100%) produce a warning but don't error.
+#[test]
+fn test_growth_pct_high_rate_no_error() {
+    use finstack_statements::forecast::growth_pct;
+
+    // Single period with 150% growth rate
+    let periods = vec![PeriodId::quarter(2025, 1)];
+
+    let mut params = indexmap::IndexMap::new();
+    params.insert("rate".to_string(), serde_json::json!(1.5)); // 150% per period
+
+    // Should succeed (just warns, doesn't error)
+    let result = growth_pct(100.0, &periods, &params);
+    assert!(result.is_ok());
+
+    // Verify the value is correct: 100 * (1 + 1.5) = 250
+    let values = result.unwrap();
+    assert!((values[&PeriodId::quarter(2025, 1)] - 250.0).abs() < 0.01);
+}
+
+/// Test that the normal forecast never produces NaN values.
+/// This tests the Box-Muller guard against ln(0).
+#[test]
+fn test_normal_forecast_no_nan() {
+    use finstack_statements::forecast::normal_forecast;
+
+    // Generate many periods
+    let periods: Vec<_> = (0..100)
+        .map(|i| PeriodId::quarter(2025 + i / 4, ((i % 4) as u8) + 1))
+        .collect();
+
+    // Test with many different seeds to exercise the RNG
+    for seed in 0..1000 {
+        let mut params = indexmap::IndexMap::new();
+        params.insert("mean".to_string(), serde_json::json!(100.0));
+        params.insert("std_dev".to_string(), serde_json::json!(15.0));
+        params.insert("seed".to_string(), serde_json::json!(seed));
+
+        let result = normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
+        for value in result.values() {
+            assert!(!value.is_nan(), "NaN produced with seed {}", seed);
+            assert!(value.is_finite(), "Non-finite value produced with seed {}", seed);
+        }
+    }
+}
+
+/// Test that lognormal forecast with std_dev=0.0 produces identical values.
+/// This is a degenerate distribution (all values are exp(mean)).
+#[test]
+fn test_lognormal_zero_stddev_degenerate() {
+    use finstack_statements::forecast::lognormal_forecast;
+
+    let periods = vec![
+        PeriodId::quarter(2025, 1),
+        PeriodId::quarter(2025, 2),
+        PeriodId::quarter(2025, 3),
+    ];
+
+    let mut params = indexmap::IndexMap::new();
+    params.insert("mean".to_string(), serde_json::json!(11.5));
+    params.insert("std_dev".to_string(), serde_json::json!(0.0)); // Degenerate distribution
+    params.insert("seed".to_string(), serde_json::json!(42));
+
+    // Should succeed (just warns about degenerate distribution)
+    let result = lognormal_forecast(0.0, &periods, &params);
+    assert!(result.is_ok());
+
+    // All values should be identical (exp(mean) since std_dev=0)
+    let values: Vec<_> = result.unwrap().values().copied().collect();
+    let expected = (11.5_f64).exp();
+
+    for value in &values {
+        assert!(
+            (*value - expected).abs() < 1e-10,
+            "Expected {}, got {}",
+            expected,
+            value
+        );
+    }
+}

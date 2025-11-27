@@ -56,7 +56,7 @@ impl MetricCalculator for ConvexityCalculator {
         })?;
 
         // Bump size: configurable via context overrides, default 20 bp
-        // 
+        //
         // Market standard note: Industry practice typically uses 10-25bp for convexity
         // calculations (larger than duration bumps) to reduce numerical noise in the
         // second derivative approximation. The default of 20bp balances precision and

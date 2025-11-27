@@ -311,7 +311,9 @@ impl ConvexityParameters {
 /// Get default convexity parameters for a currency.
 ///
 /// Returns market-standard parameters based on currency conventions.
-pub fn default_convexity_params(currency: finstack_core::currency::Currency) -> ConvexityParameters {
+pub fn default_convexity_params(
+    currency: finstack_core::currency::Currency,
+) -> ConvexityParameters {
     use finstack_core::currency::Currency;
     match currency {
         Currency::USD => ConvexityParameters::usd_sofr(),

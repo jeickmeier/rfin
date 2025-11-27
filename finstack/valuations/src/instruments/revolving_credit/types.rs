@@ -349,16 +349,15 @@ impl McConfig {
     /// `Ok(())` if all parameters are valid, otherwise returns an error
     /// describing the validation failure.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        use finstack_core::error::InputError;
         use super::MAX_RECOVERY_RATE;
+        use finstack_core::error::InputError;
 
         // Validate recovery rate: must be in [0, 1) to avoid division by zero
         // in hazard-to-spread mapping: λ = s / (1 - R)
         if self.recovery_rate < 0.0 || self.recovery_rate >= MAX_RECOVERY_RATE {
             return Err(finstack_core::Error::Validation(format!(
                 "Recovery rate must be in [0, {:.6}), got {}",
-                MAX_RECOVERY_RATE,
-                self.recovery_rate
+                MAX_RECOVERY_RATE, self.recovery_rate
             )));
         }
 

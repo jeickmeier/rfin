@@ -56,7 +56,6 @@ pub struct PricingOverrides {
     pub term_loan: Option<TermLoanOverrides>,
 
     // ----- Scenario Shock Fields -----
-
     /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
     ///
     /// When set, the model price is multiplied by (1 + scenario_price_shock_pct).

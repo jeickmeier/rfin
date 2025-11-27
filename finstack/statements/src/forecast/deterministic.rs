@@ -85,11 +85,29 @@ pub fn growth_pct(
         )
     })?;
 
+    // Warn on extreme growth rates (>100% per period)
+    if rate.abs() > 1.0 {
+        log::warn!(
+            "Growth rate {:.2}% exceeds 100% per period - verify this is intentional",
+            rate * 100.0
+        );
+    }
+
     let mut results = IndexMap::new();
     let mut current_value = base_value;
 
     for period_id in forecast_periods {
         current_value *= 1.0 + rate;
+
+        // Check for overflow/underflow
+        if !current_value.is_finite() {
+            return Err(Error::forecast(format!(
+                "Overflow in compound growth calculation at period {:?}. \
+                 Consider using smaller growth rate or fewer periods.",
+                period_id
+            )));
+        }
+
         results.insert(*period_id, current_value);
     }
 

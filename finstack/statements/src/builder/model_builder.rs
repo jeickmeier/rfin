@@ -6,6 +6,27 @@ use finstack_core::dates::{build_periods, Period, PeriodId};
 use indexmap::{IndexMap, IndexSet};
 use std::marker::PhantomData;
 
+/// Validate that a node ID does not use reserved prefixes.
+///
+/// The `__cs__` prefix is reserved for internal capital structure references,
+/// and `__` prefix is reserved for other internal use.
+fn validate_node_id(node_id: &str) -> Result<()> {
+    if node_id.contains("__cs__") {
+        return Err(Error::build(format!(
+            "Node ID '{}' contains reserved prefix '__cs__'. \
+             This prefix is used internally for capital structure references.",
+            node_id
+        )));
+    }
+    if node_id.starts_with("__") {
+        return Err(Error::build(format!(
+            "Node ID '{}' cannot start with '__' (reserved for internal use)",
+            node_id
+        )));
+    }
+    Ok(())
+}
+
 /// Type-state marker: Periods not yet defined
 #[derive(Debug)]
 pub struct NeedPeriods;
@@ -281,6 +302,9 @@ impl ModelBuilder<Ready> {
     ) -> Result<Self> {
         let node_id = node_id.into();
         let formula = formula.into();
+
+        // Validate node ID doesn't use reserved prefixes
+        validate_node_id(&node_id)?;
 
         // Basic validation: formula should not be empty
         if formula.trim().is_empty() {
@@ -673,6 +697,11 @@ impl ModelBuilder<Ready> {
             return Err(Error::build("Model must have at least one period"));
         }
 
+        // Validate all node IDs don't use reserved prefixes
+        for node_id in self.nodes.keys() {
+            validate_node_id(node_id)?;
+        }
+
         // Create the model spec
         let mut spec = FinancialModelSpec::new(self.id, self.periods);
         spec.nodes = self.nodes;
@@ -810,6 +839,9 @@ impl MixedNodeBuilder {
 
     /// Finish building the mixed node and return to the parent builder.
     ///
+    /// Note: Node ID validation happens in `ModelBuilder::build()`. If you need
+    /// early validation, use `try_finish()` instead.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -847,6 +879,18 @@ impl MixedNodeBuilder {
 
         self.parent.nodes.insert(self.node_id, node);
         self.parent
+    }
+
+    /// Finish building the mixed node with validation.
+    ///
+    /// This is like `finish()` but validates the node ID and returns a Result.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node ID uses a reserved prefix (`__cs__` or `__`).
+    pub fn try_finish(self) -> Result<ModelBuilder<Ready>> {
+        validate_node_id(&self.node_id)?;
+        Ok(self.finish())
     }
 }
 

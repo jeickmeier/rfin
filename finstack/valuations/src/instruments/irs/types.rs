@@ -181,7 +181,8 @@ impl InterestRateSwap {
             return Err(finstack_core::error::Error::Validation(format!(
                 "Invalid notional: {} must be positive (> {:.0e}). \
                  Negative notional is semantically ambiguous; use PayReceive to control direction.",
-                self.notional.amount(), NOTIONAL_EPSILON
+                self.notional.amount(),
+                NOTIONAL_EPSILON
             )));
         }
 
@@ -190,7 +191,8 @@ impl InterestRateSwap {
             return Err(finstack_core::error::Error::Validation(format!(
                 "Invalid fixed rate: {:.2}% exceeds maximum allowed magnitude ({:.0}%). \
                  This may indicate a units error (rate should be decimal, e.g., 0.05 for 5%).",
-                self.fixed.rate * 100.0, MAX_RATE_MAGNITUDE * 100.0
+                self.fixed.rate * 100.0,
+                MAX_RATE_MAGNITUDE * 100.0
             )));
         }
 
@@ -312,10 +314,10 @@ impl InterestRateSwap {
                 fixing_calendar_id: None,
             })
             .build()?;
-        
+
         // Validate the swap parameters
         swap.validate()?;
-        
+
         Ok(swap)
     }
 
@@ -366,10 +368,10 @@ impl InterestRateSwap {
             .fixed(fixed)
             .float(float)
             .build()?;
-        
+
         // Validate the swap parameters
         swap.validate()?;
-        
+
         Ok(swap)
     }
 }
