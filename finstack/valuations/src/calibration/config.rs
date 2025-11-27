@@ -4,12 +4,129 @@
 //! - Solver selection and numerical parameters
 //! - Multi-curve framework configuration (post-2008 standard)
 //! - Entity seniority mappings for credit calibration
+//! - Rate bounds for market-regime-aware calibration
 
+use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+
+/// Configurable bounds for forward/zero rates during calibration.
+///
+/// Different market regimes require different rate bounds:
+/// - Developed markets (USD, EUR, GBP): typically [-2%, 50%]
+/// - Negative rate environments (EUR, JPY, CHF): [-5%, 20%]
+/// - Emerging markets (TRY, ARS, BRL): [-5%, 200%]
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::calibration::RateBounds;
+/// use finstack_core::currency::Currency;
+///
+/// // Use currency-specific defaults
+/// let usd_bounds = RateBounds::for_currency(Currency::USD);
+/// assert!(usd_bounds.min_rate < 0.0);
+///
+/// // Or customize for specific scenarios
+/// let em_bounds = RateBounds::emerging_markets();
+/// assert!(em_bounds.max_rate > 1.0);
+/// ```
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RateBounds {
+    /// Minimum allowed rate (decimal, e.g., -0.02 for -2%)
+    pub min_rate: f64,
+    /// Maximum allowed rate (decimal, e.g., 0.50 for 50%)
+    pub max_rate: f64,
+}
+
+impl Default for RateBounds {
+    fn default() -> Self {
+        Self {
+            min_rate: -0.02,
+            max_rate: 0.50,
+        }
+    }
+}
+
+impl RateBounds {
+    /// Create rate bounds for a specific currency based on market conventions.
+    ///
+    /// - USD/CAD/AUD: Standard developed market bounds [-2%, 50%]
+    /// - EUR/JPY/CHF: Extended negative rate support [-5%, 30%]
+    /// - GBP: Standard with slightly wider negative [-3%, 50%]
+    /// - TRY/ARS/BRL/ZAR: Emerging market bounds [-5%, 200%]
+    /// - Other: Conservative developed market defaults
+    pub fn for_currency(currency: Currency) -> Self {
+        match currency {
+            // Deep negative rate environments
+            Currency::EUR | Currency::JPY | Currency::CHF => Self {
+                min_rate: -0.05,
+                max_rate: 0.30,
+            },
+            // Standard developed markets
+            Currency::USD | Currency::CAD | Currency::AUD | Currency::NZD => Self {
+                min_rate: -0.02,
+                max_rate: 0.50,
+            },
+            // GBP slightly wider negative
+            Currency::GBP => Self {
+                min_rate: -0.03,
+                max_rate: 0.50,
+            },
+            // Emerging markets with potential for high rates
+            Currency::TRY | Currency::ARS | Currency::BRL | Currency::ZAR | Currency::MXN => {
+                Self::emerging_markets()
+            }
+            // Default: conservative developed market
+            _ => Self::default(),
+        }
+    }
+
+    /// Rate bounds for emerging markets with potential hyperinflation.
+    ///
+    /// Allows rates up to 200% to accommodate countries like Turkey and Argentina.
+    pub fn emerging_markets() -> Self {
+        Self {
+            min_rate: -0.05,
+            max_rate: 2.00, // 200%
+        }
+    }
+
+    /// Rate bounds for negative rate environments.
+    ///
+    /// Optimized for EUR/JPY/CHF where deeply negative rates are common.
+    pub fn negative_rate_environment() -> Self {
+        Self {
+            min_rate: -0.10, // -10%
+            max_rate: 0.20,  // 20%
+        }
+    }
+
+    /// Rate bounds for stress testing scenarios.
+    ///
+    /// Very wide bounds to allow extreme scenarios.
+    pub fn stress_test() -> Self {
+        Self {
+            min_rate: -0.20, // -20%
+            max_rate: 5.00,  // 500%
+        }
+    }
+
+    /// Check if a rate is within bounds.
+    #[inline]
+    pub fn contains(&self, rate: f64) -> bool {
+        rate >= self.min_rate && rate <= self.max_rate
+    }
+
+    /// Clamp a rate to be within bounds.
+    #[inline]
+    pub fn clamp(&self, rate: f64) -> f64 {
+        rate.clamp(self.min_rate, self.max_rate)
+    }
+}
 /// Runtime validation behavior for arbitrage/consistency checks.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ValidationMode {
@@ -66,11 +183,10 @@ impl MultiCurveConfig {
 
 /// Configuration for calibration processes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-/// Calibration Config structure.
 pub struct CalibrationConfig {
-    /// Solver tolerance
+    /// Solver tolerance for convergence checks
     pub tolerance: f64,
-    /// Maximum iterations
+    /// Maximum iterations for solver
     pub max_iterations: usize,
     /// Use parallel processing when available
     pub use_parallel: bool,
@@ -96,6 +212,10 @@ pub struct CalibrationConfig {
     /// Validation configuration with thresholds and checks
     #[serde(default)]
     pub validation: crate::calibration::validation::ValidationConfig,
+    /// Rate bounds for forward/zero rate calibration.
+    /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.
+    #[serde(default)]
+    pub rate_bounds: RateBounds,
 }
 
 impl Default for CalibrationConfig {
@@ -113,6 +233,7 @@ impl Default for CalibrationConfig {
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds: RateBounds::default(),
         }
     }
 }
@@ -120,6 +241,7 @@ impl Default for CalibrationConfig {
 impl CalibrationConfig {
     /// Set multi-curve framework configuration.
     /// This is a convenience method for backward compatibility.
+    #[must_use]
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
         self.multi_curve = multi_curve_config;
         self
@@ -131,14 +253,75 @@ impl CalibrationConfig {
     }
 
     /// Enable explanation tracing with default settings.
+    #[must_use]
     pub fn with_explain(mut self) -> Self {
         self.explain = ExplainOpts::enabled();
         self
     }
 
     /// Set custom explanation options.
+    #[must_use]
     pub fn with_explain_opts(mut self, opts: ExplainOpts) -> Self {
         self.explain = opts;
+        self
+    }
+
+    /// Set custom rate bounds for calibration.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::{CalibrationConfig, RateBounds};
+    ///
+    /// let config = CalibrationConfig::default()
+    ///     .with_rate_bounds(RateBounds::emerging_markets());
+    /// ```
+    #[must_use]
+    pub fn with_rate_bounds(mut self, bounds: RateBounds) -> Self {
+        self.rate_bounds = bounds;
+        self
+    }
+
+    /// Set rate bounds appropriate for the given currency.
+    ///
+    /// Automatically selects bounds based on market conventions:
+    /// - EUR/JPY/CHF: Extended negative rate support
+    /// - TRY/ARS/BRL: Emerging market bounds (up to 200%)
+    /// - USD/GBP/etc: Standard developed market bounds
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::CalibrationConfig;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let config = CalibrationConfig::default()
+    ///     .with_rate_bounds_for_currency(Currency::TRY);
+    /// ```
+    #[must_use]
+    pub fn with_rate_bounds_for_currency(mut self, currency: Currency) -> Self {
+        self.rate_bounds = RateBounds::for_currency(currency);
+        self
+    }
+
+    /// Set the solver tolerance.
+    #[must_use]
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+        self.tolerance = tolerance;
+        self
+    }
+
+    /// Set the maximum number of iterations.
+    #[must_use]
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
+    /// Enable or disable verbose logging.
+    #[must_use]
+    pub fn with_verbose(mut self, verbose: bool) -> Self {
+        self.verbose = verbose;
         self
     }
 
@@ -147,7 +330,7 @@ impl CalibrationConfig {
     /// Conservative settings prioritize stability and robustness over speed:
     /// - Higher tolerance for better accuracy (1e-12)
     /// - Moderate iteration limit (100)
-    /// - Smaller step size for cautious progression (0.5x)
+    /// - Wide rate bounds to handle edge cases
     /// - Regularization enabled to prevent overfitting
     ///
     /// Use this for:
@@ -177,6 +360,10 @@ impl CalibrationConfig {
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds: RateBounds {
+                min_rate: -0.05,
+                max_rate: 1.00, // Allow up to 100% for conservative edge cases
+            },
         }
     }
 
@@ -185,7 +372,7 @@ impl CalibrationConfig {
     /// Aggressive settings prioritize speed and will tolerate looser fits:
     /// - Relaxed tolerance for faster convergence (1e-6)
     /// - Higher iteration limit (1000) for difficult problems
-    /// - Normal step size (1.0x)
+    /// - Standard rate bounds
     /// - No regularization for exact fit to quotes
     ///
     /// Use this for:
@@ -215,6 +402,7 @@ impl CalibrationConfig {
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds: RateBounds::default(),
         }
     }
 
@@ -253,6 +441,7 @@ impl CalibrationConfig {
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds: RateBounds::default(),
         }
     }
 

@@ -62,7 +62,7 @@ mod traits;
 mod validation;
 
 // Re-exports
-pub use config::{CalibrationConfig, MultiCurveConfig, SolverKind};
+pub use config::{CalibrationConfig, MultiCurveConfig, RateBounds, SolverKind};
 pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
 pub use derivatives::sabr_model_params::SABRModelParams;
 pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
@@ -76,9 +76,14 @@ pub use traits::Calibrator;
 pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, ValidationError};
 
 /// Finite penalty value used in objective functions instead of infinity.
-/// Using a large finite value helps solvers behave more predictably and
-/// documents intent while keeping diagnostics reasonable.
-pub const PENALTY: f64 = 1e12;
+///
+/// Using a moderate large finite value (1e6) helps solvers behave more predictably
+/// than extremely large values like 1e12, which can cause numerical instability
+/// with gradient-based methods. The value is chosen to be:
+/// - Large enough to clearly indicate failure/infeasibility
+/// - Small enough to avoid gradient explosion issues
+/// - Proportional to typical financial quantities (notional-normalized PVs)
+pub const PENALTY: f64 = 1e6;
 
 // ------------------------- Solver Helper -------------------------
 use finstack_core::Result;

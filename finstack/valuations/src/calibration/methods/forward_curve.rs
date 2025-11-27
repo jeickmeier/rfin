@@ -22,13 +22,50 @@
 //! For simultaneous multi-curve calibration, consider using a `MultiCurveCalibrator`
 //! (if available) or calibrating curves in sequence from the most liquid to least liquid.
 //!
+//! # Rate Bounds
+//!
+//! Forward rates are validated against configurable bounds that vary by currency:
+//! - Developed markets (USD, GBP): typically [-2%, 50%]
+//! - Negative rate environments (EUR, JPY, CHF): [-5%, 30%]
+//! - Emerging markets (TRY, ARS): [-5%, 200%]
+//!
+//! Use `with_config()` with a custom `CalibrationConfig` to set appropriate bounds.
+//!
+//! # Convexity Adjustment
+//!
+//! For interest rate futures, convexity adjustments are applied automatically using
+//! currency-specific Hull-White/Ho-Lee parameters. For production use with calibrated
+//! parameters, use `with_convexity_params()` to override defaults.
+//!
 //! # Examples
+//!
+//! ## Basic USD Forward Curve
 //!
 //! ```ignore
 //! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
 //! use finstack_valuations::calibration::CalibrationConfig;
 //!
-//! // Create calibrator for emerging market
+//! let calibrator = ForwardCurveCalibrator::new(
+//!     "USD-SOFR-3M-FWD",
+//!     0.25,
+//!     base_date,
+//!     Currency::USD,
+//!     "USD-OIS-DISC",
+//! );
+//!
+//! let (curve, report) = calibrator.calibrate(&quotes, &context)?;
+//! ```
+//!
+//! ## Emerging Market with Custom Bounds
+//!
+//! ```ignore
+//! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
+//! use finstack_valuations::calibration::{CalibrationConfig, RateBounds};
+//!
+//! // Create calibrator for emerging market with appropriate rate bounds
+//! let config = CalibrationConfig::default()
+//!     .with_rate_bounds_for_currency(Currency::TRY);
+//!
 //! let calibrator = ForwardCurveCalibrator::new(
 //!     "TRY-TRLIBOR-3M-FWD",
 //!     0.25,
@@ -36,7 +73,7 @@
 //!     Currency::TRY,
 //!     "TRY-OIS-DISC",
 //! )
-//! .with_config(CalibrationConfig::conservative());
+//! .with_config(config);
 //!
 //! let (curve, report) = calibrator.calibrate(&quotes, &context)?;
 //! ```
@@ -68,11 +105,19 @@ use std::collections::BTreeMap;
 /// Calibrates a tenor-specific forward curve (e.g., 3M SOFR) using market instruments
 /// while discounting with a separate OIS curve.
 ///
+/// # Market Standards
+///
+/// This calibrator follows ISDA conventions for:
+/// - **FRA fixing dates**: T-2 business days before spot date (configurable via `reset_lag`)
+/// - **Convexity adjustment**: Hull-White/Ho-Lee model with currency-specific parameters
+/// - **Rate bounds**: Currency-appropriate defaults from `CalibrationConfig`
+///
 /// # Convexity Adjustment
 ///
 /// For interest rate futures, convexity adjustments are applied automatically
 /// using currency-specific Hull-White/Ho-Lee parameters. Override with
-/// `with_convexity_params()` for custom calibration.
+/// `with_convexity_params()` for custom calibration or when calibrated parameters
+/// are available from swaption volatility surfaces.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
@@ -85,18 +130,29 @@ pub struct ForwardCurveCalibrator {
     pub currency: Currency,
     /// Discount curve identifier for PV calculations
     pub discount_curve_id: CurveId,
-    /// Day count for time axis (used for curve knot times, not accrual)
+    /// Day count for time axis (used for curve knot times, not accrual).
+    /// This is distinct from instrument accrual day counts.
     pub time_dc: DayCount,
     /// Interpolation style for forward rates
     pub solve_interp: InterpStyle,
-    /// Calibration configuration (includes rate bounds)
+    /// Calibration configuration (includes rate bounds, solver settings)
     pub config: CalibrationConfig,
-    /// Optional calendar identifier for schedule generation and business day adjustments
+    /// Optional calendar identifier for schedule generation and business day adjustments.
+    /// When set, enables proper T-2 business day fixing date calculation for FRAs.
     pub calendar_id: Option<String>,
+    /// Reset lag in business days for FRA fixing (default: 2 per ISDA convention).
+    /// This determines how many business days before the period start the fixing occurs.
+    #[serde(default = "default_reset_lag")]
+    pub reset_lag: i32,
     /// Optional custom convexity parameters for futures pricing.
-    /// If None, uses currency-specific defaults.
+    /// If None, uses currency-specific defaults from `ConvexityParameters`.
     #[serde(default)]
     pub convexity_params: Option<super::convexity::ConvexityParameters>,
+}
+
+/// Default reset lag (2 business days per ISDA convention)
+fn default_reset_lag() -> i32 {
+    2
 }
 
 impl ForwardCurveCalibrator {
@@ -110,9 +166,24 @@ impl ForwardCurveCalibrator {
     /// * `discount_curve_id` - OIS discount curve for present value calculations
     ///
     /// # Defaults
-    /// - Time day-count: ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY
-    /// - Rate bounds: Currency-appropriate defaults
+    /// - Time day-count: ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY/others
+    /// - Rate bounds: Currency-appropriate defaults (e.g., wider for EM currencies)
     /// - Convexity: Currency-specific Hull-White parameters
+    /// - Reset lag: 2 business days (ISDA standard)
+    /// - Calendar: None (use `with_calendar_id()` for business day adjustments)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let calibrator = ForwardCurveCalibrator::new(
+    ///     "USD-SOFR-3M-FWD",
+    ///     0.25,  // 3M tenor
+    ///     base_date,
+    ///     Currency::USD,
+    ///     "USD-OIS-DISC",
+    /// )
+    /// .with_calendar_id("USD");  // Enable business day adjustments
+    /// ```
     pub fn new(
         fwd_curve_id: impl Into<CurveId>,
         tenor_years: f64,
@@ -126,8 +197,8 @@ impl ForwardCurveCalibrator {
             Currency::GBP | Currency::JPY => DayCount::Act365F,
             _ => DayCount::Act365F,
         };
-        // Use default calibration config
-        let config = CalibrationConfig::default();
+        // Use currency-appropriate rate bounds
+        let config = CalibrationConfig::default().with_rate_bounds_for_currency(currency);
         Self {
             fwd_curve_id: fwd_curve_id.into(),
             tenor_years,
@@ -138,6 +209,7 @@ impl ForwardCurveCalibrator {
             solve_interp: InterpStyle::Linear,
             config,
             calendar_id: None,
+            reset_lag: 2, // ISDA standard T-2
             convexity_params: None,
         }
     }
@@ -162,10 +234,37 @@ impl ForwardCurveCalibrator {
 
     /// Set an optional calendar identifier for schedule generation and business day adjustments.
     ///
-    /// When set, FRA fixing dates will be adjusted using proper business day conventions.
+    /// When set, FRA fixing dates will be adjusted using proper business day conventions
+    /// (T-2 business days before spot date per ISDA convention).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let calibrator = ForwardCurveCalibrator::new(...)
+    ///     .with_calendar_id("USD");  // Use USD business calendar
+    /// ```
     #[must_use]
     pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
         self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Set the reset lag in business days for FRA fixing date calculation.
+    ///
+    /// Default is 2 business days (ISDA standard). Some markets use different conventions:
+    /// - USD/EUR: T-2 (2 business days)
+    /// - GBP: T-0 (same day)
+    /// - JPY: T-2
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let calibrator = ForwardCurveCalibrator::new(...)
+    ///     .with_reset_lag(0);  // GBP convention
+    /// ```
+    #[must_use]
+    pub fn with_reset_lag(mut self, reset_lag: i32) -> Self {
+        self.reset_lag = reset_lag;
         self
     }
 
@@ -220,6 +319,9 @@ impl ForwardCurveCalibrator {
     }
 
     /// Bootstrap the forward curve with the given solver.
+    ///
+    /// Uses sequential bootstrapping where each quote adds a knot to the curve.
+    /// The solver finds the forward rate that prices the instrument to par.
     fn bootstrap_curve_with_solver<S: Solver>(
         &self,
         quotes: &[RatesQuote],
@@ -228,11 +330,9 @@ impl ForwardCurveCalibrator {
     ) -> Result<(ForwardCurve, CalibrationReport)> {
         // Extended scan grid for root bracketing, covering extreme rate scenarios.
         // Includes denser points near zero and extends to high rates for EM currencies.
-        const FWD_SCAN_POINTS: [f64; 35] = [
-            -0.10, -0.05, -0.03, -0.02, -0.01, -0.005, 0.0, 0.002, 0.005, 0.01, 0.015, 0.02, 0.025,
-            0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.075, 0.10, 0.125, 0.15, 0.20, 0.25, 0.30, 0.40,
-            0.50, 0.60, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00,
-        ];
+        // Grid is dynamically extended based on configured rate bounds.
+        let scan_points = self.build_scan_grid();
+
         // Validate quotes with day-count consistency checks
         self.validate_quotes(quotes)?;
 
@@ -289,11 +389,21 @@ impl ForwardCurveCalibrator {
                 self.time_dc
                     .year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
 
-            // Skip if we already have a knot at this time
+            // Skip if we already have a knot at this time (scale-aware collision detection)
+            // Use relative tolerance for long tenors to avoid floating-point precision issues
+            let collision_tol = self.scale_aware_tolerance(knot_time);
             if knots
                 .iter()
-                .any(|(t, _)| (*t - knot_time).abs() < self.config.tolerance)
+                .any(|(t, _)| (*t - knot_time).abs() < collision_tol)
             {
+                if self.config.verbose {
+                    tracing::debug!(
+                        curve_id = %self.fwd_curve_id.as_str(),
+                        knot_time = knot_time,
+                        collision_tol = collision_tol,
+                        "Skipping duplicate knot time"
+                    );
+                }
                 continue;
             }
 
@@ -349,7 +459,7 @@ impl ForwardCurveCalibrator {
             let tentative = crate::calibration::bracket_solve_1d(
                 &objective,
                 initial_fwd,
-                &FWD_SCAN_POINTS,
+                &scan_points,
                 self.config.tolerance,
                 self.config.max_iterations,
             )?;
@@ -366,14 +476,19 @@ impl ForwardCurveCalibrator {
                 solved_fwd = initial_fwd;
             }
 
-            // Validate solution
-            if !solved_fwd.is_finite() || !(-0.10..=0.50).contains(&solved_fwd) {
+            // Validate solution against configurable rate bounds
+            let bounds = &self.config.rate_bounds;
+            if !solved_fwd.is_finite() || !bounds.contains(solved_fwd) {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
-                        "Solved forward rate out of bounds for {} at t={:.6}: fwd={:.6}",
+                        "Solved forward rate out of bounds for {} at t={:.6}: fwd={:.4}% \
+                        (allowed range: [{:.2}%, {:.2}%]). \
+                        Consider using `with_rate_bounds()` for extreme rate scenarios.",
                         self.fwd_curve_id.as_str(),
                         knot_time,
-                        solved_fwd
+                        solved_fwd * 100.0,
+                        bounds.min_rate * 100.0,
+                        bounds.max_rate * 100.0
                     ),
                     category: "forward_curve_bootstrap".to_string(),
                 });
@@ -586,6 +701,8 @@ impl ForwardCurveCalibrator {
     }
 
     /// Price an instrument for calibration.
+    ///
+    /// Returns the normalized PV (PV / notional) which should be zero for par instruments.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
         match quote {
             RatesQuote::FRA {
@@ -594,12 +711,20 @@ impl ForwardCurveCalibrator {
                 rate,
                 day_count,
             } => {
-                // Use a standard 2-business-day reset lag approximation for fixing date
-                let fixing_date = if *start >= self.base_date + time::Duration::days(2) {
-                    *start - time::Duration::days(2)
-                } else {
-                    self.base_date
-                };
+                // Calculate fixing date using proper business day convention when calendar is available.
+                // ISDA standard: T-2 business days before period start (configurable via reset_lag).
+                let fixing_date = self.calculate_fixing_date(*start, context);
+
+                if self.config.verbose {
+                    tracing::debug!(
+                        fra_start = %start,
+                        fra_end = %end,
+                        fixing_date = %fixing_date,
+                        reset_lag = self.reset_lag,
+                        calendar = ?self.calendar_id,
+                        "FRA fixing date calculation"
+                    );
+                }
 
                 let fra = match ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
@@ -631,39 +756,50 @@ impl ForwardCurveCalibrator {
                 let period_end = add_months(*expiry, specs.delivery_months as i32);
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
-                // Calculate convexity adjustment if not provided
+                // Calculate convexity adjustment using priority:
+                // 1. Quote-level override (specs.convexity_adjustment)
+                // 2. Calibrator-level custom params (self.convexity_params)
+                // 3. Currency-specific defaults
                 let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
                     Some(adj)
                 } else {
                     // Auto-calculate convexity adjustment based on time to expiry
+                    let dc_ctx = finstack_core::dates::DayCountCtx::default();
                     let time_to_expiry = specs
                         .day_count
-                        .year_fraction(
-                            self.base_date,
-                            *expiry,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
+                        .year_fraction(self.base_date, *expiry, dc_ctx)
                         .unwrap_or(0.0);
 
                     let time_to_maturity = specs
                         .day_count
-                        .year_fraction(
-                            self.base_date,
-                            period_end,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
+                        .year_fraction(self.base_date, period_end, dc_ctx)
                         .unwrap_or(0.0);
 
-                    // Always apply convexity adjustment per market practice
+                    // Use calibrator's custom params if set, otherwise currency defaults
                     use super::convexity::ConvexityParameters;
-                    let params = match self.currency {
-                        Currency::USD => ConvexityParameters::usd_sofr(),
-                        Currency::EUR => ConvexityParameters::eur_euribor(),
-                        Currency::GBP => ConvexityParameters::gbp_sonia(),
-                        Currency::JPY => ConvexityParameters::jpy_tonar(),
-                        _ => ConvexityParameters::usd_sofr(), // Default to USD
-                    };
-                    Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
+                    let params = self.convexity_params.clone().unwrap_or_else(|| {
+                        match self.currency {
+                            Currency::USD => ConvexityParameters::usd_sofr(),
+                            Currency::EUR => ConvexityParameters::eur_euribor(),
+                            Currency::GBP => ConvexityParameters::gbp_sonia(),
+                            Currency::JPY => ConvexityParameters::jpy_tonar(),
+                            _ => ConvexityParameters::usd_sofr(), // Default to USD
+                        }
+                    });
+
+                    let adj = params.calculate_adjustment(time_to_expiry, time_to_maturity);
+
+                    if self.config.verbose {
+                        tracing::debug!(
+                            future_expiry = %expiry,
+                            time_to_expiry = time_to_expiry,
+                            time_to_maturity = time_to_maturity,
+                            convexity_adjustment = adj,
+                            "Futures convexity adjustment"
+                        );
+                    }
+
+                    Some(adj)
                 };
 
                 let future = match InterestRateFuture::builder()
@@ -973,7 +1109,13 @@ impl ForwardCurveCalibrator {
         }
     }
 
-    /// Validate quotes.
+    /// Validate quotes for calibration.
+    ///
+    /// Performs:
+    /// - Non-empty check
+    /// - Rate bounds validation against configured limits
+    /// - Day-count consistency warnings (non-fatal)
+    /// - Quote date validation
     fn validate_quotes(&self, quotes: &[RatesQuote]) -> Result<()> {
         if quotes.is_empty() {
             return Err(finstack_core::Error::Input(
@@ -981,23 +1123,222 @@ impl ForwardCurveCalibrator {
             ));
         }
 
-        // Check for reasonable rates
+        let bounds = &self.config.rate_bounds;
+
+        // Check for reasonable rates and consistency
         for quote in quotes {
+            // Extract rate and validate bounds
             let rate = match quote {
                 RatesQuote::FRA { rate, .. } => *rate,
                 RatesQuote::Future { price, .. } => (100.0 - price) / 100.0,
                 RatesQuote::Swap { rate, .. } => *rate,
+                RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0,
                 _ => continue,
             };
 
-            if !rate.is_finite() || !(-0.10..=0.50).contains(&rate) {
+            if !rate.is_finite() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
                 ));
             }
+
+            // Check against configurable rate bounds
+            if !bounds.contains(rate) {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Quote rate {:.4}% outside allowed bounds [{:.2}%, {:.2}%]. \
+                        Use `with_rate_bounds()` to adjust bounds for this market regime.",
+                        rate * 100.0,
+                        bounds.min_rate * 100.0,
+                        bounds.max_rate * 100.0
+                    ),
+                    category: "quote_validation".to_string(),
+                });
+            }
+
+            // Day-count consistency checks (warnings only, not errors)
+            self.check_daycount_consistency(quote);
+
+            // Date validation
+            let maturity = quote.maturity_date();
+            if maturity <= self.base_date {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Quote maturity {} is on or before base date {}",
+                        maturity, self.base_date
+                    ),
+                    category: "quote_validation".to_string(),
+                });
+            }
         }
 
         Ok(())
+    }
+
+    /// Check day-count consistency between quote and calibrator settings.
+    ///
+    /// Emits warnings (not errors) when potential mismatches are detected.
+    fn check_daycount_consistency(&self, quote: &RatesQuote) {
+        match quote {
+            RatesQuote::FRA { day_count, .. } => {
+                // FRA day-count should typically match tenor conventions
+                if *day_count != self.time_dc && self.config.verbose {
+                    tracing::warn!(
+                        fra_dc = ?day_count,
+                        calibrator_dc = ?self.time_dc,
+                        "FRA day-count differs from calibrator time day-count. \
+                        This is usually fine as they serve different purposes \
+                        (accrual vs curve time-axis)."
+                    );
+                }
+            }
+            RatesQuote::Swap {
+                float_dc,
+                fixed_dc,
+                float_freq,
+                ..
+            } => {
+                // Check float leg frequency matches calibrator tenor
+                if !self.frequency_matches_tenor(float_freq) && self.config.verbose {
+                    tracing::warn!(
+                        swap_float_freq = ?float_freq,
+                        calibrator_tenor = self.tenor_years,
+                        "Swap float leg frequency doesn't match calibrator tenor. \
+                        Ensure this swap is appropriate for this forward curve."
+                    );
+                }
+
+                // Log day-count info for diagnostics
+                if self.config.verbose {
+                    tracing::debug!(
+                        fixed_dc = ?fixed_dc,
+                        float_dc = ?float_dc,
+                        time_dc = ?self.time_dc,
+                        "Swap day-count conventions"
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Build a dynamic scan grid for the solver based on configured rate bounds.
+    ///
+    /// The grid is denser near zero and extends to cover the full rate bounds range.
+    fn build_scan_grid(&self) -> Vec<f64> {
+        let bounds = &self.config.rate_bounds;
+
+        // Core grid: dense near zero, sparser at extremes
+        let mut grid = vec![
+            -0.10, -0.05, -0.03, -0.02, -0.01, -0.005, 0.0, 0.002, 0.005, 0.01, 0.015, 0.02, 0.025,
+            0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.075, 0.10, 0.125, 0.15, 0.20, 0.25, 0.30, 0.40,
+            0.50,
+        ];
+
+        // Extend for high rate environments (EM currencies)
+        if bounds.max_rate > 0.50 {
+            grid.extend_from_slice(&[0.60, 0.75, 1.00]);
+        }
+        if bounds.max_rate > 1.00 {
+            grid.extend_from_slice(&[1.25, 1.50, 1.75, 2.00]);
+        }
+
+        // Extend for deep negative rates (EUR/JPY/CHF)
+        if bounds.min_rate < -0.05 {
+            grid.insert(0, -0.15);
+            grid.insert(0, -0.20);
+        }
+
+        // Filter to only include points within bounds (with margin)
+        grid.into_iter()
+            .filter(|&r| r >= bounds.min_rate - 0.05 && r <= bounds.max_rate + 0.05)
+            .collect()
+    }
+
+    /// Calculate scale-aware tolerance for knot collision detection.
+    ///
+    /// Uses relative tolerance for longer tenors to avoid floating-point precision issues.
+    #[inline]
+    fn scale_aware_tolerance(&self, knot_time: f64) -> f64 {
+        // Base tolerance scaled by (1 + t) for scale awareness
+        // Minimum of base tolerance ensures precision for short tenors
+        (self.config.tolerance * (1.0 + knot_time)).max(self.config.tolerance)
+    }
+
+    /// Calculate the fixing date for an FRA given the period start date.
+    ///
+    /// Uses business day convention when a calendar is available via the global
+    /// CalendarRegistry, otherwise falls back to calendar day approximation.
+    ///
+    /// # ISDA Convention
+    ///
+    /// Per ISDA standards, FRA fixing dates are typically T-2 business days before
+    /// the period start date. This can be configured via `reset_lag`.
+    fn calculate_fixing_date(&self, start: Date, _context: &MarketContext) -> Date {
+        use finstack_core::dates::calendar::registry::CalendarRegistry;
+
+        // If calendar is set, try to use proper business day adjustment
+        if let Some(cal_id) = &self.calendar_id {
+            // Try to get calendar from global registry
+            let registry = CalendarRegistry::global();
+            if let Some(calendar) = registry.resolve_str(cal_id) {
+                // Shift back by reset_lag business days using preceding convention
+                let mut fixing = start;
+                let mut days_shifted = 0;
+
+                while days_shifted < self.reset_lag {
+                    fixing -= time::Duration::days(1);
+                    // Skip weekends and holidays
+                    if !calendar.is_holiday(fixing)
+                        && fixing.weekday() != time::Weekday::Saturday
+                        && fixing.weekday() != time::Weekday::Sunday
+                    {
+                        days_shifted += 1;
+                    }
+                }
+
+                if self.config.verbose {
+                    tracing::debug!(
+                        start = %start,
+                        fixing = %fixing,
+                        calendar_id = %cal_id,
+                        reset_lag = self.reset_lag,
+                        "FRA fixing date calculated using business day convention"
+                    );
+                }
+
+                return fixing;
+            }
+
+            // Calendar lookup failed, log and fall through to approximation
+            if self.config.verbose {
+                tracing::warn!(
+                    calendar_id = %cal_id,
+                    "Calendar not found in registry; using calendar-day approximation for FRA fixing"
+                );
+            }
+        }
+
+        // Fallback: naive calendar day approximation
+        // This may land on weekends/holidays, which is a limitation without calendar support
+        let approx_fixing = if start >= self.base_date + time::Duration::days(self.reset_lag as i64)
+        {
+            start - time::Duration::days(self.reset_lag as i64)
+        } else {
+            self.base_date
+        };
+
+        // Log warning if no calendar is configured
+        if self.calendar_id.is_none() && self.config.verbose {
+            tracing::debug!(
+                start = %start,
+                fixing = %approx_fixing,
+                reset_lag = self.reset_lag,
+                "Using calendar-day approximation for FRA fixing (no calendar configured)"
+            );
+        }
+
+        approx_fixing
     }
 }
 
@@ -1273,5 +1614,331 @@ mod tests {
                 tracing::debug!(error = %e, "Basis swap calibration test failed, acceptable in mapping test");
             }
         }
+    }
+
+    // ==================== NEW MARKET-STANDARDS TESTS ====================
+
+    #[test]
+    fn test_currency_specific_rate_bounds() {
+        use crate::calibration::RateBounds;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // USD calibrator should have standard bounds
+        let usd_calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+        assert!(usd_calibrator.config.rate_bounds.min_rate >= -0.03);
+        assert!(usd_calibrator.config.rate_bounds.max_rate <= 0.55);
+
+        // EUR calibrator should have extended negative rate support
+        let eur_calibrator = ForwardCurveCalibrator::new(
+            "EUR-EURIBOR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::EUR,
+            "EUR-OIS-DISC",
+        );
+        assert!(
+            eur_calibrator.config.rate_bounds.min_rate <= -0.04,
+            "EUR should support deeper negative rates"
+        );
+
+        // TRY calibrator should have high rate support
+        let try_calibrator = ForwardCurveCalibrator::new(
+            "TRY-TRLIBOR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::TRY,
+            "TRY-OIS-DISC",
+        );
+        assert!(
+            try_calibrator.config.rate_bounds.max_rate >= 1.0,
+            "TRY should support rates above 100%"
+        );
+
+        // Test custom rate bounds override
+        let custom_bounds = RateBounds {
+            min_rate: -0.15,
+            max_rate: 3.00,
+        };
+        let custom_calibrator = ForwardCurveCalibrator::new(
+            "CUSTOM-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_config(CalibrationConfig::default().with_rate_bounds(custom_bounds.clone()));
+
+        assert_eq!(custom_calibrator.config.rate_bounds.min_rate, -0.15);
+        assert_eq!(custom_calibrator.config.rate_bounds.max_rate, 3.00);
+    }
+
+    #[test]
+    fn test_scan_grid_adapts_to_bounds() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Standard USD calibrator
+        let usd_calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+        let usd_grid = usd_calibrator.build_scan_grid();
+        assert!(
+            usd_grid.iter().all(|&r| r <= 1.0),
+            "USD grid should not extend beyond 100%"
+        );
+
+        // EM calibrator should have extended grid
+        let em_calibrator = ForwardCurveCalibrator::new(
+            "TRY-TRLIBOR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::TRY,
+            "TRY-OIS-DISC",
+        );
+        let em_grid = em_calibrator.build_scan_grid();
+        assert!(
+            em_grid.iter().any(|&r| r > 1.0),
+            "EM grid should extend beyond 100%"
+        );
+
+        // Negative rate environment calibrator
+        let eur_calibrator = ForwardCurveCalibrator::new(
+            "EUR-EURIBOR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::EUR,
+            "EUR-OIS-DISC",
+        );
+        let eur_grid = eur_calibrator.build_scan_grid();
+        assert!(
+            eur_grid.iter().any(|&r| r < -0.02),
+            "EUR grid should include negative rates"
+        );
+    }
+
+    #[test]
+    fn test_scale_aware_collision_tolerance() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+
+        // Short tenor: tolerance should be close to base tolerance
+        let short_tol = calibrator.scale_aware_tolerance(0.25);
+        assert!(short_tol < 1e-8, "Short tenor tolerance should be small");
+
+        // Long tenor: tolerance should scale with time
+        let long_tol = calibrator.scale_aware_tolerance(20.0);
+        assert!(
+            long_tol > short_tol,
+            "Long tenor tolerance should be larger"
+        );
+        assert!(
+            long_tol < 1e-6,
+            "Long tenor tolerance should still be reasonable"
+        );
+    }
+
+    #[test]
+    fn test_reset_lag_configuration() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Default should be 2 (ISDA standard)
+        let default_calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+        assert_eq!(default_calibrator.reset_lag, 2);
+
+        // GBP convention (T-0)
+        let gbp_calibrator = ForwardCurveCalibrator::new(
+            "GBP-SONIA-3M-FWD",
+            0.25,
+            base_date,
+            Currency::GBP,
+            "GBP-OIS-DISC",
+        )
+        .with_reset_lag(0);
+        assert_eq!(gbp_calibrator.reset_lag, 0);
+
+        // Custom reset lag
+        let custom_calibrator = ForwardCurveCalibrator::new(
+            "CUSTOM-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_reset_lag(3);
+        assert_eq!(custom_calibrator.reset_lag, 3);
+    }
+
+    #[test]
+    fn test_fixing_date_without_calendar() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let discount_curve = create_test_discount_curve();
+        let context = MarketContext::new().insert_discount(discount_curve);
+
+        let calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+
+        // Thursday start -> Tuesday fixing (2 calendar days back)
+        let thursday = Date::from_calendar_date(2025, Month::January, 9).expect("Valid test date"); // Thursday
+        let fixing = calibrator.calculate_fixing_date(thursday, &context);
+        let expected = thursday - time::Duration::days(2);
+        assert_eq!(
+            fixing, expected,
+            "Without calendar, should subtract calendar days"
+        );
+    }
+
+    #[test]
+    fn test_convexity_params_override() {
+        use super::super::convexity::ConvexityParameters;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Default uses currency-specific params
+        let default_calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+        assert!(default_calibrator.convexity_params.is_none());
+
+        // Custom convexity params with different mean reversion
+        let mut custom_params = ConvexityParameters::usd_sofr();
+        custom_params.mean_reversion = 0.05; // Override default mean reversion
+        let custom_calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_convexity_params(custom_params);
+
+        assert!(custom_calibrator.convexity_params.is_some());
+        assert!(
+            (custom_calibrator
+                .convexity_params
+                .as_ref()
+                .expect("Convexity params should be set")
+                .mean_reversion
+                - 0.05)
+                .abs()
+                < 1e-10
+        );
+    }
+
+    #[test]
+    fn test_quote_validation_with_bounds() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let discount_curve = create_test_discount_curve();
+        let context = MarketContext::new().insert_discount(discount_curve);
+
+        // Standard USD calibrator should reject very high rates
+        let calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        );
+
+        // Quote with rate outside bounds
+        let bad_quote = vec![RatesQuote::FRA {
+            start: base_date + time::Duration::days(90),
+            end: base_date + time::Duration::days(180),
+            rate: 0.75, // 75% - outside USD bounds
+            day_count: DayCount::Act360,
+        }];
+
+        let result = calibrator.calibrate(&bad_quote, &context);
+        assert!(result.is_err(), "Should reject quote outside rate bounds");
+
+        // EM calibrator should accept high rates
+        let em_calibrator = ForwardCurveCalibrator::new(
+            "TRY-TRLIBOR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::TRY,
+            "TRY-OIS-DISC",
+        );
+
+        let high_rate_quote = vec![RatesQuote::FRA {
+            start: base_date + time::Duration::days(90),
+            end: base_date + time::Duration::days(180),
+            rate: 0.75, // 75% - acceptable for TRY
+            day_count: DayCount::Act360,
+        }];
+
+        // Should not fail on validation (calibration may still fail for other reasons)
+        let result = em_calibrator.validate_quotes(&high_rate_quote);
+        assert!(
+            result.is_ok(),
+            "EM calibrator should accept high rate quotes"
+        );
+    }
+
+    #[test]
+    fn test_builder_methods_chainable() {
+        use super::super::convexity::ConvexityParameters;
+        use crate::calibration::RateBounds;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Test full builder chain
+        let calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_time_dc(DayCount::Act365F)
+        .with_solve_interp(InterpStyle::MonotoneConvex)
+        .with_calendar_id("usny")
+        .with_reset_lag(2)
+        .with_convexity_params(ConvexityParameters::usd_sofr())
+        .with_config(
+            CalibrationConfig::conservative().with_rate_bounds(RateBounds::emerging_markets()),
+        );
+
+        // Verify all settings were applied
+        assert_eq!(calibrator.time_dc, DayCount::Act365F);
+        // InterpStyle doesn't implement PartialEq, so use debug format
+        assert!(
+            format!("{:?}", calibrator.solve_interp).contains("MonotoneConvex"),
+            "Expected MonotoneConvex interpolation"
+        );
+        assert_eq!(calibrator.calendar_id.as_deref(), Some("usny"));
+        assert_eq!(calibrator.reset_lag, 2);
+        assert!(calibrator.convexity_params.is_some());
+        assert!(calibrator.config.rate_bounds.max_rate >= 1.0);
     }
 }
