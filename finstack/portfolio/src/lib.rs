@@ -42,7 +42,8 @@
 //!     Arc::new(deposit),
 //!     1.0,
 //!     PositionUnit::Units,
-//! ).with_tag("asset_class", "cash");
+//! ).expect("test should succeed")
+//!  .with_tag("asset_class", "cash");
 //!
 //! // Build the portfolio with the entity and position
 //! let portfolio = PortfolioBuilder::new("MY_FUND")

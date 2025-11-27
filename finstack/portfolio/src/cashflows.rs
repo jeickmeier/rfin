@@ -12,7 +12,7 @@ use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::prelude::*;
-use finstack_valuations::cashflow::{traits::CashflowProvider, DatedFlow, DatedFlows};
+use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
 use finstack_valuations::instruments::common::traits::Instrument;
 use indexmap::IndexMap;
 
@@ -44,91 +44,28 @@ pub struct PortfolioCashflowBuckets {
 
 /// Collect holder-view cashflows for a single instrument, if supported.
 ///
-/// This helper mirrors the downcasting approach used by the theta calculator
-/// in `finstack-valuations` to obtain cashflow schedules from instruments that
-/// implement `CashflowProvider` (or equivalent methods).
+/// Uses the `Instrument::as_cashflow_provider()` trait method to obtain cashflow
+/// schedules from instruments that implement `CashflowProvider`. This approach
+/// automatically supports new instruments as they implement the trait.
 fn instrument_holder_flows(
     instrument: &dyn Instrument,
     market: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<Option<DatedFlows>> {
-    use finstack_valuations::instruments::*;
+    use finstack_valuations::instruments::cds;
 
-    let any_ref = instrument.as_any();
+    // Use the trait method instead of manual downcasting
+    if let Some(provider) = instrument.as_cashflow_provider() {
+        return Ok(provider.build_schedule(market, as_of).ok());
+    }
 
-    // Try to downcast to known CashflowProvider implementors.
-    let flows: Option<DatedFlows> =
-        // Bonds
-        if let Some(bond) = any_ref.downcast_ref::<bond::Bond>() {
-            bond.build_schedule(market, as_of).ok()
-        }
-        // Interest Rate Swaps
-        else if let Some(irs) = any_ref.downcast_ref::<irs::InterestRateSwap>() {
-            irs.build_schedule(market, as_of).ok()
-        }
-        // Deposits
-        else if let Some(deposit) = any_ref.downcast_ref::<deposit::Deposit>() {
-            deposit.build_schedule(market, as_of).ok()
-        }
-        // FRAs
-        else if let Some(fra) = any_ref.downcast_ref::<fra::ForwardRateAgreement>() {
-            fra.build_schedule(market, as_of).ok()
-        }
-        // IR Futures
-        else if let Some(ir_fut) = any_ref.downcast_ref::<ir_future::InterestRateFuture>() {
-            ir_fut.build_schedule(market, as_of).ok()
-        }
-        // Equities with discrete dividends
-        else if let Some(eq) = any_ref.downcast_ref::<equity::Equity>() {
-            eq.build_schedule(market, as_of).ok()
-        }
-        // FX Spot
-        else if let Some(fx) = any_ref.downcast_ref::<fx_spot::FxSpot>() {
-            fx.build_schedule(market, as_of).ok()
-        }
-        // Inflation-linked bonds
-        else if let Some(ilb) =
-            any_ref.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
-        {
-            ilb.build_schedule(market, as_of).ok()
-        }
-        // Repos
-        else if let Some(repo) = any_ref.downcast_ref::<repo::Repo>() {
-            repo.build_schedule(market, as_of).ok()
-        }
-        // Structured credit (pool/tranches)
-        else if let Some(sc) = any_ref.downcast_ref::<structured_credit::StructuredCredit>() {
-            sc.build_schedule(market, as_of).ok()
-        }
-        // Total return swaps
-        else if let Some(eq_trs) = any_ref.downcast_ref::<trs::EquityTotalReturnSwap>() {
-            eq_trs.build_schedule(market, as_of).ok()
-        } else if let Some(fi_trs) = any_ref.downcast_ref::<trs::FIIndexTotalReturnSwap>() {
-            fi_trs.build_schedule(market, as_of).ok()
-        }
-        // Private markets fund
-        else if let Some(pmf) =
-            any_ref.downcast_ref::<private_markets_fund::PrivateMarketsFund>()
-        {
-            pmf.build_schedule(market, as_of).ok()
-        }
-        // Variance swap
-        else if let Some(var_swap) = any_ref.downcast_ref::<variance_swap::VarianceSwap>() {
-            var_swap.build_schedule(market, as_of).ok()
-        }
-        // CDS – use premium schedule as holder-view cashflows
-        else if let Some(cds) = any_ref.downcast_ref::<cds::CreditDefaultSwap>() {
-            cds.build_premium_schedule(market, as_of).ok()
-        }
-        // FX Swap – settlements are handled at trade level; no interim schedule here
-        else if any_ref.is::<fx_swap::FxSwap>() {
-            None
-        } else {
-            // Instruments without a cashflow schedule interface (options, baskets, etc.)
-            None
-        };
+    // Special case: CDS uses build_premium_schedule (not CashflowProvider)
+    if let Some(cds) = instrument.as_any().downcast_ref::<cds::CreditDefaultSwap>() {
+        return Ok(cds.build_premium_schedule(market, as_of).ok());
+    }
 
-    Ok(flows)
+    // Instruments without a cashflow schedule interface (options, baskets, etc.)
+    Ok(None)
 }
 
 /// Aggregate portfolio cashflows by payment date and currency.

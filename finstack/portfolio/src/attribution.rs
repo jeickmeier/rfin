@@ -301,12 +301,8 @@ pub fn attribute_portfolio_pnl(
         // expects a scalar multiplier. The unit-aware logic is applied to the T0 value.
         let scale_factor = match position.unit {
             PositionUnit::Percentage => {
-                // Normalize percentage if > 1.0
-                if position.quantity > 1.0 {
-                    position.quantity / 100.0
-                } else {
-                    position.quantity
-                }
+                // Percentage values are always in points: 50 = 50%
+                position.quantity / 100.0
             }
             _ => position.quantity,
         };

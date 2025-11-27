@@ -145,5 +145,5 @@ fn quantity_scaling_and_entity_totals() {
         "Expected negative position value, got: {}",
         pv.value_native.amount()
     );
-    assert!(valuation.get_entity_value(&"E1".to_string()).is_some());
+    assert!(valuation.get_entity_value("E1").is_some());
 }

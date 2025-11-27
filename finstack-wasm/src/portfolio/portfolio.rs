@@ -104,7 +104,7 @@ impl JsPortfolio {
         let obj = Object::new();
         for (id, entity) in &self.inner.entities {
             let js_entity = JsEntity::from_inner(entity.clone());
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id), &JsValue::from(js_entity))?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_entity))?;
         }
         Ok(JsValue::from(obj))
     }
@@ -163,7 +163,7 @@ impl JsPortfolio {
     #[wasm_bindgen(js_name = positionsForEntity)]
     pub fn positions_for_entity(&self, entity_id: &str) -> Array {
         let arr = Array::new();
-        for position in self.inner.positions_for_entity(&entity_id.to_string()) {
+        for position in self.inner.positions_for_entity(entity_id) {
             let js_position = JsPosition::from_inner(position.clone());
             arr.push(&JsValue::from(js_position));
         }

@@ -89,7 +89,7 @@ impl JsEntity {
     /// Entity ID as string
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {
-        self.inner.id.clone()
+        self.inner.id.to_string()
     }
 
     /// Get the entity name.
@@ -372,7 +372,7 @@ impl JsPosition {
     /// Position ID as string
     #[wasm_bindgen(getter, js_name = positionId)]
     pub fn position_id(&self) -> String {
-        self.inner.position_id.clone()
+        self.inner.position_id.to_string()
     }
 
     /// Get the entity identifier.
@@ -382,7 +382,7 @@ impl JsPosition {
     /// Entity ID as string
     #[wasm_bindgen(getter, js_name = entityId)]
     pub fn entity_id(&self) -> String {
-        self.inner.entity_id.clone()
+        self.inner.entity_id.to_string()
     }
 
     /// Get the instrument identifier.

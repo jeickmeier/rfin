@@ -14,6 +14,7 @@ pub type Result<T> = std::result::Result<T, PortfolioError>;
 /// Each variant captures the context needed to diagnose failures when building,
 /// validating, or valuing a portfolio.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum PortfolioError {
     /// Position references an unknown entity
     #[error("Position '{position_id}' references unknown entity '{entity_id}'")]

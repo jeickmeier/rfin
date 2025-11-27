@@ -14,6 +14,7 @@ use std::sync::Arc;
 /// The unit describes how the `quantity` on a [`Position`] should be interpreted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum PositionUnit {
     /// Number of units/shares (for equities, baskets)
     Units,
@@ -24,7 +25,10 @@ pub enum PositionUnit {
     /// Face value of debt instruments (for bonds, loans)
     FaceValue,
 
-    /// Percentage of ownership
+    /// Percentage of ownership where the value represents percentage points.
+    ///
+    /// For example, 50.0 means 50%, not 0.50. The scaling logic always divides
+    /// by 100 to convert to a decimal multiplier.
     Percentage,
 }
 
@@ -129,6 +133,16 @@ impl Position {
                 "Unusually large position quantity"
             );
         }
+
+        // Warn if percentage exceeds 100 (might indicate confusion with decimal form)
+        if matches!(unit, PositionUnit::Percentage) && quantity > 100.0 {
+            tracing::warn!(
+                position_id = %pos_id,
+                quantity,
+                "Percentage quantity exceeds 100 - did you mean {}%?",
+                quantity
+            );
+        }
         
         Ok(Self {
             position_id: pos_id,
@@ -152,6 +166,32 @@ impl Position {
     /// * `value` - Tag value.
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
+        self
+    }
+
+    /// Add multiple tags at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `tags` - Iterator of (key, value) pairs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let position = Position::new(...)
+    ///     .with_tags([("sector", "Technology"), ("region", "US")]);
+    ///
+    /// assert_eq!(position.tags.get("sector"), Some(&"Technology".to_string()));
+    /// ```
+    pub fn with_tags<K, V, I>(mut self, tags: I) -> Self
+    where
+        K: Into<String>,
+        V: Into<String>,
+        I: IntoIterator<Item = (K, V)>,
+    {
+        for (k, v) in tags {
+            self.tags.insert(k.into(), v.into());
+        }
         self
     }
 
@@ -182,7 +222,7 @@ impl Position {
     /// - `Units`: Direct multiplication (quantity = number of units)
     /// - `Notional`: Direct multiplication (quantity = notional amount; instrument should return unit price)
     /// - `FaceValue`: Direct multiplication (quantity = face value; instrument typically returns full PV)
-    /// - `Percentage`: Normalizes if quantity > 1.0 (treats as percentage points), otherwise uses as-is
+    /// - `Percentage`: Quantity represents percentage points (e.g., 50 = 50%), always divided by 100
     ///
     /// # Arguments
     ///
@@ -209,12 +249,8 @@ impl Position {
             }
             PositionUnit::FaceValue => self.quantity,
             PositionUnit::Percentage => {
-                // Normalize if quantity > 1.0 (treat as percentage points, e.g., 50 = 0.50)
-                if self.quantity > 1.0 {
-                    self.quantity / 100.0
-                } else {
-                    self.quantity
-                }
+                // Percentage values are always in points: 50 = 50%
+                self.quantity / 100.0
             }
         };
         Money::new(value.amount() * scale_factor, value.currency())
@@ -287,6 +323,14 @@ impl std::fmt::Debug for Position {
             .finish_non_exhaustive()
     }
 }
+
+impl PartialEq for Position {
+    fn eq(&self, other: &Self) -> bool {
+        self.position_id == other.position_id
+    }
+}
+
+impl Eq for Position {}
 
 #[cfg(test)]
 mod tests {

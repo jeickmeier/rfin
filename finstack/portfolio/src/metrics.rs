@@ -67,6 +67,15 @@ impl PortfolioMetrics {
     }
 }
 
+impl Default for PortfolioMetrics {
+    fn default() -> Self {
+        Self {
+            aggregated: IndexMap::new(),
+            by_position: IndexMap::new(),
+        }
+    }
+}
+
 /// Metrics that can be meaningfully summed across positions.
 ///
 /// These metrics scale linearly with position size and can be aggregated.

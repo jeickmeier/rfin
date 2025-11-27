@@ -1044,7 +1044,7 @@ fn bench_position_filtering(c: &mut Criterion) {
 
     group.bench_function("filter_by_entity", |b| {
         b.iter(|| {
-            let _ = portfolio.positions_for_entity(black_box(&"FUND_1".to_string()));
+            let _ = portfolio.positions_for_entity(black_box("FUND_1"));
         });
     });
 

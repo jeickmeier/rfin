@@ -42,5 +42,7 @@ pub(crate) fn portfolio_to_py(err: PortfolioError) -> PyErr {
         }
         PortfolioError::IndexError(msg) => PyValueError::new_err(format!("Index error: {}", msg)),
         PortfolioError::Core(err) => PyRuntimeError::new_err(format!("Core error: {}", err)),
+        // Handle unknown variants due to #[non_exhaustive]
+        _ => PyRuntimeError::new_err(format!("Portfolio error: {}", err)),
     }
 }

@@ -107,11 +107,11 @@ impl Portfolio {
     ///
     /// # Arguments
     ///
-    /// * `entity_id` - Entity identifier used for filtering.
-    pub fn positions_for_entity(&self, entity_id: &EntityId) -> Vec<&Position> {
+    /// * `entity_id` - Entity identifier used for filtering (accepts &str or &EntityId).
+    pub fn positions_for_entity(&self, entity_id: &str) -> Vec<&Position> {
         self.positions
             .iter()
-            .filter(|p| &p.entity_id == entity_id)
+            .filter(|p| p.entity_id == entity_id)
             .collect()
     }
 
@@ -249,9 +249,8 @@ mod tests {
         let mut portfolio = Portfolio::new("FUND_A", Currency::USD, date!(2024 - 01 - 01));
 
         // Add entity
-        portfolio
-            .entities
-            .insert("ACME".to_string(), Entity::new("ACME"));
+        let entity = Entity::new("ACME");
+        portfolio.entities.insert(entity.id.clone(), entity);
 
         // Valid portfolio
         assert!(portfolio.validate().is_ok());

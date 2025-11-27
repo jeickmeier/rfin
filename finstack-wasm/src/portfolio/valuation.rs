@@ -34,7 +34,7 @@ impl JsPositionValue {
     /// Position ID as string
     #[wasm_bindgen(getter, js_name = positionId)]
     pub fn position_id(&self) -> String {
-        self.inner.position_id.clone()
+        self.inner.position_id.to_string()
     }
 
     /// Get the entity identifier.
@@ -44,7 +44,7 @@ impl JsPositionValue {
     /// Entity ID as string
     #[wasm_bindgen(getter, js_name = entityId)]
     pub fn entity_id(&self) -> String {
-        self.inner.entity_id.clone()
+        self.inner.entity_id.to_string()
     }
 
     /// Get the value in the instrument's native currency.
@@ -146,7 +146,7 @@ impl JsPortfolioValuation {
         let obj = Object::new();
         for (id, value) in &self.inner.position_values {
             let js_value = JsPositionValue::from_inner(value.clone());
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id), &JsValue::from(js_value))?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_value))?;
         }
         Ok(JsValue::from(obj))
     }
@@ -171,7 +171,7 @@ impl JsPortfolioValuation {
         let obj = Object::new();
         for (id, money) in &self.inner.by_entity {
             let js_money = JsMoney::from_inner(*money);
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id), &JsValue::from(js_money))?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_money))?;
         }
         Ok(JsValue::from(obj))
     }
@@ -204,7 +204,7 @@ impl JsPortfolioValuation {
     #[wasm_bindgen(js_name = getEntityValue)]
     pub fn get_entity_value(&self, entity_id: &str) -> Option<JsMoney> {
         self.inner
-            .get_entity_value(&entity_id.to_string())
+            .get_entity_value(entity_id)
             .map(|m| JsMoney::from_inner(*m))
     }
 

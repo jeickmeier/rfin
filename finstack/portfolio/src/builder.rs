@@ -205,8 +205,8 @@ impl PortfolioBuilder {
 
         if needs_dummy && !self.entities.contains_key(DUMMY_ENTITY_ID) {
             tracing::debug!("Auto-creating dummy entity for standalone instruments");
-            self.entities
-                .insert(DUMMY_ENTITY_ID.to_string(), Entity::dummy());
+            let dummy = Entity::dummy();
+            self.entities.insert(dummy.id.clone(), dummy);
         }
 
         let portfolio = Portfolio {

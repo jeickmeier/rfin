@@ -37,13 +37,13 @@ impl PyPositionValue {
     #[getter]
     /// Get the position identifier.
     fn position_id(&self) -> String {
-        self.inner.position_id.clone()
+        self.inner.position_id.to_string()
     }
 
     #[getter]
     /// Get the entity identifier.
     fn entity_id(&self) -> String {
-        self.inner.entity_id.clone()
+        self.inner.entity_id.to_string()
     }
 
     #[getter]
@@ -137,7 +137,7 @@ impl PyPortfolioValuation {
     fn position_values(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         for (id, pv) in &self.inner.position_values {
-            dict.set_item(id, PyPositionValue::new(pv.clone()))?;
+            dict.set_item(id.as_str(), PyPositionValue::new(pv.clone()))?;
         }
         Ok(dict.into())
     }
@@ -153,7 +153,7 @@ impl PyPortfolioValuation {
     fn by_entity(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         for (id, money) in &self.inner.by_entity {
-            dict.set_item(id, PyMoney::new(*money))?;
+            dict.set_item(id.as_str(), PyMoney::new(*money))?;
         }
         Ok(dict.into())
     }

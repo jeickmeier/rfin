@@ -180,7 +180,7 @@ impl PyPortfolio {
     fn entities(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         for (id, entity) in &self.inner.entities {
-            dict.set_item(id, PyEntity::new(entity.clone()))?;
+            dict.set_item(id.as_str(), PyEntity::new(entity.clone()))?;
         }
         Ok(dict.into())
     }

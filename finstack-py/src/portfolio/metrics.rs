@@ -48,7 +48,7 @@ impl PyAggregatedMetric {
     fn by_entity(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         for (id, value) in &self.inner.by_entity {
-            dict.set_item(id, value)?;
+            dict.set_item(id.as_str(), value)?;
         }
         Ok(dict.into())
     }
@@ -171,7 +171,7 @@ impl PyPortfolioMetrics {
             for (metric_id, value) in metrics_map {
                 inner_dict.set_item(metric_id, value)?;
             }
-            dict.set_item(pos_id, inner_dict)?;
+            dict.set_item(pos_id.as_str(), inner_dict)?;
         }
         Ok(dict.into())
     }

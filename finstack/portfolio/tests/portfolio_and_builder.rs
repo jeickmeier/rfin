@@ -34,7 +34,7 @@ fn getters_and_tag_filters() {
         .unwrap();
 
     assert!(portfolio.get_position("P").is_some());
-    assert_eq!(portfolio.positions_for_entity(&"E".to_string()).len(), 1);
+    assert_eq!(portfolio.positions_for_entity("E").len(), 1);
     assert_eq!(portfolio.positions_with_tag("sector", "Tech").len(), 1);
 }
 

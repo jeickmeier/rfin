@@ -104,7 +104,7 @@ impl PyEntity {
     #[getter]
     /// Get the entity identifier.
     fn id(&self) -> String {
-        self.inner.id.clone()
+        self.inner.id.to_string()
     }
 
     #[getter]
@@ -143,7 +143,7 @@ impl PyEntity {
         self.inner
             .name
             .clone()
-            .unwrap_or_else(|| self.inner.id.clone())
+            .unwrap_or_else(|| self.inner.id.to_string())
     }
 }
 
@@ -230,6 +230,8 @@ impl PyPositionUnit {
             }
             PositionUnit::FaceValue => "PositionUnit.FACE_VALUE".to_string(),
             PositionUnit::Percentage => "PositionUnit.PERCENTAGE".to_string(),
+            // Handle unknown variants due to #[non_exhaustive]
+            _ => "PositionUnit.UNKNOWN".to_string(),
         }
     }
 
@@ -240,6 +242,8 @@ impl PyPositionUnit {
             PositionUnit::Notional(Some(ccy)) => format!("notional({})", ccy),
             PositionUnit::FaceValue => "face_value".to_string(),
             PositionUnit::Percentage => "percentage".to_string(),
+            // Handle unknown variants due to #[non_exhaustive]
+            _ => "unknown".to_string(),
         }
     }
 }
@@ -329,13 +333,13 @@ impl PyPosition {
     #[getter]
     /// Get the position identifier.
     fn position_id(&self) -> String {
-        self.inner.position_id.clone()
+        self.inner.position_id.to_string()
     }
 
     #[getter]
     /// Get the entity identifier.
     fn entity_id(&self) -> String {
-        self.inner.entity_id.clone()
+        self.inner.entity_id.to_string()
     }
 
     #[getter]
@@ -386,6 +390,8 @@ impl PyPosition {
                 PositionUnit::Notional(_) => "NOTIONAL",
                 PositionUnit::FaceValue => "FACE_VALUE",
                 PositionUnit::Percentage => "PERCENTAGE",
+                // Handle unknown variants due to #[non_exhaustive]
+                _ => "UNKNOWN",
             }
         )
     }

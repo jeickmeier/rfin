@@ -24,16 +24,17 @@ use finstack_core::prelude::*;
 pub fn positions_to_dataframe(
     valuation: &PortfolioValuation,
 ) -> Result<polars::prelude::DataFrame> {
-    let mut position_ids: Vec<String> = Vec::new();
-    let mut entity_ids: Vec<String> = Vec::new();
-    let mut values_native: Vec<f64> = Vec::new();
-    let mut values_base: Vec<f64> = Vec::new();
-    let mut currencies_native: Vec<String> = Vec::new();
-    let mut currencies_base: Vec<String> = Vec::new();
+    let n = valuation.position_values.len();
+    let mut position_ids: Vec<String> = Vec::with_capacity(n);
+    let mut entity_ids: Vec<String> = Vec::with_capacity(n);
+    let mut values_native: Vec<f64> = Vec::with_capacity(n);
+    let mut values_base: Vec<f64> = Vec::with_capacity(n);
+    let mut currencies_native: Vec<String> = Vec::with_capacity(n);
+    let mut currencies_base: Vec<String> = Vec::with_capacity(n);
 
     for (position_id, position_value) in &valuation.position_values {
-        position_ids.push(position_id.clone());
-        entity_ids.push(position_value.entity_id.clone());
+        position_ids.push(position_id.to_string());
+        entity_ids.push(position_value.entity_id.to_string());
         values_native.push(position_value.value_native.amount());
         values_base.push(position_value.value_base.amount());
         currencies_native.push(position_value.value_native.currency().to_string());
@@ -65,12 +66,13 @@ pub fn positions_to_dataframe(
 ///
 /// A [`Result`] containing the [`polars::prelude::DataFrame`].
 pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::prelude::DataFrame> {
-    let mut entity_ids: Vec<String> = Vec::new();
-    let mut total_values: Vec<f64> = Vec::new();
-    let mut currencies: Vec<String> = Vec::new();
+    let n = valuation.by_entity.len();
+    let mut entity_ids: Vec<String> = Vec::with_capacity(n);
+    let mut total_values: Vec<f64> = Vec::with_capacity(n);
+    let mut currencies: Vec<String> = Vec::with_capacity(n);
 
     for (entity_id, money) in &valuation.by_entity {
-        entity_ids.push(entity_id.clone());
+        entity_ids.push(entity_id.to_string());
         total_values.push(money.amount());
         currencies.push(money.currency().to_string());
     }
@@ -104,7 +106,7 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
     for (position_id, position_metrics) in &metrics.by_position {
         for (metric_id, value) in position_metrics {
             metric_ids.push(metric_id.clone());
-            position_ids.push(position_id.clone());
+            position_ids.push(position_id.to_string());
             values.push(*value);
         }
     }
@@ -133,8 +135,9 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
 pub fn aggregated_metrics_to_dataframe(
     metrics: &PortfolioMetrics,
 ) -> Result<polars::prelude::DataFrame> {
-    let mut metric_ids: Vec<String> = Vec::new();
-    let mut totals: Vec<f64> = Vec::new();
+    let n = metrics.aggregated.len();
+    let mut metric_ids: Vec<String> = Vec::with_capacity(n);
+    let mut totals: Vec<f64> = Vec::with_capacity(n);
 
     for (metric_id, agg_metric) in &metrics.aggregated {
         metric_ids.push(metric_id.clone());

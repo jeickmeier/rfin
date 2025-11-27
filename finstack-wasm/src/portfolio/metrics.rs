@@ -52,7 +52,7 @@ impl JsAggregatedMetric {
     pub fn by_entity(&self) -> Result<JsValue, JsValue> {
         let obj = Object::new();
         for (id, value) in &self.inner.by_entity {
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id), &JsValue::from_f64(*value))?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from_f64(*value))?;
         }
         Ok(JsValue::from(obj))
     }
@@ -143,7 +143,7 @@ impl JsPortfolioMetrics {
                     &JsValue::from_f64(*value),
                 )?;
             }
-            js_sys::Reflect::set(&obj, &JsValue::from_str(position_id), &metrics_obj)?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(position_id.as_str()), &metrics_obj)?;
         }
         Ok(JsValue::from(obj))
     }

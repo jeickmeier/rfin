@@ -62,8 +62,8 @@ impl PortfolioValuation {
     ///
     /// # Arguments
     ///
-    /// * `entity_id` - Entity identifier to query.
-    pub fn get_entity_value(&self, entity_id: &EntityId) -> Option<&Money> {
+    /// * `entity_id` - Entity identifier to query (accepts &str or &EntityId).
+    pub fn get_entity_value(&self, entity_id: &str) -> Option<&Money> {
         self.by_entity.get(entity_id)
     }
 }
@@ -150,8 +150,12 @@ pub fn value_portfolio(
 ///
 /// # Errors
 ///
-/// Returns [`PortfolioError`] when pricing fails, FX rates are missing, or monetary
-/// arithmetic overflows.
+/// Returns [`PortfolioError`] in the following cases:
+///
+/// - [`PortfolioError::ValuationError`] - Instrument pricing failed for a position
+/// - [`PortfolioError::MissingMarketData`] - FX matrix unavailable for cross-currency conversion
+/// - [`PortfolioError::FxConversionFailed`] - Required FX rate not found in the matrix
+/// - [`PortfolioError::Core`] - Monetary arithmetic overflow during aggregation
 ///
 /// # Parallelism
 ///
@@ -503,11 +507,7 @@ mod tests {
 
         assert_eq!(valuation.position_values.len(), 2);
         assert_eq!(valuation.by_entity.len(), 2);
-        assert!(valuation
-            .get_entity_value(&"ENTITY_A".to_string())
-            .is_some());
-        assert!(valuation
-            .get_entity_value(&"ENTITY_B".to_string())
-            .is_some());
+        assert!(valuation.get_entity_value("ENTITY_A").is_some());
+        assert!(valuation.get_entity_value("ENTITY_B").is_some());
     }
 }
