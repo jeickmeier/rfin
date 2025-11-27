@@ -824,4 +824,476 @@ mod tests {
         );
         assert_eq!(calibrator.discount_curve_id, CurveId::new("JPY-OIS"));
     }
+
+    // ========== Market Standards Edge Case Tests ==========
+
+    #[test]
+    fn test_recovery_rate_mismatch_validation() {
+        // Test that calibrator rejects quotes with inconsistent recovery rates
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        // Calibrator expects 40% recovery
+        let calibrator = HazardCurveCalibrator::new(
+            "MISMATCH",
+            Seniority::Senior,
+            0.40, // Calibrator recovery
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        // Quote has 25% recovery (mismatch > RECOVERY_TOLERANCE)
+        let mismatched_quotes = vec![CreditQuote::CDS {
+            entity: "MISMATCH".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 100.0,
+            recovery_rate: 0.25, // Differs by 15pp from calibrator
+            currency: Currency::USD,
+        }];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&mismatched_quotes, &market_context);
+
+        // Should fail with validation error
+        assert!(
+            result.is_err(),
+            "Calibration should fail when quote recovery differs from calibrator"
+        );
+        let err_msg = format!("{:?}", result.err());
+        assert!(
+            err_msg.contains("Recovery rate mismatch"),
+            "Error should mention recovery rate mismatch: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_recovery_rate_within_tolerance() {
+        // Test that small recovery rate differences within tolerance are accepted
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "WITHIN_TOL",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        // Quote recovery within RECOVERY_TOLERANCE (0.01 = 1pp)
+        let quotes = vec![CreditQuote::CDS {
+            entity: "WITHIN_TOL".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 100.0,
+            recovery_rate: 0.405, // 0.5pp difference - within tolerance
+            currency: Currency::USD,
+        }];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&quotes, &market_context);
+
+        // Should succeed
+        assert!(
+            result.is_ok(),
+            "Calibration should succeed when recovery rates are within tolerance: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_distressed_credit_high_spreads() {
+        // Test calibration with high spreads typical of distressed credits (B/CCC rated)
+        // Note: Extremely high spreads (>2000bp) can cause numerical issues in CDS pricing
+        // due to survival probabilities approaching zero, which is realistic market behavior.
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "DISTRESSED",
+            Seniority::Senior,
+            0.25, // Lower recovery for distressed
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        // High but realistic distressed spreads: 500bp, 750bp, 1000bp
+        // These represent B/CCC-rated credits with meaningful default probability
+        let distressed_quotes = vec![
+            CreditQuote::CDS {
+                entity: "DISTRESSED".to_string(),
+                maturity: base_date + time::Duration::days(365),
+                spread_bp: 500.0,
+                recovery_rate: 0.25,
+                currency: Currency::USD,
+            },
+            CreditQuote::CDS {
+                entity: "DISTRESSED".to_string(),
+                maturity: base_date + time::Duration::days(365 * 3),
+                spread_bp: 750.0,
+                recovery_rate: 0.25,
+                currency: Currency::USD,
+            },
+            CreditQuote::CDS {
+                entity: "DISTRESSED".to_string(),
+                maturity: base_date + time::Duration::days(365 * 5),
+                spread_bp: 1000.0,
+                recovery_rate: 0.25,
+                currency: Currency::USD,
+            },
+        ];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&distressed_quotes, &market_context);
+
+        // Should succeed with adaptive grid handling high lambdas
+        assert!(
+            result.is_ok(),
+            "Calibration should succeed for distressed credits: {:?}",
+            result.err()
+        );
+
+        let (curve, report) = result.expect("Should succeed");
+        assert!(report.success);
+
+        // Verify hazard rates are positive and reasonable for distressed credits
+        // For 500bp spread with 25% recovery: λ ≈ 500/10000 / 0.75 ≈ 0.067 (6.7%)
+        for (t, lambda) in curve.knot_points() {
+            assert!(
+                lambda > 0.0,
+                "Hazard rate at t={} must be positive, got {}",
+                t,
+                lambda
+            );
+            // High but not physically unreasonable - distressed credits can have 10-20% hazard
+            assert!(
+                lambda < 0.50,
+                "Hazard rate at t={} should be < 50%, got {:.2}%",
+                t,
+                lambda * 100.0
+            );
+        }
+
+        // Verify survival probability decreases significantly over time
+        let sp_1y = curve.sp(1.0);
+        let sp_5y = curve.sp(5.0);
+        assert!(
+            sp_1y > sp_5y,
+            "Survival probability should decrease: SP(1Y)={} > SP(5Y)={}",
+            sp_1y,
+            sp_5y
+        );
+        // For 1000bp spread with 25% recovery over 5Y, expect significant default probability
+        assert!(
+            sp_5y < 0.80,
+            "5Y survival probability for distressed should be < 80%, got {:.1}%",
+            sp_5y * 100.0
+        );
+    }
+
+    #[test]
+    fn test_tight_spreads_investment_grade() {
+        // Test calibration with very tight spreads (investment grade)
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "AAA_CORP",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        // Very tight spreads: 5bp, 10bp, 15bp
+        let tight_quotes = vec![
+            CreditQuote::CDS {
+                entity: "AAA_CORP".to_string(),
+                maturity: base_date + time::Duration::days(365),
+                spread_bp: 5.0,
+                recovery_rate: 0.40,
+                currency: Currency::USD,
+            },
+            CreditQuote::CDS {
+                entity: "AAA_CORP".to_string(),
+                maturity: base_date + time::Duration::days(365 * 3),
+                spread_bp: 10.0,
+                recovery_rate: 0.40,
+                currency: Currency::USD,
+            },
+            CreditQuote::CDS {
+                entity: "AAA_CORP".to_string(),
+                maturity: base_date + time::Duration::days(365 * 5),
+                spread_bp: 15.0,
+                recovery_rate: 0.40,
+                currency: Currency::USD,
+            },
+        ];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&tight_quotes, &market_context);
+
+        // Should succeed with adaptive grid handling low lambdas
+        assert!(
+            result.is_ok(),
+            "Calibration should succeed for tight spreads: {:?}",
+            result.err()
+        );
+
+        let (curve, report) = result.expect("Should succeed");
+        assert!(report.success);
+
+        // Verify hazard rates are small but positive
+        for (t, lambda) in curve.knot_points() {
+            assert!(
+                lambda > 0.0,
+                "Hazard rate at t={} must be positive, got {}",
+                t,
+                lambda
+            );
+            // Very tight spreads should produce very small lambda
+            assert!(
+                lambda < 0.01,
+                "Hazard rate at t={} for IG should be < 1%, got {:.4}%",
+                t,
+                lambda * 100.0
+            );
+        }
+    }
+
+    #[test]
+    fn test_convention_day_count_consistency() {
+        // Test that Asian convention uses correct day count (ACT/365F)
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "ASIA_CORP",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::JPY, // Should use IsdaAs convention
+            "USD-OIS",
+        );
+
+        assert_eq!(
+            calibrator.convention,
+            CDSConvention::IsdaAs,
+            "JPY should default to Asian convention"
+        );
+
+        let quotes = vec![CreditQuote::CDS {
+            entity: "ASIA_CORP".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 100.0,
+            recovery_rate: 0.40,
+            currency: Currency::JPY,
+        }];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&quotes, &market_context);
+
+        assert!(result.is_ok());
+        let (curve, _) = result.expect("Should succeed");
+
+        // Verify curve day count matches convention
+        assert_eq!(
+            curve.day_count(),
+            finstack_core::dates::DayCount::Act365F,
+            "Asian convention curve should use ACT/365F"
+        );
+    }
+
+    #[test]
+    fn test_determinism_multiple_calibrations() {
+        // Test that repeated calibrations produce identical results
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+        let quotes = test_cds_quotes();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "AAPL",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        let market_context = MarketContext::new().insert_discount(disc);
+
+        // Calibrate multiple times
+        let (curve1, _) = calibrator
+            .calibrate(&quotes, &market_context)
+            .expect("First calibration should succeed");
+        let (curve2, _) = calibrator
+            .calibrate(&quotes, &market_context)
+            .expect("Second calibration should succeed");
+        let (curve3, _) = calibrator
+            .calibrate(&quotes, &market_context)
+            .expect("Third calibration should succeed");
+
+        // Compare survival probabilities at multiple points
+        for t in [0.5, 1.0, 2.0, 3.0, 4.0, 5.0] {
+            let sp1 = curve1.sp(t);
+            let sp2 = curve2.sp(t);
+            let sp3 = curve3.sp(t);
+
+            assert!(
+                (sp1 - sp2).abs() < 1e-15,
+                "Determinism violated at t={}: sp1={} sp2={}",
+                t,
+                sp1,
+                sp2
+            );
+            assert!(
+                (sp2 - sp3).abs() < 1e-15,
+                "Determinism violated at t={}: sp2={} sp3={}",
+                t,
+                sp2,
+                sp3
+            );
+        }
+    }
+
+    #[test]
+    fn test_adaptive_grid_coverage() {
+        // Test that adaptive_grid produces reasonable grids for various initial guesses
+
+        // Investment grade: λ ≈ 0.001 (60bp / 60% LGD)
+        let ig_grid = HazardCurveCalibrator::adaptive_grid(0.001);
+        assert!(
+            ig_grid[0] < 0.001,
+            "Grid should extend below initial guess for IG"
+        );
+        assert!(
+            ig_grid[15] > 0.001,
+            "Grid should extend above initial guess for IG"
+        );
+
+        // High yield: λ ≈ 0.05 (300bp / 60% LGD)
+        let hy_grid = HazardCurveCalibrator::adaptive_grid(0.05);
+        assert!(
+            hy_grid[0] < 0.05,
+            "Grid should extend below initial guess for HY"
+        );
+        assert!(
+            hy_grid[15] > 0.05,
+            "Grid should extend above initial guess for HY"
+        );
+
+        // Distressed: λ ≈ 0.5 (3000bp / 60% LGD)
+        let distressed_grid = HazardCurveCalibrator::adaptive_grid(0.5);
+        assert!(
+            distressed_grid[0] < 0.5,
+            "Grid should extend below initial guess for distressed"
+        );
+        assert!(
+            distressed_grid[15] >= 0.5,
+            "Grid should extend to or above initial guess for distressed"
+        );
+
+        // Verify all grids are strictly increasing
+        for grid in [&ig_grid, &hy_grid, &distressed_grid] {
+            for i in 1..grid.len() {
+                assert!(
+                    grid[i] > grid[i - 1],
+                    "Grid must be strictly increasing: {}[{}]={} <= {}[{}]={}",
+                    "grid",
+                    i,
+                    grid[i],
+                    "grid",
+                    i - 1,
+                    grid[i - 1]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_negative_spread_rejection() {
+        // Test that negative spreads are rejected
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "NEGATIVE",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        let negative_quotes = vec![CreditQuote::CDS {
+            entity: "NEGATIVE".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: -50.0, // Invalid negative spread
+            recovery_rate: 0.40,
+            currency: Currency::USD,
+        }];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&negative_quotes, &market_context);
+
+        assert!(
+            result.is_err(),
+            "Calibration should fail for negative spreads"
+        );
+    }
+
+    #[test]
+    fn test_zero_spread_rejection() {
+        // Test that zero spreads are rejected
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        let calibrator = HazardCurveCalibrator::new(
+            "ZERO",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+
+        let zero_quotes = vec![CreditQuote::CDS {
+            entity: "ZERO".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 0.0, // Invalid zero spread
+            recovery_rate: 0.40,
+            currency: Currency::USD,
+        }];
+
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&zero_quotes, &market_context);
+
+        assert!(result.is_err(), "Calibration should fail for zero spreads");
+    }
+
+    #[test]
+    fn test_with_convention_builder() {
+        // Test the with_convention builder method
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        let calibrator = HazardCurveCalibrator::new(
+            "TEST",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        )
+        .with_convention(CDSConvention::IsdaEu);
+
+        assert_eq!(
+            calibrator.convention,
+            CDSConvention::IsdaEu,
+            "Convention should be overridden to EU"
+        );
+    }
 }
