@@ -16,6 +16,9 @@ mod dividends;
 mod fx_providers;
 #[path = "market_data/hazard_curve_additional.rs"]
 mod hazard_curve_additional;
+#[cfg(feature = "serde")]
+#[path = "market_data/market_data_serde.rs"]
+mod market_data_serde;
 #[path = "market_data/money_rounding.rs"]
 mod money_rounding;
 #[path = "market_data/test_curve_serde.rs"]

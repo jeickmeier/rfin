@@ -424,4 +424,25 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_discount_curve_validates_on_deserialization() {
+        // Try to deserialize a curve with non-monotonic discount factors
+        let bad_json = r#"{
+            "id": "BAD",
+            "base": "2025-01-15",
+            "day_count": "Act365F",
+            "knot_points": [[0.0, 1.0], [1.0, 1.01]],
+            "interp_style": "Linear",
+            "extrapolation": "FlatForward",
+            "require_monotonic": true,
+            "allow_non_monotonic": false
+        }"#;
+
+        let result: Result<DiscountCurve, _> = serde_json::from_str(bad_json);
+        assert!(
+            result.is_err(),
+            "Should reject non-monotonic discount factors"
+        );
+    }
 }

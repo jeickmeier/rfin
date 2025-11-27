@@ -131,184 +131,58 @@ impl HolidayCalendar for AllHolidaysCal {
     }
 }
 
+/// Test that all business day conventions properly guard against infinite loops
+/// when a calendar marks all days as holidays, and that error messages contain
+/// the original date and correct convention.
 #[test]
-fn test_adjust_following_infinite_loop_guard() {
-    let cal = AllHolidaysCal;
-    let date = make_date(2025, 1, 1);
-
-    // This should return an error after 100 days instead of looping forever
-    let result = adjust(date, BusinessDayConvention::Following, &cal);
-    assert!(result.is_err());
-
-    // Verify the error type and message
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date: _,
-            convention,
-            max_days,
-        }) => {
-            assert_eq!(convention, BusinessDayConvention::Following);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-}
-
-#[test]
-fn test_adjust_preceding_infinite_loop_guard() {
-    let cal = AllHolidaysCal;
-    let date = make_date(2025, 1, 1);
-
-    // This should return an error after 100 days instead of looping forever
-    let result = adjust(date, BusinessDayConvention::Preceding, &cal);
-    assert!(result.is_err());
-
-    // Verify the error type and message
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date: _,
-            convention,
-            max_days,
-        }) => {
-            assert_eq!(convention, BusinessDayConvention::Preceding);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-}
-
-#[test]
-fn test_adjust_modified_following_infinite_loop_guard() {
-    let cal = AllHolidaysCal;
-    let date = make_date(2025, 1, 1);
-
-    // This should return an error when trying to find a following business day
-    let result = adjust(date, BusinessDayConvention::ModifiedFollowing, &cal);
-    assert!(result.is_err());
-
-    // Verify the error type and message
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date: _,
-            convention,
-            max_days,
-        }) => {
-            assert_eq!(convention, BusinessDayConvention::ModifiedFollowing);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-}
-
-#[test]
-fn test_adjust_modified_preceding_infinite_loop_guard() {
-    let cal = AllHolidaysCal;
-    let date = make_date(2025, 1, 1);
-
-    // This should return an error when trying to find a preceding business day
-    let result = adjust(date, BusinessDayConvention::ModifiedPreceding, &cal);
-    assert!(result.is_err());
-
-    // Verify the error type and message
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date: _,
-            convention,
-            max_days,
-        }) => {
-            assert_eq!(convention, BusinessDayConvention::ModifiedPreceding);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-}
-
-#[test]
-fn test_improved_error_messages_contain_original_date_and_correct_convention() {
+fn test_all_conventions_infinite_loop_guard_and_error_messages() {
     let cal = AllHolidaysCal;
     let original_date = make_date(2025, 1, 1);
 
-    // Test Following convention error contains correct information
-    let result = adjust(original_date, BusinessDayConvention::Following, &cal);
-    assert!(result.is_err());
-
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date,
-            convention,
-            max_days,
-        }) => {
-            // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date);
-            // Verify the error contains the correct convention enum
-            assert_eq!(convention, BusinessDayConvention::Following);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-
-    // Test Preceding convention error contains correct information
-    let result = adjust(original_date, BusinessDayConvention::Preceding, &cal);
-    assert!(result.is_err());
-
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date,
-            convention,
-            max_days,
-        }) => {
-            // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date);
-            // Verify the error contains the correct convention enum
-            assert_eq!(convention, BusinessDayConvention::Preceding);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-
-    // Test ModifiedFollowing convention error contains correct information
-    let result = adjust(
-        original_date,
+    let conventions = [
+        BusinessDayConvention::Following,
+        BusinessDayConvention::Preceding,
         BusinessDayConvention::ModifiedFollowing,
-        &cal,
-    );
-    assert!(result.is_err());
-
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date,
-            convention,
-            max_days,
-        }) => {
-            // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date);
-            // Verify the error contains the correct convention enum
-            assert_eq!(convention, BusinessDayConvention::ModifiedFollowing);
-            assert_eq!(max_days, 100);
-        }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
-    }
-
-    // Test ModifiedPreceding convention error contains correct information
-    let result = adjust(
-        original_date,
         BusinessDayConvention::ModifiedPreceding,
-        &cal,
-    );
-    assert!(result.is_err());
+    ];
 
-    match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed {
-            date,
-            convention,
-            max_days,
-        }) => {
-            // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date);
-            // Verify the error contains the correct convention enum
-            assert_eq!(convention, BusinessDayConvention::ModifiedPreceding);
-            assert_eq!(max_days, 100);
+    for convention in conventions {
+        let result = adjust(original_date, convention, &cal);
+        assert!(
+            result.is_err(),
+            "{:?} should fail on AllHolidaysCal",
+            convention
+        );
+
+        match result.unwrap_err() {
+            finstack_core::Error::Input(InputError::AdjustmentFailed {
+                date: err_date,
+                convention: err_conv,
+                max_days,
+            }) => {
+                // Verify the error contains the ORIGINAL date (not the last attempted date)
+                assert_eq!(
+                    err_date, original_date,
+                    "{:?}: error should contain original date",
+                    convention
+                );
+                // Verify the error contains the correct convention enum
+                assert_eq!(
+                    err_conv, convention,
+                    "{:?}: error should contain correct convention",
+                    convention
+                );
+                // Verify the max_days limit
+                assert_eq!(
+                    max_days, 100,
+                    "{:?}: error should report max_days=100",
+                    convention
+                );
+            }
+            other => panic!(
+                "Expected AdjustmentFailed for {:?}, got {:?}",
+                convention, other
+            ),
         }
-        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
     }
 }

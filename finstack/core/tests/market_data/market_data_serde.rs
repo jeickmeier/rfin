@@ -1,7 +1,7 @@
-//! Serialization tests for market data types.
+//! Serialization tests for market data types not covered in test_curve_serde.rs.
 //!
-//! Ensures that the refactored direct-serde implementation preserves wire format
-//! compatibility and validation behavior.
+//! Note: DiscountCurve, ForwardCurve, HazardCurve, and InflationCurve roundtrip tests
+//! are now in test_curve_serde.rs which tests all interpolator styles comprehensively.
 
 #![cfg(feature = "serde")]
 
@@ -16,86 +16,10 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
-use finstack_core::math::interp::InterpStyle;
 use time::Month;
 
 fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 15).unwrap()
-}
-
-#[test]
-fn discount_curve_serde_roundtrip() {
-    let curve = DiscountCurve::builder("USD-OIS")
-        .base_date(test_date())
-        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-        .set_interp(InterpStyle::MonotoneConvex)
-        .build()
-        .unwrap();
-
-    let json = serde_json::to_string_pretty(&curve).unwrap();
-    let deserialized: DiscountCurve = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(deserialized.id(), curve.id());
-    assert_eq!(deserialized.base_date(), curve.base_date());
-    assert_eq!(deserialized.day_count(), curve.day_count());
-    assert_eq!(deserialized.knots(), curve.knots());
-    assert_eq!(deserialized.dfs(), curve.dfs());
-}
-
-#[test]
-fn forward_curve_serde_roundtrip() {
-    let curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
-        .base_date(test_date())
-        .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
-        .set_interp(InterpStyle::Linear)
-        .build()
-        .unwrap();
-
-    let json = serde_json::to_string_pretty(&curve).unwrap();
-    let deserialized: ForwardCurve = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(deserialized.id(), curve.id());
-    assert_eq!(deserialized.base_date(), curve.base_date());
-    assert_eq!(deserialized.tenor(), curve.tenor());
-    assert_eq!(deserialized.knots(), curve.knots());
-    assert_eq!(deserialized.forwards(), curve.forwards());
-}
-
-#[test]
-fn hazard_curve_serde_roundtrip() {
-    let curve = HazardCurve::builder("CREDIT-USD")
-        .base_date(test_date())
-        .knots([(0.0, 0.01), (5.0, 0.015)])
-        .recovery_rate(0.4)
-        .build()
-        .unwrap();
-
-    let json = serde_json::to_string_pretty(&curve).unwrap();
-    let deserialized: HazardCurve = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(deserialized.id(), curve.id());
-    assert_eq!(deserialized.base_date(), curve.base_date());
-    assert_eq!(deserialized.recovery_rate(), curve.recovery_rate());
-}
-
-#[test]
-fn inflation_curve_serde_roundtrip() {
-    let curve = InflationCurve::builder("US-CPI")
-        .base_cpi(300.0)
-        .knots([(0.0, 300.0), (5.0, 327.0)])
-        .set_interp(InterpStyle::LogLinear)
-        .build()
-        .unwrap();
-
-    let json = serde_json::to_string_pretty(&curve).unwrap();
-    let deserialized: InflationCurve = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(deserialized.id(), curve.id());
-    assert_eq!(deserialized.base_cpi(), curve.base_cpi());
-    assert_eq!(deserialized.knots(), curve.knots());
-    assert_eq!(deserialized.cpi_levels(), curve.cpi_levels());
 }
 
 #[test]
@@ -200,25 +124,4 @@ fn market_context_serde_roundtrip() {
     assert!(deserialized.get_discount("USD-OIS").is_ok());
     assert!(deserialized.get_forward("USD-SOFR").is_ok());
     assert!(deserialized.surface("VOL").is_ok());
-}
-
-#[test]
-fn discount_curve_validates_on_deserialization() {
-    // Try to deserialize a curve with non-monotonic discount factors
-    let bad_json = r#"{
-        "id": "BAD",
-        "base": "2025-01-15",
-        "day_count": "Act365F",
-        "knot_points": [[0.0, 1.0], [1.0, 1.01]],
-        "interp_style": "Linear",
-        "extrapolation": "FlatForward",
-        "require_monotonic": true,
-        "allow_non_monotonic": false
-    }"#;
-
-    let result: Result<DiscountCurve, _> = serde_json::from_str(bad_json);
-    assert!(
-        result.is_err(),
-        "Should reject non-monotonic discount factors"
-    );
 }

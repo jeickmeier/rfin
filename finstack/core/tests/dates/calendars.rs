@@ -1,14 +1,10 @@
+use super::common::make_date;
 use finstack_core::dates::calendar::{
     ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh, CME as Cme, CNBE as Cnbe,
     DEFR as Defr, GBLO as Gblo, HKEX as Hkex, HKHK as Hkhk, NYSE as Nyse, SGSI as Sgsi,
     SIFMA as Sifma, SSE as Sse, TARGET2 as Target2, USNY as Usny,
 };
 use finstack_core::dates::{Date, HolidayCalendar};
-use time::Month;
-
-fn make_date(y: i32, m: u8, d: u8) -> Date {
-    Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
-}
 
 // Common helper macro to compare computed holiday set vs expected list
 macro_rules! assert_holidays_exact {
@@ -539,47 +535,6 @@ fn sse_2024_2025() {
     // Spot check one date
     assert!(cal.is_holiday(make_date(2024, 10, 3)));
 }
-
-// #[test]
-// fn jpto_2024_2025() {
-//     let cal = Jpto;
-//     assert_holidays_exact!(cal, 2024, [
-//         (2024,1,1),(2024,1,2),(2024,1,3),(2024,1,8),
-//         (2024,2,12),(2024,2,23),(2024,3,20),(2024,4,29),
-//         (2024,5,3),(2024,5,6),(2024,7,15),(2024,8,12),
-//         (2024,9,16),(2024,9,22),(2024,10,14),(2024,11,4),
-//         (2024,11,25)
-//     ]);
-//     assert_holidays_exact!(cal, 2025, [
-//         (2025,1,1),(2025,1,2),(2025,1,3),(2025,1,13),
-//         (2025,2,11),(2025,2,24),(2025,3,20),(2025,4,29),
-//         (2025,5,3),(2025,5,5),(2025,7,21),(2025,8,11),
-//         (2025,9,15),(2025,9,23),(2025,10,13),(2025,11,3),
-//         (2025,11,24)
-//     ]);
-// }
-
-// #[test]
-// fn jpx_2024_2025() {
-//     let cal = Jpx;
-//     // Use JPTO list plus 31-Dec
-//     // 2024
-//     assert_holidays_exact!(cal, 2024, [
-//         (2024,1,1),(2024,1,2),(2024,1,3),(2024,1,8),
-//         (2024,2,12),(2024,2,23),(2024,3,20),(2024,4,29),
-//         (2024,5,3),(2024,5,6),(2024,7,15),(2024,8,12),
-//         (2024,9,16),(2024,9,22),(2024,10,14),(2024,11,4),
-//         (2024,11,25),(2024,12,31)
-//     ]);
-//     // 2025
-//     assert_holidays_exact!(cal, 2025, [
-//         (2025,1,1),(2025,1,2),(2025,1,3),(2025,1,13),
-//         (2025,2,11),(2025,2,24),(2025,3,20),(2025,4,29),
-//         (2025,5,3),(2025,5,5),(2025,7,21),(2025,8,11),
-//         (2025,9,15),(2025,9,23),(2025,10,13),(2025,11,3),
-//         (2025,11,24),(2025,12,31)
-//     ]);
-// }
 
 #[test]
 fn hkhk_2024_2025() {
