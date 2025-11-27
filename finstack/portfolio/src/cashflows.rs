@@ -162,7 +162,7 @@ pub fn aggregate_cashflows(
             let mut scaled: DatedFlows = Vec::with_capacity(flows.len());
 
             for (date, money) in flows {
-                let scaled_money = Money::new(money.amount() * position.quantity, money.currency());
+                let scaled_money = position.scale_value(money);
                 all_flows.push((date, scaled_money));
                 scaled.push((date, scaled_money));
             }
@@ -310,7 +310,8 @@ mod tests {
             Arc::new(bond),
             1.0,
             PositionUnit::FaceValue,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
@@ -368,7 +369,8 @@ mod tests {
             Arc::new(bond),
             1.0,
             PositionUnit::FaceValue,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)

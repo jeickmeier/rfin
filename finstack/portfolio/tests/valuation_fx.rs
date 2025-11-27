@@ -31,7 +31,8 @@ fn cross_currency_conversion_uses_fx_matrix() {
         Arc::new(dep),
         1.0,
         PositionUnit::Units,
-    );
+    )
+    .unwrap();
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)
@@ -77,7 +78,8 @@ fn missing_fx_matrix_errors_for_cross_currency() {
         Arc::new(dep),
         1.0,
         PositionUnit::Units,
-    );
+    )
+    .unwrap();
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)
@@ -121,7 +123,8 @@ fn quantity_scaling_and_entity_totals() {
         Arc::new(dep),
         -2.0,
         PositionUnit::Units,
-    );
+    )
+    .unwrap();
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)

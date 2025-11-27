@@ -31,7 +31,8 @@ fn summable_vs_non_summable_metrics() {
         Arc::new(dep),
         1.0,
         PositionUnit::Units,
-    );
+    )
+    .unwrap();
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)

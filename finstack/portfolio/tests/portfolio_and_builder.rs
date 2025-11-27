@@ -22,6 +22,7 @@ fn getters_and_tag_filters() {
         .unwrap();
 
     let p = Position::new("P", "E", "D", Arc::new(dep), 1.0, PositionUnit::Units)
+        .unwrap()
         .with_tag("sector", "Tech");
 
     let portfolio = PortfolioBuilder::new("P")
@@ -51,7 +52,7 @@ fn validate_unknown_entity_fails() {
         .build()
         .unwrap();
 
-    let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units);
+    let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
 
     let portfolio = Portfolio {
         id: "P".to_string(),
@@ -92,7 +93,8 @@ fn builder_required_fields_and_dummy_auto_create() {
         Arc::new(dep),
         1.0,
         PositionUnit::Units,
-    );
+    )
+    .unwrap();
 
     // Missing base_ccy
     assert!(PortfolioBuilder::new("P").as_of(as_of).build().is_err());

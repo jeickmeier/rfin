@@ -6,6 +6,7 @@
 use crate::error::Result;
 use crate::types::{EntityId, PositionId};
 use crate::valuation::PortfolioValuation;
+use finstack_core::math::summation::neumaier_sum;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -169,6 +170,17 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
             // Phase 2: Aggregate summable metrics
             for (metric_id, value) in metrics {
                 if is_summable(&metric_id) {
+                    // Skip non-finite values (NaN, Inf)
+                    if !value.is_finite() {
+                        tracing::warn!(
+                            metric_id = %metric_id,
+                            position_id = %position_id,
+                            value,
+                            "Skipping non-finite metric value"
+                        );
+                        continue;
+                    }
+
                     let agg =
                         aggregated
                             .entry(metric_id.clone())
@@ -178,13 +190,14 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
                                 by_entity: IndexMap::new(),
                             });
 
-                    // Add to total
-                    agg.total += value;
+                    // Add to total using compensated summation
+                    agg.total = neumaier_sum([agg.total, value].into_iter());
 
                     // Add to entity
-                    *agg.by_entity
+                    let entity_entry = agg.by_entity
                         .entry(position_value.entity_id.clone())
-                        .or_insert(0.0) += value;
+                        .or_insert(0.0);
+                    *entity_entry = neumaier_sum([*entity_entry, value].into_iter());
                 }
             }
         }
@@ -223,11 +236,23 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
     let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
 
     for (position_id, entity_id, metrics) in position_metrics {
+        let position_id_clone = position_id.clone();
         by_position.insert(position_id, metrics.clone());
 
         // Aggregate summable metrics
         for (metric_id, value) in &metrics {
             if is_summable(metric_id) {
+                // Skip non-finite values (NaN, Inf)
+                if !value.is_finite() {
+                    tracing::warn!(
+                        metric_id = %metric_id,
+                        position_id = %position_id_clone,
+                        value,
+                        "Skipping non-finite metric value"
+                    );
+                    continue;
+                }
+
                 let agg = aggregated
                     .entry(metric_id.clone())
                     .or_insert_with(|| AggregatedMetric {
@@ -236,11 +261,12 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
                         by_entity: IndexMap::new(),
                     });
 
-                // Add to total
-                agg.total += value;
+                // Add to total using compensated summation
+                agg.total = neumaier_sum([agg.total, *value].into_iter());
 
                 // Add to entity
-                *agg.by_entity.entry(entity_id.clone()).or_insert(0.0) += value;
+                let entity_entry = agg.by_entity.entry(entity_id.clone()).or_insert(0.0);
+                *entity_entry = neumaier_sum([*entity_entry, *value].into_iter());
             }
         }
     }
@@ -314,7 +340,8 @@ mod tests {
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)

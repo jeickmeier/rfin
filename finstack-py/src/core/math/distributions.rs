@@ -3,7 +3,7 @@ use finstack_core::math::distributions::{
     log_binomial_coefficient as core_log_binomial_coefficient, log_factorial as core_log_factorial,
     sample_beta as core_sample_beta,
 };
-use finstack_core::math::random::{RandomNumberGenerator, SimpleRng};
+use finstack_core::math::random::{RandomNumberGenerator, TestRng};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -105,7 +105,7 @@ pub fn sample_beta_py(alpha: f64, beta: f64, seed: Option<u64>) -> PyResult<f64>
     if alpha <= 0.0 || beta <= 0.0 {
         return Err(PyValueError::new_err("alpha and beta must be positive"));
     }
-    let mut rng = SimpleRng::new(seed.unwrap_or(42));
+    let mut rng = TestRng::new(seed.unwrap_or(42));
     Ok(core_sample_beta(
         &mut rng as &mut dyn RandomNumberGenerator,
         alpha,

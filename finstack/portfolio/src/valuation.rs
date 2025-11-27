@@ -3,6 +3,7 @@
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::{EntityId, PositionId};
+use finstack_core::math::summation::neumaier_sum;
 use finstack_core::prelude::*;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;
@@ -192,7 +193,7 @@ fn value_portfolio_serial(
         let position_value =
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)?;
 
-        // Aggregate by entity
+        // Aggregate by entity using compensated summation
         let entity_total = by_entity
             .entry(position.entity_id.clone())
             .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
@@ -204,13 +205,10 @@ fn value_portfolio_serial(
         position_values.insert(position.position_id.clone(), position_value);
     }
 
-    // Calculate total
-    let mut total_base_ccy = Money::new(0.0, portfolio.base_ccy);
-    for v in by_entity.values() {
-        total_base_ccy = total_base_ccy
-            .checked_add(*v)
-            .map_err(PortfolioError::Core)?;
-    }
+    // Calculate total using compensated summation for numerical stability
+    let entity_amounts: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
+    let total_amount = neumaier_sum(entity_amounts.into_iter());
+    let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
 
     Ok(PortfolioValuation {
         position_values,
@@ -231,43 +229,57 @@ fn value_portfolio_parallel(
 
     let metrics = standard_portfolio_metrics();
 
-    // Value all positions in parallel
-    let position_results: Vec<Result<PositionValue>> = portfolio
+    // Value all positions in parallel and aggregate using fold/reduce
+    let position_values_vec: Vec<PositionValue> = portfolio
         .positions
         .par_iter()
         .map(|position| {
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
 
-    // Collect results and handle errors (fail-fast on first error)
-    let position_values_vec: Vec<PositionValue> =
-        position_results.into_iter().collect::<Result<Vec<_>>>()?;
+    // Parallel aggregation of entity totals using fold/reduce
+    // Collect amounts per entity in parallel, then use compensated summation
+    let entity_amounts_map: IndexMap<EntityId, Vec<f64>> = position_values_vec
+        .par_iter()
+        .fold(
+            IndexMap::new,
+            |mut acc, pv| {
+                acc.entry(pv.entity_id.clone())
+                    .or_insert_with(Vec::new)
+                    .push(pv.value_base.amount());
+                acc
+            },
+        )
+        .reduce(
+            IndexMap::new,
+            |mut a, b| {
+                for (entity_id, amounts) in b {
+                    a.entry(entity_id)
+                        .or_insert_with(Vec::new)
+                        .extend(amounts);
+                }
+                a
+            },
+        );
 
-    // Build position_values map and aggregate by entity deterministically
+    // Build position_values IndexMap deterministically (preserve order)
     let mut position_values = IndexMap::new();
+    for pv in position_values_vec {
+        position_values.insert(pv.position_id.clone(), pv);
+    }
+
+    // Convert entity amounts to Money using compensated summation per entity
     let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
-
-    for position_value in position_values_vec {
-        // Aggregate by entity
-        let entity_total = by_entity
-            .entry(position_value.entity_id.clone())
-            .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
-        *entity_total = entity_total
-            .checked_add(position_value.value_base)
-            .map_err(PortfolioError::Core)?;
-
-        // Store position value
-        position_values.insert(position_value.position_id.clone(), position_value);
+    for (entity_id, amounts) in entity_amounts_map {
+        let total_amount = neumaier_sum(amounts.into_iter());
+        by_entity.insert(entity_id, Money::new(total_amount, portfolio.base_ccy));
     }
 
-    // Calculate total
-    let mut total_base_ccy = Money::new(0.0, portfolio.base_ccy);
-    for v in by_entity.values() {
-        total_base_ccy = total_base_ccy
-            .checked_add(*v)
-            .map_err(PortfolioError::Core)?;
-    }
+    // Calculate total using compensated summation for numerical stability
+    let entity_amounts_for_total: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
+    let total_amount = neumaier_sum(entity_amounts_for_total);
+    let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
 
     Ok(PortfolioValuation {
         position_values,
@@ -320,26 +332,8 @@ fn value_single_position(
 
     let value_native = valuation_result.value;
 
-    // Scale by quantity.
-    //
-    // NOTE: The `quantity` is applied as a scalar multiplier to the instrument's
-    // value.
-    //
-    // - If PositionUnit::Units: `quantity` is the number of units.
-    // - If PositionUnit::Notional: `quantity` is the notional amount.
-    //   WARNING: If the Instrument::price() returns the Total PV of a defined
-    //   notional (e.g. a Bond with 1M face), setting `quantity` to the notional
-    //   amount (1M) will result in squared notional (1M * 1M). In this case,
-    //   `quantity` should be 1.0 (or normalized).
-    //
-    // Market standard is for `Instrument::price` to return Unit Price, but
-    // some OTC instruments return Total PV. The portfolio framework enforces
-    // `scaled = price * quantity` regardless of unit type.
-    //
-    // IMPORTANT: If the instrument pricing model returns Total PV (e.g. for
-    // a bespoke swap where notional is baked in), the Position quantity MUST
-    // be set to 1.0 to avoid double-scaling.
-    let scaled_native = value_native * position.quantity;
+    // Scale by quantity using unit-aware scaling logic.
+    let scaled_native = position.scale_value(value_native);
 
     // Convert to base currency
     let value_base = if scaled_native.currency() == portfolio.base_ccy {
@@ -427,7 +421,8 @@ mod tests {
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
@@ -478,7 +473,8 @@ mod tests {
             Arc::new(dep1),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let pos2 = Position::new(
             "POS_002",
@@ -487,7 +483,8 @@ mod tests {
             Arc::new(dep2),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)

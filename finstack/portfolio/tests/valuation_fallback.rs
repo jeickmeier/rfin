@@ -67,7 +67,7 @@ impl Instrument for ValueOnlyInstrument {
 fn valuation_falls_back_when_metrics_fail() {
     let as_of = base_date();
     let inst = Arc::new(ValueOnlyInstrument::new("VO", Currency::USD, 123.45));
-    let pos = Position::new("P", "E", "VO", inst, 1.0, PositionUnit::Units);
+    let pos = Position::new("P", "E", "VO", inst, 1.0, PositionUnit::Units).unwrap();
 
     let portfolio = PortfolioBuilder::new("PF")
         .base_ccy(Currency::USD)

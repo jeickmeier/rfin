@@ -34,7 +34,7 @@ fn apply_and_revalue_succeeds() {
         .build()
         .unwrap();
 
-    let pos = Position::new("P", "E", "D", Arc::new(dep), 1.0, PositionUnit::Units);
+    let pos = Position::new("P", "E", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
     let portfolio = PortfolioBuilder::new("PF")
         .base_ccy(Currency::USD)
         .as_of(as_of)

@@ -46,7 +46,9 @@ let position = Position::new(
     Arc::new(deposit),
     1.0,
     PositionUnit::Units,
-).with_tag("rating", "AAA");
+)
+.expect("position creation should succeed")
+.with_tag("rating", "AAA");
 
 // Build portfolio
 let portfolio = PortfolioBuilder::new("MY_FUND")
@@ -72,18 +74,34 @@ Portfolios use an entity-based structure:
 
 ### Position Units
 
-Positions support multiple unit types:
-- `Units`: Number of shares/contracts (for equities, options)
-- `Notional(Currency)`: Notional amount (for derivatives, FX)
-- `FaceValue`: Face value of debt (for bonds, loans)
-- `Percentage`: Ownership percentage
+Positions support multiple unit types with unit-aware scaling:
+
+- **`Units`**: Number of shares/contracts (for equities, options)
+  - `quantity` is multiplied directly by instrument value
+  - Example: 100 shares × $50/share = $5,000 position value
+
+- **`Notional(Option<Currency>)`**: Notional amount (for derivatives, FX)
+  - `quantity` represents the notional amount
+  - Instrument should return unit price per unit of notional
+  - If instrument returns total PV for a defined notional, set `quantity = 1.0` to avoid double-scaling
+  - Example: 1M notional × $0.99 unit price = $990,000 position value
+
+- **`FaceValue`**: Face value of debt (for bonds, loans)
+  - `quantity` represents the face value held
+  - Instrument typically returns full PV for its defined notional
+  - Example: $1M face value × bond PV (already includes notional) = position value
+
+- **`Percentage`**: Ownership percentage
+  - `quantity` can be 0.0-1.0 (fractional) or 0-100 (percentage points)
+  - Values > 1.0 are automatically normalized by dividing by 100
+  - Example: `quantity = 50` (treated as 50%) or `quantity = 0.50` (treated as 50%)
 
 ### Valuation Flow
 
 1. **Price instruments**: Call `instrument.value()` for each position
-2. **Scale by quantity**: Multiply unit value by position quantity
+2. **Scale by quantity**: Apply unit-aware scaling using `Position::scale_value()` which respects the `PositionUnit` type
 3. **Cross-currency conversion**: Convert to portfolio base currency using `FxMatrix`
-4. **Aggregation**: Sum by entity and compute portfolio total
+4. **Aggregation**: Sum by entity and compute portfolio total using compensated summation (Neumaier) for numerical stability
 
 ### Metrics Aggregation
 
@@ -149,6 +167,52 @@ let df_positions = positions_to_dataframe(&valuation)?;
 let df_entities = entities_to_dataframe(&valuation)?;
 // Columns: entity_id, total_value, currency
 ```
+
+## Quantity and Unit Semantics
+
+The `Position` struct uses unit-aware scaling to correctly interpret the `quantity` field based on the `PositionUnit` type. This ensures that:
+
+- **Equity positions** with `Units` scale correctly (e.g., 100 shares)
+- **Derivative positions** with `Notional` avoid double-scaling when instruments return total PV
+- **Bond positions** with `FaceValue` correctly represent holdings
+- **Percentage positions** normalize percentage points (e.g., 50 = 50%)
+
+**Important**: If an instrument's `value()` method returns the total PV for a defined notional (common for OTC swaps), set `quantity = 1.0` to avoid double-scaling. The `PositionUnit` type helps document intent but the scaling logic handles the interpretation.
+
+## Numerical Stability
+
+Portfolio aggregation uses **compensated summation** (Neumaier algorithm) to maintain numerical accuracy when summing large portfolios with mixed-sign values. This is critical for:
+
+- **Large portfolios** (1000+ positions) with values spanning orders of magnitude
+- **Mixed-sign positions** (long/short) where cancellation can amplify rounding errors
+- **Regulatory reporting** where aggregate PV must match position-level sums within tight tolerances
+
+The implementation automatically uses Neumaier summation for:
+- Portfolio total value aggregation
+- Entity-level value aggregation  
+- Metrics aggregation (DV01, CS01, etc.)
+
+Non-finite values (NaN, Inf) in metrics are automatically filtered out with warnings logged.
+
+## Serialization
+
+Portfolios can be serialized to JSON using `PortfolioSpec` and `PositionSpec`:
+
+```rust
+use finstack_portfolio::{Portfolio, PortfolioSpec};
+
+// Convert portfolio to serializable spec
+let spec = portfolio.to_spec();
+
+// Serialize to JSON
+let json = serde_json::to_string(&spec)?;
+
+// Deserialize and reconstruct
+let spec: PortfolioSpec = serde_json::from_str(&json)?;
+let portfolio = Portfolio::from_spec(spec)?;
+```
+
+**Note**: Full round-trip serialization requires instruments to implement `Instrument::to_instrument_json()`. Positions with `instrument_spec: None` cannot be fully reconstructed without an external instrument registry.
 
 ## Future Enhancements
 

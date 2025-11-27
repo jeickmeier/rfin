@@ -1,8 +1,10 @@
 //! Position types for holding instruments in a portfolio.
 
+use crate::error::{PortfolioError, Result};
 use crate::types::{EntityId, PositionId};
 use finstack_core::prelude::*;
 use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::InstrumentJson;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -10,7 +12,7 @@ use std::sync::Arc;
 /// Unit of position measurement.
 ///
 /// The unit describes how the `quantity` on a [`Position`] should be interpreted.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PositionUnit {
     /// Number of units/shares (for equities, baskets)
@@ -58,6 +60,35 @@ pub struct Position {
     pub meta: IndexMap<String, serde_json::Value>,
 }
 
+/// Serializable position specification (without Arc<dyn Instrument>).
+///
+/// This struct allows positions to be serialized and deserialized by storing
+/// the instrument definition as JSON rather than a trait object.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PositionSpec {
+    /// Position identifier
+    pub position_id: PositionId,
+    /// Entity identifier
+    pub entity_id: EntityId,
+    /// Instrument identifier (for reference/lookup)
+    pub instrument_id: String,
+    /// Instrument definition for full serialization (optional)
+    ///
+    /// If `None`, the position can still be serialized but cannot be
+    /// reconstructed without an external instrument registry.
+    pub instrument_spec: Option<InstrumentJson>,
+    /// Signed quantity
+    pub quantity: f64,
+    /// Unit of measurement
+    pub unit: PositionUnit,
+    /// Position-level tags
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub tags: IndexMap<String, String>,
+    /// Additional metadata
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub meta: IndexMap<String, serde_json::Value>,
+}
+
 impl Position {
     /// Create a new position.
     ///
@@ -67,8 +98,12 @@ impl Position {
     /// * `entity_id` - Owning entity identifier.
     /// * `instrument_id` - Identifier of the underlying instrument.
     /// * `instrument` - Shared pointer to the instrument implementation.
-    /// * `quantity` - Signed quantity of the instrument.
+    /// * `quantity` - Signed quantity of the instrument (must be finite).
     /// * `unit` - Interpretation of the quantity.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PortfolioError::InvalidInput`] if `quantity` is NaN or infinite.
     pub fn new(
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -76,9 +111,27 @@ impl Position {
         instrument: Arc<dyn Instrument>,
         quantity: f64,
         unit: PositionUnit,
-    ) -> Self {
-        Self {
-            position_id: position_id.into(),
+    ) -> Result<Self> {
+        let pos_id: PositionId = position_id.into();
+        
+        // Validate quantity
+        if !quantity.is_finite() {
+            return Err(PortfolioError::invalid_input(format!(
+                "Position quantity must be finite, got: {} (position_id: {})",
+                quantity, pos_id
+            )));
+        }
+        
+        if quantity.abs() > 1e15 {
+            tracing::warn!(
+                position_id = %pos_id,
+                quantity,
+                "Unusually large position quantity"
+            );
+        }
+        
+        Ok(Self {
+            position_id: pos_id,
             entity_id: entity_id.into(),
             instrument_id: instrument_id.into(),
             instrument,
@@ -86,7 +139,7 @@ impl Position {
             unit,
             tags: IndexMap::new(),
             meta: IndexMap::new(),
-        }
+        })
     }
 
     /// Add a tag to the position.
@@ -121,6 +174,103 @@ impl Position {
     /// Check if this position is short (negative quantity).
     pub fn is_short(&self) -> bool {
         self.quantity < 0.0
+    }
+
+    /// Scale a monetary value by this position's quantity, respecting the unit type.
+    ///
+    /// This function applies unit-aware scaling logic:
+    /// - `Units`: Direct multiplication (quantity = number of units)
+    /// - `Notional`: Direct multiplication (quantity = notional amount; instrument should return unit price)
+    /// - `FaceValue`: Direct multiplication (quantity = face value; instrument typically returns full PV)
+    /// - `Percentage`: Normalizes if quantity > 1.0 (treats as percentage points), otherwise uses as-is
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The monetary value to scale (typically from `instrument.value()`)
+    ///
+    /// # Returns
+    ///
+    /// The scaled monetary value in the same currency.
+    pub fn scale_value(&self, value: Money) -> Money {
+        let scale_factor = match self.unit {
+            PositionUnit::Units => self.quantity,
+            PositionUnit::Notional(unit_ccy) => {
+                // Warn if notional currency differs from instrument currency
+                if let Some(notional_ccy) = unit_ccy {
+                    if notional_ccy != value.currency() {
+                        tracing::warn!(
+                            position_id = %self.position_id,
+                            "Notional currency {} differs from instrument currency {}",
+                            notional_ccy, value.currency()
+                        );
+                    }
+                }
+                self.quantity
+            }
+            PositionUnit::FaceValue => self.quantity,
+            PositionUnit::Percentage => {
+                // Normalize if quantity > 1.0 (treat as percentage points, e.g., 50 = 0.50)
+                if self.quantity > 1.0 {
+                    self.quantity / 100.0
+                } else {
+                    self.quantity
+                }
+            }
+        };
+        Money::new(value.amount() * scale_factor, value.currency())
+    }
+
+    /// Convert this position to a serializable specification.
+    ///
+    /// Attempts to extract the instrument JSON representation if the instrument
+    /// implements the conversion. Returns `None` for `instrument_spec` if conversion
+    /// is not supported.
+    pub fn to_spec(&self) -> PositionSpec {
+        // Try to convert instrument to JSON (will be implemented in phase 5.3)
+        let instrument_spec = self.instrument.to_instrument_json();
+        
+        PositionSpec {
+            position_id: self.position_id.clone(),
+            entity_id: self.entity_id.clone(),
+            instrument_id: self.instrument_id.clone(),
+            instrument_spec,
+            quantity: self.quantity,
+            unit: self.unit,
+            tags: self.tags.clone(),
+            meta: self.meta.clone(),
+        }
+    }
+
+    /// Reconstruct a Position from a specification.
+    ///
+    /// # Arguments
+    ///
+    /// * `spec` - The position specification to reconstruct
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PortfolioError`] if:
+    /// - The quantity is invalid (NaN/Inf)
+    /// - The instrument specification cannot be converted to an instrument
+    pub fn from_spec(spec: PositionSpec) -> Result<Self> {
+        let instrument = if let Some(instr_json) = spec.instrument_spec {
+            Arc::from(instr_json.into_boxed().map_err(|e| {
+                PortfolioError::invalid_input(format!("Failed to convert instrument JSON: {}", e))
+            })?)
+        } else {
+            return Err(PortfolioError::invalid_input(
+                "Cannot reconstruct position without instrument_spec".to_string()
+            ));
+        };
+
+        Self::new(
+            spec.position_id,
+            spec.entity_id,
+            spec.instrument_id,
+            instrument,
+            spec.quantity,
+            spec.unit,
+        )
     }
 }
 
@@ -164,6 +314,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         )
+        .expect("test should succeed")
         .with_tag("type", "cash")
         .with_tag("rating", "AAA");
 

@@ -345,7 +345,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -380,7 +381,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(bond),
             (i + 1) as f64,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -410,7 +412,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(swap),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -427,7 +430,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(equity),
             100.0 * (i + 1) as f64, // shares as quantity
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -451,7 +455,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(option),
             (i + 1) as f64,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -500,7 +505,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(cds),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -525,7 +531,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(fx_spot),
             1_000_000.0, // Notional in base currency
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -557,7 +564,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(repo),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -592,7 +600,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(swaption),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -626,7 +635,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(fx_option),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -663,7 +673,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(cds_option),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -694,7 +705,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(var_swap),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -737,7 +749,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(tranche),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -763,7 +776,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(ilb),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -792,7 +806,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(infl_swap),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -852,7 +867,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(sc),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -900,7 +916,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(convertible),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 
@@ -926,7 +943,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        ));
+        )
+        .unwrap());
         position_id += 1;
     }
 

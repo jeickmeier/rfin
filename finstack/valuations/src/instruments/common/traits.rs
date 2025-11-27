@@ -909,6 +909,22 @@ pub trait Instrument: Send + Sync {
     fn dividend_schedule_id(&self) -> Option<CurveId> {
         None
     }
+
+    /// Convert this instrument to its JSON representation for serialization.
+    ///
+    /// This method enables serialization of instruments by converting them to
+    /// the `InstrumentJson` tagged union. Instruments that support serialization
+    /// should override this method to return `Some(instrument_json)`.
+    ///
+    /// Default implementation returns `None`, indicating that serialization
+    /// is not supported for this instrument type.
+    ///
+    /// # Returns
+    ///
+    /// `Some(InstrumentJson)` if conversion is supported, `None` otherwise
+    fn to_instrument_json(&self) -> Option<crate::instruments::InstrumentJson> {
+        None
+    }
 }
 
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.

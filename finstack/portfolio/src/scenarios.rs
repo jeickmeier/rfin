@@ -177,7 +177,8 @@ mod tests {
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
@@ -229,7 +230,8 @@ mod tests {
             Arc::new(deposit),
             1.0,
             PositionUnit::Units,
-        );
+        )
+        .expect("test should succeed");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)

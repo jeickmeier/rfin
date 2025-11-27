@@ -1,6 +1,7 @@
 //! Python bindings for portfolio core types.
 
 use crate::core::currency::PyCurrency;
+use crate::portfolio::error::portfolio_to_py;
 use crate::valuations::instruments::extract_instrument;
 use finstack_portfolio::{Entity, Position, PositionUnit};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -302,7 +303,8 @@ impl PyPosition {
             Arc::from(handle.instrument),
             quantity,
             unit.inner,
-        );
+        )
+        .map_err(portfolio_to_py)?;
         Ok(Self::new(position))
     }
 

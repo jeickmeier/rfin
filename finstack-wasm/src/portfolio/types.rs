@@ -312,8 +312,8 @@ impl JsPosition {
         instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
         quantity: f64,
         unit: PositionUnit,
-    ) -> JsPosition {
-        JsPosition {
+    ) -> Result<JsPosition, JsValue> {
+        Ok(JsPosition {
             inner: Position::new(
                 position_id,
                 entity_id,
@@ -321,8 +321,9 @@ impl JsPosition {
                 instrument,
                 quantity,
                 unit,
-            ),
-        }
+            )
+            .map_err(|e| JsValue::from_str(&format!("Failed to create position: {}", e)))?,
+        })
     }
 }
 
@@ -481,6 +482,9 @@ pub fn js_create_position_from_deposit(
         quantity,
         unit.inner,
     )
+    .unwrap_or_else(|e| {
+        wasm_bindgen::throw_str(&format!("Failed to create position: {:?}", e));
+    })
 }
 
 /// Create a position from a Bond instrument.
@@ -529,4 +533,7 @@ pub fn js_create_position_from_bond(
         quantity,
         unit.inner,
     )
+    .unwrap_or_else(|e| {
+        wasm_bindgen::throw_str(&format!("Failed to create position: {:?}", e));
+    })
 }

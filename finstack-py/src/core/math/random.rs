@@ -1,6 +1,6 @@
 use finstack_core::math::random::{
     box_muller_polar as core_box_muller_polar, box_muller_transform as core_box_muller_transform,
-    RandomNumberGenerator, SimpleRng,
+    RandomNumberGenerator, TestRng,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -16,7 +16,7 @@ use pyo3::Bound;
 /// - `bernoulli(p)`: Bernoulli trials
 #[derive(Clone, Debug)]
 pub struct PySimpleRng {
-    inner: SimpleRng,
+    inner: TestRng,
 }
 
 #[pymethods]
@@ -31,7 +31,7 @@ impl PySimpleRng {
     ///     Seed for the underlying generator. The same seed yields the same sequence.
     pub fn new(seed: u64) -> Self {
         Self {
-            inner: SimpleRng::new(seed),
+            inner: TestRng::new(seed),
         }
     }
 
@@ -138,7 +138,7 @@ pub fn box_muller_transform_py(u1: f64, u2: f64) -> (f64, f64) {
 /// tuple[float, float]
 ///     Pair ``(z1, z2)`` of independent ``N(0, 1)`` samples.
 pub fn box_muller_polar_py(seed: Option<u64>) -> (f64, f64) {
-    let mut rng = SimpleRng::new(seed.unwrap_or(42));
+    let mut rng = TestRng::new(seed.unwrap_or(42));
     core_box_muller_polar(|| rng.uniform())
 }
 

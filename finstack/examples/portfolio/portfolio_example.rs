@@ -479,6 +479,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "BBB")
     .with_tag("instrument_type", "deposit")
     .with_tag("sector", "Technology");
@@ -503,6 +504,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "AA")
     .with_tag("instrument_type", "deposit")
     .with_tag("sector", "Finance");
@@ -527,6 +529,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "AAA")
     .with_tag("instrument_type", "deposit")
     .with_tag("sector", "Banking");
@@ -549,6 +552,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::FaceValue,
     )
+    .unwrap()
     .with_tag("rating", "A")
     .with_tag("instrument_type", "bond_fixed")
     .with_tag("sector", "Finance");
@@ -572,6 +576,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::FaceValue,
     )
+    .unwrap()
     .with_tag("rating", "BBB")
     .with_tag("instrument_type", "bond_corporate")
     .with_tag("sector", "Technology");
@@ -596,6 +601,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::FaceValue,
     )
+    .unwrap()
     .with_tag("rating", "A-")
     .with_tag("instrument_type", "frn")
     .with_tag("sector", "Finance");
@@ -644,6 +650,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "irs")
     .with_tag("sector", "Derivatives");
@@ -669,6 +676,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "fx_swap")
     .with_tag("sector", "FX");
@@ -692,6 +700,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "BB")
     .with_tag("instrument_type", "cds")
     .with_tag("sector", "Credit");
@@ -729,6 +738,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "IG")
     .with_tag("instrument_type", "cds_index")
     .with_tag("sector", "Credit");
@@ -757,6 +767,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "cds_option")
     .with_tag("sector", "Derivatives");
@@ -795,6 +806,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "IG")
     .with_tag("instrument_type", "cds_tranche")
     .with_tag("sector", "Structured Credit");
@@ -825,6 +837,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "cap")
     .with_tag("sector", "Interest Rate Options");
@@ -854,6 +867,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "swaption")
     .with_tag("sector", "Interest Rate Options");
@@ -878,6 +892,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "equity")
     .with_tag("sector", "Technology");
@@ -913,6 +928,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "equity_option")
     .with_tag("sector", "Equity Options");
@@ -954,6 +970,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "AAA")
     .with_tag("instrument_type", "inflation_linked_bond")
     .with_tag("sector", "Government");
@@ -981,6 +998,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "inflation_swap")
     .with_tag("sector", "Inflation Derivatives");
@@ -1005,6 +1023,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "fx_spot")
     .with_tag("sector", "Foreign Exchange");
@@ -1039,6 +1058,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "N/A")
     .with_tag("instrument_type", "fx_option")
     .with_tag("sector", "Foreign Exchange");
@@ -1178,6 +1198,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         1.0,
         PositionUnit::Units,
     )
+    .unwrap()
     .with_tag("rating", "BB")
     .with_tag("instrument_type", "structured_credit")
     .with_tag("sector", "Structured Credit")

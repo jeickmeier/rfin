@@ -191,6 +191,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         )
+        .expect("test should succeed")
         .with_tag("rating", "AAA")
         .with_tag("sector", "Banking");
 
@@ -202,6 +203,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         )
+        .expect("test should succeed")
         .with_tag("rating", "AA")
         .with_tag("sector", "Banking");
 
@@ -248,6 +250,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         )
+        .expect("test should succeed")
         .with_tag("rating", "AAA");
 
         let pos2 = Position::new(
@@ -258,6 +261,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         )
+        .expect("test should succeed")
         .with_tag("rating", "AAA");
 
         let portfolio = PortfolioBuilder::new("TEST")

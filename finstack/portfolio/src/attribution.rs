@@ -5,6 +5,7 @@
 
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
+use crate::position::PositionUnit;
 use crate::types::PositionId;
 use finstack_core::prelude::*;
 use finstack_valuations::attribution::{
@@ -295,9 +296,22 @@ pub fn attribute_portfolio_pnl(
             }
         };
 
-        // Scale attribution and T0 value by position quantity
-        pos_attr.scale(position.quantity);
-        let val_t0_native = val_t0_native_unit * position.quantity;
+        // Scale attribution and T0 value using unit-aware scaling
+        // For attribution, we still use direct quantity scaling since PnlAttribution.scale()
+        // expects a scalar multiplier. The unit-aware logic is applied to the T0 value.
+        let scale_factor = match position.unit {
+            PositionUnit::Percentage => {
+                // Normalize percentage if > 1.0
+                if position.quantity > 1.0 {
+                    position.quantity / 100.0
+                } else {
+                    position.quantity
+                }
+            }
+            _ => position.quantity,
+        };
+        pos_attr.scale(scale_factor);
+        let val_t0_native = position.scale_value(val_t0_native_unit);
 
         // Convert each factor to base currency
         let convert = |money: Money| -> Result<Money> {
@@ -389,7 +403,7 @@ pub fn attribute_portfolio_pnl(
                 PortfolioError::MissingMarketData("FX matrix at T1 not available".to_string())
             })?;
 
-            let query_t0 = FxQuery::new(inst_ccy, base_ccy, as_of_t1);
+            let query_t0 = FxQuery::new(inst_ccy, base_ccy, as_of_t0);
             let rate_t0 = fx_t0
                 .rate(query_t0)
                 .map_err(|_| PortfolioError::FxConversionFailed {
