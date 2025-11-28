@@ -18,3 +18,5 @@ mod test_par_spread_roundtrip;
 
 // QuantLib parity tests
 mod quantlib_parity;
+
+mod test_cds_pricing_2;

@@ -17,3 +17,4 @@ mod pricing;
 mod proptests;
 mod test_swap_symmetry;
 mod validation;
+mod test_swap_pricing;  
