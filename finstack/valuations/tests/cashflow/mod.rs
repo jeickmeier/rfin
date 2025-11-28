@@ -5,8 +5,11 @@
 //! - Period-based aggregation and PV calculations
 //! - Amortization specification validation
 //! - JSON schema roundtrip serialization
+//! - Day count convention golden values
 
 mod aggregation_tests;
 mod amortization_spec;
 mod builder_tests;
 mod cashflow_schemas_examples;
+mod day_count_golden_tests;
+pub mod test_helpers;
