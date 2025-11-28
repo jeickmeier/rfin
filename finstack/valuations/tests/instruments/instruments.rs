@@ -162,3 +162,11 @@ mod revolving_credit;
 /// Term loan tests - Institutional term loans and DDTL facilities
 #[path = "instruments/term_loan/mod.rs"]
 mod term_loan;
+
+// ============================================================================
+// Golden Test Vectors
+// ============================================================================
+
+/// Golden test vectors from QuantLib and ISDA Standard Model
+#[path = "instruments/golden/mod.rs"]
+mod golden;

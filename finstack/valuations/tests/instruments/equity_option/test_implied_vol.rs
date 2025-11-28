@@ -31,14 +31,18 @@ fn test_implied_vol_recovers_surface_vol() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(
-            implied_vol,
-            vol,
-            1e-4,
-            "Implied vol should recover surface vol",
-        );
-    }
+    // Assert solver converged (implied_vol > 0 indicates success)
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(
+        implied_vol,
+        vol,
+        1e-4,
+        "Implied vol should recover surface vol",
+    );
 }
 
 #[test]
@@ -63,9 +67,13 @@ fn test_implied_vol_atm_option() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "ATM implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "ATM implied vol");
 }
 
 #[test]
@@ -90,9 +98,13 @@ fn test_implied_vol_itm_option() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "ITM implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "ITM implied vol");
 }
 
 #[test]
@@ -117,9 +129,13 @@ fn test_implied_vol_otm_option() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "OTM implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "OTM implied vol");
 }
 
 #[test]
@@ -144,9 +160,13 @@ fn test_implied_vol_short_dated() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "Short dated implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Short dated implied vol");
 }
 
 #[test]
@@ -171,9 +191,13 @@ fn test_implied_vol_long_dated() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "Long dated implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Long dated implied vol");
 }
 
 #[test]
@@ -198,9 +222,13 @@ fn test_implied_vol_high_volatility() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-2, "High vol implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-2, "High vol implied vol");
 }
 
 #[test]
@@ -225,9 +253,13 @@ fn test_implied_vol_low_volatility() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "Low vol implied vol");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Low vol implied vol");
 }
 
 #[test]
@@ -278,7 +310,11 @@ fn test_implied_vol_with_dividends() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    if implied_vol > 0.0 {
-        assert_approx_eq_tol(implied_vol, vol, 1e-3, "Implied vol with dividends");
-    }
+    // Assert solver converged
+    assert!(
+        implied_vol > 0.0,
+        "Implied vol solver failed to converge (returned {})",
+        implied_vol
+    );
+    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Implied vol with dividends");
 }

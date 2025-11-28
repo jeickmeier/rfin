@@ -20,6 +20,8 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
+use crate::instruments::common::test_helpers::tolerances;
+
 fn create_test_market(base_date: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
@@ -115,13 +117,16 @@ fn test_zero_coupon_bond_ytm() {
     let ytm = result.measures[MetricId::Ytm.as_str()];
 
     // For 5-year zero priced at 80: YTM = (100/80)^(1/5) - 1 ≈ 4.56%
+    // This is analytically exact, so use NUMERICAL tolerance (1bp = 1e-4)
+    // which accounts for Newton-Raphson solver precision.
     let expected_ytm = (1000.0 / 800.0_f64).powf(1.0 / 5.0) - 1.0;
 
     assert!(
-        (ytm - expected_ytm).abs() < 0.005, // Within 50bp
-        "Zero-coupon YTM {:.4} should be close to {:.4}",
+        (ytm - expected_ytm).abs() < tolerances::NUMERICAL,
+        "Zero-coupon YTM {:.6} should equal analytical {:.6} within {:.0}bp",
         ytm,
-        expected_ytm
+        expected_ytm,
+        tolerances::NUMERICAL * 10000.0
     );
 }
 

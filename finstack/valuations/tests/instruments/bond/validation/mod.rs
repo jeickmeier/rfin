@@ -4,6 +4,12 @@
 //! - Textbook examples (Fabozzi, Hull)
 //! - Market calculator outputs (Bloomberg, FactSet)
 //! - Cross-metric relationships
+//!
+//! Includes:
+//! - `daycount_consistency`: Verifies consistent day count usage across metrics
+//! - `market_benchmarks`: External benchmark validation
+//! - `metric_relationships`: Cross-metric consistency checks
 
+mod daycount_consistency;
 mod market_benchmarks;
 mod metric_relationships;

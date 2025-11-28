@@ -4,41 +4,342 @@
 //! Verifies that the binomial tree pricer converges to a stable value as
 //! the number of tree steps increases.
 //!
-//! **Market Standards Review (Priority 4, Week 3)**
+//! **Market Standards Review (Priority 1 - CRITICAL)**
 //!
-//! Note: Full tree convergence testing requires the convertible pricer to expose
-//! a tree_steps configuration parameter. The current implementation uses a fixed
-//! tree size. This test documents the expected validation approach.
+//! Convergence properties tested:
+//! - Error decreases as step count increases (monotonic convergence)
+//! - Final price stabilizes within tolerance (asymptotic stability)
+//! - Trinomial tree achieves similar convergence behavior
+//! - Richardson extrapolation test for O(1/N) convergence rate
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_valuations::instruments::convertible::pricer::{
+    price_convertible_bond, ConvertibleTreeType,
+};
+use finstack_valuations::instruments::convertible::{
+    AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
+};
+use time::Month;
+
+use crate::instruments::common::test_helpers::tolerances;
+
+/// Create a simple convertible bond for convergence testing.
+///
+/// Parameters chosen for numerical stability:
+/// - 5Y maturity (sufficient for tree to demonstrate convergence)
+/// - 5% coupon (typical for convertible)
+/// - 10:1 conversion ratio (ATM conversion at $100 spot)
+fn create_test_convertible() -> ConvertibleBond {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+
+    let conversion_spec = ConversionSpec {
+        ratio: Some(10.0), // 10 shares per $1000 bond → conversion price = $100
+        price: None,
+        policy: ConversionPolicy::Voluntary,
+        anti_dilution: AntiDilutionPolicy::None,
+        dividend_adjustment: DividendAdjustment::None,
+    };
+
+    let fixed_coupon = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: 0.05, // 5% coupon
+        freq: Frequency::semi_annual(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: None,
+        stub: StubKind::None,
+    };
+
+    ConvertibleBond {
+        id: "CONV-TEST".to_string().into(),
+        notional: Money::new(1000.0, Currency::USD),
+        issue,
+        maturity,
+        discount_curve_id: "USD-OIS".into(),
+        credit_curve_id: None,
+        conversion: conversion_spec,
+        underlying_equity_id: Some("EQUITY".to_string()),
+        call_put: None,
+        fixed_coupon: Some(fixed_coupon),
+        floating_coupon: None,
+        attributes: Default::default(),
+    }
+}
+
+/// Create a market context with flat curves for deterministic testing.
+///
+/// Parameters:
+/// - 5% discount rate (flat curve)
+/// - $100 spot price (ATM for 10:1 conversion ratio)
+/// - 25% implied volatility
+/// - 2% dividend yield
+fn create_test_market(base_date: Date) -> MarketContext {
+    let discount_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-0.05_f64).exp()),
+            (5.0, (-0.05 * 5.0_f64).exp()),
+            (10.0, (-0.05 * 10.0_f64).exp()),
+        ])
+        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .build()
+        .expect("should build curve");
+
+    MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_price("EQUITY", MarketScalar::Unitless(100.0)) // ATM
+        .insert_price("EQUITY-VOL", MarketScalar::Unitless(0.25)) // 25% vol
+        .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% div yield
+}
 
 #[test]
-fn test_convertible_tree_convergence_placeholder() {
-    //! Documents the expected structure for tree convergence validation.
-    //!
-    //! Expected behavior once API supports configurable tree steps:
-    //! 1. Price convertible with N=100, 500, 1000 tree steps
-    //! 2. Verify monotonic convergence: |P(500) - P(100)| > |P(1000) - P(500)|
-    //! 3. Verify final price is reasonable (between bond floor and conversion ceiling)
-    //! 4. Compare to analytical bounds where available
-    //!
-    //! Example expected implementation:
-    //! ```ignore
-    //! let convertible = create_simple_convertible();
-    //! let market = create_market_context();
-    //! let as_of = dates::base_date();
-    //!
-    //! let price_100 = convertible.price_with_tree_steps(&market, as_of, 100);
-    //! let price_500 = convertible.price_with_tree_steps(&market, as_of, 500);
-    //! let price_1000 = convertible.price_with_tree_steps(&market, as_of, 1000);
-    //!
-    //! // Convergence error should decrease
-    //! let error_100_500 = (price_500 - price_100).abs();
-    //! let error_500_1000 = (price_1000 - price_500).abs();
-    //! assert!(error_100_500 > error_500_1000);
-    //!
-    //! // Price should be stable (within 0.1% at N=1000)
-    //! assert!((price_1000 - price_500).abs() / price_1000 < 0.001);
-    //! ```
+fn test_tree_convergence_binomial() {
+    let bond = create_test_convertible();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let market = create_test_market(as_of);
 
-    // This test documents the requirement for future implementation
-    // No assertion needed - it's a documentation placeholder
+    // Price with increasing tree steps
+    let price_100 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_500 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(500),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_1000 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(1000),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    // Verify all prices are finite and positive
+    assert!(price_100.is_finite() && price_100 > 0.0, "N=100 price should be finite positive");
+    assert!(price_500.is_finite() && price_500 > 0.0, "N=500 price should be finite positive");
+    assert!(price_1000.is_finite() && price_1000 > 0.0, "N=1000 price should be finite positive");
+
+    // Convergence error should decrease
+    let error_100_500 = (price_500 - price_100).abs();
+    let error_500_1000 = (price_1000 - price_500).abs();
+
+    assert!(
+        error_500_1000 < error_100_500,
+        "Convergence error should decrease: err(100→500)={:.4}, err(500→1000)={:.4}",
+        error_100_500,
+        error_500_1000
+    );
+
+    // Final price should be stable (within 0.1%)
+    let stability = (price_1000 - price_500).abs() / price_1000;
+    assert!(
+        stability < 0.001,
+        "Price should stabilize at N=1000: relative change={:.4}% (expected <0.1%)",
+        stability * 100.0
+    );
+}
+
+#[test]
+fn test_tree_convergence_trinomial() {
+    let bond = create_test_convertible();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let market = create_test_market(as_of);
+
+    // Price with increasing tree steps
+    let price_50 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(50),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_200 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(200),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_500 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(500),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    // Verify all prices are finite and positive
+    assert!(price_50.is_finite() && price_50 > 0.0, "N=50 price should be finite positive");
+    assert!(price_200.is_finite() && price_200 > 0.0, "N=200 price should be finite positive");
+    assert!(price_500.is_finite() && price_500 > 0.0, "N=500 price should be finite positive");
+
+    // Convergence error should decrease
+    let error_50_200 = (price_200 - price_50).abs();
+    let error_200_500 = (price_500 - price_200).abs();
+
+    assert!(
+        error_200_500 < error_50_200,
+        "Trinomial convergence error should decrease: err(50→200)={:.4}, err(200→500)={:.4}",
+        error_50_200,
+        error_200_500
+    );
+
+    // Final price should be stable
+    let stability = (price_500 - price_200).abs() / price_500;
+    assert!(
+        stability < 0.005, // 0.5% for trinomial (fewer steps tested)
+        "Trinomial price should stabilize: relative change={:.4}%",
+        stability * 100.0
+    );
+}
+
+#[test]
+fn test_binomial_trinomial_consistency() {
+    let bond = create_test_convertible();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let market = create_test_market(as_of);
+
+    // Price with high step count for both tree types
+    let price_binomial = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(500),
+        as_of,
+    )
+    .expect("binomial pricing should succeed")
+    .amount();
+
+    let price_trinomial = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Trinomial(500),
+        as_of,
+    )
+    .expect("trinomial pricing should succeed")
+    .amount();
+
+    // Both trees should converge to similar values (within 1%)
+    let relative_diff = (price_binomial - price_trinomial).abs() / price_binomial;
+    assert!(
+        relative_diff < tolerances::STATISTICAL, // 1%
+        "Binomial ({:.2}) and Trinomial ({:.2}) should agree within 1%, diff={:.2}%",
+        price_binomial,
+        price_trinomial,
+        relative_diff * 100.0
+    );
+}
+
+#[test]
+fn test_convergence_rate_order_one() {
+    // Richardson extrapolation test: For binomial trees, convergence is O(1/N).
+    // Error(N) ≈ C/N, so Error(N)/Error(2N) ≈ 2
+    let bond = create_test_convertible();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let market = create_test_market(as_of);
+
+    let price_100 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(100),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_200 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(200),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    let price_400 = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(400),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    // Use price_400 as reference for true value
+    let error_100 = (price_100 - price_400).abs();
+    let error_200 = (price_200 - price_400).abs();
+
+    // For O(1/N) convergence: Error(100)/Error(200) ≈ 2
+    // Allow some tolerance due to finite precision
+    if error_200 > 1e-6 {
+        // Only test if error is meaningful
+        let ratio = error_100 / error_200;
+        assert!(
+            ratio > 1.5 && ratio < 3.0,
+            "Convergence ratio should be ~2 for O(1/N): err(100)={:.6}, err(200)={:.6}, ratio={:.2}",
+            error_100,
+            error_200,
+            ratio
+        );
+    }
+}
+
+#[test]
+fn test_price_bounds_validity() {
+    // Verify price respects economic bounds
+    let bond = create_test_convertible();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let market = create_test_market(as_of);
+
+    let price = price_convertible_bond(
+        &bond,
+        &market,
+        ConvertibleTreeType::Binomial(200),
+        as_of,
+    )
+    .expect("pricing should succeed")
+    .amount();
+
+    // Conversion value: 10 shares * $100 = $1000
+    let conversion_value = 10.0 * 100.0;
+
+    // Price should be at least conversion value (no-arbitrage)
+    assert!(
+        price >= conversion_value - 1.0, // Allow small numerical tolerance
+        "Price ({:.2}) should be >= conversion value ({:.2})",
+        price,
+        conversion_value
+    );
+
+    // Price should be reasonable (not more than conversion value + bond value)
+    // Bond floor ≈ notional ≈ $1000, so max ≈ $2000
+    assert!(
+        price < 2500.0,
+        "Price ({:.2}) should be reasonable (< $2500)",
+        price
+    );
 }

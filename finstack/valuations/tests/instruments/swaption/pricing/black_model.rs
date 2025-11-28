@@ -1,5 +1,6 @@
 //! Black model pricing tests with manual formula validation
 
+use crate::instruments::common::test_helpers::tolerances;
 use crate::swaption::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -92,6 +93,9 @@ fn test_otm_payer_has_positive_value() {
 
 #[test]
 fn test_payer_receiver_put_call_parity() {
+    // Put-call parity for swaptions:
+    // Payer - Receiver = Annuity × (Forward - Strike) × Notional
+    // At ATM (Forward = Strike), difference should be ~0.
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let strike = 0.05;
     let market = create_flat_market(as_of, 0.05, 0.30);
@@ -102,15 +106,59 @@ fn test_payer_receiver_put_call_parity() {
     let pv_payer = payer.value(&market, as_of).unwrap().amount();
     let pv_receiver = receiver.value(&market, as_of).unwrap().amount();
 
-    // For ATM swaptions, payer and receiver should have similar values
-    // Payer - Receiver = PV(forward_swap - strike) ≈ 0 for ATM
-    // Note: With quarterly fixed/float legs and Act/360, there can be small differences
-    let diff = (pv_payer - pv_receiver).abs();
-    let scale = (pv_payer + pv_receiver) / 2.0;
+    // Compute theoretical parity difference
+    let disc = market.get_discount_ref("USD_OIS").unwrap();
+    let forward = payer.forward_swap_rate(disc, as_of).unwrap();
+    let annuity = payer.swap_annuity(disc, as_of).unwrap();
+    let theoretical_diff = annuity * (forward - strike) * payer.notional.amount();
 
+    let actual_diff = pv_payer - pv_receiver;
+    let parity_error = (actual_diff - theoretical_diff).abs();
+
+    // Use scale of the larger swaption value for relative comparison
+    let scale = pv_payer.max(pv_receiver);
+
+    // Parity should hold within STATISTICAL tolerance (1%)
+    // Small differences arise from:
+    // - Numerical precision in annuity calculation
+    // - Day count convention in schedule vs curve
     assert!(
-        diff / scale < 0.15,
-        "ATM payer-receiver difference should be reasonably small (within 15%)"
+        parity_error / scale < tolerances::STATISTICAL,
+        "Payer-receiver parity violated: actual_diff={:.2}, theoretical={:.2}, error={:.2}, scale={:.2}, ratio={:.4}",
+        actual_diff,
+        theoretical_diff,
+        parity_error,
+        scale,
+        parity_error / scale
+    );
+}
+
+#[test]
+fn test_payer_receiver_parity_diagnostics() {
+    // Diagnostic test to capture intermediate calculations for parity verification
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let strike = 0.05;
+    let market = create_flat_market(as_of, 0.05, 0.30);
+
+    let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
+    let disc = market.get_discount_ref("USD_OIS").unwrap();
+
+    let forward = payer.forward_swap_rate(disc, as_of).unwrap();
+    let annuity = payer.swap_annuity(disc, as_of).unwrap();
+
+    // Forward rate should match the curve rate for flat curves
+    assert!(
+        (forward - 0.05).abs() < tolerances::NUMERICAL,
+        "Forward rate {:.6} should match flat curve rate 0.05",
+        forward
+    );
+
+    // Annuity should be positive and in expected range for 5Y quarterly swap
+    // Approx: sum of df(t) × dcf ≈ 20 quarterly payments × ~0.90 avg df × 0.25 = ~4.5
+    assert!(
+        annuity > 3.0 && annuity < 6.0,
+        "Annuity {:.4} should be in reasonable range [3, 6]",
+        annuity
     );
 }
 

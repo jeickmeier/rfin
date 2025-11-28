@@ -18,6 +18,8 @@ use finstack_valuations::instruments::equity_option::EquityOption;
 use proptest::prelude::*;
 use time::Month;
 
+use crate::instruments::common::test_helpers::scaled_tolerance;
+
 fn create_option_market(
     base_date: Date,
     spot: f64,
@@ -92,11 +94,13 @@ proptest! {
         let pv_strike = strike * (-rate * t).exp();
         let intrinsic = (forward_spot - pv_strike).max(0.0);
 
-        // Property: Call price ≥ intrinsic value (with small tolerance for numerical precision)
+        // Property: Call price ≥ intrinsic value (with scaled tolerance for numerical precision)
+        // Use 0.01% relative tolerance with 0.10 minimum floor for very small values
+        let tolerance = scaled_tolerance(1e-4, intrinsic, 0.10);
         prop_assert!(
-            call_price >= intrinsic - 0.10, // Allow 10 cent tolerance for numerical precision in property tests
-            "Call price {:.4} < intrinsic {:.4} (S={:.2}, K={:.2}, t={:.2})",
-            call_price, intrinsic, spot, strike, t
+            call_price >= intrinsic - tolerance,
+            "Call price {:.4} < intrinsic {:.4} (tol={:.4}, S={:.2}, K={:.2}, t={:.2})",
+            call_price, intrinsic, tolerance, spot, strike, t
         );
 
         // Property: Call price ≥ 0 (non-negativity)
@@ -137,11 +141,13 @@ proptest! {
         let pv_strike = strike * (-rate * t).exp();
         let intrinsic = (pv_strike - forward_spot).max(0.0);
 
-        // Property: Put price ≥ intrinsic value (with small tolerance for numerical precision)
+        // Property: Put price ≥ intrinsic value (with scaled tolerance for numerical precision)
+        // Use 0.01% relative tolerance with 0.10 minimum floor for very small values
+        let tolerance = scaled_tolerance(1e-4, intrinsic, 0.10);
         prop_assert!(
-            put_price >= intrinsic - 0.10, // Allow 10 cent tolerance for numerical precision in property tests
-            "Put price {:.4} < intrinsic {:.4} (S={:.2}, K={:.2}, t={:.2})",
-            put_price, intrinsic, spot, strike, t
+            put_price >= intrinsic - tolerance,
+            "Put price {:.4} < intrinsic {:.4} (tol={:.4}, S={:.2}, K={:.2}, t={:.2})",
+            put_price, intrinsic, tolerance, spot, strike, t
         );
 
         // Property: Put price ≥ 0 (non-negativity)

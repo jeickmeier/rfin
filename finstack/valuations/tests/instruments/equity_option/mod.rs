@@ -15,5 +15,6 @@ mod test_edge_cases;
 mod test_greeks;
 mod test_implied_vol;
 mod test_moneyness;
+mod test_near_expiry;
 mod test_pricing;
 mod test_put_call_parity;

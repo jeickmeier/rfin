@@ -24,6 +24,48 @@ pub const TIGHT_TOLERANCE: f64 = 1e-6;
 /// Relative tolerance for percentage checks (1%)
 pub const RELATIVE_TOLERANCE: f64 = 0.01;
 
+/// Tolerance tiers for different test categories.
+///
+/// Use these standardized tolerances instead of ad-hoc hardcoded values
+/// to ensure consistency across the test suite.
+pub mod tolerances {
+    /// Analytical calculations (e.g., put-call parity, zero-coupon YTM).
+    /// These have closed-form solutions and should be very precise.
+    pub const ANALYTICAL: f64 = 1e-6; // 0.0001%
+
+    /// Numerical methods (e.g., tree pricing, Newton-Raphson solvers).
+    /// These involve iterative convergence and may have small residual errors.
+    pub const NUMERICAL: f64 = 1e-4; // 0.01%
+
+    /// Curve-based pricing with potential convention mismatches.
+    /// Accounts for compounding convention differences (e.g., semi-annual vs continuous).
+    pub const CURVE_PRICING: f64 = 5e-3; // 0.5%
+
+    /// Statistical/Monte Carlo methods.
+    /// These have inherent sampling variance.
+    pub const STATISTICAL: f64 = 1e-2; // 1%
+
+    /// Relative tolerance for scaling comparisons.
+    /// Used when comparing proportional changes across different scales.
+    pub const RELATIVE: f64 = 1e-2; // 1%
+}
+
+/// Scale tolerance with value magnitude, with a minimum absolute floor.
+///
+/// Useful for property tests where tolerance should scale with the value being tested
+/// but should never go below a minimum threshold.
+///
+/// # Arguments
+/// * `base_tol` - Base relative tolerance (e.g., 1e-4 for 0.01%)
+/// * `value` - The value to scale against
+/// * `min_abs` - Minimum absolute tolerance floor
+///
+/// # Returns
+/// The larger of (value * base_tol) and min_abs
+pub fn scaled_tolerance(base_tol: f64, value: f64, min_abs: f64) -> f64 {
+    (value.abs() * base_tol).max(min_abs)
+}
+
 /// Assert two floats are approximately equal with given tolerance
 pub fn assert_approx_eq(actual: f64, expected: f64, tolerance: f64, msg: &str) {
     let diff = (actual - expected).abs();
@@ -230,6 +272,26 @@ mod tests {
     #[test]
     fn test_approx_eq() {
         assert_approx_eq(1.0001, 1.0, 0.001, "Should be approximately equal");
+    }
+
+    #[test]
+    fn test_scaled_tolerance() {
+        // For large values, tolerance should scale
+        assert!((scaled_tolerance(1e-4, 1000.0, 0.01) - 0.1).abs() < 1e-10);
+
+        // For small values, minimum floor should apply
+        assert!((scaled_tolerance(1e-4, 0.001, 0.01) - 0.01).abs() < 1e-10);
+
+        // Zero value uses minimum
+        assert!((scaled_tolerance(1e-4, 0.0, 0.01) - 0.01).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_tolerance_tiers_ordering() {
+        // Verify tolerance tiers are in expected order
+        assert!(tolerances::ANALYTICAL < tolerances::NUMERICAL);
+        assert!(tolerances::NUMERICAL < tolerances::CURVE_PRICING);
+        assert!(tolerances::CURVE_PRICING < tolerances::STATISTICAL);
     }
 
     #[test]

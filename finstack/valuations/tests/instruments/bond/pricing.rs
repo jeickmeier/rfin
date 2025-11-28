@@ -15,6 +15,22 @@ use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;
 
+use crate::instruments::common::test_helpers::tolerances;
+
+/// Expected deviation from par for bonds with semi-annual coupon priced on
+/// continuous compounding curve.
+///
+/// **Reason for deviation:** A 5% coupon bond pays semi-annual coupons at
+/// 2.5% per period, which corresponds to an effective annual yield of
+/// (1.025)^2 - 1 = 5.0625%. When discounted on a continuously compounded 5%
+/// curve (effective yield = e^0.05 - 1 = 5.127%), there's a ~12bp mismatch
+/// that compounds over the bond's life.
+///
+/// **This is intentional behavior.** The test validates the pricing engine,
+/// not convention alignment. For fully convention-aligned tests, construct
+/// curves with matching compounding conventions.
+const PAR_BOND_COMPOUNDING_DEVIATION: f64 = 3.0; // ~0.3% on $1000 notional
+
 fn create_flat_curve(rate: f64, base_date: Date, id: &str) -> DiscountCurve {
     DiscountCurve::builder(id)
         .base_date(base_date)
@@ -48,14 +64,13 @@ fn test_bond_basic_pricing() {
 
     let pv = bond.value(&market, as_of).unwrap();
 
-    // At 5% curve with 5% coupon, should be near par
-    // Note: Small deviation from exact par due to semi-annual compounding vs
-    // continuous discounting in the curve. Tolerance tightened from 50.0 to 3.0
-    // (empirically: ~997.15, deviation of ~2.85 due to compounding mismatch).
+    // At 5% curve with 5% coupon, should be near par.
+    // See PAR_BOND_COMPOUNDING_DEVIATION for explanation of expected deviation.
     assert!(
-        (pv.amount() - 1000.0).abs() < 3.0,
-        "Par bond should price near par, got {}",
-        pv.amount()
+        (pv.amount() - 1000.0).abs() < PAR_BOND_COMPOUNDING_DEVIATION,
+        "Par bond should price near par, got {} (expected deviation < {:.1})",
+        pv.amount(),
+        PAR_BOND_COMPOUNDING_DEVIATION
     );
     assert_eq!(pv.currency(), Currency::USD);
 }
@@ -157,9 +172,23 @@ fn test_bond_price_maturity_relationship() {
     let pv_2y = bond_2y.value(&market, as_of).unwrap();
     let pv_10y = bond_10y.value(&market, as_of).unwrap();
 
-    // At flat curve with coupon = yield, both should be near par
-    assert!((pv_2y.amount() - 1000.0).abs() < 50.0);
-    assert!((pv_10y.amount() - 1000.0).abs() < 50.0);
+    // At flat curve with coupon = yield, both should be near par.
+    // Using CURVE_PRICING tolerance (0.5%) to account for semi-annual vs continuous
+    // compounding convention mismatch between bond cashflows and discount curve.
+    let notional = 1000.0;
+    let tolerance = notional * tolerances::CURVE_PRICING;
+    assert!(
+        (pv_2y.amount() - notional).abs() < tolerance,
+        "2Y par bond deviation {:.2} exceeds {:.1}%",
+        (pv_2y.amount() - notional).abs(),
+        tolerances::CURVE_PRICING * 100.0
+    );
+    assert!(
+        (pv_10y.amount() - notional).abs() < tolerance,
+        "10Y par bond deviation {:.2} exceeds {:.1}%",
+        (pv_10y.amount() - notional).abs(),
+        tolerances::CURVE_PRICING * 100.0
+    );
 }
 
 #[test]
@@ -330,8 +359,14 @@ fn test_bond_near_maturity_pricing() {
 
     let pv = bond.value(&market, as_of).unwrap();
 
-    // Very close to maturity, should be near par plus accrued
-    assert!((pv.amount() - 1000.0).abs() < 20.0);
+    // Very close to maturity, should be near par plus accrued.
+    // Use CURVE_PRICING tolerance (0.5% of notional = 5.0 for $1000).
+    let notional = 1000.0;
+    assert!(
+        (pv.amount() - notional).abs() < notional * tolerances::CURVE_PRICING,
+        "Near-maturity bond deviation {:.2} exceeds tolerance",
+        (pv.amount() - notional).abs()
+    );
 }
 
 #[test]

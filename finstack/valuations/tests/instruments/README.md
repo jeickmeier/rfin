@@ -146,6 +146,44 @@ use crate::instruments::common::test_helpers::TOLERANCE;
 assert!((actual - expected).abs() < TOLERANCE);
 ```
 
+## Tolerance Policy
+
+Tests use standardized tolerances from `common/test_helpers.rs` to ensure consistency
+across the test suite. Choose the appropriate tier based on the calculation type:
+
+| Tier | Constant | Value | Use Case |
+|------|----------|-------|----------|
+| Analytical | `tolerances::ANALYTICAL` | 1e-6 | Closed-form solutions (put-call parity, zero-coupon YTM) |
+| Numerical | `tolerances::NUMERICAL` | 1e-4 | Iterative methods (Newton-Raphson, tree pricing) |
+| Curve Pricing | `tolerances::CURVE_PRICING` | 5e-3 | Curve-based valuations with convention differences |
+| Statistical | `tolerances::STATISTICAL` | 1e-2 | Monte Carlo and statistical tests |
+| Relative | `tolerances::RELATIVE` | 1e-2 | Proportional comparisons |
+
+### Usage Example
+
+```rust
+use crate::instruments::common::test_helpers::{tolerances, scaled_tolerance};
+
+// For analytical calculations (e.g., put-call parity)
+assert!((computed - expected).abs() < tolerances::ANALYTICAL);
+
+// For curve-based pricing with compounding mismatches
+assert!((pv - par).abs() < notional * tolerances::CURVE_PRICING);
+
+// For scaled tolerance (property tests)
+let tol = scaled_tolerance(1e-4, intrinsic, 0.10);  // 0.01% with 0.10 floor
+assert!(price >= intrinsic - tol);
+```
+
+### Convention Notes
+
+- **Par bond pricing**: ~0.3% deviation from par is expected due to semi-annual vs
+  continuous compounding mismatch between bond cashflows and discount curves.
+- **Swaption parity**: Payer - Receiver should match theoretical (Annuity × (F - K) × N)
+  within 1% tolerance.
+- **CDS par spreads**: Validated against ISDA Standard Model reference values.
+- **Options Greeks**: Should satisfy bounds (e.g., call delta ∈ [0, 1]) at all times.
+
 ## Instrument Status
 
 | Instrument | Construction | Cashflows | Pricing | Metrics | Validation | Integration |
