@@ -95,6 +95,7 @@ pub mod swaption_vol;
 pub mod xccy;
 
 pub use base_correlation::BaseCorrelationCalibrator;
+pub use discount::create_ois_swap_from_quote;
 pub use discount::DiscountCurveCalibrator;
 pub use forward_curve::ForwardCurveCalibrator;
 pub use hazard_curve::HazardCurveCalibrator;

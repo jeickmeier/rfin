@@ -125,7 +125,9 @@ fn test_annuity_less_than_maturity() {
 
 #[test]
 fn test_annuity_five_year_swap() {
-    // 5-year swap at 5% should have annuity around 4.3
+    // 5-year swap at 5% should have annuity around 4.32
+    // Analytical: sum_{i=1}^{20} 0.25 * exp(-0.05 * i * 0.25) = 4.3167
+    // Note: Actual may differ slightly due to day-count (ACT/360 vs exact 0.25)
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -138,10 +140,13 @@ fn test_annuity_five_year_swap() {
 
     let annuity = *result.measures.get("annuity").unwrap();
 
+    let expected_annuity = 4.32; // Rounded analytical value
     assert!(
-        annuity > 4.0 && annuity < 4.5,
-        "5Y annuity at 5% should be ~4.3, got {}",
-        annuity
+        (annuity - expected_annuity).abs() < 0.05, // ~1% tolerance
+        "5Y annuity at 5% should be ~{:.4}, got {:.4} (diff: {:.4})",
+        expected_annuity,
+        annuity,
+        (annuity - expected_annuity).abs()
     );
 }
 

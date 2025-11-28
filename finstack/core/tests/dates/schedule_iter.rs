@@ -290,3 +290,63 @@ fn test_eom_with_stub_conventions() {
     assert_eq!(dates[1], make_date(2025, 4, 30)); // Regular quarter -> Apr 30
     assert_eq!(dates[2], make_date(2025, 5, 31)); // End -> May 31
 }
+
+#[test]
+fn test_eom_jan30_roll_to_feb_leap_year() {
+    // EOM: Jan 30 should roll to month-end including Feb 29 in leap year
+    let start = make_date(2024, 1, 30);
+    let end = make_date(2024, 3, 30);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .frequency(Frequency::monthly())
+        .end_of_month(true)
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2024, 1, 31)); // Jan 30 -> 31
+    assert_eq!(dates[1], make_date(2024, 2, 29)); // Feb -> 29 (leap)
+    assert_eq!(dates[2], make_date(2024, 3, 31)); // Mar -> 31
+}
+
+#[test]
+fn test_eom_jan30_roll_to_feb_non_leap() {
+    // EOM: Jan 30 should roll to month-end, Feb 28 in non-leap year
+    let start = make_date(2025, 1, 30);
+    let end = make_date(2025, 3, 30);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .frequency(Frequency::monthly())
+        .end_of_month(true)
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2025, 1, 31)); // Jan 30 -> 31
+    assert_eq!(dates[1], make_date(2025, 2, 28)); // Feb -> 28 (non-leap)
+    assert_eq!(dates[2], make_date(2025, 3, 31)); // Mar -> 31
+}
+
+#[test]
+fn test_eom_quarterly_through_feb() {
+    // Quarterly schedule starting Jan 31 through May should handle Feb correctly
+    let start = make_date(2024, 1, 31);
+    let end = make_date(2024, 7, 31);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .frequency(Frequency::quarterly())
+        .end_of_month(true)
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2024, 1, 31)); // Jan 31
+    assert_eq!(dates[1], make_date(2024, 4, 30)); // Apr 30 (not 31)
+    assert_eq!(dates[2], make_date(2024, 7, 31)); // Jul 31
+}

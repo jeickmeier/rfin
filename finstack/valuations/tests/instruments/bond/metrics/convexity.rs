@@ -7,6 +7,12 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+/// Convexity validation for vanilla bonds
+///
+/// All vanilla (non-callable) bonds have positive convexity.
+///
+/// For a 5-year par bond at ~5% YTM, convexity is typically in the range 15-40.
+/// The analytical formula: C = Σ[t(t+1) × CF_t × DF_t] / (P × (1+y/m)²)
 #[test]
 fn test_convexity_positive() {
     let as_of = date!(2025 - 01 - 01);
@@ -32,5 +38,14 @@ fn test_convexity_positive() {
         .price_with_metrics(&market, as_of, &[MetricId::Convexity])
         .unwrap();
     let cvx = *result.measures.get("convexity").unwrap();
-    assert!(cvx > 0.0); // All vanilla bonds have positive convexity
+
+    // All vanilla bonds have positive convexity
+    assert!(cvx > 0.0, "Vanilla bonds should have positive convexity");
+
+    // For 5-year par bond at ~5% YTM, convexity typically 15-40
+    assert!(
+        cvx > 15.0 && cvx < 40.0,
+        "5Y par bond convexity {:.2} outside expected range [15, 40]",
+        cvx
+    );
 }

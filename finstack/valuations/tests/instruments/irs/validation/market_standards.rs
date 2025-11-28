@@ -92,9 +92,10 @@ fn test_irs_par_rate_market_standard() {
     .unwrap();
     let npv = par_swap.value(&market, as_of).unwrap();
     assert!(
-        npv.amount().abs() < 2000.0,
-        "Par swap NPV={:.2} near zero",
-        npv.amount()
+        npv.amount().abs() < 100.0, // 1bp tolerance
+        "Par swap NPV should be ~0 (within 1bp), got {:.2} ({:.2}bp)",
+        npv.amount(),
+        npv.amount() / 100.0
     );
 }
 
@@ -466,9 +467,10 @@ fn test_irs_rate_sensitivity() {
     // At par rate (5%), NPV should be near zero
     let par_npv = npvs[2].1; // 0.05 rate
     assert!(
-        par_npv.abs() < 2000.0,
-        "At par rate, NPV should be near zero: {:.2}",
-        par_npv
+        par_npv.abs() < 100.0, // 1bp tolerance
+        "At par rate, NPV should be near zero (within 1bp): {:.2} ({:.2}bp)",
+        par_npv,
+        par_npv / 100.0
     );
 }
 
@@ -537,5 +539,113 @@ fn test_irs_leg_pvs_consistency() {
         "NPV from legs ({:.2}) should match total NPV ({:.2})",
         calculated_npv,
         base_npv
+    );
+}
+
+#[test]
+fn test_daycount_convention_impact_on_annuity() {
+    // Different day-count conventions should produce measurably different annuities
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    // Swap with ACT/360 fixed leg
+    let swap_act360 = InterestRateSwap::builder()
+        .id("IRS-ACT360".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            rate: 0.05,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+            start: as_of,
+            end,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            start: as_of,
+            end,
+        })
+        .build()
+        .unwrap();
+
+    // Swap with 30/360 fixed leg (US convention)
+    let swap_30360 = InterestRateSwap::builder()
+        .id("IRS-30360".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            rate: 0.05,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+            start: as_of,
+            end,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            start: as_of,
+            end,
+        })
+        .build()
+        .unwrap();
+
+    let annuity_act360 = swap_act360
+        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .unwrap()
+        .measures["annuity"];
+
+    let annuity_30360 = swap_30360
+        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .unwrap()
+        .measures["annuity"];
+
+    // ACT/360 counts actual days / 360, 30/360 assumes 30-day months
+    // For a 5Y swap, difference should be ~1-2% depending on actual calendar
+    let diff_pct = (annuity_act360 - annuity_30360).abs() / annuity_act360 * 100.0;
+
+    assert!(
+        diff_pct > 0.1 && diff_pct < 5.0,
+        "Day-count conventions should produce measurable difference.\n\
+         ACT/360: {:.4}, 30/360: {:.4}, diff: {:.2}%",
+        annuity_act360,
+        annuity_30360,
+        diff_pct
     );
 }

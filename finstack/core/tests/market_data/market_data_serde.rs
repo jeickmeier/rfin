@@ -3,8 +3,6 @@
 //! Note: DiscountCurve, ForwardCurve, HazardCurve, and InflationCurve roundtrip tests
 //! are now in test_curve_serde.rs which tests all interpolator styles comprehensively.
 
-#![cfg(feature = "serde")]
-
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;

@@ -17,3 +17,4 @@ mod fixtures;
 mod integration;
 mod metrics;
 mod pricing;
+mod test_fx_swap;

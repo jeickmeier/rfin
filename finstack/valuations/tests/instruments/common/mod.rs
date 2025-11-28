@@ -11,6 +11,7 @@ pub mod helpers;
 pub mod mc;
 pub mod metrics;
 pub mod parameters;
+pub mod test_barrier_trees;
 pub mod test_discountable;
 pub mod test_helpers;
 pub mod test_pricing;

@@ -33,10 +33,18 @@ fn create_test_market(base_date: Date) -> MarketContext {
     MarketContext::new().insert_discount(curve)
 }
 
+/// Deep discount bond YTM test
+///
+/// Setup: 10-year bond at 50 cents on the dollar with 5% coupon
+///
+/// Analytical approximation:
+///   YTM ≈ coupon + (100 - price) / (years × price)
+///       ≈ 0.05 + (100 - 50) / (10 × 50)
+///       = 0.05 + 0.10 = 15%
+///
+/// Actual YTM will be slightly different due to time value of money effects.
 #[test]
 fn test_deep_discount_bond_ytm() {
-    // Deep discount bond: Trading at 50 cents on the dollar with 5% coupon
-    // Expected YTM > 20%
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2035, Month::January, 1).unwrap();
 
@@ -61,16 +69,11 @@ fn test_deep_discount_bond_ytm() {
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
 
-    // Deep discount → high YTM
+    // Deep discount bond at 50 cents, 10Y maturity, 5% coupon
+    // Expected YTM in range 10-25% based on analytical approximation
     assert!(
-        ytm > 0.10, // Should be > 10% (relaxed for test robustness)
-        "Deep discount bond should have high YTM, got: {:.2}%",
-        ytm * 100.0
-    );
-
-    assert!(
-        ytm < 0.50, // Sanity check < 50%
-        "YTM unreasonably high: {:.2}%",
+        ytm > 0.10 && ytm < 0.25,
+        "Deep discount YTM {:.2}% should be in range [10%, 25%]",
         ytm * 100.0
     );
 }
@@ -117,16 +120,15 @@ fn test_zero_coupon_bond_ytm() {
     let ytm = result.measures[MetricId::Ytm.as_str()];
 
     // For 5-year zero priced at 80: YTM = (100/80)^(1/5) - 1 ≈ 4.56%
-    // This is analytically exact, so use NUMERICAL tolerance (1bp = 1e-4)
-    // which accounts for Newton-Raphson solver precision.
+    // This is a closed-form solution, so use ANALYTICAL tolerance (1e-6)
     let expected_ytm = (1000.0 / 800.0_f64).powf(1.0 / 5.0) - 1.0;
 
     assert!(
-        (ytm - expected_ytm).abs() < tolerances::NUMERICAL,
-        "Zero-coupon YTM {:.6} should equal analytical {:.6} within {:.0}bp",
+        (ytm - expected_ytm).abs() < tolerances::ANALYTICAL,
+        "Zero-coupon YTM {:.8} should equal analytical {:.8} within {:.0e}",
         ytm,
         expected_ytm,
-        tolerances::NUMERICAL * 10000.0
+        tolerances::ANALYTICAL
     );
 }
 
@@ -459,5 +461,51 @@ fn test_near_maturity_bond_ytm() {
         ytm.is_finite() && ytm > -0.05 && ytm < 0.20,
         "Near maturity YTM should be reasonable: got {:.4}",
         ytm
+    );
+}
+
+/// Negative YTM test for extreme premium bonds
+///
+/// This scenario occurred in European government bonds (2019-2020)
+/// when investors accepted negative yields for safety.
+///
+/// Setup: 2-year bond with 0.5% coupon trading at 103 (extreme premium)
+/// Expected: YTM < 0 (negative yield)
+#[test]
+fn test_negative_ytm_extreme_premium() {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+
+    let mut bond = Bond::fixed(
+        "NEG-YTM",
+        Money::new(100.0, Currency::USD),
+        0.005, // 0.5% coupon
+        issue,
+        maturity,
+        "USD-OIS",
+    );
+
+    let market = create_test_market(issue);
+
+    // Price at 103 (extreme premium for 0.5% coupon)
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(103.0);
+
+    let result = bond
+        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .unwrap();
+
+    let ytm = result.measures[MetricId::Ytm.as_str()];
+
+    // Premium bond with coupon < price depreciation should have negative YTM
+    // 2Y bond at 103 with 0.5% coupon: YTM ≈ 0.5% - 1.5%/year ≈ -1%
+    assert!(
+        ytm < 0.0,
+        "Extreme premium bond should have negative YTM, got {:.4}%",
+        ytm * 100.0
+    );
+    assert!(
+        ytm > -0.05,
+        "Negative YTM should be reasonable (> -5%), got {:.4}%",
+        ytm * 100.0
     );
 }

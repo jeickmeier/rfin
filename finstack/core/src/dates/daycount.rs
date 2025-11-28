@@ -625,25 +625,47 @@ pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Conventio
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
-    let d1_adj = if d1 == 31 { 30 } else { d1 };
-    let d2_adj = match convention {
+    let (d1_adj, d2_adj) = match convention {
         Thirty360Convention::Us => {
-            if d2 == 31 && d1_adj == 30 {
+            // ISDA 2006 §4.16(f) - 30/360 US:
+            // - If D1 is 31 or last day of February, change D1 to 30
+            // - If D2 is 31 and D1 was adjusted to 30, change D2 to 30
+            // - If D2 is last day of Feb AND D1 was last day of Feb, change D2 to 30
+            let d1_adj = if d1 == 31 || is_last_day_of_february(start) {
+                30
+            } else {
+                d1
+            };
+            let d2_adj = if (d2 == 31 && d1_adj == 30)
+                || (is_last_day_of_february(end) && is_last_day_of_february(start))
+            {
                 30
             } else {
                 d2
-            }
+            };
+            (d1_adj, d2_adj)
         }
         Thirty360Convention::European => {
-            if d2 == 31 {
-                30
-            } else {
-                d2
-            }
+            // ISDA 2006 §4.16(g) - 30E/360:
+            // - If D1 is 31, change D1 to 30
+            // - If D2 is 31, change D2 to 30
+            // Note: NO February EOM rule for European convention
+            let d1_adj = if d1 == 31 { 30 } else { d1 };
+            let d2_adj = if d2 == 31 { 30 } else { d2 };
+            (d1_adj, d2_adj)
         }
     };
 
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+}
+
+/// Check if date is the last day of February (28 or 29 depending on leap year).
+///
+/// Per ISDA 2006 §4.16(f), the last day of February receives special treatment
+/// in 30/360 US convention calculations.
+#[inline]
+fn is_last_day_of_february(date: Date) -> bool {
+    date.month() == Month::February && date.day() == date.month().length(date.year())
 }
 
 // (Wrappers removed in favor of the public `days_30_360` with `Thirty360Convention`.)

@@ -330,3 +330,91 @@ fn rule_autumnal_equinox_jp() {
         assert!(date.day() >= 22 && date.day() <= 24);
     }
 }
+
+#[test]
+fn rule_easter_known_dates_2020_2030() {
+    // Known Easter Monday dates (authoritative reference from astronomical calculations)
+    let known_easter_mondays = [
+        (2020, 4, 13),
+        (2021, 4, 5),
+        (2022, 4, 18),
+        (2023, 4, 10),
+        (2024, 4, 1),
+        (2025, 4, 21),
+        (2026, 4, 6),
+        (2027, 3, 29),
+        (2028, 4, 17),
+        (2029, 4, 2),
+        (2030, 4, 22),
+    ];
+
+    let rule = Rule::EasterOffset(0); // Easter Monday
+
+    for (year, month, day) in known_easter_mondays {
+        let expected = make_date(year, month, day);
+        assert!(
+            rule.applies(expected),
+            "Easter Monday {} should be {:?}",
+            year,
+            expected
+        );
+    }
+}
+
+#[test]
+fn rule_good_friday_is_3_days_before_easter_monday() {
+    let good_friday = Rule::EasterOffset(-3);
+    let easter_monday = Rule::EasterOffset(0);
+
+    for year in 2020..=2030 {
+        use smallvec::SmallVec;
+        let mut gf_out = SmallVec::<[Date; 1]>::new();
+        let mut em_out = SmallVec::<[Date; 1]>::new();
+
+        good_friday.materialize_year(year, &mut gf_out);
+        easter_monday.materialize_year(year, &mut em_out);
+
+        assert_eq!(gf_out.len(), 1);
+        assert_eq!(em_out.len(), 1);
+
+        let diff = (em_out[0] - gf_out[0]).whole_days();
+        assert_eq!(
+            diff, 3,
+            "Good Friday should be 3 days before Easter Monday in {}",
+            year
+        );
+    }
+}
+
+#[test]
+fn rule_easter_sunday_is_1_day_before_easter_monday() {
+    let easter_sunday = Rule::EasterOffset(-1);
+    let easter_monday = Rule::EasterOffset(0);
+
+    for year in 2020..=2030 {
+        use smallvec::SmallVec;
+        let mut sun_out = SmallVec::<[Date; 1]>::new();
+        let mut mon_out = SmallVec::<[Date; 1]>::new();
+
+        easter_sunday.materialize_year(year, &mut sun_out);
+        easter_monday.materialize_year(year, &mut mon_out);
+
+        assert_eq!(sun_out.len(), 1);
+        assert_eq!(mon_out.len(), 1);
+
+        let diff = (mon_out[0] - sun_out[0]).whole_days();
+        assert_eq!(
+            diff, 1,
+            "Easter Sunday should be 1 day before Easter Monday in {}",
+            year
+        );
+
+        // Easter Sunday should always be a Sunday
+        assert_eq!(
+            sun_out[0].weekday(),
+            time::Weekday::Sunday,
+            "Easter {} should fall on Sunday",
+            year
+        );
+    }
+}

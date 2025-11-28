@@ -38,6 +38,34 @@ pub fn market_with_usd() -> MarketContext {
     MarketContext::new().insert_discount(usd_curve())
 }
 
+/// Create a USD discount curve with a flat rate in basis points.
+/// DF(t) = exp(-rate * t) where rate = bp / 10000
+#[allow(dead_code)]
+pub fn usd_curve_at_rate(rate_bp: f64) -> DiscountCurve {
+    let rate = rate_bp / 10000.0;
+    let mut builder = DiscountCurve::builder("USD")
+        .base_date(base_date())
+        .knots(vec![
+            (0.0, 1.0),
+            (1.0, (-rate * 1.0_f64).exp()),
+            (5.0, (-rate * 5.0_f64).exp()),
+        ])
+        .set_interp(InterpStyle::Linear);
+
+    // For flat or near-zero rates, discount factors may be non-monotonic
+    if rate_bp.abs() < 1.0 {
+        builder = builder.allow_non_monotonic();
+    }
+
+    builder.build().unwrap()
+}
+
+/// Create a market context with USD curve at a specific rate level (in basis points).
+#[allow(dead_code)]
+pub fn market_with_usd_at_rate(rate_bp: f64) -> MarketContext {
+    MarketContext::new().insert_discount(usd_curve_at_rate(rate_bp))
+}
+
 #[allow(dead_code)]
 pub fn market_with_eur() -> MarketContext {
     MarketContext::new().insert_discount(eur_curve())

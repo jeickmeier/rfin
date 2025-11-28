@@ -1110,6 +1110,110 @@ impl RatesQuote {
     }
 }
 
+// =============================================================================
+// Shared Swap Construction Helper
+// =============================================================================
+
+/// Creates an OIS swap from a rates quote with specified curve IDs.
+///
+/// This helper ensures identical swap construction between calibration and
+/// repricing tests, eliminating schedule alignment issues that would otherwise
+/// cause repricing errors.
+///
+/// # Arguments
+///
+/// * `quote` - The swap quote containing rate and frequency parameters
+/// * `discount_curve_id` - Curve ID for discounting (e.g., "USD-OIS")
+/// * `forward_curve_id` - Curve ID for forward projection (same as discount for OIS)
+/// * `base_date` - Start date of the swap
+/// * `notional` - Notional amount
+/// * `calendar_id` - Optional calendar for schedule generation
+///
+/// # Returns
+///
+/// An `InterestRateSwap` configured identically to calibration instruments.
+///
+/// # Example
+///
+/// ```ignore
+/// use finstack_valuations::calibration::methods::create_ois_swap_from_quote;
+///
+/// let swap = create_ois_swap_from_quote(
+///     &quote,
+///     "USD-OIS",
+///     "USD-OIS",
+///     base_date,
+///     Money::new(1_000_000.0, Currency::USD),
+///     None,
+/// )?;
+/// ```
+pub fn create_ois_swap_from_quote(
+    quote: &RatesQuote,
+    discount_curve_id: &str,
+    forward_curve_id: &str,
+    base_date: Date,
+    notional: Money,
+    calendar_id: Option<&str>,
+) -> Result<InterestRateSwap> {
+    use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
+    use finstack_core::dates::{BusinessDayConvention, StubKind};
+
+    let (maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc) = match quote {
+        RatesQuote::Swap {
+            maturity,
+            rate,
+            fixed_freq,
+            float_freq,
+            fixed_dc,
+            float_dc,
+            ..
+        } => (*maturity, *rate, *fixed_freq, *float_freq, *fixed_dc, *float_dc),
+        _ => {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ))
+        }
+    };
+
+    let fixed_spec = FixedLegSpec {
+        discount_curve_id: CurveId::from(discount_curve_id),
+        rate,
+        freq: fixed_freq,
+        dc: fixed_dc,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: calendar_id.map(String::from),
+        stub: StubKind::None,
+        par_method: None,
+        compounding_simple: true,
+        start: base_date,
+        end: maturity,
+    };
+
+    let float_spec = FloatLegSpec {
+        discount_curve_id: CurveId::from(discount_curve_id),
+        forward_curve_id: CurveId::from(forward_curve_id),
+        spread_bp: 0.0,
+        freq: float_freq,
+        dc: float_dc,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: calendar_id.map(String::from),
+        fixing_calendar_id: calendar_id.map(String::from),
+        stub: StubKind::None,
+        reset_lag_days: 2,
+        start: base_date,
+        end: maturity,
+        compounding: FloatingLegCompounding::sofr(),
+    };
+
+    InterestRateSwap::builder()
+        .id(format!("SWAP-{}", maturity).into())
+        .notional(notional)
+        .side(PayReceive::ReceiveFixed)
+        .fixed(fixed_spec)
+        .float(float_spec)
+        .build()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

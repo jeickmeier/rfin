@@ -7,6 +7,7 @@
 //!
 //! Basic day count functionality is tested in unit tests at src/dates/daycount.rs
 
+use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
@@ -52,7 +53,11 @@ fn actact_isma_full_coupon_period() {
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
 
     // Full semi-annual period should be 1.0 under ISMA
-    assert!((yf - 1.0).abs() < 1e-6);
+    assert!(
+        (yf - 1.0).abs() < DAYCOUNT_TOLERANCE,
+        "Expected 1.0, got {}",
+        yf
+    );
 }
 
 #[test]
@@ -82,9 +87,17 @@ fn actact_isma_multiple_frequencies() {
 
     // Different frequencies give different results for ISMA
     // Quarterly: 1 full period = 1.0
-    assert!((yf_q - 1.0).abs() < 1.0e-6);
+    assert!(
+        (yf_q - 1.0).abs() < DAYCOUNT_TOLERANCE,
+        "Quarterly expected 1.0, got {}",
+        yf_q
+    );
     // Monthly: 3 full periods = 3.0
-    assert!((yf_m - 3.0).abs() < 1.0e-6);
+    assert!(
+        (yf_m - 3.0).abs() < DAYCOUNT_TOLERANCE,
+        "Monthly expected 3.0, got {}",
+        yf_m
+    );
 }
 
 #[test]
@@ -100,8 +113,16 @@ fn actact_isma_partial_period() {
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
 
-    // 3 months out of 6-month period ≈ 0.5
-    assert!(yf > 0.45 && yf < 0.55);
+    // ISMA uses actual days in the quasi-coupon period
+    // Jan 15 to Apr 15 = 90 actual days
+    // The coupon period (Jan 15 to Jul 15 in 2025) = 181 actual days
+    // Year fraction = 90/181 ≈ 0.4972
+    // Allow small tolerance for ISMA's period-based calculation
+    assert!(
+        yf > 0.49 && yf < 0.51,
+        "Expected ~0.5 (actual days ratio), got {}",
+        yf
+    );
 }
 
 #[test]
@@ -123,8 +144,16 @@ fn actact_vs_actact_isma_comparison() {
         .unwrap();
 
     // For a full year period with annual frequency, both should give 1.0
-    assert!((yf_isda - 1.0).abs() < 1e-10);
-    assert!((yf_isma - 1.0).abs() < 1e-10);
+    assert!(
+        (yf_isda - 1.0).abs() < DAYCOUNT_TOLERANCE,
+        "ISDA expected 1.0, got {}",
+        yf_isda
+    );
+    assert!(
+        (yf_isma - 1.0).abs() < DAYCOUNT_TOLERANCE,
+        "ISMA expected 1.0, got {}",
+        yf_isma
+    );
 }
 
 // =============================================================================
@@ -165,9 +194,10 @@ fn bus252_counts_only_business_days() {
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
 
-    // Should count: Thu, Fri (skip Sat, Sun) = 2 business days
-    let biz_days = yf * 252.0;
-    assert!((biz_days - 2.0).abs() < 0.1);
+    // Should count exactly: Thu, Fri = 2 business days (skip Sat, Sun)
+    // Business day counting is deterministic, so use exact integer match
+    let biz_days = (yf * 252.0).round() as i32;
+    assert_eq!(biz_days, 2, "Bus/252 should count exactly 2 days");
 }
 
 #[test]
@@ -184,8 +214,15 @@ fn bus252_full_year_approximately_252() {
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
 
-    // Should be close to 1.0 (252 business days in a year)
-    assert!((yf - 1.0).abs() < 0.05);
+    // A full year should have approximately 252 business days
+    // The exact count varies by year due to weekends/holidays
+    // Typical range: 248-256 business days
+    let biz_days = (yf * 252.0).round() as i32;
+    assert!(
+        (248..=256).contains(&biz_days),
+        "Expected ~252 business days, got {}",
+        biz_days
+    );
 }
 
 #[test]

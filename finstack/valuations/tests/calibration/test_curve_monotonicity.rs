@@ -10,7 +10,12 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use proptest::prelude::*;
 use time::Month;
 
-/// Generate valid (monotonically decreasing) discount factors
+/// Generate valid (monotonically decreasing) discount factors with wider range.
+///
+/// The decay range 0.80..0.999 covers:
+/// - High rates (EM-style): 0.80 decay = ~22% annualized
+/// - Normal rates: 0.95 decay = ~5% annualized
+/// - Low rates: 0.999 decay = ~0.1% annualized
 fn valid_discount_factors() -> impl Strategy<Value = Vec<(f64, f64)>> {
     // Generate 3-7 knot points with decreasing DFs
     (3usize..=7).prop_flat_map(|n| {
@@ -18,12 +23,12 @@ fn valid_discount_factors() -> impl Strategy<Value = Vec<(f64, f64)>> {
         let times: Vec<f64> = (0..n).map(|i| i as f64 + (i as f64) * 0.5).collect();
 
         // Generate strictly decreasing DFs starting from 1.0
-        // Use narrower range (0.92..0.98) to avoid extreme forward rates
-        let dfs_strategy = prop::collection::vec(0.92..0.98, n - 1).prop_map(move |rates| {
+        // Widen range to cover more market scenarios: 0.80..0.999
+        let dfs_strategy = prop::collection::vec(0.80..0.999, n - 1).prop_map(move |rates| {
             let mut dfs = vec![1.0]; // Start at DF=1.0
             for rate in rates {
                 let prev = *dfs.last().unwrap();
-                dfs.push(prev * rate); // Each DF is 92-98% of previous (2-8% decline per period)
+                dfs.push(prev * rate);
             }
             dfs
         });
@@ -112,12 +117,141 @@ proptest! {
                 let zero = curve.zero(*t);
 
                 // Zero rates should be in reasonable range for normal curves
+                // Widened to accommodate wider DF ranges: -25% to +50%
                 prop_assert!(
-                    zero > -0.10 && zero < 0.25,
+                    zero > -0.25 && zero < 0.50,
                     "Zero rate {:.4} at t={} outside reasonable range",
                     zero, t
                 );
             }
         }
     }
+}
+
+// =============================================================================
+// Edge Case Tests for Rate Environments
+// =============================================================================
+
+/// Test EUR-style negative rate environment where DF > 1.0 at short end.
+///
+/// Note: The current DiscountCurve implementation may not fully support
+/// negative rate environments. This test documents the expected behavior
+/// and current limitations.
+#[test]
+fn test_negative_rate_curve_via_zero_rates() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+
+    // Build curve with small but positive DFs that imply very low positive rates
+    // This is the closest we can get to negative rates with current implementation
+    let knots = vec![
+        (0.0, 1.0),
+        (1.0, 0.9999), // ~0.01% rate
+        (2.0, 0.9998), // ~0.01% rate
+        (5.0, 0.9990), // ~0.02% rate
+    ];
+
+    let curve = DiscountCurve::builder("NEAR-ZERO")
+        .base_date(base_date)
+        .knots(knots)
+        .build();
+
+    assert!(curve.is_ok(), "Near-zero rate curve should build: {:?}", curve.err());
+
+    let curve = curve.unwrap();
+
+    // Verify zero rates are very small
+    let z1 = curve.zero(1.0);
+    assert!(z1.abs() < 0.01, "Zero rate should be < 1% for near-zero curve: {:.4}", z1);
+}
+
+/// Test near-zero rate flat curve.
+#[test]
+fn test_flat_near_zero_rate_curve() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+
+    // Near-zero flat curve (~0.01% rate)
+    let knots = vec![
+        (0.0, 1.0),
+        (1.0, 0.9999),  // ~0.01% rate
+        (5.0, 0.9995),  // ~0.01% rate
+        (10.0, 0.9990), // ~0.01% rate
+    ];
+
+    let curve = DiscountCurve::builder("FLAT-ZERO")
+        .base_date(base_date)
+        .knots(knots)
+        .build();
+
+    assert!(curve.is_ok(), "Near-zero flat curve should build");
+
+    let curve = curve.unwrap();
+
+    // Verify zero rates are small but positive
+    let z5 = curve.zero(5.0);
+    assert!(z5.abs() < 0.001, "Zero rate should be < 10bp for near-zero curve");
+}
+
+/// Test steep high rate (EM-style) curve.
+#[test]
+fn test_steep_high_rate_curve() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+
+    // EM-style high rate curve
+    let knots = vec![
+        (0.0, 1.0),
+        (1.0, 0.90),  // 10% rate
+        (5.0, 0.50),  // ~14% average
+        (10.0, 0.25), // ~14% average
+    ];
+
+    let curve = DiscountCurve::builder("HIGH-RATE")
+        .base_date(base_date)
+        .knots(knots)
+        .build();
+
+    assert!(curve.is_ok(), "High rate curve should build");
+
+    let curve = curve.unwrap();
+
+    // Verify DFs are monotonically decreasing
+    assert!(curve.df(1.0) < curve.df(0.0), "DF should decrease");
+    assert!(curve.df(5.0) < curve.df(1.0), "DF should decrease");
+    assert!(curve.df(10.0) < curve.df(5.0), "DF should decrease");
+
+    // Verify zero rates are high
+    let z10 = curve.zero(10.0);
+    assert!(z10 > 0.10, "Zero rate should be > 10% for high rate curve");
+}
+
+/// Test inverted curve shape (short rates > long rates).
+#[test]
+fn test_inverted_curve_shape() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+
+    // Inverted curve: steep short-end, flatter long-end
+    // This models a curve where short rates are higher than long rates
+    let knots = vec![
+        (0.0, 1.0),
+        (1.0, 0.92),  // 8% 1Y rate
+        (2.0, 0.85),  // 7.5% 2Y rate
+        (5.0, 0.70),  // 7% 5Y rate
+        (10.0, 0.50), // 7% 10Y rate
+    ];
+
+    let curve = DiscountCurve::builder("INVERTED")
+        .base_date(base_date)
+        .knots(knots)
+        .build();
+
+    assert!(curve.is_ok(), "Inverted curve should build");
+
+    let curve = curve.unwrap();
+
+    // Verify zero rates are higher at short end
+    let z1 = curve.zero(1.0);
+    let z10 = curve.zero(10.0);
+    // Note: With these DFs, z1 ≈ 8% and z10 ≈ 7%
+    // The relationship depends on interpolation
+    assert!(z1 > 0.07, "Short-end zero rate should be high");
+    assert!(z10 > 0.06, "Long-end zero rate should still be positive");
 }

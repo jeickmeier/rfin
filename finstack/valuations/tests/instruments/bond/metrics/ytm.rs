@@ -8,6 +8,11 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+/// Par bond YTM should equal coupon rate
+///
+/// At par (price = 100), the yield to maturity equals the coupon rate.
+/// Small deviations may occur due to compounding convention differences
+/// between bond coupons (semi-annual) and curve (continuous).
 #[test]
 fn test_ytm_par_bond() {
     let as_of = date!(2025 - 01 - 01);
@@ -32,7 +37,14 @@ fn test_ytm_par_bond() {
         .price_with_metrics(&market, as_of, &[MetricId::Ytm])
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
-    assert!((ytm - 0.05).abs() < 0.01); // Par bond YTM ≈ coupon
+
+    // At par, YTM should equal coupon rate within 5bp
+    // Small deviation allowed for compounding convention mismatch
+    assert!(
+        (ytm - 0.05).abs() < 0.0005,
+        "Par bond YTM {:.6} should approximately equal coupon 0.05",
+        ytm
+    );
 }
 
 /// YTM should be well-defined and finite for a simple FRN, even though the

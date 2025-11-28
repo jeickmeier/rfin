@@ -185,9 +185,28 @@ fn test_jacobian_sensitivities_nonzero() {
     assert!(jacobian.is_some());
     let matrix = jacobian.unwrap();
 
-    // Check that at least some sensitivities are non-zero
-    let has_nonzero = matrix
+    // Check sensitivities are in meaningful range (|val| > 1e-4 is economically significant)
+    let meaningful_count = matrix
         .iter()
-        .any(|row| row.iter().any(|&val| val.abs() > 1e-6));
-    assert!(has_nonzero, "Expected at least some non-zero sensitivities");
+        .flat_map(|row| row.iter())
+        .filter(|&&val| val.abs() > 1e-4)
+        .count();
+
+    assert!(
+        meaningful_count > 0,
+        "Expected at least one meaningful sensitivity (|val| > 1e-4)"
+    );
+
+    // Check no exploding sensitivities
+    let max_sensitivity = matrix
+        .iter()
+        .flat_map(|row| row.iter())
+        .map(|v| v.abs())
+        .fold(0.0_f64, f64::max);
+
+    assert!(
+        max_sensitivity < 1e6,
+        "Sensitivities should not explode: max={:.2e}",
+        max_sensitivity
+    );
 }

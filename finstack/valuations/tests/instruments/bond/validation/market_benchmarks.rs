@@ -21,6 +21,8 @@ use finstack_valuations::instruments::{Bond, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+use crate::instruments::common::test_helpers::tolerances;
+
 /// Helper to build a standard flat yield curve for testing
 fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
     DiscountCurve::builder(curve_id)
@@ -77,11 +79,11 @@ fn test_bond_ytm_benchmark_1() {
 
     let ytm = *result.measures.get("ytm").unwrap();
 
-    // Expected YTM ~6.945% (0.06945)
-    // Allow 10bp tolerance for numerical solver differences
+    // Expected YTM ~6.945% (0.06945) from Fabozzi
+    // Using NUMERICAL tolerance (1bp = 1e-4) for YTM solver precision
     assert!(
-        (ytm - 0.06945).abs() < 0.001,
-        "YTM={:.4}% vs expected 6.945%",
+        (ytm - 0.06945).abs() < tolerances::NUMERICAL,
+        "YTM={:.6}% vs expected 6.945%, tolerance 1bp",
         ytm * 100.0
     );
 }
@@ -131,12 +133,15 @@ fn test_bond_ytm_benchmark_2_par_bond() {
     );
 }
 
+/// Macaulay Duration benchmark from Fabozzi, "The Handbook of Fixed Income Securities"
+///
+/// Setup: 5-year, 8% annual coupon bond at par (YTM = 8%)
+/// Expected: 4.312 years
+///
+/// Analytical formula: D = Σ[t × CF_t × DF_t] / P
+/// where DF_t = 1 / (1 + y)^t
 #[test]
 fn test_bond_macaulay_duration_benchmark() {
-    // Benchmark: From Fabozzi
-    // 5-year, 8% annual coupon bond, YTM = 8%
-    // Expected Macaulay Duration: 4.312 years
-
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -169,20 +174,23 @@ fn test_bond_macaulay_duration_benchmark() {
 
     let mac_duration = *result.measures.get("duration_mac").unwrap();
 
-    // Expected: 4.312 years
-    // Allow 0.05 year tolerance
+    // Expected: 4.312 years (Fabozzi benchmark)
+    // Using RELATIVE tolerance (1%) for duration comparison
+    let expected = 4.312;
     assert!(
-        (mac_duration - 4.312).abs() < 0.05,
-        "Macaulay Duration={:.3} vs expected 4.312",
-        mac_duration
+        (mac_duration - expected).abs() < expected * tolerances::RELATIVE,
+        "Macaulay Duration={:.4}y vs Fabozzi expected {:.3}y (±1%)",
+        mac_duration,
+        expected
     );
 }
 
+/// Modified Duration benchmark derived from Macaulay Duration
+///
+/// Formula: ModDur = MacDur / (1 + y/m)
+/// For annual bond at 8% YTM: ModDur = 4.312 / 1.08 = 3.993
 #[test]
 fn test_bond_modified_duration_benchmark() {
-    // Modified Duration = Macaulay Duration / (1 + y/m)
-    // For annual bond at 8% YTM: ModDur = 4.312 / 1.08 = 3.993
-
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -215,19 +223,27 @@ fn test_bond_modified_duration_benchmark() {
 
     let mod_duration = *result.measures.get("duration_mod").unwrap();
 
-    // Expected: 3.993 years
+    // Expected: 3.993 years (MacDur / (1 + y))
+    // Using RELATIVE tolerance (1%) for duration comparison
+    let expected = 3.993;
     assert!(
-        (mod_duration - 3.993).abs() < 0.05,
-        "Modified Duration={:.3} vs expected 3.993",
-        mod_duration
+        (mod_duration - expected).abs() < expected * tolerances::RELATIVE,
+        "Modified Duration={:.4}y vs expected {:.3}y (±1%)",
+        mod_duration,
+        expected
     );
 }
 
+/// DV01 (Dollar Value of 01) market standard test
+///
+/// DV01 Sign Convention:
+/// - DV01 = ΔPrice / Δ(1bp rate increase)
+/// - For fixed-rate bonds: DV01 < 0 (inverse price/yield relationship)
+/// - Magnitude ≈ ModDur × Price × 0.0001
+///
+/// For $100 par, ModDur=4.0, |DV01| should be ~0.04 per $100 face
 #[test]
 fn test_bond_dv01_market_standard() {
-    // DV01 = Price × Modified Duration × 0.0001
-    // For $100 par, ModDur=4.0, DV01 should be ~0.04 per $100 face
-
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -262,18 +278,19 @@ fn test_bond_dv01_market_standard() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 is now computed via generic bump-and-reprice (more accurate than linear approximation)
-    // Verify sign and magnitude are reasonable
+    // DV01 is computed via generic bump-and-reprice (more accurate than linear approximation)
+    // Verify sign: DV01 < 0 for fixed-rate bonds (price decreases when rates rise)
     assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
 
-    // Approximate relationship: DV01 ≈ − Price × ModDur × 1bp
+    // Approximate relationship: DV01 ≈ −Price × ModDur × 1bp
     // Generic DV01 uses actual curve bump, so allow for convexity effects
+    // For a 5-year par bond, convexity contribution to 1bp move is < 1%
     let approx_dv01 = -(price * mod_duration * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.10, // Allow 10% difference due to convexity
-        "DV01={:.4} differs too much from duration estimate {:.4} (relative diff={:.2}%)",
+        relative_diff < 0.05, // 5% tolerance (tightened from 10%)
+        "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
         dv01,
         approx_dv01,
         relative_diff * 100.0

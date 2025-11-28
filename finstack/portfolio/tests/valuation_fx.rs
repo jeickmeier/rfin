@@ -53,6 +53,18 @@ fn cross_currency_conversion_uses_fx_matrix() {
     let pos_val = valuation.get_position_value("POS_EUR").unwrap();
     assert_eq!(pos_val.value_native.currency(), Currency::EUR);
     assert_eq!(pos_val.value_base.currency(), Currency::USD);
+
+    // Verify FX conversion is applied correctly
+    // With flat curve, deposit PV ≈ notional (1M EUR)
+    // At 1.10 EUR/USD, base value should be ~1.1M USD
+    let expected_base = pos_val.value_native.amount() * 1.10;
+    assert!(
+        (pos_val.value_base.amount() - expected_base).abs() < 1.0,
+        "Base value should be native ({}) × FX rate (1.10) = {}, got: {}",
+        pos_val.value_native.amount(),
+        expected_base,
+        pos_val.value_base.amount()
+    );
 }
 
 #[test]

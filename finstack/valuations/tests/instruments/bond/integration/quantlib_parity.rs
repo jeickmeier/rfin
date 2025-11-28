@@ -476,6 +476,11 @@ fn quantlib_parity_convexity() {
 // Test 11: DV01 (Dollar Value of 01)
 // =============================================================================
 // QuantLib reference: bonds.cpp, testDV01()
+//
+// DV01 Sign Convention:
+// - DV01 = ΔPrice / Δ(1bp rate increase)
+// - For fixed-rate bonds: DV01 < 0 (price decreases when rates rise)
+// - Magnitude ≈ ModDur × Price × 0.0001
 
 #[test]
 fn quantlib_parity_dv01() {
@@ -502,10 +507,17 @@ fn quantlib_parity_dv01() {
 
     let dv01 = *result.measures.get("dv01").unwrap();
 
-    // QuantLib expectation: DV01 ≈ Modified Duration * Price / 10000
-    // For 5-year par bond: should be positive and reasonable
-    assert!(dv01 > 0.03, "DV01 should be positive");
-    assert!(dv01 < 0.06, "DV01 should be reasonable");
+    // DV01 should be negative for fixed-rate bonds (price decreases when rates rise)
+    assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
+
+    // Verify magnitude is reasonable for 5-year par bond
+    // |DV01| ≈ ModDur × Price × 0.0001 ≈ 4.5 × 100 × 0.0001 ≈ 0.045
+    let abs_dv01 = dv01.abs();
+    assert!(
+        abs_dv01 > 0.03 && abs_dv01 < 0.06,
+        "DV01 magnitude {:.4} outside expected range [0.03, 0.06]",
+        abs_dv01
+    );
 }
 
 // =============================================================================

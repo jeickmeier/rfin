@@ -81,27 +81,23 @@ fn test_dv01_duration_price_relationship() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 is now computed via generic bump-and-reprice (more accurate than linear approximation)
-    // Verify sign and magnitude are reasonable
+    // DV01 is computed via generic bump-and-reprice (more accurate than linear approximation)
+    // Verify sign: DV01 < 0 for fixed-rate bonds (price decreases when rates rise)
     assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
 
-    // Approximate relationship: DV01 ≈ − Price × ModDur × 0.0001
-    //
-    // The linear approximation (Duration × 0.0001) ignores convexity:
-    //   ΔP ≈ -D × ΔY × P + 0.5 × C × (ΔY)² × P
+    // Approximate relationship: DV01 ≈ −Price × ModDur × 0.0001
     //
     // For a 5-year bond with typical convexity (~25), the convexity term at 1bp is:
     //   0.5 × 25 × (0.0001)² = 1.25e-7 (negligible for this test)
     //
-    // However, the DV01 uses a finite-difference bump which captures second-order
-    // effects, causing differences of 5-15% from the linear approximation for
-    // medium-duration bonds.
+    // The finite-difference bump captures second-order effects, but for market-standard
+    // compliance, the relationship should hold within 5%.
     let approx_dv01 = -(price * mod_dur * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.15, // Allow 15% difference due to convexity and finite-difference effects
-        "DV01={:.4} differs too much from duration estimate {:.4} (relative diff={:.2}%)",
+        relative_diff < 0.05, // 5% tolerance (tightened from 15%)
+        "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
         dv01,
         approx_dv01,
         relative_diff * 100.0

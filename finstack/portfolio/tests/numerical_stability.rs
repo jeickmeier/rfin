@@ -65,18 +65,22 @@ fn test_compensated_summation_large_portfolio() {
     // Verify that compensated summation produces a reasonable result
     // The exact value depends on discounting, but should be finite and not NaN/Inf
     assert!(total.is_finite(), "Total should be finite");
+    // With flat curve (DF=1) and alternating ±1e12 positions,
+    // the total should be very close to 0
+    // Allow for small discounting effects from the 30-day deposit
     assert!(
-        total.abs() < 1e15,
-        "Total should be reasonable magnitude, got: {}",
+        total.abs() < 1e9, // Much tighter than 1e15
+        "Compensated sum of alternating ±1e12 should be near 0, got: {}",
         total
     );
 }
 
 #[test]
-fn test_nan_metric_excluded() {
-    // Create a position that might produce NaN metrics
-    // In practice, this would require a custom instrument, but we can test
-    // that the aggregation logic handles NaN correctly
+fn test_aggregated_metrics_are_finite() {
+    // Verify that standard instruments produce finite metrics
+    // and that aggregation preserves finiteness.
+    // Note: This does not test NaN exclusion - a mock instrument
+    // returning NaN would be needed for that.
     let as_of = base_date();
     let end_date = as_of + Duration::days(30);
 
@@ -227,12 +231,24 @@ fn test_neumaier_sum_accuracy() {
     let neumaier_result = neumaier_sum(values.iter().copied());
     let naive_result: f64 = values.iter().sum();
 
-    // Neumaier should be more accurate than naive summation
-    // With alternating ±1e12, the true sum is 0.0
+    // True sum of alternating ±1e12 (500 each) is exactly 0.0
+    let true_sum = 0.0;
+    let neumaier_error = (neumaier_result - true_sum).abs();
+    let naive_error = (naive_result - true_sum).abs();
+
+    // Neumaier should be at least as accurate as naive summation
     assert!(
-        neumaier_result.abs() < naive_result.abs() || naive_result.abs() < 1e-6,
-        "Neumaier summation should be at least as accurate as naive: neumaier={}, naive={}",
-        neumaier_result,
-        naive_result
+        neumaier_error <= naive_error + 1e-6, // Small epsilon for floating point comparison
+        "Neumaier error ({}) should be <= naive error ({})",
+        neumaier_error,
+        naive_error
+    );
+
+    // Both should be reasonably close to the true sum
+    // Even naive sum should be within ~1e4 for this test case
+    assert!(
+        neumaier_error < 1e6,
+        "Neumaier result should be close to true sum 0.0, got error: {}",
+        neumaier_error
     );
 }

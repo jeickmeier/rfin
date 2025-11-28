@@ -4,6 +4,10 @@ use finstack_core::dates::calendar::business_days::HolidayCalendar;
 use finstack_core::dates::Date;
 use time::Month;
 
+/// Standard tolerance for day count year fraction comparisons.
+/// Machine epsilon level for financial precision.
+pub(crate) const DAYCOUNT_TOLERANCE: f64 = 1e-12;
+
 /// Helper to construct `Date` instances.
 pub(crate) fn make_date(year: i32, month: u8, day: u8) -> Date {
     Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()

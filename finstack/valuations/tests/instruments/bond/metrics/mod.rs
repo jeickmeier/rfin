@@ -26,6 +26,7 @@ mod dm;
 mod duration;
 mod oas;
 mod prices;
+mod quote_engine;
 mod spreads;
 mod theta;
 mod ytm;

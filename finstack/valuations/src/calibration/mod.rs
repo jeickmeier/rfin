@@ -75,6 +75,9 @@ pub use spec::{
 pub use traits::Calibrator;
 pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, ValidationError};
 
+// Re-export test helpers for swap repricing
+pub use methods::create_ois_swap_from_quote;
+
 /// Finite penalty value used in objective functions instead of infinity.
 ///
 /// Using a moderate large finite value (1e6) helps solvers behave more predictably

@@ -46,6 +46,10 @@ fn apply_and_revalue_succeeds() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
 
+    // Get base valuation first
+    let base_valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+
     let scenario = ScenarioSpec {
         id: "s".to_string(),
         name: Some("s".to_string()),
@@ -58,7 +62,21 @@ fn apply_and_revalue_succeeds() {
         priority: 0,
     };
 
-    let (_valuation, report) =
+    let (shocked_valuation, report) =
         finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config).unwrap();
     assert!(report.operations_applied > 0);
+
+    // Verify the shocked valuation differs from base
+    // +10bp shift should change deposit value slightly
+    let base_total = base_valuation.total_base_ccy.amount();
+    let shocked_total = shocked_valuation.total_base_ccy.amount();
+
+    // For a 30-day deposit, +10bp should have a small but measurable impact
+    // Don't assert sign as deposits may behave differently than bonds
+    assert!(
+        (shocked_total - base_total).abs() > 0.01,
+        "Scenario should have measurable impact: base={}, shocked={}",
+        base_total,
+        shocked_total
+    );
 }

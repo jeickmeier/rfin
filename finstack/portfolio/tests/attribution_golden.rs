@@ -45,13 +45,11 @@ fn test_attribution_parallel_rates_shift() {
         .build()
         .unwrap();
 
-    // Create market contexts: T0 with flat curve, T1 with +10bp shift
-    let market_t0 = market_with_usd();
-    let market_t1 = market_with_usd();
+    // Create market contexts: T0 with flat 0%, T1 with +100bp
+    // Using 100bp for clearer signal (10bp may be too small to detect reliably)
+    let market_t0 = market_with_usd_at_rate(0.0); // 0% flat
+    let market_t1 = market_with_usd_at_rate(100.0); // 1% flat (+100bp)
 
-    // Apply +10bp parallel shift to discount curve
-    // For a flat curve at 0%, a +10bp shift should decrease bond value
-    // Expected: rates_curves_pnl ≈ -DV01 * 10bp (negative for long position)
     let config = FinstackConfig::default();
 
     let attribution = attribute_portfolio_pnl(
@@ -69,12 +67,19 @@ fn test_attribution_parallel_rates_shift() {
     assert!(attribution.total_pnl.currency() == Currency::USD);
     assert!(attribution.rates_curves_pnl.currency() == Currency::USD);
 
-    // With a flat curve and small shift, the rates P&L should be small but non-zero
-    // Exact value depends on bond characteristics, but should be negative for +10bp shift
-    // (bond value decreases when rates increase)
+    // With a positive rate shock, bond value decreases, so rates P&L should be negative
+    let rates_pnl = attribution.rates_curves_pnl.amount();
     assert!(
-        attribution.rates_curves_pnl.amount().abs() >= 0.0,
-        "Rates curves P&L should be computed"
+        rates_pnl < 0.0,
+        "Positive rate shock should produce negative rates P&L for long bond, got: {}",
+        rates_pnl
+    );
+    // For a 5Y bond with ~4.5 duration and 1M notional, 100bp shock ≈ -45,000
+    // Allow wide tolerance as exact DV01 depends on coupon/curve details
+    assert!(
+        rates_pnl.abs() < 100_000.0,
+        "Rates P&L magnitude should be reasonable, got: {}",
+        rates_pnl
     );
 }
 
@@ -132,16 +137,25 @@ fn test_attribution_fx_translation() {
     .unwrap();
 
     // FX translation P&L should reflect the rate change
-    // Translation P&L = principal * (R1 - R0) / R0
-    // With EUR/USD moving from 1.10 to 1.12, translation should be positive
+    // Translation P&L = Principal_T0 * (R1 - R0)
+    // With flat curve, bond PV ≈ notional = EUR 1M
+    // EUR/USD moves 1.10 -> 1.12, so translation ≈ 1M * 0.02 = USD 20,000
+    // Note: Actual implementation also includes translation of P&L flow
+    // so we allow wider tolerance but still verify sign and magnitude
     assert!(
         attribution.fx_translation_pnl.currency() == Currency::USD,
         "FX translation P&L should be in base currency"
     );
-    // The exact value depends on bond PV, but should be positive for EUR appreciation
+    let translation_amount = attribution.fx_translation_pnl.amount();
     assert!(
-        attribution.fx_translation_pnl.amount() >= -1e6, // Allow some tolerance
-        "FX translation P&L should be computed"
+        translation_amount > 0.0,
+        "EUR appreciation should produce positive FX translation P&L, got: {}",
+        translation_amount
+    );
+    assert!(
+        translation_amount < 50_000.0,
+        "FX translation P&L should be reasonable magnitude (~20k expected), got: {}",
+        translation_amount
     );
 }
 
@@ -181,7 +195,9 @@ fn test_attribution_carry_theta() {
         .build()
         .unwrap();
 
-    let market = market_with_usd();
+    // Use a non-zero rate curve so that theta (time value) is non-zero
+    // With a 0% flat curve, theta would be zero since there's no time value of money
+    let market = market_with_usd_at_rate(500.0); // 5% flat rate
     let config = FinstackConfig::default();
 
     let attribution = attribute_portfolio_pnl(
@@ -195,15 +211,26 @@ fn test_attribution_carry_theta() {
     )
     .unwrap();
 
-    // Carry should be positive (accrued interest increases bond value)
-    // For a 5% coupon bond held for 1 day: carry ≈ (5% / 365) * notional
+    // Carry includes both accrued interest and theta (time value effect)
+    // For a 5% coupon bond at 5% discount rate, carry should be close to the coupon accrual
+    // 1-day accrual ≈ 1M * 0.05 / 365 ≈ 136.99 USD
+    // Theta may add or subtract from this depending on bond price vs par
     assert!(
         attribution.carry.currency() == Currency::USD,
         "Carry should be in base currency"
     );
-    // Carry should be small but positive for a bond held for 1 day
+    let carry_amount = attribution.carry.amount();
+    // Carry can be positive or negative depending on bond price vs par
+    // Just verify it's computed (finite) and reasonable magnitude
     assert!(
-        attribution.carry.amount() >= -1e3, // Allow tolerance for flat curve effects
-        "Carry should be computed"
+        carry_amount.is_finite(),
+        "Carry should be finite, got: {}",
+        carry_amount
+    );
+    // For a 1Y bond at ~$1M, 1-day carry should be less than ~$1000 in magnitude
+    assert!(
+        carry_amount.abs() < 1000.0,
+        "Carry magnitude should be reasonable for 1-day hold, got: {}",
+        carry_amount
     );
 }

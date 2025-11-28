@@ -158,6 +158,41 @@ fn test_theta_off_market_swap() {
 }
 
 #[test]
+fn test_theta_direction_for_underwater_swap() {
+    // Off-market swap with negative NPV should have positive theta
+    // (time value decays towards zero at maturity)
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    // Create swap receiving 3% fixed when market is at 5%
+    let swap = create_swap(as_of, end, 0.03);
+    let market = build_curves(0.05, as_of);
+
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .unwrap();
+
+    let npv = result.value.amount();
+    let theta = *result.measures.get("theta").unwrap();
+
+    // Verify NPV is negative (underwater position)
+    assert!(
+        npv < 0.0,
+        "Swap receiving below-market rate should have negative NPV, got {}",
+        npv
+    );
+
+    // For negative NPV position, theta should generally be positive
+    // (position improves as time passes and fewer below-market coupons remain)
+    // Note: This is a simplified heuristic; actual theta depends on curve shape
+    assert!(
+        theta > 0.0,
+        "Underwater receive-fixed swap should have positive theta (decaying towards zero), got {}",
+        theta
+    );
+}
+
+#[test]
 fn test_theta_opposite_sides() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);

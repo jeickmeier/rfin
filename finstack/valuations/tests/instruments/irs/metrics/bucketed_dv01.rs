@@ -215,19 +215,17 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     println!("Parallel DV01: {:.2}", parallel);
     println!("Difference: {:.2}", (sum_bucketed - parallel).abs());
 
-    // Allow small numerical tolerance
-    // With the new unified calculator, bucketed and parallel use slightly different
-    // computation approaches:
-    // - Bucketed: Key-rate bumps at specific times (more granular)
-    // - Parallel: Single parallel bump across all maturities
-    // The difference is expected and acceptable (<5% tolerance)
-    let tolerance = parallel.abs() * 0.05 + 500.0; // 5% + 500 absolute
+    // For single-curve OIS swap, bucketed should closely match parallel
+    // Allow 1% relative + $50 absolute for numerical differences
+    let tolerance = parallel.abs() * 0.01 + 50.0;
     assert!(
         (sum_bucketed - parallel).abs() < tolerance,
-        "Bucketed sum ({:.2}) differs from parallel ({:.2}) by more than tolerance ({:.2})",
+        "Bucketed sum ({:.2}) should match parallel ({:.2}) within 1%.\n\
+         Difference: {:.2} ({:.2}%)",
         sum_bucketed,
         parallel,
-        tolerance
+        (sum_bucketed - parallel).abs(),
+        (sum_bucketed - parallel).abs() / parallel.abs() * 100.0
     );
 }
 

@@ -1,15 +1,16 @@
+//! Math module integration tests.
+//!
+//! NOTE: This mod.rs file is kept for reference, but the actual test declarations
+//! are in math_tests.rs. The individual interp_*.rs files have been consolidated
+//! into interp_unified.rs.
+
 #[path = "math/common.rs"]
 mod common;
-#[path = "math/interp_cubic_hermite.rs"]
-mod interp_cubic_hermite;
-#[path = "math/interp_flat_fwd.rs"]
-mod interp_flat_fwd;
-#[path = "math/interp_linear.rs"]
-mod interp_linear;
-#[path = "math/interp_log_linear.rs"]
-mod interp_log_linear;
-#[path = "math/interp_monotone_convex.rs"]
-mod interp_monotone_convex;
+
+// Unified interpolator tests (replaces individual interp_*.rs files)
+#[path = "math/interp_unified.rs"]
+mod interp_unified;
+
 #[path = "math/interp_traits.rs"]
 mod interp_traits;
 #[path = "math/math_integration.rs"]
@@ -27,6 +28,3 @@ mod test_interp_serde;
 #[cfg(feature = "serde")]
 #[path = "math/test_solver_serde.rs"]
 mod test_solver_serde;
-
-// #[path = "math_random.rs"]
-// mod math_random; // Removed - had HashSet<f64> trait bound errors

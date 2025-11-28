@@ -97,9 +97,10 @@ fn test_irs_at_par_npv_zero() {
     let npv = swap.value(&market, as_of).unwrap();
 
     assert!(
-        npv.amount().abs() < 2000.0,
-        "At-par swap NPV should be near zero, got {}",
-        npv.amount()
+        npv.amount().abs() < 100.0, // 1bp on $1MM
+        "At-par swap NPV should be near zero (within 1bp), got {} ({:.2}bp)",
+        npv.amount(),
+        npv.amount() / 100.0 // Convert to bp for readability
     );
 }
 

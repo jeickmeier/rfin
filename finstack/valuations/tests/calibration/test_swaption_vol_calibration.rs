@@ -185,14 +185,46 @@ fn test_swaption_vol_calibration_direct() {
     assert!(report.success, "Calibration should report success");
     assert!(report.iterations > 0, "Should have some iterations");
 
-    // Verify surface can interpolate values
-    let vol_1y_1y = surface.value(1.0, 1.0); // 1Y expiry, 1Y tenor
-    assert!(vol_1y_1y > 0.0, "Volatility should be positive");
-    assert!(vol_1y_1y < 1.0, "Volatility should be reasonable");
+    // CALIBRATION QUALITY CHECKS: Market-standard tolerances for SABR calibration
+    // RMSE < 100bp (0.001) for swaption volatilities - SABR with limited strike quotes
+    // Note: Market standard would be <50bp with full smile data; we use 100bp with
+    // sparse test data (5 strikes per expiry/tenor)
+    assert!(
+        report.rmse < 0.001,
+        "SABR calibration RMSE should be < 100bp: {:.6}",
+        report.rmse
+    );
+    // Max residual < 200bp (0.002) - allows for individual quote outliers
+    assert!(
+        report.max_residual.abs() < 0.002,
+        "Max residual should be < 200bp: {:.6}",
+        report.max_residual
+    );
 
-    let vol_1y_5y = surface.value(1.0, 5.0); // 1Y expiry, 5Y tenor
+    // Verify ATM volatility matches input approximately
+    // Input data: 1Y×1Y ATM vol = 0.009 (90bp normal vol)
+    let vol_1y_1y = surface.value(1.0, 1.0);
+    let expected_atm_1y1y = 0.009; // From test input data
+    assert!(
+        (vol_1y_1y - expected_atm_1y1y).abs() < 0.002, // 20bp tolerance
+        "ATM vol 1Y×1Y should match input: {:.6} vs expected {:.6}",
+        vol_1y_1y,
+        expected_atm_1y1y
+    );
+
+    // Input data: 1Y×5Y ATM vol = 0.007 (70bp normal vol)
+    let vol_1y_5y = surface.value(1.0, 5.0);
+    let expected_atm_1y5y = 0.007; // From test input data
+    assert!(
+        (vol_1y_5y - expected_atm_1y5y).abs() < 0.002, // 20bp tolerance
+        "ATM vol 1Y×5Y should match input: {:.6} vs expected {:.6}",
+        vol_1y_5y,
+        expected_atm_1y5y
+    );
+
+    // Verify positivity and reasonableness
+    assert!(vol_1y_1y > 0.0, "Volatility should be positive");
     assert!(vol_1y_5y > 0.0, "Volatility should be positive");
-    assert!(vol_1y_5y < 1.0, "Volatility should be reasonable");
 
     // Test interpolation for non-grid points
     let vol_1_5y_3y = surface.value(1.5, 3.0); // 1.5Y expiry, 3Y tenor
@@ -233,6 +265,20 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
         .expect("calibration ok");
     assert!(report.success);
     assert!(report.iterations > 0);
+
+    // CALIBRATION QUALITY CHECKS
+    // Extended grid should achieve similar fit quality
+    assert!(
+        report.rmse < 0.001,
+        "Extended grid calibration RMSE should be < 100bp: {:.6}",
+        report.rmse
+    );
+    assert!(
+        report.max_residual.abs() < 0.002,
+        "Extended grid max residual should be < 200bp: {:.6}",
+        report.max_residual
+    );
+
     // Interpolation checks at non-grid points
     let v = surface.value(1.5, 2.5);
     assert!(v.is_finite() && v > 0.0 && v < 1.0);
@@ -332,6 +378,60 @@ fn test_swaption_pricing_with_calibrated_surface() {
     assert!(
         price.amount() < 100_000.0,
         "Swaption value should be reasonable"
+    );
+}
+
+/// Test that calibrated swaption volatility surfaces are arbitrage-free.
+///
+/// Market-standard arbitrage conditions for volatility surfaces:
+/// 1. **Calendar spread**: Total variance (σ²T) must increase with expiry
+/// 2. **Butterfly spread**: Total variance must be convex in strike
+#[test]
+fn test_swaption_vol_surface_arbitrage_free() {
+    use finstack_valuations::calibration::{SurfaceValidator, ValidationConfig};
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut context = MarketContext::new();
+    context = context.insert_discount(create_test_discount_curve());
+
+    let calibrator = SwaptionVolCalibrator::new(
+        "TEST-ARB-FREE",
+        SwaptionVolConvention::Normal,
+        AtmStrikeConvention::SwapRate,
+        base_date,
+        "USD-OIS",
+        Currency::USD,
+    );
+
+    let quotes = create_extended_swaption_quotes();
+    let (surface, _) = calibrator
+        .calibrate(&quotes, &context)
+        .expect("Calibration should succeed");
+
+    let config = ValidationConfig::default();
+
+    // Verify calendar arbitrage-free: total variance increasing with expiry
+    let calendar_result = surface.validate_calendar_spread(&config);
+    assert!(
+        calendar_result.is_ok(),
+        "Calibrated surface should be calendar arbitrage-free: {:?}",
+        calendar_result.err()
+    );
+
+    // Verify butterfly arbitrage-free: total variance convex in strike
+    let butterfly_result = surface.validate_butterfly_spread(&config);
+    assert!(
+        butterfly_result.is_ok(),
+        "Calibrated surface should be butterfly arbitrage-free: {:?}",
+        butterfly_result.err()
+    );
+
+    // Run full validation (includes bounds check)
+    let full_result = surface.validate(&config);
+    assert!(
+        full_result.is_ok(),
+        "Calibrated surface should pass all validation: {:?}",
+        full_result.err()
     );
 }
 

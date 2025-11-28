@@ -297,7 +297,8 @@ fn test_dv01_higher_rates_lower_dv01() {
 #[test]
 fn test_dv01_receive_fixed_negative() {
     // Receive fixed has negative DV01 (QuantLib/market standard)
-    // Rationale: Receiving fixed loses value when rates drop
+    // Rationale: Receiving fixed loses value when rates RISE
+    // (floating leg payments increase while fixed receipts stay constant)
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -320,7 +321,8 @@ fn test_dv01_receive_fixed_negative() {
 #[test]
 fn test_dv01_pay_fixed_positive() {
     // Pay fixed has positive DV01 (QuantLib/market standard)
-    // Rationale: Paying fixed benefits when rates drop (floating leg costs less)
+    // Rationale: Paying fixed GAINS value when rates RISE
+    // (floating leg receipts increase while fixed payments stay constant)
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 

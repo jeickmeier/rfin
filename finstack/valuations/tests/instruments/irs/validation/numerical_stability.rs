@@ -499,12 +499,12 @@ fn test_golden_5y_usd_swap_par_npv() {
     let npv = swap_at_par.value(&market, as_of).unwrap();
 
     // NPV at par should be very close to zero
-    // Tolerance: $2500 on $10MM notional = 0.025% = 2.5bp
-    // (Slightly larger tolerance due to day-count convention differences)
+    // Tolerance: $100 on $10MM notional = 0.001% = 0.1bp (1bp tolerance)
     assert!(
-        npv.amount().abs() < 2500.0,
-        "5Y USD par swap NPV should be ~0, got {} (par rate: {})",
+        npv.amount().abs() < 100.0,
+        "5Y USD par swap NPV should be ~0 (within 1bp), got {} ({:.2}bp, par rate: {:.6})",
         npv.amount(),
+        npv.amount() / 1000.0, // Per $10MM notional, divide by 1000 to get bp
         par_rate
     );
 }
@@ -540,11 +540,12 @@ fn test_golden_annuity_5y_at_5pct() {
 
     let annuity = result.measures["annuity"];
 
-    // Expected: ~4.32 years (analytical), allow 5% tolerance due to day-count conventions
+    // Expected: ~4.32 years (analytical), allow 1% tolerance for day-count conventions
     assert!(
-        (annuity - 4.32).abs() < 0.25,
-        "5Y annuity at 5% should be ~4.32, got {}",
-        annuity
+        (annuity - 4.32).abs() < 0.05,
+        "5Y annuity at 5% should be ~4.32, got {} (diff: {:.4})",
+        annuity,
+        (annuity - 4.32).abs()
     );
 }
 
@@ -588,6 +589,38 @@ fn test_golden_dv01_approximation() {
         "DV01 ({:.2}) should be ~{:.2} (within 5%)",
         dv01,
         dv01_approx
+    );
+}
+
+#[test]
+fn test_missing_curve_produces_clear_error() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    // Create market with only discount curve (no forward curve)
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let market = MarketContext::new().insert_discount(disc_curve);
+    // Note: No forward curve added
+
+    let swap = InterestRateSwap::create_usd_swap(
+        InstrumentId::new("MISSING_CURVE_TEST"),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::PayFixed,
+    )
+    .unwrap();
+
+    // Pricing should fail with clear error about missing forward curve
+    let result = swap.value(&market, as_of);
+    assert!(result.is_err(), "Should fail when forward curve is missing");
+
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("curve") || err_msg.contains("forward") || err_msg.contains("not found"),
+        "Error should mention missing curve: {}",
+        err_msg
     );
 }
 
