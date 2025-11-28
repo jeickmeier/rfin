@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::*;
+use common::*;
 use finstack_core::prelude::*;
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
 use finstack_portfolio::{Portfolio, PortfolioBuilder, PortfolioError, Position, PositionUnit};

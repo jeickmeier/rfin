@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::*;
+use common::*;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_core::prelude::*;
 use finstack_portfolio::types::Entity;

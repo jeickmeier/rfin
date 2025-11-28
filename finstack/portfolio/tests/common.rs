@@ -1,3 +1,9 @@
+//! Common test utilities and fixtures for portfolio tests.
+//!
+//! This module provides shared testing infrastructure including helper functions
+//! for creating market contexts, discount curves, and FX providers used across
+//! multiple test files.
+
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};

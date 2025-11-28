@@ -2,7 +2,7 @@
 mod common;
 
 #[cfg(feature = "scenarios")]
-use crate::common::*;
+use common::*;
 #[cfg(feature = "scenarios")]
 use finstack_core::prelude::*;
 #[cfg(feature = "scenarios")]
