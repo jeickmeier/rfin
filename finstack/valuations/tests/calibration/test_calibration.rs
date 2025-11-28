@@ -4,8 +4,6 @@
 //! produce bitwise-identical results with fixed inputs, and validates
 //! calibration quality against market standards.
 
-#[allow(unused_imports)]
-use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
