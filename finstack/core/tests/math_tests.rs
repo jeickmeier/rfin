@@ -5,6 +5,9 @@ mod common;
 #[path = "math/interp_unified.rs"]
 mod interp_unified;
 
+#[path = "math/interp_coverage.rs"]
+mod interp_coverage;
+
 #[path = "math/interp_traits.rs"]
 mod interp_traits;
 #[path = "math/math_integration.rs"]
