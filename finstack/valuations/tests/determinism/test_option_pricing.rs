@@ -1,8 +1,11 @@
 //! Determinism tests for equity option pricing.
 //!
 //! Verifies that option valuation (Black-Scholes) and Greeks produce
-//! bitwise-identical results across multiple runs.
+//! bitwise-identical results across multiple runs, and validates correctness
+//! against market standards (put-call parity, Greeks bounds).
 
+#[allow(unused_imports)]
+use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -101,6 +104,17 @@ fn test_option_delta_determinism() {
             i, deltas[i], deltas[0]
         );
     }
+
+    // Correctness: Call delta must be positive
+    // Note: Total delta = unit_delta × contract_size (100), so expect 0 < delta < 100
+    let contract_size = 100.0;
+    assert!(
+        deltas[0] > 0.0 && deltas[0] < contract_size,
+        "Call delta {} must be in (0, {}) for contract size {}",
+        deltas[0],
+        contract_size,
+        contract_size
+    );
 }
 
 #[test]
@@ -127,6 +141,13 @@ fn test_option_gamma_determinism() {
             i, gammas[i], gammas[0]
         );
     }
+
+    // Correctness: Gamma must be positive for non-expired options
+    assert!(
+        gammas[0] > 0.0,
+        "Gamma {} must be positive",
+        gammas[0]
+    );
 }
 
 #[test]
@@ -153,6 +174,13 @@ fn test_option_vega_determinism() {
             i, vegas[i], vegas[0]
         );
     }
+
+    // Correctness: Vega must be positive for non-expired options
+    assert!(
+        vegas[0] > 0.0,
+        "Vega {} must be positive for non-expired option",
+        vegas[0]
+    );
 }
 
 #[test]
@@ -179,6 +207,13 @@ fn test_option_theta_determinism() {
             i, thetas[i], thetas[0]
         );
     }
+
+    // Correctness: Theta should be negative (time decay) for long options
+    assert!(
+        thetas[0] < 0.0,
+        "Theta {} should be negative (time decay) for long option",
+        thetas[0]
+    );
 }
 
 #[test]
@@ -282,4 +317,56 @@ fn test_option_different_moneyness_determinism() {
             );
         }
     }
+}
+
+#[test]
+fn test_option_put_call_parity_determinism() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let market = create_test_market(as_of);
+
+    let call = EquityOption::european_call(
+        "PARITY-CALL",
+        "AAPL",
+        100.0,
+        expiry,
+        Money::new(100.0, Currency::USD),
+        1.0,
+    );
+    let put = EquityOption::european_put(
+        "PARITY-PUT",
+        "AAPL",
+        100.0,
+        expiry,
+        Money::new(100.0, Currency::USD),
+        1.0,
+    );
+
+    // Price multiple times for determinism
+    let parities: Vec<f64> = (0..30)
+        .map(|_| {
+            let call_pv = call.value(&market, as_of).unwrap().amount();
+            let put_pv = put.value(&market, as_of).unwrap().amount();
+            call_pv - put_pv
+        })
+        .collect();
+
+    // Determinism check
+    for i in 1..parities.len() {
+        assert_eq!(
+            parities[i], parities[0],
+            "Parity (C-P) differs at iteration {}: {:.15} vs {:.15}",
+            i, parities[i], parities[0]
+        );
+    }
+
+    // Correctness: Put-call parity C - P = S*exp(-qT) - K*exp(-rT)
+    // With S=100, K=100, r≈4%, q=2%, T=1:
+    // Forward value ≈ 100*exp(-0.02) - 100*exp(-0.04) ≈ 98.02 - 96.08 ≈ 1.94
+    // Allow reasonable tolerance for the difference
+    assert!(
+        parities[0] > 0.0 && parities[0] < 10.0,
+        "Put-call parity {} outside expected range for ATM options",
+        parities[0]
+    );
 }

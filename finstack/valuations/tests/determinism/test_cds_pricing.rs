@@ -1,8 +1,11 @@
 //! Determinism tests for CDS pricing.
 //!
 //! Verifies that CDS valuation produces bitwise-identical results including
-//! par spreads, CS01, and protection/premium leg calculations.
+//! par spreads, CS01, and protection/premium leg calculations, and validates
+//! correctness against market standards.
 
+#[allow(unused_imports)]
+use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -135,6 +138,20 @@ fn test_cds_par_spread_determinism() {
             i, spreads[i], spreads[0]
         );
     }
+
+    // Correctness: Credit triangle approximation: par_spread ≈ hazard × (1-R) × 10000
+    // With hazard ~1.5% at short end and recovery 40%:
+    // Expected ~= 0.015 × 0.60 × 10000 = 90bp
+    // Allow wider tolerance for curve shape effects
+    let min_spread = 60.0; // bp
+    let max_spread = 150.0; // bp
+    assert!(
+        spreads[0] > min_spread && spreads[0] < max_spread,
+        "Par spread {} bp outside expected range [{}, {}] bp",
+        spreads[0],
+        min_spread,
+        max_spread
+    );
 }
 
 #[test]
@@ -201,6 +218,18 @@ fn test_cds_all_metrics_determinism() {
             );
         }
     }
+
+    // Correctness: Protection and premium legs should have reasonable ratio
+    // Note: Legs won't exactly balance since CDS is not at par spread
+    // But their ratio should be reasonable
+    let protection_pv = results[0].measures[MetricId::ProtectionLegPv.as_str()];
+    let premium_pv = results[0].measures[MetricId::PremiumLegPv.as_str()];
+    let pv_ratio = protection_pv / premium_pv.abs();
+    assert!(
+        pv_ratio > 0.1 && pv_ratio < 10.0,
+        "Protection/Premium ratio {} outside reasonable range [0.1, 10]",
+        pv_ratio
+    );
 }
 
 #[test]

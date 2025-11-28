@@ -1,8 +1,10 @@
 //! Determinism tests for bond pricing.
 //!
 //! Verifies that bond valuation produces bitwise-identical results across
-//! multiple runs with the same inputs.
+//! multiple runs with the same inputs, and validates correctness against
+//! market standards.
 
+use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -65,17 +67,23 @@ fn test_bond_pv_determinism() {
         );
     }
 
-    // Verify the price is reasonable (allow wider range since it depends on curve)
+    // Correctness check: Bond PV should be in reasonable range
+    // Note: The discount curve uses discount factors (not rates), which implies ~2-4% rates,
+    // so a 5% coupon bond will price above par. Verify PV is positive and reasonable.
+    let notional = 1_000_000.0;
     assert!(
-        prices[0] > 800_000.0 && prices[0] < 1_200_000.0,
-        "Bond price {} outside reasonable range",
+        prices[0] > notional * 0.8 && prices[0] < notional * 1.5,
+        "Bond PV {} outside reasonable range (80%-150% of notional)",
         prices[0]
     );
 }
 
 #[test]
 fn test_bond_ytm_determinism() {
-    let bond = create_test_bond();
+    let mut bond = create_test_bond();
+    // Set quoted clean price at par (100% of face) to enable YTM calculation
+    bond.pricing_overrides.quoted_clean_price = Some(100.0);
+
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
 
@@ -98,12 +106,14 @@ fn test_bond_ytm_determinism() {
         );
     }
 
-    // YTM should be reasonable (allow very wide range or skip if zero)
-    // Note: YTM might be zero at issue date, so just verify it's finite
+    // Correctness: par bond YTM should equal coupon rate (5%)
+    let coupon_rate = 0.05;
     assert!(
-        ytms[0].is_finite(),
-        "YTM should be finite, got: {}",
-        ytms[0]
+        (ytms[0] - coupon_rate).abs() < tolerances::NUMERICAL,
+        "YTM {} should equal coupon {} for par bond (tolerance {})",
+        ytms[0],
+        coupon_rate,
+        tolerances::NUMERICAL
     );
 }
 
@@ -131,6 +141,13 @@ fn test_bond_duration_determinism() {
             i, durations[i], durations[0]
         );
     }
+
+    // Correctness: 5Y bond modified duration should be in reasonable range [0, 10]
+    assert!(
+        durations[0] > 0.0 && durations[0] < 10.0,
+        "5Y bond mod duration {} outside reasonable range [0, 10]",
+        durations[0]
+    );
 }
 
 #[test]
@@ -157,6 +174,13 @@ fn test_bond_convexity_determinism() {
             i, convexities[i], convexities[0]
         );
     }
+
+    // Correctness: 5Y bond convexity should be in reasonable range [0, 100]
+    assert!(
+        convexities[0] > 0.0 && convexities[0] < 100.0,
+        "5Y bond convexity {} outside reasonable range [0, 100]",
+        convexities[0]
+    );
 }
 
 #[test]

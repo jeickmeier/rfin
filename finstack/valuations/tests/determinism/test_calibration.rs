@@ -1,8 +1,11 @@
 //! Determinism tests for curve calibration.
 //!
 //! Verifies that calibration processes (which involve iterative solvers)
-//! produce bitwise-identical results with fixed inputs.
+//! produce bitwise-identical results with fixed inputs, and validates
+//! calibration quality against market standards.
 
+#[allow(unused_imports)]
+use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -107,6 +110,21 @@ fn test_hazard_curve_calibration_determinism() {
             );
         }
     }
+
+    // Correctness: Verify calibrated curve produces reasonable survival probabilities
+    let sp_0 = curves[0].sp(0.0);
+    let sp_5 = curves[0].sp(5.0);
+
+    assert!(
+        (sp_0 - 1.0).abs() < 1e-10,
+        "Survival probability at t=0 should be 1.0, got {}",
+        sp_0
+    );
+    assert!(
+        sp_5 > 0.0 && sp_5 < 1.0,
+        "Survival probability at 5Y {} should be in (0, 1)",
+        sp_5
+    );
 }
 
 #[test]
@@ -187,4 +205,19 @@ fn test_calibration_report_determinism() {
             i
         );
     }
+
+    // Correctness: Verify residuals are small (successful calibration)
+    // Use the pre-computed max_residual from the report
+    assert!(
+        reports[0].max_residual < 1e-6,
+        "Calibration max residual {} exceeds tolerance 1e-6",
+        reports[0].max_residual
+    );
+
+    // Verify iterations are reasonable
+    assert!(
+        reports[0].iterations > 0 && reports[0].iterations < 100,
+        "Iteration count {} outside reasonable range [1, 100)",
+        reports[0].iterations
+    );
 }

@@ -1,8 +1,10 @@
 //! Determinism tests for interest rate swap pricing.
 //!
 //! Verifies that IRS valuation produces bitwise-identical results across
-//! multiple runs with the same inputs.
+//! multiple runs with the same inputs, and validates correctness against
+//! market standards.
 
+use super::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -158,6 +160,13 @@ fn test_swap_par_rate_determinism() {
             i, par_rates[i], par_rates[0]
         );
     }
+
+    // Correctness: par rate should be reasonable (between 1% and 10%)
+    assert!(
+        par_rates[0] > 0.01 && par_rates[0] < 0.10,
+        "Par rate {} outside reasonable range [1%, 10%]",
+        par_rates[0]
+    );
 }
 
 #[test]
@@ -258,4 +267,14 @@ fn test_swap_pay_vs_receive_determinism() {
             i, sym_sum[i], sym_sum[0]
         );
     }
+
+    // Correctness: pay + receive should sum to approximately zero
+    let notional = 10_000_000.0;
+    let sym_tolerance = notional * tolerances::NUMERICAL; // 0.01%
+    assert!(
+        sym_sum[0].abs() < sym_tolerance,
+        "Pay + Receive sum {} should be ~0 (tolerance {})",
+        sym_sum[0],
+        sym_tolerance
+    );
 }
