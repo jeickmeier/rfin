@@ -9,8 +9,8 @@
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_valuations::cashflow::builder::specs::{
     AmortizationSpec, CouponType, DefaultEvent, DefaultModelSpec, FeeSpec, FeeTier,
-    FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentModelSpec,
-    PrepaymentCurve, RecoveryModelSpec, ScheduleParams,
+    FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentCurve,
+    PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams,
 };
 use serde::{Deserialize, Serialize};
 

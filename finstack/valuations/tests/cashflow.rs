@@ -8,4 +8,3 @@
 
 #[path = "cashflow/mod.rs"]
 mod cashflow_tests;
-

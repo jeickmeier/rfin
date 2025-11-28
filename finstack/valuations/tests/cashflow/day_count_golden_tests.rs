@@ -11,8 +11,8 @@
 //! - Act/Act ISMA: requires coupon frequency
 //! - Act/Act ISDA: actual days / days in year
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use crate::cashflow_tests::test_helpers::FACTOR_TOLERANCE;
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
 
 fn d(year: i32, month: u8, day: u8) -> Date {
@@ -29,7 +29,9 @@ fn act365f_14_days() {
     let dc = DayCount::Act365F;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 1, 1), d(2025, 1, 15), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 1, 1), d(2025, 1, 15), ctx)
+        .unwrap();
     let expected = 14.0 / 365.0;
 
     assert!(
@@ -100,7 +102,9 @@ fn act360_30_days() {
     let dc = DayCount::Act360;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 1, 1), d(2025, 1, 31), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 1, 1), d(2025, 1, 31), ctx)
+        .unwrap();
     let expected = 30.0 / 360.0;
 
     assert!(
@@ -173,7 +177,9 @@ fn thirty360_6_months() {
     let dc = DayCount::Thirty360;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 1, 15), d(2025, 7, 15), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 1, 15), d(2025, 7, 15), ctx)
+        .unwrap();
 
     assert!(
         (yf - 0.5).abs() < FACTOR_TOLERANCE,
@@ -188,7 +194,9 @@ fn thirty360_1_month() {
     let dc = DayCount::Thirty360;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 1, 15), d(2025, 2, 15), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 1, 15), d(2025, 2, 15), ctx)
+        .unwrap();
     let expected = 30.0 / 360.0;
 
     assert!(
@@ -206,7 +214,9 @@ fn thirty360_end_of_month_jan_to_feb() {
     let dc = DayCount::Thirty360;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 1, 31), d(2025, 2, 28), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 1, 31), d(2025, 2, 28), ctx)
+        .unwrap();
     let expected = 28.0 / 360.0;
 
     assert!(
@@ -238,7 +248,9 @@ fn thirty360_same_day_different_months() {
     let dc = DayCount::Thirty360;
     let ctx = DayCountCtx::default();
 
-    let yf = dc.year_fraction(d(2025, 3, 15), d(2025, 6, 15), ctx).unwrap();
+    let yf = dc
+        .year_fraction(d(2025, 3, 15), d(2025, 6, 15), ctx)
+        .unwrap();
     let expected = 90.0 / 360.0;
 
     assert!(
@@ -404,4 +416,3 @@ fn zero_length_period_all_conventions() {
         );
     }
 }
-

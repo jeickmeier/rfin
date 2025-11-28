@@ -48,6 +48,3 @@ impl VintageExtension for ModelBuilder<Ready> {
         vintage::add_vintage_buildup(self, name, new_volume_node, decay_curve)
     }
 }
-
-
-

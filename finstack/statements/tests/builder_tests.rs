@@ -526,10 +526,7 @@ fn test_reserved_cs_prefix_rejected_in_value() {
         .unwrap()
         .value(
             "__cs__bad_node",
-            &[(
-                PeriodId::quarter(2025, 1),
-                AmountOrScalar::scalar(100.0),
-            )],
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
         )
         .build();
 
@@ -550,10 +547,7 @@ fn test_reserved_cs_prefix_in_middle_rejected() {
         .unwrap()
         .value(
             "revenue__cs__hidden",
-            &[(
-                PeriodId::quarter(2025, 1),
-                AmountOrScalar::scalar(100.0),
-            )],
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
         )
         .build();
 
@@ -586,24 +580,15 @@ fn test_normal_node_ids_accepted() {
         .unwrap()
         .value(
             "revenue",
-            &[(
-                PeriodId::quarter(2025, 1),
-                AmountOrScalar::scalar(100.0),
-            )],
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
         )
         .value(
             "_single_underscore",
-            &[(
-                PeriodId::quarter(2025, 1),
-                AmountOrScalar::scalar(50.0),
-            )],
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50.0))],
         )
         .value(
             "node_with__double_inside",
-            &[(
-                PeriodId::quarter(2025, 1),
-                AmountOrScalar::scalar(25.0),
-            )],
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(25.0))],
         )
         .compute("gross_profit", "revenue * 0.4")
         .unwrap()
@@ -619,10 +604,7 @@ fn test_reserved_prefix_rejected_in_mixed_node() {
         .periods("2025Q1..Q2", None)
         .unwrap()
         .mixed("__bad_mixed")
-        .values(&[(
-            PeriodId::quarter(2025, 1),
-            AmountOrScalar::scalar(100.0),
-        )])
+        .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
         .try_finish();
 
     assert!(result.is_err());

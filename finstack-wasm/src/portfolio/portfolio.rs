@@ -104,7 +104,11 @@ impl JsPortfolio {
         let obj = Object::new();
         for (id, entity) in &self.inner.entities {
             let js_entity = JsEntity::from_inner(entity.clone());
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_entity))?;
+            js_sys::Reflect::set(
+                &obj,
+                &JsValue::from_str(id.as_str()),
+                &JsValue::from(js_entity),
+            )?;
         }
         Ok(JsValue::from(obj))
     }

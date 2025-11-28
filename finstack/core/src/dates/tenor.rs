@@ -180,12 +180,13 @@ impl Tenor {
         let s_upper = s.to_uppercase();
 
         // Find position of first alphabetic character
-        let unit_pos = s_upper
-            .find(|c: char| c.is_alphabetic())
-            .ok_or_else(|| InputError::InvalidTenor {
-                tenor: s.to_string(),
-                reason: "no unit found; expected D, W, M, or Y suffix".to_string(),
-            })?;
+        let unit_pos =
+            s_upper
+                .find(|c: char| c.is_alphabetic())
+                .ok_or_else(|| InputError::InvalidTenor {
+                    tenor: s.to_string(),
+                    reason: "no unit found; expected D, W, M, or Y suffix".to_string(),
+                })?;
 
         let (count_str, unit_str) = s_upper.split_at(unit_pos);
 
@@ -553,9 +554,18 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(format!("{}", Tenor::parse("3M").expect("valid tenor")), "3M");
-        assert_eq!(format!("{}", Tenor::parse("1Y").expect("valid tenor")), "1Y");
-        assert_eq!(format!("{}", Tenor::parse("7D").expect("valid tenor")), "7D");
+        assert_eq!(
+            format!("{}", Tenor::parse("3M").expect("valid tenor")),
+            "3M"
+        );
+        assert_eq!(
+            format!("{}", Tenor::parse("1Y").expect("valid tenor")),
+            "1Y"
+        );
+        assert_eq!(
+            format!("{}", Tenor::parse("7D").expect("valid tenor")),
+            "7D"
+        );
     }
 
     #[test]
@@ -575,4 +585,3 @@ mod tests {
         assert_eq!(Tenor::one_year(), Tenor::new(1, TenorUnit::Years));
     }
 }
-

@@ -576,14 +576,19 @@ fn test_cds_cs01_opposite_signs() {
 
     // Compute CS01 for buy protection
     let pv_buy = cds_buy.value(&market, as_of).unwrap();
-    let mut context_buy = MetricContext::new(Arc::new(cds_buy), Arc::new(market.clone()), as_of, pv_buy);
-    let results_buy = registry.compute(&[MetricId::Cs01], &mut context_buy).unwrap();
+    let mut context_buy =
+        MetricContext::new(Arc::new(cds_buy), Arc::new(market.clone()), as_of, pv_buy);
+    let results_buy = registry
+        .compute(&[MetricId::Cs01], &mut context_buy)
+        .unwrap();
     let cs01_buy = *results_buy.get(&MetricId::Cs01).unwrap();
 
     // Compute CS01 for sell protection
     let pv_sell = cds_sell.value(&market, as_of).unwrap();
     let mut context_sell = MetricContext::new(Arc::new(cds_sell), Arc::new(market), as_of, pv_sell);
-    let results_sell = registry.compute(&[MetricId::Cs01], &mut context_sell).unwrap();
+    let results_sell = registry
+        .compute(&[MetricId::Cs01], &mut context_sell)
+        .unwrap();
     let cs01_sell = *results_sell.get(&MetricId::Cs01).unwrap();
 
     // Buy and sell should have opposite signs
@@ -611,7 +616,7 @@ fn test_put_call_parity() {
     // This fundamental arbitrage relationship validates consistency of option pricing.
     // For ATM options, C - P ≈ (forward - strike) * DF when forward ≈ spot * exp((r-q)*T)
     use finstack_core::dates::DayCountCtx;
-    
+
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let spot = 100.0;
@@ -698,7 +703,7 @@ fn test_put_call_parity_delta_relationship() {
     // Delta_C - Delta_P = exp(-q·T)
     // For small div yield: Delta_C - Delta_P ≈ 1 (normalized per share)
     use finstack_core::dates::DayCountCtx;
-    
+
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let spot = 100.0;
@@ -748,13 +753,18 @@ fn test_put_call_parity_delta_relationship() {
 
     // Compute deltas
     let call_pv = call.value(&market, as_of).unwrap();
-    let mut call_context = MetricContext::new(Arc::new(call), Arc::new(market.clone()), as_of, call_pv);
-    let call_results = registry.compute(&[MetricId::Delta], &mut call_context).unwrap();
+    let mut call_context =
+        MetricContext::new(Arc::new(call), Arc::new(market.clone()), as_of, call_pv);
+    let call_results = registry
+        .compute(&[MetricId::Delta], &mut call_context)
+        .unwrap();
     let call_delta = *call_results.get(&MetricId::Delta).unwrap();
 
     let put_pv = put.value(&market, as_of).unwrap();
     let mut put_context = MetricContext::new(Arc::new(put), Arc::new(market), as_of, put_pv);
-    let put_results = registry.compute(&[MetricId::Delta], &mut put_context).unwrap();
+    let put_results = registry
+        .compute(&[MetricId::Delta], &mut put_context)
+        .unwrap();
     let put_delta = *put_results.get(&MetricId::Delta).unwrap();
 
     // Delta_C - Delta_P = exp(-q·T)

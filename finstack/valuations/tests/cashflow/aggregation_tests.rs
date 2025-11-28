@@ -11,6 +11,9 @@
 //! - `FlatRateCurve`: Time-dependent DF = exp(-r*t), DF(0) = 1.0
 //! - `FlatHazardRateCurve`: Time-dependent SP = exp(-λ*t), SP(0) = 1.0
 
+use crate::cashflow_tests::test_helpers::{
+    financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
+};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, Period, PeriodId};
 use finstack_core::market_data::traits::{Discounting, Survival};
@@ -18,9 +21,6 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::aggregation::{
     aggregate_by_period, aggregate_cashflows_precise_checked,
     pv_by_period_credit_adjusted_with_ctx, pv_by_period_with_ctx,
-};
-use crate::cashflow_tests::test_helpers::{
-    financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
 };
 use time::Month;
 
@@ -179,7 +179,6 @@ fn checked_sum_matches() {
     assert!((total.amount() - 300.0).abs() < FACTOR_TOLERANCE);
 }
 
-
 #[test]
 fn pv_with_ctx_sum_matches_direct_calculation() {
     // Test that PV aggregation with Act365F sums correctly
@@ -286,7 +285,6 @@ fn pv_by_period_deterministic_multi_currency() {
     assert_eq!(q2.len(), 1);
     assert!(q2.contains_key(&Currency::USD));
 }
-
 
 #[test]
 fn pv_by_period_sum_matches_npv() {
@@ -562,12 +560,15 @@ fn pv_with_ctx_actact_isma_requires_frequency() {
         bus_basis: None,
     };
 
-    let result =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActActIsma, dc_ctx_no_freq);
-    assert!(
-        result.is_err(),
-        "ActActIsma without frequency should error"
+    let result = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::ActActIsma,
+        dc_ctx_no_freq,
     );
+    assert!(result.is_err(), "ActActIsma without frequency should error");
 
     // With frequency - should succeed
     let dc_ctx_with_freq = DayCountCtx {
@@ -576,12 +577,15 @@ fn pv_with_ctx_actact_isma_requires_frequency() {
         bus_basis: None,
     };
 
-    let result =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActActIsma, dc_ctx_with_freq);
-    assert!(
-        result.is_ok(),
-        "ActActIsma with frequency should succeed"
+    let result = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::ActActIsma,
+        dc_ctx_with_freq,
     );
+    assert!(result.is_ok(), "ActActIsma with frequency should succeed");
 }
 
 #[test]
@@ -602,8 +606,7 @@ fn pv_with_ctx_actact_isda_no_frequency_required() {
     };
 
     // Note: ActAct (ISDA) uses calendar year (365 or 366 for leap years)
-    let result =
-        pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActAct, dc_ctx);
+    let result = pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActAct, dc_ctx);
     assert!(
         result.is_ok(),
         "ActAct (ISDA) should not require frequency context"
@@ -685,7 +688,10 @@ fn long_dated_cashflow_stability() {
         t
     );
     assert!(pv.amount() > 0.0, "Long-dated PV must be positive");
-    assert!(pv.amount() < 1_000_000.0, "PV must be less than notional for positive rates");
+    assert!(
+        pv.amount() < 1_000_000.0,
+        "PV must be less than notional for positive rates"
+    );
 }
 
 #[test]

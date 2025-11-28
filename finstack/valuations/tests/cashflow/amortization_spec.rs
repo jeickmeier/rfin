@@ -231,9 +231,7 @@ fn test_amortization_spec_percent_nan_rejected() {
 fn test_amortization_spec_percent_infinity_rejected() {
     let notional = Notional {
         initial: Money::new(1_000_000.0, Currency::USD),
-        amort: AmortizationSpec::PercentPerPeriod {
-            pct: f64::INFINITY,
-        },
+        amort: AmortizationSpec::PercentPerPeriod { pct: f64::INFINITY },
     };
 
     let result = notional.validate();
@@ -250,7 +248,10 @@ fn test_amortization_spec_percent_neg_infinity_rejected() {
     };
 
     let result = notional.validate();
-    assert!(result.is_err(), "Negative infinite percentage should be rejected");
+    assert!(
+        result.is_err(),
+        "Negative infinite percentage should be rejected"
+    );
 }
 
 #[test]
@@ -294,7 +295,10 @@ fn test_amortization_spec_percent_100_ok() {
     };
 
     let result = notional.validate();
-    assert!(result.is_ok(), "100% percentage should be valid (edge case)");
+    assert!(
+        result.is_ok(),
+        "100% percentage should be valid (edge case)"
+    );
 }
 
 #[test]
@@ -306,7 +310,10 @@ fn test_amortization_spec_step_remaining_empty_ok() {
     };
 
     let result = notional.validate();
-    assert!(result.is_ok(), "Empty step schedule should be valid (no amortization)");
+    assert!(
+        result.is_ok(),
+        "Empty step schedule should be valid (no amortization)"
+    );
 }
 
 #[test]
@@ -318,7 +325,10 @@ fn test_amortization_spec_custom_principal_empty_ok() {
     };
 
     let result = notional.validate();
-    assert!(result.is_ok(), "Empty custom principal should be valid (no exchanges)");
+    assert!(
+        result.is_ok(),
+        "Empty custom principal should be valid (no exchanges)"
+    );
 }
 
 #[test]
@@ -332,5 +342,8 @@ fn test_amortization_spec_linear_to_zero_ok() {
     };
 
     let result = notional.validate();
-    assert!(result.is_ok(), "Linear amortization to zero should be valid");
+    assert!(
+        result.is_ok(),
+        "Linear amortization to zero should be valid"
+    );
 }

@@ -285,4 +285,3 @@ mod tests {
         assert!((financial_tolerance(10_000_000_000.0) - 100.0).abs() < 1e-10);
     }
 }
-

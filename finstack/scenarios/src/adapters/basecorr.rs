@@ -255,10 +255,10 @@ mod tests {
     fn setup_market() -> MarketContext {
         let curve = BaseCorrelationCurve::builder("TEST_BC")
             .knots(vec![
-                (0.03, 0.2),   // 3% detachment -> 20% correlation
-                (0.07, 0.35),  // 7% detachment -> 35% correlation
-                (0.10, 0.45),  // 10% detachment -> 45% correlation
-                (0.15, 0.60),  // 15% detachment -> 60% correlation
+                (0.03, 0.2),  // 3% detachment -> 20% correlation
+                (0.07, 0.35), // 7% detachment -> 35% correlation
+                (0.10, 0.45), // 10% detachment -> 45% correlation
+                (0.15, 0.60), // 15% detachment -> 60% correlation
             ])
             .build()
             .expect("valid base corr curve");

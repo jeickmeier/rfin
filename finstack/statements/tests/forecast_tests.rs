@@ -550,10 +550,15 @@ fn test_normal_forecast_no_nan() {
         params.insert("std_dev".to_string(), serde_json::json!(15.0));
         params.insert("seed".to_string(), serde_json::json!(seed));
 
-        let result = normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
+        let result =
+            normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
         for value in result.values() {
             assert!(!value.is_nan(), "NaN produced with seed {}", seed);
-            assert!(value.is_finite(), "Non-finite value produced with seed {}", seed);
+            assert!(
+                value.is_finite(),
+                "Non-finite value produced with seed {}",
+                seed
+            );
         }
     }
 }

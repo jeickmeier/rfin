@@ -93,7 +93,11 @@ fn test_instrument_type_price_shock_matching() {
                 "scenario_price_shock_pct should be set in pricing_overrides"
             );
             let shock = overrides.scenario_price_shock_pct.unwrap();
-            assert!((shock - (-0.05)).abs() < 1e-6, "Expected -0.05 decimal, got {}", shock);
+            assert!(
+                (shock - (-0.05)).abs() < 1e-6,
+                "Expected -0.05 decimal, got {}",
+                shock
+            );
         } else {
             // Fallback for instruments without scenario_overrides
             let meta = &instrument.attributes().meta;
@@ -160,7 +164,11 @@ fn test_instrument_type_spread_shock_matching() {
             "scenario_spread_shock_bp should be set in pricing_overrides"
         );
         let shock = overrides.scenario_spread_shock_bp.unwrap();
-        assert!((shock - 100.0).abs() < 1e-6, "Expected 100.0 bp, got {}", shock);
+        assert!(
+            (shock - 100.0).abs() < 1e-6,
+            "Expected 100.0 bp, got {}",
+            shock
+        );
     } else {
         // Fallback for instruments without scenario_overrides
         let meta = &instruments[0].attributes().meta;

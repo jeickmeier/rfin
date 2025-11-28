@@ -3,9 +3,9 @@
 //! Run with: cargo run --example convenience_reports_example
 
 use finstack_core::dates::PeriodId;
+use finstack_statements::analysis::{CreditAssessmentReport, PLSummaryReport, Report};
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::analysis::{CreditAssessmentReport, PLSummaryReport, Report};
 use finstack_statements::types::AmountOrScalar;
 use finstack_statements::Result;
 

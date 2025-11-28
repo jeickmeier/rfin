@@ -246,26 +246,18 @@ fn value_portfolio_parallel(
     // Collect amounts per entity in parallel, then use compensated summation
     let entity_amounts_map: IndexMap<EntityId, Vec<f64>> = position_values_vec
         .par_iter()
-        .fold(
-            IndexMap::new,
-            |mut acc, pv| {
-                acc.entry(pv.entity_id.clone())
-                    .or_insert_with(Vec::new)
-                    .push(pv.value_base.amount());
-                acc
-            },
-        )
-        .reduce(
-            IndexMap::new,
-            |mut a, b| {
-                for (entity_id, amounts) in b {
-                    a.entry(entity_id)
-                        .or_insert_with(Vec::new)
-                        .extend(amounts);
-                }
-                a
-            },
-        );
+        .fold(IndexMap::new, |mut acc, pv| {
+            acc.entry(pv.entity_id.clone())
+                .or_insert_with(Vec::new)
+                .push(pv.value_base.amount());
+            acc
+        })
+        .reduce(IndexMap::new, |mut a, b| {
+            for (entity_id, amounts) in b {
+                a.entry(entity_id).or_insert_with(Vec::new).extend(amounts);
+            }
+            a
+        });
 
     // Build position_values IndexMap deterministically (preserve order)
     let mut position_values = IndexMap::new();

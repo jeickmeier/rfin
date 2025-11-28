@@ -146,8 +146,8 @@ pub mod prelude {
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
         ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
     };
-    pub use crate::templates::{TemplatesExtension, VintageExtension};
     pub use crate::registry::Registry;
+    pub use crate::templates::{TemplatesExtension, VintageExtension};
     pub use crate::types::{
         AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
         NodeValueType, SeasonalMode,

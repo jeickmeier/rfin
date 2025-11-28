@@ -292,8 +292,7 @@ mod tests {
 
     #[test]
     fn test_with_tags() {
-        let entity = Entity::new("ACME")
-            .with_tags([("sector", "Tech"), ("region", "NA")]);
+        let entity = Entity::new("ACME").with_tags([("sector", "Tech"), ("region", "NA")]);
 
         assert_eq!(entity.tags.len(), 2);
         assert_eq!(entity.tags.get("sector"), Some(&"Tech".to_string()));

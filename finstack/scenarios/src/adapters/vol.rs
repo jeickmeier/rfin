@@ -80,7 +80,11 @@ impl std::fmt::Display for ArbitrageViolation {
                  total variance decreased from {:.6} to {:.6}",
                 strike, expiry, prev_variance, curr_variance
             ),
-            ArbitrageViolation::NonPositiveVol { expiry, strike, vol } => write!(
+            ArbitrageViolation::NonPositiveVol {
+                expiry,
+                strike,
+                vol,
+            } => write!(
                 f,
                 "Non-positive vol at expiry={:.4}Y, strike={:.2}: vol={:.6}",
                 expiry, strike, vol
@@ -311,9 +315,9 @@ pub fn apply_vol_bucket_shock(
             let val = surface.value(expiry, strike);
 
             // Check if this bucket matches filters using relative tolerances
-            let tenor_match = tenor_years.as_ref().is_none_or(|tenors| {
-                tenors.iter().any(|&t| matches_expiry(t, expiry))
-            });
+            let tenor_match = tenor_years
+                .as_ref()
+                .is_none_or(|tenors| tenors.iter().any(|&t| matches_expiry(t, expiry)));
 
             let strike_match = strikes.is_none_or(|strike_filters| {
                 strike_filters.iter().any(|&s| matches_strike(s, strike))
@@ -371,14 +375,17 @@ mod tests {
         let expiries = vec![0.25, 0.5, 1.0];
         let strikes = vec![100.0];
         let vols = vec![
-            vec![0.3], // 0.25Y: var = 0.3^2 * 0.25 = 0.0225
-            vec![0.2], // 0.5Y: var = 0.2^2 * 0.5 = 0.02 < 0.0225 (arbitrage!)
+            vec![0.3],  // 0.25Y: var = 0.3^2 * 0.25 = 0.0225
+            vec![0.2],  // 0.5Y: var = 0.2^2 * 0.5 = 0.02 < 0.0225 (arbitrage!)
             vec![0.15], // 1Y: var = 0.15^2 * 1.0 = 0.0225
         ];
 
         let violations = check_arbitrage(&expiries, &strikes, &vols);
         assert!(!violations.is_empty());
-        assert!(matches!(&violations[0], ArbitrageViolation::CalendarSpread { .. }));
+        assert!(matches!(
+            &violations[0],
+            ArbitrageViolation::CalendarSpread { .. }
+        ));
     }
 
     #[test]
@@ -389,7 +396,10 @@ mod tests {
 
         let violations = check_arbitrage(&expiries, &strikes, &vols);
         assert!(!violations.is_empty());
-        assert!(matches!(&violations[0], ArbitrageViolation::NonPositiveVol { .. }));
+        assert!(matches!(
+            &violations[0],
+            ArbitrageViolation::NonPositiveVol { .. }
+        ));
     }
 
     #[test]

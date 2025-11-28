@@ -455,14 +455,25 @@ mod tests {
         let alpha: f64 = 4.0;
         let beta_param: f64 = 2.0;
         let expected_mean = alpha / (alpha + beta_param);
-        let expected_var = (alpha * beta_param) / ((alpha + beta_param).powi(2) * (alpha + beta_param + 1.0));
+        let expected_var =
+            (alpha * beta_param) / ((alpha + beta_param).powi(2) * (alpha + beta_param + 1.0));
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, alpha, beta_param))
+            .map(|_| {
+                sample_beta(
+                    &mut rng as &mut dyn RandomNumberGenerator,
+                    alpha,
+                    beta_param,
+                )
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
-        let sample_var = samples.iter().map(|x| (x - sample_mean).powi(2)).sum::<f64>() / (n_samples - 1) as f64;
+        let sample_var = samples
+            .iter()
+            .map(|x| (x - sample_mean).powi(2))
+            .sum::<f64>()
+            / (n_samples - 1) as f64;
 
         // Allow 5% relative error for mean (statistical tolerance)
         assert!(

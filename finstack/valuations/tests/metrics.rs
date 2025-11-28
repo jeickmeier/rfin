@@ -31,4 +31,3 @@ mod convergence;
 // Note: tests/metrics/tests/ subdirectory contains internal unit tests that use
 // crate-internal APIs (finite_difference, bump helpers). These run as part of
 // `cargo test` within the library, not as integration tests.
-

@@ -232,7 +232,9 @@ fn test_ewm_mean_golden_parity() {
     // ewm[1] = 0.3*0.05 + 0.7*0.10 = 0.085
     // ewm[2] = 0.3*0.15 + 0.7*0.085 = 0.1045
     // ewm[3] = 0.3*0.08 + 0.7*0.1045 = 0.09715
-    let q4_ewm = results.get("ewm_mean", &PeriodId::quarter(2025, 4)).unwrap();
+    let q4_ewm = results
+        .get("ewm_mean", &PeriodId::quarter(2025, 4))
+        .unwrap();
 
     // Tolerance for EWM calculations - slightly looser than pure floating point
     // due to iterative computation
@@ -279,7 +281,9 @@ fn test_ewm_var_golden_parity() {
     // Verify consistency across runs (deterministic)
     let mut evaluator2 = Evaluator::new();
     let results2 = evaluator2.evaluate(&model).unwrap();
-    let q4_ewm_var2 = results2.get("ewm_var", &PeriodId::quarter(2025, 4)).unwrap();
+    let q4_ewm_var2 = results2
+        .get("ewm_var", &PeriodId::quarter(2025, 4))
+        .unwrap();
     assert_eq!(
         q4_ewm_var, q4_ewm_var2,
         "EWM variance should be deterministic"

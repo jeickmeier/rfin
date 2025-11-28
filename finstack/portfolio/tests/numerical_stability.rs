@@ -61,7 +61,7 @@ fn test_compensated_summation_large_portfolio() {
     // With alternating ±1e12, the total should be close to zero
     // Compensated summation should maintain accuracy
     let total = valuation.total_base_ccy.amount();
-    
+
     // Verify that compensated summation produces a reasonable result
     // The exact value depends on discounting, but should be finite and not NaN/Inf
     assert!(total.is_finite(), "Total should be finite");
@@ -166,7 +166,10 @@ fn test_inf_quantity_rejected() {
 
     match result {
         Err(PortfolioError::InvalidInput(msg)) => {
-            assert!(msg.contains("finite"), "Error message should mention 'finite'");
+            assert!(
+                msg.contains("finite"),
+                "Error message should mention 'finite'"
+            );
         }
         other => panic!("Expected InvalidInput error, got: {:?}", other),
     }
@@ -204,7 +207,10 @@ fn test_nan_quantity_rejected() {
 
     match result {
         Err(PortfolioError::InvalidInput(msg)) => {
-            assert!(msg.contains("finite"), "Error message should mention 'finite'");
+            assert!(
+                msg.contains("finite"),
+                "Error message should mention 'finite'"
+            );
         }
         other => panic!("Expected InvalidInput error, got: {:?}", other),
     }
@@ -230,4 +236,3 @@ fn test_neumaier_sum_accuracy() {
         naive_result
     );
 }
-

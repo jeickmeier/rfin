@@ -172,21 +172,36 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         tree.calibrate(discount_curve, time_to_maturity)?;
 
         // Price 1: Bond WITH embedded options (call/put constraints applied)
-        let valuator_with_options =
-            BondValuator::new(bond.clone(), market, as_of, time_to_maturity, self.tree_steps)?;
+        let valuator_with_options = BondValuator::new(
+            bond.clone(),
+            market,
+            as_of,
+            time_to_maturity,
+            self.tree_steps,
+        )?;
 
         let mut vars = StateVariables::new();
         vars.insert(short_rate_keys::OAS, 0.0);
 
-        let price_with_options = tree.price(vars.clone(), time_to_maturity, market, &valuator_with_options)?;
+        let price_with_options = tree.price(
+            vars.clone(),
+            time_to_maturity,
+            market,
+            &valuator_with_options,
+        )?;
 
         // Price 2: Bond WITHOUT embedded options (straight bond)
         // Create a copy of the bond with call_put stripped out
         let mut straight_bond = bond.clone();
         straight_bond.call_put = None;
 
-        let valuator_straight =
-            BondValuator::new(straight_bond, market, as_of, time_to_maturity, self.tree_steps)?;
+        let valuator_straight = BondValuator::new(
+            straight_bond,
+            market,
+            as_of,
+            time_to_maturity,
+            self.tree_steps,
+        )?;
 
         let price_straight = tree.price(vars, time_to_maturity, market, &valuator_straight)?;
 
@@ -238,9 +253,9 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::bond::CashflowSpec;
     #[cfg(feature = "slow")]
     use crate::instruments::bond::{CallPut, CallPutSchedule};
-    use crate::instruments::bond::CashflowSpec;
     use crate::instruments::common::traits::Instrument;
     use crate::instruments::PricingOverrides;
     use finstack_core::dates::Date;
@@ -365,8 +380,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context =
-            MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
@@ -386,8 +400,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context =
-            MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
@@ -407,8 +420,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context =
-            MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
@@ -418,4 +430,3 @@ mod tests {
         );
     }
 }
-

@@ -114,7 +114,11 @@ pub fn extract_direct_dependencies(formula: &str) -> crate::error::Result<IndexS
 /// * `identifiers` - Set to collect identifiers into
 /// * `ignore_lag` - If true, do not traverse into `lag()` or `shift()` calls
 ///   (except when the offset is a literal 0, which is a current-period dependency)
-fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<String>, ignore_lag: bool) {
+fn collect_identifiers_from_ast(
+    expr: &StmtExpr,
+    identifiers: &mut IndexSet<String>,
+    ignore_lag: bool,
+) {
     match expr {
         StmtExpr::Literal(_) => {}
         StmtExpr::NodeRef(name) => {

@@ -115,7 +115,10 @@ pub struct TestRng {
 }
 
 /// Type alias for backwards compatibility (deprecated).
-#[deprecated(since = "0.2.0", note = "Use TestRng instead; SimpleRng implies production-readiness")]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use TestRng instead; SimpleRng implies production-readiness"
+)]
 pub type SimpleRng = TestRng;
 
 impl TestRng {

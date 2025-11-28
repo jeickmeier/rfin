@@ -142,7 +142,7 @@ impl Portfolio {
     /// that is not present in [`Portfolio::entities`].
     pub fn validate(&self) -> Result<()> {
         use std::collections::HashSet;
-        
+
         let mut seen_ids = HashSet::new();
         for position in &self.positions {
             // Check for duplicate position IDs
@@ -152,7 +152,7 @@ impl Portfolio {
                     position.position_id
                 )));
             }
-            
+
             // Check entity exists
             if !self.entities.contains_key(&position.entity_id) {
                 return Err(PortfolioError::UnknownEntity {

@@ -1,7 +1,7 @@
 //! Tree visualization utilities.
 
-use crate::evaluator::Results;
 use super::DependencyTree;
+use crate::evaluator::Results;
 use finstack_core::dates::PeriodId;
 
 /// Render dependency tree as ASCII art.
@@ -177,9 +177,9 @@ fn render_tree_with_values(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::DependencyTracer;
     use crate::builder::ModelBuilder;
     use crate::evaluator::{DependencyGraph, Evaluator};
-    use crate::analysis::DependencyTracer;
 
     #[test]
     fn test_render_tree_ascii() {

@@ -205,8 +205,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Without calendar, should still work
-        let years =
-            parse_tenor_to_years_with_context("1Y", as_of, None).expect("should parse 1Y");
+        let years = parse_tenor_to_years_with_context("1Y", as_of, None).expect("should parse 1Y");
         // 2025 is not a leap year, so should be close to 1.0
         assert!((years - 1.0).abs() < 0.01);
     }
@@ -215,8 +214,7 @@ mod tests {
     fn test_parse_tenor_months_with_context() {
         let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
 
-        let years =
-            parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
+        let years = parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
         // 1M from Jan 15 to Feb 15 = 31 days / 365 ≈ 0.0849
         assert!(years > 0.08 && years < 0.09);
     }
@@ -226,8 +224,7 @@ mod tests {
         // Jan 31 + 1M should go to Feb 28 in non-leap year
         let as_of = Date::from_calendar_date(2025, Month::January, 31).expect("valid date");
 
-        let years =
-            parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
+        let years = parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
         // Jan 31 to Feb 28 = 28 days / 365 ≈ 0.0767
         assert!(years > 0.07 && years < 0.08);
     }

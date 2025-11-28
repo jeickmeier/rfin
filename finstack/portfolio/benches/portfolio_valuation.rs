@@ -338,15 +338,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &deposit_id,
-            Arc::new(deposit),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &deposit_id,
+                Arc::new(deposit),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -374,15 +376,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &bond_id,
-            Arc::new(bond),
-            (i + 1) as f64,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &bond_id,
+                Arc::new(bond),
+                (i + 1) as f64,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -405,15 +409,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         .expect("Failed to create swap for benchmark");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &swap_id,
-            Arc::new(swap),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &swap_id,
+                Arc::new(swap),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -423,15 +429,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let equity = Equity::new(equity_id.clone(), "AAPL", Currency::USD);
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &equity_id,
-            Arc::new(equity),
-            100.0 * (i + 1) as f64, // shares as quantity
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &equity_id,
+                Arc::new(equity),
+                100.0 * (i + 1) as f64, // shares as quantity
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -448,15 +456,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &option_id,
-            Arc::new(option),
-            (i + 1) as f64,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &option_id,
+                Arc::new(option),
+                (i + 1) as f64,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -498,15 +508,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         };
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &cds_id,
-            Arc::new(cds),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &cds_id,
+                Arc::new(cds),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -524,15 +536,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let fx_spot = FxSpot::new(fx_id.clone().into(), base, quote);
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &fx_id,
-            Arc::new(fx_spot),
-            1_000_000.0, // Notional in base currency
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &fx_id,
+                Arc::new(fx_spot),
+                1_000_000.0, // Notional in base currency
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -557,15 +571,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &repo_id,
-            Arc::new(repo),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &repo_id,
+                Arc::new(repo),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -593,15 +609,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &swaption_id,
-            Arc::new(swaption),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &swaption_id,
+                Arc::new(swaption),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -628,15 +646,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &fx_option_id,
-            Arc::new(fx_option),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &fx_option_id,
+                Arc::new(fx_option),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -666,15 +686,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &cds_option_id,
-            Arc::new(cds_option),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &cds_option_id,
+                Arc::new(cds_option),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -698,15 +720,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &var_swap_id,
-            Arc::new(var_swap),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &var_swap_id,
+                Arc::new(var_swap),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -742,15 +766,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &tranche_id,
-            Arc::new(tranche),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &tranche_id,
+                Arc::new(tranche),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -769,15 +795,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let ilb = InflationLinkedBond::new_tips(ilb_id.clone(), &bond_params, "USD-OIS", "USD-CPI");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &ilb_id,
-            Arc::new(ilb),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &ilb_id,
+                Arc::new(ilb),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -799,15 +827,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &infl_swap_id,
-            Arc::new(infl_swap),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &infl_swap_id,
+                Arc::new(infl_swap),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -860,15 +890,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &sc_id,
-            Arc::new(sc),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &sc_id,
+                Arc::new(sc),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -909,15 +941,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         };
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &conv_id,
-            Arc::new(convertible),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &conv_id,
+                Arc::new(convertible),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 
@@ -936,15 +970,17 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
-        builder = builder.position(Position::new(
-            format!("POS_{}", position_id),
-            entity_id,
-            &deposit_id,
-            Arc::new(deposit),
-            1.0,
-            PositionUnit::Units,
-        )
-        .unwrap());
+        builder = builder.position(
+            Position::new(
+                format!("POS_{}", position_id),
+                entity_id,
+                &deposit_id,
+                Arc::new(deposit),
+                1.0,
+                PositionUnit::Units,
+            )
+            .unwrap(),
+        );
         position_id += 1;
     }
 

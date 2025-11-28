@@ -23,4 +23,3 @@ pub fn make_date(year: i32, month: u8, day: u8) -> Date {
 pub fn approx_eq(a: f64, b: f64, tol: f64) -> bool {
     (a - b).abs() <= tol.max(1e-15)
 }
-

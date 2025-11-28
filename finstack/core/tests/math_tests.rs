@@ -22,4 +22,3 @@ mod test_interp_serde;
 #[cfg(feature = "serde")]
 #[path = "math/test_solver_serde.rs"]
 mod test_solver_serde;
-

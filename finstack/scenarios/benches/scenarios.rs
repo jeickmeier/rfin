@@ -259,7 +259,7 @@ fn bench_curve_parallel_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -312,7 +312,7 @@ fn bench_curve_node_shock(c: &mut Criterion) {
                         model: &mut model,
                         instruments: None,
                         rate_bindings: None,
-        calendar: None,
+                        calendar: None,
                         as_of: base_date,
                     };
                     black_box(
@@ -354,7 +354,7 @@ fn bench_fx_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -400,7 +400,7 @@ fn bench_equity_shock(c: &mut Criterion) {
                         model: &mut model,
                         instruments: None,
                         rate_bindings: None,
-        calendar: None,
+                        calendar: None,
                         as_of: base_date,
                     };
                     black_box(
@@ -444,7 +444,7 @@ fn bench_vol_surface_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -480,7 +480,7 @@ fn bench_vol_surface_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -521,7 +521,7 @@ fn bench_base_correlation_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -556,7 +556,7 @@ fn bench_base_correlation_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -597,7 +597,7 @@ fn bench_statement_operations(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -630,7 +630,7 @@ fn bench_statement_operations(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -707,7 +707,7 @@ fn bench_complex_multi_operation(c: &mut Criterion) {
                         model: &mut model,
                         instruments: None,
                         rate_bindings: None,
-        calendar: None,
+                        calendar: None,
                         as_of: base_date,
                     };
                     black_box(
@@ -888,7 +888,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -923,7 +923,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -965,7 +965,7 @@ fn bench_credit_vol_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -1001,7 +1001,7 @@ fn bench_credit_vol_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(
@@ -1048,7 +1048,7 @@ fn bench_instrument_spread_shock(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None, // Would contain CDS/Bond instruments in real scenario
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             // This will generate a warning but tests the path
@@ -1115,7 +1115,7 @@ fn bench_comprehensive_credit_scenario(c: &mut Criterion) {
                 model: &mut model,
                 instruments: None,
                 rate_bindings: None,
-        calendar: None,
+                calendar: None,
                 as_of: base_date,
             };
             black_box(

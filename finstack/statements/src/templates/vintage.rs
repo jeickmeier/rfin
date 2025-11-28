@@ -25,7 +25,7 @@ pub fn add_vintage_buildup(
 ) -> Result<ModelBuilder<Ready>> {
     // We construct the total node using a convolution formula:
     // Total = New * c0 + lag(New, 1) * c1 + lag(New, 2) * c2 + ...
-    
+
     let mut terms = Vec::new();
 
     for (lag, &rate) in decay_curve.iter().enumerate() {
@@ -40,9 +40,12 @@ pub fn add_vintage_buildup(
         } else {
             // Lagged term: lag(New, k) * ck
             // We use coalesce(lag(...), 0) to handle boundaries gracefully
-            format!("coalesce(lag({}, {}), 0.0) * {:.6}", new_volume_node, lag, rate)
+            format!(
+                "coalesce(lag({}, {}), 0.0) * {:.6}",
+                new_volume_node, lag, rate
+            )
         };
-        
+
         terms.push(term);
     }
 
@@ -58,9 +61,6 @@ pub fn add_vintage_buildup(
         .with_formula(formula);
 
     builder.nodes.insert(name.to_string(), node);
-    
+
     Ok(builder)
 }
-
-
-

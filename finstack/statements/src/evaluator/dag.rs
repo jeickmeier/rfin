@@ -301,10 +301,7 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 /// temporal cycles (like corkscrews) without blocking the DAG.
 fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> IndexSet<String> {
     match crate::utils::formula::extract_direct_dependencies(formula) {
-        Ok(direct_deps) => direct_deps
-            .intersection(all_node_ids)
-            .cloned()
-            .collect(),
+        Ok(direct_deps) => direct_deps.intersection(all_node_ids).cloned().collect(),
         Err(_) => {
             // Fallback to string-based extraction if parsing fails
             // This shouldn't happen given validate_formula_references ran first,
@@ -480,8 +477,14 @@ mod tests {
 
         // Order should be a then b (since b depends on a, and a depends on nothing in current period)
         let order = evaluate_order(&graph).expect("test should succeed");
-        let a_pos = order.iter().position(|n| n == "a").expect("node a should exist");
-        let b_pos = order.iter().position(|n| n == "b").expect("node b should exist");
+        let a_pos = order
+            .iter()
+            .position(|n| n == "a")
+            .expect("node a should exist");
+        let b_pos = order
+            .iter()
+            .position(|n| n == "b")
+            .expect("node b should exist");
         assert!(a_pos < b_pos);
     }
 }

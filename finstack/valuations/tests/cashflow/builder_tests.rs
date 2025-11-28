@@ -6,6 +6,7 @@
 //! - `FACTOR_TOLERANCE` (1e-12): For year fractions
 //! - `financial_tolerance(notional)`: For money amounts
 
+use crate::cashflow_tests::test_helpers::{financial_tolerance, FACTOR_TOLERANCE, RATE_TOLERANCE};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
@@ -16,9 +17,6 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
 use finstack_valuations::instruments::common::discountable::Discountable;
-use crate::cashflow_tests::test_helpers::{
-    financial_tolerance, FACTOR_TOLERANCE, RATE_TOLERANCE,
-};
 use time::Month;
 
 fn kind_rank(kind: CFKind) -> u8 {
@@ -416,11 +414,20 @@ fn stub_period_thirty360_produces_proportional_accrual() {
         .collect();
 
     // Should have at least one stub period
-    let stubs: Vec<&&CashFlow> = coupon_flows.iter().filter(|cf| cf.kind == CFKind::Stub).collect();
-    let regular: Vec<&&CashFlow> = coupon_flows.iter().filter(|cf| cf.kind == CFKind::Fixed).collect();
+    let stubs: Vec<&&CashFlow> = coupon_flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Stub)
+        .collect();
+    let regular: Vec<&&CashFlow> = coupon_flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Fixed)
+        .collect();
 
     assert!(!stubs.is_empty(), "Should have at least one stub period");
-    assert!(!regular.is_empty(), "Should have at least one regular period");
+    assert!(
+        !regular.is_empty(),
+        "Should have at least one regular period"
+    );
 
     // Regular semi-annual coupon should be approximately 3% of notional (6% / 2)
     // Stub period should be smaller due to shorter accrual period
@@ -582,12 +589,7 @@ fn cpr_smm_conversion_roundtrip_precision() {
 
         // SMM should always be less than CPR (except for 0)
         if cpr > 0.0 {
-            assert!(
-                smm < cpr,
-                "SMM ({}) should be less than CPR ({})",
-                smm,
-                cpr
-            );
+            assert!(smm < cpr, "SMM ({}) should be less than CPR ({})", smm, cpr);
         }
     }
 

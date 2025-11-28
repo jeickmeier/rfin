@@ -737,4 +737,3 @@ fn bump_quote_rate(quote: &mut RatesQuote, bump: f64) {
         RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp += bump * 10_000.0,
     }
 }
-

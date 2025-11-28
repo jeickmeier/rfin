@@ -22,7 +22,6 @@ use pyo3::{wrap_pyfunction, Bound};
 use std::cmp::Ordering;
 use std::str::FromStr;
 
-
 /// Parameter specification for sensitivity analysis.
 #[pyclass(
     module = "finstack.statements.analysis",

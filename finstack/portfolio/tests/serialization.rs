@@ -177,4 +177,3 @@ fn test_portfolio_spec_json_roundtrip() {
     // Note: Full reconstruction (from_spec) requires instrument_spec to be Some
     // This will work once we implement to_instrument_json() for all instrument types
 }
-

@@ -9,9 +9,9 @@
 //! - test_calibration_repricing: Repricing tolerance tests for calibrated curves
 //! - test_explainability: Jacobian computation and explanation tracing
 
+mod test_calibration_repricing;
 mod test_calibration_serialization;
+mod test_explainability;
 mod test_hazard_curve_calibration;
 mod test_simple_calibration_builder;
 mod test_swaption_vol_calibration;
-mod test_calibration_repricing;
-mod test_explainability;

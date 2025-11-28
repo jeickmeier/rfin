@@ -146,7 +146,11 @@ impl JsPortfolioValuation {
         let obj = Object::new();
         for (id, value) in &self.inner.position_values {
             let js_value = JsPositionValue::from_inner(value.clone());
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_value))?;
+            js_sys::Reflect::set(
+                &obj,
+                &JsValue::from_str(id.as_str()),
+                &JsValue::from(js_value),
+            )?;
         }
         Ok(JsValue::from(obj))
     }
@@ -171,7 +175,11 @@ impl JsPortfolioValuation {
         let obj = Object::new();
         for (id, money) in &self.inner.by_entity {
             let js_money = JsMoney::from_inner(*money);
-            js_sys::Reflect::set(&obj, &JsValue::from_str(id.as_str()), &JsValue::from(js_money))?;
+            js_sys::Reflect::set(
+                &obj,
+                &JsValue::from_str(id.as_str()),
+                &JsValue::from(js_money),
+            )?;
         }
         Ok(JsValue::from(obj))
     }

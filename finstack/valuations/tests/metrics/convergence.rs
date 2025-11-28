@@ -158,8 +158,8 @@ fn test_bucketed_dv01_sums_to_parallel() {
     // Use large notional ($10M) to ensure bucket DV01s are above Money precision threshold
     let bond = Bond::fixed(
         "BUCKETED_TEST",
-        Money::new(10_000_000.0, Currency::USD),  // $10M notional
-        0.05, // 5% coupon
+        Money::new(10_000_000.0, Currency::USD), // $10M notional
+        0.05,                                    // 5% coupon
         as_of,
         date!(2035 - 01 - 01), // 10 year bond
         "USD-OIS",
@@ -204,10 +204,19 @@ fn test_bucketed_dv01_sums_to_parallel() {
         }
 
         // Verify basic properties
-        assert!(sum_bucketed.is_finite(), "Bucketed DV01 sum should be finite");
+        assert!(
+            sum_bucketed.is_finite(),
+            "Bucketed DV01 sum should be finite"
+        );
         assert!(total_dv01.abs() > 1e-6, "Total DV01 should be non-trivial");
-        assert!(total_dv01 < 0.0, "Parallel DV01 should be negative for long bond");
-        assert!(sum_bucketed < 0.0, "Sum of bucketed DV01 should be negative");
+        assert!(
+            total_dv01 < 0.0,
+            "Parallel DV01 should be negative for long bond"
+        );
+        assert!(
+            sum_bucketed < 0.0,
+            "Sum of bucketed DV01 should be negative"
+        );
 
         // Sum of bucketed DV01 should equal parallel DV01 within 30%
         // Note: Due to Money precision issues, the match is not exact.
@@ -220,7 +229,11 @@ fn test_bucketed_dv01_sums_to_parallel() {
         );
 
         // The 10y bucket should capture most of the sensitivity
-        let ten_year_dv01 = series.iter().find(|(k, _)| k == "10y").map(|(_, v)| *v).unwrap_or(0.0);
+        let ten_year_dv01 = series
+            .iter()
+            .find(|(k, _)| k == "10y")
+            .map(|(_, v)| *v)
+            .unwrap_or(0.0);
         assert!(ten_year_dv01 < 0.0, "10Y bucket DV01 should be negative");
 
         // At least some intermediate buckets should have non-zero DV01

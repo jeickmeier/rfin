@@ -248,9 +248,12 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_numerical_consistency() {
-        let interp =
-            CubicHermite::new(standard_knots(), standard_dfs(), ExtrapolationPolicy::default())
-                .unwrap();
+        let interp = CubicHermite::new(
+            standard_knots(),
+            standard_dfs(),
+            ExtrapolationPolicy::default(),
+        )
+        .unwrap();
 
         let h = 1e-8;
         let x = 1.5;
@@ -267,9 +270,12 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_monotonicity_preserved() {
-        let interp =
-            CubicHermite::new(standard_knots(), standard_dfs(), ExtrapolationPolicy::default())
-                .unwrap();
+        let interp = CubicHermite::new(
+            standard_knots(),
+            standard_dfs(),
+            ExtrapolationPolicy::default(),
+        )
+        .unwrap();
 
         for &x in &[0.5, 1.5, 2.5] {
             let deriv = interp.interp_prime(x);
@@ -371,4 +377,3 @@ mod monotone_convex_specific {
         }
     }
 }
-

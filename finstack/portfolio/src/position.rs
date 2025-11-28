@@ -117,7 +117,7 @@ impl Position {
         unit: PositionUnit,
     ) -> Result<Self> {
         let pos_id: PositionId = position_id.into();
-        
+
         // Validate quantity
         if !quantity.is_finite() {
             return Err(PortfolioError::invalid_input(format!(
@@ -125,7 +125,7 @@ impl Position {
                 quantity, pos_id
             )));
         }
-        
+
         if quantity.abs() > 1e15 {
             tracing::warn!(
                 position_id = %pos_id,
@@ -143,7 +143,7 @@ impl Position {
                 quantity
             );
         }
-        
+
         Ok(Self {
             position_id: pos_id,
             entity_id: entity_id.into(),
@@ -264,7 +264,7 @@ impl Position {
     pub fn to_spec(&self) -> PositionSpec {
         // Try to convert instrument to JSON (will be implemented in phase 5.3)
         let instrument_spec = self.instrument.to_instrument_json();
-        
+
         PositionSpec {
             position_id: self.position_id.clone(),
             entity_id: self.entity_id.clone(),
@@ -295,7 +295,7 @@ impl Position {
             })?)
         } else {
             return Err(PortfolioError::invalid_input(
-                "Cannot reconstruct position without instrument_spec".to_string()
+                "Cannot reconstruct position without instrument_spec".to_string(),
             ));
         };
 

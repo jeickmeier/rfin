@@ -208,8 +208,8 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
 
 #[cfg(all(test, feature = "dataframes"))]
 mod tests {
-    use super::*;
     use super::super::ResultsMeta;
+    use super::*;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
 

@@ -194,7 +194,12 @@ impl PyBumpSpec {
         bump_bp: f64,
     ) -> Self {
         Self {
-            inner: BumpSpec::triangular_key_rate_bp(prev_bucket, target_bucket, next_bucket, bump_bp),
+            inner: BumpSpec::triangular_key_rate_bp(
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+                bump_bp,
+            ),
         }
     }
 

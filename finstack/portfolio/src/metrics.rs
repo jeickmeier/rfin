@@ -203,7 +203,8 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
                     agg.total = neumaier_sum([agg.total, value].into_iter());
 
                     // Add to entity
-                    let entity_entry = agg.by_entity
+                    let entity_entry = agg
+                        .by_entity
                         .entry(position_value.entity_id.clone())
                         .or_insert(0.0);
                     *entity_entry = neumaier_sum([*entity_entry, value].into_iter());
