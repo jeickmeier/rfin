@@ -952,4 +952,3 @@ fn test_buddhas_birthday_edge_years() {
         "Buddha's Birthday 2125 should be recognized"
     );
 }
-

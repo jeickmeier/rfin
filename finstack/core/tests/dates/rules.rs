@@ -993,4 +993,3 @@ fn rule_multiple_rules_combine() {
     // Regular day
     assert!(!rules.is_holiday(make_date(2025, 6, 15)));
 }
-

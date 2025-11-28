@@ -1,2 +1,4 @@
-#[path = "money/money_fx.rs"]
+//! Tests for money and currency types.
+
 mod money_fx;
+mod rounding;

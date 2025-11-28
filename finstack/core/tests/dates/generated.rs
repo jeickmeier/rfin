@@ -300,4 +300,3 @@ fn calendar_bitset_lookup_honors_ignore_weekends() {
         .with_bitsets(Box::leak(Box::new([bits_weekday])));
     assert!(cal_weekday.is_holiday(weekday));
 }
-

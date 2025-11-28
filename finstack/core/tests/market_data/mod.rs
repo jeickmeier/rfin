@@ -1,27 +1,36 @@
-#[path = "market_data/bumps.rs"]
-mod bumps;
-#[path = "market_data/common.rs"]
-mod common;
-#[path = "market_data/context.rs"]
+//! Market data tests.
+//!
+//! This module is organized by market data type:
+//!
+//! - [`curves`] - Term structure curves (discount, forward, hazard, inflation, base correlation)
+//! - [`context`] - MarketContext container tests
+//! - [`bumps`] - Bump infrastructure tests
+//! - [`fx`] - FX provider tests
+//! - [`scalars`] - Scalar time series and dividend tests
+//! - [`credit_index`] - Credit index data tests
+//! - [`serde`] - Cross-cutting serialization tests
+
+// Test helpers shared across modules
+mod test_helpers;
+
+// Term structure curves
+mod curves;
+
+// Market context
 mod context;
-#[path = "market_data/credit_index.rs"]
+
+// Bump infrastructure
+mod bumps;
+
+// FX providers
+mod fx;
+
+// Scalar types (time series, dividends)
+mod scalars;
+
+// Credit index data
 mod credit_index;
-#[path = "market_data/discount_curve_additional.rs"]
-mod discount_curve_additional;
-#[path = "market_data/discount_curve_extrapolation.rs"]
-mod discount_curve_extrapolation;
-#[path = "market_data/dividends.rs"]
-mod dividends;
-#[path = "market_data/fx_providers.rs"]
-mod fx_providers;
-#[path = "market_data/hazard_curve_additional.rs"]
-mod hazard_curve_additional;
+
+// Serialization tests
 #[cfg(feature = "serde")]
-#[path = "market_data/market_data_serde.rs"]
-mod market_data_serde;
-#[path = "market_data/money_rounding.rs"]
-mod money_rounding;
-#[path = "market_data/test_curve_serde.rs"]
-mod test_curve_serde;
-#[path = "market_data/types_rates.rs"]
-mod types_rates;
+mod serde;

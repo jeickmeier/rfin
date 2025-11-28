@@ -1,0 +1,14 @@
+//! Term structure curve tests.
+//!
+//! This module contains comprehensive tests for all curve types:
+//! - [`discount`] - Discount curves (DF interpolation, bumps, no-arbitrage validation)
+//! - [`forward`] - Forward rate curves
+//! - [`hazard`] - Credit hazard rate curves (survival probabilities)
+//! - [`inflation`] - Inflation/CPI curves
+//! - [`base_correlation`] - Credit index base correlation curves
+
+mod base_correlation;
+mod discount;
+mod forward;
+mod hazard;
+mod inflation;

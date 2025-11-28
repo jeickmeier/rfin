@@ -1,4 +1,18 @@
-//! Shared test fixtures and helpers for finstack_core integration tests
+//! Shared test fixtures and helpers for finstack_core integration tests.
+//!
+//! This module provides common utilities used across multiple test modules.
+//! Module-specific helpers should be placed in their respective `test_helpers.rs`
+//! or `common.rs` files within each test subdirectory.
+//!
+//! # Date Helpers
+//!
+//! - [`test_date`]: Standard test date (2025-01-15)
+//! - [`sample_base_date`]: Base date for market data tests (2024-01-01)
+//! - [`make_date`]: Create arbitrary dates from components
+//!
+//! # Comparison Helpers
+//!
+//! - [`approx_eq`]: Approximate equality for f64 comparisons
 
 use finstack_core::dates::Date;
 use time::Month;

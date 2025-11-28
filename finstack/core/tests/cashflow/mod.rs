@@ -1,17 +1,15 @@
-#[path = "cashflow/cashflow_primitives.rs"]
-mod cashflow_primitives;
+//! Cashflow module tests.
+//!
+//! This module contains tests for:
+//! - CashFlow struct construction and validation
+//! - NPV/discounting calculations
+//! - XIRR/IRR calculations
+//! - Day count conventions
 
-#[path = "cashflow/daycount_leap_year.rs"]  
-mod daycount_leap_year;
+mod test_helpers;
 
-#[path = "cashflow/irr_edge_cases.rs"]
-mod irr_edge_cases;
+mod primitives;
+mod discounting;
+mod irr;
+mod daycount;
 
-#[path = "cashflow/numerical_stability.rs"]
-mod numerical_stability;
-
-#[path = "cashflow/validation_edge_cases.rs"]
-mod validation_edge_cases;
-
-#[path = "cashflow/xirr_golden.rs"]
-mod xirr_golden;

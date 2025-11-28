@@ -395,11 +395,7 @@ fn act365l_single_day_feb29() {
     let yf = DayCount::Act365L
         .year_fraction(d(2024, 2, 28), d(2024, 2, 29), DayCountCtx::default())
         .unwrap();
-    assert!(
-        (yf - 1.0 / 366.0).abs() < TOL,
-        "Expected 1/366, got {}",
-        yf
-    );
+    assert!((yf - 1.0 / 366.0).abs() < TOL, "Expected 1/366, got {}", yf);
 }
 
 #[test]
@@ -408,11 +404,7 @@ fn act365l_single_day_not_feb29() {
     let yf = DayCount::Act365L
         .year_fraction(d(2024, 3, 1), d(2024, 3, 2), DayCountCtx::default())
         .unwrap();
-    assert!(
-        (yf - 1.0 / 365.0).abs() < TOL,
-        "Expected 1/365, got {}",
-        yf
-    );
+    assert!((yf - 1.0 / 365.0).abs() < TOL, "Expected 1/365, got {}", yf);
 }
 
 // =============================================================================
@@ -452,11 +444,7 @@ fn actact_isma_full_coupon_period() {
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
 
     // Full semi-annual period should be 1.0 under ISMA
-    assert!(
-        (yf - 1.0).abs() < TOL,
-        "Expected 1.0, got {}",
-        yf
-    );
+    assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
 
 #[test]
@@ -644,4 +632,3 @@ fn bus252_excludes_holidays() {
     // Dec 25, 26 are holidays, plus weekend = only a few business days
     assert!(biz_days < 5.0);
 }
-

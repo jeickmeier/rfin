@@ -321,4 +321,3 @@ fn calendar_metadata_override_is_respected() {
     let new_year = make_date(2025, 1, 1);
     assert!(!cal.is_business_day(new_year));
 }
-

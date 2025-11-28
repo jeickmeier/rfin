@@ -1,27 +1,31 @@
-//! Expression engine module integration tests.
+//! Expression engine test suite.
 //!
-//! This test suite verifies market-standard correctness for:
-//! - Expression evaluation and context handling
-//! - Expression DAG construction and evaluation
-//! - Scalar and vectorized expression evaluation
-//! - Expression serialization/deserialization
-//! - Parity with Python bindings
+//! Organized by concern:
+//! - `ast`: AST construction and structural equality
+//! - `context`: ExpressionContext implementations
+//! - `dag`: DAG planning and optimization
+//! - `eval`: Core evaluation infrastructure
+//! - `functions`: Function-specific behavior tests
+//! - `serde`: Serialization/deserialization tests
 
 #[path = "expr/common.rs"]
 mod common;
-#[path = "expr/expr_context.rs"]
-mod expr_context;
-#[path = "expr/expr_dag.rs"]
-mod expr_dag;
-#[path = "expr/expr_eval.rs"]
-mod expr_eval;
-#[path = "expr/expr_parity.rs"]
-mod expr_parity;
-#[path = "expr/expr_scalar.rs"]
-mod expr_scalar;
-#[cfg(feature = "serde")]
-#[path = "expr/expr_serde.rs"]
-mod expr_serde;
-#[path = "expr/test_expression_engine.rs"]
-mod test_expression_engine;
 
+#[path = "expr/ast.rs"]
+mod ast;
+
+#[path = "expr/context.rs"]
+mod context;
+
+#[path = "expr/dag.rs"]
+mod dag;
+
+#[path = "expr/eval.rs"]
+mod eval;
+
+#[path = "expr/functions.rs"]
+mod functions;
+
+#[cfg(feature = "serde")]
+#[path = "expr/serde.rs"]
+mod expr_serde;
