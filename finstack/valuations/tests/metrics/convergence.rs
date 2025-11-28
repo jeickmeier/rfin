@@ -218,13 +218,13 @@ fn test_bucketed_dv01_sums_to_parallel() {
             "Sum of bucketed DV01 should be negative"
         );
 
-        // Sum of bucketed DV01 should equal parallel DV01 within 30%
-        // Note: Due to Money precision issues, the match is not exact.
-        // With proper high-precision arithmetic, this should be <1%.
+        // Sum of bucketed DV01 should equal parallel DV01 within 0.01%
+        // Triangular weights partition unity across the bucket grid, so this should be near-exact.
+        // Using value_raw() for high-precision calculations enables tight tolerance.
         let diff_pct = ((sum_bucketed - total_dv01) / total_dv01).abs();
         assert!(
-            diff_pct < 0.30,
-            "Sum of bucketed DV01 ({:.2}) should be within 30% of parallel DV01 ({:.2}), got {:.1}%",
+            diff_pct < 0.0001,
+            "Sum of bucketed DV01 ({:.4}) should be within 0.01% of parallel DV01 ({:.4}), got {:.3}%",
             sum_bucketed, total_dv01, diff_pct * 100.0
         );
 
@@ -321,10 +321,10 @@ fn test_bucketed_cs01_sums_to_total() {
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
 
-        // Sum should approximately equal total (within 10% due to interpolation differences for credit)
+        // Sum should approximately equal total (within 0.01% for properly partitioned key-rate bumps)
         let diff_pct = (sum_bucketed - total_cs01).abs() / total_cs01.abs().max(1e-10);
         assert!(
-            diff_pct < 0.10,
+            diff_pct < 0.00001,
             "Bucketed CS01 sum ({}) should be close to total CS01 ({}), diff: {:.2}%",
             sum_bucketed,
             total_cs01,

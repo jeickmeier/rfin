@@ -168,8 +168,8 @@ fn test_theta_negative_for_long_positions() {
         let theta = *results.get(&MetricId::Theta).unwrap();
 
         assert!(
-            theta <= 0.0,
-            "Theta should be non-positive for long {} option, got {}",
+            theta < 0.0,
+            "Theta should be strictly negative for long {} option with 1Y expiry, got {}",
             if matches!(option_type, OptionType::Call) {
                 "call"
             } else {
@@ -683,13 +683,13 @@ fn test_put_call_parity() {
     let parity_rhs = forward_value - strike_pv;
     let parity_lhs = call_pv.amount() - put_pv.amount();
 
-    // Parity should hold within 1% relative tolerance
-    // (small numerical differences can occur due to different pricing paths)
+    // Put-call parity should hold within 0.5% relative tolerance
+    // Small differences can occur due to Money rounding in PV calculation
     let parity_error = (parity_lhs - parity_rhs).abs();
     let relative_error = parity_error / parity_rhs.abs().max(1e-10);
     assert!(
-        relative_error < 0.01,
-        "Put-call parity violated: C-P = {:.6}, S·exp(-q·T) - K·exp(-r·T) = {:.6}, rel_error = {:.4}%",
+        relative_error < 0.005,
+        "Put-call parity violated: C-P = {:.6}, expected = {:.6}, rel_error = {:.4}%",
         parity_lhs,
         parity_rhs,
         relative_error * 100.0

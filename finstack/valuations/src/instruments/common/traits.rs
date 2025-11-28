@@ -788,6 +788,40 @@ pub trait Instrument: Send + Sync {
     /// ```
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
 
+    /// Compute the present value as raw f64 (high precision path for risk calculations).
+    ///
+    /// This method returns the NPV as an unrounded f64, avoiding the precision loss
+    /// that occurs when Money rounds to currency decimal places (e.g., 2 for USD).
+    /// This is critical for finite difference sensitivity calculations where small
+    /// PV differences matter (e.g., bucketed DV01, key-rate sensitivities).
+    ///
+    /// # Arguments
+    ///
+    /// * `market` - Market data context containing discount curves, forward curves, etc.
+    /// * `as_of` - Valuation date (T+0)
+    ///
+    /// # Returns
+    ///
+    /// Present value as raw f64 without currency rounding
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation delegates to `value()` and extracts the amount.
+    /// Instruments with internal high-precision pricing should override this method
+    /// to return the raw value before Money wrapping for better sensitivity accuracy.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // Used internally by risk calculators for high-precision sensitivities
+    /// let base_pv = instrument.value_raw(&market, as_of)?;
+    /// let bumped_pv = instrument.value_raw(&bumped_market, as_of)?;
+    /// let dv01 = (bumped_pv - base_pv) / bump_bp;
+    /// ```
+    fn value_raw(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        Ok(self.value(market, as_of)?.amount())
+    }
+
     /// Compute present value with specified risk metrics.
     ///
     /// This method computes NPV plus any requested risk metrics (duration, DV01,

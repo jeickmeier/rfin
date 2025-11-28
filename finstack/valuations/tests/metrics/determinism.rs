@@ -117,6 +117,41 @@ mod tests {
         }
     }
 
+    /// Lightweight determinism test that runs in normal CI (no slow feature required).
+    /// Verifies that MC-based metric calculations are deterministic across runs.
+    #[test]
+    fn test_basic_mc_determinism_lightweight() {
+        let as_of = date!(2024 - 01 - 01);
+        let expiry = date!(2025 - 01 - 01);
+
+        // Use a simple Asian option configuration for fast execution
+        let option = AsianOption {
+            id: "MC_DETERMINISM_LIGHTWEIGHT".into(),
+            underlying_ticker: "SPOT".to_string(),
+            spot_id: "SPOT".to_string(),
+            strike: Money::new(100.0, Currency::USD),
+            option_type: OptionType::Call,
+            expiry,
+            notional: Money::new(1.0, Currency::USD),
+            averaging_method: AveragingMethod::Arithmetic,
+            fixing_dates: vec![
+                date!(2024 - 07 - 01),
+                date!(2025 - 01 - 01),
+            ],
+            day_count: DayCount::Act365F,
+            discount_curve_id: "USD-OIS".into(),
+            vol_surface_id: "SPOT_VOL".into(),
+            div_yield_id: None,
+            pricing_overrides: Default::default(),
+            attributes: Default::default(),
+            past_fixings: vec![],
+        };
+
+        let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
+        // Run only 3 times to keep it fast
+        test_metric_determinism(option, &market, as_of, MetricId::Delta, 3);
+    }
+
     #[test]
     #[cfg(feature = "slow")]
     fn test_asian_option_delta_deterministic() {

@@ -194,13 +194,17 @@ fn test_deep_itm_option_greeks() {
 }
 
 #[test]
-fn test_zero_volatility_option() {
-    // Options with zero volatility should handle gracefully
+fn test_zero_volatility_option_limits() {
+    // At zero volatility, Black-Scholes has well-defined limits:
+    // - Vega -> 0 (no sensitivity to vol)
+    // - Delta -> 0 or 1 depending on moneyness (step function)
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
 
-    let option = EquityOption {
-        id: "ZERO_VOL_OPTION".into(),
+    // Test ATM call (forward is slightly different from spot due to rates)
+    let atm_option = EquityOption {
+        id: "ZERO_VOL_ATM".into(),
         underlying_ticker: "AAPL".to_string(),
         strike: Money::new(100.0, Currency::USD),
         option_type: OptionType::Call,
@@ -218,35 +222,120 @@ fn test_zero_volatility_option() {
     };
 
     // Market with zero volatility
-    let market = create_option_market(as_of, 100.0, 0.0, 0.05);
+    let market = create_option_market(as_of, spot, 0.0, 0.05);
     let registry = standard_registry();
-    let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
 
-    // Should not panic, should return finite values or 0.0
-    let results = registry.compute(&[MetricId::Delta, MetricId::Vega], &mut context);
+    if let Ok(pv) = atm_option.value(&market, as_of) {
+        let mut context =
+            MetricContext::new(Arc::new(atm_option.clone()), Arc::new(market.clone()), as_of, pv);
 
-    if let Ok(metrics) = results {
-        let delta = metrics.get(&MetricId::Delta);
-        let vega = metrics.get(&MetricId::Vega);
-
-        if let Some(&d) = delta {
-            assert!(
-                d.is_finite(),
-                "Delta should be finite even with zero vol, got {}",
-                d
-            );
-        }
-        if let Some(&v) = vega {
-            // Vega might be 0.0 with zero vol, which is reasonable
-            assert!(
-                v.is_finite(),
-                "Vega should be finite even with zero vol, got {}",
-                v
-            );
+        if let Ok(metrics) = registry.compute(&[MetricId::Delta, MetricId::Vega], &mut context) {
+            if let Some(&delta) = metrics.get(&MetricId::Delta) {
+                // Delta should be finite
+                assert!(
+                    delta.is_finite(),
+                    "Delta should be finite even with zero vol, got {}",
+                    delta
+                );
+            }
+            if let Some(&vega) = metrics.get(&MetricId::Vega) {
+                // Vega should be finite
+                // Note: At exactly zero vol, some implementations may return non-zero vega
+                // due to finite difference bump picking up neighboring vol points
+                assert!(
+                    vega.is_finite(),
+                    "Vega should be finite even with zero vol, got {}",
+                    vega
+                );
+            }
         }
     }
-    // If it errors, that's also acceptable for zero vol case
+
+    // At zero volatility, Black-Scholes becomes degenerate - delta should be
+    // a step function (0 or 1 depending on moneyness). However, implementations
+    // may not handle this edge case perfectly, especially when using finite difference
+    // for delta calculation. We verify that ITM options have higher delta than OTM.
+    let mut itm_delta_per_share = 0.0;
+    let mut otm_delta_per_share = 0.0;
+
+    // Test deep ITM call
+    let itm_option = EquityOption {
+        id: "ZERO_VOL_ITM".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(50.0, Currency::USD), // Deep ITM
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SPOT_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    if let Ok(pv) = itm_option.value(&market, as_of) {
+        let mut context =
+            MetricContext::new(Arc::new(itm_option), Arc::new(market.clone()), as_of, pv);
+
+        if let Ok(metrics) = registry.compute(&[MetricId::Delta], &mut context) {
+            if let Some(&delta) = metrics.get(&MetricId::Delta) {
+                itm_delta_per_share = delta / 100.0;
+                // Delta should be finite and positive
+                assert!(
+                    delta.is_finite() && delta >= 0.0,
+                    "ITM zero-vol delta should be finite and positive, got {}",
+                    delta
+                );
+            }
+        }
+    }
+
+    // Test deep OTM call
+    let otm_option = EquityOption {
+        id: "ZERO_VOL_OTM".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(150.0, Currency::USD), // Deep OTM
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SPOT_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    if let Ok(pv) = otm_option.value(&market, as_of) {
+        let mut context = MetricContext::new(Arc::new(otm_option), Arc::new(market), as_of, pv);
+
+        if let Ok(metrics) = registry.compute(&[MetricId::Delta], &mut context) {
+            if let Some(&delta) = metrics.get(&MetricId::Delta) {
+                otm_delta_per_share = delta / 100.0;
+                // Delta should be finite and positive (or zero)
+                assert!(
+                    delta.is_finite() && delta >= 0.0,
+                    "OTM zero-vol delta should be finite and non-negative, got {}",
+                    delta
+                );
+            }
+        }
+    }
+
+    // ITM delta should be greater than OTM delta (monotonicity property)
+    assert!(
+        itm_delta_per_share >= otm_delta_per_share,
+        "ITM delta ({}) should be >= OTM delta ({})",
+        itm_delta_per_share,
+        otm_delta_per_share
+    );
 }
 
 #[test]
@@ -342,6 +431,98 @@ fn test_deep_otm_option_greeks() {
     assert!(
         delta_per_share.abs() < 0.1,
         "Deep OTM call delta should be small (< 0.1 per share), got {}",
+        delta_per_share
+    );
+}
+
+#[test]
+fn test_deep_itm_put_greeks() {
+    // Deep ITM put (K >> S): delta should approach -1.0 (per share)
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+    let strike = 150.0; // Deep ITM put (K > S)
+
+    let option = EquityOption {
+        id: "DEEP_ITM_PUT".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Put,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SPOT_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let market = create_option_market(as_of, spot, 0.25, 0.05);
+    let registry = standard_registry();
+    let pv = option.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+
+    let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
+    let delta = *results.get(&MetricId::Delta).unwrap();
+    let delta_per_share = delta / 100.0; // Normalize by contract size
+
+    // Deep ITM put delta should be close to -1.0
+    assert!(
+        delta_per_share < -0.8,
+        "Deep ITM put delta should be < -0.8 per share, got {}",
+        delta_per_share
+    );
+}
+
+#[test]
+fn test_deep_otm_put_greeks() {
+    // Deep OTM put (K << S): delta should approach 0.0
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+    let strike = 50.0; // Deep OTM put (K < S)
+
+    let option = EquityOption {
+        id: "DEEP_OTM_PUT".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(strike, Currency::USD),
+        option_type: OptionType::Put,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SPOT_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let market = create_option_market(as_of, spot, 0.25, 0.05);
+    let registry = standard_registry();
+    let pv = option.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+
+    let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
+    let delta = *results.get(&MetricId::Delta).unwrap();
+    let delta_per_share = delta / 100.0; // Normalize by contract size
+
+    // Deep OTM put delta should be close to 0.0 (but negative)
+    assert!(
+        delta_per_share.abs() < 0.1,
+        "Deep OTM put delta should be small (< 0.1 abs per share), got {}",
+        delta_per_share
+    );
+    // Put delta should be negative (or very close to zero)
+    assert!(
+        delta_per_share <= 0.0,
+        "Put delta should be non-positive, got {}",
         delta_per_share
     );
 }
@@ -497,4 +678,172 @@ fn test_very_short_dated_option() {
             );
         }
     }
+}
+
+#[test]
+fn test_very_low_interest_rate_greeks() {
+    // Test Greeks with very low interest rates (near-zero rate environment)
+    // This validates behavior similar to negative rate environments
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+
+    // Create discount curve with very low rate (0.1%)
+    // Note: Curve builder requires strictly decreasing DFs, so we can't directly test negative rates
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (1.0f64, (-0.001f64).exp()), // 0.1% rate
+        ])
+        .build()
+        .unwrap();
+
+    let vol_surface = VolSurface::builder("SPOT_VOL")
+        .expiries(&[0.5, 1.0])
+        .strikes(&[80.0, 100.0, 120.0])
+        .row(&[0.25, 0.25, 0.25])
+        .row(&[0.25, 0.25, 0.25])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_surface(vol_surface)
+        .insert_price("SPOT", MarketScalar::Unitless(spot));
+
+    let call_option = EquityOption {
+        id: "LOW_RATE_CALL".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(100.0, Currency::USD),
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SPOT_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let registry = standard_registry();
+    let pv = call_option.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(Arc::new(call_option), Arc::new(market), as_of, pv);
+
+    let results = registry
+        .compute(&[MetricId::Delta, MetricId::Rho], &mut context)
+        .unwrap();
+
+    // Delta sign should still be correct (positive for calls)
+    let delta = *results.get(&MetricId::Delta).unwrap();
+    assert!(
+        delta > 0.0,
+        "Call delta should be positive with low rates, got {}",
+        delta
+    );
+
+    // Rho for calls should still be positive (rate increase benefits calls via discounting)
+    let rho = *results.get(&MetricId::Rho).unwrap();
+    assert!(
+        rho > 0.0,
+        "Call rho should be positive (rate increase benefits calls), got {}",
+        rho
+    );
+}
+
+#[test]
+fn test_vol_smile_greeks() {
+    // Test Greeks compute correctly with realistic vol smile/skew
+    // Real markets have: lower strikes (puts) have higher vol, higher strikes (calls) have lower vol
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let spot = 100.0;
+
+    // Create vol surface with equity skew: lower strikes have higher vol
+    let vol_surface = VolSurface::builder("SMILE_VOL")
+        .expiries(&[0.5, 1.0, 2.0])
+        .strikes(&[80.0, 90.0, 100.0, 110.0, 120.0])
+        // Equity skew pattern: vol decreases as strike increases
+        .row(&[0.35, 0.30, 0.25, 0.22, 0.20]) // 6M
+        .row(&[0.32, 0.28, 0.24, 0.21, 0.19]) // 1Y
+        .row(&[0.30, 0.26, 0.23, 0.20, 0.18]) // 2Y
+        .build()
+        .unwrap();
+
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0f64, 1.0f64), (1.0f64, (-0.05f64).exp())])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_surface(vol_surface)
+        .insert_price("SPOT", MarketScalar::Unitless(spot));
+
+    let option = EquityOption {
+        id: "SMILE_TEST".into(),
+        underlying_ticker: "AAPL".to_string(),
+        strike: Money::new(100.0, Currency::USD),
+        option_type: OptionType::Call,
+        exercise_style: ExerciseStyle::European,
+        expiry,
+        contract_size: 100.0,
+        day_count: DayCount::Act365F,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD-OIS".into(),
+        spot_id: "SPOT".into(),
+        vol_surface_id: "SMILE_VOL".into(),
+        div_yield_id: None,
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let registry = standard_registry();
+    let pv = option.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+
+    let results = registry
+        .compute(&[MetricId::Delta, MetricId::Vega, MetricId::Gamma], &mut context)
+        .unwrap();
+
+    // Verify Greeks compute correctly with smile
+    let delta = *results.get(&MetricId::Delta).unwrap();
+    let vega = *results.get(&MetricId::Vega).unwrap();
+    let gamma = *results.get(&MetricId::Gamma).unwrap();
+
+    // Delta should be positive for call
+    assert!(
+        delta > 0.0,
+        "Call delta should be positive with vol smile, got {}",
+        delta
+    );
+
+    // Vega should be positive for long option
+    assert!(
+        vega > 0.0,
+        "Vega should be positive for long option with vol smile, got {}",
+        vega
+    );
+
+    // Gamma should be positive for long option
+    assert!(
+        gamma > 0.0,
+        "Gamma should be positive for long option with vol smile, got {}",
+        gamma
+    );
+
+    // Verify values are finite and reasonable
+    let delta_per_share = delta / 100.0;
+    assert!(
+        (0.0..1.0).contains(&delta_per_share),
+        "Delta per share should be between 0 and 1 for ATM call, got {}",
+        delta_per_share
+    );
 }

@@ -148,15 +148,18 @@ fn test_charm_equals_delta_decay() {
     let charm_metric = registry.compute(&[MetricId::Charm], &mut context_charm);
 
     if let Ok(charm_results) = charm_metric {
-        if let Some(charm_value) = charm_results.get(&MetricId::Charm) {
-            // If Charm metric exists, validate it's finite
-            // Note: Different calculation methods (analytical vs FD) may produce different values
-            // due to different conventions or calculation methods
+        if let Some(&charm_value) = charm_results.get(&MetricId::Charm) {
+            // Validate Charm metric is finite
             assert!(
                 charm_value.is_finite(),
                 "Charm metric should be finite, got: {}",
                 charm_value
             );
+
+            // Charm (∂Δ/∂t) and FD approximation can differ significantly
+            // due to different calculation methods and time step conventions.
+            // We only verify that both are finite and have consistent properties.
+            // A rigorous comparison would require matching the exact calculation method.
         }
     }
 
@@ -221,15 +224,18 @@ fn test_color_equals_gamma_decay() {
     let color_metric = registry.compute(&[MetricId::Color], &mut context_color);
 
     if let Ok(color_results) = color_metric {
-        if let Some(color_value) = color_results.get(&MetricId::Color) {
-            // If Color metric exists, validate it's finite
-            // Note: Different calculation methods (analytical vs FD) may produce different values
-            // due to different conventions or calculation methods
+        if let Some(&color_value) = color_results.get(&MetricId::Color) {
+            // Validate Color metric is finite
             assert!(
                 color_value.is_finite(),
                 "Color metric should be finite, got: {}",
                 color_value
             );
+
+            // Color (∂Γ/∂t) and FD approximation can differ significantly
+            // due to different calculation methods and time step conventions.
+            // We only verify that both are finite and have consistent properties.
+            // A rigorous comparison would require matching the exact calculation method.
         }
     }
 
@@ -315,14 +321,27 @@ fn test_speed_equals_gamma_convexity() {
     let speed_metric = registry.compute(&[MetricId::Speed], &mut context_speed);
 
     if let Ok(speed_results) = speed_metric {
-        if let Some(speed_value) = speed_results.get(&MetricId::Speed) {
-            // If Speed metric exists, validate it's finite
-            // Note: Different calculation methods (analytical vs FD) may produce different values
-            // due to different conventions or calculation methods
+        if let Some(&speed_value) = speed_results.get(&MetricId::Speed) {
+            // Validate Speed metric is finite
             assert!(
                 speed_value.is_finite(),
                 "Speed metric should be finite, got: {}",
                 speed_value
+            );
+
+            // Compare registry Speed to FD calculation
+            // Allow 15% tolerance for FD approximation with 1% spot bump
+            let rel_error = if speed_fd.abs() > 1e-8 {
+                ((speed_value - speed_fd) / speed_fd).abs()
+            } else {
+                (speed_value - speed_fd).abs()
+            };
+            assert!(
+                rel_error < 0.15,
+                "Speed should match FD: registry={:.6}, fd={:.6}, rel_error={:.2}%",
+                speed_value,
+                speed_fd,
+                rel_error * 100.0
             );
         }
     }

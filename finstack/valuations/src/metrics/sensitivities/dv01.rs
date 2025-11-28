@@ -57,7 +57,6 @@ use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::MarketContext;
-use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use hashbrown::HashMap;
 use std::marker::PhantomData;
@@ -412,7 +411,8 @@ where
 
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        let base_pv = context.instrument.value(base_ctx, as_of)?;
+        // Use value_raw for high-precision sensitivity calculations
+        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let mut bumps = HashMap::new();
         for (curve_id, _kind) in curves {
@@ -420,9 +420,9 @@ where
         }
 
         let bumped_ctx = base_ctx.bump(bumps)?;
-        let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
+        let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
 
-        let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
+        let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
         Ok(dv01)
     }
 
@@ -439,7 +439,8 @@ where
 
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        let base_pv = context.instrument.value(base_ctx, as_of)?;
+        // Use value_raw for high-precision sensitivity calculations
+        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let mut series = Vec::new();
         let mut total_dv01 = 0.0;
@@ -449,8 +450,8 @@ where
             bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
 
             let bumped_ctx = base_ctx.bump(bumps)?;
-            let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
-            let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
+            let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
+            let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
 
             series.push((curve_id.as_str().to_string(), dv01));
             total_dv01 += dv01;
@@ -521,7 +522,8 @@ where
     ) -> finstack_core::Result<f64> {
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        let base_pv = context.instrument.value(base_ctx, as_of)?;
+        // Use value_raw for high-precision sensitivity calculations
+        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let buckets = &self.config.buckets;
         let mut series: Vec<(String, f64)> = Vec::new();
@@ -546,8 +548,8 @@ where
             );
 
             let bumped_ctx = base_ctx.bump(bumps)?;
-            let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
-            let dv01 = calculate_dv01(base_pv, bumped_pv, bump_bp);
+            let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
+            let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
 
             series.push((label, dv01));
         }
@@ -624,7 +626,8 @@ where
     ) -> finstack_core::Result<f64> {
         let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
-        let base_pv = context.instrument.value(base_ctx, as_of)?;
+        // Use value_raw for high-precision sensitivity calculations
+        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
         let buckets = &self.config.buckets;
         let mut series: Vec<(String, f64)> = Vec::new();
@@ -648,8 +651,8 @@ where
                     Ok((bumped_curve, _)) => {
                         // Replace curve in context and reprice
                         let bumped_ctx = base_ctx.clone().insert_discount(bumped_curve);
-                        let bumped_pv = context.instrument.value(&bumped_ctx, as_of)?;
-                        calculate_dv01(base_pv, bumped_pv, bump_bp)
+                        let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
+                        calculate_dv01_raw(base_pv, bumped_pv, bump_bp)
                     }
                     Err(e) => {
                         tracing::warn!(
@@ -699,10 +702,12 @@ pub fn format_bucket_label(years: f64) -> String {
     }
 }
 
-/// Calculate DV01 from PV changes.
+/// Calculate DV01 from PV changes (high-precision f64 version).
+///
+/// Uses raw f64 values to avoid Money rounding precision loss in sensitivity calculations.
 #[inline]
-fn calculate_dv01(base_pv: Money, bumped_pv: Money, bump_bp: f64) -> f64 {
-    (bumped_pv.amount() - base_pv.amount()) / bump_bp
+fn calculate_dv01_raw(base_pv: f64, bumped_pv: f64, bump_bp: f64) -> f64 {
+    (bumped_pv - base_pv) / bump_bp
 }
 
 /// Find the quote closest to the target maturity.
