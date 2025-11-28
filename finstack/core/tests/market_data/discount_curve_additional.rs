@@ -40,7 +40,13 @@ fn discount_curve_forward_and_df_on_date() {
     let fwd = curve.forward(t1, t2);
     let zero_1 = curve.zero(t1);
     let zero_2 = curve.zero(t2);
-    assert!((fwd - (zero_1 * t1 - zero_2 * t2) / (t2 - t1)).abs() < 1e-12);
+    // Correct formula: f(t1,t2) = (z2*t2 - z1*t1) / (t2 - t1)
+    assert!(
+        (fwd - (zero_2 * t2 - zero_1 * t1) / (t2 - t1)).abs() < 1e-12,
+        "forward rate formula mismatch"
+    );
+    // Forward rate should be positive for normal downward-sloping DFs
+    assert!(fwd > 0.0, "forward rate should be positive for decreasing DFs");
 
     let base = curve.base_date();
     let date = Date::from_calendar_date(base.year(), Month::December, 31).unwrap();
@@ -326,4 +332,174 @@ fn test_triangular_key_rate_bump_returns_error_on_invalid_curve() {
             );
         }
     }
+}
+
+// ===================================================================
+// Analytical Verification Tests (Market Standards Review)
+// ===================================================================
+
+#[test]
+fn forward_rate_analytical_verification() {
+    // Use explicit DF values for verifiable calculation
+    let curve = DiscountCurve::builder("FWD-TEST")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // f(1,2) = ln(DF(1)/DF(2)) / (t2-t1) = ln(0.98/0.95) / 1.0
+    let expected = (0.98_f64 / 0.95).ln();
+    let actual = curve.forward(1.0, 2.0);
+    assert!(
+        (actual - expected).abs() < 1e-12,
+        "forward rate: got {}, expected {}",
+        actual,
+        expected
+    );
+
+    // Also verify at other points
+    // f(0,1) = ln(1.0/0.98) / 1.0
+    let expected_01 = (1.0_f64 / 0.98).ln();
+    let actual_01 = curve.forward(0.0, 1.0);
+    assert!(
+        (actual_01 - expected_01).abs() < 1e-12,
+        "forward rate 0-1: got {}, expected {}",
+        actual_01,
+        expected_01
+    );
+}
+
+#[test]
+fn discount_curve_parallel_bump_magnitude_verification() {
+    let curve = sample_discount_curve("USD-OIS");
+    let bp = 25.0;
+    let bumped = curve.try_with_parallel_bump(bp).unwrap();
+
+    // Verify bump formula at KNOT POINTS only
+    // DF_bumped(t) = DF(t) * exp(-bp/10000 * t)
+    // Note: At interpolated points, the formula holds for the underlying knots,
+    // then interpolation is applied. Only at knot points is the formula exact.
+    for t in [0.0, 1.0, 2.0] {
+        // Only test at actual knot points of sample_discount_curve
+        let expected = curve.df(t) * (-bp / 10_000.0 * t).exp();
+        assert!(
+            (bumped.df(t) - expected).abs() < 1e-12,
+            "Bump at knot t={}: got {}, expected {}",
+            t,
+            bumped.df(t),
+            expected
+        );
+    }
+
+    // Also verify the bump reduces DFs (higher rates)
+    for t in [0.5, 1.5, 3.0] {
+        assert!(
+            bumped.df(t) < curve.df(t),
+            "Bump should reduce DF at t={}",
+            t
+        );
+    }
+}
+
+#[test]
+fn triangular_key_rate_bump_weight_verification() {
+    let curve = DiscountCurve::builder("KR-VERIFY")
+        .base_date(sample_base_date())
+        .knots([
+            (0.0, 1.0),
+            (0.5, 0.995),
+            (1.0, 0.98),
+            (1.5, 0.965),
+            (2.0, 0.95),
+        ])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let bp = 25.0;
+    let bumped = curve
+        .try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, bp)
+        .unwrap();
+
+    // At target (t=1.0): weight=1.0
+    let expected_1 = curve.df(1.0) * (-bp / 10_000.0 * 1.0 * 1.0).exp();
+    assert!(
+        (bumped.df(1.0) - expected_1).abs() < 1e-10,
+        "Bump at t=1.0: got {}, expected {}",
+        bumped.df(1.0),
+        expected_1
+    );
+
+    // At t=0.5: weight=0.5 (linear interpolation from 0 to 1)
+    let expected_05 = curve.df(0.5) * (-bp / 10_000.0 * 0.5 * 0.5).exp();
+    assert!(
+        (bumped.df(0.5) - expected_05).abs() < 1e-10,
+        "Bump at t=0.5: got {}, expected {}",
+        bumped.df(0.5),
+        expected_05
+    );
+
+    // At boundaries: weight=0, no change
+    assert!(
+        (bumped.df(0.0) - curve.df(0.0)).abs() < 1e-12,
+        "Bump at t=0.0 should be unchanged"
+    );
+    assert!(
+        (bumped.df(2.0) - curve.df(2.0)).abs() < 1e-12,
+        "Bump at t=2.0 should be unchanged"
+    );
+}
+
+#[test]
+fn df_on_date_day_count_sensitivity() {
+    use finstack_core::dates::DayCount;
+
+    let base = sample_base_date();
+    let target = base + time::Duration::days(182); // ~6 months
+
+    let curve_360 = DiscountCurve::builder("DC-360")
+        .base_date(base)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 1.0), (1.0, 0.95)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let curve_365 = DiscountCurve::builder("DC-365")
+        .base_date(base)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (1.0, 0.95)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let df_360 = DiscountCurve::df_on(&curve_360, base, target, DayCount::Act360);
+    let df_365 = DiscountCurve::df_on(&curve_365, base, target, DayCount::Act365F);
+
+    // Different day counts = different time fractions = different DFs
+    assert!(
+        (df_360 - df_365).abs() > 1e-6,
+        "Day counts should produce different DFs: {} vs {}",
+        df_360,
+        df_365
+    );
+}
+
+#[test]
+fn discount_curve_negative_rate_environment() {
+    // Simulate EUR/CHF negative rates: DF > 1.0 for t > 0
+    let curve = DiscountCurve::builder("NEG-RATES")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 1.005), (2.0, 1.008)])
+        .allow_non_monotonic()
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    assert!(
+        curve.df(1.0) > 1.0,
+        "DF should be > 1 for negative rates"
+    );
+    assert!(curve.zero(1.0) < 0.0, "Zero rate should be negative");
 }

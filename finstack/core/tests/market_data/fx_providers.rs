@@ -304,3 +304,37 @@ fn simple_fx_provider_many_currencies() {
         assert_eq!(rate, Some(expected));
     }
 }
+
+// ===================================================================
+// Edge Case Tests (Market Standards Review)
+// ===================================================================
+
+#[test]
+fn simple_fx_provider_very_small_rate() {
+    let provider = SimpleFxProvider::new();
+    provider.set_quote(Currency::EUR, Currency::USD, 1e-10);
+
+    let direct = provider
+        .rate(
+            Currency::EUR,
+            Currency::USD,
+            test_date(),
+            FxConversionPolicy::CashflowDate,
+        )
+        .unwrap();
+    assert_eq!(direct, 1e-10);
+
+    let recip = provider
+        .rate(
+            Currency::USD,
+            Currency::EUR,
+            test_date(),
+            FxConversionPolicy::CashflowDate,
+        )
+        .unwrap();
+    assert!(
+        recip.is_finite() && recip > 1e9,
+        "Reciprocal of small rate should be large but finite: {}",
+        recip
+    );
+}

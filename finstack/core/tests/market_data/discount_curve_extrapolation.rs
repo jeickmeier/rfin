@@ -302,3 +302,81 @@ fn test_interpolation_consistency() {
         }
     }
 }
+
+// ===================================================================
+// MonotoneConvex Convexity Tests (Market Standards Review)
+// ===================================================================
+
+#[test]
+fn monotone_convex_guarantees_positive_forwards() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let curve = DiscountCurve::builder("MC-POS-FWD")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78), (10.0, 0.60)])
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
+        .build()
+        .unwrap();
+
+    // Sample forward rates at many points using finite difference
+    let dt = 0.01;
+    for i in 1..1000 {
+        let t = i as f64 * 0.01;
+        if t + dt > 10.0 {
+            break;
+        }
+        // Instantaneous forward: f(t) ≈ -d/dt[ln(DF)] ≈ (ln(DF(t)) - ln(DF(t+dt))) / dt
+        let fwd = (curve.df(t).ln() - curve.df(t + dt).ln()) / dt;
+        assert!(
+            fwd >= -1e-10,
+            "Forward rate at t={:.2} is negative: {:.6}",
+            t,
+            fwd
+        );
+    }
+}
+
+#[test]
+fn monotone_convex_forward_continuity_at_knots() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let curve = DiscountCurve::builder("MC-CONT")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.78)])
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
+        .build()
+        .unwrap();
+
+    // Check continuity at each interior knot
+    let eps = 1e-6;
+    for knot in [1.0, 2.0] {
+        let fwd_left = (curve.df(knot - eps).ln() - curve.df(knot).ln()) / eps;
+        let fwd_right = (curve.df(knot).ln() - curve.df(knot + eps).ln()) / eps;
+        assert!(
+            (fwd_left - fwd_right).abs() < 1e-4,
+            "Forward discontinuity at knot {}: left={}, right={}",
+            knot,
+            fwd_left,
+            fwd_right
+        );
+    }
+}
+
+#[test]
+fn test_extrapolation_extreme_values() {
+    let curve = create_test_curve(ExtrapolationPolicy::FlatForward, false).unwrap();
+
+    // Very far right extrapolation
+    let df_50y = curve.df(50.0);
+    assert!(
+        df_50y.is_finite() && df_50y > 0.0 && df_50y < 1.0,
+        "50Y extrapolation should be finite and in (0,1): {}",
+        df_50y
+    );
+
+    // Very far left extrapolation
+    let df_neg_10 = curve.df(-10.0);
+    assert!(
+        df_neg_10.is_finite(),
+        "Left extrapolation should be finite: {}",
+        df_neg_10
+    );
+}

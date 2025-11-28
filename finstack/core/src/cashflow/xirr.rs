@@ -361,7 +361,16 @@ mod tests {
         ];
 
         let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        assert!((result - 0.1).abs() < 0.001); // Should be approximately 10%
+        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
+        // Expected: solve -100000 + 110000/(1+r)^(366/365) = 0, since 2024 is a leap year
+        // r = (1.1)^(365/366) - 1 ≈ 0.09971358593
+        let expected = (1.1_f64).powf(365.0 / 366.0) - 1.0;
+        assert!(
+            (result - expected).abs() < 1e-6,
+            "XIRR should be ~{:.6}, got {}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -420,7 +429,16 @@ mod tests {
         ];
 
         let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        assert!((result + 0.1).abs() < 0.001); // Should be approximately -10%
+        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
+        // Expected: solve -100000 + 90000/(1+r)^(366/365) = 0, since 2024 is a leap year
+        // r = (0.9)^(365/366) - 1 ≈ -0.09974087947
+        let expected = (0.9_f64).powf(365.0 / 366.0) - 1.0;
+        assert!(
+            (result - expected).abs() < 1e-6,
+            "XIRR should be ~{:.6}, got {}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -572,8 +590,17 @@ mod tests {
             xirr(&flows, None).expect("XIRR calculation should succeed for negative return");
 
         // Should be approximately -3%
+        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
+        // Expected: solve -100000 + 97000/(1+r)^(366/365) = 0, since 2024 is a leap year
+        // r = (0.97)^(365/366) - 1 ≈ -0.02991927142
+        let expected = (0.97_f64).powf(365.0 / 366.0) - 1.0;
         assert!(result < 0.0);
-        assert!((result + 0.03).abs() < 0.001);
+        assert!(
+            (result - expected).abs() < 1e-6,
+            "XIRR should be ~{:.6}, got {}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -594,8 +621,17 @@ mod tests {
             xirr(&flows, None).expect("XIRR calculation should succeed for near-zero return");
 
         // Should be approximately 0.1%
+        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
+        // Expected: solve -100000 + 100100/(1+r)^(366/365) = 0, since 2024 is a leap year
+        // r = (1.001)^(365/366) - 1 ≈ 0.0009972664
+        let expected = (1.001_f64).powf(365.0 / 366.0) - 1.0;
         assert!(result > 0.0 && result < 0.01);
-        assert!((result - 0.001).abs() < 0.0001);
+        assert!(
+            (result - expected).abs() < 1e-6,
+            "XIRR should be ~{:.6}, got {}",
+            expected,
+            result
+        );
     }
 
     #[test]

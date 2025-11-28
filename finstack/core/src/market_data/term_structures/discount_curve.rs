@@ -262,12 +262,16 @@ impl DiscountCurve {
     }
 
     /// Simple forward rate between `t1` and `t2`.
+    ///
+    /// The forward rate `f(t1, t2)` satisfies: `DF(t2) = DF(t1) * exp(-f * (t2-t1))`
+    /// Therefore: `f = ln(DF(t1)/DF(t2)) / (t2-t1) = (z2*t2 - z1*t1) / (t2-t1)`
+    /// where `z*t = -ln(DF)`.
     #[inline]
     pub fn forward(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "forward requires t2 > t1");
         let z1 = self.zero(t1) * t1;
         let z2 = self.zero(t2) * t2;
-        (z1 - z2) / (t2 - t1)
+        (z2 - z1) / (t2 - t1)
     }
 
     /// Batch evaluation helper (parallel over `times` slice when compiled

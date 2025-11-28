@@ -129,10 +129,43 @@ impl CashFlow {
     /// };
     /// assert!(zero_cf.validate().is_err());
     /// ```
+    ///
+    /// # Validation Rules
+    ///
+    /// - Amount must be non-zero and finite (not NaN or Infinity)
+    /// - Accrual factor must be finite (not NaN or Infinity)
+    /// - Rate (if present) must be finite (not NaN or Infinity)
+    /// - Reset date (if present) must not be after the payment date
     pub fn validate(&self) -> crate::Result<()> {
+        // Check for zero amount
         if self.amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
+
+        // Check for non-finite amount (NaN or Infinity)
+        if !self.amount.amount().is_finite() {
+            return Err(InputError::Invalid.into());
+        }
+
+        // Check for non-finite accrual factor
+        if !self.accrual_factor.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
+
+        // Check for non-finite rate (if present)
+        if let Some(rate) = self.rate {
+            if !rate.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+        }
+
+        // Check that reset date is not after payment date
+        if let Some(reset) = self.reset_date {
+            if reset > self.date {
+                return Err(InputError::Invalid.into());
+            }
+        }
+
         Ok(())
     }
 }

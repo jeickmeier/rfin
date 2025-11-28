@@ -403,12 +403,29 @@ mod tests {
         let _ = format!("{}", err);
     }
 
+    /// Helper to compute NPV for periodic cashflows at a given rate
+    fn compute_periodic_npv(amounts: &[f64], rate: f64) -> f64 {
+        amounts
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| a / (1.0 + rate).powi(i as i32))
+            .sum()
+    }
+
     #[test]
     fn test_irr_periodic() {
         // Simple case: invest 100, get 110 back after 1 period
         let amounts = vec![-100.0, 110.0];
         let irr = irr_periodic(&amounts, None).expect("IRR calculation should succeed in test");
         assert!((irr - 0.1).abs() < 1e-6); // 10% return
+
+        // Verify NPV at computed IRR is approximately zero
+        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        assert!(
+            npv_at_irr.abs() < 1e-6,
+            "NPV at IRR should be ~0, got {}",
+            npv_at_irr
+        );
     }
 
     #[test]
@@ -418,6 +435,14 @@ mod tests {
         let irr = irr_periodic(&amounts, None).expect("IRR calculation should succeed in test");
         // Should be close to 7.71% per period
         assert!(irr > 0.07 && irr < 0.08);
+
+        // Verify NPV at computed IRR is approximately zero
+        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        assert!(
+            npv_at_irr.abs() < 1e-6,
+            "NPV at IRR should be ~0, got {}",
+            npv_at_irr
+        );
     }
 
     #[test]
