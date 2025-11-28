@@ -54,6 +54,20 @@ fn test_tenor_exact_match() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
+
+    // Verify the actual shock was applied
+    // Note: CurveNodeBp with Exact mode uses try_with_parallel_bump which creates
+    // a new curve with modified ID (e.g., "USD-OIS_bump_25bp")
+    // Original DF(5Y) = 0.90, +25bp parallel shock: 0.90 * exp(-0.0025 * 5) ≈ 0.8889
+    let bumped_curve = market.get_discount_ref("USD-OIS_bump_25bp").unwrap();
+    let df_5y = bumped_curve.df(5.0);
+    let expected_df = 0.90 * (-0.0025_f64 * 5.0).exp();
+    assert!(
+        (df_5y - expected_df).abs() < 1e-6,
+        "Expected DF(5Y) ≈ {:.6}, got {:.6}",
+        expected_df,
+        df_5y
+    );
 }
 
 #[test]
@@ -101,17 +115,30 @@ fn test_tenor_exact_not_found() {
 #[test]
 fn test_tenor_interpolate_mode() {
     // Setup market with discount curve
+    // Include knots at 2Y and 4Y so the triangular bump centered at 3Y (region 1.5Y-4.5Y) affects them
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90), (10.0, 0.80)])
+        .knots(vec![
+            (0.0, 1.0),
+            (1.0, 0.98),
+            (2.0, 0.96), // 2Y pillar - inside triangular region
+            (4.0, 0.92), // 4Y pillar - inside triangular region
+            (5.0, 0.90),
+            (10.0, 0.80),
+        ])
         .build()
         .unwrap();
 
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    // Shock at 3Y using interpolation (between 1Y and 5Y)
+    // Store original DF at 3Y for comparison
+    let original_df_3y = market.get_discount_ref("USD-OIS").unwrap().df(3.0);
+
+    // Shock at 3Y using interpolation
+    // Triangular region: prev=1.5Y, target=3Y, next=4.5Y
+    // Knots at 2Y and 4Y are inside this region and will be affected
     let scenario = ScenarioSpec {
         id: "tenor_interpolate".into(),
         name: Some("Tenor Interpolate".into()),
@@ -138,4 +165,18 @@ fn test_tenor_interpolate_mode() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
+
+    // Verify shock was applied (interpolated at 3Y)
+    // Note: CurveNodeBp with Interpolate mode uses triangular key-rate bump which creates
+    // a new curve with modified ID (e.g., "USD-OIS_bump_50bp")
+    let bumped_curve = market.get_discount_ref("USD-OIS_bump_50bp").unwrap();
+    let df_3y = bumped_curve.df(3.0);
+    // With interpolate mode, the shock is distributed via triangular weights
+    // The 2Y and 4Y knots are affected, changing the interpolated DF at 3Y
+    assert!(
+        (df_3y - original_df_3y).abs() > 1e-6,
+        "DF at 3Y should have changed after interpolated shock (original: {:.6}, bumped: {:.6})",
+        original_df_3y,
+        df_3y
+    );
 }

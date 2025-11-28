@@ -275,10 +275,20 @@ fn test_conflicting_operations_last_wins() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 2);
 
-    // Both shocks applied sequentially
+    // Both shocks applied sequentially: +25bp then +50bp = equivalent to +75bp
     let curve = market.get_discount_ref("USD_SOFR").unwrap();
     let df = curve.df(1.0);
-    assert!(df < 0.98, "Curve should have both shocks applied");
+    // Original DF(1Y) = 0.98
+    // After +25bp: 0.98 * exp(-0.0025) ≈ 0.9776
+    // After +50bp: 0.9776 * exp(-0.005) ≈ 0.9727
+    // Equivalent to single +75bp: 0.98 * exp(-0.0075) ≈ 0.9727
+    let expected_df = 0.98 * (-0.0075_f64).exp();
+    assert!(
+        (df - expected_df).abs() < 1e-6,
+        "Expected DF ≈ {:.6} after sequential +25bp and +50bp shocks, got {:.6}",
+        expected_df,
+        df
+    );
 }
 
 #[test]

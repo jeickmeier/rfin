@@ -187,8 +187,14 @@ fn test_rate_binding() {
 
     match updated_rate {
         AmountOrScalar::Scalar(s) => {
-            // Should reflect the shocked curve's rate (~3% after +100bp)
-            assert!(*s > 0.02, "Expected rate > 2%, got {}", s);
+            // Original curve had DF(1Y) = 0.98 → rate ≈ -ln(0.98)/1 ≈ 0.0202
+            // After +100bp shock: rate ≈ 0.0302
+            // Allow 50bp tolerance for rate extraction method differences
+            assert!(
+                *s > 0.025 && *s < 0.040,
+                "Expected rate around 3% after +100bp shock, got {}",
+                s
+            );
         }
         _ => panic!("Expected scalar value"),
     }

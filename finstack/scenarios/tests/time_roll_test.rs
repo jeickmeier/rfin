@@ -11,6 +11,8 @@ use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use finstack_valuations::instruments::Bond;
 use time::Month;
 
+// Used for direct adapter testing in test_time_roll_with_bond_carry
+
 #[test]
 fn test_time_roll_1_day() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -154,18 +156,7 @@ fn test_time_roll_with_bond_carry() {
             .unwrap(),
     )];
 
-    let scenario = ScenarioSpec {
-        id: "roll_with_carry".into(),
-        name: Some("Roll 1 Month with Carry".into()),
-        description: None,
-        operations: vec![OperationSpec::TimeRollForward {
-            period: "1M".into(),
-            apply_shocks: false,
-        }],
-        priority: 0,
-    };
-
-    let engine = ScenarioEngine::new();
+    // Use the time roll adapter directly to verify carry computation
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
@@ -175,10 +166,36 @@ fn test_time_roll_with_bond_carry() {
         as_of: base_date,
     };
 
-    let report = engine.apply(&scenario, &mut ctx).unwrap();
-    assert_eq!(report.operations_applied, 1);
+    // Call the time roll adapter directly to get the RollForwardReport with carry info
+    let roll_report =
+        finstack_scenarios::adapters::time_roll::apply_time_roll_forward(&mut ctx, "1M").unwrap();
 
     // Verify date rolled
     let expected_date = base_date + time::Duration::days(30);
     assert_eq!(ctx.as_of, expected_date);
+    assert_eq!(roll_report.new_date, expected_date);
+    assert_eq!(roll_report.days, 30);
+
+    // Verify carry was computed for the bond
+    assert!(
+        !roll_report.instrument_carry.is_empty(),
+        "Expected instrument carry to be populated"
+    );
+
+    // Find BOND1 carry
+    let bond_carry = roll_report
+        .instrument_carry
+        .iter()
+        .find(|(id, _)| id == "BOND1")
+        .expect("BOND1 should have carry entry");
+    assert!(
+        bond_carry.1.get(&Currency::USD).is_some(),
+        "Bond carry should have USD amount"
+    );
+
+    // Total carry should be non-empty for USD
+    assert!(
+        roll_report.total_carry.get(&Currency::USD).is_some(),
+        "Total carry should have USD entry"
+    );
 }

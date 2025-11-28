@@ -134,6 +134,99 @@ fn test_very_large_shock() {
 }
 
 #[test]
+fn test_negative_100_percent_shock() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new()
+        .insert_price("SPY", MarketScalar::Price(Money::new(100.0, Currency::USD)));
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "full_loss_shock".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::EquityPricePct {
+            ids: vec!["SPY".into()],
+            pct: -100.0, // 100% loss
+        }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    // Price should be zero after -100% shock
+    let price = market.price("SPY").unwrap();
+    match price {
+        MarketScalar::Price(money) => {
+            assert!(
+                money.amount().abs() < 1e-10,
+                "Expected price to be 0 after -100% shock, got {}",
+                money.amount()
+            );
+        }
+        _ => panic!("Expected Price"),
+    }
+}
+
+#[test]
+fn test_shock_beyond_negative_100_percent() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new()
+        .insert_price("SPY", MarketScalar::Price(Money::new(100.0, Currency::USD)));
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    // -150% shock would result in negative price
+    let scenario = ScenarioSpec {
+        id: "beyond_full_loss".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::EquityPricePct {
+            ids: vec!["SPY".into()],
+            pct: -150.0,
+        }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    // Document current behavior: price becomes negative
+    // This may need validation in a future enhancement
+    let price = market.price("SPY").unwrap();
+    match price {
+        MarketScalar::Price(money) => {
+            // 100 * (1 - 1.5) = -50
+            assert!(
+                (money.amount() - (-50.0)).abs() < 1e-6,
+                "Expected price -50 after -150% shock, got {}",
+                money.amount()
+            );
+        }
+        _ => panic!("Expected Price"),
+    }
+}
+
+#[test]
 fn test_shock_nonexistent_market_data() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();

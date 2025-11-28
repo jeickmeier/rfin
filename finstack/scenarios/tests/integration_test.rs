@@ -60,11 +60,25 @@ fn test_curve_parallel_shock() {
     let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
 
     // The curve should be bumped (different discount factors than original)
-    // At 1Y: original DF was 0.98, bumped should be lower (higher rates)
+    // Formula: df_bumped(t) = df_original(t) * exp(-bp/10000 * t)
     let df_1y = bumped_curve.df(1.0);
+    // Original DF(1Y) = 0.98, +50bp shock: 0.98 * exp(-0.005 * 1) ≈ 0.9751
+    let expected_df_1y = 0.98 * (-0.005_f64).exp();
     assert!(
-        df_1y < 0.98,
-        "Curve should be bumped (lower DF due to +50bp)"
+        (df_1y - expected_df_1y).abs() < 1e-6,
+        "Expected DF(1Y) ≈ {:.6} after +50bp shock, got {:.6}",
+        expected_df_1y,
+        df_1y
+    );
+
+    // Also verify 5Y point
+    let df_5y = bumped_curve.df(5.0);
+    let expected_df_5y = 0.90 * (-0.005_f64 * 5.0).exp();
+    assert!(
+        (df_5y - expected_df_5y).abs() < 1e-6,
+        "Expected DF(5Y) ≈ {:.6} after +50bp shock, got {:.6}",
+        expected_df_5y,
+        df_5y
     );
 }
 
