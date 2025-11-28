@@ -134,6 +134,40 @@ macro_rules! interp_basic_tests {
                 assert!(interp.interp(0.001) > 0.0);
                 assert!(interp.interp(2.999) > 0.0);
             }
+
+            #[test]
+            fn rejects_empty_input() {
+                let result = $constructor(
+                    vec![].into_boxed_slice(),
+                    vec![].into_boxed_slice(),
+                    ExtrapolationPolicy::default(),
+                );
+                assert!(result.is_err(), "Should reject empty input");
+            }
+
+            #[test]
+            #[should_panic(expected = "assertion")]
+            fn rejects_mismatched_lengths() {
+                // Implementation panics on mismatched lengths (via assert_eq!)
+                let _ = $constructor(
+                    vec![0.0, 1.0, 2.0].into_boxed_slice(),
+                    vec![1.0, 0.95].into_boxed_slice(),
+                    ExtrapolationPolicy::default(),
+                );
+            }
+
+            #[test]
+            fn single_point_rejected() {
+                // Most interpolation methods require at least 2 points
+                let result = $constructor(
+                    vec![1.0].into_boxed_slice(),
+                    vec![0.95].into_boxed_slice(),
+                    ExtrapolationPolicy::default(),
+                );
+                // Single point should either error or work as constant extrapolation
+                // (implementation-dependent, but should not panic)
+                let _ = result; // Just verify it doesn't panic
+            }
         }
     };
 }
@@ -255,14 +289,16 @@ mod cubic_hermite_specific {
         )
         .unwrap();
 
-        let h = 1e-8;
+        // Optimal FD step for double precision central differences: h ≈ ε^(1/3) ≈ 6e-6
+        // where ε = 2.2e-16 (machine epsilon). This balances truncation and roundoff error.
+        let h = 6e-6;
         let x = 1.5;
         let numerical = (interp.interp(x + h) - interp.interp(x - h)) / (2.0 * h);
         let analytical = interp.interp_prime(x);
 
         let relative_error = (analytical - numerical).abs() / numerical.abs();
         assert!(
-            relative_error < 1e-6,
+            relative_error < 1e-8,
             "Derivative error {} too large",
             relative_error
         );

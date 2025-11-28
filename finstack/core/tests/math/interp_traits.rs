@@ -64,12 +64,13 @@ fn interp_fn_derivative_consistency() {
     let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatZero).unwrap();
 
     // Test that derivative is approximately consistent with finite differences
+    // Optimal FD step for double precision central differences: h ≈ ε^(1/3) ≈ 6e-6
     let x = 1.5;
-    let h = 1e-8;
+    let h = 6e-6;
     let numerical = (interp.interp(x + h) - interp.interp(x - h)) / (2.0 * h);
     let analytical = interp.interp_prime(x);
 
-    assert!((numerical - analytical).abs() < 1e-6);
+    assert!((numerical - analytical).abs() < 1e-8);
 }
 
 #[test]

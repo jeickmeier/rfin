@@ -59,3 +59,92 @@ fn realized_variance_ohlc_estimators_behave() {
         assert!(value.is_finite() && value >= 0.0);
     }
 }
+
+#[test]
+fn parkinson_variance_golden() {
+    // Golden-value test for Parkinson (1980) high-low range estimator
+    // Formula: σ² = [1/(4·ln(2))] · (1/n) · Σ[ln(H/L)]²
+    //
+    // Reference: Parkinson, M. (1980). "The Extreme Value Method for
+    // Estimating the Variance of the Rate of Return."
+    // Journal of Business, 53(1), 61-65.
+
+    // Two-day data with H/L ratios of 1.1 and 1.2
+    let open = [100.0, 100.0];
+    let high = [110.0, 120.0];
+    let low = [100.0, 100.0];
+    let close = [105.0, 110.0];
+
+    // Hand-calculated expected value:
+    // ln(110/100) = ln(1.1) ≈ 0.09531
+    // ln(120/100) = ln(1.2) ≈ 0.18232
+    // sum_sq = 0.09531² + 0.18232² = 0.00908 + 0.03324 = 0.04232
+    // factor = 1 / (4 * ln(2)) ≈ 0.3607
+    // daily_var = 0.3607 * 0.04232 / 2 ≈ 0.007633
+    // annual_var = 0.007633 * 252 ≈ 1.9236
+
+    let ln_hl_1 = (110.0_f64 / 100.0).ln();
+    let ln_hl_2 = (120.0_f64 / 100.0).ln();
+    let sum_sq = ln_hl_1.powi(2) + ln_hl_2.powi(2);
+    let factor = 1.0 / (4.0 * 2.0_f64.ln());
+    let expected_daily = factor * sum_sq / 2.0;
+    let expected_annual = expected_daily * 252.0;
+
+    let result = realized_variance_ohlc(&open, &high, &low, &close, RealizedVarMethod::Parkinson, 252.0);
+
+    assert!(
+        (result - expected_annual).abs() < 1e-10,
+        "Parkinson variance {} vs expected {} (diff: {})",
+        result,
+        expected_annual,
+        (result - expected_annual).abs()
+    );
+}
+
+#[test]
+fn garman_klass_variance_golden() {
+    // Golden-value test for Garman-Klass (1980) OHLC estimator
+    // Formula: σ² = (1/n) · Σ[0.5·[ln(H/L)]² - (2·ln(2) - 1)·[ln(C/O)]²]
+    //
+    // Reference: Garman, M. B., & Klass, M. J. (1980). "On the Estimation of
+    // Security Price Volatilities from Historical Data."
+    // Journal of Business, 53(1), 67-78.
+
+    // Two-day data
+    let open = [100.0, 105.0];
+    let high = [110.0, 115.0];
+    let low = [95.0, 100.0];
+    let close = [105.0, 110.0];
+
+    // Hand-calculated expected value:
+    // Day 1: ln(H/L) = ln(110/95) ≈ 0.1466, ln(C/O) = ln(105/100) ≈ 0.0488
+    // Day 2: ln(H/L) = ln(115/100) ≈ 0.1398, ln(C/O) = ln(110/105) ≈ 0.0465
+    // coeff = 2*ln(2) - 1 ≈ 0.3863
+    // Day 1 contrib: 0.5 * 0.1466² - 0.3863 * 0.0488² = 0.01074 - 0.00092 = 0.00982
+    // Day 2 contrib: 0.5 * 0.1398² - 0.3863 * 0.0465² = 0.00977 - 0.00084 = 0.00893
+    // daily_var = (0.00982 + 0.00893) / 2 ≈ 0.009375
+    // annual_var = 0.009375 * 252 ≈ 2.3625
+
+    let coeff = 2.0 * 2.0_f64.ln() - 1.0;
+
+    let hl_1 = (110.0_f64 / 95.0).ln();
+    let co_1 = (105.0_f64 / 100.0).ln();
+    let contrib_1 = 0.5 * hl_1.powi(2) - coeff * co_1.powi(2);
+
+    let hl_2 = (115.0_f64 / 100.0).ln();
+    let co_2 = (110.0_f64 / 105.0).ln();
+    let contrib_2 = 0.5 * hl_2.powi(2) - coeff * co_2.powi(2);
+
+    let expected_daily = (contrib_1 + contrib_2) / 2.0;
+    let expected_annual = expected_daily * 252.0;
+
+    let result = realized_variance_ohlc(&open, &high, &low, &close, RealizedVarMethod::GarmanKlass, 252.0);
+
+    assert!(
+        (result - expected_annual).abs() < 1e-10,
+        "Garman-Klass variance {} vs expected {} (diff: {})",
+        result,
+        expected_annual,
+        (result - expected_annual).abs()
+    );
+}

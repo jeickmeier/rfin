@@ -1,5 +1,5 @@
 use finstack_core::math::{
-    adaptive_quadrature, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+    adaptive_quadrature, erf, norm_cdf, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
 };
 use std::f64::consts::PI;
 
@@ -38,11 +38,17 @@ fn test_trapezoidal_rule_quadratic() {
 #[test]
 fn test_adaptive_quadrature_smooth_function() {
     // Test adaptive quadrature on e^(-x²) over [-2, 2]
-    // This integral ≈ √π ≈ 1.7725
+    // For finite limits: ∫e^(-x²)dx from -a to a = √π · erf(a)
+    // For a=2: √π · erf(2) ≈ 1.7641 (not √π ≈ 1.7725 which is for infinite limits)
     let f = |x: f64| (-x * x).exp();
     let result = adaptive_quadrature(f, -2.0, 2.0, 1e-4, 20).unwrap();
-    let expected = PI.sqrt();
-    assert!((result - expected).abs() < 1e-2);
+    let expected = PI.sqrt() * erf(2.0);
+    assert!(
+        (result - expected).abs() < 1e-3,
+        "Adaptive quadrature {} vs expected {}",
+        result,
+        expected
+    );
 }
 
 #[test]
@@ -78,8 +84,22 @@ fn test_financial_application_option_payoff() {
 
     // Result should be positive (call option value component)
     assert!(result > 0.0);
-    // For ATM option with 20% vol, should be reasonable magnitude
-    assert!(result > 5.0 && result < 25.0);
+
+    // Validate against analytical Black-Scholes (undiscounted, zero rate)
+    // BS call = S·N(d1) - K·N(d2) where r=q=0
+    let d1 = ((spot / strike).ln() + 0.5 * vol * vol * time) / (vol * time.sqrt());
+    let d2 = d1 - vol * time.sqrt();
+    let bs_price = spot * norm_cdf(d1) - strike * norm_cdf(d2);
+
+    // Gauss-Hermite should be within 1.0 of Black-Scholes for this ATM option
+    // (10-point quadrature has limited accuracy for option payoffs)
+    assert!(
+        (result - bs_price).abs() < 1.0,
+        "GH integral {} vs Black-Scholes {} (diff {})",
+        result,
+        bs_price,
+        (result - bs_price).abs()
+    );
 }
 
 #[test]
