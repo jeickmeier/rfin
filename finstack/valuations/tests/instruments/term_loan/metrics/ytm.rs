@@ -56,18 +56,18 @@ fn test_ytm_par_loan() {
     // Sources of difference between YTM and coupon rate:
     // 1. Compounding convention mismatch:
     //    - Discount curve uses continuous compounding: DF = exp(-r*t)
-    //    - XIRR uses periodic compounding: DF = (1+r)^(-t)
-    //    - This causes ~50-60bp difference for 5Y bonds
+    //    - XIRR uses annual compounding: DF = (1+r)^(-t)
+    //    - For 5% rate: e^0.05 - 1 = 5.127% vs 5.0% → ~13bp difference
     //
     // 2. Act/360 day count effect:
     //    - Year fractions slightly exceed 1.0 for full years (365/360 ≈ 1.014)
     //    - This adds ~7bp to effective rate
     //
-    // Total expected difference: ~50-70bp from par coupon rate
+    // Total expected difference: ~20-30bp from par coupon rate
     assert!(ytm.is_finite() && ytm > 0.0);
     assert!(
-        (ytm - 0.05).abs() < 0.008, // 80bp tolerance for compounding + day count effects
-        "YTM {} should be close to coupon 0.05 (within 80bp for compounding differences)",
+        (ytm - 0.05).abs() < 0.005, // 50bp tolerance for compounding + day count effects
+        "YTM {} should be close to coupon 0.05 (within 50bp)",
         ytm
     );
 }

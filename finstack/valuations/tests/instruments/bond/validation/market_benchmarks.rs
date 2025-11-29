@@ -317,13 +317,13 @@ fn test_bond_dv01_market_standard() {
     assert!(dv01 < 0.0, "DV01 should be negative for fixed-rate bond");
 
     // Approximate relationship: DV01 ≈ −Price × ModDur × 1bp
-    // Generic DV01 uses actual curve bump, so allow for convexity effects
-    // For a 5-year par bond, convexity contribution to 1bp move is < 1%
+    // For a par bond on flat curve, DV01 and ModDur-based estimate should be
+    // within 2% - convexity effect for 1bp is negligible.
     let approx_dv01 = -(price * mod_duration * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.05, // 5% tolerance (tightened from 10%)
+        relative_diff < 0.02, // 2% tolerance for par bond on flat curve
         "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
         dv01,
         approx_dv01,

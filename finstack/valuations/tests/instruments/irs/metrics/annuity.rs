@@ -125,10 +125,15 @@ fn test_annuity_less_than_maturity() {
 
 #[test]
 fn test_annuity_five_year_swap() {
-    // 5-year swap at 5% should have annuity around 4.40
-    // Analytical: sum_{i=1}^{20} 0.25 * exp(-0.05 * i * 0.25) = 4.3964
-    // Note: Actual differs slightly due to day-count (ACT/360 vs exact 0.25)
-    // and interpolation effects (MonotoneConvex vs exact continuous compounding)
+    // 5-year swap at 5% should have annuity around 4.48
+    //
+    // Analytical with Act/360 day count:
+    // - Quarterly periods ≈ 91 days each → accrual factor ≈ 91/360 = 0.2528
+    // - Annuity = Σ (91/360) × exp(-0.05 × t_i) for 20 quarterly periods
+    // - With Act/360: expect ~4.48 (vs 4.40 with exact 0.25 periods)
+    //
+    // The test uses Act/360 discount curve and Act/360 for accrual calculation,
+    // so the expected value is slightly higher than the simplified 0.25-period formula.
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -141,9 +146,10 @@ fn test_annuity_five_year_swap() {
 
     let annuity = *result.measures.get("annuity").unwrap();
 
-    let expected_annuity = 4.40; // Analytical is 4.3964
+    // Expected annuity with Act/360: ~4.45 (accounting for actual day counts and discounting)
+    let expected_annuity = 4.45;
     assert!(
-        (annuity - expected_annuity).abs() < 0.10, // ~2% tolerance for interpolation effects
+        (annuity - expected_annuity).abs() < 0.02, // 0.5% tolerance for rounding/interpolation
         "5Y annuity at 5% should be ~{:.4}, got {:.4} (diff: {:.4})",
         expected_annuity,
         annuity,

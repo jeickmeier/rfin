@@ -411,12 +411,14 @@ fn test_long_term_repo_interest() {
         collateral,
         0.05,
         date(2025, 1, 1),
-        date(2026, 1, 1), // 1 year
+        date(2026, 1, 1), // 1 year (365 days)
         "USD-OIS",
     );
 
     let interest = repo.interest_amount().unwrap();
 
-    // 1M * 5% * 1 = 50,000 (approximately, Act/360 will be slightly more)
-    assert_money_approx_eq(interest, Money::new(50_000.0, Currency::USD), 750.0);
+    // With Act/360: 365/360 = 1.0139 year fraction
+    // Expected: 1M * 5% * (365/360) = $50,694.44
+    let expected = 1_000_000.0 * 0.05 * (365.0 / 360.0);
+    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 100.0);
 }

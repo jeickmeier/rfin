@@ -128,18 +128,16 @@ mod swap_vectors {
     /// - DV01 ≈ Annuity × Notional / 10000
     /// - Annuity ≈ (1 - DF_5Y) / rate = (1 - e^(-0.05×5)) / 0.05 ≈ 4.42 years
     /// - DV01 per $1MM ≈ 4.42 × $1MM / 10000 = $442 per bp
-    ///
-    /// The $450 estimate allows for convention differences (semi-annual vs continuous).
     pub mod dv01 {
         /// Notional
         pub const NOTIONAL: f64 = 1_000_000.0;
         /// Tenor (years)
         pub const TENOR: f64 = 5.0;
         /// Expected DV01 for 5Y swap at 5%
-        /// Analytical: Annuity × Notional / 10000 ≈ $442-$460 per bp per $1MM
-        pub const EXPECTED_DV01_PER_MM: f64 = 450.0;
-        /// Tolerance (5%): accounts for compounding convention differences
-        pub const TOLERANCE: f64 = 0.05;
+        /// Analytical: Annuity × Notional / 10000 = 4.42 × $1MM / 10000 = $442 per bp
+        pub const EXPECTED_DV01_PER_MM: f64 = 442.0;
+        /// Tolerance (2%): market-standard precision for swap DV01
+        pub const TOLERANCE: f64 = 0.02;
     }
 }
 

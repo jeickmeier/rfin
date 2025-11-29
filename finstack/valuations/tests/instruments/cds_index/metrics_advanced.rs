@@ -345,10 +345,9 @@ fn test_expected_loss_constituents_vs_single() {
     let el_single = *result_single.measures.get("expected_loss").unwrap();
     let el_const = *result_const.measures.get("expected_loss").unwrap();
 
-    // Expected loss should be close (within 5%)
-    // Both modes use identical hazard rates and recovery, so integration
-    // methodology should produce similar results
-    assert_relative_eq(el_single, el_const, 0.05, "Expected loss cross-mode");
+    // Expected loss should be identical (<0.1%) - both modes use the same
+    // hazard rates, recovery, and integration methodology
+    assert_relative_eq(el_single, el_const, 0.001, "Expected loss cross-mode");
 }
 
 #[test]
