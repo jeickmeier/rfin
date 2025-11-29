@@ -4,6 +4,21 @@
 //! Market Standard: When all constituents have identical credit quality,
 //! single-curve and constituents pricing should produce similar results.
 //!
+//! ## Tolerance Rationale
+//!
+//! The tolerances in these tests account for legitimate algorithmic differences:
+//!
+//! - **NPV/Leg PV (5%)**: Different curve lookups (single HZ-INDEX vs HZ1..HZn)
+//!   with identical underlying hazard rates. Small interpolation differences.
+//!
+//! - **Par Spread (2%)**: Pure ratio of protection/premium PV, so curve
+//!   interpolation differences partially cancel. Should be tighter.
+//!
+//! - **Risky PV01 (3%)**: Annuity calculation aggregates over N periods.
+//!
+//! - **CS01 (5%)**: Single-curve bumps HZ-INDEX; constituents mode bumps
+//!   each HZ1..HZn independently. Method should be identical per-CDS.
+//!
 //! Tests cover:
 //! - NPV parity with equal hazard rates
 //! - Par spread consistency
@@ -19,6 +34,9 @@ use time::macros::date;
 #[test]
 fn test_npv_parity_equal_hazards() {
     // Market Standard: Single curve vs constituents pricing with equal hazards
+    //
+    // Both modes use flat 0.015 hazard rate and 40% recovery, so NPV should
+    // be very close. Differences arise from curve lookup paths only.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -34,11 +52,11 @@ fn test_npv_parity_equal_hazards() {
     let npv_single = idx_single.value(&ctx, as_of).unwrap();
     let npv_constituents = idx_constituents.value(&ctx, as_of).unwrap();
 
-    // Allow 10% tolerance due to different calculation paths
+    // 5% tolerance: identical hazard rates, only curve lookup path differs
     assert_relative_eq(
         npv_single.amount(),
         npv_constituents.amount(),
-        0.10,
+        0.05,
         "NPV parity between pricing modes",
     );
 }
@@ -46,6 +64,9 @@ fn test_npv_parity_equal_hazards() {
 #[test]
 fn test_par_spread_parity_equal_hazards() {
     // Test: Par spread consistency across modes
+    //
+    // Par spread = Protection PV / Risky Annuity is a ratio, so curve
+    // interpolation differences should largely cancel out.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -58,13 +79,16 @@ fn test_par_spread_parity_equal_hazards() {
     let par_single = idx_single.par_spread(&ctx, as_of).unwrap();
     let par_constituents = idx_constituents.par_spread(&ctx, as_of).unwrap();
 
-    // Par spread should be very similar (within 5%)
-    assert_relative_eq(par_single, par_constituents, 0.05, "Par spread parity");
+    // 2% tolerance: ratio metric, errors cancel partially
+    assert_relative_eq(par_single, par_constituents, 0.02, "Par spread parity");
 }
 
 #[test]
 fn test_risky_pv01_parity_equal_hazards() {
     // Test: Risky PV01 consistency across modes
+    //
+    // Risky PV01 (annuity) is sum of discounted survival probabilities.
+    // Aggregation across N constituents vs single calculation.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -77,13 +101,20 @@ fn test_risky_pv01_parity_equal_hazards() {
     let rpv01_single = idx_single.risky_pv01(&ctx, as_of).unwrap();
     let rpv01_constituents = idx_constituents.risky_pv01(&ctx, as_of).unwrap();
 
-    // Risky PV01 should be very close (within 5%)
-    assert_relative_eq(rpv01_single, rpv01_constituents, 0.05, "Risky PV01 parity");
+    // 3% tolerance: annuity aggregation differences
+    assert_relative_eq(rpv01_single, rpv01_constituents, 0.03, "Risky PV01 parity");
 }
 
 #[test]
 fn test_cs01_parity_equal_hazards() {
     // Test: CS01 consistency across modes
+    //
+    // CS01 uses finite-difference bumping of hazard curves:
+    // - Single-curve: bumps HZ-INDEX by 1bp
+    // - Constituents: bumps each HZ1..HZn by 1bp independently
+    //
+    // With identical hazard rates, the sum of constituent CS01s should
+    // equal the single-curve CS01.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -96,13 +127,16 @@ fn test_cs01_parity_equal_hazards() {
     let cs01_single = idx_single.cs01(&ctx, as_of).unwrap();
     let cs01_constituents = idx_constituents.cs01(&ctx, as_of).unwrap();
 
-    // CS01 should be reasonably close (within 15% due to bump approximation)
-    assert_relative_eq(cs01_single, cs01_constituents, 0.15, "CS01 parity");
+    // 5% tolerance: aggregation of per-constituent CS01 vs single curve
+    assert_relative_eq(cs01_single, cs01_constituents, 0.05, "CS01 parity");
 }
 
 #[test]
 fn test_protection_leg_parity_equal_hazards() {
     // Test: Protection leg PV consistency
+    //
+    // Protection leg integrates (1 - Recovery) × hazard × discount over time.
+    // With identical hazard rates and recovery, results should be close.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -115,10 +149,11 @@ fn test_protection_leg_parity_equal_hazards() {
     let prot_single = idx_single.pv_protection_leg(&ctx, as_of).unwrap();
     let prot_constituents = idx_constituents.pv_protection_leg(&ctx, as_of).unwrap();
 
+    // 5% tolerance: integration methodology
     assert_relative_eq(
         prot_single.amount(),
         prot_constituents.amount(),
-        0.10,
+        0.05,
         "Protection leg parity",
     );
 }
@@ -126,6 +161,9 @@ fn test_protection_leg_parity_equal_hazards() {
 #[test]
 fn test_premium_leg_parity_equal_hazards() {
     // Test: Premium leg PV consistency
+    //
+    // Premium leg is spread × risky annuity + accrued-on-default.
+    // With identical parameters, aggregation should match.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -138,10 +176,11 @@ fn test_premium_leg_parity_equal_hazards() {
     let prem_single = idx_single.pv_premium_leg(&ctx, as_of).unwrap();
     let prem_constituents = idx_constituents.pv_premium_leg(&ctx, as_of).unwrap();
 
+    // 5% tolerance: aggregation methodology
     assert_relative_eq(
         prem_single.amount(),
         prem_constituents.amount(),
-        0.10,
+        0.05,
         "Premium leg parity",
     );
 }
@@ -187,7 +226,8 @@ fn test_parity_with_different_constituent_counts() {
         let npv_const = idx_const.value(&ctx, as_of).unwrap();
 
         let msg = format!("NPV parity with {} constituents", count);
-        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.15, &msg);
+        // 5% tolerance: constituent count shouldn't affect parity with identical hazards
+        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.05, &msg);
     }
 }
 
@@ -215,7 +255,8 @@ fn test_parity_across_maturities() {
         let npv_const = idx_const.value(&ctx, as_of).unwrap();
 
         let msg = format!("NPV parity for {} maturity", label);
-        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.10, &msg);
+        // 5% tolerance: maturity shouldn't affect parity with identical hazards
+        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.05, &msg);
     }
 }
 
@@ -237,7 +278,8 @@ fn test_parity_with_different_notionals() {
         let npv_const = idx_const.value(&ctx, as_of).unwrap();
 
         let msg = format!("NPV parity for ${:.0} notional", notional);
-        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.10, &msg);
+        // 5% tolerance: notional scales linearly, shouldn't affect relative parity
+        assert_relative_eq(npv_single.amount(), npv_const.amount(), 0.05, &msg);
     }
 }
 

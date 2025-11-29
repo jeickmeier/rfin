@@ -52,14 +52,19 @@ fn test_implied_vol_inversion() {
     let market = create_flat_market(as_of, 0.05, 0.40);
 
     // Solve for implied vol given market PV
+    // The implied vol calculator solves: price_black(sigma) = target_pv
+    // where target_pv is the base_value computed by the same pricing function.
+    // Since both use identical pricing paths, inversion should be very precise.
     let result = swaption
         .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    // Should be close to 40%
-    assert_approx_eq(implied_vol, 0.40, 0.05, "Implied vol inversion");
+    // Should recover input vol precisely (within 1% = 100bp of vol)
+    // The solver uses 1e-10 tolerance, so numerical precision is high.
+    // Any remaining error comes from forward rate / annuity interpolation.
+    assert_approx_eq(implied_vol, 0.40, 0.01, "Implied vol inversion");
 }
 
 #[test]

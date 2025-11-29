@@ -2,8 +2,28 @@
 //!
 //! Tests fundamental relationships between bond metrics:
 //! - Modified Duration = Macaulay Duration / (1 + YTM/m)
-//! - DV01 = Price × Modified Duration × 0.0001
+//! - DV01 ≈ Price × Modified Duration × 0.0001 (approximate relationship)
 //! - Convexity and duration approximations
+//!
+//! ## Note on DV01 vs Duration
+//!
+//! The relationship `DV01 ≈ -Price × ModDur × 0.0001` is an **approximation** that
+//! assumes both metrics use the same rate sensitivity. In practice:
+//!
+//! - **DV01**: Computed via parallel bump of the discount curve (continuous
+//!   compounding on zero rates). Captures actual curve-based price change.
+//!
+//! - **Modified Duration**: Derived from YTM (periodic compounding, typically
+//!   semi-annual). Represents yield-based sensitivity.
+//!
+//! For bonds with significant spread (coupon ≠ yield), these can differ by
+//! 10-15% depending on:
+//! - Compounding convention mismatch (continuous vs periodic)
+//! - Curve slope effects (parallel shift vs yield change)
+//! - Convexity contributions (second-order for large moves)
+//!
+//! The 15% tolerance in `test_dv01_duration_price_relationship` reflects this
+//! legitimate methodological difference, not imprecision.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
@@ -60,6 +80,12 @@ fn test_modified_macaulay_duration_relationship() {
 
 #[test]
 fn test_dv01_duration_price_relationship() {
+    // Test the approximate relationship: DV01 ≈ −Price × ModDur × 0.0001
+    //
+    // This test validates that the curve-based DV01 and yield-based ModDur
+    // are in the same ballpark, while acknowledging they measure different things.
+    //
+    // See module documentation for detailed explanation of why these differ.
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::fixed(
         "DV01_REL",
@@ -87,17 +113,21 @@ fn test_dv01_duration_price_relationship() {
 
     // Approximate relationship: DV01 ≈ −Price × ModDur × 0.0001
     //
-    // For a 5-year bond with typical convexity (~25), the convexity term at 1bp is:
-    //   0.5 × 25 × (0.0001)² = 1.25e-7 (negligible for this test)
+    // Expected sources of difference:
+    // 1. Compounding: DV01 uses continuous (curve), ModDur uses semi-annual (yield)
+    //    - For 5% rate: e^0.05 vs (1+0.025)^2 → ~0.6% difference
+    // 2. Curve vs Yield: DV01 bumps zero rates, ModDur is yield-based
+    //    - At par, flat curve: minimal difference
+    //    - Away from par or steep curve: can be 5-10%
+    // 3. Convexity: DV01 includes second-order effects, approximation is first-order
+    //    - For 1bp bump: 0.5 × 25 × (0.0001)² ≈ negligible
     //
-    // DV01 uses curve-based parallel bumps (continuous compounding on zero rates)
-    // while ModDur is yield-based (semi-annual compounding). This can cause
-    // 10-15% differences depending on curve/yield conventions.
+    // Combined effect: 10-15% is typical for methodological differences
     let approx_dv01 = -(price * mod_dur * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.15, // 15% tolerance for curve vs yield-based sensitivity differences
+        relative_diff < 0.15, // Expected methodological difference, not imprecision
         "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
         dv01,
         approx_dv01,

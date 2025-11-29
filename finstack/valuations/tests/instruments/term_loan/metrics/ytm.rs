@@ -52,13 +52,22 @@ fn test_ytm_par_loan() {
     let ytm = *result.measures.get("ytm").unwrap();
 
     // YTM for par loan should approximately match coupon rate (5%)
-    // Note: Act/360 day count causes ~1.4% difference due to 365/360 adjustment
-    // - 5% nominal with Act/360 produces year fractions > 1.0 over a year
-    // - This results in slightly higher effective annual yield
+    //
+    // Sources of difference between YTM and coupon rate:
+    // 1. Compounding convention mismatch:
+    //    - Discount curve uses continuous compounding: DF = exp(-r*t)
+    //    - XIRR uses periodic compounding: DF = (1+r)^(-t)
+    //    - This causes ~50-60bp difference for 5Y bonds
+    //
+    // 2. Act/360 day count effect:
+    //    - Year fractions slightly exceed 1.0 for full years (365/360 ≈ 1.014)
+    //    - This adds ~7bp to effective rate
+    //
+    // Total expected difference: ~50-70bp from par coupon rate
     assert!(ytm.is_finite() && ytm > 0.0);
     assert!(
-        (ytm - 0.05).abs() < 0.01, // 100bp tolerance for day count effects
-        "YTM {} should be close to coupon 0.05 (within 100bp for Act/360 adjustment)",
+        (ytm - 0.05).abs() < 0.008, // 80bp tolerance for compounding + day count effects
+        "YTM {} should be close to coupon 0.05 (within 80bp for compounding differences)",
         ytm
     );
 }

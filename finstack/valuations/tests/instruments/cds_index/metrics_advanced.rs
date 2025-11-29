@@ -345,8 +345,10 @@ fn test_expected_loss_constituents_vs_single() {
     let el_single = *result_single.measures.get("expected_loss").unwrap();
     let el_const = *result_const.measures.get("expected_loss").unwrap();
 
-    // Expected loss should be close (within 20%)
-    assert_relative_eq(el_single, el_const, 0.20, "Expected loss cross-mode");
+    // Expected loss should be close (within 5%)
+    // Both modes use identical hazard rates and recovery, so integration
+    // methodology should produce similar results
+    assert_relative_eq(el_single, el_const, 0.05, "Expected loss cross-mode");
 }
 
 #[test]
@@ -375,8 +377,14 @@ fn test_advanced_metrics_finite() {
 
 #[test]
 fn test_jtd_per_name_basis() {
-    // Test: JTD on per-name basis is reasonable
-    // For 125-name index, JTD per name ≈ (1/125) × Notional × LGD
+    // Test: JTD on per-name basis matches analytical formula exactly
+    // For 125-name index, JTD per name = (1/125) × Notional × LGD
+    //
+    // The implementation uses:
+    //   - num_constituents = 125 (CDX IG standard)
+    //   - recovery_rate = RECOVERY_SENIOR_UNSECURED = 0.40
+    //   - LGD = 1 - 0.40 = 0.60
+    //   - JTD = (1/125) × $10MM × 0.60 = $48,000
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -389,9 +397,11 @@ fn test_jtd_per_name_basis() {
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
-    // For 125 names: per-name ≈ $10MM × 0.6 / 125 ≈ $48K
+    // Exact formula: (1/125) × Notional × (1 - Recovery)
+    // = (1/125) × $10MM × 0.60 = $48,000
     let per_name_estimate = 10_000_000.0 * 0.6 / 125.0;
 
-    // JTD should be close to this estimate (within 50%)
-    assert_relative_eq(jtd, per_name_estimate, 0.50, "JTD per-name basis");
+    // JTD should match the analytical formula exactly (within 1%)
+    // Both use identical calculations, so difference should be negligible
+    assert_relative_eq(jtd, per_name_estimate, 0.01, "JTD per-name basis");
 }

@@ -310,6 +310,13 @@ fn test_risky_pv01_single_vs_constituents() {
 #[test]
 fn test_cs01_single_vs_constituents() {
     // Test: CS01 consistency across pricing modes
+    //
+    // Both modes use identical hazard rates (0.015) and recovery (40%).
+    // CS01 is computed by bumping hazard curves by 1bp and repricing.
+    // - Single-curve: bumps HZ-INDEX
+    // - Constituents: bumps each HZ1..HZ5 independently and sums
+    //
+    // With identical curves, both should produce similar results.
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -328,7 +335,8 @@ fn test_cs01_single_vs_constituents() {
     let cs01_single = *result_single.measures.get("cs01").unwrap();
     let cs01_const = *result_const.measures.get("cs01").unwrap();
 
-    assert_relative_eq(cs01_single, cs01_const, 0.15, "CS01 parity");
+    // 5% tolerance: aggregation of per-constituent CS01 vs single curve
+    assert_relative_eq(cs01_single, cs01_const, 0.05, "CS01 parity");
 }
 
 #[test]
