@@ -623,66 +623,6 @@ impl Evaluator {
         Ok(context.into_results())
     }
 
-    /// Compute capital structure cashflows from model's instrument specifications.
-    ///
-    /// This is a private method that encapsulates all capital structure computation logic.
-    /// It builds instruments from the model's specs and aggregates cashflows by period.
-    ///
-    /// # Arguments
-    /// * `model` - The financial model containing capital structure specs
-    /// * `market_ctx` - Market context with discount/forward curves
-    /// * `as_of` - Valuation date for pricing
-    ///
-    /// # Returns
-    /// Returns `Some(cashflows)` if capital structure is defined, `None` otherwise.
-    #[allow(dead_code)] // Kept for backward compatibility, may be used in future
-    fn compute_cs_cashflows(
-        &self,
-        model: &FinancialModelSpec,
-        market_ctx: &finstack_core::market_data::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<Option<crate::capital_structure::CapitalStructureCashflows>> {
-        use crate::capital_structure::integration;
-        use crate::types::DebtInstrumentSpec;
-        use finstack_valuations::cashflow::traits::CashflowProvider;
-        use std::sync::Arc;
-
-        // Return None if no capital structure is defined
-        let cs_spec = match &model.capital_structure {
-            Some(cs) => cs,
-            None => return Ok(None),
-        };
-
-        // Build instruments from specifications using valuations types directly
-        let mut instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
-            IndexMap::new();
-
-        for debt_spec in &cs_spec.debt_instruments {
-            // build_any_instrument_from_spec handles all variants (Bond, Swap, TermLoan, Generic)
-            let (id, instrument) = match debt_spec {
-                DebtInstrumentSpec::Bond { id, .. }
-                | DebtInstrumentSpec::Swap { id, .. }
-                | DebtInstrumentSpec::TermLoan { id, .. }
-                | DebtInstrumentSpec::Generic { id, .. } => {
-                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
-                    (id.clone(), instrument)
-                }
-            };
-            instruments.insert(id, instrument);
-        }
-
-        // Aggregate cashflows by period using valuations cashflow aggregation
-        let cashflows = integration::aggregate_instrument_cashflows(
-            cs_spec,
-            &instruments,
-            &model.periods,
-            market_ctx,
-            as_of,
-        )?;
-
-        Ok(Some(cashflows))
-    }
-
     /// Evaluate a single period.
     #[allow(clippy::too_many_arguments)]
     fn evaluate_period(

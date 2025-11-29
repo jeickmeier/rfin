@@ -1,11 +1,12 @@
 use finstack_core::dates::Date;
+use serde::{Deserialize, Serialize};
 
 /// Piecewise-constant threshold schedule for covenants.
 ///
 /// Entries should be sorted by date ascending; the effective threshold for a
 /// test date is the last entry with date <= test_date. If no entry applies,
 /// `threshold_for_date` returns `None`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ThresholdSchedule(pub Vec<(Date, f64)>);
 
 impl ThresholdSchedule {

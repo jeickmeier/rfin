@@ -9,6 +9,71 @@ use finstack_core::dates::PeriodId;
 use finstack_core::math::random::{RandomNumberGenerator, TestRng};
 use indexmap::IndexMap;
 
+/// Common parameters for statistical distribution forecasts.
+struct DistributionParams {
+    mean: f64,
+    std_dev: f64,
+    seed: u64,
+}
+
+/// Extract distribution parameters from the params map.
+///
+/// Validates that mean, std_dev, and seed are present and valid.
+fn extract_distribution_params(
+    params: &IndexMap<String, serde_json::Value>,
+    method_name: &str,
+) -> Result<DistributionParams> {
+    let mean = params.get("mean").and_then(|v| v.as_f64()).ok_or_else(|| {
+        Error::forecast(format!(
+            "Missing or invalid 'mean' parameter for {} forecast. \
+             Expected a number.",
+            method_name
+        ))
+    })?;
+
+    let std_dev = params
+        .get("std_dev")
+        .and_then(|v| v.as_f64())
+        .ok_or_else(|| {
+            Error::forecast(format!(
+                "Missing or invalid 'std_dev' parameter for {} forecast. \
+                 Expected a positive number.",
+                method_name
+            ))
+        })?;
+
+    let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
+        Error::forecast(format!(
+            "Missing or invalid 'seed' parameter for {} forecast. \
+             A seed is required for deterministic sampling (e.g., 42).",
+            method_name
+        ))
+    })?;
+
+    if std_dev < 0.0 {
+        return Err(Error::forecast(format!(
+            "Standard deviation must be non-negative, got {}",
+            std_dev
+        )));
+    }
+
+    Ok(DistributionParams {
+        mean,
+        std_dev,
+        seed,
+    })
+}
+
+/// Box-Muller transform for generating a standard normal sample.
+///
+/// Uses two uniform samples to produce a normally distributed value.
+/// Guards against u1=0.0 which would cause ln(0) = -infinity.
+fn box_muller_sample(rng: &mut TestRng) -> f64 {
+    let u1 = rng.uniform().max(f64::MIN_POSITIVE);
+    let u2 = rng.uniform();
+    (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
+}
+
 /// Normal distribution forecast (deterministic with seed).
 ///
 /// Samples from a normal distribution N(mean, std_dev^2) for each forecast period.
@@ -46,54 +111,16 @@ pub fn normal_forecast(
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
-    // Extract parameters
-    let mean = params.get("mean").and_then(|v| v.as_f64()).ok_or_else(|| {
-        Error::forecast(
-            "Missing or invalid 'mean' parameter for Normal forecast. \
-             Expected a number (e.g., 100000.0).",
-        )
-    })?;
+    let p = extract_distribution_params(params, "Normal")?;
 
-    let std_dev = params
-        .get("std_dev")
-        .and_then(|v| v.as_f64())
-        .ok_or_else(|| {
-            Error::forecast(
-                "Missing or invalid 'std_dev' parameter for Normal forecast. \
-                 Expected a positive number (e.g., 15000.0).",
-            )
-        })?;
-
-    let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
-        Error::forecast(
-            "Missing or invalid 'seed' parameter for Normal forecast. \
-             A seed is required for deterministic sampling (e.g., 42).",
-        )
-    })?;
-
-    if std_dev < 0.0 {
-        return Err(Error::forecast(format!(
-            "Standard deviation must be non-negative, got {}",
-            std_dev
-        )));
-    }
-
-    // Initialize RNG with seed
     // Note: TestRng is for deterministic testing; for production Monte Carlo,
     // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
-    let mut rng = TestRng::new(seed);
-
+    let mut rng = TestRng::new(p.seed);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {
-        // Box-Muller transform for normal distribution
-        // Guard against u1=0.0 which would cause ln(0) = -infinity
-        let u1 = rng.uniform().max(f64::MIN_POSITIVE);
-        let u2 = rng.uniform();
-
-        let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-        let value = mean + std_dev * z;
-
+        let z = box_muller_sample(&mut rng);
+        let value = p.mean + p.std_dev * z;
         results.insert(*period_id, value);
     }
 
@@ -136,64 +163,25 @@ pub fn lognormal_forecast(
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
-    // Extract parameters
-    let mean = params.get("mean").and_then(|v| v.as_f64()).ok_or_else(|| {
-        Error::forecast(
-            "Missing or invalid 'mean' parameter for LogNormal forecast. \
-             Expected a number (e.g., 11.5).",
-        )
-    })?;
-
-    let std_dev = params
-        .get("std_dev")
-        .and_then(|v| v.as_f64())
-        .ok_or_else(|| {
-            Error::forecast(
-                "Missing or invalid 'std_dev' parameter for LogNormal forecast. \
-                 Expected a positive number (e.g., 0.15).",
-            )
-        })?;
-
-    let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
-        Error::forecast(
-            "Missing or invalid 'seed' parameter for LogNormal forecast. \
-             A seed is required for deterministic sampling (e.g., 42).",
-        )
-    })?;
-
-    if std_dev < 0.0 {
-        return Err(Error::forecast(format!(
-            "Standard deviation must be non-negative, got {}",
-            std_dev
-        )));
-    }
+    let p = extract_distribution_params(params, "LogNormal")?;
 
     // Warn on degenerate distribution (all values will be identical)
-    if std_dev == 0.0 {
+    if p.std_dev == 0.0 {
         log::warn!(
             "LogNormal forecast with std_dev=0.0 produces degenerate distribution (all values identical)"
         );
     }
 
-    // Initialize RNG with seed
     // Note: TestRng is for deterministic testing; for production Monte Carlo,
     // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
-    let mut rng = TestRng::new(seed);
-
+    let mut rng = TestRng::new(p.seed);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {
-        // Box-Muller transform for normal distribution
-        // Guard against u1=0.0 which would cause ln(0) = -infinity
-        let u1 = rng.uniform().max(f64::MIN_POSITIVE);
-        let u2 = rng.uniform();
-
-        let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-        let normal_value = mean + std_dev * z;
-
+        let z = box_muller_sample(&mut rng);
+        let normal_value = p.mean + p.std_dev * z;
         // Exponentiate to get log-normal
         let value = normal_value.exp();
-
         results.insert(*period_id, value);
     }
 

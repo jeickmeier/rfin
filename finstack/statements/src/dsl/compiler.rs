@@ -82,10 +82,10 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
 
     // Handle min/max specially by transforming to nested conditionals
     if func_name == "min" {
-        return compile_min_function(&compiled_args);
+        return compile_minmax_function(&compiled_args, true);
     }
     if func_name == "max" {
-        return compile_max_function(&compiled_args);
+        return compile_minmax_function(&compiled_args, false);
     }
 
     // Map DSL function names to core Function enum
@@ -176,96 +176,52 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     }
 }
 
-/// Compile min function by transforming to nested if-then-else.
+/// Compile min/max function by transforming to nested if-then-else.
 ///
 /// # Syntax
 ///
-/// min(a, b) → if(a < b, a, b)
-/// min(a, b, c) → if(a < b, if(a < c, a, c), if(b < c, b, c))
+/// For min: min(a, b) → if(a < b, a, b)
+/// For max: max(a, b) → if(a > b, a, b)
 ///
 /// # NaN Handling
 ///
 /// NaN values propagate through comparisons per IEEE 754:
-/// - `NaN < x` is always `false`, so `min(NaN, x)` returns `x`
-/// - `x < NaN` is always `false`, so `min(x, NaN)` returns `NaN`
+/// - For min: `NaN < x` is always `false`, so `min(NaN, x)` returns `x`
+/// - For max: `NaN > x` is always `false`, so `max(NaN, x)` returns `x`
 /// - The behavior depends on argument order
 ///
 /// # Tie Behavior
 ///
 /// When values are equal, the first value in argument order is returned.
 ///
-/// # Examples
+/// # Arguments
 ///
-/// ```rust,ignore
-/// min(5, 3)     // returns 3
-/// min(3, 3)     // returns 3 (first value)
-/// min(NaN, 5)   // returns 5 (NaN < 5 is false)
-/// min(5, NaN)   // returns NaN (5 < NaN is false)
-/// ```
-fn compile_min_function(args: &[Expr]) -> Result<Expr> {
+/// * `args` - The compiled argument expressions
+/// * `use_min` - If true, compile as min (using Lt); if false, compile as max (using Gt)
+fn compile_minmax_function(args: &[Expr], use_min: bool) -> Result<Expr> {
+    let func_name = if use_min { "min" } else { "max" };
+
     if args.is_empty() {
-        return Err(crate::error::Error::eval(
-            "min() requires at least 1 argument",
-        ));
+        return Err(crate::error::Error::eval(format!(
+            "{}() requires at least 1 argument",
+            func_name
+        )));
     }
 
     if args.len() == 1 {
         return Ok(args[0].clone());
     }
 
-    // Recursively build nested conditionals
-    let mut result = args[0].clone();
-    for arg in &args[1..] {
-        // result = if(result < arg, result, arg)
-        let condition = Expr::bin_op(finstack_core::expr::BinOp::Lt, result.clone(), arg.clone());
-        result = Expr::if_then_else(condition, result, arg.clone());
-    }
-
-    Ok(result)
-}
-
-/// Compile max function by transforming to nested if-then-else.
-///
-/// # Syntax
-///
-/// max(a, b) → if(a > b, a, b)
-/// max(a, b, c) → if(a > b, if(a > c, a, c), if(b > c, b, c))
-///
-/// # NaN Handling
-///
-/// NaN values propagate through comparisons per IEEE 754:
-/// - `NaN > x` is always `false`, so `max(NaN, x)` returns `x`
-/// - `x > NaN` is always `false`, so `max(x, NaN)` returns `NaN`
-/// - The behavior depends on argument order
-///
-/// # Tie Behavior
-///
-/// When values are equal, the first value in argument order is returned.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// max(5, 3)     // returns 5
-/// max(3, 3)     // returns 3 (first value)
-/// max(NaN, 5)   // returns 5 (NaN > 5 is false)
-/// max(5, NaN)   // returns NaN (5 > NaN is false)
-/// ```
-fn compile_max_function(args: &[Expr]) -> Result<Expr> {
-    if args.is_empty() {
-        return Err(crate::error::Error::eval(
-            "max() requires at least 1 argument",
-        ));
-    }
-
-    if args.len() == 1 {
-        return Ok(args[0].clone());
-    }
+    let comparison_op = if use_min {
+        CoreBinOp::Lt
+    } else {
+        CoreBinOp::Gt
+    };
 
     // Recursively build nested conditionals
     let mut result = args[0].clone();
     for arg in &args[1..] {
-        // result = if(result > arg, result, arg)
-        let condition = Expr::bin_op(finstack_core::expr::BinOp::Gt, result.clone(), arg.clone());
+        let condition = Expr::bin_op(comparison_op, result.clone(), arg.clone());
         result = Expr::if_then_else(condition, result, arg.clone());
     }
 

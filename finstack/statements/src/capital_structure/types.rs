@@ -154,6 +154,31 @@ impl CapitalStructureCashflows {
         Self::default()
     }
 
+    /// Generic accessor for instrument-period cashflow data.
+    ///
+    /// Extracts a value from the `by_instrument` map using the provided extractor function.
+    fn get_instrument_field<F>(
+        &self,
+        instrument_id: &str,
+        period_id: &PeriodId,
+        field_name: &str,
+        extractor: F,
+    ) -> Result<f64>
+    where
+        F: Fn(&CashflowBreakdown) -> f64,
+    {
+        self.by_instrument
+            .get(instrument_id)
+            .and_then(|m| m.get(period_id))
+            .map(extractor)
+            .ok_or_else(|| {
+                crate::error::Error::capital_structure(format!(
+                    "No {} data for instrument '{}' in period {}",
+                    field_name, instrument_id, period_id
+                ))
+            })
+    }
+
     /// Get total interest expense (cash + PIK) for a specific instrument and period.
     ///
     /// # Arguments
@@ -179,16 +204,9 @@ impl CapitalStructureCashflows {
     /// assert_eq!(cashflows.get_interest("BOND-1", &period).unwrap(), 5_000.0);
     /// ```
     pub fn get_interest(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.by_instrument
-            .get(instrument_id)
-            .and_then(|m| m.get(period_id))
-            .map(|cf| cf.interest_expense_total().amount())
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No interest data for instrument '{}' in period {}",
-                    instrument_id, period_id
-                ))
-            })
+        self.get_instrument_field(instrument_id, period_id, "interest", |cf| {
+            cf.interest_expense_total().amount()
+        })
     }
 
     /// Get cash interest expense for a specific instrument and period.
@@ -197,16 +215,9 @@ impl CapitalStructureCashflows {
     /// * `instrument_id` - Instrument identifier
     /// * `period_id` - Period to inspect
     pub fn get_interest_cash(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.by_instrument
-            .get(instrument_id)
-            .and_then(|m| m.get(period_id))
-            .map(|cf| cf.interest_expense_cash.amount())
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No cash interest data for instrument '{}' in period {}",
-                    instrument_id, period_id
-                ))
-            })
+        self.get_instrument_field(instrument_id, period_id, "cash interest", |cf| {
+            cf.interest_expense_cash.amount()
+        })
     }
 
     /// Get PIK interest expense for a specific instrument and period.
@@ -215,16 +226,9 @@ impl CapitalStructureCashflows {
     /// * `instrument_id` - Instrument identifier
     /// * `period_id` - Period to inspect
     pub fn get_interest_pik(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.by_instrument
-            .get(instrument_id)
-            .and_then(|m| m.get(period_id))
-            .map(|cf| cf.interest_expense_pik.amount())
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No PIK interest data for instrument '{}' in period {}",
-                    instrument_id, period_id
-                ))
-            })
+        self.get_instrument_field(instrument_id, period_id, "PIK interest", |cf| {
+            cf.interest_expense_pik.amount()
+        })
     }
 
     /// Get principal payment for a specific instrument and period.
@@ -233,16 +237,9 @@ impl CapitalStructureCashflows {
     /// * `instrument_id` - Instrument identifier
     /// * `period_id` - Period to inspect
     pub fn get_principal(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.by_instrument
-            .get(instrument_id)
-            .and_then(|m| m.get(period_id))
-            .map(|cf| cf.principal_payment.amount())
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No principal data for instrument '{}' in period {}",
-                    instrument_id, period_id
-                ))
-            })
+        self.get_instrument_field(instrument_id, period_id, "principal", |cf| {
+            cf.principal_payment.amount()
+        })
     }
 
     /// Get debt balance for a specific instrument and period.
@@ -251,16 +248,9 @@ impl CapitalStructureCashflows {
     /// * `instrument_id` - Instrument identifier
     /// * `period_id` - Period to inspect
     pub fn get_debt_balance(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.by_instrument
-            .get(instrument_id)
-            .and_then(|m| m.get(period_id))
-            .map(|cf| cf.debt_balance.amount())
-            .ok_or_else(|| {
-                crate::error::Error::capital_structure(format!(
-                    "No debt balance data for instrument '{}' in period {}",
-                    instrument_id, period_id
-                ))
-            })
+        self.get_instrument_field(instrument_id, period_id, "debt balance", |cf| {
+            cf.debt_balance.amount()
+        })
     }
 
     /// Get total interest expense (cash + PIK) across all instruments for a period.

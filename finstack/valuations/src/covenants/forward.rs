@@ -10,13 +10,14 @@ use finstack_core::dates::{Date, PeriodId};
 use finstack_core::error::Error;
 use finstack_core::error::InputError;
 use finstack_core::Result;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::traits::RandomStream;
 
 /// Comparator for headroom calculation.
 /// Comparison operator for covenant threshold tests
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparator {
     /// Less than or equal to threshold (e.g., Leverage ≤ 3.0x)
     LessOrEqual,
@@ -25,7 +26,7 @@ pub enum Comparator {
 }
 
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct McConfig {
     /// Random number generator seed for reproducibility
     pub seed: u64,
@@ -34,7 +35,7 @@ pub struct McConfig {
 }
 
 /// Covenant forecast configuration.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CovenantForecastConfig {
     /// Whether to use stochastic simulation (vs deterministic projection)
     pub stochastic: bool,
@@ -49,7 +50,7 @@ pub struct CovenantForecastConfig {
 }
 
 /// Forecast output with headroom analytics.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CovenantForecast {
     /// Covenant identifier
     pub covenant_id: String,
@@ -109,7 +110,7 @@ impl CovenantForecast {
 }
 
 /// A projected covenant breach.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FutureBreach {
     /// Covenant identifier
     pub covenant_id: String,

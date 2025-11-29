@@ -7,9 +7,11 @@
 //! - Supports both financial and non-financial covenants
 
 use crate::covenants::CovenantReport;
+use serde::{Deserialize, Serialize};
+
 // Covenant type definitions were previously under loan; re-introduce minimal versions locally
 /// Whether a covenant is tested periodically or only upon an action.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CovenantScope {
     /// Tested on a schedule (e.g., quarterly leverage tests).
     Maintenance,
@@ -18,7 +20,7 @@ pub enum CovenantScope {
 }
 
 /// Optional activation condition for springing covenants.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpringingCondition {
     /// Metric that controls activation (e.g., revolver utilization).
     pub metric_id: MetricId,
@@ -27,7 +29,7 @@ pub struct SpringingCondition {
 }
 
 /// Financial covenant specification with test frequency and consequences.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Covenant {
     /// Type of covenant (leverage, coverage, etc.)
     pub covenant_type: CovenantType,
@@ -121,7 +123,7 @@ impl Covenant {
 }
 
 /// Type of financial or operational covenant
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CovenantType {
     /// Maximum debt-to-EBITDA ratio
     MaxDebtToEBITDA {
@@ -180,7 +182,7 @@ pub enum CovenantType {
 }
 
 /// Threshold test type (maximum or minimum bound)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ThresholdTest {
     /// Maximum allowed value
     Maximum(f64),
@@ -189,7 +191,7 @@ pub enum ThresholdTest {
 }
 
 /// Consequence of covenant breach
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CovenantConsequence {
     /// Event of default
     Default,
@@ -231,13 +233,18 @@ pub type CustomMetricCalculator =
     Arc<dyn Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync>;
 
 /// Covenant evaluation specification.
-#[derive(Clone)]
+///
+/// Note: The `custom_evaluator` field is not serialized as it contains
+/// a function pointer. When deserializing, it will be set to `None`.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CovenantSpec {
     /// The covenant to evaluate
     pub covenant: Covenant,
     /// Metric ID to use for evaluation (for financial covenants)
     pub metric_id: Option<MetricId>,
-    /// Custom evaluation function (for complex covenants)
+    /// Custom evaluation function (for complex covenants).
+    /// Not serializable - will be `None` after deserialization.
+    #[serde(skip)]
     pub custom_evaluator: Option<CustomEvaluator>,
 }
 
@@ -277,7 +284,7 @@ impl CovenantSpec {
 }
 
 /// Covenant test specification with timing windows.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CovenantTestSpec {
     /// Covenant specifications to test
     pub specs: Vec<CovenantSpec>,
@@ -288,7 +295,7 @@ pub struct CovenantTestSpec {
 }
 
 /// Covenant window for scheduled testing.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CovenantWindow {
     /// Start date of the window
     pub start: Date,
@@ -301,7 +308,7 @@ pub struct CovenantWindow {
 }
 
 /// Covenant breach tracking.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CovenantBreach {
     /// Covenant that was breached
     pub covenant_type: String,
@@ -320,6 +327,10 @@ pub struct CovenantBreach {
 }
 
 /// Covenant engine for evaluation and consequence application.
+///
+/// Note: The `custom_metrics` field is not serialized as it contains
+/// function pointers. When deserializing, it will be set to default (empty).
+#[derive(Serialize, Deserialize)]
 pub struct CovenantEngine {
     /// Active covenant specifications
     pub specs: Vec<CovenantSpec>,
@@ -327,7 +338,9 @@ pub struct CovenantEngine {
     pub breach_history: Vec<CovenantBreach>,
     /// Covenant testing windows
     pub windows: Vec<CovenantWindow>,
-    /// Custom metric calculators
+    /// Custom metric calculators.
+    /// Not serializable - will be empty after deserialization.
+    #[serde(skip)]
     pub custom_metrics: HashMap<String, CustomMetricCalculator>,
 }
 
@@ -788,7 +801,7 @@ fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
 }
 
 /// Result of applying a covenant consequence.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsequenceApplication {
     /// Type of consequence applied
     pub consequence_type: String,
