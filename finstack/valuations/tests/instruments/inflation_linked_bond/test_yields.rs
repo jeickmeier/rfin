@@ -121,10 +121,12 @@ fn test_real_yield_uses_quoted_price_when_available() {
     // Act - calculate yield using explicit price vs quoted price
     let y_explicit = ilb.real_yield(105.0, &ctx, as_of).unwrap();
 
-    // Breakeven uses quoted_clean internally
+    // Breakeven uses quoted_clean internally and exact Fisher equation:
+    // breakeven = (1 + nominal) / (1 + real) - 1
+    // Solving for real: real = (1 + nominal) / (1 + breakeven) - 1
     let nominal_yield = 0.03;
     let be = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
-    let y_from_breakeven = nominal_yield - be;
+    let y_from_breakeven = (1.0 + nominal_yield) / (1.0 + be) - 1.0;
 
     // Assert - should be consistent
     assert_approx_eq(
@@ -184,7 +186,7 @@ fn test_real_yield_rejects_nan_price() {
 }
 
 #[test]
-fn test_real_yield_clamped_to_reasonable_range() {
+fn test_real_yield_extreme_prices_produce_valid_results() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.real_coupon = 0.02;
@@ -195,14 +197,18 @@ fn test_real_yield_clamped_to_reasonable_range() {
     let as_of = d(2025, 1, 2);
 
     // Act - extreme prices
-    let y_very_low = ilb.real_yield(200.0, &ctx, as_of).unwrap();
-    let y_very_high = ilb.real_yield(10.0, &ctx, as_of).unwrap();
+    // Very high price → very low/negative yield
+    let y_high_price = ilb.real_yield(200.0, &ctx, as_of).unwrap();
+    // Very low price → very high yield
+    let y_low_price = ilb.real_yield(10.0, &ctx, as_of).unwrap();
 
-    // Assert - clamped to [-0.99, 2.0] per implementation
-    assert!(y_very_low >= -0.99);
-    assert!(y_very_low <= 2.0);
-    assert!(y_very_high >= -0.99);
-    assert!(y_very_high <= 2.0);
+    // Assert - yields should be finite (solver converged) and follow inverse relationship
+    assert!(y_high_price.is_finite(), "High price yield should be finite");
+    assert!(y_low_price.is_finite(), "Low price yield should be finite");
+    assert!(
+        y_high_price < y_low_price,
+        "Higher price should give lower yield"
+    );
 }
 
 #[test]
@@ -245,12 +251,14 @@ fn test_breakeven_inflation_fisher_equation() {
     // Act
     let breakeven = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
 
-    // Assert - Fisher approximation: breakeven ≈ nominal - real
+    // Assert - Exact Fisher equation: (1 + nominal) = (1 + real) × (1 + breakeven)
+    // So: breakeven = (1 + nominal) / (1 + real) - 1
+    let expected_breakeven = (1.0 + nominal_yield) / (1.0 + real_yield) - 1.0;
     assert_approx_eq(
         breakeven,
-        nominal_yield - real_yield,
-        0.001,
-        "Fisher equation",
+        expected_breakeven,
+        0.0001,
+        "Exact Fisher equation",
     );
 }
 

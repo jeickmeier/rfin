@@ -283,20 +283,28 @@ impl InflationLinkedBond {
     }
 
     /// Calculate index ratio for a given date
+    ///
+    /// Validates that the inflation index interpolation method matches the
+    /// market convention for the bond's indexation method:
+    /// - TIPS/Canadian: Linear interpolation (daily)
+    /// - UK Gilts: Step interpolation (monthly, no daily interp)
+    /// - French OAT€i: Linear interpolation
+    /// - Japanese JGBi: Step interpolation (monthly)
     pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<f64> {
-        // Validate interpolation policy vs indexation method for common standards
+        // Validate interpolation policy vs indexation method for market standards
         match self.indexation_method {
-            IndexationMethod::TIPS | IndexationMethod::Canadian => {
+            IndexationMethod::TIPS | IndexationMethod::Canadian | IndexationMethod::French => {
+                // TIPS, Canadian RRBs, and French OAT€i/OATi use daily linear interpolation
                 if inflation_index.interpolation() != InflationInterpolation::Linear {
                     return Err(finstack_core::error::InputError::Invalid.into());
                 }
             }
-            IndexationMethod::UK => {
+            IndexationMethod::UK | IndexationMethod::Japanese => {
+                // UK Index-Linked Gilts and Japanese JGBi use step (monthly) interpolation
                 if inflation_index.interpolation() != InflationInterpolation::Step {
                     return Err(finstack_core::error::InputError::Invalid.into());
                 }
             }
-            _ => {}
         }
 
         // Apply lag to obtain the reference date in index space
@@ -503,6 +511,18 @@ impl InflationLinkedBond {
     }
 
     /// Calculate real yield (yield in real terms, before inflation)
+    ///
+    /// Computes the internal rate of return of the **unadjusted (real) cashflows**
+    /// against the **real price** (clean price + real accrued interest).
+    ///
+    /// This is the standard "Real Yield" quoted for TIPS and other linkers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The clean price is non-positive or non-finite
+    /// - There are no cashflows remaining
+    /// - The YTM solver fails to converge
     pub fn real_yield(
         &self,
         clean_price: f64,
@@ -540,13 +560,21 @@ impl InflationLinkedBond {
         };
 
         // 4. Solve yield that matches the target real price to PV of real flows
-        let y = solve_ytm(&flows, as_of, target_price, spec)?;
-
-        // Clamp extreme values to avoid explosive outputs
-        Ok(y.clamp(-0.99, 2.0))
+        // The solver handles convergence internally; we propagate any solver errors
+        // rather than clamping, so callers can detect and handle extreme cases.
+        solve_ytm(&flows, as_of, target_price, spec)
     }
 
     /// Calculate breakeven inflation rate
+    ///
+    /// Uses the exact Fisher equation:
+    /// `(1 + nominal) = (1 + real) × (1 + inflation)`
+    ///
+    /// Solving for inflation:
+    /// `breakeven = (1 + nominal) / (1 + real) - 1`
+    ///
+    /// This is more accurate than the simplified approximation (`nominal - real`)
+    /// at higher inflation levels where the cross-term becomes significant.
     pub fn breakeven_inflation(
         &self,
         nominal_bond_yield: f64,
@@ -556,42 +584,52 @@ impl InflationLinkedBond {
         let real_yield = self.real_yield(self.quoted_clean.unwrap_or(100.0), curves, as_of)?;
 
         // Fisher equation: (1 + nominal) = (1 + real) * (1 + inflation)
-        // Simplified: breakeven ≈ nominal - real
-        Ok(nominal_bond_yield - real_yield)
+        // Exact solution: breakeven = (1 + nominal) / (1 + real) - 1
+        // Guard against division by zero for extreme negative real yields
+        let denominator = 1.0 + real_yield;
+        if denominator <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+        Ok((1.0 + nominal_bond_yield) / denominator - 1.0)
     }
 
-    /// Calculate inflation-adjusted duration
+    /// Calculate inflation-adjusted duration (Real Duration)
+    ///
+    /// Computes the modified duration of the bond based on its real (unadjusted)
+    /// cashflows. This measures sensitivity to changes in real yield.
     pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
+        use crate::instruments::bond::pricing::quote_engine::{
+            price_from_ytm_compounded_params, YieldCompounding,
+        };
+
         // Determine a base clean price to center the bump around
         let base_clean = self.quoted_clean.unwrap_or(100.0);
         // Compute base yield
         let y0 = self.real_yield(base_clean, curves, as_of)?;
         // Bump yield by 1bp in decimal terms
         let bp = 1e-4;
-        // Price function from yield using helper
-        use crate::instruments::bond::pricing::quote_engine::{
-            price_from_ytm_compounded_params, YieldCompounding,
-        };
+
         // Use real schedule to calculate sensitivity to real yield (Real Duration)
         // This assumes the "Duration" metric refers to the duration of the real bond component.
         let flows = self.build_real_schedule(as_of)?;
-        // Convert price from ytm helpers returns currency units; convert back to clean per-100 notionally
-        let price_from_yield = |y: f64| -> f64 {
-            price_from_ytm_compounded_params(
+
+        // Helper to compute price from yield, propagating errors
+        let price_from_yield = |y: f64| -> Result<f64> {
+            let price = price_from_ytm_compounded_params(
                 self.dc,
                 self.freq,
                 &flows,
                 as_of,
                 y,
                 YieldCompounding::Street,
-            )
-            .unwrap_or(0.0)
-                / self.notional.amount()
-                * 100.0
+            )?;
+            Ok(price / self.notional.amount() * 100.0)
         };
-        let p_up = price_from_yield(y0 + bp);
-        let p_dn = price_from_yield(y0 - bp);
+
+        let p_up = price_from_yield(y0 + bp)?;
+        let p_dn = price_from_yield(y0 - bp)?;
         let dp_dy = (p_up - p_dn) / (2.0 * bp);
+
         // Modified duration in years per 1 delta in yield: D = - (1/P) * dP/dy
         let p0 = base_clean.max(1e-6);
         Ok(-(dp_dy / p0))
