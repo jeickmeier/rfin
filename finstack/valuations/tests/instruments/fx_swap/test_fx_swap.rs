@@ -12,11 +12,5 @@
 //! - `integration`: Multi-metric and scenario tests
 //! - `edge_cases`: Boundary conditions and error handling
 
-mod fixtures;
-mod pricing;
-mod metrics;
-mod integration;
-mod edge_cases;
-
-// Re-export fixtures for convenience
-pub use fixtures::*;
+// Note: Submodules (fixtures, pricing, metrics, integration, edge_cases)
+// are declared in mod.rs to avoid duplicate module declarations.

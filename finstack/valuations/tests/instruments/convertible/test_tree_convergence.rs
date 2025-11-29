@@ -27,7 +27,7 @@ use finstack_valuations::instruments::convertible::{
 };
 use time::Month;
 
-use crate::instruments::common::test_helpers::tolerances;
+use crate::common::test_helpers::tolerances;
 
 /// Create a simple convertible bond for convergence testing.
 ///

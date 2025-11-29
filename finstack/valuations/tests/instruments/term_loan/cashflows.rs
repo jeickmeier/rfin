@@ -2,12 +2,25 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::MarketContext;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::term_loan::{AmortizationSpec, RateSpec, TermLoan};
 use time::macros::date;
+
+fn build_market_context() -> MarketContext {
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(date!(2025 - 01 - 01))
+        .knots([(0.0, 1.0), (5.0, 0.85)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    MarketContext::new().insert_discount(disc)
+}
 
 #[test]
 fn test_fixed_coupon_cashflows() {
@@ -36,7 +49,9 @@ fn test_fixed_coupon_cashflows() {
         .unwrap();
 
     // Act
-    let cashflows = loan.cashflows();
+    let market = build_market_context();
+    let as_of = date!(2025 - 01 - 01);
+    let cashflows = loan.build_schedule(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -60,8 +75,9 @@ fn test_amortizing_principal_cashflows() {
         .calendar_id_opt(None)
         .stub(StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
-        .amortization(AmortizationSpec::Straight {
-            amortization_freq: Frequency::quarterly(),
+        .amortization(AmortizationSpec::Linear {
+            start: date!(2025 - 01 - 01),
+            end: date!(2026 - 01 - 01),
         })
         .coupon_type(CouponType::Cash)
         .upfront_fee_opt(None)
@@ -73,7 +89,9 @@ fn test_amortizing_principal_cashflows() {
         .unwrap();
 
     // Act
-    let cashflows = loan.cashflows();
+    let market = build_market_context();
+    let as_of = date!(2025 - 01 - 01);
+    let cashflows = loan.build_schedule(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -107,7 +125,9 @@ fn test_pik_interest_capitalization() {
         .unwrap();
 
     // Act
-    let cashflows = loan.cashflows();
+    let market = build_market_context();
+    let as_of = date!(2025 - 01 - 01);
+    let cashflows = loan.build_schedule(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());

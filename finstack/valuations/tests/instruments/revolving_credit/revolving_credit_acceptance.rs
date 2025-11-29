@@ -169,14 +169,17 @@ fn test_floating_vs_margin_only() {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: 100.0, // 100 bps margin
                 gearing: 1.0,
+                gearing_includes_spread: true,
                 floor_bp: None,
+                all_in_floor_bp: None,
                 cap_bp: None,
+                index_cap_bp: None,
                 reset_freq: Frequency::quarterly(),
                 reset_lag_days: 2,
-            compounding: Default::default(),
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
+                fixing_calendar_id: None,
             },
         ))
         .day_count(DayCount::Act360)
@@ -244,14 +247,17 @@ fn test_reset_frequency_mismatch() {
                 index_id: "USD-SOFR-1M".into(),
                 spread_bp: 0.0, // No margin to isolate reset effect
                 gearing: 1.0,
+                gearing_includes_spread: true,
                 floor_bp: None,
+                all_in_floor_bp: None,
                 cap_bp: None,
+                index_cap_bp: None,
                 reset_freq: Frequency::monthly(), // Monthly resets
                 reset_lag_days: 2,
-            compounding: Default::default(),
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
+                fixing_calendar_id: None,
             },
         ))
         .day_count(DayCount::Act360)

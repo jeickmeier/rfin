@@ -805,6 +805,13 @@ impl TreePricer {
             self.config.tree_steps,
         )?;
 
+        // Get initial short rate for state variables (needed by tree framework)
+        let initial_rate = if let Some(tree) = sr_tree.as_ref() {
+            tree.rate_at_node(0, 0).unwrap_or(0.03)
+        } else {
+            discount_curve.zero(0.0)
+        };
+
         let objective_fn = |oas: f64| -> f64 {
             // `oas` is treated in basis points (bp) to match `short_rate_keys::OAS`
             // semantics in the short-rate tree. When using the rates+credit tree,
@@ -836,6 +843,8 @@ impl TreePricer {
                     1.0e6
                 }
             } else {
+                // Set both the initial rate and OAS for the tree framework
+                vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
                 vars.insert(short_rate_keys::OAS, oas);
                 if let Some(tree) = sr_tree.as_ref() {
                     match tree.price(vars, time_to_maturity, market_context, &valuator) {

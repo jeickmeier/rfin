@@ -37,26 +37,25 @@ impl MetricCalculator for DirtyPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // Dirty price only makes sense if we have a quoted clean price
-        let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
-            })
-        })?;
+        // If we have a quoted clean price, dirty = clean + accrued
+        if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+            // Get accrued from computed metrics
+            let accrued = context
+                .computed
+                .get(&MetricId::Accrued)
+                .copied()
+                .ok_or_else(|| {
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "metric:Accrued".to_string(),
+                    })
+                })?;
 
-        // Get accrued from computed metrics
-        let accrued = context
-            .computed
-            .get(&MetricId::Accrued)
-            .copied()
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "metric:Accrued".to_string(),
-                })
-            })?;
+            // Dirty price in currency = (clean % of par) * notional + accrued (currency)
+            return Ok(clean_px * bond.notional.amount() / 100.0 + accrued);
+        }
 
-        // Dirty price in currency = (clean % of par) * notional + accrued (currency)
-        Ok(clean_px * bond.notional.amount() / 100.0 + accrued)
+        // Otherwise, base_value is already the dirty price (PV of all future cashflows)
+        Ok(context.base_value.amount())
     }
 }
 

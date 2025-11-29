@@ -3,8 +3,6 @@
 //! Ensures that all MC process parameters can be serialized and deserialized
 //! consistently when the `serde` feature is enabled.
 
-#![cfg(feature = "mc")]
-
 use finstack_valuations::instruments::common::mc::process::{
     bates::BatesParams, brownian::BrownianParams, cir::CirParams, gbm::GbmParams,
     heston::HestonParams, jump_diffusion::MertonJumpParams, multi_ou::MultiOuParams,

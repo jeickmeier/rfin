@@ -14,6 +14,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -29,7 +30,8 @@ fn build_negative_rate_discount_curve(rate: f64, base_date: Date, curve_id: &str
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
-        .allow_non_monotonic() // Required for negative rates
+        .allow_non_monotonic() // Required for negative rates (DFs > 1)
+        .set_interp(InterpStyle::Linear) // Linear supports non-monotonic DFs
         .knots([
             (0.0, 1.0),
             (1.0, (-rate).exp()),
@@ -51,8 +53,9 @@ fn build_negative_rate_forward_curve(rate: f64, base_date: Date, curve_id: &str)
 }
 
 fn create_negative_rate_market(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext {
-    let disc = build_negative_rate_discount_curve(disc_rate, base_date, "USD-DISC");
-    let fwd = build_negative_rate_forward_curve(fwd_rate, base_date, "USD-FWD-3M");
+    // Use standard curve IDs expected by create_usd_swap
+    let disc = build_negative_rate_discount_curve(disc_rate, base_date, "USD-OIS");
+    let fwd = build_negative_rate_forward_curve(fwd_rate, base_date, "USD-SOFR-3M");
 
     MarketContext::new()
         .insert_discount(disc)
@@ -118,7 +121,8 @@ fn test_irs_dv01_negative_discount_rate() {
     let result = swap.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
     assert!(result.is_ok(), "DV01 calculation should succeed");
 
-    let dv01 = *result.unwrap().measures.get("dv01").unwrap();
+    let result = result.unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
     assert!(
         dv01.is_finite(),
         "DV01 should be finite with negative rates, got {}",
@@ -129,7 +133,10 @@ fn test_irs_dv01_negative_discount_rate() {
     // even with negative starting rates
     assert!(
         dv01.abs() > 0.0,
-        "DV01 should be non-zero for a live swap"
+        "DV01 should be non-zero for a live swap, got {}, PV={}, measures={:?}",
+        dv01,
+        result.value.amount(),
+        result.measures
     );
 }
 
@@ -231,7 +238,7 @@ fn test_irs_deep_negative_rates() {
     let result = swap.price_with_metrics(
         &market,
         as_of,
-        &[MetricId::Pv, MetricId::Dv01, MetricId::ParRate],
+        &[MetricId::Pv01, MetricId::Dv01, MetricId::ParRate],
     );
 
     assert!(result.is_ok(), "All metrics should compute with deep negative rates");

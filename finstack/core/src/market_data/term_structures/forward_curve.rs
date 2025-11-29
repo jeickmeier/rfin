@@ -67,7 +67,7 @@
 //!   Know About Multiple Interest Rate Curve Bootstrapping but Were Afraid to Ask."
 //!   SSRN Working Paper.
 
-use super::common::{build_interp, split_points};
+use super::common::{build_interp_allow_any_values, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
@@ -539,7 +539,9 @@ impl ForwardCurveBuilder {
         }
         let knots = kvec.into_boxed_slice();
         let forwards = fvec.into_boxed_slice();
-        let interp = build_interp(
+        // Use allow_any_values to support negative forward rates
+        // (common in EUR, CHF, JPY markets since 2014)
+        let interp = build_interp_allow_any_values(
             self.style,
             knots.clone(),
             forwards.clone(),

@@ -12,7 +12,7 @@ mod common;
 
 /// QuantLib parity testing framework
 #[macro_use]
-#[path = "quantlib_parity_helpers.rs"]
+#[path = "shared/quantlib_parity_helpers.rs"]
 pub mod quantlib_parity_helpers;
 
 // ============================================================================

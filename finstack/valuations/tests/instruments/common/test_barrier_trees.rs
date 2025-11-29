@@ -1,4 +1,4 @@
-use finstack_valuations::instruments::common::models::{BinomialTree, TreeType};
+use finstack_valuations::instruments::common::models::BinomialTree;
 use finstack_valuations::instruments::common::parameters::OptionMarketParams;
 
 #[test]

@@ -18,7 +18,7 @@ use finstack_valuations::instruments::equity_option::EquityOption;
 use proptest::prelude::*;
 use time::Month;
 
-use crate::instruments::common::test_helpers::scaled_tolerance;
+use crate::common::test_helpers::scaled_tolerance;
 
 fn create_option_market(
     base_date: Date,

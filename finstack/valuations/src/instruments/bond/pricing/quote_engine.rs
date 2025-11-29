@@ -627,8 +627,14 @@ pub fn price_from_oas(
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, 100)?;
+
+    // Get initial short rate from the calibrated tree for the state variables.
+    // The tree framework expects an initial rate to be present.
+    let initial_rate = short_rate_tree.rate_at_node(0, 0)?;
     let mut vars = StateVariables::new();
+    vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
     vars.insert(short_rate_keys::OAS, oas_bp);
+
     let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;
     Ok(price)
 }

@@ -1,10 +1,10 @@
 //! Term loan construction and validation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::builder::specs::CouponType;
+use finstack_valuations::cashflow::builder::specs::{CouponType, FloatingRateSpec};
 use finstack_valuations::instruments::term_loan::{
     AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
 };
@@ -52,10 +52,22 @@ fn test_builder_floating_rate_loan() {
         .notional_limit(Money::new(5_000_000.0, Currency::USD))
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2028 - 01 - 01))
-        .rate(RateSpec::Floating {
-            index_curve_id: CurveId::from("USD-SOFR"),
-            spread_bp: 250, // +250 bps
-        })
+        .rate(RateSpec::Floating(FloatingRateSpec {
+            index_id: CurveId::from("USD-SOFR"),
+            spread_bp: 250.0, // +250 bps
+            gearing: 1.0,
+            gearing_includes_spread: true,
+            floor_bp: None,
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+        }))
         .pay_freq(Frequency::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
@@ -74,13 +86,7 @@ fn test_builder_floating_rate_loan() {
     // Assert
     assert!(loan.is_ok());
     let loan = loan.unwrap();
-    assert!(matches!(
-        loan.rate,
-        RateSpec::Floating {
-            index_curve_id: _,
-            spread_bp: 250
-        }
-    ));
+    assert!(matches!(loan.rate, RateSpec::Floating(_)));
 }
 
 #[test]
@@ -99,8 +105,9 @@ fn test_builder_with_amortization() {
         .calendar_id_opt(None)
         .stub(StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
-        .amortization(AmortizationSpec::Straight {
-            amortization_freq: Frequency::quarterly(),
+        .amortization(AmortizationSpec::Linear {
+            start: date!(2025 - 01 - 01),
+            end: date!(2030 - 01 - 01),
         })
         .coupon_type(CouponType::Cash)
         .upfront_fee_opt(None)
@@ -115,7 +122,7 @@ fn test_builder_with_amortization() {
     let loan = loan.unwrap();
     assert!(matches!(
         loan.amortization,
-        AmortizationSpec::Straight { .. }
+        AmortizationSpec::Linear { .. }
     ));
 }
 

@@ -28,7 +28,7 @@ pub mod mc;
 // pub mod metrics;
 // mod pricing;
 // pub mod validation;
-mod revolving_credit;
+mod basic;
 mod revolving_credit_acceptance;
 #[cfg(feature = "mc")]
 mod revolving_credit_parity;

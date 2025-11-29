@@ -21,7 +21,7 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
-use crate::instruments::common::test_helpers::tolerances;
+use crate::common::test_helpers::tolerances;
 
 // ============================================================================
 // QuantLib Bond Test Vectors
@@ -280,7 +280,8 @@ fn test_swap_symmetry() {
     let maturity = date!(2029 - 01 - 01);
 
     let disc = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd = ForwardCurve::builder("USD-FWD-3M", 0.25)
+    // Use USD-SOFR-3M which is expected by create_usd_swap
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(as_of)
         .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (10.0, 0.05)])

@@ -12,6 +12,7 @@ These standards apply to all Rust crates in the Finstack workspace (`finstack/co
 - **Pragmatic coverage**: Aim for **80%+** line/branch coverage overall. Do not chase 100% if it materially increases complexity or brittles tests.
 - **Currency safety and serde stability**: Assert currency‑safe behaviors and strict deserialization with denied unknown fields where applicable.
 - **Performance awareness without flakiness**: Keep perf checks in benchmarks; avoid time‑based assertions in tests.
+- **Fix the root causes**: Don't relax tolerances, fix the root causes of the tests errors. 
 
 ### Test types and when to use them
 - **Unit tests (`#[cfg(test)]` in modules)**

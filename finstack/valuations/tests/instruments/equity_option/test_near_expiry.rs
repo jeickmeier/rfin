@@ -150,19 +150,25 @@ fn test_near_expiry_delta_stability() {
             .unwrap();
         let delta = *result.measures.get("delta").unwrap();
 
-        // Delta must be in [0, 1] for calls
+        // Normalize delta by contract size (100) to get per-share delta
+        // Cash delta = normalized_delta × contract_size
+        let delta_normalized = delta / call.contract_size;
+
+        // Normalized delta must be in [0, 1] for calls
         assert!(
-            delta >= 0.0 && delta <= 1.0,
-            "Call delta must be in [0,1] at T={}d, got {}",
+            (0.0..=1.0).contains(&delta_normalized),
+            "Call delta must be in [0,1] at T={}d, got {} (normalized from cash delta {})",
             days_to_expiry,
+            delta_normalized,
             delta
         );
 
         // ATM delta should be near 0.5 (slightly above due to drift)
         assert!(
-            delta > 0.3 && delta < 0.7,
-            "ATM call delta should be near 0.5 at T={}d, got {}",
+            delta_normalized > 0.3 && delta_normalized < 0.7,
+            "ATM call delta should be near 0.5 at T={}d, got {} (normalized from cash delta {})",
             days_to_expiry,
+            delta_normalized,
             delta
         );
     }

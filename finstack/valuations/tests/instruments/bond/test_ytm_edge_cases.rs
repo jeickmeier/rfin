@@ -20,7 +20,7 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
-use crate::instruments::common::test_helpers::tolerances;
+use crate::common::test_helpers::tolerances;
 
 fn create_test_market(base_date: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD-OIS")

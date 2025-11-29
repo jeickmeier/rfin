@@ -27,7 +27,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
-use crate::instruments::common::test_helpers::tolerances;
+use crate::common::test_helpers::tolerances;
 
 /// QuantLib test tolerance for CDS calculations (reserved for future use)
 #[allow(dead_code)]
@@ -1135,7 +1135,7 @@ fn test_risky_annuity_vs_isda_reference() {
     cds.protection.recovery_rate = isda_reference::RECOVERY;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::RiskyAnnuity])
+        .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01])
         .unwrap();
 
     let risky_annuity = *result.measures.get("risky_annuity").unwrap();

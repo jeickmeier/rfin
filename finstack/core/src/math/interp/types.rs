@@ -137,4 +137,44 @@ impl InterpStyle {
         };
         Ok(interp)
     }
+
+    /// Build an enum-backed interpolator allowing any values (including negative).
+    ///
+    /// This is useful for forward rate curves where negative rates are allowed
+    /// (e.g., EUR, CHF, JPY markets since 2014).
+    ///
+    /// **Note:** LogLinear and MonotoneConvex require positive values for mathematical
+    /// reasons (log transform, monotonicity). Using them with negative values will fail.
+    #[inline]
+    pub(crate) fn build_enum_allow_any_values(
+        self,
+        knots: Box<[f64]>,
+        values: Box<[f64]>,
+        extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Interp> {
+        let interp = match self {
+            InterpStyle::Linear => {
+                Interp::Linear(LinearDf::new_allow_any_values(knots, values, extrapolation)?)
+            }
+            InterpStyle::LogLinear => {
+                // LogLinear requires positive values for log transform
+                Interp::LogLinear(LogLinearDf::new(knots, values, extrapolation)?)
+            }
+            InterpStyle::MonotoneConvex => {
+                // MonotoneConvex typically requires positive values
+                Interp::MonotoneConvex(MonotoneConvex::new(knots, values, extrapolation)?)
+            }
+            InterpStyle::CubicHermite => {
+                Interp::CubicHermite(CubicHermite::new_allow_any_values(
+                    knots,
+                    values,
+                    extrapolation,
+                )?)
+            }
+            InterpStyle::FlatFwd => {
+                Interp::FlatFwd(FlatFwd::new_allow_any_values(knots, values, extrapolation)?)
+            }
+        };
+        Ok(interp)
+    }
 }

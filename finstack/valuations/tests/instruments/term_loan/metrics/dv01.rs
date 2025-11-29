@@ -1,7 +1,7 @@
 //! DV01 (interest rate sensitivity) tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -50,9 +50,15 @@ fn test_dv01_positive_for_asset() {
     assert!(result.is_ok());
     let result = result.unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
-    
-    // DV01 should be positive (value decreases when rates rise)
-    assert!(dv01 > 0.0);
+
+    // DV01 should be negative for fixed-rate assets:
+    // When discount rates rise, future cashflows are discounted at higher rates,
+    // reducing the present value. DV01 = ΔPrice / Δ(1bp rate increase) < 0.
+    assert!(
+        dv01 < 0.0,
+        "DV01 for fixed-rate loan should be negative, got {}",
+        dv01
+    );
 }
 
 #[test]
@@ -119,7 +125,19 @@ fn test_dv01_increases_with_maturity() {
     let dv01_long = *result_long.measures.get("dv01").unwrap();
 
     // Assert
-    // Longer maturity should have higher DV01
-    assert!(dv01_long > dv01_short);
+    // Both DV01s should be negative (fixed-rate asset)
+    // Longer maturity should have larger absolute DV01 (more rate-sensitive)
+    assert!(
+        dv01_long < 0.0 && dv01_short < 0.0,
+        "Both DV01s should be negative: short={}, long={}",
+        dv01_short,
+        dv01_long
+    );
+    assert!(
+        dv01_long.abs() > dv01_short.abs(),
+        "Longer maturity should have larger |DV01|: |{}| > |{}|",
+        dv01_long,
+        dv01_short
+    );
 }
 

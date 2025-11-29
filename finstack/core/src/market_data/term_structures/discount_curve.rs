@@ -368,12 +368,14 @@ impl DiscountCurve {
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
 
         // Rebuild preserving base date, interpolation, and extrapolation policies
+        // Use allow_non_monotonic to handle negative rate environments
         DiscountCurve::builder(new_id)
             .base_date(self.base)
             .day_count(self.day_count)
             .knots(bumped_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
+            .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
 

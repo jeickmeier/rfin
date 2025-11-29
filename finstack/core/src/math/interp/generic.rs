@@ -93,6 +93,49 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         })
     }
 
+    /// Construct a new interpolator allowing any values (including negative).
+    ///
+    /// This is useful for forward rate curves where negative rates are allowed
+    /// (e.g., EUR, CHF, JPY markets since 2014).
+    ///
+    /// **Note:** LogLinear interpolation requires positive values (for log transform),
+    /// so this constructor will fail for LogLinear with negative values.
+    ///
+    /// # Arguments
+    /// * `knots` – strictly ascending knot times.
+    /// * `values` – corresponding values (can be negative for Linear/FlatFwd).
+    /// * `extrapolation` – extrapolation policy.
+    ///
+    /// # Errors
+    /// * `InputError::TooFewPoints` – fewer than two knots.
+    /// * `InputError::NonMonotonicKnots` – knots not strictly increasing.
+    /// * Strategy-specific errors from `S::from_raw`.
+    #[allow(clippy::boxed_local)]
+    pub fn new_allow_any_values(
+        knots: Box<[f64]>,
+        values: Box<[f64]>,
+        extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Self> {
+        debug_assert_eq!(knots.len(), values.len());
+
+        // Validate knots but NOT values (allow negative rates)
+        if knots.len() < 2 {
+            return Err(InputError::TooFewPoints.into());
+        }
+        validate_knots(&knots)?;
+        // Skip validate_positive_series for forward curves
+
+        // Build strategy-specific state
+        let strategy = S::from_raw(&knots, &values, extrapolation)?;
+
+        Ok(Self {
+            knots,
+            values,
+            strategy,
+            extrapolation,
+        })
+    }
+
     /// Construct a new interpolator from pre-built components.
     ///
     /// This is a lower-level constructor that skips validation and strategy

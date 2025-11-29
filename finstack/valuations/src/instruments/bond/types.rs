@@ -45,6 +45,8 @@ pub struct Bond {
     /// credit-rate pricing is enabled.
     pub credit_curve_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
+    #[cfg_attr(feature = "serde", serde(default))]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
     pub call_put: Option<CallPutSchedule>,

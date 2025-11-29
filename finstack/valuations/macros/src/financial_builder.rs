@@ -43,6 +43,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let mut defaults: HashMap<syn::Ident, Expr> = HashMap::new();
     // Heuristics for post-build validations
     let mut has_start_date: bool = false;
+    let mut has_issue: bool = false;
     let mut has_maturity: bool = false;
     let mut has_strike_variance: bool = false;
 
@@ -90,6 +91,9 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             // Track presence of well-known fields for generic validations
             if ident == format_ident!("start_date") {
                 has_start_date = true;
+            }
+            if ident == format_ident!("issue") {
+                has_issue = true;
             }
             if ident == format_ident!("maturity") || ident == format_ident!("maturity_date") {
                 has_maturity = true;
@@ -235,6 +239,21 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         };
         post_build_checks.extend(quote! {
             if __built.start_date >= #maturity_field {
+                return ::core::result::Result::Err(finstack_core::error::InputError::InvalidDateRange.into());
+            }
+        });
+    }
+    // Also validate issue < maturity for instruments with issue date
+    if has_issue && has_maturity {
+        let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity")
+            || optional_fields.iter().any(|(id, _)| id == "maturity")
+        {
+            quote! { __built.maturity }
+        } else {
+            quote! { __built.maturity_date }
+        };
+        post_build_checks.extend(quote! {
+            if __built.issue >= #maturity_field {
                 return ::core::result::Result::Err(finstack_core::error::InputError::InvalidDateRange.into());
             }
         });

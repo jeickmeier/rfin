@@ -1877,6 +1877,7 @@ impl MarketContext {
                             )
                             .set_interp(bumped.interp_style())
                             .extrapolation(bumped.extrapolation())
+                            .allow_non_monotonic() // Support negative rate environments
                             .build()?
                     } else {
                         bumped

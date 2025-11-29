@@ -22,6 +22,22 @@ pub(crate) fn build_interp(
         .map_err(|_| Error::Internal)
 }
 
+/// Build an `Interp` allowing any values (including negative forward rates).
+///
+/// This is used by forward curves where negative rates are allowed
+/// (e.g., EUR, CHF, JPY markets since 2014).
+#[inline]
+pub(crate) fn build_interp_allow_any_values(
+    style: InterpStyle,
+    knots: Box<[f64]>,
+    values: Box<[f64]>,
+    extrapolation: ExtrapolationPolicy,
+) -> Result<Interp> {
+    style
+        .build_enum_allow_any_values(knots, values, extrapolation)
+        .map_err(|_| Error::Internal)
+}
+
 /// Build an `Interp` mapping errors to `InputError` for discount curve builders.
 #[inline]
 pub(crate) fn build_interp_input_error(

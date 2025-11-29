@@ -279,12 +279,12 @@ fn test_dirty_clean_price_consistency() {
         let dirty = *result.measures.get("dirty_price").unwrap();
         let accrued = *result.measures.get("accrued_interest").unwrap();
 
-        // Dirty = Clean + Accrued (using per-$100 prices)
-        let expected_dirty = clean + accrued / 10.0; // Scale accrued to per-$100
+        // Dirty = Clean + Accrued (all in currency units)
+        let expected_dirty = clean + accrued;
 
         assert!(
             (dirty - expected_dirty).abs() < 0.01,
-            "Dirty ({:.4}) should equal Clean ({:.4}) + Accrued ({:.4})/10 for {:?}",
+            "Dirty ({:.4}) should equal Clean ({:.4}) + Accrued ({:.4}) for {:?}",
             dirty,
             clean,
             accrued,

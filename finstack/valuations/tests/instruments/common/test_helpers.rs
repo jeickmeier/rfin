@@ -129,7 +129,7 @@ pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
 
 /// Create a flat discount curve with custom rate and base date
 pub fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
-    DiscountCurve::builder(curve_id)
+    let mut builder = DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([
@@ -138,9 +138,18 @@ pub fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Discou
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
             (30.0, (-rate * 30.0).exp()),
-        ])
-        .build()
-        .unwrap()
+        ]);
+
+    // For negative rates, DFs are increasing (> 1), so we need:
+    // - Linear interpolation (MonotoneConvex requires decreasing DFs)
+    // - allow_non_monotonic flag
+    if rate < 0.0 {
+        builder = builder
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic();
+    }
+
+    builder.build().unwrap()
 }
 
 /// Create a flat hazard curve with recovery rate
@@ -289,9 +298,13 @@ mod tests {
     #[test]
     fn test_tolerance_tiers_ordering() {
         // Verify tolerance tiers are in expected order
-        assert!(tolerances::ANALYTICAL < tolerances::NUMERICAL);
-        assert!(tolerances::NUMERICAL < tolerances::CURVE_PRICING);
-        assert!(tolerances::CURVE_PRICING < tolerances::STATISTICAL);
+        // Note: These are compile-time constants, so the ordering is verified at compile time.
+        // Runtime assertions would be optimized out, so we document the expected ordering here.
+        const _: () = {
+            assert!(tolerances::ANALYTICAL < tolerances::NUMERICAL);
+            assert!(tolerances::NUMERICAL < tolerances::CURVE_PRICING);
+            assert!(tolerances::CURVE_PRICING < tolerances::STATISTICAL);
+        };
     }
 
     #[test]
