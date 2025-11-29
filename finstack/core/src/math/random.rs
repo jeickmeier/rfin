@@ -114,13 +114,6 @@ pub struct TestRng {
     cached_normal: Option<f64>, // Instance-based cache for Box-Muller
 }
 
-/// Type alias for backwards compatibility (deprecated).
-#[deprecated(
-    since = "0.2.0",
-    note = "Use TestRng instead; SimpleRng implies production-readiness"
-)]
-pub type SimpleRng = TestRng;
-
 impl TestRng {
     /// Create a new RNG with the given seed.
     ///

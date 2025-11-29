@@ -76,8 +76,6 @@ pub use linalg::{
     apply_correlation, build_correlation_matrix, cholesky_decomposition,
     validate_correlation_matrix, CholeskyError,
 };
-#[allow(deprecated)]
-pub use random::SimpleRng;
 pub use random::{box_muller_polar, box_muller_transform, RandomNumberGenerator, TestRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use solver::{BrentSolver, NewtonSolver, Solver};

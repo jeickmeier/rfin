@@ -136,56 +136,6 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         })
     }
 
-    /// Construct a new interpolator from pre-built components.
-    ///
-    /// This is a lower-level constructor that skips validation and strategy
-    /// construction, used when the caller has already validated and built
-    /// the strategy (e.g., with custom parameters).
-    ///
-    /// # Safety
-    /// The caller must ensure:
-    /// - `knots` and `values` have the same length (≥ 2)
-    /// - `knots` are strictly increasing
-    /// - `values` are positive (if required)
-    /// - `strategy` is correctly built from the same knots/values
-    #[allow(clippy::boxed_local)]
-    #[allow(dead_code)]
-    pub(crate) fn from_parts(
-        knots: Box<[f64]>,
-        values: Box<[f64]>,
-        strategy: S,
-        extrapolation: ExtrapolationPolicy,
-    ) -> Self {
-        debug_assert_eq!(knots.len(), values.len());
-        Self {
-            knots,
-            values,
-            strategy,
-            extrapolation,
-        }
-    }
-
-    /// Access the knots (for internal use or serialization).
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn knots(&self) -> &[f64] {
-        &self.knots
-    }
-
-    /// Access the values (for internal use or serialization).
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn values(&self) -> &[f64] {
-        &self.values
-    }
-
-    /// Access the strategy (for internal use or serialization).
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn strategy(&self) -> &S {
-        &self.strategy
-    }
-
     /// Get the extrapolation policy.
     #[inline]
     pub fn extrapolation(&self) -> ExtrapolationPolicy {
