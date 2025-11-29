@@ -31,6 +31,7 @@ use super::components::{
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::irs::InterestRateSwap;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
@@ -208,6 +209,19 @@ pub struct StructuredCredit {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub correlation_structure: Option<CorrelationStructure>,
+
+    // =========================================================================
+    // Hedge instruments
+    // =========================================================================
+    /// Interest rate swaps used to hedge basis or interest rate risk.
+    ///
+    /// These swaps are valued alongside the deal to provide hedged NPV.
+    /// Common uses:
+    /// - **Basis swaps**: Hedge mismatch between asset index (e.g., Prime) and liability index (e.g., SOFR)
+    /// - **Rate swaps**: Fixed-for-floating to manage duration
+    /// - **Cap protection**: Embedded in floating-rate tranche structures
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub hedge_swaps: Vec<InterestRateSwap>,
 }
 
 /// Deal-specific configuration for constructor
@@ -395,6 +409,8 @@ impl StructuredCredit {
             stochastic_prepay_spec: None,
             stochastic_default_spec: None,
             correlation_structure: None,
+            // Hedge swaps default to empty
+            hedge_swaps: Vec::new(),
         }
     }
 

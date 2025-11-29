@@ -3,12 +3,26 @@
 //! This module provides OC and IC test calculations for waterfall diversion.
 //! Removed: ParValue tests, historical tracking, aggregate results.
 
+use finstack_core::dates::Frequency;
 use finstack_core::money::Money;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::AssetPool;
+
+/// Calculate periods per year from a payment frequency.
+///
+/// Returns 4.0 for quarterly, 12.0 for monthly, 2.0 for semi-annual, etc.
+/// For day-based frequencies, approximates using 365 days per year.
+#[inline]
+fn frequency_periods_per_year(freq: Frequency) -> f64 {
+    match freq {
+        Frequency::Months(m) if m > 0 => 12.0 / m as f64,
+        Frequency::Days(d) if d > 0 => 365.0 / d as f64,
+        _ => 4.0, // Default to quarterly if invalid
+    }
+}
 
 /// Simplified coverage test type (OC/IC only)
 #[derive(Debug, Clone)]
@@ -188,20 +202,23 @@ impl CoverageTest {
             .find(|t| t.id.as_str() == context.tranche_id)
             .expect("Tranche not found in context");
 
-        // Compute interest due for this tranche
-        // Simplified: assume quarterly payment at current coupon rate
+        // Compute interest due for this tranche using actual payment frequency
+        // (e.g., 4 for quarterly, 12 for monthly, 2 for semi-annual)
+        let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
         let interest_due = Money::new(
-            tranche.current_balance.amount() * tranche.coupon.current_rate(context.as_of) / 4.0,
+            tranche.current_balance.amount() * tranche.coupon.current_rate(context.as_of)
+                / periods_per_year,
             tranche.current_balance.currency(),
         );
 
-        // Compute senior interest due
+        // Compute senior interest due using each tranche's payment frequency
         let senior_tranches = context.tranches.senior_to(context.tranche_id);
         let senior_interest_due = senior_tranches
             .iter()
             .try_fold(Money::new(0.0, interest_due.currency()), |acc, t| {
+                let t_periods = frequency_periods_per_year(t.payment_frequency);
                 let interest = Money::new(
-                    t.current_balance.amount() * t.coupon.current_rate(context.as_of) / 4.0,
+                    t.current_balance.amount() * t.coupon.current_rate(context.as_of) / t_periods,
                     t.current_balance.currency(),
                 );
                 acc.checked_add(interest)

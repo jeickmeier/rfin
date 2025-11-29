@@ -134,6 +134,7 @@ impl TrancheCoupon {
     ///
     /// For Fixed coupons, returns the fixed rate.
     /// For Floating coupons, uses centralized projection with floor/cap support.
+    /// Uses proper calendar-based month addition for period end calculation.
     pub fn current_rate_with_index(
         &self,
         date: Date,
@@ -149,11 +150,11 @@ impl TrancheCoupon {
                 };
 
                 let tenor = fwd.tenor();
-                let period_end_approx = date + time::Duration::days((tenor * 365.25) as i64);
+                let period_end = crate::instruments::structured_credit::components::rate_helpers::tenor_to_period_end(date, tenor);
 
                 crate::cashflow::builder::project_floating_rate_with_curve(
                     date,
-                    period_end_approx,
+                    period_end,
                     spec.spread_bp,
                     spec.gearing,
                     spec.floor_bp,

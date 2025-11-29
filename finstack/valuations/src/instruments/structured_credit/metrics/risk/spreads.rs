@@ -6,6 +6,14 @@ use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
+// Z-spread bounds in decimal (not basis points)
+// -500 bps to allow for premium bonds at tight spreads
+const Z_SPREAD_MIN: f64 = -0.05;
+// 5000 bps (50%) for distressed credits
+const Z_SPREAD_MAX: f64 = 0.50;
+// Initial bracket size: ±250 bps
+const Z_SPREAD_INITIAL_BRACKET: f64 = 0.025;
+
 /// Calculates Z-spread for structured credit.
 ///
 /// Z-spread (zero-volatility spread) is the constant spread added to the
@@ -86,14 +94,50 @@ impl MetricCalculator for ZSpreadCalculator {
             pv - target_value
         };
 
-        // Solve for z-spread using Brent's method
+        // Solve for z-spread using Brent's method with adaptive bracketing
+        // 
+        // Credit spread characteristics:
+        // - Investment grade: 50-300 bps (0.005-0.03)
+        // - High yield: 300-1000 bps (0.03-0.10)
+        // - Distressed: 1000+ bps (0.10+)
+        // - Premium bonds may have negative Z-spread
+        //
+        // We start with a moderate bracket and allow expansion for edge cases.
         let solver = BrentSolver::new()
             .with_tolerance(1e-8)
-            .with_initial_bracket_size(Some(0.5)); // ±50% spread range
+            .with_initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
 
-        let z_spread = solver.solve(objective, 0.0)?;
+        let valid_range = Z_SPREAD_MIN..=Z_SPREAD_MAX;
 
-        Ok(z_spread)
+        // Try solving with standard initial guess
+        match solver.solve(objective, 0.01) {
+            Ok(z) if valid_range.contains(&z) => Ok(z),
+            _ => {
+                // Adaptive retry: try with a different initial guess
+                // For distressed credits, start higher
+                let z_high_guess = solver.solve(objective, 0.10);
+                if let Ok(z) = z_high_guess {
+                    if valid_range.contains(&z) {
+                        return Ok(z);
+                    }
+                }
+
+                // For premium bonds, try negative initial guess
+                let z_low_guess = solver.solve(objective, -0.01);
+                if let Ok(z) = z_low_guess {
+                    if valid_range.contains(&z) {
+                        return Ok(z);
+                    }
+                }
+
+                // Final fallback: wider bracket with explicit bounds
+                let wide_solver = BrentSolver::new()
+                    .with_tolerance(1e-8)
+                    .with_initial_bracket_size(Some(0.20)); // ±2000 bps
+
+                wide_solver.solve(objective, 0.05)
+            }
+        }
     }
 
     fn dependencies(&self) -> &[MetricId] {

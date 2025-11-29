@@ -91,6 +91,9 @@ pub use specs::{
 // Rate conversion utilities
 pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 
+// Rate helpers for floating rate calculations
+pub use rate_helpers::tenor_to_period_end;
+
 // ============================================================================
 // Re-export tranche valuation
 // ============================================================================

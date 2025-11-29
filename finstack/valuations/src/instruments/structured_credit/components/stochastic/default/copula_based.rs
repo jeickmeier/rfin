@@ -25,9 +25,100 @@ use crate::instruments::common::models::correlation::copula::{Copula, CopulaSpec
 use crate::instruments::structured_credit::components::rates::cdr_to_mdr;
 use finstack_core::math::standard_normal_inv_cdf;
 
+/// Seasoning curve specification for default models.
+///
+/// Allows applying seasoning-dependent multipliers to base CDR,
+/// following industry-standard curves like SDA for mortgages.
+#[derive(Clone, Debug, Default)]
+pub enum SeasoningCurve {
+    /// No seasoning adjustment (constant CDR).
+    #[default]
+    Flat,
+    
+    /// SDA (Standard Default Assumption) curve for residential mortgages.
+    ///
+    /// Follows PSA standard:
+    /// - Ramps from 0% to 0.6% CDR over months 1-30
+    /// - Peaks at month 30
+    /// - Declines to 0.03% by month 60
+    /// - Stays flat thereafter
+    ///
+    /// The multiplier scales the entire curve (e.g., 150% SDA = 1.5x).
+    Sda {
+        /// SDA speed multiplier (1.0 = 100% SDA)
+        speed_multiplier: f64,
+    },
+    
+    /// Custom vintage curve with explicit monthly multipliers.
+    ///
+    /// The vector contains multipliers for each month starting from month 1.
+    /// Seasoning beyond the vector length uses the last value.
+    Custom {
+        /// Monthly multipliers starting from month 1.
+        multipliers: Vec<f64>,
+    },
+}
+
+impl SeasoningCurve {
+    /// Create a flat (no seasoning) curve.
+    pub fn flat() -> Self {
+        SeasoningCurve::Flat
+    }
+    
+    /// Create an SDA curve with the specified speed multiplier.
+    pub fn sda(speed_multiplier: f64) -> Self {
+        SeasoningCurve::Sda { speed_multiplier }
+    }
+    
+    /// Get the seasoning multiplier for a given month.
+    ///
+    /// Returns the multiplier to apply to the base CDR at this seasoning.
+    pub fn multiplier(&self, seasoning_months: u32) -> f64 {
+        match self {
+            SeasoningCurve::Flat => 1.0,
+            
+            SeasoningCurve::Sda { speed_multiplier } => {
+                // SDA curve parameters (industry standard)
+                let peak_month = 30;
+                let peak_cdr_mult = 1.0; // Peak at 100% of base at month 30
+                let terminal_month = 60;
+                let terminal_cdr_mult = 0.05; // Terminal at 5% of peak
+                
+                let base_mult = if seasoning_months == 0 {
+                    0.0
+                } else if seasoning_months <= peak_month {
+                    // Ramp up to peak
+                    (seasoning_months as f64 / peak_month as f64) * peak_cdr_mult
+                } else if seasoning_months <= terminal_month {
+                    // Decline to terminal
+                    let months_past_peak = (seasoning_months - peak_month) as f64;
+                    let decline_period = (terminal_month - peak_month) as f64;
+                    peak_cdr_mult - (months_past_peak / decline_period) * (peak_cdr_mult - terminal_cdr_mult)
+                } else {
+                    // Terminal rate
+                    terminal_cdr_mult
+                };
+                
+                base_mult * speed_multiplier
+            }
+            
+            SeasoningCurve::Custom { multipliers } => {
+                if seasoning_months == 0 || multipliers.is_empty() {
+                    1.0
+                } else {
+                    // Use 1-based indexing for seasoning
+                    let idx = (seasoning_months as usize - 1).min(multipliers.len() - 1);
+                    multipliers[idx]
+                }
+            }
+        }
+    }
+}
+
 /// Copula-based stochastic default model.
 ///
 /// Uses the shared copula infrastructure for default correlation modeling.
+/// Supports seasoning-adjusted default rates via optional seasoning curve.
 #[derive(Clone, Debug)]
 pub struct CopulaBasedDefault {
     /// Base annual CDR
@@ -38,6 +129,8 @@ pub struct CopulaBasedDefault {
     correlation: f64,
     /// Copula instance
     copula: GaussianCopula,
+    /// Optional seasoning curve for time-varying default rates
+    seasoning_curve: SeasoningCurve,
 }
 
 impl CopulaBasedDefault {
@@ -60,6 +153,7 @@ impl CopulaBasedDefault {
             copula_spec,
             correlation: correlation.clamp(0.0, 0.99),
             copula,
+            seasoning_curve: SeasoningCurve::Flat,
         }
     }
 
@@ -72,16 +166,27 @@ impl CopulaBasedDefault {
     ///
     /// - Base CDR: 2%
     /// - Correlation: 5% (low for diversified pools)
+    /// - SDA seasoning curve (100%)
     pub fn rmbs_standard() -> Self {
-        Self::gaussian(0.02, 0.05)
+        Self::gaussian(0.02, 0.05).with_seasoning_curve(SeasoningCurve::sda(1.0))
     }
 
     /// Standard CLO calibration.
     ///
     /// - Base CDR: 3%
     /// - Correlation: 20% (higher for corporate loans)
+    /// - No seasoning curve (flat CDR)
     pub fn clo_standard() -> Self {
         Self::gaussian(0.03, 0.20)
+    }
+
+    /// Add a seasoning curve to the model.
+    ///
+    /// This allows time-varying default rates based on loan seasoning,
+    /// following industry-standard curves like SDA.
+    pub fn with_seasoning_curve(mut self, curve: SeasoningCurve) -> Self {
+        self.seasoning_curve = curve;
+        self
     }
 
     /// Get the base CDR.
@@ -93,19 +198,35 @@ impl CopulaBasedDefault {
     pub fn copula_spec(&self) -> &CopulaSpec {
         &self.copula_spec
     }
+
+    /// Get the seasoning curve.
+    pub fn seasoning_curve(&self) -> &SeasoningCurve {
+        &self.seasoning_curve
+    }
+
+    /// Get the seasoning-adjusted CDR at a given month.
+    ///
+    /// Applies the seasoning curve multiplier to the base CDR.
+    pub fn seasoned_cdr(&self, seasoning_months: u32) -> f64 {
+        let multiplier = self.seasoning_curve.multiplier(seasoning_months);
+        (self.base_cdr * multiplier).clamp(0.0, 1.0)
+    }
 }
 
 impl StochasticDefault for CopulaBasedDefault {
     fn conditional_mdr(
         &self,
-        _seasoning: u32,
+        seasoning: u32,
         factors: &[f64],
         _macro_factors: &MacroCreditFactors,
     ) -> f64 {
-        // Get the base monthly default rate
-        let base_mdr = cdr_to_mdr(self.base_cdr);
+        // Get the seasoning-adjusted annual CDR
+        let adjusted_cdr = self.seasoned_cdr(seasoning);
+        
+        // Convert to monthly default rate
+        let base_mdr = cdr_to_mdr(adjusted_cdr);
 
-        // Convert to default threshold
+        // Convert to default threshold for copula
         let threshold = standard_normal_inv_cdf(base_mdr.min(0.9999));
 
         // Get conditional probability using copula
@@ -170,8 +291,8 @@ impl StochasticDefault for CopulaBasedDefault {
         "Copula-Based Default Model"
     }
 
-    fn expected_mdr(&self, _seasoning: u32) -> f64 {
-        cdr_to_mdr(self.base_cdr)
+    fn expected_mdr(&self, seasoning: u32) -> f64 {
+        cdr_to_mdr(self.seasoned_cdr(seasoning))
     }
 }
 
@@ -239,5 +360,95 @@ mod tests {
         let clo = CopulaBasedDefault::clo_standard();
         assert!((clo.base_cdr() - 0.03).abs() < 1e-10);
         assert!(clo.correlation() > rmbs.correlation());
+    }
+
+    #[test]
+    fn test_seasoning_curve_flat() {
+        let curve = SeasoningCurve::flat();
+        
+        assert!((curve.multiplier(0) - 1.0).abs() < 1e-10);
+        assert!((curve.multiplier(12) - 1.0).abs() < 1e-10);
+        assert!((curve.multiplier(60) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_seasoning_curve_sda() {
+        let curve = SeasoningCurve::sda(1.0);
+        
+        // Month 0 should be 0
+        assert!((curve.multiplier(0) - 0.0).abs() < 1e-10);
+        
+        // Ramp up to peak at month 30
+        let m15 = curve.multiplier(15);
+        let m30 = curve.multiplier(30);
+        assert!(m15 > 0.0 && m15 < m30, "Multiplier should ramp up");
+        assert!((m30 - 1.0).abs() < 1e-10, "Peak at month 30 should be 1.0");
+        
+        // Decline after peak
+        let m45 = curve.multiplier(45);
+        let m60 = curve.multiplier(60);
+        assert!(m45 < m30, "Multiplier should decline after peak");
+        assert!(m60 < m45, "Multiplier should continue declining");
+        
+        // Terminal rate
+        let m120 = curve.multiplier(120);
+        assert!((m120 - 0.05).abs() < 1e-10, "Terminal rate should be 5%");
+    }
+
+    #[test]
+    fn test_seasoning_curve_sda_speed_multiplier() {
+        let curve_100 = SeasoningCurve::sda(1.0);
+        let curve_150 = SeasoningCurve::sda(1.5);
+        
+        let m30_100 = curve_100.multiplier(30);
+        let m30_150 = curve_150.multiplier(30);
+        
+        assert!((m30_150 - 1.5 * m30_100).abs() < 1e-10, "150% SDA should be 1.5x");
+    }
+
+    #[test]
+    fn test_seasoning_affects_mdr() {
+        let model = CopulaBasedDefault::gaussian(0.02, 0.20)
+            .with_seasoning_curve(SeasoningCurve::sda(1.0));
+        
+        let factors = MacroCreditFactors::default();
+        
+        // Early seasoning should have lower MDR
+        let mdr_early = model.conditional_mdr(6, &[0.0], &factors);
+        
+        // Peak seasoning should have higher MDR
+        let mdr_peak = model.conditional_mdr(30, &[0.0], &factors);
+        
+        // Late seasoning should have lower MDR again
+        let mdr_late = model.conditional_mdr(120, &[0.0], &factors);
+        
+        assert!(mdr_early < mdr_peak, "Early MDR should be less than peak");
+        assert!(mdr_late < mdr_peak, "Late MDR should be less than peak");
+    }
+
+    #[test]
+    fn test_rmbs_standard_has_sda_curve() {
+        let rmbs = CopulaBasedDefault::rmbs_standard();
+        
+        // RMBS standard should use SDA curve, so seasoned CDR varies
+        let cdr_early = rmbs.seasoned_cdr(6);
+        let cdr_peak = rmbs.seasoned_cdr(30);
+        let cdr_late = rmbs.seasoned_cdr(120);
+        
+        assert!(cdr_early < cdr_peak, "Early CDR should be less than peak");
+        assert!(cdr_late < cdr_peak, "Late CDR should be less than peak");
+    }
+
+    #[test]
+    fn test_clo_standard_has_flat_curve() {
+        let clo = CopulaBasedDefault::clo_standard();
+        
+        // CLO standard should use flat curve
+        let cdr_early = clo.seasoned_cdr(6);
+        let cdr_mid = clo.seasoned_cdr(30);
+        let cdr_late = clo.seasoned_cdr(120);
+        
+        assert!((cdr_early - cdr_mid).abs() < 1e-10, "CLO CDR should be flat");
+        assert!((cdr_mid - cdr_late).abs() < 1e-10, "CLO CDR should be flat");
     }
 }

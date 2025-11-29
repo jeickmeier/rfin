@@ -14,7 +14,61 @@ use crate::cashflow::traits::DatedFlows;
 use finstack_core::dates::{Date, Frequency, ScheduleBuilder};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+
+/// Recovery lag buffer for delayed recovery processing.
+///
+/// Recoveries from defaulted assets are typically received 6-12 months after
+/// the default event. This buffer holds pending recoveries until they can be
+/// released based on the configured recovery lag.
+#[derive(Debug, Default)]
+struct RecoveryLagBuffer {
+    /// Queue of pending recoveries: (origination_date, recovery_amount)
+    pending: VecDeque<(Date, Money)>,
+}
+
+impl RecoveryLagBuffer {
+    /// Create a new empty recovery lag buffer.
+    fn new() -> Self {
+        Self {
+            pending: VecDeque::new(),
+        }
+    }
+
+    /// Add a new recovery to the buffer.
+    fn add_recovery(&mut self, origination_date: Date, amount: Money) {
+        if amount.amount() > 0.0 {
+            self.pending.push_back((origination_date, amount));
+        }
+    }
+
+    /// Release all recoveries that have matured based on the lag period.
+    ///
+    /// Returns the total amount of recoveries released this period.
+    fn release_matured(
+        &mut self,
+        current_date: Date,
+        recovery_lag_months: u32,
+        base_currency: finstack_core::currency::Currency,
+    ) -> finstack_core::Result<Money> {
+        let mut released = Money::new(0.0, base_currency);
+
+        // Pop all recoveries that have matured
+        while let Some((orig_date, _)) = self.pending.front() {
+            let months_elapsed = months_between(*orig_date, current_date);
+            if months_elapsed >= recovery_lag_months {
+                if let Some((_, amount)) = self.pending.pop_front() {
+                    released = released.checked_add(amount)?;
+                }
+            } else {
+                // Remaining entries are not yet mature
+                break;
+            }
+        }
+
+        Ok(released)
+    }
+}
 
 /// Cashflows generated in a single payment period
 struct PeriodFlows {
@@ -125,6 +179,10 @@ pub(crate) trait StructuredCreditInstrument {
     }
 
     /// Calculate period interest collections from pool assets
+    ///
+    /// For floating rate assets, uses the forward curve's day count convention
+    /// and actual tenor for year fraction calculations to ensure consistency
+    /// with how the curve was calibrated.
     fn calculate_period_interest_collections(
         &self,
         pay_date: Date,
@@ -142,7 +200,8 @@ pub(crate) trait StructuredCreditInstrument {
                 match context.get_forward_ref(idx.as_str()) {
                     Ok(fwd) => {
                         let base = fwd.base_date();
-                        let dc = finstack_core::dates::DayCount::Act365F;
+                        // Use the curve's own day count for consistency with calibration
+                        let dc = fwd.day_count();
                         let t2 = dc
                             .year_fraction(
                                 base,
@@ -150,7 +209,9 @@ pub(crate) trait StructuredCreditInstrument {
                                 finstack_core::dates::DayCountCtx::default(),
                             )
                             .unwrap_or(0.0);
-                        let t1 = (t2 - 0.25).max(0.0);
+                        // Use the curve's actual tenor instead of hardcoded 0.25
+                        let tenor = fwd.tenor();
+                        let t1 = (t2 - tenor).max(0.0);
                         let idx_rate = fwd.rate_period(t1, t2);
                         idx_rate + (asset.spread_bps().max(0.0) / 10_000.0)
                     }
@@ -259,6 +320,10 @@ pub(crate) trait StructuredCreditInstrument {
         let waterfall_engine = self.create_waterfall_engine();
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
 
+        // Initialize recovery lag buffer for delayed recovery processing
+        let recovery_lag_months = self.recovery_spec_ref().recovery_lag;
+        let mut recovery_buffer = RecoveryLagBuffer::new();
+
         // Generate payment schedule
         let schedule =
             ScheduleBuilder::try_new(dates_first_payment_date.max(as_of), dates_legal_maturity)?
@@ -294,10 +359,21 @@ pub(crate) trait StructuredCreditInstrument {
                     months_per_period,
                 )?;
 
+            // Add new recoveries to the lag buffer (they'll be released after the lag period)
+            recovery_buffer.add_recovery(pay_date, recovery_amt);
+
+            // Release matured recoveries from the buffer
+            let released_recoveries = recovery_buffer.release_matured(
+                pay_date,
+                recovery_lag_months,
+                base_ccy,
+            )?;
+
             // Reinvestment Logic:
-            // If in reinvestment period, retain principal (prepay + recoveries) to buy new assets.
+            // If in reinvestment period, retain principal (prepay + released recoveries) to buy new assets.
             // We assume reinvestment at Par (maintaining pool balance), so we don't pass principal to waterfall.
-            // Note: Defaults reduce the pool balance permanently by the loss amount (Default - Recovery).
+            // Note: Defaults reduce the pool balance permanently by the loss amount.
+            // With recovery lag, the actual recovery comes later, so we track it separately.
             let is_reinvestment_active = if let Some(period) = &pool.reinvestment_period {
                 pay_date <= period.end_date
             } else {
@@ -310,12 +386,12 @@ pub(crate) trait StructuredCreditInstrument {
                 // Available for waterfall is only interest (plus maybe some specialized leakage, ignored here).
                 (
                     Money::new(0.0, base_ccy),
-                    prepay_amt.checked_add(recovery_amt)?,
+                    prepay_amt.checked_add(released_recoveries)?,
                 )
             } else {
                 // Not reinvesting, all principal goes to waterfall
                 (
-                    prepay_amt.checked_add(recovery_amt)?,
+                    prepay_amt.checked_add(released_recoveries)?,
                     Money::new(0.0, base_ccy),
                 )
             };
@@ -324,7 +400,7 @@ pub(crate) trait StructuredCreditInstrument {
                 interest_collections,
                 prepayments: prepay_amt,
                 defaults: default_amt,
-                recoveries: recovery_amt,
+                recoveries: released_recoveries, // Use released (lagged) recoveries
             };
 
             let total_cash_for_waterfall =
@@ -391,20 +467,29 @@ pub(crate) trait StructuredCreditInstrument {
             }
 
             // Step 4: Update pool balance
-            // If reinvestment is active, we "bought" new assets with the reinvested amount.
-            // So pool balance only decreases by the net loss from defaults.
-            // Balance_New = Balance_Old - Prepay - Defaults + Reinvested
-            // Since Reinvested = Prepay + Recoveries
-            // Balance_New = Balance_Old - Prepay - Defaults + Prepay + Recoveries
-            // Balance_New = Balance_Old - Defaults + Recoveries
-            // Balance_New = Balance_Old - (Defaults - Recoveries) -> Loss Amount
+            //
+            // With recovery lag, the accounting is:
+            // - Defaults: Pool balance decreases immediately by full default amount
+            // - Prepayments: Pool balance decreases immediately
+            // - Recoveries: Cash comes back after the lag period (handled via released_recoveries)
+            //
+            // During reinvestment period:
+            // - We reinvest prepayments and released recoveries to buy new assets
+            // - Defaults still reduce pool balance immediately
+            // - Released recoveries that come in get reinvested
+            //
+            // The key difference with recovery lag:
+            // - Without lag: loss = defaults - recoveries (immediate offset)
+            // - With lag: defaults reduce balance immediately, recoveries add cash later
 
             if is_reinvestment_active {
-                // During reinvestment, we only lose the actual realized losses
-                let loss_amount = default_amt
-                    .checked_sub(recovery_amt)
-                    .unwrap_or(Money::new(0.0, base_ccy));
-                pool_outstanding = pool_outstanding.checked_sub(loss_amount)?;
+                // During reinvestment, defaults reduce pool immediately
+                // Prepayments and released recoveries get reinvested (balance maintained)
+                // So net change = -defaults + reinvested_recoveries
+                // Note: prepayments don't reduce balance during reinvestment (they're reinvested)
+                pool_outstanding = pool_outstanding
+                    .checked_sub(default_amt)?
+                    .checked_add(released_recoveries)?;
             } else {
                 // Normal amortization: balance reduces by prepays and defaults
                 pool_outstanding = pool_outstanding

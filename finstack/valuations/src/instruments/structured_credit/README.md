@@ -34,6 +34,5 @@ let pv = deal.value(&market_context, as_of_date)?;
 - Carry/roll and principal/interest split per period.
 
 ## Future Enhancements
-- Add stochastic prepay/default models with scenario trees and correlation.
 - Support base/curvature OAS grids and callable step-up tranches.
 - Provide calibration helpers to market ABX/iTraxx/CMBX tranches and price-yield surfaces.

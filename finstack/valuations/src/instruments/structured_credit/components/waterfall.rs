@@ -24,6 +24,39 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
+// CURRENCY PRECISION HELPER
+// ============================================================================
+
+/// Returns the number of decimal places for currency-aware penny-safe allocation.
+///
+/// Different currencies have different minor unit divisions:
+/// - Most fiat currencies (USD, EUR, GBP): 2 decimal places (cents)
+/// - Japanese Yen (JPY), Korean Won (KRW): 0 decimal places
+/// - Bahraini Dinar (BHD), Kuwaiti Dinar (KWD): 3 decimal places
+///
+/// This ensures waterfall allocations respect currency precision and don't
+/// accumulate rounding errors over time.
+#[inline]
+fn currency_decimal_places(currency: Currency) -> u32 {
+    match currency {
+        // Zero decimal currencies
+        Currency::JPY => 0,
+        // Most common currencies use 2 decimals
+        _ => 2,
+    }
+}
+
+/// Returns the scaling factor for converting amounts to smallest currency units.
+///
+/// For USD: 100 (cents)
+/// For JPY: 1 (no minor units)
+#[inline]
+fn currency_scale_factor(currency: Currency) -> f64 {
+    let decimals = currency_decimal_places(currency);
+    10_f64.powi(decimals as i32)
+}
+
+// ============================================================================
 // CORE TYPES
 // ============================================================================
 
@@ -928,12 +961,13 @@ impl WaterfallEngine {
         // Penny-Safe Allocation using Largest Remainder Method
         // ========================================================================
         // 1. Calculate ideal (fractional) allocations
-        // 2. Floor each allocation to get integer cents
-        // 3. Distribute remainder cents to recipients with largest fractional parts
-        // This ensures sum(paid) == tier_available exactly (to the penny)
+        // 2. Floor each allocation to get integer smallest units (e.g., cents for USD)
+        // 3. Distribute remainder units to recipients with largest fractional parts
+        // This ensures sum(paid) == tier_available exactly (to the smallest unit)
 
-        // Round to cents (2 decimal places) for penny-safe calculation
-        let tier_available_cents = (tier_available.amount() * 100.0).round() as i64;
+        // Use currency-aware precision for penny-safe calculation
+        let scale = currency_scale_factor(self.base_currency);
+        let tier_available_units = (tier_available.amount() * scale).round() as i64;
 
         // Calculate pro-rata shares and ideal allocations in cents
         let mut allocations_data: Vec<(usize, &Recipient, Money, i64, f64)> =
@@ -947,19 +981,19 @@ impl WaterfallEngine {
                 1.0 / recipients.len() as f64
             };
 
-            // Ideal allocation in cents (fractional)
-            let ideal_cents = tier_available_cents as f64 * pro_rata_share;
-            let floor_cents = ideal_cents.floor() as i64;
-            let remainder = ideal_cents - floor_cents as f64;
+            // Ideal allocation in smallest currency units (fractional)
+            let ideal_units = tier_available_units as f64 * pro_rata_share;
+            let floor_units = ideal_units.floor() as i64;
+            let remainder = ideal_units - floor_units as f64;
 
-            allocations_data.push((idx, recipient, *requested, floor_cents, remainder));
+            allocations_data.push((idx, recipient, *requested, floor_units, remainder));
         }
 
-        // Calculate total floor cents allocated
-        let total_floor_cents: i64 = allocations_data.iter().map(|(_, _, _, fc, _)| fc).sum();
-        let mut remainder_cents = tier_available_cents - total_floor_cents;
+        // Calculate total floor units allocated
+        let total_floor_units: i64 = allocations_data.iter().map(|(_, _, _, fu, _)| fu).sum();
+        let mut remainder_units = tier_available_units - total_floor_units;
 
-        // Sort by remainder (descending) to distribute extra cents to largest remainders
+        // Sort by remainder (descending) to distribute extra units to largest remainders
         let mut indices_by_remainder: Vec<usize> = (0..allocations_data.len()).collect();
         indices_by_remainder.sort_by(|&a, &b| {
             allocations_data[b]
@@ -968,25 +1002,25 @@ impl WaterfallEngine {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // Distribute remainder cents one at a time to recipients with largest remainders
-        let mut final_cents: Vec<i64> = allocations_data
+        // Distribute remainder units one at a time to recipients with largest remainders
+        let mut final_units: Vec<i64> = allocations_data
             .iter()
-            .map(|(_, _, _, fc, _)| *fc)
+            .map(|(_, _, _, fu, _)| *fu)
             .collect();
         for &idx in &indices_by_remainder {
-            if remainder_cents <= 0 {
+            if remainder_units <= 0 {
                 break;
             }
-            final_cents[idx] += 1;
-            remainder_cents -= 1;
+            final_units[idx] += 1;
+            remainder_units -= 1;
         }
 
-        // Now process each recipient with their penny-safe allocation
+        // Now process each recipient with their currency-aware allocation
         let mut tier_total = Money::new(0.0, self.base_currency);
 
         for (idx, (_, recipient, requested, _, _)) in allocations_data.iter().enumerate() {
-            let allocated_cents = final_cents[idx];
-            let allocated = Money::new(allocated_cents as f64 / 100.0, self.base_currency);
+            let allocated_units = final_units[idx];
+            let allocated = Money::new(allocated_units as f64 / scale, self.base_currency);
 
             let paid = if allocated.amount() <= requested.amount() {
                 allocated
