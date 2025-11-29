@@ -79,6 +79,7 @@ fn create_standard_swap(as_of: Date, end: Date, side: PayReceive) -> InterestRat
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     }
 }

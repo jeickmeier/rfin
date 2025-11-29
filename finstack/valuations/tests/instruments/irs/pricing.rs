@@ -91,6 +91,7 @@ fn test_irs_at_par_npv_zero() {
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -149,6 +150,7 @@ fn test_irs_receive_fixed_below_market() {
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -206,6 +208,7 @@ fn test_irs_receive_fixed_above_market() {
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -267,6 +270,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         side: PayReceive::ReceiveFixed,
         fixed: fixed_leg.clone(),
         float: float_leg.clone(),
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -276,6 +280,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         side: PayReceive::PayFixed,
         fixed: fixed_leg,
         float: float_leg,
+        margin_spec: None,
         attributes: Default::default(),
     };
 

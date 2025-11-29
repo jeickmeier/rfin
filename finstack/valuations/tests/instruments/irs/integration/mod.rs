@@ -6,5 +6,7 @@
 //! - Multi-curve pricing
 //! - Forward-starting swaps
 //! - Comprehensive metric calculations
+//! - Margin calculations (VM/IM)
 
 mod complex_scenarios;
+mod margin;

@@ -65,12 +65,15 @@
 //! - [`CollateralSpec`] for collateral details
 //! - [`RepoType`] for classic vs GC vs triparty
 
+/// Repo margin specification and cashflows
+pub mod margin;
 pub mod metrics;
 /// Repo pricer implementation
 pub mod pricer;
 mod types;
 
 // Re-export main types
+pub use margin::{RepoMarginSpec, RepoMarginType};
 pub use types::*;
 
 // Builder is generated via derive on `Repo`.

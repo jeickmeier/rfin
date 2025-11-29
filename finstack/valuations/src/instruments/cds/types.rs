@@ -2,6 +2,7 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
+use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::Discounting;
@@ -155,6 +156,16 @@ pub struct CreditDefaultSwap {
     pub protection: ProtectionLegSpec,
     /// Pricing overrides (including upfront payment)
     pub pricing_overrides: PricingOverrides,
+    /// Optional OTC margin specification for VM/IM.
+    ///
+    /// For cleared CDS (e.g., via ICE Clear Credit), use
+    /// `OtcMarginSpec::ice_clear_credit()`. For bilateral CDS,
+    /// use `OtcMarginSpec::bilateral_simm()`.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub margin_spec: Option<OtcMarginSpec>,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -315,6 +326,7 @@ impl CreditDefaultSwap {
                 settlement_delay: convention.settlement_delay(),
             },
             pricing_overrides: PricingOverrides::default(),
+            margin_spec: None,
             attributes: Attributes::new(),
         }
     }

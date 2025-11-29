@@ -91,6 +91,7 @@ fn create_swap(as_of: Date, end: Date) -> InterestRateSwap {
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     }
 }

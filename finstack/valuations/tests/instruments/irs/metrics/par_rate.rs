@@ -70,6 +70,7 @@ fn create_standard_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRate
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     }
 }

@@ -254,6 +254,7 @@
 pub mod calibration;
 pub mod cashflow;
 pub mod constants;
+pub mod margin;
 pub mod pricer;
 pub mod results;
 pub mod schema;

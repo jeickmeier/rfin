@@ -82,6 +82,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     }
 }
@@ -217,6 +218,7 @@ fn test_forward_starting_swap() {
             start,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -337,6 +339,7 @@ fn test_swap_seasoned() {
             start: as_of, // Use as_of instead of start to avoid invalid time range
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 

@@ -15,7 +15,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
-// Risk types used in risk.rs
+use crate::margin::types::OtcMarginSpec;
+
 
 // Re-export common enums from parameters
 pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive};
@@ -84,6 +85,16 @@ pub struct InterestRateSwap {
     pub fixed: FixedLegSpec,
     /// Floating leg specification.
     pub float: FloatLegSpec,
+    /// Optional OTC margin specification for VM/IM.
+    ///
+    /// When present, enables margin calculation using SIMM or schedule-based
+    /// methodologies. For cleared swaps, specify clearing house in
+    /// `OtcMarginSpec::cleared()`.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }

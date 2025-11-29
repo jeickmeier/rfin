@@ -4,6 +4,7 @@ use super::types::{FinancingLegSpec, TrsScheduleSpec, TrsSide};
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::{common::parameters::underlying::EquityUnderlyingParams, Attributes},
+    margin::types::OtcMarginSpec,
 };
 use finstack_core::{
     currency::Currency,
@@ -39,6 +40,14 @@ pub struct EquityTotalReturnSwap {
     pub side: TrsSide,
     /// Initial index level (if known, otherwise fetched from market).
     pub initial_level: Option<f64>,
+    /// Optional OTC margin specification for VM/IM.
+    ///
+    /// Equity TRS use SIMM equity bucket for margin calculation.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }

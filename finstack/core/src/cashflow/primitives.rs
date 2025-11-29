@@ -59,6 +59,46 @@ pub enum CFKind {
 
     /// Irregular stub period.
     Stub,
+
+    // -------------------------------------------------------------------------
+    // Margin and Collateral Cashflows (ISDA CSA / GMRA / BCBS-IOSCO)
+    // -------------------------------------------------------------------------
+    /// Initial margin posting (collateral transfer out to counterparty).
+    ///
+    /// Represents the posting of initial margin collateral under CSA or clearing
+    /// house rules. The amount is typically calculated using SIMM, schedule-based,
+    /// or haircut methodologies.
+    InitialMarginPost,
+    /// Initial margin return (collateral returned from counterparty).
+    ///
+    /// Represents the return of previously posted initial margin when exposure
+    /// decreases or trade is terminated.
+    InitialMarginReturn,
+    /// Variation margin received (positive VM payment to us).
+    ///
+    /// Daily or periodic mark-to-market payment received when exposure moves
+    /// in our favor. Governed by CSA threshold, MTA, and rounding rules.
+    VariationMarginReceive,
+    /// Variation margin paid (negative VM payment from us).
+    ///
+    /// Daily or periodic mark-to-market payment made when exposure moves
+    /// against us. Governed by CSA threshold, MTA, and rounding rules.
+    VariationMarginPay,
+    /// Interest accrued on posted margin collateral.
+    ///
+    /// Represents interest paid or received on cash collateral posted as margin.
+    /// Rate typically defined in CSA (e.g., Fed Funds, EONIA, SONIA).
+    MarginInterest,
+    /// Collateral substitution inflow (replacement collateral received).
+    ///
+    /// When a counterparty substitutes one form of eligible collateral for another,
+    /// this represents the incoming replacement asset.
+    CollateralSubstitutionIn,
+    /// Collateral substitution outflow (original collateral returned).
+    ///
+    /// When a counterparty substitutes collateral, this represents the return
+    /// of the original collateral being replaced.
+    CollateralSubstitutionOut,
 }
 
 /// A single dated cash-flow (payment or reset).
@@ -274,5 +314,95 @@ mod tests {
             rate: None,
         };
         assert!(zero_cf.validate().is_err());
+    }
+
+    #[test]
+    fn margin_cashflow_kinds_construct_correctly() {
+        let date = Date::from_calendar_date(2025, Month::March, 1).expect("Valid test date");
+        let amt = Money::new(1_000_000.0, Currency::USD);
+
+        // Initial margin posting
+        let im_post = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::InitialMarginPost,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(im_post.kind, CFKind::InitialMarginPost);
+        assert!(im_post.validate().is_ok());
+
+        // Initial margin return
+        let im_return = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::InitialMarginReturn,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(im_return.kind, CFKind::InitialMarginReturn);
+        assert!(im_return.validate().is_ok());
+
+        // Variation margin received
+        let vm_receive = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::VariationMarginReceive,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(vm_receive.kind, CFKind::VariationMarginReceive);
+        assert!(vm_receive.validate().is_ok());
+
+        // Variation margin paid
+        let vm_pay = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::VariationMarginPay,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(vm_pay.kind, CFKind::VariationMarginPay);
+        assert!(vm_pay.validate().is_ok());
+
+        // Margin interest
+        let margin_int = CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(5_000.0, Currency::USD),
+            kind: CFKind::MarginInterest,
+            accrual_factor: 0.25,
+            rate: Some(0.05),
+        };
+        assert_eq!(margin_int.kind, CFKind::MarginInterest);
+        assert!(margin_int.validate().is_ok());
+
+        // Collateral substitution in
+        let sub_in = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::CollateralSubstitutionIn,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(sub_in.kind, CFKind::CollateralSubstitutionIn);
+        assert!(sub_in.validate().is_ok());
+
+        // Collateral substitution out
+        let sub_out = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::CollateralSubstitutionOut,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert_eq!(sub_out.kind, CFKind::CollateralSubstitutionOut);
+        assert!(sub_out.validate().is_ok());
     }
 }

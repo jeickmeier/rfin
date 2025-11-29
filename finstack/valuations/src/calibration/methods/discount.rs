@@ -908,6 +908,7 @@ impl DiscountCurveCalibrator {
                     side: PayReceive::ReceiveFixed,
                     fixed: fixed_spec,
                     float: float_spec,
+                    margin_spec: None,
                     attributes: Default::default(),
                 };
 

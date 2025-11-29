@@ -22,6 +22,104 @@ let pv = cds.value(&market_context, as_of)?;
 let par_spread = cds.par_spread(&market_context, as_of)?;
 ```
 
+---
+
+## Margining
+
+Credit default swaps implement full margin support following **ISDA CSA** standards. CDS instruments are categorized under the **Credit** risk classes (Qualifying or Non-Qualifying) for SIMM purposes.
+
+### Regulatory Framework
+
+| Standard | Scope | Key Requirements |
+|----------|-------|------------------|
+| **BCBS-IOSCO** | Bilateral OTC derivatives | VM/IM requirements, eligible collateral |
+| **ISDA SIMM** | Initial margin calculation | Credit delta/vega sensitivities |
+| **ICE Clear Credit** | Cleared CDS | Index and single-name clearing |
+
+### Adding Margin Specification
+
+```rust
+use finstack_valuations::instruments::cds::CreditDefaultSwap;
+use finstack_valuations::margin::{
+    OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
+};
+
+let mut cds = CreditDefaultSwap::example();
+
+// Add bilateral margin specification with SIMM
+cds.margin_spec = Some(OtcMarginSpec {
+    csa: CsaSpec::usd_regulatory(),
+    clearing_status: ClearingStatus::Bilateral,
+    im_methodology: ImMethodology::Simm,
+    vm_frequency: MarginFrequency::Daily,
+    settlement_lag: 1,
+});
+```
+
+### Cleared CDS
+
+```rust
+// For cleared CDS (e.g., ICE Clear Credit)
+cds.margin_spec = Some(OtcMarginSpec {
+    csa: CsaSpec::usd_regulatory(),
+    clearing_status: ClearingStatus::Cleared { ccp: "ICE".to_string() },
+    im_methodology: ImMethodology::ClearingHouse,
+    vm_frequency: MarginFrequency::Daily,
+    settlement_lag: 0,
+});
+```
+
+### Calculating SIMM Sensitivities
+
+CDS instruments produce **Credit** sensitivities (CS01) distributed by tenor:
+
+```rust
+use finstack_valuations::margin::{Marginable, SimmSensitivities};
+
+let cds = CreditDefaultSwap::example();
+let market = MarketContext::new();
+let as_of = date!(2024-01-15);
+
+// Calculate SIMM sensitivities
+let sensitivities = cds.simm_sensitivities(&market, as_of)?;
+
+// CDS produces credit delta sensitivities
+// Qualifying (investment grade) or Non-Qualifying (HY/EM)
+for ((entity, tenor), delta) in &sensitivities.credit_qualifying_delta {
+    println!("{} {} bucket: ${:.2}", entity, tenor, delta);
+}
+```
+
+### Credit Risk Classification
+
+CDS instruments are classified as **Qualifying** or **Non-Qualifying** based on credit quality:
+
+| Classification | Criteria | SIMM Treatment |
+|----------------|----------|----------------|
+| **Qualifying** | Investment grade (spread < 500bp) | Credit Qualifying risk class |
+| **Non-Qualifying** | High yield, EM, distressed | Credit Non-Qualifying risk class |
+
+### Calculating Margin Requirements
+
+```rust
+use finstack_valuations::margin::metrics::{
+    InitialMarginMetric, VariationMarginMetric, TotalMarginMetric,
+};
+
+// Calculate initial margin
+let im_metric = InitialMarginMetric::new();
+let im_result = im_metric.calculate(&cds, &market, as_of)?;
+
+// Calculate variation margin
+let vm_metric = VariationMarginMetric::new();
+let vm_result = vm_metric.calculate(&cds, &market, as_of)?;
+
+// Get MTM for VM purposes
+let mtm = cds.mtm_for_vm(&market, as_of)?;
+```
+
+---
+
 ## Limitations / Known Issues
 - Assumes deterministic recovery and hazard curves; no stochastic credit or default correlation modeling.
 - No quanto/currency basis handling beyond chosen discount curve.
@@ -36,6 +134,7 @@ let par_spread = cds.par_spread(&market_context, as_of)?;
 - PV (buyer/seller), par spread, risky annuity (RPV01), PV01/CS01 (parallel and bucketed).
 - Accrual-on-default impact, protection/premium leg PV decomposition, expected loss.
 - Upfront-to-spread conversions and clean/dirty accrual reporting.
+- Initial margin (SIMM-based) and variation margin via `Marginable` trait.
 
 ## Future Enhancements
 - Add stochastic recovery and correlation hooks; richer accrual-on-default conventions (market fallbacks).

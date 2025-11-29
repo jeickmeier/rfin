@@ -156,6 +156,7 @@ impl JsEquityTotalReturnSwap {
             side,
             initial_level,
             attributes: Default::default(),
+            margin_spec: None,
         };
 
         JsEquityTotalReturnSwap::from_inner(trs)
@@ -233,6 +234,7 @@ impl JsFiIndexTotalReturnSwap {
             side,
             initial_level,
             attributes: Default::default(),
+            margin_spec: None,
         };
 
         JsFiIndexTotalReturnSwap::from_inner(trs)

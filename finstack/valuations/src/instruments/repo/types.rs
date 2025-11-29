@@ -2,6 +2,7 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::repo::margin::RepoMarginSpec;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -171,6 +172,15 @@ pub struct Repo {
     pub calendar_id: Option<String>,
     /// Discount curve identifier for valuation
     pub discount_curve_id: CurveId,
+    /// Optional margin specification for mark-to-market margining.
+    ///
+    /// When present, enables margin call generation, collateral valuation,
+    /// and margin interest calculations. See [`RepoMarginSpec`] for details.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub margin_spec: Option<RepoMarginSpec>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -221,6 +231,7 @@ impl Repo {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
             .discount_curve_id(discount_curve_id.into())
+            .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
     }
@@ -249,6 +260,7 @@ impl Repo {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
             .discount_curve_id(discount_curve_id.into())
+            .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
             .expect("term repo default construction should not fail")
@@ -278,6 +290,7 @@ impl Repo {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
             .discount_curve_id(discount_curve_id.into())
+            .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
             .expect("open repo default construction should not fail")

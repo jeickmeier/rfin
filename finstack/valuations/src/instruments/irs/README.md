@@ -752,6 +752,142 @@ mod tests {
 
 ---
 
+---
+
+## Margining
+
+Interest rate swaps implement full margin support following **ISDA CSA** (Credit Support Annex) standards and **BCBS-IOSCO** requirements for uncleared OTC derivatives.
+
+### Regulatory Framework
+
+| Standard | Scope | Key Requirements |
+|----------|-------|------------------|
+| **BCBS-IOSCO** | Bilateral OTC derivatives | VM/IM requirements, eligible collateral |
+| **ISDA SIMM** | Initial margin calculation | Standardized sensitivities-based IM |
+| **EMIR/Dodd-Frank** | Cleared & uncleared | Daily VM, IM for uncleared |
+
+### Adding Margin Specification
+
+```rust
+use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::margin::{
+    OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
+};
+use finstack_core::{currency::Currency, money::Money};
+
+// Create a swap
+let mut swap = InterestRateSwap::create_usd_swap(
+    "IRS-5Y-USD".into(),
+    Money::new(100_000_000.0, Currency::USD),
+    0.035,
+    start_date,
+    end_date,
+    PayReceive::PayFixed,
+)?;
+
+// Add regulatory-compliant margin specification
+swap.margin_spec = Some(OtcMarginSpec {
+    csa: CsaSpec::usd_regulatory(),
+    clearing_status: ClearingStatus::Bilateral,
+    im_methodology: ImMethodology::Simm,
+    vm_frequency: MarginFrequency::Daily,
+    settlement_lag: 1,
+});
+```
+
+### Cleared vs Bilateral
+
+```rust
+// For cleared swaps (e.g., LCH, CME)
+swap.margin_spec = Some(OtcMarginSpec {
+    csa: CsaSpec::usd_regulatory(),
+    clearing_status: ClearingStatus::Cleared { ccp: "LCH".to_string() },
+    im_methodology: ImMethodology::ClearingHouse,
+    vm_frequency: MarginFrequency::Daily,
+    settlement_lag: 0,  // Same-day for cleared
+});
+
+// Check netting set
+let netting_set = swap.netting_set_id().expect("has margin spec");
+assert!(netting_set.is_cleared());
+assert_eq!(netting_set.ccp_id, Some("LCH".to_string()));
+```
+
+### Calculating Margin Requirements
+
+```rust
+use finstack_valuations::margin::{Marginable, SimmSensitivities};
+use finstack_valuations::margin::metrics::{
+    InitialMarginMetric, VariationMarginMetric, TotalMarginMetric,
+};
+
+let market = MarketContext::builder()
+    .insert_discount(discount_curve)
+    .insert_forward(forward_curve)
+    .build();
+
+let as_of = date!(2024-01-15);
+
+// Calculate SIMM sensitivities
+let sensitivities = swap.simm_sensitivities(&market, as_of)?;
+println!("IR Delta (5Y bucket): {:?}", sensitivities.ir_delta);
+
+// Calculate initial margin (SIMM-based)
+let im_metric = InitialMarginMetric::new();
+let im_result = im_metric.calculate(&swap, &market, as_of)?;
+println!("Initial Margin: {}", im_result.amount);
+
+// Calculate variation margin
+let vm_metric = VariationMarginMetric::new();
+let vm_result = vm_metric.calculate(&swap, &market, as_of)?;
+println!("Gross Exposure: {}", vm_result.gross_exposure);
+println!("Delivery Amount: {}", vm_result.delivery_amount);
+
+// Calculate total margin requirement
+let total_metric = TotalMarginMetric::new();
+let result = total_metric.calculate(&swap, &market, as_of)?;
+println!("Total Margin: {}", result.total_margin);
+println!("IM Methodology: {:?}", result.im_methodology);
+```
+
+### CSA Configurations
+
+```rust
+use finstack_valuations::margin::CsaSpec;
+
+// Regulatory-compliant CSA (zero threshold, daily VM, SIMM IM)
+let csa = CsaSpec::usd_regulatory();
+
+// EUR regulatory CSA
+let csa = CsaSpec::eur_regulatory();
+
+// Legacy bilateral with thresholds
+let csa = CsaSpec::bilateral_legacy(
+    "COUNTERPARTY-CSA",
+    Currency::USD,
+    10_000_000.0,  // VM threshold
+    500_000.0,     // Minimum transfer amount
+);
+```
+
+### SIMM Risk Class
+
+IRS instruments are categorized under **Interest Rate** risk class for SIMM purposes. Sensitivities are distributed across SIMM tenor buckets:
+
+| Tenor Bucket | Range |
+|--------------|-------|
+| 6M | ≤ 0.5Y |
+| 1Y | ≤ 1Y |
+| 2Y | ≤ 2Y |
+| 3Y | ≤ 3Y |
+| 5Y | ≤ 5Y |
+| 10Y | ≤ 10Y |
+| 15Y | ≤ 15Y |
+| 20Y | ≤ 20Y |
+| 30Y | > 20Y |
+
+---
+
 ## Limitations / Known Issues
 
 - Pricing assumes deterministic forward/discount curves; no stochastic rates or convexity beyond supported compounding configs.

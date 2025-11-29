@@ -18,5 +18,6 @@ mod cashflows;
 mod collateral;
 mod construction;
 mod edge_cases;
+mod margin;
 mod metrics;
 mod pricing;

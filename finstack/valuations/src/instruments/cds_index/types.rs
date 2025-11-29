@@ -10,6 +10,7 @@
 use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
+use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -74,6 +75,15 @@ pub struct CDSIndex {
     pub constituents: Vec<CDSIndexConstituent>,
     /// Pricing overrides (including upfront payment)
     pub pricing_overrides: PricingOverrides,
+    /// Optional OTC margin specification for VM/IM.
+    ///
+    /// CDS indices are typically cleared through ICE Clear Credit.
+    /// Use `OtcMarginSpec::ice_clear_credit()` for standard cleared indices.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -126,6 +136,7 @@ impl CDSIndex {
             pricing: IndexPricing::SingleCurve,
             constituents: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            margin_spec: None,
             attributes: Attributes::new(),
         }
     }
@@ -175,6 +186,7 @@ impl CDSIndex {
             pricing: IndexPricing::SingleCurve,
             constituents: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
+            margin_spec: None,
             attributes: Attributes::new(),
         };
 
@@ -204,6 +216,7 @@ impl CDSIndex {
             premium: self.premium.clone(),
             protection: self.protection.clone(),
             pricing_overrides: self.pricing_overrides.clone(),
+            margin_spec: self.margin_spec.clone(),
             attributes: self.attributes.clone(),
         }
     }

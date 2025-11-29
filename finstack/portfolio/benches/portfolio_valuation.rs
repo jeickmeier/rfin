@@ -505,6 +505,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             protection,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            margin_spec: None,
         };
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);

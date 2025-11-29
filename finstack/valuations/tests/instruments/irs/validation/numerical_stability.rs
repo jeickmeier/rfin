@@ -318,6 +318,7 @@ fn test_expired_swap_handling() {
             start,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -386,6 +387,7 @@ fn test_very_short_swap_1_month() {
             start: as_of,
             end,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 

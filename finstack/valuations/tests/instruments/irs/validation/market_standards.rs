@@ -351,6 +351,7 @@ fn test_irs_receive_vs_pay_fixed() {
         side: PayReceive::ReceiveFixed,
         fixed: fixed_leg.clone(),
         float: float_leg.clone(),
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -360,6 +361,7 @@ fn test_irs_receive_vs_pay_fixed() {
         side: PayReceive::PayFixed,
         fixed: fixed_leg,
         float: float_leg,
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -432,6 +434,7 @@ fn test_irs_rate_sensitivity() {
         side: PayReceive::ReceiveFixed,
         fixed: fixed_leg,
         float: float_leg,
+        margin_spec: None,
         attributes: Default::default(),
     };
 
@@ -520,6 +523,7 @@ fn test_irs_leg_pvs_consistency() {
             end,
             fixing_calendar_id: None,
         },
+        margin_spec: None,
         attributes: Default::default(),
     };
 

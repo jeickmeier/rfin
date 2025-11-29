@@ -319,6 +319,7 @@ impl PyEquityTotalReturnSwap {
             side: side.inner,
             initial_level,
             attributes: Attributes::new(),
+            margin_spec: None,
         };
 
         Ok(Self::new(inner))
@@ -457,6 +458,7 @@ impl PyFiIndexTotalReturnSwap {
             side: side.inner,
             initial_level,
             attributes: Attributes::new(),
+            margin_spec: None,
         };
 
         Ok(Self::new(inner))
