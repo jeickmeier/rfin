@@ -189,9 +189,10 @@ pub(crate) trait StructuredCreditInstrument {
         let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
         let mdr = self.calculate_default_rate(pay_date, seasoning_months);
 
-        // Adjust for payment period frequency
-        let period_smm = 1.0 - (1.0 - smm).powi(months_per_period as i32);
-        let period_mdr = 1.0 - (1.0 - mdr).powi(months_per_period as i32);
+        // Adjust for payment period frequency using powf to correctly handle
+        // fractional periods (e.g., long/short first periods of 1.5 months)
+        let period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
+        let period_mdr = 1.0 - (1.0 - mdr).powf(months_per_period);
 
         let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
         let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);

@@ -169,6 +169,7 @@ impl TrancheCoupon {
 /// Structured credit tranche with attachment/detachment points
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Tranche {
     /// Unique tranche identifier
     pub id: InstrumentId,
@@ -455,6 +456,12 @@ impl TrancheBuilder {
         let original_balance = self
             .original_balance
             .ok_or(finstack_core::error::InputError::Invalid)?;
+
+        // Validate original_balance is positive
+        if original_balance.amount() <= 0.0 {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+
         let coupon = self
             .coupon
             .ok_or(finstack_core::error::InputError::Invalid)?;

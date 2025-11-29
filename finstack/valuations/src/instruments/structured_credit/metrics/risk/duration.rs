@@ -47,8 +47,9 @@ impl MetricCalculator for MacaulayDurationCalculator {
 
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
 
-        // Use Act/365F for time calculation
-        let day_count = finstack_core::dates::DayCount::Act365F;
+        // Use the discount curve's day count for market-standard consistency
+        // (e.g., 30/360 for US Agency RMBS, Act/360 for CLOs)
+        let day_count = disc.day_count();
 
         let mut weighted_pv = 0.0;
         let mut total_pv = 0.0;
@@ -134,8 +135,9 @@ impl MetricCalculator for ModifiedDurationCalculator {
 
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
 
-        // Use Act/365F for time calculation
-        let day_count = finstack_core::dates::DayCount::Act365F;
+        // Use the discount curve's day count for market-standard consistency
+        // (e.g., 30/360 for US Agency RMBS, Act/360 for CLOs)
+        let day_count = disc.day_count();
         let base_date = disc.base_date();
 
         // Shift yield by 1bp

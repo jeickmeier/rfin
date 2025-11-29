@@ -1,6 +1,7 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::instruments::common::traits::Attributes;
+use finstack_core::dates::BusinessDayConvention;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
@@ -38,10 +39,25 @@ impl std::str::FromStr for PayReceiveInflation {
     }
 }
 
-/// Inflation swap definition (boilerplate)
+/// Zero-coupon Inflation Swap instrument.
 ///
-/// Minimal fields to represent a zero-coupon inflation swap. We keep this
-/// intentionally compact until full pricing is implemented.
+/// Represents a zero-coupon inflation swap where one party pays a fixed real rate
+/// and the other receives the cumulative inflation over the swap's life. At maturity:
+///
+/// ```text
+/// Inflation leg = Notional × [CPI(T_mat - Lag) / CPI(T_start - Lag) - 1]
+/// Fixed leg     = Notional × [(1 + fixed_rate)^τ - 1]
+/// ```
+///
+/// # Market Conventions
+///
+/// - **Lag**: Standard 3-month lag for US CPI, EUR HICP; 8-month for UK RPI
+/// - **Day Count**: Typically ACT/ACT for accrual, curve-specific for discounting
+/// - **Business Day**: Payment dates adjusted per calendar; index observation typically unadjusted
+///
+/// # Validation
+///
+/// Call [`validate()`](Self::validate) to check structural invariants before pricing.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -60,25 +76,33 @@ pub struct InflationSwap {
     pub inflation_index_id: CurveId,
     /// Discount curve identifier (quote currency)
     pub discount_curve_id: CurveId,
-    /// Day count for any accrual-style metrics if needed
+    /// Day count for accrual calculation (fixed leg compounding)
     pub dc: DayCount,
     /// Trade side
     pub side: PayReceiveInflation,
     /// Optional contract-level lag override (if set, overrides index lag)
     #[builder(optional)]
     pub lag_override: Option<InflationLag>,
-    /// Explicit Base CPI (reference index level at start).
+    /// Explicit Base CPI (reference index level at start with lag applied).
     /// If not provided, it will be looked up/calculated from start date.
     #[builder(optional)]
     pub base_cpi: Option<f64>,
+    /// Business day convention for payment date adjustment.
+    /// Defaults to `Following` if not specified.
+    #[builder(optional)]
+    pub bdc: Option<BusinessDayConvention>,
+    /// Holiday calendar identifier for payment date adjustment.
+    /// If not specified, payment dates are used unadjusted.
+    #[builder(optional)]
+    pub calendar_id: Option<String>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
-impl InflationSwap {}
-
 impl InflationSwap {
     /// Create a canonical example zero-coupon inflation swap (US CPI, 5Y).
+    ///
+    /// Returns a 5-year USD inflation swap with standard 3-month CPI lag.
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
@@ -94,21 +118,81 @@ impl InflationSwap {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .dc(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
+            .lag_override(InflationLag::Months(3))
+            .bdc(BusinessDayConvention::Following)
             .attributes(Attributes::new())
             .build()
             .expect("Example InflationSwap construction should not fail")
     }
 
-    pub(crate) fn lagged_maturity_date(&self, default_lag: InflationLag) -> Date {
+    /// Validate structural invariants of the inflation swap.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `start >= maturity` (invalid date ordering)
+    /// - `notional` is non-positive
+    /// - `base_cpi` is provided but non-positive
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.start >= self.maturity {
+            return Err(finstack_core::error::InputError::InvalidDateRange.into());
+        }
+        if self.notional.amount() <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+        if let Some(base) = self.base_cpi {
+            if base <= 0.0 {
+                return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply lag to a date according to the instrument's lag policy.
+    ///
+    /// Uses `lag_override` if set, otherwise falls back to `default_lag`.
+    pub(crate) fn apply_lag(&self, date: Date, default_lag: InflationLag) -> Date {
         let lag_policy = self.lag_override.unwrap_or(default_lag);
         match lag_policy {
-            InflationLag::None => self.maturity,
-            InflationLag::Months(m) => finstack_core::dates::add_months(self.maturity, -(m as i32)),
-            InflationLag::Days(d) => self.maturity - time::Duration::days(d as i64),
-            _ => self.maturity,
+            InflationLag::None => date,
+            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Days(d) => date - time::Duration::days(d as i64),
+            _ => date,
         }
     }
 
+    /// Get the effective lag policy, using index lag as default if available.
+    ///
+    /// Priority order:
+    /// 1. Instrument's `lag_override` if set
+    /// 2. Index's lag if an InflationIndex is in the market context
+    /// 3. `InflationLag::None` as fallback (no lag applied)
+    ///
+    /// Note: For production use, either set `lag_override` explicitly or ensure
+    /// an InflationIndex with the correct lag is in the market context.
+    fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
+        if let Some(lag) = self.lag_override {
+            return lag;
+        }
+        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+            return index.lag();
+        }
+        // Default to no lag when no index is available
+        // This ensures consistency with curve-only contexts (e.g., calibration)
+        InflationLag::None
+    }
+
+    /// Calculate the projected index ratio I(T_mat - Lag) / I(T_start - Lag).
+    ///
+    /// When using an InflationIndex, the index applies its own lag internally via `value_on()`,
+    /// so we pass unlagged dates. When falling back to the inflation curve, we must apply
+    /// the lag ourselves since the curve works in year fractions from its base date.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Inflation curve is not found
+    /// - Base CPI (start index) is non-positive
     pub(crate) fn projected_index_ratio(
         &self,
         curves: &MarketContext,
@@ -120,52 +204,84 @@ impl InflationSwap {
         let i_start = if let Some(base) = self.base_cpi {
             base
         } else if let Some(index) = inflation_index {
+            // InflationIndex.value_on() applies its own lag internally
             index.value_on(self.start)?
         } else {
-            let t_start = DayCount::Act365F
-                .year_fraction(
-                    discount_base,
-                    self.start,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            if t_start <= 0.0 {
-                inflation_curve.base_cpi()
-            } else {
-                inflation_curve.cpi(t_start)
-            }
+            // Fall back to curve-based lookup - we must apply lag ourselves
+            let default_lag = self.effective_lag(curves);
+            let lagged_start = self.apply_lag(self.start, default_lag);
+            // Compute signed year fraction (can be negative if lagged_start < discount_base)
+            let t_start = Self::signed_year_fraction(discount_base, lagged_start);
+            // cpi(t) returns base_cpi for t <= 0, which is correct for historical dates
+            inflation_curve.cpi(t_start)
         };
 
         if i_start <= 0.0 {
             return Err(finstack_core::error::InputError::NonPositiveValue.into());
         }
 
-        let default_lag = if let Some(index) = inflation_index {
-            index.lag()
-        } else {
-            InflationLag::None
-        };
+        // For maturity projection, use curve-based lookup with lag applied
+        // (The index may not have future projections, so we always use the curve for maturity)
+        let default_lag = self.effective_lag(curves);
+        let lagged_maturity = self.apply_lag(self.maturity, default_lag);
 
-        let lagged_maturity = self.lagged_maturity_date(default_lag);
-
-        let t_maturity_infl = DayCount::Act365F
-            .year_fraction(
-                discount_base,
-                lagged_maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let i_maturity_projected = if t_maturity_infl <= 0.0 {
-            inflation_curve.base_cpi()
-        } else {
-            inflation_curve.cpi(t_maturity_infl)
-        };
+        // Compute signed year fraction (can be negative if matured)
+        let t_maturity_infl = Self::signed_year_fraction(discount_base, lagged_maturity);
+        // cpi(t) returns base_cpi for t <= 0, which is correct for matured swaps
+        let i_maturity_projected = inflation_curve.cpi(t_maturity_infl);
 
         Ok(i_maturity_projected / i_start)
     }
 
-    /// Calculate PV of the fixed leg (real rate leg)
+    /// Compute signed year fraction (positive if end > start, negative if end < start).
+    ///
+    /// This is needed for inflation curve lookups where dates may be before the base date.
+    fn signed_year_fraction(start: Date, end: Date) -> f64 {
+        if end >= start {
+            DayCount::Act365F
+                .year_fraction(
+                    start,
+                    end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0)
+        } else {
+            // Negative year fraction for dates before the base
+            -DayCount::Act365F
+                .year_fraction(
+                    end,
+                    start,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0)
+        }
+    }
+
+    /// Get the adjusted payment date based on business day convention and calendar.
+    ///
+    /// If no calendar is specified, returns the unadjusted date.
+    fn adjusted_payment_date(&self, date: Date) -> Date {
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        if let Some(ref cal_id) = self.calendar_id {
+            use finstack_core::dates::calendar::registry::CalendarRegistry;
+            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                return finstack_core::dates::adjust(date, bdc, cal).unwrap_or(date);
+            }
+        }
+        // No calendar specified - return unadjusted (common for inflation swaps)
+        date
+    }
+
+    /// Calculate PV of the fixed leg (real rate leg).
+    ///
+    /// The fixed leg pays `Notional × [(1 + fixed_rate)^τ - 1]` at maturity,
+    /// where τ is the accrual year fraction using the instrument's day count.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Discount curve is not found
+    /// - Year fraction calculation fails
     pub fn pv_fixed_leg(
         &self,
         curves: &MarketContext,
@@ -173,6 +289,7 @@ impl InflationSwap {
     ) -> finstack_core::Result<Money> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
 
+        // Use instrument day count for accrual period
         let tau_accrual = self.dc.year_fraction(
             self.start,
             self.maturity,
@@ -181,19 +298,31 @@ impl InflationSwap {
 
         let fixed_payment = self.notional * ((1.0 + self.fixed_rate).powf(tau_accrual) - 1.0);
 
-        let t_discount = DayCount::Act365F
-            .year_fraction(
-                as_of,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+        // Use curve's day count for discounting (market standard)
+        let payment_date = self.adjusted_payment_date(self.maturity);
+        let curve_dc = disc.day_count();
+        let t_discount = curve_dc.year_fraction(
+            as_of,
+            payment_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let df = disc.df(t_discount);
 
         Ok(fixed_payment * df)
     }
 
-    /// Calculate PV of the inflation leg
+    /// Calculate PV of the inflation leg.
+    ///
+    /// The inflation leg pays `Notional × [I(T_mat - Lag) / I(T_start - Lag) - 1]`
+    /// at maturity, where I(t) is the inflation index value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Discount curve is not found
+    /// - Inflation curve is not found
+    /// - Index ratio calculation fails
+    /// - Year fraction calculation fails
     pub fn pv_inflation_leg(
         &self,
         curves: &MarketContext,
@@ -203,19 +332,33 @@ impl InflationSwap {
         let index_ratio = self.projected_index_ratio(curves, as_of)?;
         let inflation_payment = self.notional * (index_ratio - 1.0);
 
-        let t_discount = DayCount::Act365F
-            .year_fraction(
-                as_of,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
+        // Use curve's day count for discounting (market standard)
+        let payment_date = self.adjusted_payment_date(self.maturity);
+        let curve_dc = disc.day_count();
+        let t_discount = curve_dc.year_fraction(
+            as_of,
+            payment_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let df = disc.df(t_discount);
 
         Ok(inflation_payment * df)
     }
 
-    /// Fixed rate that sets the swap's present value to zero (par real rate)
+    /// Fixed rate that sets the swap's present value to zero (par real rate / breakeven).
+    ///
+    /// For a zero-coupon inflation swap, the par rate K satisfies:
+    /// ```text
+    /// (1 + K)^τ = I(T_mat - Lag) / I(T_start - Lag)
+    /// K = [I(T_mat - Lag) / I(T_start - Lag)]^(1/τ) - 1
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Discount curve is not found
+    /// - Index ratio is non-positive
+    /// - Year fraction calculation fails
     pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
         let base = disc.base_date();
@@ -237,8 +380,22 @@ impl InflationSwap {
         Ok(index_ratio.powf(1.0 / tau) - 1.0)
     }
 
-    /// Net present value of the instrument via legs
+    /// Net present value of the instrument via legs.
+    ///
+    /// Computes PV(inflation leg) - PV(fixed leg) for PayFixed side,
+    /// or PV(fixed leg) - PV(inflation leg) for ReceiveFixed side.
+    ///
+    /// For matured swaps (as_of >= maturity), returns zero PV.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either leg PV calculation fails.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        // Matured swaps have zero PV
+        if as_of >= self.maturity {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
         let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
         let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
         match self.side {

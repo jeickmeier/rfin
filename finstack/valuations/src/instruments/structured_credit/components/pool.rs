@@ -301,6 +301,7 @@ pub struct PoolStats {
 /// Main asset pool structure
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct AssetPool {
     /// Pool identifier
     pub id: InstrumentId,

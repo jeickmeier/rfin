@@ -60,7 +60,7 @@ pub use tranches::{
 pub use waterfall::{
     AllocationMode, CoverageTestType, CoverageTrigger as WaterfallCoverageTrigger,
     ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRecord, PaymentType, Recipient,
-    WaterfallBuilder, WaterfallEngine, WaterfallResult, WaterfallTier,
+    WaterfallBuilder, WaterfallEngine, WaterfallResult, WaterfallTier, WaterfallWorkspace,
 };
 
 pub use coverage_tests::{CoverageTest, TestContext, TestResult};

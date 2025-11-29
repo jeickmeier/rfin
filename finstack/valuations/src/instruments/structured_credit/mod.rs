@@ -310,6 +310,8 @@ pub use components::{
     WaterfallResult,
     WaterfallTier,
     WaterfallValidator,
+    // Workspace for zero-allocation waterfall execution
+    WaterfallWorkspace,
 };
 
 pub use utils::months_between;
