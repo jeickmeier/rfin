@@ -108,6 +108,130 @@ impl std::str::FromStr for SwaptionExercise {
     }
 }
 
+// ============================================================================
+// Bermudan Swaption Types
+// ============================================================================
+
+/// Bermudan exercise schedule specification.
+///
+/// Defines the exercise dates and constraints for a Bermudan swaption.
+/// Exercise dates are typically aligned with swap coupon dates.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BermudanSchedule {
+    /// Exercise dates (must be sorted, typically on swap coupon dates)
+    pub exercise_dates: Vec<Date>,
+    /// Lockout period end (no exercise before this date)
+    pub lockout_end: Option<Date>,
+    /// Notice period in business days before exercise
+    pub notice_days: u32,
+}
+
+impl BermudanSchedule {
+    /// Create a new Bermudan schedule with the given exercise dates.
+    ///
+    /// # Arguments
+    /// * `exercise_dates` - Exercise dates (will be sorted)
+    pub fn new(mut exercise_dates: Vec<Date>) -> Self {
+        exercise_dates.sort();
+        Self {
+            exercise_dates,
+            lockout_end: None,
+            notice_days: 0,
+        }
+    }
+
+    /// Create schedule with lockout period.
+    pub fn with_lockout(mut self, lockout_end: Date) -> Self {
+        self.lockout_end = Some(lockout_end);
+        self
+    }
+
+    /// Create schedule with notice period.
+    pub fn with_notice_days(mut self, days: u32) -> Self {
+        self.notice_days = days;
+        self
+    }
+
+    /// Generate co-terminal exercise dates from swap schedule.
+    ///
+    /// Creates exercise dates on each fixed leg payment date from `first_exercise`
+    /// to `swap_end`, excluding the final payment date (swap maturity).
+    ///
+    /// # Arguments
+    /// * `first_exercise` - First allowed exercise date
+    /// * `swap_end` - Swap maturity date
+    /// * `fixed_freq` - Fixed leg payment frequency
+    pub fn co_terminal(first_exercise: Date, swap_end: Date, fixed_freq: Frequency) -> Self {
+        let sched = crate::cashflow::builder::build_dates(
+            first_exercise,
+            swap_end,
+            fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        // Exercise dates are all coupon dates except the last one (maturity)
+        let exercise_dates: Vec<Date> = sched
+            .dates
+            .into_iter()
+            .filter(|&d| d >= first_exercise && d < swap_end)
+            .collect();
+        Self::new(exercise_dates)
+    }
+
+    /// Get effective exercise dates (filtered by lockout).
+    pub fn effective_dates(&self) -> Vec<Date> {
+        match self.lockout_end {
+            Some(lockout) => self
+                .exercise_dates
+                .iter()
+                .filter(|&&d| d > lockout)
+                .copied()
+                .collect(),
+            None => self.exercise_dates.clone(),
+        }
+    }
+
+    /// Convert exercise dates to year fractions from a given date.
+    pub fn exercise_times(&self, as_of: Date, day_count: DayCount) -> Result<Vec<f64>> {
+        let ctx = finstack_core::dates::DayCountCtx::default();
+        self.effective_dates()
+            .iter()
+            .map(|&d| day_count.year_fraction(as_of, d, ctx))
+            .collect()
+    }
+
+    /// Number of exercise opportunities.
+    pub fn num_exercises(&self) -> usize {
+        self.effective_dates().len()
+    }
+}
+
+/// Co-terminal vs non-co-terminal Bermudan exercise.
+///
+/// This distinction affects pricing methodology and calibration:
+/// - Co-terminal: All exercise dates lead to the same swap end date
+/// - Non-co-terminal: Each exercise date may have a different remaining swap tenor
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum BermudanType {
+    /// All exercise dates lead to same swap end date (most common)
+    #[default]
+    CoTerminal,
+    /// Exercise dates may have different swap end dates
+    NonCoTerminal,
+}
+
+impl std::fmt::Display for BermudanType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BermudanType::CoTerminal => write!(f, "co-terminal"),
+            BermudanType::NonCoTerminal => write!(f, "non-co-terminal"),
+        }
+    }
+}
+
 /// Swaption instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -630,6 +754,426 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Swaption {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for Swaption {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.forward_id.clone())
+            .build()
+    }
+}
+
+// ============================================================================
+// Bermudan Swaption Instrument
+// ============================================================================
+
+/// Bermudan swaption with multiple exercise dates.
+///
+/// A Bermudan swaption gives the holder the right to enter into an interest rate
+/// swap at any of a set of predetermined exercise dates. This is the most common
+/// type of exotic swaption in the market, used extensively for:
+///
+/// - Callable bond hedging
+/// - Mortgage prepayment risk management
+/// - Structured product hedging
+///
+/// # Pricing Methods
+///
+/// Bermudan swaptions require numerical methods for pricing:
+/// - **Hull-White Tree**: Industry standard, calibrated to swaption volatility
+/// - **LSMC**: Longstaff-Schwartz Monte Carlo for validation
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::swaption::{
+///     BermudanSwaption, BermudanSchedule, BermudanType, SwaptionSettlement,
+/// };
+///
+/// // Create a 10NC2 (10-year swap, callable after 2 years)
+/// let swaption = BermudanSwaption::example();
+/// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct BermudanSwaption {
+    /// Unique instrument identifier
+    pub id: InstrumentId,
+    /// Option type (payer = Call, receiver = Put)
+    pub option_type: OptionType,
+    /// Notional amount of underlying swap
+    pub notional: Money,
+    /// Strike rate (fixed rate on underlying swap)
+    pub strike_rate: f64,
+    /// Underlying swap start date (first accrual start)
+    pub swap_start: Date,
+    /// Underlying swap end date (final payment)
+    pub swap_end: Date,
+    /// Fixed leg payment frequency
+    pub fixed_freq: Frequency,
+    /// Floating leg payment frequency
+    pub float_freq: Frequency,
+    /// Day count convention for fixed leg
+    pub day_count: DayCount,
+    /// Settlement method (physical or cash)
+    pub settlement: SwaptionSettlement,
+    /// Discount curve ID for present value calculations
+    pub discount_curve_id: CurveId,
+    /// Forward curve ID for floating rate projections
+    pub forward_id: CurveId,
+    /// Volatility surface ID for calibration
+    pub vol_surface_id: CurveId,
+    /// Bermudan exercise schedule
+    pub bermudan_schedule: BermudanSchedule,
+    /// Co-terminal or non-co-terminal exercise
+    pub bermudan_type: BermudanType,
+    /// Pricing overrides (manual price, yield, spread)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub attributes: Attributes,
+}
+
+impl BermudanSwaption {
+    /// Create a canonical example Bermudan swaption for testing.
+    ///
+    /// Returns a 10NC2 payer swaption (10-year swap, callable quarterly after 2 years).
+    pub fn example() -> Self {
+        let swap_start = Date::from_calendar_date(2025, time::Month::January, 17)
+            .expect("Valid example date");
+        let swap_end = Date::from_calendar_date(2035, time::Month::January, 17)
+            .expect("Valid example date");
+        let first_exercise = Date::from_calendar_date(2027, time::Month::January, 17)
+            .expect("Valid example date");
+
+        Self {
+            id: InstrumentId::new("BERM-10NC2-USD"),
+            option_type: OptionType::Call,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            strike_rate: 0.03,
+            swap_start,
+            swap_end,
+            fixed_freq: Frequency::semi_annual(),
+            float_freq: Frequency::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_id: CurveId::new("USD-SOFR-3M"),
+            vol_surface_id: CurveId::new("USD-SWPNVOL"),
+            bermudan_schedule: BermudanSchedule::co_terminal(
+                first_exercise,
+                swap_end,
+                Frequency::semi_annual(),
+            ),
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::new(),
+        }
+    }
+
+    /// Create a new Bermudan payer swaption (right to pay fixed).
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_payer(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: f64,
+        swap_start: Date,
+        swap_end: Date,
+        bermudan_schedule: BermudanSchedule,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            option_type: OptionType::Call,
+            notional,
+            strike_rate,
+            swap_start,
+            swap_end,
+            fixed_freq: Frequency::semi_annual(),
+            float_freq: Frequency::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            bermudan_schedule,
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::default(),
+        }
+    }
+
+    /// Create a new Bermudan receiver swaption (right to receive fixed).
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_receiver(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: f64,
+        swap_start: Date,
+        swap_end: Date,
+        bermudan_schedule: BermudanSchedule,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            option_type: OptionType::Put,
+            notional,
+            strike_rate,
+            swap_start,
+            swap_end,
+            fixed_freq: Frequency::semi_annual(),
+            float_freq: Frequency::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            bermudan_schedule,
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::default(),
+        }
+    }
+
+    /// Set fixed leg frequency.
+    pub fn with_fixed_freq(mut self, freq: Frequency) -> Self {
+        self.fixed_freq = freq;
+        self
+    }
+
+    /// Set floating leg frequency.
+    pub fn with_float_freq(mut self, freq: Frequency) -> Self {
+        self.float_freq = freq;
+        self
+    }
+
+    /// Set day count convention.
+    pub fn with_day_count(mut self, dc: DayCount) -> Self {
+        self.day_count = dc;
+        self
+    }
+
+    /// Set settlement method.
+    pub fn with_settlement(mut self, settlement: SwaptionSettlement) -> Self {
+        self.settlement = settlement;
+        self
+    }
+
+    /// Set Bermudan type (co-terminal or non-co-terminal).
+    pub fn with_bermudan_type(mut self, bermudan_type: BermudanType) -> Self {
+        self.bermudan_type = bermudan_type;
+        self
+    }
+
+    /// Get the first exercise date.
+    pub fn first_exercise(&self) -> Option<Date> {
+        self.bermudan_schedule.effective_dates().first().copied()
+    }
+
+    /// Get the last exercise date.
+    pub fn last_exercise(&self) -> Option<Date> {
+        self.bermudan_schedule.effective_dates().last().copied()
+    }
+
+    /// Calculate time to first exercise in years.
+    pub fn time_to_first_exercise(&self, as_of: Date) -> Result<f64> {
+        match self.first_exercise() {
+            Some(first) => self
+                .day_count
+                .year_fraction(as_of, first, finstack_core::dates::DayCountCtx::default()),
+            None => Err(Error::Validation("No exercise dates".into())),
+        }
+    }
+
+    /// Calculate time to swap maturity in years.
+    pub fn time_to_maturity(&self, as_of: Date) -> Result<f64> {
+        self.day_count
+            .year_fraction(as_of, self.swap_end, finstack_core::dates::DayCountCtx::default())
+    }
+
+    /// Get exercise dates as year fractions from valuation date.
+    pub fn exercise_times(&self, as_of: Date) -> Result<Vec<f64>> {
+        self.bermudan_schedule.exercise_times(as_of, self.day_count)
+    }
+
+    /// Build the underlying swap payment schedule.
+    ///
+    /// Returns (payment_dates, accrual_fractions) for the fixed leg.
+    pub fn build_swap_schedule(&self, _as_of: Date) -> Result<(Vec<Date>, Vec<f64>)> {
+        let sched = crate::cashflow::builder::build_dates(
+            self.swap_start,
+            self.swap_end,
+            self.fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+
+        let dates: Vec<Date> = sched.dates.iter().skip(1).copied().collect();
+        let ctx = finstack_core::dates::DayCountCtx::default();
+
+        let mut accruals = Vec::with_capacity(dates.len());
+        let mut prev = self.swap_start;
+        for &d in &dates {
+            let tau = self.day_count.year_fraction(prev, d, ctx)?;
+            accruals.push(tau);
+            prev = d;
+        }
+
+        Ok((dates, accruals))
+    }
+
+    /// Convert payment dates to year fractions.
+    pub fn payment_times(&self, as_of: Date) -> Result<Vec<f64>> {
+        let (dates, _) = self.build_swap_schedule(as_of)?;
+        let ctx = finstack_core::dates::DayCountCtx::default();
+        dates
+            .iter()
+            .map(|&d| self.day_count.year_fraction(as_of, d, ctx))
+            .collect()
+    }
+
+    /// Forward swap rate at a given exercise date (using discount curve).
+    ///
+    /// For co-terminal swaptions, the swap always matures at `swap_end`.
+    /// For non-co-terminal, each exercise date may have different remaining tenor.
+    pub fn forward_swap_rate(
+        &self,
+        disc: &dyn Discounting,
+        as_of: Date,
+        exercise_date: Date,
+    ) -> Result<f64> {
+        let ctx = finstack_core::dates::DayCountCtx::default();
+
+        // Swap starts at exercise date
+        let t_start = self.day_count.year_fraction(as_of, exercise_date, ctx)?;
+        let t_end = self.day_count.year_fraction(as_of, self.swap_end, ctx)?;
+
+        let df_start = disc.df(t_start);
+        let df_end = disc.df(t_end);
+
+        // Calculate annuity for remaining swap
+        let annuity = self.remaining_annuity(disc, as_of, exercise_date)?;
+
+        if annuity.abs() < 1e-10 {
+            return Ok(0.0);
+        }
+
+        Ok((df_start - df_end) / annuity)
+    }
+
+    /// Calculate annuity for remaining swap payments after exercise date.
+    pub fn remaining_annuity(
+        &self,
+        disc: &dyn Discounting,
+        as_of: Date,
+        exercise_date: Date,
+    ) -> Result<f64> {
+        let (dates, accruals) = self.build_swap_schedule(as_of)?;
+        let ctx = finstack_core::dates::DayCountCtx::default();
+
+        let mut annuity = 0.0;
+        for (d, tau) in dates.iter().zip(accruals.iter()) {
+            if *d > exercise_date {
+                let t = self.day_count.year_fraction(as_of, *d, ctx)?;
+                annuity += tau * disc.df(t);
+            }
+        }
+
+        Ok(annuity)
+    }
+
+    /// Convert to European swaption for the first exercise date.
+    ///
+    /// Useful for calibration and testing.
+    pub fn to_european(&self) -> Result<Swaption> {
+        let first_ex = self
+            .first_exercise()
+            .ok_or_else(|| Error::Validation("No exercise dates".into()))?;
+
+        Ok(Swaption {
+            id: InstrumentId::new(format!("{}-EURO", self.id.as_str())),
+            option_type: self.option_type,
+            notional: self.notional,
+            strike_rate: self.strike_rate,
+            expiry: first_ex,
+            swap_start: first_ex,
+            swap_end: self.swap_end,
+            fixed_freq: self.fixed_freq,
+            float_freq: self.float_freq,
+            day_count: self.day_count,
+            exercise: SwaptionExercise::European,
+            settlement: self.settlement,
+            vol_model: VolatilityModel::Black,
+            discount_curve_id: self.discount_curve_id.clone(),
+            forward_id: self.forward_id.clone(),
+            vol_surface_id: self.vol_surface_id.clone(),
+            pricing_overrides: self.pricing_overrides.clone(),
+            sabr_params: None,
+            attributes: self.attributes.clone(),
+        })
+    }
+}
+
+impl crate::instruments::common::traits::Instrument for BermudanSwaption {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::BermudanSwaption
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        _curves: &finstack_core::market_data::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Bermudan swaptions require tree or MC pricing - delegate to pricer
+        Err(Error::Validation(
+            "BermudanSwaption requires tree or LSMC pricing via BermudanSwaptionPricer".into(),
+        ))
+    }
+
+    fn price_with_metrics(
+        &self,
+        _curves: &finstack_core::market_data::MarketContext,
+        _as_of: finstack_core::dates::Date,
+        _metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        Err(Error::Validation(
+            "BermudanSwaption requires tree or LSMC pricing via BermudanSwaptionPricer".into(),
+        ))
+    }
+}
+
+impl crate::instruments::common::pricing::HasDiscountCurve for BermudanSwaption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
+impl crate::instruments::common::traits::CurveDependencies for BermudanSwaption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())

@@ -35,8 +35,10 @@ pub enum InstrumentType {
     IRS = 7,
     /// Interest rate cap or floor (portfolio of caplets/floorlets).
     CapFloor = 8,
-    /// Option on interest rate swap.
+    /// Option on interest rate swap (European exercise).
     Swaption = 9,
+    /// Bermudan swaption (multiple exercise dates).
+    BermudanSwaption = 10,
     /// Basis swap (floating-for-floating with spread).
     BasisSwap = 11,
     /// Multi-asset basket (worst-of, best-of, or weighted).
@@ -117,6 +119,7 @@ impl InstrumentType {
             InstrumentType::IRS => "InterestRateSwap",
             InstrumentType::CapFloor => "InterestRateOption",
             InstrumentType::Swaption => "Swaption",
+            InstrumentType::BermudanSwaption => "BermudanSwaption",
             InstrumentType::BasisSwap => "BasisSwap",
             InstrumentType::Basket => "Basket",
             InstrumentType::Convertible => "ConvertibleBond",
@@ -164,6 +167,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::IRS => "irs",
             InstrumentType::CapFloor => "cap_floor",
             InstrumentType::Swaption => "swaption",
+            InstrumentType::BermudanSwaption => "bermudan_swaption",
             InstrumentType::BasisSwap => "basis_swap",
             InstrumentType::Basket => "basket",
             InstrumentType::Convertible => "convertible",

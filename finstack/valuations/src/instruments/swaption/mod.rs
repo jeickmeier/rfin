@@ -107,7 +107,14 @@ pub mod metrics;
 pub mod parameters;
 /// Swaption pricer implementation using Black (1976) model
 pub mod pricer;
+/// Bermudan swaption pricing engines (tree, LSMC)
+pub mod pricing;
 pub mod types;
 
-pub use pricer::SimpleSwaptionBlackPricer;
-pub use types::{GreekInputs, Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};
+pub use pricer::{
+    BermudanPricingMethod, BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
+};
+pub use types::{
+    BermudanSchedule, BermudanSwaption, BermudanType, GreekInputs, Swaption, SwaptionExercise,
+    SwaptionSettlement, VolatilityModel,
+};

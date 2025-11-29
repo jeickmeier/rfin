@@ -88,6 +88,7 @@ pub mod convexity;
 pub mod discount;
 pub mod forward_curve;
 pub mod hazard_curve;
+pub mod hull_white;
 pub mod inflation_curve;
 pub mod sabr_surface;
 pub mod swaption_market_conventions;
@@ -99,6 +100,10 @@ pub use discount::create_ois_swap_from_quote;
 pub use discount::DiscountCurveCalibrator;
 pub use forward_curve::ForwardCurveCalibrator;
 pub use hazard_curve::HazardCurveCalibrator;
+pub use hull_white::{
+    HullWhiteCalibrationConfig, HullWhiteCalibrationResult, HullWhiteCalibrationTargets,
+    HullWhiteCalibrator,
+};
 pub use inflation_curve::InflationCurveCalibrator;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;

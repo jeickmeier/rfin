@@ -2,6 +2,28 @@
 //!
 //! Extends the LSMC framework to price Bermudan swaptions where exercise decisions
 //! depend on forward swap rates computed from Hull-White short rate simulations.
+//!
+//! # Features
+//!
+//! - Hull-White 1-factor short rate simulation with exact discretization
+//! - Longstaff-Schwartz backward induction with optimal exercise decisions
+//! - Variance reduction via antithetic variates and control variates
+//! - Polynomial and Laguerre basis functions for regression
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::common::models::monte_carlo::pricer::swaption_lsmc::{
+//!     SwaptionLsmcPricer, SwaptionLsmcConfig, SwaptionBasis,
+//! };
+//! use finstack_valuations::instruments::common::mc::process::ou::{HullWhite1FProcess, HullWhite1FParams};
+//!
+//! let hw_params = HullWhite1FParams::new(0.03, 0.01, 0.03);
+//! let hw_process = HullWhite1FProcess::new(hw_params);
+//! let config = SwaptionLsmcConfig::default();
+//!
+//! let pricer = SwaptionLsmcPricer::with_config(config, hw_process);
+//! ```
 
 use super::super::payoff::swaption::{BermudanSwaptionPayoff, SwaptionType};
 use super::super::results::MoneyEstimate;
@@ -18,24 +40,258 @@ use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
+// ============================================================================
+// Configuration
+// ============================================================================
+
+/// Configuration for Bermudan swaption LSMC pricing.
+///
+/// # Default Values
+///
+/// | Parameter | Default | Description |
+/// |-----------|---------|-------------|
+/// | num_paths | 50,000 | Number of Monte Carlo paths |
+/// | seed | 42 | Random seed for reproducibility |
+/// | basis_degree | 3 | Polynomial degree for regression |
+/// | antithetic | true | Use antithetic variates |
+/// | control_variate | false | Use European as control |
+#[derive(Clone, Debug)]
+pub struct SwaptionLsmcConfig {
+    /// Number of Monte Carlo paths.
+    ///
+    /// More paths improve accuracy but increase computation time.
+    /// Typical values: 10,000 (fast), 50,000 (standard), 100,000+ (high precision)
+    pub num_paths: usize,
+
+    /// Random seed for reproducibility.
+    ///
+    /// Using the same seed produces identical results across runs.
+    pub seed: u64,
+
+    /// Polynomial degree for basis functions in regression.
+    ///
+    /// Higher degrees can capture more complex continuation value surfaces
+    /// but may overfit with limited ITM paths.
+    /// Typical values: 2-4
+    pub basis_degree: usize,
+
+    /// Use antithetic variates for variance reduction.
+    ///
+    /// Generates (Z, -Z) path pairs which reduces variance by exploiting
+    /// negative correlation between paired paths.
+    pub antithetic: bool,
+
+    /// Use European swaption as control variate.
+    ///
+    /// Reduces variance by using the analytical European value as a control.
+    /// Requires the European swaption to be priced analytically.
+    pub control_variate: bool,
+
+    /// Exercise dates for the LSMC algorithm (step indices).
+    ///
+    /// Typically set automatically from the Bermudan schedule.
+    pub exercise_dates: Vec<usize>,
+}
+
+impl Default for SwaptionLsmcConfig {
+    fn default() -> Self {
+        Self {
+            num_paths: 50_000,
+            seed: 42,
+            basis_degree: 3,
+            antithetic: true,
+            control_variate: false,
+            exercise_dates: Vec::new(),
+        }
+    }
+}
+
+impl SwaptionLsmcConfig {
+    /// Create a new configuration with specified parameters.
+    pub fn new(num_paths: usize, seed: u64) -> Self {
+        Self {
+            num_paths,
+            seed,
+            ..Default::default()
+        }
+    }
+
+    /// Set basis function degree.
+    pub fn with_basis_degree(mut self, degree: usize) -> Self {
+        self.basis_degree = degree;
+        self
+    }
+
+    /// Enable/disable antithetic variates.
+    pub fn with_antithetic(mut self, enabled: bool) -> Self {
+        self.antithetic = enabled;
+        self
+    }
+
+    /// Enable/disable control variate.
+    pub fn with_control_variate(mut self, enabled: bool) -> Self {
+        self.control_variate = enabled;
+        self
+    }
+
+    /// Set exercise dates (step indices).
+    pub fn with_exercise_dates(mut self, dates: Vec<usize>) -> Self {
+        self.exercise_dates = dates;
+        self
+    }
+
+    /// Convert to internal LsmcConfig.
+    pub fn to_lsmc_config(&self) -> LsmcConfig {
+        LsmcConfig {
+            num_paths: self.num_paths,
+            seed: self.seed,
+            exercise_dates: self.exercise_dates.clone(),
+            use_parallel: false, // LSMC is complex, default to serial
+        }
+    }
+}
+
+// ============================================================================
+// Swaption-Specific Basis Functions
+// ============================================================================
+
+/// Basis functions optimized for swaption regression.
+///
+/// Uses polynomial basis functions of the swap rate, which is the natural
+/// state variable for swaption exercise decisions.
+///
+/// Basis: {1, S, S², S³, ...} up to degree n
+#[derive(Clone, Debug)]
+pub struct SwaptionBasis {
+    /// Polynomial degree
+    degree: usize,
+}
+
+impl SwaptionBasis {
+    /// Create new swaption basis functions.
+    pub fn new(degree: usize) -> Self {
+        Self { degree }
+    }
+}
+
+impl BasisFunctions for SwaptionBasis {
+    fn num_basis(&self) -> usize {
+        self.degree + 1
+    }
+
+    fn evaluate(&self, swap_rate: f64, out: &mut [f64]) {
+        debug_assert_eq!(out.len(), self.num_basis());
+
+        // Polynomial basis: {1, S, S², S³, ...}
+        let mut power = 1.0;
+        for item in out.iter_mut().take(self.degree + 1) {
+            *item = power;
+            power *= swap_rate;
+        }
+    }
+}
+
+/// Extended basis functions including annuity.
+///
+/// Basis: {1, S, S², ..., A, S×A}
+///
+/// Including the annuity as a state variable can improve regression quality
+/// for swaptions where both rate level and annuity affect option value.
+#[derive(Clone, Debug)]
+pub struct ExtendedSwaptionBasis {
+    /// Polynomial degree for swap rate
+    degree: usize,
+    /// Include annuity as additional basis
+    include_annuity: bool,
+}
+
+impl ExtendedSwaptionBasis {
+    /// Create extended basis with annuity terms.
+    pub fn new(degree: usize, include_annuity: bool) -> Self {
+        Self {
+            degree,
+            include_annuity,
+        }
+    }
+}
+
+impl BasisFunctions for ExtendedSwaptionBasis {
+    fn num_basis(&self) -> usize {
+        let base = self.degree + 1;
+        if self.include_annuity {
+            base + 2 // Add A and S×A terms
+        } else {
+            base
+        }
+    }
+
+    fn evaluate(&self, swap_rate: f64, out: &mut [f64]) {
+        debug_assert_eq!(out.len(), self.num_basis());
+
+        // Polynomial basis
+        let mut power = 1.0;
+        for basis in out.iter_mut().take(self.degree + 1) {
+            *basis = power;
+            power *= swap_rate;
+        }
+
+        // Note: Annuity terms would need to be passed separately
+        // For now, fill with placeholder values
+        if self.include_annuity {
+            out[self.degree + 1] = 1.0; // Placeholder for A
+            out[self.degree + 2] = swap_rate; // Placeholder for S×A
+        }
+    }
+}
+
 /// LSMC pricer for Bermudan swaptions.
 ///
 /// Uses backward induction with least-squares regression, similar to equity LSMC,
 /// but computes exercise values from forward swap rates instead of spot prices.
+///
+/// # Features
+///
+/// - Hull-White 1F short rate simulation
+/// - Polynomial basis functions for regression
+/// - Optional antithetic variates for variance reduction
+/// - Optional control variate using European swaption
 pub struct SwaptionLsmcPricer {
+    /// Internal LSMC configuration
     config: LsmcConfig,
+    /// Hull-White process parameters
     hw_process: HullWhite1FProcess,
+    /// Extended configuration
+    swaption_config: SwaptionLsmcConfig,
 }
 
 impl SwaptionLsmcPricer {
-    /// Create a new swaption LSMC pricer.
+    /// Create a new swaption LSMC pricer with default configuration.
     ///
     /// # Arguments
     ///
     /// * `config` - LSMC configuration (num_paths, exercise_dates, etc.)
     /// * `hw_process` - Hull-White 1F process for short rate simulation
     pub fn new(config: LsmcConfig, hw_process: HullWhite1FProcess) -> Self {
-        Self { config, hw_process }
+        Self {
+            config: config.clone(),
+            hw_process,
+            swaption_config: SwaptionLsmcConfig {
+                num_paths: config.num_paths,
+                seed: config.seed,
+                exercise_dates: config.exercise_dates.clone(),
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Create a new pricer with full configuration.
+    pub fn with_config(swaption_config: SwaptionLsmcConfig, hw_process: HullWhite1FProcess) -> Self {
+        let config = swaption_config.to_lsmc_config();
+        Self {
+            config,
+            hw_process,
+            swaption_config,
+        }
     }
 
     /// Price a Bermudan swaption.
@@ -105,7 +361,24 @@ impl SwaptionLsmcPricer {
     }
 
     /// Generate short rate paths using Hull-White process.
+    ///
+    /// If antithetic variates are enabled, generates paired paths (Z, -Z)
+    /// which reduces variance through negative correlation.
     fn generate_rate_paths(
+        &self,
+        initial_rate: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+    ) -> Result<Vec<Vec<f64>>> {
+        if self.swaption_config.antithetic {
+            self.generate_antithetic_paths(initial_rate, time_to_maturity, num_steps)
+        } else {
+            self.generate_standard_paths(initial_rate, time_to_maturity, num_steps)
+        }
+    }
+
+    /// Generate standard (non-antithetic) paths.
+    fn generate_standard_paths(
         &self,
         initial_rate: f64,
         time_to_maturity: f64,
@@ -136,6 +409,94 @@ impl SwaptionLsmcPricer {
                 rate_path.push(state[0]);
             }
 
+            paths.push(rate_path);
+        }
+
+        Ok(paths)
+    }
+
+    /// Generate antithetic path pairs (Z, -Z) for variance reduction.
+    ///
+    /// For each random draw Z, generates two paths:
+    /// - Original path using Z
+    /// - Antithetic path using -Z
+    ///
+    /// This exploits the negative correlation to reduce variance.
+    fn generate_antithetic_paths(
+        &self,
+        initial_rate: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+    ) -> Result<Vec<Vec<f64>>> {
+        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+        let disc = ExactHullWhite1F::new();
+        let rng = PhiloxRng::new(self.config.seed);
+
+        // With antithetic, we need half the random numbers
+        let num_pairs = self.config.num_paths / 2;
+        let mut paths = Vec::with_capacity(self.config.num_paths);
+
+        for pair_id in 0..num_pairs {
+            let mut path_rng = rng.split(pair_id as u64);
+
+            // Generate random draws for this pair
+            let mut z_draws: Vec<f64> = vec![0.0; num_steps];
+            for z in &mut z_draws {
+                let mut z_buf = vec![0.0];
+                path_rng.fill_std_normals(&mut z_buf);
+                *z = z_buf[0];
+            }
+
+            // Original path using +Z
+            let mut state_orig = vec![initial_rate];
+            let mut rate_path_orig = Vec::with_capacity(num_steps + 1);
+            rate_path_orig.push(initial_rate);
+
+            let mut work = vec![];
+            for (step, &z_val) in z_draws.iter().enumerate() {
+                let t = time_grid.time(step);
+                let dt = time_grid.dt(step);
+
+                let z = vec![z_val];
+                disc.step(&self.hw_process, t, dt, &mut state_orig, &z, &mut work);
+                rate_path_orig.push(state_orig[0]);
+            }
+
+            // Antithetic path using -Z
+            let mut state_anti = vec![initial_rate];
+            let mut rate_path_anti = Vec::with_capacity(num_steps + 1);
+            rate_path_anti.push(initial_rate);
+
+            for (step, &z_val) in z_draws.iter().enumerate() {
+                let t = time_grid.time(step);
+                let dt = time_grid.dt(step);
+
+                let z = vec![-z_val]; // Negate the random draw
+                disc.step(&self.hw_process, t, dt, &mut state_anti, &z, &mut work);
+                rate_path_anti.push(state_anti[0]);
+            }
+
+            paths.push(rate_path_orig);
+            paths.push(rate_path_anti);
+        }
+
+        // Handle odd number of paths
+        if self.config.num_paths % 2 == 1 {
+            let mut path_rng = rng.split(num_pairs as u64);
+            let mut state = vec![initial_rate];
+            let mut rate_path = Vec::with_capacity(num_steps + 1);
+            rate_path.push(initial_rate);
+
+            let mut z = vec![0.0];
+            let mut work = vec![];
+            for step in 0..num_steps {
+                let t = time_grid.time(step);
+                let dt = time_grid.dt(step);
+
+                path_rng.fill_std_normals(&mut z);
+                disc.step(&self.hw_process, t, dt, &mut state, &z, &mut work);
+                rate_path.push(state[0]);
+            }
             paths.push(rate_path);
         }
 

@@ -12,6 +12,7 @@
 //! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for details and future extension pattern.
 
 pub mod binomial_tree;
+pub mod hull_white_tree;
 pub mod multi_factor_tree;
 pub mod short_rate_tree;
 pub mod tree_framework;
@@ -20,6 +21,7 @@ pub mod two_factor_binomial;
 pub mod two_factor_rates_credit;
 
 pub use binomial_tree::{BinomialTree, TreeType};
+pub use hull_white_tree::{HullWhiteTree, HullWhiteTreeConfig};
 pub use short_rate_tree::{
     lognormal_to_normal_vol, normal_to_lognormal_vol, short_rate_keys, ShortRateModel,
     ShortRateTree, ShortRateTreeConfig, DEFAULT_LOGNORMAL_VOL, DEFAULT_NORMAL_VOL,

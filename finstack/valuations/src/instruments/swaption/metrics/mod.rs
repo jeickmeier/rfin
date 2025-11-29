@@ -4,12 +4,17 @@
 //! maintainability. The module exposes a registration helper to wire metrics
 //! into the shared `MetricRegistry`.
 
+pub mod bermudan_greeks;
 mod delta;
 mod gamma;
 mod implied_vol;
 mod rho;
 mod vega;
 
+pub use bermudan_greeks::{
+    BermudanDeltaCalculator, BermudanGammaCalculator, BermudanVegaCalculator,
+    ExerciseProbabilityCalculator, ExerciseProbabilityProfile,
+};
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
 pub use implied_vol::ImpliedVolCalculator;
@@ -38,6 +43,25 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }
+}
+
+/// Register Bermudan swaption metrics with the registry
+pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "BermudanSwaption",
+        metrics: [
+            (Delta, BermudanDeltaCalculator::new()),
+            (Gamma, BermudanGammaCalculator::new()),
+            (Vega, BermudanVegaCalculator::new()),
+        ]
+    }
+    // Register custom ExerciseProbability metric separately
+    registry.register_metric(
+        crate::metrics::MetricId::custom("ExerciseProbability"),
+        std::sync::Arc::new(ExerciseProbabilityCalculator::new()),
+        &["BermudanSwaption"],
+    );
 }
 
 /// Swaption metrics configuration constants.
