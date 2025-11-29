@@ -21,10 +21,13 @@ fn test_basic_pv_at_inception() {
 
     let pv = swap.value(&market, dates.as_of).unwrap();
 
-    // At inception with model-implied rates, PV should be close to zero
-    // (within a few thousand due to rounding and discrete curve points)
+    // At inception with model-implied rates, PV should be small
+    // Note: The near leg has T+2 settlement which creates a small discounting difference
+    // due to different domestic/foreign rates: PV ≈ N × S × (DF_for(near) - DF_dom(near))
+    // With USD ~1%, EUR ~0.5%, this is approximately $30 for $1M notional
+    // Market standard: < $100 on $1M notional (< 1bp) accounting for settlement effects
     assert!(
-        pv.amount().abs() < 5000.0,
+        pv.amount().abs() < 100.0,
         "PV at inception should be near zero, got: {}",
         pv.amount()
     );
@@ -41,7 +44,9 @@ fn test_pv_with_contract_rates_fair() {
     let dates = TestDates::standard();
     let market = setup_standard_market(dates.as_of);
 
-    // Calculate model-implied forward
+    // Calculate model-implied forward from approximate curve values
+    // Note: These are approximations - the actual curve may differ slightly
+    // For a 1-year swap, USD ~1% gives DF≈0.99, EUR ~0.5% gives DF≈0.995
     let spot = 1.1;
     let df_dom_far = 0.99; // Approximate from curve
     let df_for_far = 0.995; // Approximate from curve
@@ -58,9 +63,11 @@ fn test_pv_with_contract_rates_fair() {
 
     let pv = swap.value(&market, dates.as_of).unwrap();
 
-    // With fair contract rates, PV should be very close to zero
+    // With fair contract rates (approximated from curve shape), PV should be small
+    // The approximation error causes some deviation from zero (~$15)
+    // Market standard: < $100 on $1M notional (< 1bp)
     assert!(
-        pv.amount().abs() < 10000.0,
+        pv.amount().abs() < 100.0,
         "PV with fair contract rates should be near zero, got: {}",
         pv.amount()
     );
@@ -111,17 +118,22 @@ fn test_pv_different_tenors() {
     let pv_1y = swap_1y.value(&market, dates.as_of).unwrap();
 
     // All should be close to zero at inception
+    // Note: T+2 settlement creates small discounting differences (~$30-50)
+    // Market standard: < $100 on $1M notional (< 1bp)
     assert!(
-        pv_1m.amount().abs() < 5000.0,
-        "1M swap PV should be near zero"
+        pv_1m.amount().abs() < 100.0,
+        "1M swap PV should be near zero, got: {}",
+        pv_1m.amount()
     );
     assert!(
-        pv_3m.amount().abs() < 5000.0,
-        "3M swap PV should be near zero"
+        pv_3m.amount().abs() < 100.0,
+        "3M swap PV should be near zero, got: {}",
+        pv_3m.amount()
     );
     assert!(
-        pv_1y.amount().abs() < 5000.0,
-        "1Y swap PV should be near zero"
+        pv_1y.amount().abs() < 100.0,
+        "1Y swap PV should be near zero, got: {}",
+        pv_1y.amount()
     );
 }
 

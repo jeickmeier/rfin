@@ -1,8 +1,20 @@
 //! Implied volatility tests
+//!
+//! The implied vol calculator solves for Black vol that reproduces the PV.
+//! When the same pricing path is used (price → implied vol → price), inversion
+//! should be very precise. Market standard tolerance is 1bp of vol (0.01% relative).
 
 use crate::swaption::common::*;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
+
+/// Tolerance for implied vol round-trip (same pricing path): 1e-6 relative
+/// This corresponds to ~0.1bp of vol at 20% vol.
+const IMPLIED_VOL_ROUNDTRIP_TOL: f64 = 1e-6;
+
+/// Tolerance for implied vol cross-strike consistency: 1e-4 relative (1bp)
+/// Surface interpolation may introduce small errors across strikes.
+const IMPLIED_VOL_SURFACE_TOL: f64 = 1e-4;
 
 #[test]
 fn test_implied_vol_matches_surface() {
@@ -21,7 +33,7 @@ fn test_implied_vol_matches_surface() {
     assert_approx_eq(
         implied_vol,
         vol_input,
-        0.01,
+        IMPLIED_VOL_ROUNDTRIP_TOL,
         "Implied vol should match surface vol",
     );
 }
@@ -61,10 +73,8 @@ fn test_implied_vol_inversion() {
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
-    // Should recover input vol precisely (within 1% = 100bp of vol)
-    // The solver uses 1e-10 tolerance, so numerical precision is high.
-    // Any remaining error comes from forward rate / annuity interpolation.
-    assert_approx_eq(implied_vol, 0.40, 0.01, "Implied vol inversion");
+    // Should recover input vol very precisely - solver uses 1e-10 tolerance
+    assert_approx_eq(implied_vol, 0.40, IMPLIED_VOL_ROUNDTRIP_TOL, "Implied vol inversion");
 }
 
 #[test]
@@ -83,10 +93,11 @@ fn test_implied_vol_consistency_across_strikes() {
         let implied_vol = *result.measures.get("implied_vol").unwrap();
 
         // With flat surface, all strikes should recover same vol
+        // Use slightly looser tolerance for cross-strike due to surface interpolation
         assert_approx_eq(
             implied_vol,
             vol_input,
-            0.02,
+            IMPLIED_VOL_SURFACE_TOL,
             &format!("Implied vol at strike {}", strike),
         );
     }

@@ -41,10 +41,9 @@ const NOTIONAL: f64 = 1_000_000.0; // $1M notional
 
 /// OIS swap repricing tolerance in basis points for externally-constructed swaps.
 ///
-/// Schedule generation approximations between calibration and pricing cause
-/// repricing differences of several bp. This tolerance uses DV01-scaling to
-/// account for the duration-dependent nature of the error.
-const OIS_SWAP_TOLERANCE_BP: f64 = 10.0;
+/// With consistent swap construction between calibration and repricing, the
+/// repricing error should be < 1bp. This tolerance uses DV01-scaling.
+const OIS_SWAP_TOLERANCE_BP: f64 = 1.0;
 
 /// Calculate DV01 for a swap using the metrics system.
 fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date) -> f64 {
@@ -149,7 +148,7 @@ fn test_discount_curve_swap_repricing() {
     let ctx = base_context.insert_discount(curve);
 
     // EXTERNAL REPRICING CHECK: Verify externally-constructed swaps reprice within tolerance
-    // Schedule generation differences between calibration and repricing cause larger errors.
+    // With correct swap construction, repricing error should be < 1bp
     for quote in &quotes {
         if let RatesQuote::Swap { maturity, .. } = quote {
             let swap = create_ois_swap_from_quote(
@@ -261,12 +260,10 @@ fn test_discount_curve_deposit_repricing() {
 
 /// FRA repricing tolerance per $1M notional.
 ///
-/// Multi-curve forward calibration has inherent limitations from:
-/// - Sequential bootstrap vs simultaneous calibration
-/// - Fixing date calculation differences
-/// - Forward rate interpolation at FRA endpoints
-///
+/// Multi-curve forward calibration has inherent interpolation effects.
 /// Target: $150 per $1M (~1.5bp for 90-day FRAs)
+/// Note: With sequential bootstrap and forward curve interpolation,
+/// achieving tighter tolerance would require simultaneous calibration.
 const FRA_TOLERANCE_DOLLARS: f64 = 150.0;
 
 #[test]

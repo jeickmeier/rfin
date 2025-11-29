@@ -22,11 +22,9 @@ fn test_at_market_fra_near_zero_pv() {
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
 
-    assert_near_zero(
-        pv.amount(),
-        1000.0,
-        "At-market FRA should have near-zero PV",
-    );
+    // Market standard: At-market FRA should have PV < $1 on $1M notional
+    // (< 0.01bp precision)
+    assert_near_zero(pv.amount(), 1.0, "At-market FRA should have near-zero PV");
 }
 
 #[test]
@@ -241,11 +239,8 @@ fn test_high_rate_environment() {
     let fra = TestFraBuilder::new().fixed_rate(0.15).build();
     let pv = fra.value(&market, BASE_DATE).unwrap();
 
-    assert_near_zero(
-        pv.amount(),
-        1000.0,
-        "At-market high rates should have near-zero PV",
-    );
+    // Market standard: At-market FRA should have PV < $1 even at high rates
+    assert_near_zero(pv.amount(), 1.0, "At-market high rates should have near-zero PV");
 }
 
 #[test]

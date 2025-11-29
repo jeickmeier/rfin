@@ -105,16 +105,6 @@ fn test_instrument_type_from_str_all_variants() {
         InstrumentType::Swaption
     );
 
-    // TRS with aliases
-    assert_eq!(
-        InstrumentType::from_str("trs").unwrap(),
-        InstrumentType::TRS
-    );
-    assert_eq!(
-        InstrumentType::from_str("total_return_swap").unwrap(),
-        InstrumentType::TRS
-    );
-
     // Basis Swap
     assert_eq!(
         InstrumentType::from_str("basis_swap").unwrap(),
@@ -667,7 +657,16 @@ fn test_standard_registry_has_other_pricers() {
 
     // TRS
     assert!(registry
-        .get_pricer(PricerKey::new(InstrumentType::TRS, ModelKey::Discounting))
+        .get_pricer(PricerKey::new(
+            InstrumentType::EquityTotalReturnSwap,
+            ModelKey::Discounting
+        ))
+        .is_some());
+    assert!(registry
+        .get_pricer(PricerKey::new(
+            InstrumentType::FIIndexTotalReturnSwap,
+            ModelKey::Discounting
+        ))
         .is_some());
 
     // Convertible

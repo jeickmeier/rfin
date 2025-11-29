@@ -824,11 +824,12 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                     Ok(calibrated_params)
                 }
                 _ => {
-                    // Standard SABR calibration
+                    // Standard SABR calibration with ATM pinning (market-standard approach)
+                    // This ensures ATM vol matches exactly, then fits nu/rho to smile
                     if forward > self.market_conventions.zero_threshold
                         || self.vol_convention == SwaptionVolConvention::Normal
                     {
-                        sabr_calibrator.calibrate(
+                        sabr_calibrator.calibrate_with_atm_pinning(
                             forward,
                             &strikes,
                             &vols,

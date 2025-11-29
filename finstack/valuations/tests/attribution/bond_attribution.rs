@@ -92,11 +92,15 @@ fn test_bond_attribution_parallel() {
         attribution.rates_curves_pnl.amount()
     );
 
-    // 3. Residual should be relatively small for a simple bond attribution
+    // 3. Residual should be small for a simple bond with single-factor attribution
+    // For parallel attribution, market-standard tolerance is:
+    // - Single factor (rates only): < 1%
+    // - Multiple interacting factors: < 5%
+    // - Large market moves with convexity: < 10%
     let residual_pct = attribution.meta.residual_pct.abs();
     assert!(
-        residual_pct < 20.0,
-        "Residual percentage should be < 20% for parallel attribution, got {:.1}%",
+        residual_pct < 5.0,
+        "Residual percentage should be < 5% for parallel attribution, got {:.2}%",
         residual_pct
     );
 }

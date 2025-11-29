@@ -18,6 +18,9 @@ use std::sync::Arc;
 ///   passed through to the core discounting helper. Instruments that want
 ///   DF-by-date semantics should prefer using `DiscountCurve::df_on_date_curve`
 ///   directly or a dedicated helper instead of this function.
+///
+/// **Note**: For instruments where par rate should produce zero PV (e.g., deposits),
+/// use [`schedule_pv_using_curve_dc`] instead, which uses the curve's day count.
 pub fn schedule_pv_impl<S>(
     instrument: &S,
     curves: &MarketContext,
@@ -34,6 +37,37 @@ where
     let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
     // Use as_of for correct theta calculation, not curve base_date
     npv_static(disc, as_of, day_count, &flows)
+}
+
+/// Schedule → PV helper that uses the curve's own day count convention.
+///
+/// This variant ensures consistency between:
+/// - Metric calculations (e.g., par rate using `df_on_date_curve`)
+/// - NPV calculations
+///
+/// **Use this when pricing at par rate should yield zero PV** (e.g., deposits, FRAs).
+///
+/// # Arguments
+///
+/// * `instrument` - The instrument providing cashflows
+/// * `curves` - Market data context
+/// * `as_of` - Valuation date
+/// * `discount_curve_id` - ID of the discount curve to use
+pub fn schedule_pv_using_curve_dc<S>(
+    instrument: &S,
+    curves: &MarketContext,
+    as_of: Date,
+    discount_curve_id: &finstack_core::types::CurveId,
+) -> finstack_core::Result<Money>
+where
+    S: crate::cashflow::traits::CashflowProvider,
+{
+    use finstack_core::cashflow::discounting::npv_using_curve_dc;
+
+    let flows = S::build_schedule(instrument, curves, as_of)?;
+    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
+    // Use the curve's day count for consistent pricing with metrics
+    npv_using_curve_dc(disc, as_of, &flows)
 }
 
 /// Shared helper to build a ValuationResult with a set of metrics.

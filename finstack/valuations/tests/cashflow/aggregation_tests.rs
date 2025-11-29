@@ -679,10 +679,11 @@ fn long_dated_cashflow_stability() {
     use finstack_core::cashflow::discounting::npv_static;
     let pv = npv_static(&curve, base, DayCount::Act365F, &flows).unwrap();
 
-    // Use looser tolerance for 30-year horizon due to year fraction complexity
+    // Industry standard tolerance: scale to PV magnitude, not notional
+    // For 30-year PV of ~$223k, this gives $0.01 tolerance (~0.045 ppm)
     assert!(
-        (pv.amount() - expected_pv).abs() < financial_tolerance(1_000_000.0) * 100.0,
-        "30-year PV should be ~{}, got {} (year fraction: {})",
+        (pv.amount() - expected_pv).abs() < financial_tolerance(expected_pv),
+        "30-year PV should be ~{:.6}, got {:.6} (year fraction: {:.10})",
         expected_pv,
         pv.amount(),
         t

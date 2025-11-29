@@ -37,8 +37,6 @@ pub enum InstrumentType {
     CapFloor = 8,
     /// Option on interest rate swap.
     Swaption = 9,
-    /// Total Return Swap (equity or fixed income).
-    TRS = 10,
     /// Basis swap (floating-for-floating with spread).
     BasisSwap = 11,
     /// Multi-asset basket (worst-of, best-of, or weighted).
@@ -97,6 +95,10 @@ pub enum InstrumentType {
     TermLoan = 41,
     /// Discounted Cash Flow (corporate valuation)
     DCF = 42,
+    /// Equity Total Return Swap.
+    EquityTotalReturnSwap = 50,
+    /// Fixed Income Index Total Return Swap.
+    FIIndexTotalReturnSwap = 51,
 }
 
 impl InstrumentType {
@@ -115,7 +117,6 @@ impl InstrumentType {
             InstrumentType::IRS => "InterestRateSwap",
             InstrumentType::CapFloor => "InterestRateOption",
             InstrumentType::Swaption => "Swaption",
-            InstrumentType::TRS => "TRS",
             InstrumentType::BasisSwap => "BasisSwap",
             InstrumentType::Basket => "Basket",
             InstrumentType::Convertible => "ConvertibleBond",
@@ -145,6 +146,8 @@ impl InstrumentType {
             InstrumentType::FxBarrierOption => "FxBarrierOption",
             InstrumentType::TermLoan => "TermLoan",
             InstrumentType::DCF => "DCF",
+            InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
+            InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
         }
     }
 }
@@ -161,7 +164,6 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::IRS => "irs",
             InstrumentType::CapFloor => "cap_floor",
             InstrumentType::Swaption => "swaption",
-            InstrumentType::TRS => "trs",
             InstrumentType::BasisSwap => "basis_swap",
             InstrumentType::Basket => "basket",
             InstrumentType::Convertible => "convertible",
@@ -191,6 +193,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::FxBarrierOption => "fx_barrier_option",
             InstrumentType::TermLoan => "term_loan",
             InstrumentType::DCF => "dcf",
+            InstrumentType::EquityTotalReturnSwap => "equity_total_return_swap",
+            InstrumentType::FIIndexTotalReturnSwap => "fi_index_total_return_swap",
         };
         write!(f, "{}", label)
     }
@@ -211,7 +215,6 @@ impl std::str::FromStr for InstrumentType {
             "irs" | "swap" | "interest_rate_swap" => Ok(InstrumentType::IRS),
             "cap_floor" | "capfloor" | "interest_rate_option" => Ok(InstrumentType::CapFloor),
             "swaption" => Ok(InstrumentType::Swaption),
-            "trs" | "total_return_swap" => Ok(InstrumentType::TRS),
             "basis_swap" | "basisswap" => Ok(InstrumentType::BasisSwap),
             "basket" => Ok(InstrumentType::Basket),
             "convertible" | "convertible_bond" => Ok(InstrumentType::Convertible),
@@ -815,12 +818,24 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::equity_option::pricer::EquityOptionHestonFourierPricer
     );
 
-    // TRS (Total Return Swap)
+    // Equity TRS
     register_pricer!(
         registry,
-        TRS,
+        EquityTotalReturnSwap,
         Discounting,
-        crate::instruments::trs::pricing::pricer::SimpleTrsDiscountingPricer
+        crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::trs::EquityTotalReturnSwap,
+        >::new(InstrumentType::EquityTotalReturnSwap)
+    );
+
+    // FI Index TRS
+    register_pricer!(
+        registry,
+        FIIndexTotalReturnSwap,
+        Discounting,
+        crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::trs::FIIndexTotalReturnSwap,
+        >::new(InstrumentType::FIIndexTotalReturnSwap)
     );
 
     // Convertible Bond
@@ -1393,9 +1408,21 @@ mod tests {
         // TRS and Private Markets
         assert!(
             registry
-                .get_pricer(PricerKey::new(InstrumentType::TRS, ModelKey::Discounting))
+                .get_pricer(PricerKey::new(
+                    InstrumentType::EquityTotalReturnSwap,
+                    ModelKey::Discounting
+                ))
                 .is_some(),
-            "TRS Discounting pricer should be registered"
+            "EquityTotalReturnSwap Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FIIndexTotalReturnSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "FIIndexTotalReturnSwap Discounting pricer should be registered"
         );
         assert!(
             registry

@@ -31,7 +31,7 @@ fn test_interest_calculation_act360() {
 
     // 1,000,000 * 0.05 * (90/360) = 12,500
     let expected = 1_000_000.0 * 0.05 * (90.0 / 360.0);
-    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 100.0);
+    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 0.01);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn test_interest_calculation_act365() {
 
     // Act/365F: 90/365 * 0.05 * 1,000,000
     let expected = 1_000_000.0 * 0.05 * (90.0 / 365.0);
-    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 100.0);
+    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 0.01);
 }
 
 #[test]
@@ -420,5 +420,5 @@ fn test_long_term_repo_interest() {
     // With Act/360: 365/360 = 1.0139 year fraction
     // Expected: 1M * 5% * (365/360) = $50,694.44
     let expected = 1_000_000.0 * 0.05 * (365.0 / 360.0);
-    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 100.0);
+    assert_money_approx_eq(interest, Money::new(expected, Currency::USD), 0.01);
 }

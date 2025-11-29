@@ -380,10 +380,10 @@ fn test_bucketed_vega_sums_to_total() {
     if let Some(matrix) = bucketed_matrix {
         let sum_bucketed: f64 = matrix.values.iter().flatten().sum();
 
-        // Sum should approximately equal total (within 5% due to interpolation differences)
+        // Sum should approximately equal total (within 2% for vol surface interpolation)
         let diff_pct = (sum_bucketed - total_vega).abs() / total_vega.abs().max(1e-10);
         assert!(
-            diff_pct < 0.05,
+            diff_pct < 0.02,
             "Bucketed Vega sum ({}) should be close to total Vega ({}), diff: {:.2}%",
             sum_bucketed,
             total_vega,

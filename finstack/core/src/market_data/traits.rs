@@ -10,7 +10,7 @@
 //! - **Concrete types preferred**: Most methods live on concrete curve types
 //! - **Zero-cost abstraction**: Trait objects use dynamic dispatch only when needed
 
-use crate::dates::Date;
+use crate::dates::{Date, DayCount};
 
 // -----------------------------------------------------------------------------
 // Minimal traits for polymorphism only
@@ -56,6 +56,19 @@ pub trait Discounting: TermStructure {
     fn base_date(&self) -> Date;
     /// Discount factor at time `t` (year fraction from the base date).
     fn df(&self, t: f64) -> f64;
+
+    /// Day count convention used by the curve for time-to-maturity calculations.
+    ///
+    /// This is the day count that should be used when converting dates to year
+    /// fractions for looking up discount factors. Defaults to `Act365F` which
+    /// is the most common convention for discount curves.
+    ///
+    /// **Important**: For consistent pricing, code that discounts cashflows should
+    /// use the curve's day count (via this method) rather than the instrument's
+    /// accrual day count.
+    fn day_count(&self) -> DayCount {
+        DayCount::Act365F
+    }
 }
 
 /// Minimal trait for forward curve polymorphism where needed.

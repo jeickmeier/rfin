@@ -164,7 +164,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::TRS
+        crate::pricer::InstrumentType::FIIndexTotalReturnSwap
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {

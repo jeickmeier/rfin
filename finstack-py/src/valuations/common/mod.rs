@@ -50,7 +50,9 @@ impl PyInstrumentType {
     #[classattr]
     const SWAPTION: Self = Self::new(InstrumentType::Swaption);
     #[classattr]
-    const TRS: Self = Self::new(InstrumentType::TRS);
+    const EQUITY_TOTAL_RETURN_SWAP: Self = Self::new(InstrumentType::EquityTotalReturnSwap);
+    #[classattr]
+    const FI_INDEX_TOTAL_RETURN_SWAP: Self = Self::new(InstrumentType::FIIndexTotalReturnSwap);
     #[classattr]
     const BASIS_SWAP: Self = Self::new(InstrumentType::BasisSwap);
     #[classattr]

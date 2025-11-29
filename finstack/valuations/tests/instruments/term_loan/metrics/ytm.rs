@@ -66,8 +66,8 @@ fn test_ytm_par_loan() {
     // Total expected difference: ~20-30bp from par coupon rate
     assert!(ytm.is_finite() && ytm > 0.0);
     assert!(
-        (ytm - 0.05).abs() < 0.005, // 50bp tolerance for compounding + day count effects
-        "YTM {} should be close to coupon 0.05 (within 50bp)",
+        (ytm - 0.05).abs() < 0.003, // 30bp tolerance for documented compounding + day count effects
+        "YTM {} should be close to coupon 0.05 (within 30bp)",
         ytm
     );
 }

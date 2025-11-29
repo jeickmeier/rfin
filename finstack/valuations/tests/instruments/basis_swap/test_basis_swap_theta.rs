@@ -425,9 +425,18 @@ fn theta_consistency_across_dates() {
 
 #[test]
 fn theta_multi_year() {
-    // Test theta behavior over multi-year period
+    // Test that theta accurately approximates 1-day PV change at multiple points
+    // over a multi-year swap's lifetime.
+    //
+    // Note: Annual theta extrapolation (theta × 365) is NOT valid because:
+    // 1. Theta changes daily as time passes
+    // 2. Cashflow events cause PV discontinuities
+    // 3. Compounding effects are non-linear
+    //
+    // Instead, we test that daily theta matches actual 1-day PV change
+    // at several points during the swap's life.
+
     let ctx = market();
-    let as_of = d(2025, 1, 2);
     let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
@@ -456,36 +465,42 @@ fn theta_multi_year() {
         CurveId::new("USD-OIS"),
     );
 
-    // Calculate cumulative theta effect over one year
-    let pv_t0 = swap.value(&ctx, d(2025, 1, 2)).unwrap().amount();
-    let pv_t365 = swap.value(&ctx, d(2026, 1, 2)).unwrap().amount();
-    let actual_change = pv_t365 - pv_t0;
+    // Test theta accuracy at several dates during the swap's life
+    // Avoid dates near coupon payments where PV has discontinuities
+    let test_dates = [
+        (d(2025, 1, 15), d(2025, 1, 16)),
+        (d(2025, 5, 15), d(2025, 5, 16)),
+        (d(2026, 1, 15), d(2026, 1, 16)),
+        (d(2027, 1, 15), d(2027, 1, 16)),
+    ];
 
-    // Get theta at t0
-    let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
-        .unwrap();
-    let theta_daily = res.measures[MetricId::Theta.as_str()];
-    let theta_annual = theta_daily * 365.0;
+    for (today, tomorrow) in test_dates {
+        let res = swap
+            .price_with_metrics(&ctx, today, &[MetricId::Theta])
+            .unwrap();
+        let theta = res.measures[MetricId::Theta.as_str()];
 
-    // Annual theta should approximate the PV change over one year
-    // (within broader tolerance due to compounding effects)
-    let error = (theta_annual - actual_change).abs();
-    let error_pct = if actual_change.abs() > 1.0 {
-        (error / actual_change.abs()) * 100.0
-    } else {
-        0.0
-    };
+        let pv_today = swap.value(&ctx, today).unwrap().amount();
+        let pv_tomorrow = swap.value(&ctx, tomorrow).unwrap().amount();
+        let actual_change = pv_tomorrow - pv_today;
 
-    // Allow up to 150% error for annual projection due to non-linear effects
-    // and basis swap complexity (two legs with different forward curves)
-    assert!(
-        error_pct < 150.0 || error < 20000.0,
-        "Annual theta projection {} should approximate PV change {}, error {}%",
-        theta_annual,
-        actual_change,
-        error_pct
-    );
+        // Theta should approximate 1-day PV change within 25%
+        // (first-order approximation has higher error for complex instruments)
+        let error_pct = if actual_change.abs() > 1.0 {
+            ((theta - actual_change).abs() / actual_change.abs()) * 100.0
+        } else {
+            0.0
+        };
+
+        assert!(
+            error_pct < 25.0 || (theta - actual_change).abs() < 100.0,
+            "Theta at {} should approximate 1-day PV change: theta={:.2}, actual={:.2}, error={:.1}%",
+            today,
+            theta,
+            actual_change,
+            error_pct
+        );
+    }
 }
 
 #[test]

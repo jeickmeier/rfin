@@ -787,6 +787,157 @@ impl SABRCalibrator {
 
         Ok(atm_vol)
     }
+
+    /// Calibrate SABR with ATM volatility pinning (market-standard approach).
+    ///
+    /// This method ensures the calibrated model matches the ATM volatility exactly
+    /// by solving for alpha analytically, then fitting only nu and rho to the smile.
+    /// This is the standard market approach for SABR calibration.
+    ///
+    /// # Arguments
+    /// * `forward` - Forward rate
+    /// * `strikes` - Vector of strikes (should include ATM)
+    /// * `market_vols` - Market implied volatilities corresponding to strikes
+    /// * `time_to_expiry` - Time to expiry in years
+    /// * `beta` - SABR beta parameter (typically fixed)
+    ///
+    /// # Returns
+    /// Calibrated SABR parameters with exact ATM match
+    pub fn calibrate_with_atm_pinning(
+        &self,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
+    ) -> Result<SABRParameters> {
+        if strikes.len() != market_vols.len() {
+            return Err(Error::Internal);
+        }
+
+        // Find ATM vol from market data
+        let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
+
+        // Use 2D solver for nu and rho only
+        use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
+
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(self.tolerance)
+            .with_max_iterations(self.max_iterations);
+
+        let strikes_vec = strikes.to_vec();
+        let market_vols_vec = market_vols.to_vec();
+        let tol = self.tolerance;
+
+        // Objective: fit nu and rho, with alpha solved to match ATM
+        let objective = move |params: &[f64]| -> f64 {
+            let nu = params[0];
+            let rho = params[1];
+
+            // Solve for alpha that matches ATM vol exactly
+            let alpha = match solve_alpha_for_atm(forward, atm_vol, time_to_expiry, beta, nu, rho, tol) {
+                Ok(a) => a,
+                Err(_) => return 1e12,
+            };
+
+            // Create model and compute smile errors (excluding ATM)
+            if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
+                let model = SABRModel::new(sabr_params);
+
+                strikes_vec
+                    .iter()
+                    .zip(market_vols_vec.iter())
+                    .map(|(&strike, &market_vol)| {
+                        // Skip ATM point (it's matched exactly by construction)
+                        let is_atm = (strike - forward).abs() / forward < 0.001;
+                        if is_atm {
+                            0.0
+                        } else {
+                            model
+                                .implied_volatility(forward, strike, time_to_expiry)
+                                .map(|model_vol| (model_vol - market_vol).powi(2))
+                                .unwrap_or(1e6)
+                        }
+                    })
+                    .sum()
+            } else {
+                1e12
+            }
+        };
+
+        // Initial guess: nu=0.3 (typical), rho=0.0 (neutral)
+        let initial = vec![0.3, 0.0];
+
+        // Bounds for nu and rho
+        let bounds = vec![
+            (0.001, 2.0),  // nu
+            (-0.99, 0.99), // rho
+        ];
+
+        let solution = solver.minimize(objective, &initial, Some(&bounds))?;
+
+        let nu = solution[0];
+        let rho = solution[1];
+
+        // Final alpha solve with calibrated nu/rho
+        let alpha = solve_alpha_for_atm(forward, atm_vol, time_to_expiry, beta, nu, rho, self.tolerance)?;
+
+        SABRParameters::new(alpha, beta, nu, rho)
+    }
+}
+
+/// Solve for alpha that matches target ATM volatility given other SABR parameters.
+///
+/// Uses Newton iteration on the ATM volatility formula:
+/// σ_ATM = α/F^(1-β) * [1 + T * corrections(α, ν, ρ)]
+fn solve_alpha_for_atm(
+    forward: f64,
+    target_atm_vol: f64,
+    time_to_expiry: f64,
+    beta: f64,
+    nu: f64,
+    rho: f64,
+    tolerance: f64,
+) -> Result<f64> {
+    // Initial guess: first-order approximation
+    let f_pow = forward.powf(1.0 - beta);
+    let mut alpha = target_atm_vol * f_pow;
+
+    // Newton iteration to refine alpha
+    for _ in 0..50 {
+        // Compute model ATM vol with current alpha
+        let params = SABRParameters::new(alpha, beta, nu, rho)?;
+        let model = SABRModel::new(params);
+        let model_vol = model.atm_volatility(forward, time_to_expiry)?;
+
+        let error = model_vol - target_atm_vol;
+        if error.abs() < tolerance {
+            return Ok(alpha);
+        }
+
+        // Numerical derivative for Newton step
+        let bump = alpha * 1e-6;
+        let params_bumped = SABRParameters::new(alpha + bump, beta, nu, rho)?;
+        let model_bumped = SABRModel::new(params_bumped);
+        let vol_bumped = model_bumped.atm_volatility(forward, time_to_expiry)?;
+
+        let d_vol_d_alpha = (vol_bumped - model_vol) / bump;
+        if d_vol_d_alpha.abs() < 1e-14 {
+            break; // Can't continue Newton iteration
+        }
+
+        // Newton step with damping for stability
+        let step = -error / d_vol_d_alpha;
+        alpha += step.clamp(-alpha * 0.5, alpha * 0.5); // Limit step size
+
+        // Ensure alpha stays positive
+        if alpha <= 0.0 {
+            alpha = target_atm_vol * f_pow * 0.5;
+        }
+    }
+
+    // Return best alpha found even if not converged
+    Ok(alpha)
 }
 
 impl Default for SABRCalibrator {

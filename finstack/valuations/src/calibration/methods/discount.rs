@@ -369,16 +369,21 @@ impl DiscountCurveCalibrator {
             let base_date = self.base_date;
             let solve_interp = self.solve_interp;
 
+            // Capture curve_dc for the closure
+            let curve_day_count = curve_dc;
+
             let objective = move |df: f64| -> f64 {
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
                 temp_knots.extend_from_slice(&knots_clone);
                 temp_knots.push((time_to_maturity, df));
 
                 // Build temporary curve with current knots
+                // Use the same day count as the final curve for consistency
                 // Allow non-monotonic during solving to support negative rates (DF > 1.0)
                 // Final validation is done after bootstrap completes
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
                     .base_date(base_date)
+                    .day_count(curve_day_count)
                     .knots(temp_knots)
                     .set_interp(solve_interp)
                     .allow_non_monotonic() // Allow DF > 1.0 for negative rate environments
@@ -490,8 +495,10 @@ impl DiscountCurveCalibrator {
                 final_knots.push((time_to_maturity, solved_df));
 
                 // Allow non-monotonic during residual calculation for negative rate support
+                // Use the same day count as the final curve for consistency
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
                     .base_date(base_date)
+                    .day_count(curve_dc)
                     .knots(final_knots)
                     .set_interp(solve_interp)
                     .allow_non_monotonic()

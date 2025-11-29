@@ -322,15 +322,22 @@ fn test_recovery_rate_sensitivity_monotonic() {
 
 #[test]
 fn test_expected_loss_formula_validation() {
-    // Expected Loss = Notional × PD × LGD
-    // Where PD ≈ 1 - exp(-hazard_rate × T)
+    // Our implementation computes UNDISCOUNTED Expected Loss:
+    // EL = Notional × PD × LGD
+    //
+    // Where PD = 1 - S(T) is the cumulative probability of default to maturity.
+    // This is the "credit risk" expected loss used in regulatory/accounting contexts
+    // (e.g., IFRS 9 Expected Credit Loss). The discounted expected loss for pricing
+    // purposes is captured separately by the Protection Leg PV.
+    //
+    // Note: For DISCOUNTED expected loss, use: PV_protection / (1 - Recovery)
 
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
     let hazard_rate = 0.02; // 2% per year
     let recovery = 0.40;
-    let tenor = 5.0;
+    let notional = 10_000_000.0;
 
     let disc_curve = build_flat_discount(0.05, as_of, "USD_OIS");
     let hazard_curve = build_flat_hazard(hazard_rate, recovery, as_of, "CORP_HAZARD");
@@ -341,7 +348,7 @@ fn test_expected_loss_formula_validation() {
 
     let mut cds = CreditDefaultSwap::buy_protection(
         "EL_FORMULA_TEST",
-        Money::new(10_000_000.0, Currency::USD),
+        Money::new(notional, Currency::USD),
         100.0,
         as_of,
         end,
@@ -356,16 +363,26 @@ fn test_expected_loss_formula_validation() {
 
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
-    // Theoretical calculation
-    let pd = 1.0 - (-hazard_rate * tenor).exp();
-    let lgd = 1.0 - recovery;
-    let theoretical_el = 10_000_000.0 * pd * lgd;
+    // Calculate time to maturity using the same day count as the pricer
+    let t_maturity = cds.premium.dc.year_fraction(
+        as_of,
+        end,
+        finstack_core::dates::DayCountCtx::default(),
+    ).unwrap();
 
-    // Should match within 20% due to discretization and discounting
+    // Theoretical undiscounted expected loss:
+    // EL = Notional × (1 - S(T)) × LGD
+    // S(T) = exp(-hazard_rate × T)
+    let survival_prob = (-hazard_rate * t_maturity).exp();
+    let pd = 1.0 - survival_prob;
+    let lgd = 1.0 - recovery;
+    let theoretical_el = notional * pd * lgd;
+
+    // Industry standard: < 0.5% tolerance for this simple formula
     let rel_error = ((expected_loss - theoretical_el) / theoretical_el).abs();
     assert!(
-        rel_error < 0.2,
-        "Expected loss formula validation failed: computed={:.0}, theoretical={:.0}, error={:.1}%",
+        rel_error < 0.005,
+        "Expected loss formula validation failed: computed={:.0}, theoretical={:.0}, error={:.2}%",
         expected_loss,
         theoretical_el,
         rel_error * 100.0

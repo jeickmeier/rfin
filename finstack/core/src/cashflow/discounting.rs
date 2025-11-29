@@ -79,6 +79,9 @@ pub trait Discountable {
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount` with static dispatch.
 ///
 /// This generic helper avoids dynamic dispatch on the discount curve in tight loops.
+///
+/// **Note**: For consistent pricing with metrics (e.g., par rate), prefer using
+/// [`npv_using_curve_dc`] which uses the curve's own day count convention.
 pub fn npv_static<D: Discounting + ?Sized>(
     disc: &D,
     base: Date,
@@ -98,6 +101,56 @@ pub fn npv_static<D: Discounting + ?Sized>(
         total = (total + disc_amt)?;
     }
     Ok(total)
+}
+
+/// Compute NPV of dated `Money` flows using the curve's own day count convention.
+///
+/// Unlike [`npv_static`], this function uses the curve's internal day count
+/// for computing year fractions. This ensures consistency between:
+/// - Metric calculations (e.g., par rate which uses `df_on_date_curve`)
+/// - NPV calculations
+///
+/// **Use this function when pricing instruments at par rate should yield zero PV.**
+///
+/// # Arguments
+///
+/// * `disc` - Discount curve implementing the `Discounting` trait
+/// * `base` - Valuation date (flows before this are ignored)
+/// * `flows` - Dated cashflows to discount
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::cashflow::discounting::npv_using_curve_dc;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use time::Month;
+///
+/// let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = DiscountCurve::builder("USD-OIS")
+///     .base_date(base_date)
+///     .day_count(DayCount::Act360) // Curve's day count
+///     .knots([(0.0, 1.0), (1.0, 0.95)])
+///     .build()?;
+///
+/// let cf = (
+///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
+///     Money::new(100.0, Currency::USD)
+/// );
+/// let flows = vec![cf];
+///
+/// // Uses curve's Act360 day count for year fraction calculation
+/// let pv = npv_using_curve_dc(&curve, base_date, &flows)?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+pub fn npv_using_curve_dc<D: Discounting + ?Sized>(
+    disc: &D,
+    base: Date,
+    flows: &[(Date, Money)],
+) -> crate::Result<Money> {
+    npv_static(disc, base, disc.day_count(), flows)
 }
 
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.

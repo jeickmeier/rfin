@@ -73,7 +73,7 @@ fn test_implied_vol_atm_option() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "ATM implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "ATM implied vol");
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn test_implied_vol_itm_option() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "ITM implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "ITM implied vol");
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_implied_vol_otm_option() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "OTM implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "OTM implied vol");
 }
 
 #[test]
@@ -166,7 +166,7 @@ fn test_implied_vol_short_dated() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Short dated implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "Short dated implied vol");
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn test_implied_vol_long_dated() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Long dated implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "Long dated implied vol");
 }
 
 #[test]
@@ -260,7 +260,7 @@ fn test_implied_vol_low_volatility() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Low vol implied vol");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "Low vol implied vol");
 }
 
 #[test]
@@ -317,5 +317,5 @@ fn test_implied_vol_with_dividends() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-3, "Implied vol with dividends");
+    assert_approx_eq_tol(implied_vol, vol, 1e-5, "Implied vol with dividends");
 }

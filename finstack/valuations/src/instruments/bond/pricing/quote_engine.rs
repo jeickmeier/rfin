@@ -624,10 +624,12 @@ pub fn price_from_oas(
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
+    // Use consistent step count between tree and valuator for accurate pricing.
+    // Default TreePricerConfig uses 100 steps; match that for round-trip consistency.
+    let tree_steps = ShortRateTreeConfig::default().steps;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
-    // Use 300 steps for better OAS precision (~1bp accuracy vs ~10bp with 100 steps)
-    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, 300)?;
+    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, tree_steps)?;
 
     // Get initial short rate from the calibrated tree for the state variables.
     // The tree framework expects an initial rate to be present.

@@ -69,6 +69,7 @@ fn test_cds_par_spread_roundtrip_1y() {
     let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
 
     // Create CDS at the quoted spread
+    // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
     let cds = CreditDefaultSwap::buy_protection(
         "ROUNDTRIP-CDS",
         Money::new(10_000_000.0, Currency::USD),
@@ -76,7 +77,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         base,
         maturity,
         "USD-OIS",
-        "ROUNDTRIP-TEST-HAZARD",
+        "ROUNDTRIP-TEST-senior",
     );
 
     // Price the CDS with calibrated hazard curve
@@ -84,16 +85,12 @@ fn test_cds_par_spread_roundtrip_1y() {
         .insert_discount(create_discount_curve(base))
         .insert_hazard(hazard_curve);
 
-    let npv = match cds.value(&market_price, base) {
-        Ok(npv) => npv,
-        Err(_) => {
-            println!("Skipping test_cds_par_spread_roundtrip_1y: CDS valuation failed");
-            return;
-        }
-    };
+    let npv = cds
+        .value(&market_price, base)
+        .expect("CDS valuation should succeed with correctly configured market");
 
-    // Property: NPV should be ≈ 0 at par spread (within 1bp of notional)
-    let tolerance = 10_000_000.0 * 0.0001; // 1bp of $10M = $1,000
+    // Property: NPV should be ≈ 0 at par spread
+    let tolerance = 1.0; // Tightened: Calibration should be precise to within $1 on $10M
 
     assert!(
         npv.amount().abs() < tolerance,
@@ -156,6 +153,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         .insert_hazard(hazard_curve);
 
     for (maturity, par_spread_bp) in &tenors_and_spreads {
+        // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
         let cds = CreditDefaultSwap::buy_protection(
             format!("ROUNDTRIP-CDS-{}", maturity),
             Money::new(10_000_000.0, Currency::USD),
@@ -163,22 +161,15 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
             base,
             *maturity,
             "USD-OIS",
-            "MULTI-TENOR-TEST-HAZARD",
+            "MULTI-TENOR-TEST-senior",
         );
 
-        let npv = match cds.value(&market_price, base) {
-            Ok(npv) => npv,
-            Err(_) => {
-                println!(
-                    "Skipping multi-tenor test for maturity {}: CDS valuation failed",
-                    maturity
-                );
-                continue;
-            }
-        };
+        let npv = cds
+            .value(&market_price, base)
+            .expect("CDS valuation should succeed with correctly configured market");
 
         // Each CDS should have NPV ≈ 0 at its par spread
-        let tolerance = 10_000_000.0 * 0.0001; // 1bp of notional
+        let tolerance = 1.0; // Tightened: Calibration should be precise to within $1 on $10M
 
         assert!(
             npv.amount().abs() < tolerance,
@@ -225,6 +216,7 @@ fn test_cds_par_spread_calculation_consistency() {
         .insert_hazard(hazard_curve);
 
     // Create CDS with arbitrary spread
+    // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
     let cds_test = CreditDefaultSwap::buy_protection(
         "TEST-CDS",
         Money::new(10_000_000.0, Currency::USD),
@@ -232,21 +224,17 @@ fn test_cds_par_spread_calculation_consistency() {
         base,
         maturity,
         "USD-OIS",
-        "PAR-CONSISTENCY-TEST-HAZARD",
+        "PAR-CONSISTENCY-TEST-senior",
     );
 
     // Calculate par spread metric
-    let result = match cds_test.price_with_metrics(
-        &market_price,
-        base,
-        &[finstack_valuations::metrics::MetricId::ParSpread],
-    ) {
-        Ok(result) => result,
-        Err(_) => {
-            println!("Skipping test_cds_par_spread_calculation_consistency: CDS pricing with metrics failed");
-            return;
-        }
-    };
+    let result = cds_test
+        .price_with_metrics(
+            &market_price,
+            base,
+            &[finstack_valuations::metrics::MetricId::ParSpread],
+        )
+        .expect("CDS pricing with metrics should succeed with correctly configured market");
 
     let calculated_par_spread =
         result.measures[finstack_valuations::metrics::MetricId::ParSpread.as_str()];

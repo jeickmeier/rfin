@@ -1,18 +1,13 @@
 //! Risk metrics for Total Return Swaps.
 
 mod annuity;
-mod bucketed;
 mod delta;
 mod dividend_risk;
-mod dv01;
 mod par_spread;
 
 pub use annuity::FinancingAnnuityCalculator;
-pub use bucketed::TrsBucketedDv01Calculator;
 pub use delta::IndexDeltaCalculator;
-pub use dv01::TrsDv01Calculator;
 pub use par_spread::ParSpreadCalculator;
-// BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::MetricRegistry;
 
@@ -28,23 +23,61 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
-    // Custom metric: Dividend risk (dividend yield sensitivity per 1bp)
+    let instruments = ["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"];
+
+    // Common metrics that handle runtime dispatch internally
+    let common_metrics = vec![
+        (
+            MetricId::Dividend01,
+            Arc::new(dividend_risk::DividendRiskCalculator) as Arc<dyn crate::metrics::MetricCalculator>,
+        ),
+        (
+            MetricId::ParSpread,
+            Arc::new(ParSpreadCalculator) as Arc<dyn crate::metrics::MetricCalculator>,
+        ),
+        (
+            MetricId::FinancingAnnuity,
+            Arc::new(FinancingAnnuityCalculator) as Arc<dyn crate::metrics::MetricCalculator>,
+        ),
+        (
+            MetricId::IndexDelta,
+            Arc::new(IndexDeltaCalculator) as Arc<dyn crate::metrics::MetricCalculator>,
+        ),
+    ];
+
+    for (metric_id, calculator) in common_metrics {
+        registry.register_metric(metric_id, calculator, &instruments);
+    }
+
+    // Equity TRS Specifics
     registry.register_metric(
-        MetricId::Dividend01,
-        Arc::new(dividend_risk::DividendRiskCalculator),
-        &["TRS"],
+        MetricId::Dv01,
+        Arc::new(crate::metrics::UnifiedDv01Calculator::<
+            crate::instruments::trs::EquityTotalReturnSwap,
+        >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+        &["EquityTotalReturnSwap"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(crate::metrics::UnifiedDv01Calculator::<
+            crate::instruments::trs::EquityTotalReturnSwap,
+        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        &["EquityTotalReturnSwap"],
     );
 
-    crate::register_metrics! {
-        registry: registry,
-        instrument: "TRS",
-        metrics: [
-            (ParSpread, ParSpreadCalculator),
-            (FinancingAnnuity, FinancingAnnuityCalculator),
-            (Dv01, TrsDv01Calculator),
-            (IndexDelta, IndexDeltaCalculator),
-            // Theta is now registered universally in metrics::standard_registry()
-            (BucketedDv01, TrsBucketedDv01Calculator),
-        ]
-    }
+    // FI Index TRS Specifics
+    registry.register_metric(
+        MetricId::Dv01,
+        Arc::new(crate::metrics::UnifiedDv01Calculator::<
+            crate::instruments::trs::FIIndexTotalReturnSwap,
+        >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+        &["FIIndexTotalReturnSwap"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(crate::metrics::UnifiedDv01Calculator::<
+            crate::instruments::trs::FIIndexTotalReturnSwap,
+        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        &["FIIndexTotalReturnSwap"],
+    );
 }

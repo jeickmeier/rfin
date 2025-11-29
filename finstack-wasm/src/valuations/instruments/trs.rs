@@ -173,7 +173,7 @@ impl JsEquityTotalReturnSwap {
 
     #[wasm_bindgen(js_name = instrumentType)]
     pub fn instrument_type(&self) -> u16 {
-        InstrumentType::TRS as u16
+        InstrumentType::EquityTotalReturnSwap as u16
     }
 
     #[wasm_bindgen(js_name = toString)]
@@ -250,7 +250,7 @@ impl JsFiIndexTotalReturnSwap {
 
     #[wasm_bindgen(js_name = instrumentType)]
     pub fn instrument_type(&self) -> u16 {
-        InstrumentType::TRS as u16
+        InstrumentType::FIIndexTotalReturnSwap as u16
     }
 
     #[wasm_bindgen(js_name = toString)]

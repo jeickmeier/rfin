@@ -428,9 +428,10 @@ fn test_deep_otm_option_greeks() {
     let delta_per_share = delta / 100.0; // Normalize by contract size
 
     // Deep OTM call delta should be very small (close to 0.0)
+    // For 100% OTM option (strike 200 vs spot 100), delta should be < 1%
     assert!(
-        delta_per_share.abs() < 0.1,
-        "Deep OTM call delta should be small (< 0.1 per share), got {}",
+        delta_per_share.abs() < 0.01,
+        "Deep OTM call delta should be < 0.01 per share for 100% OTM, got {}",
         delta_per_share
     );
 }
@@ -514,9 +515,10 @@ fn test_deep_otm_put_greeks() {
     let delta_per_share = delta / 100.0; // Normalize by contract size
 
     // Deep OTM put delta should be close to 0.0 (but negative)
+    // For 50% OTM put (strike 50 vs spot 100), delta should be < 1%
     assert!(
-        delta_per_share.abs() < 0.1,
-        "Deep OTM put delta should be small (< 0.1 abs per share), got {}",
+        delta_per_share.abs() < 0.01,
+        "Deep OTM put delta should be < 0.01 abs per share for 50% OTM, got {}",
         delta_per_share
     );
     // Put delta should be negative (or very close to zero)

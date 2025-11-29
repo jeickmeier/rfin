@@ -336,7 +336,7 @@ impl PyEquityTotalReturnSwap {
 
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
-        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::TRS)
+        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::EquityTotalReturnSwap)
     }
 
     #[getter]
@@ -474,7 +474,7 @@ impl PyFiIndexTotalReturnSwap {
 
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
-        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::TRS)
+        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FIIndexTotalReturnSwap)
     }
 
     #[getter]

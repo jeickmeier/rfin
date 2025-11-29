@@ -367,12 +367,12 @@ fn test_swap_risk_attribution() {
     let annuity = *result.measures.get("annuity").unwrap();
 
     // Verify risk attribution is consistent. With a multi-curve setup the
-    // float leg also contributes discounting risk, so we allow a modest
-    // tolerance around the annuity-based approximation.
+    // float leg also contributes discounting risk. For off-market swaps,
+    // DV01 diverges from annuity × notional × 0.0001 due to curve basis.
     let expected_dv01 = annuity * 1_000_000.0 * 0.0001;
     let ratio = dv01.abs() / expected_dv01;
     assert!(
-        (ratio - 1.0).abs() < 0.05, // 5% tolerance for multi-curve + numerical effects
+        (ratio - 1.0).abs() < 0.03, // 3% tolerance for multi-curve + off-market effects
         "DV01 {} should be close to annuity-based estimate {}, ratio: {}",
         dv01,
         expected_dv01,

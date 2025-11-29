@@ -110,18 +110,20 @@ fn test_dv01_reasonable_magnitude() {
 
 #[test]
 fn test_dv01_with_different_day_counts() {
-    // Setup
+    // Setup - need non-zero rate to see day count effect on interest accrual
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
     let dep_360 = DepositBuilder::new(base)
         .end(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act360)
+        .quote_rate(0.05) // 5% rate so interest accrual differs
         .build();
 
     let dep_365 = DepositBuilder::new(base)
         .end(date(2025, 7, 1))
         .day_count(finstack_core::dates::DayCount::Act365F)
+        .quote_rate(0.05) // Same rate but different accrual due to day count
         .build();
 
     // Execute
@@ -129,5 +131,7 @@ fn test_dv01_with_different_day_counts() {
     let dv01_365 = compute_metric(&dep_365, &ctx, base, MetricId::Dv01);
 
     // Validate - different day counts give slightly different DV01
-    assert_ne!(dv01_360, dv01_365);
+    // because the interest accrual amounts differ (Act360 has higher YF)
+    // Note: Discounting uses curve's day count, but interest accrual differs
+    assert_ne!(dv01_360, dv01_365, "Day count should affect DV01 via interest accrual");
 }

@@ -225,10 +225,12 @@ pub fn residual_within_meta_tolerance(&self) -> bool;
 - `tolerance_pct`: Percentage tolerance (e.g., 0.1 for 0.1%)
 - `tolerance_abs`: Absolute tolerance (e.g., 100.0 for $100)
 
-**Typical Residuals**:
-- **Waterfall**: < 0.01% (minimal by construction)
-- **Parallel**: 5-15% for large market moves (cross-effects)
-- **Metrics-Based**: 2-10% with second-order, 10-20% without
+**Typical Residuals** (market-standard targets):
+- **Waterfall**: < 0.1% (minimal by construction)
+- **Parallel (single factor)**: < 1%
+- **Parallel (multiple factors)**: < 5% for normal moves, < 10% for large moves
+- **Metrics-Based (with second-order)**: < 5%
+- **Metrics-Based (first-order only)**: < 10%
 
 ---
 

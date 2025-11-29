@@ -1,7 +1,9 @@
 //! Integration tests for second-order metrics in attribution.
 //!
 //! Tests verify that second-order convexity terms (Gamma, Convexity, Volga, etc.)
-//! reduce residuals in metrics-based attribution from ~18% to <5%.
+//! reduce residuals in metrics-based attribution. Market-standard targets:
+//! - First-order only (DV01, Theta): < 10%
+//! - With second-order (Convexity, Gamma): < 5%
 
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;

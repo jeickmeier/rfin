@@ -69,10 +69,11 @@ fn test_par_rate_gives_zero_pv() {
 
     let pv = dep_par.npv(&ctx, base).unwrap();
 
-    // Validate - PV should be reasonably close to zero (within tolerance for numerical precision)
+    // Validate - PV should be essentially zero for deposit at par rate
+    // Market standard: < $0.01 on $1M notional (< 0.001bp numerical precision)
     assert!(
-        pv.amount().abs() < 200.0,
-        "PV not near zero: {}",
+        pv.amount().abs() < 0.01,
+        "PV at par rate should be < $0.01, got: {}",
         pv.amount()
     );
 }

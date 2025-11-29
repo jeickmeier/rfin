@@ -179,6 +179,7 @@ pub fn rate_tolerance() -> f64 {
 }
 
 /// Tolerance for greek checks (relative)
+/// Market standard: 2% for analytical vs finite difference comparison
 pub fn greek_tolerance() -> f64 {
-    0.05 // 5% relative tolerance for approximations
+    0.02 // 2% relative tolerance for analytic vs FD approximations
 }

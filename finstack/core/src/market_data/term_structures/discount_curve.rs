@@ -1007,6 +1007,11 @@ impl Discounting for DiscountCurve {
     fn df(&self, t: f64) -> f64 {
         self.interp.interp(t)
     }
+
+    #[inline]
+    fn day_count(&self) -> DayCount {
+        self.day_count
+    }
 }
 
 impl TermStructure for DiscountCurve {

@@ -186,40 +186,47 @@ fn test_swaption_vol_calibration_direct() {
     assert!(report.iterations > 0, "Should have some iterations");
 
     // CALIBRATION QUALITY CHECKS: Market-standard tolerances for SABR calibration
-    // RMSE < 100bp (0.001) for swaption volatilities - SABR with limited strike quotes
-    // Note: Market standard would be <50bp with full smile data; we use 100bp with
-    // sparse test data (5 strikes per expiry/tenor)
+    // With ATM-pinning approach, SABR should achieve tight calibration:
+    // - RMSE < 5bp (0.0005) for swaption volatilities
+    // - Max residual < 10bp (0.001)
     assert!(
-        report.rmse < 0.001,
-        "SABR calibration RMSE should be < 100bp: {:.6}",
-        report.rmse
+        report.rmse < 0.0005,
+        "SABR calibration RMSE should be < 5bp: {:.6} ({:.2} bp)",
+        report.rmse,
+        report.rmse * 10000.0
     );
-    // Max residual < 200bp (0.002) - allows for individual quote outliers
     assert!(
-        report.max_residual.abs() < 0.002,
-        "Max residual should be < 200bp: {:.6}",
-        report.max_residual
+        report.max_residual.abs() < 0.001,
+        "Max residual should be < 10bp: {:.6} ({:.2} bp)",
+        report.max_residual,
+        report.max_residual * 10000.0
     );
 
-    // Verify ATM volatility matches input approximately
+    // Verify ATM volatility matches input exactly (ATM-pinning approach)
     // Input data: 1Y×1Y ATM vol = 0.009 (90bp normal vol)
+    // Market-standard: ATM should match within <1bp
     let vol_1y_1y = surface.value(1.0, 1.0);
     let expected_atm_1y1y = 0.009; // From test input data
+    let atm_error_1y1y = (vol_1y_1y - expected_atm_1y1y).abs();
     assert!(
-        (vol_1y_1y - expected_atm_1y1y).abs() < 0.002, // 20bp tolerance
-        "ATM vol 1Y×1Y should match input: {:.6} vs expected {:.6}",
+        atm_error_1y1y < 0.0001, // 1bp tolerance (market-standard with ATM pinning)
+        "ATM vol 1Y×1Y should match input within 1bp: {:.6} vs expected {:.6} (error: {:.2} bp)",
         vol_1y_1y,
-        expected_atm_1y1y
+        expected_atm_1y1y,
+        atm_error_1y1y * 10000.0
     );
 
     // Input data: 1Y×5Y ATM vol = 0.007 (70bp normal vol)
+    // Market-standard: ATM should match within <1bp
     let vol_1y_5y = surface.value(1.0, 5.0);
     let expected_atm_1y5y = 0.007; // From test input data
+    let atm_error_1y5y = (vol_1y_5y - expected_atm_1y5y).abs();
     assert!(
-        (vol_1y_5y - expected_atm_1y5y).abs() < 0.002, // 20bp tolerance
-        "ATM vol 1Y×5Y should match input: {:.6} vs expected {:.6}",
+        atm_error_1y5y < 0.0001, // 1bp tolerance (market-standard with ATM pinning)
+        "ATM vol 1Y×5Y should match input within 1bp: {:.6} vs expected {:.6} (error: {:.2} bp)",
         vol_1y_5y,
-        expected_atm_1y5y
+        expected_atm_1y5y,
+        atm_error_1y5y * 10000.0
     );
 
     // Verify positivity and reasonableness
@@ -267,16 +274,19 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     assert!(report.iterations > 0);
 
     // CALIBRATION QUALITY CHECKS
-    // Extended grid should achieve similar fit quality
+    // Extended grid should achieve tight calibration with ATM-pinning
+    // Note: Extended grid has more expiry/tenor points, so slightly looser tolerances
     assert!(
-        report.rmse < 0.001,
-        "Extended grid calibration RMSE should be < 100bp: {:.6}",
-        report.rmse
+        report.rmse < 0.0007,
+        "Extended grid calibration RMSE should be < 7bp: {:.6} ({:.2} bp)",
+        report.rmse,
+        report.rmse * 10000.0
     );
     assert!(
-        report.max_residual.abs() < 0.002,
-        "Extended grid max residual should be < 200bp: {:.6}",
-        report.max_residual
+        report.max_residual.abs() < 0.0015,
+        "Extended grid max residual should be < 15bp: {:.6} ({:.2} bp)",
+        report.max_residual,
+        report.max_residual * 10000.0
     );
 
     // Interpolation checks at non-grid points

@@ -230,11 +230,11 @@ fn test_metrics_real_yield_consistency() {
     let clean_price = ilb.quoted_clean.unwrap();
     let yield_direct = ilb.real_yield(clean_price, &ctx, as_of).unwrap();
 
-    // Assert - should be close (within reasonable tolerance)
+    // Assert - should be identical since both call the same real_yield method
     assert_approx_eq(
         yield_via_framework,
         yield_direct,
-        0.01, // 1% tolerance due to metric framework overhead
+        EPSILON, // Both use the same calculation path
         "real yield consistency",
     );
 }
@@ -401,11 +401,11 @@ fn test_breakeven_inflation_metric_consistency() {
     let nominal_yield = disc.zero(t);
     let breakeven_direct = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
 
-    // Assert
+    // Assert - should be identical since both use the same calculation path
     assert_approx_eq(
         breakeven_via_framework,
         breakeven_direct,
-        0.01, // 1% tolerance due to approximations
+        EPSILON, // Both use the same calculation path
         "breakeven consistency",
     );
 }

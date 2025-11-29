@@ -140,27 +140,23 @@ impl ReinvestmentManager {
     ) -> Vec<PoolAsset> {
         let mut remaining_cash = available_cash;
 
-        // Compute price-per-par for each asset; default to 100% if unknown
+        // Helper to calculate price pct safely
+        let get_price_pct = |asset: &PoolAsset| -> f64 {
+            if let Some(price) = asset.purchase_price {
+                if asset.balance.amount() > 0.0 {
+                    (price.amount() / asset.balance.amount()).max(0.0)
+                } else {
+                    1.0
+                }
+            } else {
+                1.0
+            }
+        };
+
         let mut indices: Vec<usize> = (0..market_opportunities.len()).collect();
         indices.sort_unstable_by(|&i, &j| {
-            let pi = if let Some(price) = market_opportunities[i].purchase_price {
-                if market_opportunities[i].balance.amount() > 0.0 {
-                    (price.amount() / market_opportunities[i].balance.amount()).max(0.0)
-                } else {
-                    1.0
-                }
-            } else {
-                1.0
-            };
-            let pj = if let Some(price) = market_opportunities[j].purchase_price {
-                if market_opportunities[j].balance.amount() > 0.0 {
-                    (price.amount() / market_opportunities[j].balance.amount()).max(0.0)
-                } else {
-                    1.0
-                }
-            } else {
-                1.0
-            };
+            let pi = get_price_pct(&market_opportunities[i]);
+            let pj = get_price_pct(&market_opportunities[j]);
             // Use total_cmp for safe float comparison (handles NaN consistently)
             pi.total_cmp(&pj)
         });
@@ -169,16 +165,7 @@ impl ReinvestmentManager {
         for idx in indices {
             let asset = &market_opportunities[idx];
 
-            // Calculate price per par (inline)
-            let price_pct = if let Some(price) = asset.purchase_price {
-                if asset.balance.amount() > 0.0 {
-                    (price.amount() / asset.balance.amount()).max(0.0)
-                } else {
-                    1.0
-                }
-            } else {
-                1.0
-            };
+            let price_pct = get_price_pct(asset);
 
             let cost_amount = asset.balance.amount() * price_pct;
             if cost_amount <= remaining_cash.amount() {

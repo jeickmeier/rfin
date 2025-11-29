@@ -130,7 +130,7 @@ fn test_mid_period_draw_accrual() {
     // - Feb 15 to Apr 1: 7M * 0.05 * (45/360) = 43,750
     // Total: 75,000
     let expected_interest = 75_000.0;
-    let tolerance = 100.0; // Allow small rounding differences
+    let tolerance = 1e-6; // High precision for deterministic calculations
 
     assert!(
         (interest_flow.amount.amount() - expected_interest).abs() < tolerance,

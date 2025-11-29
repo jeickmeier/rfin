@@ -66,17 +66,20 @@ impl Deposit {
     ///
     /// Builds the cashflow schedule (principal out at start, principal + interest at end)
     /// and discounts to the as_of date using the assigned discount curve.
+    ///
+    /// **Note**: Uses the discount curve's day count for discounting (not the instrument's
+    /// accrual day count) to ensure consistency with par rate calculations. This means
+    /// a deposit priced at its par rate will have zero PV.
     pub fn npv(
         &self,
         context: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        crate::instruments::common::helpers::schedule_pv_impl(
+        crate::instruments::common::helpers::schedule_pv_using_curve_dc(
             self,
             context,
             as_of,
             &self.discount_curve_id,
-            self.day_count,
         )
     }
 }

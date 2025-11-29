@@ -25,9 +25,9 @@ use std::sync::Arc;
 use time::macros::date;
 
 #[allow(dead_code)]
-const TOLERANCE: f64 = 0.50; // 50% tolerance for FD approximations (FD can be less accurate than direct calculators)
+const TOLERANCE: f64 = 0.01; // 1% tolerance for FD approximations vs analytical
 #[allow(dead_code)]
-const STRICT_TOLERANCE: f64 = 0.10; // 10% tolerance when both metric and FD exist
+const STRICT_TOLERANCE: f64 = 0.001; // 0.1% tolerance when both metric and FD exist
 
 fn create_test_option(
     _as_of: Date,
@@ -330,14 +330,14 @@ fn test_speed_equals_gamma_convexity() {
             );
 
             // Compare registry Speed to FD calculation
-            // Allow 15% tolerance for FD approximation with 1% spot bump
+            // Allow 5% tolerance for FD approximation with 1% spot bump (second-order Greek)
             let rel_error = if speed_fd.abs() > 1e-8 {
                 ((speed_value - speed_fd) / speed_fd).abs()
             } else {
                 (speed_value - speed_fd).abs()
             };
             assert!(
-                rel_error < 0.15,
+                rel_error < 0.05,
                 "Speed should match FD: registry={:.6}, fd={:.6}, rel_error={:.2}%",
                 speed_value,
                 speed_fd,
