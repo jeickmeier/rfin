@@ -148,7 +148,6 @@
 - Moderate: Provide gradient/adjoint Greeks for lower-variance sensitivity estimates.
 
 # repo
-- Critical: Add margining and variation/initial margin cashflow modeling.
 - High: Support triparty eligibility schedules and collateral substitution events.
 - High: Include fail/recall penalties and optional early termination features.
 
@@ -158,12 +157,10 @@
 - High: Provide prebuilt stress packs (utilization/rate/credit) and visualization for drawdown/liquidity analytics.
 
 # structured_credit
-- Critical: Add stochastic prepay/default models with scenario trees and correlation.
 - High: Support base/curvature OAS grids and callable step-up tranches.
 - High: Provide calibration helpers to market ABX/iTraxx/CMBX tranches and price-yield surfaces.
 
 # swaption
-- Critical: Add Bermudan/cancellable swaption support with tree/LSMC methods.
 - High: Support stochastic rate models (HW/LMM) and smile-consistent pricing beyond SABR interpolation.
 - High: Provide callable CMS/INF structures interop and more settlement-style options.
 
