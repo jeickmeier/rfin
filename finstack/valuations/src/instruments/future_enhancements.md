@@ -46,7 +46,6 @@
 - Moderate: Add normal/Bachelier spread model and displaced-diffusion support for deep OTM/ITM quotes.
 
 # cds_tranche
-- Critical: Add multi-factor copula and stochastic recovery options; base-correlation arbitrage checks and smoothing.
 - High: Support bespoke portfolios and name-level heterogeneity (hazard/recovery per name).
 - High: Provide tranche option (STO/CDO2) hooks and dynamic spread modeling for risk scenarios.
 
@@ -125,7 +124,6 @@
 - High: Provide margining P&L simulation hooks and daily settlement impact analytics.
 
 # irs
-- Critical: Add multi-curve CSA basis adjustments and funding valuation adjustments (FVA/CVA/DVA) hooks.
 - High: Support Bermudan/cancellable swap optionality directly in-module or via swaption interop.
 - High: Provide stochastic-rate (HW/LMM) pricing pathways for long-dated exotic compounding.
 

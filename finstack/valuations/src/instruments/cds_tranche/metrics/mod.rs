@@ -11,6 +11,8 @@
 //! - Jump-to-default (currency units)
 //! - CS01 (approximate parallel spread shift)
 //! - Correlation01 (per 1% correlation change)
+//! - Recovery01 (per 1% recovery change)
+//! - TailDependence (copula tail dependence coefficient)
 
 mod correlation01;
 mod expected_loss;
@@ -19,6 +21,7 @@ mod par_spread;
 mod recovery01;
 // risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
+mod tail_dependence;
 mod upfront;
 
 use crate::metrics::MetricRegistry;
@@ -48,6 +51,11 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::Recovery01,
             Arc::new(recovery01::Recovery01Calculator),
+            &["CDSTranche"],
+        )
+        .register_metric(
+            MetricId::custom("tail_dependence"),
+            Arc::new(tail_dependence::TailDependenceCalculator),
             &["CDSTranche"],
         );
 

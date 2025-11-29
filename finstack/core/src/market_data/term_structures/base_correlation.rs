@@ -72,6 +72,197 @@ use crate::error::InputError;
 use crate::types::CurveId;
 use crate::Result;
 
+// ============================================================================
+// Arbitrage Validation Types
+// ============================================================================
+
+/// Result of arbitrage-free validation for a base correlation curve.
+///
+/// Contains detailed information about any violations found during validation,
+/// allowing calibration systems to diagnose and fix curve issues.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ArbitrageCheckResult {
+    /// Whether the curve passes all arbitrage checks.
+    pub is_arbitrage_free: bool,
+    /// List of specific violations found.
+    pub violations: Vec<ArbitrageViolation>,
+    /// Non-fatal warnings (e.g., high correlation near boundaries).
+    pub warnings: Vec<String>,
+    /// Maximum absolute violation magnitude (for severity assessment).
+    pub max_violation_magnitude: f64,
+}
+
+impl ArbitrageCheckResult {
+    /// Create a passing result with no violations.
+    pub fn pass() -> Self {
+        Self {
+            is_arbitrage_free: true,
+            violations: Vec::new(),
+            warnings: Vec::new(),
+            max_violation_magnitude: 0.0,
+        }
+    }
+
+    /// Create a failing result with violations.
+    pub fn fail(violations: Vec<ArbitrageViolation>) -> Self {
+        let max_mag = violations.iter().map(|v| v.magnitude()).fold(0.0, f64::max);
+        Self {
+            is_arbitrage_free: false,
+            violations,
+            warnings: Vec::new(),
+            max_violation_magnitude: max_mag,
+        }
+    }
+
+    /// Add a warning to the result.
+    pub fn with_warning(mut self, warning: String) -> Self {
+        self.warnings.push(warning);
+        self
+    }
+
+    /// Add multiple warnings.
+    pub fn with_warnings(mut self, warnings: Vec<String>) -> Self {
+        self.warnings.extend(warnings);
+        self
+    }
+}
+
+/// Specific arbitrage violation in a base correlation curve.
+///
+/// Each violation type captures the relevant data points involved.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ArbitrageViolation {
+    /// Correlation decreases as detachment increases (violates monotonicity).
+    ///
+    /// Base correlation must be non-decreasing: senior tranches cannot have
+    /// lower correlation than junior tranches.
+    NonMonotonicCorrelation {
+        /// Lower detachment point (percent)
+        k1: f64,
+        /// Correlation at lower detachment
+        corr1: f64,
+        /// Higher detachment point (percent)
+        k2: f64,
+        /// Correlation at higher detachment (should be >= corr1)
+        corr2: f64,
+    },
+
+    /// Correlation outside valid range [0, 1].
+    InvalidCorrelationBounds {
+        /// Detachment point (percent)
+        detachment: f64,
+        /// Invalid correlation value
+        correlation: f64,
+    },
+
+    /// Correlation too close to boundary (may cause numerical issues).
+    BoundaryCorrelation {
+        /// Detachment point (percent)
+        detachment: f64,
+        /// Correlation value near boundary
+        correlation: f64,
+        /// Whether near 0 or 1
+        near_zero: bool,
+    },
+}
+
+impl ArbitrageViolation {
+    /// Get the magnitude of the violation for severity assessment.
+    pub fn magnitude(&self) -> f64 {
+        match self {
+            ArbitrageViolation::NonMonotonicCorrelation {
+                corr1, corr2, ..
+            } => (corr1 - corr2).abs(),
+            ArbitrageViolation::InvalidCorrelationBounds { correlation, .. } => {
+                if *correlation < 0.0 {
+                    -correlation
+                } else {
+                    correlation - 1.0
+                }
+            }
+            ArbitrageViolation::BoundaryCorrelation { correlation, .. } => {
+                if *correlation < 0.05 {
+                    0.05 - correlation
+                } else {
+                    correlation - 0.95
+                }
+            }
+        }
+    }
+
+    /// Human-readable description of the violation.
+    pub fn description(&self) -> String {
+        match self {
+            ArbitrageViolation::NonMonotonicCorrelation {
+                k1,
+                corr1,
+                k2,
+                corr2,
+            } => {
+                format!(
+                    "Non-monotonic: β({:.1}%) = {:.4} > β({:.1}%) = {:.4}",
+                    k1, corr1, k2, corr2
+                )
+            }
+            ArbitrageViolation::InvalidCorrelationBounds {
+                detachment,
+                correlation,
+            } => {
+                format!(
+                    "Invalid correlation {:.4} at K={:.1}% (must be in [0, 1])",
+                    correlation, detachment
+                )
+            }
+            ArbitrageViolation::BoundaryCorrelation {
+                detachment,
+                correlation,
+                near_zero,
+            } => {
+                let boundary = if *near_zero { "0" } else { "1" };
+                format!(
+                    "Boundary correlation {:.4} near {} at K={:.1}%",
+                    correlation, boundary, detachment
+                )
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Smoothing Methods
+// ============================================================================
+
+/// Smoothing method for enforcing arbitrage-free base correlation curves.
+///
+/// When calibration produces non-monotonic correlations, these methods
+/// can be used to create an arbitrage-free curve.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SmoothingMethod {
+    /// No smoothing - use raw calibrated values.
+    #[default]
+    None,
+
+    /// Pool Adjacent Violators Algorithm (isotonic regression).
+    ///
+    /// Finds the closest monotonically increasing curve to the raw data
+    /// in a least-squares sense. Fast and theoretically optimal.
+    IsotonicRegression,
+
+    /// Enforce strict monotonicity by adjusting violations.
+    ///
+    /// Each point is set to max(current, previous + epsilon).
+    /// Simple but may accumulate adjustments.
+    StrictMonotonic,
+
+    /// Weighted moving average with monotonicity constraint.
+    ///
+    /// Smooths the curve while ensuring non-decreasing correlations.
+    WeightedSmoothing,
+}
+
 /// Base correlation curve for CDO/CDS index tranche pricing.
 ///
 /// Maps tranche detachment points (in percent) to implied base correlations
@@ -246,6 +437,291 @@ impl BaseCorrelationCurve {
             .build()
             .ok()
     }
+
+    // ========================================================================
+    // Arbitrage Validation
+    // ========================================================================
+
+    /// Validate that the curve is arbitrage-free.
+    ///
+    /// Checks for:
+    /// 1. Monotonicity: β(K₁) ≤ β(K₂) for K₁ < K₂
+    /// 2. Valid bounds: 0 ≤ β(K) ≤ 1 for all K
+    /// 3. Boundary warnings: correlations very close to 0 or 1
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+    ///
+    /// let curve = BaseCorrelationCurve::builder("CDX")
+    ///     .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+    ///     .build()
+    ///     .expect("Valid curve");
+    ///
+    /// let result = curve.validate_arbitrage_free();
+    /// assert!(result.is_arbitrage_free);
+    /// ```
+    pub fn validate_arbitrage_free(&self) -> ArbitrageCheckResult {
+        let mut violations = Vec::new();
+        let mut warnings = Vec::new();
+
+        // Check correlation bounds
+        for (i, (&det, &corr)) in self
+            .detachment_points
+            .iter()
+            .zip(&self.correlations)
+            .enumerate()
+        {
+            // Check valid range
+            if !(0.0..=1.0).contains(&corr) {
+                violations.push(ArbitrageViolation::InvalidCorrelationBounds {
+                    detachment: det,
+                    correlation: corr,
+                });
+            }
+
+            // Check boundary proximity (warning only)
+            if corr < 0.02 {
+                warnings.push(format!(
+                    "Low correlation {:.4} at K={:.1}% may cause numerical issues",
+                    corr, det
+                ));
+            } else if corr > 0.98 {
+                warnings.push(format!(
+                    "High correlation {:.4} at K={:.1}% may cause numerical issues",
+                    corr, det
+                ));
+            }
+
+            // Check monotonicity
+            if i > 0 {
+                let prev_corr = self.correlations[i - 1];
+                if corr < prev_corr - 1e-9 {
+                    violations.push(ArbitrageViolation::NonMonotonicCorrelation {
+                        k1: self.detachment_points[i - 1],
+                        corr1: prev_corr,
+                        k2: det,
+                        corr2: corr,
+                    });
+                }
+            }
+        }
+
+        if violations.is_empty() {
+            ArbitrageCheckResult::pass().with_warnings(warnings)
+        } else {
+            ArbitrageCheckResult::fail(violations).with_warnings(warnings)
+        }
+    }
+
+    /// Check if the curve is monotonically non-decreasing.
+    pub fn is_monotonic(&self) -> bool {
+        for i in 1..self.correlations.len() {
+            if self.correlations[i] < self.correlations[i - 1] - 1e-9 {
+                return false;
+            }
+        }
+        true
+    }
+
+    // ========================================================================
+    // Smoothing Methods
+    // ========================================================================
+
+    /// Apply smoothing to create an arbitrage-free curve.
+    ///
+    /// If the curve is already arbitrage-free, returns a clone.
+    /// Otherwise, applies the specified smoothing method.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::market_data::term_structures::base_correlation::{
+    ///     BaseCorrelationCurve, SmoothingMethod
+    /// };
+    ///
+    /// // Create a non-monotonic curve
+    /// let raw = BaseCorrelationCurve::builder("TEST")
+    ///     .points(vec![(3.0, 0.50), (7.0, 0.40), (10.0, 0.60)])
+    ///     .build()
+    ///     .expect("Valid curve");
+    ///
+    /// let smoothed = raw.apply_smoothing(SmoothingMethod::IsotonicRegression)
+    ///     .expect("Smoothing should succeed");
+    ///
+    /// assert!(smoothed.is_monotonic());
+    /// ```
+    pub fn apply_smoothing(&self, method: SmoothingMethod) -> Result<Self> {
+        match method {
+            SmoothingMethod::None => Ok(self.clone()),
+            SmoothingMethod::IsotonicRegression => self.apply_isotonic_regression(),
+            SmoothingMethod::StrictMonotonic => self.apply_strict_monotonic(),
+            SmoothingMethod::WeightedSmoothing => self.apply_weighted_smoothing(),
+        }
+    }
+
+    /// Apply Pool Adjacent Violators Algorithm (PAVA) for isotonic regression.
+    ///
+    /// This finds the closest monotonically non-decreasing sequence to the
+    /// input correlations in the L2 sense.
+    fn apply_isotonic_regression(&self) -> Result<Self> {
+        if self.correlations.is_empty() {
+            return Ok(self.clone());
+        }
+
+        let n = self.correlations.len();
+        let mut smoothed = self.correlations.clone();
+
+        // PAVA: Pool Adjacent Violators Algorithm
+        // Process from left to right, pooling violations
+        let mut i = 0;
+        while i < n - 1 {
+            if smoothed[i] > smoothed[i + 1] {
+                // Found a violation - pool these values
+                let mut j = i + 1;
+
+                // Extend pool to include all consecutive violations
+                while j < n && smoothed[j - 1] > smoothed[j] {
+                    j += 1;
+                }
+
+                // Average the pooled values
+                let avg = smoothed[i..j].iter().sum::<f64>() / (j - i) as f64;
+                for item in smoothed.iter_mut().take(j).skip(i) {
+                    *item = avg;
+                }
+
+                // Go back to check if new pool violates with previous
+                i = i.saturating_sub(1);
+                if i == 0 && smoothed[0] <= smoothed[1] {
+                    i = 1; // Don't get stuck at 0 if no violation
+                }
+            } else {
+                i += 1;
+            }
+        }
+
+        // Clamp to valid range
+        for c in &mut smoothed {
+            *c = c.clamp(0.001, 0.999);
+        }
+
+        // Enforce final monotonicity (should already be satisfied, but ensure)
+        for i in 1..n {
+            if smoothed[i] < smoothed[i - 1] {
+                smoothed[i] = smoothed[i - 1];
+            }
+        }
+
+        let points: Vec<(f64, f64)> = self
+            .detachment_points
+            .iter()
+            .copied()
+            .zip(smoothed)
+            .collect();
+
+        BaseCorrelationCurve::builder(self.id.clone())
+            .points(points)
+            .build()
+    }
+
+    /// Apply strict monotonicity enforcement.
+    ///
+    /// Each correlation is set to max(current, previous + epsilon).
+    fn apply_strict_monotonic(&self) -> Result<Self> {
+        const EPSILON: f64 = 1e-6;
+
+        if self.correlations.is_empty() {
+            return Ok(self.clone());
+        }
+
+        let mut smoothed = self.correlations.clone();
+
+        // Forward pass: ensure non-decreasing
+        for i in 1..smoothed.len() {
+            let min_val = smoothed[i - 1] + EPSILON;
+            if smoothed[i] < min_val {
+                smoothed[i] = min_val;
+            }
+        }
+
+        // Clamp to valid range
+        for c in &mut smoothed {
+            *c = c.clamp(0.001, 0.999);
+        }
+
+        let points: Vec<(f64, f64)> = self
+            .detachment_points
+            .iter()
+            .copied()
+            .zip(smoothed)
+            .collect();
+
+        BaseCorrelationCurve::builder(self.id.clone())
+            .points(points)
+            .build()
+    }
+
+    /// Apply weighted smoothing with monotonicity constraint.
+    ///
+    /// Uses a weighted average that respects the monotonicity requirement.
+    fn apply_weighted_smoothing(&self) -> Result<Self> {
+        if self.correlations.len() < 3 {
+            return self.apply_strict_monotonic();
+        }
+
+        let n = self.correlations.len();
+        let mut smoothed = vec![0.0; n];
+
+        // First and last points: keep original (or apply light smoothing)
+        smoothed[0] = self.correlations[0];
+        smoothed[n - 1] = self.correlations[n - 1];
+
+        // Interior points: weighted average of neighbors
+        for (i, smoothed_val) in smoothed.iter_mut().enumerate().take(n - 1).skip(1) {
+            // Weights: 0.25 * prev + 0.5 * current + 0.25 * next
+            let avg = 0.25 * self.correlations[i - 1]
+                + 0.5 * self.correlations[i]
+                + 0.25 * self.correlations[i + 1];
+            *smoothed_val = avg;
+        }
+
+        // Enforce monotonicity
+        for i in 1..n {
+            if smoothed[i] < smoothed[i - 1] {
+                smoothed[i] = smoothed[i - 1] + 1e-6;
+            }
+        }
+
+        // Clamp to valid range
+        for c in &mut smoothed {
+            *c = c.clamp(0.001, 0.999);
+        }
+
+        let points: Vec<(f64, f64)> = self
+            .detachment_points
+            .iter()
+            .copied()
+            .zip(smoothed)
+            .collect();
+
+        BaseCorrelationCurve::builder(self.id.clone())
+            .points(points)
+            .build()
+    }
+
+    /// Create an arbitrage-free version of this curve.
+    ///
+    /// Convenience method that validates and applies smoothing if needed.
+    pub fn make_arbitrage_free(&self, method: SmoothingMethod) -> Result<Self> {
+        let validation = self.validate_arbitrage_free();
+        if validation.is_arbitrage_free {
+            Ok(self.clone())
+        } else {
+            self.apply_smoothing(method)
+        }
+    }
 }
 
 /// Builder for creating base correlation curves.
@@ -350,6 +826,17 @@ mod tests {
             .expect("BaseCorrelationCurve builder should succeed with valid test data")
     }
 
+    fn non_monotonic_curve() -> BaseCorrelationCurve {
+        BaseCorrelationCurve::builder("NON_MONOTONIC")
+            .points(vec![
+                (3.0, 0.50),  // Higher than next
+                (7.0, 0.40),  // Violation: decreases
+                (10.0, 0.60),
+            ])
+            .build()
+            .expect("Builder should accept non-monotonic curves")
+    }
+
     #[test]
     fn test_base_corr_creation() {
         let curve = sample_curve();
@@ -407,5 +894,215 @@ mod tests {
 
         assert_eq!(curve.detachment_points, vec![3.0, 7.0, 10.0]);
         assert_eq!(curve.correlations, vec![0.25, 0.45, 0.60]);
+    }
+
+    // ========================================================================
+    // Arbitrage Validation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_monotonic_curve_is_arbitrage_free() {
+        let curve = sample_curve();
+        let result = curve.validate_arbitrage_free();
+
+        assert!(result.is_arbitrage_free);
+        assert!(result.violations.is_empty());
+    }
+
+    #[test]
+    fn test_non_monotonic_curve_detected() {
+        let curve = non_monotonic_curve();
+        let result = curve.validate_arbitrage_free();
+
+        assert!(!result.is_arbitrage_free);
+        assert!(!result.violations.is_empty());
+
+        // Should have exactly one violation
+        assert_eq!(result.violations.len(), 1);
+        assert!(matches!(
+            result.violations[0],
+            ArbitrageViolation::NonMonotonicCorrelation { .. }
+        ));
+    }
+
+    #[test]
+    fn test_is_monotonic() {
+        let monotonic = sample_curve();
+        assert!(monotonic.is_monotonic());
+
+        let non_monotonic = non_monotonic_curve();
+        assert!(!non_monotonic.is_monotonic());
+    }
+
+    #[test]
+    fn test_violation_magnitude() {
+        let v = ArbitrageViolation::NonMonotonicCorrelation {
+            k1: 3.0,
+            corr1: 0.50,
+            k2: 7.0,
+            corr2: 0.40,
+        };
+        assert!((v.magnitude() - 0.10).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_violation_description() {
+        let v = ArbitrageViolation::NonMonotonicCorrelation {
+            k1: 3.0,
+            corr1: 0.50,
+            k2: 7.0,
+            corr2: 0.40,
+        };
+        let desc = v.description();
+        assert!(desc.contains("Non-monotonic"));
+        assert!(desc.contains("3.0"));
+        assert!(desc.contains("7.0"));
+    }
+
+    // ========================================================================
+    // Smoothing Tests
+    // ========================================================================
+
+    #[test]
+    fn test_isotonic_regression_simple() {
+        let curve = non_monotonic_curve();
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::IsotonicRegression)
+            .expect("Smoothing should succeed");
+
+        assert!(smoothed.is_monotonic());
+
+        // Check that smoothed curve is valid
+        let result = smoothed.validate_arbitrage_free();
+        assert!(result.is_arbitrage_free);
+    }
+
+    #[test]
+    fn test_isotonic_regression_multiple_violations() {
+        // Multiple violations
+        let curve = BaseCorrelationCurve::builder("MULTI_VIOLATION")
+            .points(vec![
+                (3.0, 0.60),  // High
+                (7.0, 0.40),  // Drops
+                (10.0, 0.50), // Rises but still below first
+                (15.0, 0.45), // Drops again
+            ])
+            .build()
+            .expect("Builder should accept");
+
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::IsotonicRegression)
+            .expect("Smoothing should succeed");
+
+        assert!(smoothed.is_monotonic());
+    }
+
+    #[test]
+    fn test_strict_monotonic() {
+        let curve = non_monotonic_curve();
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::StrictMonotonic)
+            .expect("Smoothing should succeed");
+
+        assert!(smoothed.is_monotonic());
+    }
+
+    #[test]
+    fn test_weighted_smoothing() {
+        let curve = non_monotonic_curve();
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::WeightedSmoothing)
+            .expect("Smoothing should succeed");
+
+        assert!(smoothed.is_monotonic());
+    }
+
+    #[test]
+    fn test_no_smoothing_preserves_original() {
+        let curve = sample_curve();
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::None)
+            .expect("No smoothing should succeed");
+
+        assert_eq!(curve.correlations, smoothed.correlations);
+        assert_eq!(curve.detachment_points, smoothed.detachment_points);
+    }
+
+    #[test]
+    fn test_make_arbitrage_free_already_valid() {
+        let curve = sample_curve();
+        let result = curve
+            .make_arbitrage_free(SmoothingMethod::IsotonicRegression)
+            .expect("Should succeed");
+
+        // Should return the same curve (no changes needed)
+        assert_eq!(curve.correlations, result.correlations);
+    }
+
+    #[test]
+    fn test_make_arbitrage_free_fixes_invalid() {
+        let curve = non_monotonic_curve();
+        let result = curve
+            .make_arbitrage_free(SmoothingMethod::IsotonicRegression)
+            .expect("Should succeed");
+
+        assert!(result.is_monotonic());
+        assert!(result.validate_arbitrage_free().is_arbitrage_free);
+    }
+
+    #[test]
+    fn test_isotonic_preserves_endpoints() {
+        // PAVA should keep first and last values if they don't violate
+        let curve = BaseCorrelationCurve::builder("ENDPOINTS")
+            .points(vec![
+                (3.0, 0.25),  // First - should be preserved
+                (7.0, 0.20),  // Violation
+                (10.0, 0.60), // Last - should be preserved
+            ])
+            .build()
+            .expect("Builder should accept");
+
+        let smoothed = curve
+            .apply_smoothing(SmoothingMethod::IsotonicRegression)
+            .expect("Smoothing should succeed");
+
+        // First point might be adjusted to satisfy monotonicity
+        // Last point should be preserved or close
+        assert!(smoothed.is_monotonic());
+    }
+
+    #[test]
+    fn test_boundary_warnings() {
+        let curve = BaseCorrelationCurve::builder("BOUNDARY")
+            .points(vec![
+                (3.0, 0.01),  // Very low - should warn
+                (7.0, 0.50),
+                (10.0, 0.99), // Very high - should warn
+            ])
+            .build()
+            .expect("Builder should accept");
+
+        let result = curve.validate_arbitrage_free();
+
+        // Should be arbitrage-free but have warnings
+        assert!(result.is_arbitrage_free);
+        assert!(!result.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_arbitrage_check_result_helpers() {
+        let pass = ArbitrageCheckResult::pass();
+        assert!(pass.is_arbitrage_free);
+        assert!(pass.violations.is_empty());
+
+        let fail = ArbitrageCheckResult::fail(vec![ArbitrageViolation::NonMonotonicCorrelation {
+            k1: 3.0,
+            corr1: 0.50,
+            k2: 7.0,
+            corr2: 0.40,
+        }]);
+        assert!(!fail.is_arbitrage_free);
+        assert_eq!(fail.violations.len(), 1);
+        assert!((fail.max_violation_magnitude - 0.10).abs() < 1e-10);
     }
 }

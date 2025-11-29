@@ -1,8 +1,9 @@
-//! CDS tranche instruments with base correlation and Gaussian copula.
+//! CDS tranche instruments with base correlation and multiple copula models.
 //!
 //! CDS tranches (synthetic CDO tranches) provide leveraged credit exposure
-//! to specific slices of the default distribution. Pricing uses the one-factor
-//! Gaussian copula model with base correlation skew.
+//! to specific slices of the default distribution. Pricing supports multiple
+//! copula models including Gaussian, Student-t, Random Factor Loading, and
+//! Multi-factor, with optional stochastic recovery.
 //!
 //! # Tranche Structure
 //!
@@ -17,7 +18,9 @@
 //! - **Senior**: 15-30%
 //! - **Super senior**: 30-100%
 //!
-//! # Pricing Model: One-Factor Gaussian Copula
+//! # Copula Models
+//!
+//! ## One-Factor Gaussian (Default)
 //!
 //! Default correlation modeled via single systematic factor:
 //!
@@ -27,13 +30,44 @@
 //!
 //! where ρ is base correlation, Z is common factor, εᵢ is idiosyncratic.
 //!
-//! **Base correlation**: Implied from market tranche quotes, varies by
-//! detachment point (correlation skew).
+//! ## Student-t Copula
+//!
+//! Captures tail dependence - joint extreme defaults more likely than
+//! Gaussian predicts. Use for stress testing or when market implies
+//! high correlation during stress.
+//!
+//! ## Random Factor Loading (RFL)
+//!
+//! Stochastic correlation - correlation itself is random, typically
+//! higher in stressed markets. Important for senior tranches.
+//!
+//! ## Multi-Factor
+//!
+//! Sector-specific correlation structure for bespoke portfolios
+//! with industry concentration.
+//!
+//! # Stochastic Recovery
+//!
+//! Optional recovery model where recovery negatively correlates with
+//! the systematic factor (lower recovery in stress). This captures
+//! the "double hit" effect seen empirically.
+//!
+//! # Arbitrage-Free Base Correlation
+//!
+//! Base correlation curves are validated for arbitrage-free conditions:
+//! - Monotonicity: β(K₁) ≤ β(K₂) for K₁ < K₂
+//! - Valid bounds: 0 ≤ β(K) ≤ 1
+//!
+//! Smoothing methods available: Isotonic Regression (PAVA), Strict
+//! Monotonic, Weighted Smoothing.
 //!
 //! # References
 //!
 //! - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
 //!   *Journal of Fixed Income*, 9(4), 43-54.
+//!
+//! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula:
+//!   Random Recovery and Random Factor Loadings." *Journal of Credit Risk*.
 //!
 //! - Laurent, J.-P., & Gregory, J. (2005). "Basket Default Swaps, CDOs and
 //!   Factor Copulas." *Journal of Risk*, 7(4), 103-122.
@@ -45,11 +79,17 @@
 //!
 //! - [`CdsTranche`] for instrument struct
 //! - [`TrancheSide`] for buyer vs seller
+//! - [`copula`] for copula model implementations
+//! - [`recovery`] for stochastic recovery models
 //! - Base correlation calibration in [`calibration::methods`](crate::calibration::methods)
 
+pub mod copula;
 pub mod metrics;
 pub mod parameters;
 pub mod pricer;
+pub mod recovery;
 mod types;
 
+pub use copula::{Copula, CopulaSpec};
+pub use recovery::{RecoveryModel, RecoverySpec};
 pub use types::{CdsTranche, TrancheSide};
