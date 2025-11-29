@@ -101,37 +101,6 @@ pub fn parse_tenor_to_years_with_context(
         .map_err(|e| Error::Internal(e.to_string()))
 }
 
-/// Parse a tenor string to a year fraction with full control over conventions.
-///
-/// This is the most flexible parsing function, allowing specification of all
-/// parameters used in the computation.
-///
-/// # Arguments
-/// - `tenor`: Tenor string in formats like "1D", "1W", "3M", "5Y"
-/// - `as_of`: Starting date for the calculation
-/// - `calendar`: Optional holiday calendar for business day adjustment
-/// - `bdc`: Business day convention to apply when adjusting dates
-/// - `day_count`: Day count convention for computing the year fraction
-///
-/// # Returns
-/// Year fraction computed using the specified conventions.
-///
-/// # Errors
-/// Returns an error if the tenor string is invalid or computation fails.
-pub fn parse_tenor_to_years_full(
-    tenor: &str,
-    as_of: Date,
-    calendar: Option<&dyn HolidayCalendar>,
-    bdc: BusinessDayConvention,
-    day_count: DayCount,
-) -> Result<f64> {
-    let parsed = Tenor::parse(tenor).map_err(|e| Error::InvalidTenor(e.to_string()))?;
-
-    parsed
-        .to_years_with_context(as_of, calendar, bdc, day_count)
-        .map_err(|e| Error::Internal(e.to_string()))
-}
-
 /// Parse a period string to an integer number of days.
 ///
 /// Supports formats like:

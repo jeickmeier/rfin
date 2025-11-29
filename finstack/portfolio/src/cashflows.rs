@@ -204,24 +204,11 @@ mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;
     use crate::position::{Position, PositionUnit};
+    use crate::test_utils::build_test_market_at;
     use crate::types::Entity;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::bond;
     use std::sync::Arc;
     use time::macros::date;
-
-    fn build_test_market(as_of: Date) -> MarketContext {
-        let curve = DiscountCurve::builder("USD-OIS")
-            .base_date(as_of)
-            .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-            .set_interp(InterpStyle::Linear)
-            .allow_non_monotonic()
-            .build()
-            .expect("test should succeed");
-
-        MarketContext::new().insert_discount(curve)
-    }
 
     #[test]
     fn test_aggregate_cashflows_basic() {
@@ -258,7 +245,7 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let market = build_test_market(as_of);
+        let market = build_test_market_at(as_of);
 
         let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
 
@@ -317,7 +304,7 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let market = build_test_market(as_of);
+        let market = build_test_market_at(as_of);
 
         let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
 

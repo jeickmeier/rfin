@@ -26,7 +26,7 @@ pub enum Comparator {
 }
 
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McConfig {
     /// Random number generator seed for reproducibility
     pub seed: u64,
@@ -35,7 +35,7 @@ pub struct McConfig {
 }
 
 /// Covenant forecast configuration.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CovenantForecastConfig {
     /// Whether to use stochastic simulation (vs deterministic projection)
     pub stochastic: bool,
@@ -50,7 +50,7 @@ pub struct CovenantForecastConfig {
 }
 
 /// Forecast output with headroom analytics.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CovenantForecast {
     /// Covenant identifier
     pub covenant_id: String,
@@ -110,7 +110,7 @@ impl CovenantForecast {
 }
 
 /// A projected covenant breach.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FutureBreach {
     /// Covenant identifier
     pub covenant_id: String,

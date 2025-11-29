@@ -20,10 +20,6 @@ time = { version = "0.3" }
 time = { version = "0.3", features = ["macros"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 
-[features]
-default = ["serde"]
-serde = []
-
 [[bench]]
 name = "scenarios"
 harness = false

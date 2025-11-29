@@ -374,27 +374,11 @@ mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;
     use crate::position::{Position, PositionUnit};
+    use crate::test_utils::build_test_market;
     use crate::types::{Entity, DUMMY_ENTITY_ID};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
-
-    fn build_test_market() -> MarketContext {
-        let base_date = date!(2024 - 01 - 01);
-        // Create a flat discount curve (0% rate) so deposits have near-zero PV
-        // NOTE: Flat curve requires allow_non_monotonic() since monotonicity is enforced by default
-        let curve = DiscountCurve::builder("USD")
-            .base_date(base_date)
-            .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
-            .set_interp(InterpStyle::Linear)
-            .allow_non_monotonic() // Flat curve for testing
-            .build()
-            .expect("test should succeed");
-
-        MarketContext::new().insert_discount(curve)
-    }
 
     #[test]
     fn test_value_single_position() {

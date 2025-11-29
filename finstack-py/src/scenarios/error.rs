@@ -43,14 +43,5 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
         finstack_scenarios::Error::InstrumentNotFound(id) => {
             PyValueError::new_err(format!("Instrument not found: {}", id))
         }
-        finstack_scenarios::Error::InvalidInput(msg) => {
-            PyValueError::new_err(format!("Invalid input: {}", msg))
-        }
-        finstack_scenarios::Error::BuilderError(msg) => {
-            PyValueError::new_err(format!("Builder error: {}", msg))
-        }
-        finstack_scenarios::Error::IndexError(msg) => {
-            PyValueError::new_err(format!("Index error: {}", msg))
-        }
     }
 }

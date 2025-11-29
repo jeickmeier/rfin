@@ -15,38 +15,21 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get_discount_ref(option.discount_curve_id.as_ref())?;
-        let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
 
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let forward = option.forward_swap_rate(disc, context.as_of)?;
-        let annuity = option.annuity(disc, context.as_of, forward)?;
-
-        let sigma = if let Some(sabr) = &option.sabr_params {
-            let model = crate::instruments::common::models::SABRModel::new(sabr.clone());
-            model.implied_volatility(forward, option.strike_rate, t)?
-        } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
-            impl_vol
-        } else {
-            context
-                .curves
-                .surface_ref(option.vol_surface_id.as_str())?
-                .value_clamped(t, option.strike_rate)
+        // Use consolidated helper to get pre-computed inputs
+        let inputs = match option.greek_inputs(&context.curves, context.as_of)? {
+            Some(inputs) => inputs,
+            None => return Ok(0.0), // Option expired
         };
 
         let delta = match option.vol_model {
             VolatilityModel::Black => {
-                if forward <= 0.0 {
-                    // Black model undefined for negative rates, return 0 delta or error
+                if inputs.forward <= 0.0 {
+                    // Black model undefined for negative rates
                     return Ok(0.0);
                 }
                 use crate::instruments::common::models::d1_black76;
-                let d1 = d1_black76(forward, option.strike_rate, sigma, t);
+                let d1 = d1_black76(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d1),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d1),
@@ -54,7 +37,7 @@ impl MetricCalculator for DeltaCalculator {
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
-                let d = d_bachelier(forward, option.strike_rate, sigma, t);
+                let d = d_bachelier(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d),
@@ -63,7 +46,7 @@ impl MetricCalculator for DeltaCalculator {
         };
 
         // Scale by notional and annuity for cash delta
-        Ok(delta * option.notional.amount() * annuity)
+        Ok(delta * option.notional.amount() * inputs.annuity)
     }
 
     fn dependencies(&self) -> &[MetricId] {

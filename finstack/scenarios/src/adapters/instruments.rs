@@ -128,47 +128,6 @@ pub fn apply_instrument_type_spread_shock(
     Ok(count)
 }
 
-/// Clear all scenario shocks from instruments.
-///
-/// Removes any scenario price or spread shocks that were previously applied,
-/// resetting instruments to their base pricing state.
-///
-/// # Arguments
-/// - `instruments`: Slice of instrument trait objects to clear shocks from.
-///
-/// # Returns
-/// Number of instruments that had shocks cleared.
-pub fn clear_instrument_shocks(instruments: &mut [Box<dyn Instrument>]) -> usize {
-    let mut count = 0;
-
-    for instrument in instruments.iter_mut() {
-        let mut had_shock = false;
-
-        // Clear scenario overrides if supported
-        if let Some(overrides) = instrument.scenario_overrides_mut() {
-            if overrides.has_scenario_shock() {
-                overrides.clear_scenario_shocks();
-                had_shock = true;
-            }
-        }
-
-        // Also clear metadata attributes
-        let attrs = instrument.attributes_mut();
-        if attrs.meta.remove("scenario_price_shock_pct").is_some() {
-            had_shock = true;
-        }
-        if attrs.meta.remove("scenario_spread_shock_bp").is_some() {
-            had_shock = true;
-        }
-
-        if had_shock {
-            count += 1;
-        }
-    }
-
-    count
-}
-
 #[cfg(test)]
 mod tests {
     // Note: Full testing requires concrete instrument implementations

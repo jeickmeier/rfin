@@ -481,6 +481,95 @@ impl Swaption {
         }
         Ok((df_start - df_end) / annuity)
     }
+
+    /// Resolve volatility from SABR parameters, pricing override, or volatility surface.
+    ///
+    /// This consolidates the volatility resolution logic used by Greek calculators.
+    /// Priority order:
+    /// 1. SABR model parameters (if set)
+    /// 2. Pricing override implied volatility (if set)
+    /// 3. Volatility surface lookup
+    ///
+    /// # Arguments
+    /// * `curves` - Market context containing volatility surfaces
+    /// * `forward` - Forward swap rate
+    /// * `time_to_expiry` - Time to option expiry in years
+    ///
+    /// # Returns
+    /// Resolved volatility value
+    pub fn resolve_volatility(
+        &self,
+        curves: &MarketContext,
+        forward: f64,
+        time_to_expiry: f64,
+    ) -> Result<f64> {
+        // 1. SABR model (highest priority)
+        if let Some(sabr) = &self.sabr_params {
+            let model = SABRModel::new(sabr.clone());
+            return model.implied_volatility(forward, self.strike_rate, time_to_expiry);
+        }
+
+        // 2. Pricing override
+        if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+            return Ok(impl_vol);
+        }
+
+        // 3. Volatility surface
+        let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
+        Ok(vol_surface.value_clamped(time_to_expiry, self.strike_rate))
+    }
+
+    /// Pre-compute common Greek calculation inputs.
+    ///
+    /// Returns `None` if the option has expired (time_to_expiry <= 0).
+    /// This consolidates the setup logic shared across delta, gamma, vega, and rho calculators.
+    ///
+    /// # Arguments
+    /// * `curves` - Market context containing curves and surfaces
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    /// `Some(GreekInputs)` containing forward, annuity, sigma, and time to expiry,
+    /// or `None` if the option has expired.
+    pub fn greek_inputs(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Option<GreekInputs>> {
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
+        let t = self.year_fraction(as_of, self.expiry, self.day_count)?;
+
+        if t <= 0.0 {
+            return Ok(None);
+        }
+
+        let forward = self.forward_swap_rate(disc, as_of)?;
+        let annuity = self.annuity(disc, as_of, forward)?;
+        let sigma = self.resolve_volatility(curves, forward, t)?;
+
+        Ok(Some(GreekInputs {
+            forward,
+            annuity,
+            sigma,
+            time_to_expiry: t,
+        }))
+    }
+}
+
+/// Pre-computed inputs for Greek calculations.
+///
+/// This struct contains the common values needed by delta, gamma, vega,
+/// and other Greek calculators, avoiding redundant computation.
+#[derive(Clone, Copy, Debug)]
+pub struct GreekInputs {
+    /// Forward swap rate
+    pub forward: f64,
+    /// Swap annuity (PV01 or cash annuity depending on settlement)
+    pub annuity: f64,
+    /// Resolved volatility (from SABR, override, or surface)
+    pub sigma: f64,
+    /// Time to option expiry in years
+    pub time_to_expiry: f64,
 }
 
 impl crate::instruments::common::traits::Instrument for Swaption {

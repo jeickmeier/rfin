@@ -71,6 +71,9 @@ pub mod valuation;
 /// Cashflow ladder and schedule aggregation utilities.
 pub mod cashflows;
 
+#[cfg(test)]
+mod test_utils;
+
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
 

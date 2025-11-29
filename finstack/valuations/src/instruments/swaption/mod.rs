@@ -110,4 +110,4 @@ pub mod pricer;
 pub mod types;
 
 pub use pricer::SimpleSwaptionBlackPricer;
-pub use types::{Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};
+pub use types::{GreekInputs, Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel};

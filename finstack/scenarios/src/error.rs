@@ -118,18 +118,6 @@ pub enum Error {
     /// Instrument not found.
     #[error("Instrument not found: {0}")]
     InstrumentNotFound(String),
-
-    /// Invalid input data
-    #[error("Invalid input: {0}")]
-    InvalidInput(String),
-
-    /// Builder construction error
-    #[error("Builder error: {0}")]
-    BuilderError(String),
-
-    /// Index/collection access error
-    #[error("Index error: {0}")]
-    IndexError(String),
 }
 
 impl Error {
@@ -192,20 +180,5 @@ impl Error {
     /// Create an instrument not found error
     pub fn instrument_not_found(instrument: impl Into<String>) -> Self {
         Self::InstrumentNotFound(instrument.into())
-    }
-
-    /// Create an invalid input error
-    pub fn invalid_input(msg: impl Into<String>) -> Self {
-        Self::InvalidInput(msg.into())
-    }
-
-    /// Create a builder error
-    pub fn builder_error(msg: impl Into<String>) -> Self {
-        Self::BuilderError(msg.into())
-    }
-
-    /// Create an index error
-    pub fn index_error(msg: impl Into<String>) -> Self {
-        Self::IndexError(msg.into())
     }
 }

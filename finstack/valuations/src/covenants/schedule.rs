@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Entries should be sorted by date ascending; the effective threshold for a
 /// test date is the last entry with date <= test_date. If no entry applies,
 /// `threshold_for_date` returns `None`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ThresholdSchedule(pub Vec<(Date, f64)>);
 
 impl ThresholdSchedule {

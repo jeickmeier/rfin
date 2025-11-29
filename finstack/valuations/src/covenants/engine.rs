@@ -29,7 +29,7 @@ pub struct SpringingCondition {
 }
 
 /// Financial covenant specification with test frequency and consequences.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Covenant {
     /// Type of covenant (leverage, coverage, etc.)
     pub covenant_type: CovenantType,
@@ -191,7 +191,7 @@ pub enum ThresholdTest {
 }
 
 /// Consequence of covenant breach
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CovenantConsequence {
     /// Event of default
     Default,
@@ -308,7 +308,7 @@ pub struct CovenantWindow {
 }
 
 /// Covenant breach tracking.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CovenantBreach {
     /// Covenant that was breached
     pub covenant_type: String,
@@ -801,7 +801,7 @@ fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
 }
 
 /// Result of applying a covenant consequence.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsequenceApplication {
     /// Type of consequence applied
     pub consequence_type: String,
