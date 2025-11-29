@@ -154,10 +154,9 @@
 //!
 //! - [`components`]: Structural elements (pool, tranches, waterfall, coverage tests)
 //! - [`metrics`]: Risk metrics organized by category (pricing, risk, pool, deal-specific)
-//! - [`types`]: Main `StructuredCredit` instrument type
+//! - [`types`]: Main `StructuredCredit` instrument type and `ReinvestmentManager`
 //! - [`pricer`]: Waterfall execution and valuation
 //! - [`config`]: Deal configuration, fees, and industry constants
-//! - [`utils`]: Rating factors, reinvestment logic, date utilities
 //!
 //! # See Also
 //!
@@ -175,9 +174,9 @@ pub mod config;
 pub mod instrument_trait;
 pub mod metrics;
 pub mod pricer;
+pub mod simulation_helpers;
 pub mod templates;
 pub mod types;
-pub mod utils;
 
 /// Prelude module for end-users.
 ///
@@ -211,7 +210,6 @@ pub mod prelude {
 
     // Enums
     pub use super::AssetType;
-    pub use super::CreditRating;
 
     // Results
     pub use super::TrancheCashflowResult;
@@ -262,7 +260,6 @@ pub use components::{
     CoverageTrigger,
     CreditEnhancement,
     CreditFactors,
-    CreditRating,
     DealType,
     // Behavioral models
     DefaultCurve,
@@ -313,8 +310,6 @@ pub use components::{
     // Workspace for zero-allocation waterfall execution
     WaterfallWorkspace,
 };
-
-pub use utils::months_between;
 
 // ============================================================================
 // Metrics (re-exported for convenience)
@@ -404,13 +399,8 @@ pub use config::{
     STANDARD_SEVERITY_RATES,
 };
 
-pub use utils::{
-    moodys_warf_factor,
-    // Rating factors
-    RatingFactorTable,
-    // Reinvestment
-    ReinvestmentManager,
-};
+// Reinvestment management
+pub use types::ReinvestmentManager;
 
 // ============================================================================
 // Waterfall Templates

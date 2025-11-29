@@ -1,9 +1,36 @@
-//! Behavioral model specifications for structured credit instruments.
+//! Deterministic behavioral model specifications for structured credit instruments.
 //!
-//! This module re-exports unified behavioral model specs from the cashflow builder.
-//! These specs are now shared across all credit instruments (CLO, ABS, RMBS, CMBS,
-//! bonds, term loans, revolving credit, etc.), reducing duplication and ensuring
-//! consistency across the library.
+//! This module provides **single-path, deterministic** behavioral models for
+//! prepayment, default, and recovery. These are the industry-standard curves
+//! used for day-to-day valuation and reporting.
+//!
+//! # Deterministic vs Stochastic
+//!
+//! | This Module (Deterministic) | [`stochastic`](super::stochastic) Module |
+//! |-----------------------------|------------------------------------------|
+//! | Single projected path | Multiple simulated paths |
+//! | PSA, SDA, constant rates | Copula, intensity, factor models |
+//! | Fast, closed-form | Monte Carlo simulation |
+//! | Standard valuation | VaR, scenario analysis, correlation risk |
+//!
+//! # Available Models
+//!
+//! ## Prepayment
+//! - **PSA** (Public Securities Association) - RMBS standard ramp curve
+//! - **Constant CPR** - Flat annual prepayment rate
+//!
+//! ## Default
+//! - **SDA** (Standard Default Assumption) - RMBS standard ramp curve
+//! - **Constant CDR** - Flat annual default rate
+//!
+//! ## Recovery
+//! - **Constant rate** with configurable lag
+//!
+//! # Re-exports
+//!
+//! These specs are re-exported from the cashflow builder module, ensuring
+//! consistency across all credit instruments (CLO, ABS, RMBS, CMBS, bonds,
+//! term loans, revolving credit, etc.).
 
 // Re-export builder specs as single source of truth
 pub use crate::cashflow::builder::{

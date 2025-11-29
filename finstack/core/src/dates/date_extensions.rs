@@ -99,6 +99,28 @@ pub trait DateExt: Sized {
     /// Equivalent to calling [`crate::dates::next_imm`] but available as a
     /// method for improved discoverability.
     fn next_imm(self) -> Self;
+
+    /// Calculate the number of whole months between two dates.
+    ///
+    /// Returns the difference as `(other.year - self.year) * 12 + (other.month - self.month)`.
+    /// If `other` is before `self`, returns `0`.
+    ///
+    /// This is commonly used to calculate loan seasoning (age) in months for
+    /// structured credit instruments.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_core::dates::{Date, DateExt};
+    /// use time::Month;
+    ///
+    /// let start = Date::from_calendar_date(2020, Month::January, 15).expect("Valid date");
+    /// let end = Date::from_calendar_date(2022, Month::March, 10).expect("Valid date");
+    /// assert_eq!(start.months_until(end), 26);
+    ///
+    /// // Returns 0 if end is before start
+    /// assert_eq!(end.months_until(start), 0);
+    /// ```
+    fn months_until(self, other: Self) -> u32;
 }
 
 impl DateExt for Date {
@@ -252,6 +274,12 @@ impl DateExt for Date {
     fn next_imm(self) -> Self {
         crate::dates::next_imm(self)
     }
+
+    fn months_until(self, other: Self) -> u32 {
+        let months =
+            (other.year() - self.year()) * 12 + (other.month() as i32 - self.month() as i32);
+        months.max(0) as u32
+    }
 }
 
 /// Convenience extensions for [`time::OffsetDateTime`].
@@ -286,6 +314,9 @@ pub trait OffsetDateTimeExt: Sized {
 
     /// See [`DateExt::next_imm`].
     fn next_imm(self) -> Self;
+
+    /// See [`DateExt::months_until`].
+    fn months_until(self, other: Self) -> u32;
 }
 
 impl OffsetDateTimeExt for OffsetDateTime {
@@ -332,6 +363,10 @@ impl OffsetDateTimeExt for OffsetDateTime {
     fn next_imm(self) -> Self {
         let new_date = self.date().next_imm();
         self.replace_date(new_date)
+    }
+
+    fn months_until(self, other: Self) -> u32 {
+        self.date().months_until(other.date())
     }
 }
 
@@ -558,5 +593,46 @@ mod tests {
             }
             other => panic!("Expected AdjustmentFailed error, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_months_until() {
+        // Standard case: 2 years and 2 months = 26 months
+        let start = make_date(2020, 1, 15);
+        let end = make_date(2022, 3, 10);
+        assert_eq!(start.months_until(end), 26);
+
+        // Same date = 0 months
+        assert_eq!(start.months_until(start), 0);
+
+        // End before start = 0 (clamped)
+        assert_eq!(end.months_until(start), 0);
+
+        // Exactly one month
+        let one_month_later = make_date(2020, 2, 15);
+        assert_eq!(start.months_until(one_month_later), 1);
+
+        // Cross year boundary
+        let dec = make_date(2024, 12, 1);
+        let jan = make_date(2025, 1, 1);
+        assert_eq!(dec.months_until(jan), 1);
+
+        // Negative year handling (for completeness)
+        let ancient = make_date(-500, 6, 1);
+        let later = make_date(-498, 6, 1);
+        assert_eq!(ancient.months_until(later), 24);
+    }
+
+    #[test]
+    fn test_months_until_offset_datetime() {
+        let start = make_date(2020, 1, 15)
+            .with_hms(10, 0, 0)
+            .expect("Time should be valid")
+            .assume_utc();
+        let end = make_date(2022, 3, 10)
+            .with_hms(14, 30, 0)
+            .expect("Time should be valid")
+            .assume_utc();
+        assert_eq!(start.months_until(end), 26);
     }
 }

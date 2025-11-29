@@ -46,7 +46,7 @@ impl StructuredCredit {
         for swap in &self.hedge_swaps {
             // Use the IRS pricer to value each swap
             let swap_npv = crate::instruments::irs::pricer::npv(swap, context, as_of)?;
-            
+
             // Convert to deal currency if needed (simplified - assumes same currency)
             total_hedge_npv = total_hedge_npv.checked_add(swap_npv)?;
         }
@@ -136,10 +136,16 @@ impl StructuredCredit {
         if !self.hedge_swaps.is_empty() {
             let hedge_npv = self.hedge_npv(context, as_of)?;
             let total_npv = base_value.checked_add(hedge_npv)?;
-            
-            result.measures.insert("HedgeNPV".to_string(), hedge_npv.amount());
-            result.measures.insert("HedgedNPV".to_string(), total_npv.amount());
-            result.measures.insert("HedgeCount".to_string(), self.hedge_swaps.len() as f64);
+
+            result
+                .measures
+                .insert("HedgeNPV".to_string(), hedge_npv.amount());
+            result
+                .measures
+                .insert("HedgedNPV".to_string(), total_npv.amount());
+            result
+                .measures
+                .insert("HedgeCount".to_string(), self.hedge_swaps.len() as f64);
         }
 
         Ok(result)
@@ -164,7 +170,10 @@ impl StructuredCredit {
     }
 
     /// Builder method to add multiple hedge swaps (chainable).
-    pub fn with_hedge_swaps(mut self, swaps: Vec<crate::instruments::irs::InterestRateSwap>) -> Self {
+    pub fn with_hedge_swaps(
+        mut self,
+        swaps: Vec<crate::instruments::irs::InterestRateSwap>,
+    ) -> Self {
         self.hedge_swaps.extend(swaps);
         self
     }

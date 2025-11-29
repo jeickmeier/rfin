@@ -21,8 +21,9 @@ fn create_test_market() -> MarketContext {
 
 /// Helper to create a test asset pool
 fn create_test_pool(balance: f64, currency: Currency) -> AssetPool {
+    use finstack_core::types::ratings::CreditRating;
     use finstack_core::types::InstrumentId;
-    use finstack_valuations::instruments::structured_credit::{AssetType, CreditRating, PoolAsset};
+    use finstack_valuations::instruments::structured_credit::{AssetType, PoolAsset};
 
     let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, currency);
 

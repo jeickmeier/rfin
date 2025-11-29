@@ -11,7 +11,8 @@ use finstack_core::types::InstrumentId;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::enums::{CreditRating, TrancheSeniority, TriggerConsequence};
+use super::enums::{TrancheSeniority, TriggerConsequence};
+use finstack_core::types::ratings::CreditRating;
 
 /// Tranche behavioral types (simplified to standard only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

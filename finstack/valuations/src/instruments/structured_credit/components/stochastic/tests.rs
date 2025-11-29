@@ -318,7 +318,10 @@ mod property_tests {
         let sectored = CorrelationStructure::sectored(0.35, 0.15, -0.25);
         let intra = sectored.intra_sector_correlation();
         let inter = sectored.inter_sector_correlation();
-        assert!(intra >= inter, "Intra-sector correlation should be >= inter-sector");
+        assert!(
+            intra >= inter,
+            "Intra-sector correlation should be >= inter-sector"
+        );
 
         // Industry standards
         let rmbs = CorrelationStructure::rmbs_standard();
@@ -489,4 +492,3 @@ mod integration_tests {
         assert!(sens.base_ul >= 0.0, "Base UL should be non-negative");
     }
 }
-

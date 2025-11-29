@@ -129,6 +129,28 @@ pub fn add_months(date: Date, months: i32) -> Date {
     date.add_months(months)
 }
 
+/// Calculate the number of whole months between two dates.
+///
+/// This is a convenience function that wraps [`DateExt::months_until`].
+/// Returns `(to.year - from.year) * 12 + (to.month - from.month)`.
+/// If `to` is before `from`, returns `0`.
+///
+/// This is commonly used to calculate loan seasoning (age) in months for
+/// structured credit instruments.
+///
+/// # Example
+/// ```rust
+/// use finstack_core::dates::months_between;
+/// use time::{Date, Month};
+///
+/// let from = Date::from_calendar_date(2020, Month::January, 15).expect("Valid date");
+/// let to = Date::from_calendar_date(2022, Month::March, 10).expect("Valid date");
+/// assert_eq!(months_between(from, to), 26);
+/// ```
+pub fn months_between(from: Date, to: Date) -> u32 {
+    from.months_until(to)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -215,6 +215,12 @@ pub enum InputError {
         /// Reason for the parsing failure.
         reason: String,
     },
+    /// Invalid credit rating string.
+    #[error("Invalid credit rating: '{value}'")]
+    InvalidRating {
+        /// The rating string that failed to parse.
+        value: String,
+    },
     /// Fallback for miscellaneous validation problems not yet covered by a specific variant.
     #[error("Invalid input data")]
     Invalid,

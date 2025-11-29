@@ -12,11 +12,11 @@ mod tests {
         currency::Currency,
         dates::{Date, Frequency},
         money::Money,
+        types::ratings::{moodys_warf_factor, CreditRating},
     };
     use finstack_valuations::instruments::structured_credit::{
-        components::{AssetPool, CreditRating, DealType, PoolAsset},
+        components::{AssetPool, DealType, PoolAsset},
         config::{DealConfig, DealDates, DefaultAssumptions},
-        utils,
     };
     use time::Month;
 
@@ -187,7 +187,7 @@ mod tests {
             let balance = asset.balance.amount();
             let rating_factor = asset
                 .credit_quality
-                .map(utils::moodys_warf_factor)
+                .map(moodys_warf_factor)
                 .unwrap_or(3650.0);
 
             weighted_sum += balance * rating_factor;
@@ -206,10 +206,10 @@ mod tests {
         assert!((warf - 1501.0).abs() < 0.1);
 
         // Verify individual rating factors
-        assert_eq!(utils::moodys_warf_factor(CreditRating::AAA), 1.0);
-        assert_eq!(utils::moodys_warf_factor(CreditRating::A), 40.0);
-        assert_eq!(utils::moodys_warf_factor(CreditRating::BB), 1350.0);
-        assert_eq!(utils::moodys_warf_factor(CreditRating::B), 2720.0);
+        assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
+        assert_eq!(moodys_warf_factor(CreditRating::A), 40.0);
+        assert_eq!(moodys_warf_factor(CreditRating::BB), 1350.0);
+        assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);
     }
 
     #[test]
@@ -364,7 +364,7 @@ mod tests {
             let bal = asset.balance.amount();
             let factor = asset
                 .credit_quality
-                .map(utils::moodys_warf_factor)
+                .map(moodys_warf_factor)
                 .unwrap_or(3650.0);
             warf_sum += bal * factor;
             total_bal += bal;

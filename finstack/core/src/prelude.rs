@@ -57,13 +57,14 @@
 // Core re-exports (keep list focused on ergonomic entry points)
 pub use crate::currency::Currency;
 pub use crate::dates::{
-    adjust, available_calendars, build_periods, create_date, next_cds_date, next_imm,
-    third_wednesday, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
+    adjust, available_calendars, build_periods, create_date, months_between, next_cds_date,
+    next_imm, third_wednesday, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
     OffsetDateTime, OffsetDateTimeExt, Period, PeriodId, PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};
 pub use crate::types::{
-    Bps, CurveId, Id, IndexId, InstrumentId, Percentage, PriceId, Rate, Timestamp, TypeTag,
+    moodys_warf_factor, Bps, CreditRating, CurveId, Id, IndexId, InstrumentId, Percentage, PriceId,
+    Rate, RatingFactorTable, Timestamp, TypeTag,
 };
 // Expression engine - only re-export public items
 pub use crate::expr::CompiledExpr;

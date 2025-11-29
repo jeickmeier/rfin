@@ -3,7 +3,7 @@
 //! These helpers properly compute floating rate projections using
 //! calendar-aware tenor addition for accurate period end dates.
 
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 
 use super::tranches::TrancheCoupon;
@@ -27,43 +27,14 @@ use super::tranches::TrancheCoupon;
 #[inline]
 pub fn tenor_to_period_end(start: Date, tenor_years: f64) -> Date {
     // Convert tenor years to months for standard tenors
-    let tenor_months = (tenor_years * 12.0).round() as i64;
-    
+    let tenor_months = (tenor_years * 12.0).round() as i32;
+
     if tenor_months > 0 && tenor_months <= 12 {
-        // Use proper month addition for standard tenors (1M, 3M, 6M, 12M)
-        // This handles end-of-month and other edge cases correctly
-        let (year, month, day) = (start.year(), start.month(), start.day());
-        
-        // Calculate target month and year
-        let month_ord = month as i64;
-        let total_months = month_ord + tenor_months;
-        let target_year = year + ((total_months - 1) / 12) as i32;
-        let target_month_ord = ((total_months - 1) % 12 + 1) as u8;
-        
-        let target_month = match target_month_ord {
-            1 => time::Month::January,
-            2 => time::Month::February,
-            3 => time::Month::March,
-            4 => time::Month::April,
-            5 => time::Month::May,
-            6 => time::Month::June,
-            7 => time::Month::July,
-            8 => time::Month::August,
-            9 => time::Month::September,
-            10 => time::Month::October,
-            11 => time::Month::November,
-            12 => time::Month::December,
-            _ => time::Month::January,
-        };
-        
-        // Handle end-of-month: if start day is EOM, target should also be EOM
-        let days_in_target_month = target_month.length(target_year);
-        let target_day = day.min(days_in_target_month);
-        
-        Date::from_calendar_date(target_year, target_month, target_day)
-            .unwrap_or_else(|_| start + time::Duration::days((tenor_years * 365.25) as i64))
+        // Use core's add_months for proper month arithmetic
+        // This handles end-of-month clamping and edge cases correctly
+        start.add_months(tenor_months)
     } else {
-        // Fallback for unusual tenors
+        // Fallback for unusual tenors (>12 months or fractional)
         start + time::Duration::days((tenor_years * 365.25) as i64)
     }
 }

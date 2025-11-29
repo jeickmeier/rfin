@@ -16,10 +16,11 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, CreditRating, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
+    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
     StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::metrics::MetricId;

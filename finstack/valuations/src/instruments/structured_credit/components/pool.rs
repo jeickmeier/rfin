@@ -11,8 +11,9 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::enums::{AssetType, CreditRating, DealType};
+use super::enums::{AssetType, DealType};
 use crate::instruments::structured_credit::config::{BASIS_POINTS_DIVISOR, DAYS_PER_YEAR};
+use finstack_core::types::ratings::CreditRating;
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]

@@ -9,9 +9,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::ratings::{moodys_warf_factor, CreditRating, RatingFactorTable};
 use finstack_valuations::instruments::structured_credit::{
-    moodys_warf_factor, AssetPool, AssetType, CreditRating, DealType, PoolAsset, RatingFactorTable,
-    ReinvestmentManager,
+    AssetPool, AssetType, DealType, PoolAsset, ReinvestmentManager,
 };
 use time::Month;
 

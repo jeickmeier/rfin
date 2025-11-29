@@ -3,35 +3,22 @@
 //! This module consolidates four nearly-identical instrument types into a single
 //! clean implementation using composition for deal-specific differences.
 
-use super::components::{
-    AllocationMode,
-    AssetPool,
-    // Stochastic models
-    CorrelationStructure,
-    CreditFactors,
-    DealType,
-    DefaultModelSpec,
-    MarketConditions,
-    PaymentType,
-    PrepaymentModelSpec,
-    Recipient,
-    RecoveryModelSpec,
-    StochasticDefaultSpec,
-    StochasticPrepaySpec,
-    Tranche,
-    TrancheCashflowResult,
-    TrancheCoupon,
-    TrancheSeniority,
-    TrancheStructure,
-    TrancheValuation,
-    TrancheValuationExt,
-    WaterfallEngine,
-    WaterfallTier,
-};
+mod constructors;
+mod reinvestment;
+mod stochastic;
+
+pub use reinvestment::ReinvestmentManager;
+
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::structured_credit::components::{
+    cdr_to_mdr, cpr_to_smm, AssetPool, CorrelationStructure, CreditFactors, DealType,
+    DefaultModelSpec, MarketConditions, PrepaymentModelSpec, RecoveryModelSpec,
+    StochasticDefaultSpec, StochasticPrepaySpec, TrancheCashflowResult, TrancheStructure,
+    TrancheValuation, TrancheValuationExt, WaterfallEngine,
+};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
@@ -39,7 +26,10 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use super::config::DefaultAssumptions;
+use crate::instruments::structured_credit::config::{
+    DefaultAssumptions, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_CDR, SDA_PEAK_MONTH,
+    SDA_TERMINAL_CDR,
+};
 use std::any::Any;
 
 #[cfg(feature = "serde")]
@@ -224,351 +214,7 @@ pub struct StructuredCredit {
     pub hedge_swaps: Vec<InterestRateSwap>,
 }
 
-/// Deal-specific configuration for constructor
-struct DealConfig {
-    first_payment_date: Date,
-    payment_frequency: Frequency,
-    prepayment_spec: PrepaymentModelSpec,
-    default_spec: DefaultModelSpec,
-    recovery_spec: RecoveryModelSpec,
-    credit_factors: CreditFactors,
-    deal_metadata: DealMetadata,
-    behavior_overrides: BehaviorOverrides,
-}
-
-/// Core instrument parameters shared across constructors
-struct InstrumentParams<'a> {
-    pool: AssetPool,
-    tranches: TrancheStructure,
-    waterfall: WaterfallEngine,
-    legal_maturity: Date,
-    discount_curve_id: &'a str,
-}
-
 impl StructuredCredit {
-    /// Apply deal-type specific defaults to a builder.
-    ///
-    /// This method configures sensible defaults for payment frequency,
-    /// behavioral models, and other deal-type specific parameters.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let clo = StructuredCredit::builder()
-    ///     .id("MY_CLO")
-    ///     .deal_type(DealType::CLO)
-    ///     .apply_deal_defaults()  // Sets quarterly payment, 15% CPR, 2% CDR, etc.
-    ///     .pool(pool)
-    ///     .tranches(tranches)
-    ///     .build()?;
-    /// ```
-    #[allow(clippy::too_many_arguments)]
-    pub fn apply_deal_defaults(
-        id: impl Into<String>,
-        deal_type: DealType,
-        pool: AssetPool,
-        tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
-        closing_date: Date,
-        legal_maturity: Date,
-        discount_curve_id: impl Into<String>,
-    ) -> Self {
-        match deal_type {
-            DealType::ABS => Self::new_abs(
-                id,
-                pool,
-                tranches,
-                waterfall,
-                closing_date,
-                legal_maturity,
-                discount_curve_id,
-            ),
-            DealType::CLO => Self::new_clo(
-                id,
-                pool,
-                tranches,
-                waterfall,
-                closing_date,
-                legal_maturity,
-                discount_curve_id,
-            ),
-            DealType::CMBS => Self::new_cmbs(
-                id,
-                pool,
-                tranches,
-                waterfall,
-                closing_date,
-                legal_maturity,
-                discount_curve_id,
-            ),
-            DealType::RMBS => Self::new_rmbs(
-                id,
-                pool,
-                tranches,
-                waterfall,
-                closing_date,
-                legal_maturity,
-                discount_curve_id,
-            ),
-            _ => Self::new_abs(
-                id,
-                pool,
-                tranches,
-                waterfall,
-                closing_date,
-                legal_maturity,
-                discount_curve_id,
-            ), // Default to ABS
-        }
-    }
-
-    /// Create a canonical example CLO structured credit deal with minimal components.
-    ///
-    /// This method is intended for testing, documentation examples, and quick prototyping.
-    /// It creates a fully valid CLO deal with a single senior tranche and basic waterfall.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the hard-coded example dates (2024-01-01, 2034-01-01) are invalid.
-    /// This should never happen barring library bugs in the `time` crate.
-    #[must_use]
-    pub fn example() -> Self {
-        use finstack_core::currency::Currency;
-        use time::Month;
-        // Build a minimal pool (empty assets for example purposes)
-        let pool = AssetPool::new("POOL-1", DealType::CLO, Currency::USD);
-        // Build a simple tranche structure with single tranche 0-100%
-        let tranche = Tranche::new(
-            "CLONOTES-A",
-            0.0,
-            100.0,
-            TrancheSeniority::Senior,
-            Money::new(100_000_000.0, Currency::USD),
-            TrancheCoupon::Fixed { rate: 0.06 },
-            Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date"),
-        )
-        .expect("Tranche build should not fail");
-        let tranches = TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build");
-        // Build a simple 2-tier waterfall: pay interest then principal to the tranche
-        let waterfall = WaterfallEngine::new(Currency::USD)
-            .add_tier(
-                WaterfallTier::new("Tier1-Interest", 1, PaymentType::Interest)
-                    .allocation_mode(AllocationMode::Sequential)
-                    .add_recipient(Recipient::tranche_interest("A-INT", "CLONOTES-A")),
-            )
-            .add_tier(
-                WaterfallTier::new("Tier2-Principal", 2, PaymentType::Principal)
-                    .allocation_mode(AllocationMode::Sequential)
-                    .add_recipient(Recipient::tranche_principal("A-PRIN", "CLONOTES-A", None)),
-            );
-        let closing =
-            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date");
-        let legal = Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date");
-        StructuredCredit::new_clo(
-            "CLO-EXAMPLE",
-            pool,
-            tranches,
-            waterfall,
-            closing,
-            legal,
-            "USD-OIS",
-        )
-    }
-
-    /// Internal helper to create structured credit with common fields
-    fn new_with_deal_config(
-        id: impl Into<String>,
-        deal_type: DealType,
-        params: InstrumentParams,
-        config: DealConfig,
-        closing_date: Date,
-    ) -> Self {
-        let id_str = id.into();
-        Self {
-            id: InstrumentId::new(id_str),
-            deal_type,
-            pool: params.pool,
-            tranches: params.tranches,
-            waterfall: params.waterfall,
-            closing_date,
-            first_payment_date: config.first_payment_date,
-            reinvestment_end_date: None,
-            legal_maturity: params.legal_maturity,
-            payment_frequency: config.payment_frequency,
-            discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
-            attributes: Attributes::new(),
-            prepayment_spec: config.prepayment_spec,
-            default_spec: config.default_spec,
-            recovery_spec: config.recovery_spec,
-            market_conditions: MarketConditions::default(),
-            credit_factors: config.credit_factors,
-            deal_metadata: config.deal_metadata,
-            behavior_overrides: config.behavior_overrides,
-            default_assumptions: DefaultAssumptions::default(),
-            // Stochastic specs default to None (deterministic pricing)
-            stochastic_prepay_spec: None,
-            stochastic_default_spec: None,
-            correlation_structure: None,
-            // Hedge swaps default to empty
-            hedge_swaps: Vec::new(),
-        }
-    }
-
-    /// Create a new ABS instrument from its building blocks.
-    pub fn new_abs(
-        id: impl Into<String>,
-        pool: AssetPool,
-        tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
-        closing_date: Date,
-        legal_maturity: Date,
-        discount_curve_id: impl Into<String>,
-    ) -> Self {
-        let disc_id_str = discount_curve_id.into();
-        let mut inst = Self::new_with_deal_config(
-            id,
-            DealType::ABS,
-            InstrumentParams {
-                pool,
-                tranches,
-                waterfall,
-                legal_maturity,
-                discount_curve_id: &disc_id_str,
-            },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.18), // Auto ABS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.015),      // Consumer standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.70, 12),     // Collateral-backed
-                credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
-            },
-            closing_date,
-        );
-        inst.default_assumptions = DefaultAssumptions::abs_auto_standard();
-        inst
-    }
-
-    /// Create a new CLO instrument from its building blocks.
-    pub fn new_clo(
-        id: impl Into<String>,
-        pool: AssetPool,
-        tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
-        closing_date: Date,
-        legal_maturity: Date,
-        discount_curve_id: impl Into<String>,
-    ) -> Self {
-        let disc_id_str = discount_curve_id.into();
-        let mut inst = Self::new_with_deal_config(
-            id,
-            DealType::CLO,
-            InstrumentParams {
-                pool,
-                tranches,
-                waterfall,
-                legal_maturity,
-                discount_curve_id: &disc_id_str,
-            },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1)
-                    .expect("Valid example date"),
-                payment_frequency: Frequency::quarterly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.15),
-                default_spec: DefaultModelSpec::constant_cdr(0.025), // Corporate standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.40, 18), // Corporate unsecured
-                credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
-            },
-            closing_date,
-        );
-        inst.default_assumptions = DefaultAssumptions::clo_standard();
-        inst
-    }
-
-    /// Create a new CMBS instrument from its building blocks.
-    pub fn new_cmbs(
-        id: impl Into<String>,
-        pool: AssetPool,
-        tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
-        closing_date: Date,
-        legal_maturity: Date,
-        discount_curve_id: impl Into<String>,
-    ) -> Self {
-        let disc_id_str = discount_curve_id.into();
-        let mut inst = Self::new_with_deal_config(
-            id,
-            DealType::CMBS,
-            InstrumentParams {
-                pool,
-                tranches,
-                waterfall,
-                legal_maturity,
-                discount_curve_id: &disc_id_str,
-            },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.10), // CMBS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.01),       // Commercial real estate
-                recovery_spec: RecoveryModelSpec::with_lag(0.60, 24),     // Commercial collateral
-                credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
-            },
-            closing_date,
-        );
-        inst.default_assumptions = DefaultAssumptions::cmbs_standard();
-        inst
-    }
-
-    /// Create a new RMBS instrument from its building blocks.
-    pub fn new_rmbs(
-        id: impl Into<String>,
-        pool: AssetPool,
-        tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
-        closing_date: Date,
-        legal_maturity: Date,
-        discount_curve_id: impl Into<String>,
-    ) -> Self {
-        let disc_id_str = discount_curve_id.into();
-        let mut inst = Self::new_with_deal_config(
-            id,
-            DealType::RMBS,
-            InstrumentParams {
-                pool,
-                tranches,
-                waterfall,
-                legal_maturity,
-                discount_curve_id: &disc_id_str,
-            },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
-                default_spec: DefaultModelSpec::constant_cdr(0.005), // RMBS standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.70, 18), // Mortgage collateral
-                credit_factors: CreditFactors {
-                    ltv: Some(0.80),
-                    ..Default::default()
-                },
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
-            },
-            closing_date,
-        );
-        inst.default_assumptions = DefaultAssumptions::rmbs_standard();
-        inst
-    }
-
     /// Calculate current loss percentage of the pool.
     pub fn current_loss_percentage(&self) -> f64 {
         let total_balance = self.pool.total_balance().amount();
@@ -586,102 +232,6 @@ impl StructuredCredit {
         Ok(self.pool.weighted_avg_maturity(as_of))
     }
 
-    // =========================================================================
-    // Stochastic configuration helpers
-    // =========================================================================
-
-    /// Check if stochastic modeling is enabled.
-    ///
-    /// Returns true if any stochastic specification is set.
-    pub fn is_stochastic(&self) -> bool {
-        self.stochastic_prepay_spec.is_some()
-            || self.stochastic_default_spec.is_some()
-            || self.correlation_structure.is_some()
-    }
-
-    /// Enable stochastic prepayment modeling.
-    ///
-    /// # Arguments
-    /// * `spec` - Stochastic prepayment specification
-    ///
-    /// # Example
-    /// ```ignore
-    /// let mut clo = StructuredCredit::new_clo(...);
-    /// clo.with_stochastic_prepay(StochasticPrepaySpec::clo_standard());
-    /// ```
-    pub fn with_stochastic_prepay(&mut self, spec: StochasticPrepaySpec) -> &mut Self {
-        self.stochastic_prepay_spec = Some(spec);
-        self
-    }
-
-    /// Enable stochastic default modeling.
-    ///
-    /// # Arguments
-    /// * `spec` - Stochastic default specification
-    pub fn with_stochastic_default(&mut self, spec: StochasticDefaultSpec) -> &mut Self {
-        self.stochastic_default_spec = Some(spec);
-        self
-    }
-
-    /// Set correlation structure for stochastic modeling.
-    ///
-    /// # Arguments
-    /// * `structure` - Correlation structure specification
-    pub fn with_correlation(&mut self, structure: CorrelationStructure) -> &mut Self {
-        self.correlation_structure = Some(structure);
-        self
-    }
-
-    /// Enable full stochastic modeling with default calibrations.
-    ///
-    /// Applies deal-type-appropriate stochastic models:
-    /// - RMBS: Agency prepay model, low asset correlation
-    /// - CLO: Corporate default correlation, sectored structure
-    /// - CMBS: Moderate correlation, property-type focused
-    /// - ABS: Low correlation, consumer-focused
-    pub fn enable_stochastic_defaults(&mut self) -> &mut Self {
-        let (prepay, default, corr) = match self.deal_type {
-            DealType::RMBS => (
-                StochasticPrepaySpec::rmbs_agency(if self.market_conditions.refi_rate > 0.0 {
-                    self.market_conditions.refi_rate
-                } else {
-                    0.045 // Default mortgage rate
-                }),
-                StochasticDefaultSpec::rmbs_standard(),
-                CorrelationStructure::rmbs_standard(),
-            ),
-            DealType::CLO | DealType::CBO => (
-                StochasticPrepaySpec::clo_standard(),
-                StochasticDefaultSpec::clo_standard(),
-                CorrelationStructure::clo_standard(),
-            ),
-            DealType::CMBS => (
-                // CMBS has minimal prepayment due to lockout/defeasance
-                StochasticPrepaySpec::deterministic(PrepaymentModelSpec::constant_cpr(0.02)),
-                StochasticDefaultSpec::gaussian_copula(0.02, 0.20),
-                CorrelationStructure::cmbs_standard(),
-            ),
-            DealType::ABS | DealType::Auto | DealType::Card => (
-                StochasticPrepaySpec::factor_correlated(self.prepayment_spec.clone(), 0.30, 0.15),
-                StochasticDefaultSpec::gaussian_copula(self.default_spec.cdr, 0.10),
-                CorrelationStructure::abs_auto_standard(),
-            ),
-        };
-
-        self.stochastic_prepay_spec = Some(prepay);
-        self.stochastic_default_spec = Some(default);
-        self.correlation_structure = Some(corr);
-        self
-    }
-
-    /// Clear stochastic specifications, reverting to deterministic pricing.
-    pub fn disable_stochastic(&mut self) -> &mut Self {
-        self.stochastic_prepay_spec = None;
-        self.stochastic_default_spec = None;
-        self.correlation_structure = None;
-        self
-    }
-
     #[cfg(feature = "serde")]
     fn default_prepayment_spec() -> PrepaymentModelSpec {
         PrepaymentModelSpec::constant_cpr(0.10) // Generic 10% CPR
@@ -696,74 +246,6 @@ impl StructuredCredit {
     fn default_recovery_spec() -> RecoveryModelSpec {
         RecoveryModelSpec::with_lag(0.40, 12) // Generic 40% recovery, 12 month lag
     }
-
-    /// Create waterfall engine based on deal type
-    fn create_waterfall_engine_internal(&self) -> WaterfallEngine {
-        use super::components::{
-            ManagementFeeType, PaymentCalculation, PaymentRecipient, Recipient, WaterfallEngine,
-        };
-        use super::config::{
-            ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS,
-            CLO_TRUSTEE_FEE_ANNUAL, CMBS_MASTER_SERVICER_FEE_BPS, RMBS_SERVICING_FEE_BPS,
-        };
-
-        let base_ccy = self.pool.base_currency();
-
-        let fees = match self.deal_type {
-            DealType::ABS => {
-                vec![Recipient::new(
-                    "servicing_fees",
-                    PaymentRecipient::ServiceProvider("Servicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: ABS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            DealType::CLO => {
-                vec![
-                    Recipient::new(
-                        "trustee_fees",
-                        PaymentRecipient::ServiceProvider("Trustee".to_string()),
-                        PaymentCalculation::FixedAmount {
-                            amount: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_ccy),
-                        },
-                    ),
-                    Recipient::new(
-                        "senior_mgmt_fee",
-                        PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-                        PaymentCalculation::PercentageOfCollateral {
-                            rate: CLO_SENIOR_MGMT_FEE_BPS / BASIS_POINTS_DIVISOR,
-                            annualized: true,
-                        },
-                    ),
-                ]
-            }
-            DealType::CMBS => {
-                vec![Recipient::new(
-                    "master_servicing",
-                    PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: CMBS_MASTER_SERVICER_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            DealType::RMBS => {
-                vec![Recipient::new(
-                    "servicing_fees",
-                    PaymentRecipient::ServiceProvider("Servicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: RMBS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            _ => vec![],
-        };
-
-        WaterfallEngine::standard_sequential(base_ccy, &self.tranches, fees)
-    }
 }
 
 impl CashflowProvider for StructuredCredit {
@@ -772,7 +254,7 @@ impl CashflowProvider for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        use super::instrument_trait::StructuredCreditInstrument;
+        use crate::instruments::structured_credit::instrument_trait::StructuredCreditInstrument;
         <Self as StructuredCreditInstrument>::generate_tranche_cashflows(self, context, as_of)
     }
 }
@@ -868,7 +350,9 @@ impl crate::instruments::common::traits::CurveDependencies for StructuredCredit 
     }
 }
 
-impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
+impl crate::instruments::structured_credit::instrument_trait::StructuredCreditInstrument
+    for StructuredCredit
+{
     fn pool(&self) -> &AssetPool {
         &self.pool
     }
@@ -922,9 +406,6 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::cpr_to_smm;
-        use super::config::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
-
         // Check overrides in priority order
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
             return Some(abs_speed);
@@ -949,9 +430,6 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
     }
 
     fn default_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::cdr_to_mdr;
-        use super::config::{SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR};
-
         // Check overrides in priority order
         if let Some(cdr) = self.behavior_overrides.cdr_annual {
             return Some(cdr_to_mdr(cdr));
@@ -967,7 +445,8 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
             } else if seasoning <= SDA_PEAK_MONTH * 2 {
                 // Decline from peak to terminal
                 let months_past_peak = (seasoning - SDA_PEAK_MONTH) as f64;
-                SDA_PEAK_CDR - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
+                SDA_PEAK_CDR
+                    - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
             } else {
                 // Terminal rate
                 SDA_TERMINAL_CDR
@@ -988,7 +467,7 @@ impl TrancheValuationExt for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<TrancheCashflowResult> {
-        use super::instrument_trait::StructuredCreditInstrument;
+        use crate::instruments::structured_credit::instrument_trait::StructuredCreditInstrument;
         <Self as StructuredCreditInstrument>::generate_specific_tranche_cashflows(
             self, tranche_id, context, as_of,
         )
@@ -1046,7 +525,7 @@ impl TrancheValuationExt for StructuredCredit {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<TrancheValuation> {
-        use super::components::{
+        use crate::instruments::structured_credit::components::{
             calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
             calculate_tranche_z_spread,
         };
@@ -1175,8 +654,10 @@ impl core::fmt::Debug for StructuredCredit {
 
 #[cfg(all(test, feature = "serde"))]
 mod serde_tests {
-    use super::super::components::{Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure};
     use super::*;
+    use crate::instruments::structured_credit::components::{
+        Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    };
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::money::Money;

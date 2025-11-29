@@ -1,8 +1,9 @@
 //! Core type definitions for the FinStack ecosystem.
 //!
 //! This module collects phantom-typed identifiers (`CurveId`, `InstrumentId`, …),
-//! rate helpers (`Rate`, `Bps`), and convenient aliases used throughout the
-//! platform. Import via `finstack_core::types` or the [`prelude`](crate::prelude).
+//! rate helpers (`Rate`, `Bps`), credit ratings, and convenient aliases used
+//! throughout the platform. Import via `finstack_core::types` or the
+//! [`prelude`](crate::prelude).
 //!
 //! # Examples
 //! ```rust
@@ -18,9 +19,11 @@
 
 pub mod id;
 pub mod rates;
+pub mod ratings;
 
 pub use id::{CurveId, Id, IndexId, InstrumentId, PriceId, TypeTag, UnderlyingId};
 pub use rates::{Bps, Percentage, Rate};
+pub use ratings::{moodys_warf_factor, CreditRating, RatingFactorTable};
 
 // Re-export commonly used types from other modules for convenience
 pub use crate::currency::Currency;

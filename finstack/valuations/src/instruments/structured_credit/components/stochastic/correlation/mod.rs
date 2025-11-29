@@ -324,7 +324,10 @@ impl CorrelationStructure {
                 let new_inter = (inter_sector + delta * 0.5).clamp(0.0, 0.99);
                 CorrelationStructure::sectored(new_intra, new_inter, *prepay_default)
             }
-            CorrelationStructure::Matrix { correlations, labels } => {
+            CorrelationStructure::Matrix {
+                correlations,
+                labels,
+            } => {
                 let n = labels.len();
                 let mut new_corrs = correlations.clone();
                 for i in 0..n {
@@ -453,9 +456,23 @@ mod tests {
         let bumped = corr.bump_asset(0.10);
 
         // Intra bumps by full delta
-        assert!((bumped.intra_sector_correlation().expect("should be sectored") - 0.40).abs() < 1e-10);
+        assert!(
+            (bumped
+                .intra_sector_correlation()
+                .expect("should be sectored")
+                - 0.40)
+                .abs()
+                < 1e-10
+        );
         // Inter bumps by half delta
-        assert!((bumped.inter_sector_correlation().expect("should be sectored") - 0.15).abs() < 1e-10);
+        assert!(
+            (bumped
+                .inter_sector_correlation()
+                .expect("should be sectored")
+                - 0.15)
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]

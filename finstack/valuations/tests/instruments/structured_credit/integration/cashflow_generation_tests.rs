@@ -9,12 +9,13 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, AssetType, CreditRating, DealType, ManagementFeeType, PaymentCalculation,
-    PaymentRecipient, Recipient, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
-    TrancheStructure, WaterfallEngine,
+    AssetPool, AssetType, DealType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
+    Recipient, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    WaterfallEngine,
 };
 use time::Month;
 

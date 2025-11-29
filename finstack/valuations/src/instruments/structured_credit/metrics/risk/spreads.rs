@@ -95,7 +95,7 @@ impl MetricCalculator for ZSpreadCalculator {
         };
 
         // Solve for z-spread using Brent's method with adaptive bracketing
-        // 
+        //
         // Credit spread characteristics:
         // - Investment grade: 50-300 bps (0.005-0.03)
         // - High yield: 300-1000 bps (0.03-0.10)

@@ -11,10 +11,11 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, CreditRating, DealType, PoolAsset, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheSeniority, TrancheStructure, TrancheValuationExt, WaterfallBuilder,
+    AssetPool, DealType, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
+    TrancheStructure, TrancheValuationExt, WaterfallBuilder,
 };
 use finstack_valuations::metrics::MetricId;
 use std::error::Error;

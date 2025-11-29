@@ -47,63 +47,6 @@ impl core::fmt::Display for DealType {
     }
 }
 
-// ============================================================================
-// CREDIT & RATINGS
-// ============================================================================
-
-/// Credit rating scale (agency-agnostic)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum CreditRating {
-    /// A A A variant.
-    AAA,
-    /// A A variant.
-    AA,
-    /// A variant.
-    A,
-    /// B B B variant.
-    BBB,
-    /// B B variant.
-    BB,
-    /// B variant.
-    B,
-    /// C C C variant.
-    CCC,
-    /// C C variant.
-    CC,
-    /// C variant.
-    C,
-    /// D variant.
-    D,
-    /// N R variant.
-    NR,
-}
-
-impl CreditRating {
-    /// Check if rating is investment grade (BBB and above)
-    pub fn is_investment_grade(&self) -> bool {
-        matches!(self, Self::AAA | Self::AA | Self::A | Self::BBB)
-    }
-}
-
-impl core::fmt::Display for CreditRating {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            CreditRating::AAA => write!(f, "AAA"),
-            CreditRating::AA => write!(f, "AA"),
-            CreditRating::A => write!(f, "A"),
-            CreditRating::BBB => write!(f, "BBB"),
-            CreditRating::BB => write!(f, "BB"),
-            CreditRating::B => write!(f, "B"),
-            CreditRating::CCC => write!(f, "CCC"),
-            CreditRating::CC => write!(f, "CC"),
-            CreditRating::C => write!(f, "C"),
-            CreditRating::D => write!(f, "D"),
-            CreditRating::NR => write!(f, "NR"),
-        }
-    }
-}
-
 /// Tranche seniority levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -11,10 +11,11 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::structured_credit::{
-    CoverageTrigger, CreditRating, Tranche, TrancheBuilder, TrancheCoupon, TrancheSeniority,
-    TrancheStructure, TriggerConsequence,
+    CoverageTrigger, Tranche, TrancheBuilder, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    TriggerConsequence,
 };
 use time::Month;
 
