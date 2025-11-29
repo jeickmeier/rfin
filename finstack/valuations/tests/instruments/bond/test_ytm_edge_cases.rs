@@ -179,10 +179,12 @@ fn test_odd_first_coupon_ytm() {
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
 
-    // At par, YTM should equal coupon rate
+    // At par with odd first coupon, YTM ≈ coupon rate.
+    // The short stub causes a small deviation due to compounding vs simple interest
+    // in the first period, but should be within 1bp (tolerances::NUMERICAL).
     assert!(
-        (ytm - 0.05).abs() < 0.01,
-        "Odd first coupon bond at par: YTM {:.4} should ≈ coupon 0.05",
+        (ytm - 0.05).abs() < tolerances::NUMERICAL,
+        "Odd first coupon bond at par: YTM {:.6} should ≈ coupon 0.05 within 1bp",
         ytm
     );
 }

@@ -626,7 +626,8 @@ pub fn price_from_oas(
     }
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
-    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, 100)?;
+    // Use 300 steps for better OAS precision (~1bp accuracy vs ~10bp with 100 steps)
+    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, 300)?;
 
     // Get initial short rate from the calibrated tree for the state variables.
     // The tree framework expects an initial rate to be present.

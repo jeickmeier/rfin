@@ -228,7 +228,8 @@ fn test_implied_vol_high_volatility() {
         "Implied vol solver failed to converge (returned {})",
         implied_vol
     );
-    assert_approx_eq_tol(implied_vol, vol, 1e-2, "High vol implied vol");
+    // Solver uses 1e-8 tolerance internally; 1e-4 is achievable for high vol
+    assert_approx_eq_tol(implied_vol, vol, 1e-4, "High vol implied vol");
 }
 
 #[test]

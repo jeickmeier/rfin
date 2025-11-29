@@ -107,7 +107,8 @@ fn test_jump_to_default_scales_with_notional() {
     let jtd_10mm = *result_10mm.measures.get("jump_to_default").unwrap();
     let jtd_20mm = *result_20mm.measures.get("jump_to_default").unwrap();
 
-    assert_linear_scaling(jtd_10mm, 10_000_000.0, jtd_20mm, 20_000_000.0, "JTD", 0.01);
+    // JTD = (1 - Recovery) × Notional / Count is purely linear; expect exact scaling
+    assert_linear_scaling(jtd_10mm, 10_000_000.0, jtd_20mm, 20_000_000.0, "JTD", 1e-10);
 }
 
 #[test]
@@ -169,13 +170,14 @@ fn test_expected_loss_scales_with_notional() {
     let el_10mm = *result_10mm.measures.get("expected_loss").unwrap();
     let el_20mm = *result_20mm.measures.get("expected_loss").unwrap();
 
+    // Expected loss scales linearly with notional; expect exact scaling
     assert_linear_scaling(
         el_10mm,
         10_000_000.0,
         el_20mm,
         20_000_000.0,
         "Expected loss",
-        0.01,
+        1e-10,
     );
 }
 
@@ -400,7 +402,7 @@ fn test_jtd_per_name_basis() {
     // = (1/125) × $10MM × 0.60 = $48,000
     let per_name_estimate = 10_000_000.0 * 0.6 / 125.0;
 
-    // JTD should match the analytical formula exactly (within 1%)
-    // Both use identical calculations, so difference should be negligible
-    assert_relative_eq(jtd, per_name_estimate, 0.01, "JTD per-name basis");
+    // JTD should match the analytical formula exactly (within machine epsilon)
+    // Both use identical calculations: JTD = (1/125) × Notional × LGD
+    assert_relative_eq(jtd, per_name_estimate, 1e-10, "JTD per-name basis");
 }
