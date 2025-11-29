@@ -203,7 +203,10 @@ fn test_real_yield_extreme_prices_produce_valid_results() {
     let y_low_price = ilb.real_yield(10.0, &ctx, as_of).unwrap();
 
     // Assert - yields should be finite (solver converged) and follow inverse relationship
-    assert!(y_high_price.is_finite(), "High price yield should be finite");
+    assert!(
+        y_high_price.is_finite(),
+        "High price yield should be finite"
+    );
     assert!(y_low_price.is_finite(), "Low price yield should be finite");
     assert!(
         y_high_price < y_low_price,

@@ -25,4 +25,3 @@ fn test_in_out_parity_single_barrier() {
     let parity_diff = (vanilla - (down_and_out + down_and_in)).abs();
     assert!(parity_diff < 1e-6);
 }
-

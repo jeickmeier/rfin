@@ -134,10 +134,7 @@ mod tests {
             expiry,
             notional: Money::new(1.0, Currency::USD),
             averaging_method: AveragingMethod::Arithmetic,
-            fixing_dates: vec![
-                date!(2024 - 07 - 01),
-                date!(2025 - 01 - 01),
-            ],
+            fixing_dates: vec![date!(2024 - 07 - 01), date!(2025 - 01 - 01)],
             day_count: DayCount::Act365F,
             discount_curve_id: "USD-OIS".into(),
             vol_surface_id: "SPOT_VOL".into(),

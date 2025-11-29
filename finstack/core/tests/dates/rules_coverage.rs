@@ -177,12 +177,19 @@ fn rule_buddhas_birthday_materialize() {
         rule.materialize_year(year, &mut out);
 
         // Should produce exactly one date
-        assert_eq!(out.len(), 1, "Buddha's Birthday should produce 1 date for year {}", year);
+        assert_eq!(
+            out.len(),
+            1,
+            "Buddha's Birthday should produce 1 date for year {}",
+            year
+        );
 
         // Buddha's Birthday is CNY + 95 days, so it falls in April-June range
         let date = out[0];
         assert!(
-            date.month() == Month::April || date.month() == Month::May || date.month() == Month::June,
+            date.month() == Month::April
+                || date.month() == Month::May
+                || date.month() == Month::June,
             "Buddha's Birthday should be in April, May or June, got {:?}",
             date
         );
@@ -550,4 +557,3 @@ fn direction_before_finds_same_day() {
 
     assert!(rule.applies(make_date(2025, 1, 1)));
 }
-

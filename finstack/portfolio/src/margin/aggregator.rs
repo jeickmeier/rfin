@@ -51,22 +51,22 @@ fn as_marginable(instrument: &Arc<dyn Instrument>) -> Option<&dyn Marginable> {
 
     if let Some(cds_index) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::cds_index::CDSIndex>()
-    {
+        .downcast_ref::<finstack_valuations::instruments::cds_index::CDSIndex>(
+    ) {
         return Some(cds_index as &dyn Marginable);
     }
 
     if let Some(eq_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::trs::EquityTotalReturnSwap>()
-    {
+        .downcast_ref::<finstack_valuations::instruments::trs::EquityTotalReturnSwap>(
+    ) {
         return Some(eq_trs as &dyn Marginable);
     }
 
     if let Some(fi_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::trs::FIIndexTotalReturnSwap>()
-    {
+        .downcast_ref::<finstack_valuations::instruments::trs::FIIndexTotalReturnSwap>(
+    ) {
         return Some(fi_trs as &dyn Marginable);
     }
 
@@ -130,7 +130,8 @@ impl PortfolioMarginAggregator {
         let netting_set_id = self.get_netting_set_for_position(position);
 
         if let Some(ns_id) = netting_set_id {
-            self.netting_sets.add_position(position, Some(ns_id.clone()));
+            self.netting_sets
+                .add_position(position, Some(ns_id.clone()));
             self.positions.push((position.position_id.clone(), ns_id));
         }
     }
@@ -171,8 +172,10 @@ impl PortfolioMarginAggregator {
         }
 
         // Count positions without margin
-        result.positions_without_margin =
-            portfolio.positions.len().saturating_sub(result.total_positions);
+        result.positions_without_margin = portfolio
+            .positions
+            .len()
+            .saturating_sub(result.total_positions);
 
         Ok(result)
     }

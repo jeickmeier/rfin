@@ -325,4 +325,3 @@ mod tests {
         assert!(spec.substitution_allowed);
     }
 }
-

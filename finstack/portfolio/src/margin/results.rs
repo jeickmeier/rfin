@@ -122,10 +122,8 @@ impl PortfolioMarginResult {
         let im = result.initial_margin.amount();
         let vm = result.variation_margin.amount();
 
-        self.total_initial_margin = Money::new(
-            self.total_initial_margin.amount() + im,
-            self.base_currency,
-        );
+        self.total_initial_margin =
+            Money::new(self.total_initial_margin.amount() + im, self.base_currency);
         self.total_variation_margin = Money::new(
             self.total_variation_margin.amount() + vm,
             self.base_currency,
@@ -135,7 +133,8 @@ impl PortfolioMarginResult {
             self.base_currency,
         );
         self.total_positions += result.position_count;
-        self.by_netting_set.insert(result.netting_set_id.clone(), result);
+        self.by_netting_set
+            .insert(result.netting_set_id.clone(), result);
     }
 
     /// Get the number of netting sets.
@@ -225,7 +224,10 @@ mod tests {
 
         assert_eq!(portfolio_result.netting_set_count(), 2);
         assert_eq!(portfolio_result.total_initial_margin.amount(), 8_000_000.0);
-        assert_eq!(portfolio_result.total_variation_margin.amount(), 1_500_000.0);
+        assert_eq!(
+            portfolio_result.total_variation_margin.amount(),
+            1_500_000.0
+        );
         assert_eq!(portfolio_result.total_positions, 15);
 
         let (cleared_total, bilateral_total) = portfolio_result.cleared_bilateral_split();
@@ -233,4 +235,3 @@ mod tests {
         assert_eq!(bilateral_total.amount(), 6_000_000.0);
     }
 }
-

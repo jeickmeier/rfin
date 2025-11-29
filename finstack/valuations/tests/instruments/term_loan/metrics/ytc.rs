@@ -59,7 +59,6 @@ fn test_ytc_callable_loan() {
     assert!(result.is_ok());
     let result = result.unwrap();
     let ytc = *result.measures.get("ytc").unwrap();
-    
+
     assert!(ytc.is_finite() && ytc > 0.0);
 }
-

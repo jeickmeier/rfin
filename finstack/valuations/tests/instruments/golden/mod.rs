@@ -9,4 +9,3 @@
 //! - Used for regression testing
 
 mod quantlib_vectors;
-

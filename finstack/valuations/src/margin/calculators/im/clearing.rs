@@ -80,11 +80,11 @@ impl CcpMethodology {
     #[must_use]
     pub fn conservative_rate(&self) -> f64 {
         match self {
-            CcpMethodology::LchSwapClear => 0.02,     // ~2% for IRS
-            CcpMethodology::LchCdsClear => 0.08,     // ~8% for CDS
-            CcpMethodology::Cme => 0.03,             // ~3% average
-            CcpMethodology::IceClearCredit => 0.10,  // ~10% for CDX
-            CcpMethodology::IceClearUs => 0.05,      // ~5% average
+            CcpMethodology::LchSwapClear => 0.02,   // ~2% for IRS
+            CcpMethodology::LchCdsClear => 0.08,    // ~8% for CDS
+            CcpMethodology::Cme => 0.03,            // ~3% average
+            CcpMethodology::IceClearCredit => 0.10, // ~10% for CDX
+            CcpMethodology::IceClearUs => 0.05,     // ~5% average
             CcpMethodology::Jscc => 0.03,
             CcpMethodology::Eurex => 0.03,
             CcpMethodology::GenericVaR { .. } => 0.05,
@@ -157,7 +157,8 @@ impl ClearingHouseImCalculator {
     /// This is a simplified calculation. Real CCP margins use VaR/ES
     /// with historical scenarios.
     pub fn calculate_conservative(&self, notional: Money) -> Money {
-        Money::new(notional.amount().abs(), notional.currency()) * self.methodology.conservative_rate()
+        Money::new(notional.amount().abs(), notional.currency())
+            * self.methodology.conservative_rate()
     }
 }
 
@@ -201,7 +202,10 @@ mod tests {
     #[test]
     fn ccp_methodology_display() {
         assert_eq!(CcpMethodology::LchSwapClear.to_string(), "LCH SwapClear");
-        assert_eq!(CcpMethodology::IceClearCredit.to_string(), "ICE Clear Credit");
+        assert_eq!(
+            CcpMethodology::IceClearCredit.to_string(),
+            "ICE Clear Credit"
+        );
     }
 
     #[test]
@@ -236,4 +240,3 @@ mod tests {
         assert_eq!(im.amount(), 5_000_000.0);
     }
 }
-

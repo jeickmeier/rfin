@@ -127,7 +127,9 @@ pub fn margin_calls_to_cashflows(calls: &[MarginCall]) -> Vec<CashFlow> {
         .map(|call| {
             let kind = match call.call_type {
                 crate::margin::MarginCallType::InitialMargin => CFKind::InitialMarginPost,
-                crate::margin::MarginCallType::VariationMarginDelivery => CFKind::VariationMarginPay,
+                crate::margin::MarginCallType::VariationMarginDelivery => {
+                    CFKind::VariationMarginPay
+                }
                 crate::margin::MarginCallType::VariationMarginReturn => {
                     CFKind::VariationMarginReceive
                 }
@@ -211,12 +213,11 @@ mod tests {
         spec.margin_interest_rate = Some(0.05); // 5% annual
 
         let margin_balances = vec![
-            (test_date(2025, 1, 15), 2_000_000.0),  // Day 1
-            (test_date(2025, 1, 22), 2_000_000.0),  // Day 8 (7 days later)
+            (test_date(2025, 1, 15), 2_000_000.0), // Day 1
+            (test_date(2025, 1, 22), 2_000_000.0), // Day 8 (7 days later)
         ];
 
-        let cashflows =
-            generate_margin_interest_cashflows(&spec, &margin_balances, Currency::USD);
+        let cashflows = generate_margin_interest_cashflows(&spec, &margin_balances, Currency::USD);
 
         // Interest = 2M * 5% * (7/360) ≈ 1944.44
         assert_eq!(cashflows.len(), 1);
@@ -224,4 +225,3 @@ mod tests {
         assert!((cashflows[0].amount.amount() - 1944.44).abs() < 1.0);
     }
 }
-

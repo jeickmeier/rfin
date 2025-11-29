@@ -366,6 +366,108 @@ pub enum OperationSpec {
         bp: f64,
     },
 
+    // ========================================================================
+    // Structured Credit Correlation Operations
+    // ========================================================================
+
+    /// Shock asset correlation for structured credit instruments.
+    ///
+    /// Applies a parallel shift to asset correlation parameters. For flat
+    /// correlation structures, this bumps the single asset correlation. For
+    /// sectored structures, it bumps both intra-sector and inter-sector
+    /// correlations (inter-sector at half the rate).
+    ///
+    /// # Arguments
+    /// - `delta_pts`: Additive shock in correlation points (e.g., 0.05 for +5%)
+    ///
+    /// # Clamping
+    /// Asset correlation is clamped to [0, 0.99] after the shock.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::AssetCorrelationPts {
+    ///     delta_pts: 0.05, // +5 percentage points
+    /// };
+    /// ```
+    AssetCorrelationPts {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+
+    /// Shock prepay-default correlation for structured credit instruments.
+    ///
+    /// Applies a parallel shift to the correlation between prepayment and
+    /// default rates. This is typically negative (higher prepayment = lower
+    /// defaults due to selection effects).
+    ///
+    /// # Arguments
+    /// - `delta_pts`: Additive shock in correlation points
+    ///
+    /// # Clamping
+    /// Prepay-default correlation is clamped to [-0.99, 0.99].
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::PrepayDefaultCorrelationPts {
+    ///     delta_pts: 0.10, // +10 percentage points (less negative)
+    /// };
+    /// ```
+    PrepayDefaultCorrelationPts {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+
+    /// Shock recovery-default correlation for structured credit instruments.
+    ///
+    /// Applies a shock to the correlation between recovery rates and defaults.
+    /// Negative correlation implies recoveries decline when defaults rise
+    /// (common in economic stress scenarios).
+    ///
+    /// # Arguments
+    /// - `delta_pts`: Additive shock in correlation points
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::RecoveryCorrelationPts {
+    ///     delta_pts: -0.10, // -10 percentage points (more negative)
+    /// };
+    /// ```
+    RecoveryCorrelationPts {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+
+    /// Shock prepayment factor loading (sensitivity to systematic factors).
+    ///
+    /// Bumps the factor loading that determines how much prepayment rates
+    /// move with systematic factors. Higher factor loading means prepayment
+    /// is more correlated across the pool.
+    ///
+    /// # Arguments
+    /// - `delta_pts`: Additive shock to factor loading
+    ///
+    /// # Clamping
+    /// Factor loading is clamped to [0, 1.0].
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::PrepayFactorLoadingPts {
+    ///     delta_pts: 0.05, // +5 percentage points
+    /// };
+    /// ```
+    PrepayFactorLoadingPts {
+        /// Additive shock to factor loading.
+        delta_pts: f64,
+    },
+
     /// Roll forward horizon by a period with carry/theta.
     ///
     /// # Example

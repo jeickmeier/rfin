@@ -662,10 +662,15 @@ impl WaterfallEngine {
             available_cash,
             interest_collections,
         )?;
-        workspace.coverage_tests.extend(coverage_test_results.iter().cloned());
+        workspace
+            .coverage_tests
+            .extend(coverage_test_results.iter().cloned());
 
         // Check if diversions are active
-        let diversion_active = workspace.coverage_tests.iter().any(|(_, _, passed)| !passed);
+        let diversion_active = workspace
+            .coverage_tests
+            .iter()
+            .any(|(_, _, passed)| !passed);
         if diversion_active {
             had_diversions = true;
             diversion_reason = Some("OC or IC test failed".to_string());
@@ -730,7 +735,9 @@ impl WaterfallEngine {
                 total_diverted = total_diverted.checked_add(tier_cash)?;
             }
 
-            workspace.tier_allocations.push((tier.id.clone(), tier_cash));
+            workspace
+                .tier_allocations
+                .push((tier.id.clone(), tier_cash));
             remaining = remaining.checked_sub(tier_cash)?;
         }
 
@@ -951,7 +958,10 @@ impl WaterfallEngine {
         });
 
         // Distribute remainder cents one at a time to recipients with largest remainders
-        let mut final_cents: Vec<i64> = allocations_data.iter().map(|(_, _, _, fc, _)| *fc).collect();
+        let mut final_cents: Vec<i64> = allocations_data
+            .iter()
+            .map(|(_, _, _, fc, _)| *fc)
+            .collect();
         for &idx in &indices_by_remainder {
             if remainder_cents <= 0 {
                 break;

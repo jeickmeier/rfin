@@ -29,7 +29,12 @@ impl MetricCalculator for DeltaCalculator {
                     return Ok(0.0);
                 }
                 use crate::instruments::common::models::d1_black76;
-                let d1 = d1_black76(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
+                let d1 = d1_black76(
+                    inputs.forward,
+                    option.strike_rate,
+                    inputs.sigma,
+                    inputs.time_to_expiry,
+                );
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d1),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d1),
@@ -37,7 +42,12 @@ impl MetricCalculator for DeltaCalculator {
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
-                let d = d_bachelier(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
+                let d = d_bachelier(
+                    inputs.forward,
+                    option.strike_rate,
+                    inputs.sigma,
+                    inputs.time_to_expiry,
+                );
                 match option.option_type {
                     OptionType::Call => finstack_core::math::norm_cdf(d),
                     OptionType::Put => -finstack_core::math::norm_cdf(-d),

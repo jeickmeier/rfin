@@ -856,11 +856,15 @@ fn test_quantlib_expected_loss() {
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
     // Calculate time to maturity using the CDS day count convention
-    let t_maturity = cds.premium.dc.year_fraction(
-        as_of,
-        maturity,
-        finstack_core::dates::DayCountCtx::default(),
-    ).unwrap();
+    let t_maturity = cds
+        .premium
+        .dc
+        .year_fraction(
+            as_of,
+            maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )
+        .unwrap();
 
     // Undiscounted expected loss formula:
     // EL = Notional × (1 - S(T)) × LGD
@@ -925,11 +929,15 @@ fn test_expected_loss_numerical_integration() {
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
     // Use the same day count convention as the implementation for accurate comparison
-    let tenor = cds.premium.dc.year_fraction(
-        as_of,
-        maturity,
-        finstack_core::dates::DayCountCtx::default(),
-    ).unwrap();
+    let tenor = cds
+        .premium
+        .dc
+        .year_fraction(
+            as_of,
+            maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )
+        .unwrap();
 
     // Numerical integration of UNDISCOUNTED expected loss:
     // EL = LGD × Notional × ∫[0,T] h(t) × S(t) dt
@@ -940,7 +948,7 @@ fn test_expected_loss_numerical_integration() {
 
     for i in 0..n_steps {
         let t = (i as f64 + 0.5) * dt; // Midpoint
-        // NO discount factor - this is undiscounted EL
+                                       // NO discount factor - this is undiscounted EL
         let survival = (-hazard_rate * t).exp();
         let default_prob_dt = hazard_rate * survival * dt;
         numerical_el += lgd * notional * default_prob_dt;
@@ -1077,11 +1085,7 @@ fn test_par_spread_vs_isda_reference() {
     let as_of = date!(2024 - 01 - 15);
     let maturity = date!(2029 - 01 - 15); // 5Y
 
-    let disc = build_flat_discount_curve(
-        isda_reference::DISCOUNT_RATE,
-        as_of,
-        "USD_DISC",
-    );
+    let disc = build_flat_discount_curve(isda_reference::DISCOUNT_RATE, as_of, "USD_DISC");
     let hazard = build_flat_hazard_curve(
         isda_reference::HAZARD_RATE,
         isda_reference::RECOVERY,
@@ -1126,11 +1130,7 @@ fn test_risky_annuity_vs_isda_reference() {
     let as_of = date!(2024 - 01 - 15);
     let maturity = date!(2029 - 01 - 15);
 
-    let disc = build_flat_discount_curve(
-        isda_reference::DISCOUNT_RATE,
-        as_of,
-        "USD_DISC",
-    );
+    let disc = build_flat_discount_curve(isda_reference::DISCOUNT_RATE, as_of, "USD_DISC");
     let hazard = build_flat_hazard_curve(
         isda_reference::HAZARD_RATE,
         isda_reference::RECOVERY,
@@ -1177,11 +1177,7 @@ fn test_protection_leg_pv_vs_isda_reference() {
     let as_of = date!(2024 - 01 - 15);
     let maturity = date!(2029 - 01 - 15);
 
-    let disc = build_flat_discount_curve(
-        isda_reference::DISCOUNT_RATE,
-        as_of,
-        "USD_DISC",
-    );
+    let disc = build_flat_discount_curve(isda_reference::DISCOUNT_RATE, as_of, "USD_DISC");
     let hazard = build_flat_hazard_curve(
         isda_reference::HAZARD_RATE,
         isda_reference::RECOVERY,
@@ -1210,8 +1206,8 @@ fn test_protection_leg_pv_vs_isda_reference() {
 
     // Should match ISDA reference within 10%
     // Note: Larger tolerance due to integration method differences
-    let rel_error =
-        (pv_pct - isda_reference::PROTECTION_LEG_PV_PCT).abs() / isda_reference::PROTECTION_LEG_PV_PCT;
+    let rel_error = (pv_pct - isda_reference::PROTECTION_LEG_PV_PCT).abs()
+        / isda_reference::PROTECTION_LEG_PV_PCT;
     assert!(
         rel_error < 0.10,
         "Protection leg PV {:.4}% should match ISDA reference {:.4}% within 10% (error={:.2}%)",

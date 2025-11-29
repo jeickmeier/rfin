@@ -38,7 +38,7 @@
 //!   Without Monte Carlo Simulation."
 
 use super::{select_quadrature, Copula};
-use finstack_core::math::{norm_cdf as standard_normal_cdf, GaussHermiteQuadrature};
+use finstack_core::math::norm_cdf as standard_normal_cdf;
 
 /// Multi-factor Gaussian copula with sector structure.
 ///
@@ -86,9 +86,9 @@ impl MultiFactorCopula {
         let num_factors = num_factors.max(1);
         Self {
             num_factors_count: num_factors,
-            quadrature_order: 5, // Lower order for multi-dimensional
-            default_global_loading: 0.4,      // ~16% inter-sector correlation
-            default_sector_loading: 0.3,      // Additional ~25% intra-sector
+            quadrature_order: 5,         // Lower order for multi-dimensional
+            default_global_loading: 0.4, // ~16% inter-sector correlation
+            default_sector_loading: 0.3, // Additional ~25% intra-sector
         }
     }
 
@@ -113,7 +113,7 @@ impl MultiFactorCopula {
     }
 
     /// Get the quadrature for integration.
-    fn quadrature(&self) -> GaussHermiteQuadrature {
+    fn quadrature(&self) -> finstack_core::math::GaussHermiteQuadrature {
         select_quadrature(self.quadrature_order)
     }
 
@@ -140,7 +140,11 @@ impl MultiFactorCopula {
     /// Given total correlation ρ and sector fraction f:
     /// - β_G² = ρ · (1 - f)
     /// - β_S² = ρ · f
-    pub fn decompose_correlation(&self, total_correlation: f64, sector_fraction: f64) -> (f64, f64) {
+    pub fn decompose_correlation(
+        &self,
+        total_correlation: f64,
+        sector_fraction: f64,
+    ) -> (f64, f64) {
         let rho = total_correlation.clamp(0.0, 0.99);
         let f = sector_fraction.clamp(0.0, 1.0);
 
@@ -193,9 +197,8 @@ impl Copula for MultiFactorCopula {
 
         // Two-factor case (global + one sector): nested integration
         self.quadrature().integrate(|z_global| {
-            self.quadrature().integrate(|z_sector| {
-                f(&[z_global, z_sector])
-            })
+            self.quadrature()
+                .integrate(|z_sector| f(&[z_global, z_sector]))
         })
     }
 
@@ -216,6 +219,7 @@ impl Copula for MultiFactorCopula {
 
 #[cfg(test)]
 mod tests {
+    use super::super::GaussianCopula;
     use super::*;
     use finstack_core::math::standard_normal_inv_cdf;
 
@@ -267,22 +271,15 @@ mod tests {
     #[test]
     fn test_single_factor_equals_gaussian() {
         let multi_copula = MultiFactorCopula::new(1);
-        let gaussian_copula = super::super::GaussianCopula::new();
+        let gaussian_copula = GaussianCopula::new();
 
         let threshold = standard_normal_inv_cdf(0.05);
         let correlation = 0.30;
 
         // Single-factor multi should behave like Gaussian
-        let multi_prob = multi_copula.conditional_default_prob(
-            threshold,
-            &[0.5],
-            correlation,
-        );
-        let gaussian_prob = gaussian_copula.conditional_default_prob(
-            threshold,
-            &[0.5],
-            correlation,
-        );
+        let multi_prob = multi_copula.conditional_default_prob(threshold, &[0.5], correlation);
+        let gaussian_prob =
+            gaussian_copula.conditional_default_prob(threshold, &[0.5], correlation);
 
         // They use different loading decomposition, so won't be exactly equal
         // but should be in the same ballpark
@@ -334,4 +331,3 @@ mod tests {
         );
     }
 }
-

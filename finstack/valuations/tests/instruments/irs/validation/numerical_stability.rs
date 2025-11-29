@@ -323,7 +323,9 @@ fn test_expired_swap_handling() {
     };
 
     // Expired swap should have zero NPV (no future cashflows)
-    let npv = swap.value(&market, as_of).expect("Expired swap should price");
+    let npv = swap
+        .value(&market, as_of)
+        .expect("Expired swap should price");
     assert!(
         npv.amount().abs() < 1.0,
         "Expired swap NPV should be ~0, got {}",
@@ -625,4 +627,3 @@ fn test_missing_curve_produces_clear_error() {
         err_msg
     );
 }
-

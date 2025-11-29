@@ -65,7 +65,7 @@ fn test_dv01_positive_for_asset() {
 fn test_dv01_increases_with_maturity() {
     // Arrange
     let as_of = date!(2025 - 01 - 01);
-    
+
     // Short maturity loan
     let loan_short = TermLoan::builder()
         .id("TL-DV01-SHORT".into())
@@ -118,9 +118,13 @@ fn test_dv01_increases_with_maturity() {
     let market = MarketContext::new().insert_discount(disc_curve);
 
     // Act
-    let result_short = loan_short.price_with_metrics(&market, as_of, &[MetricId::Dv01]).unwrap();
-    let result_long = loan_long.price_with_metrics(&market, as_of, &[MetricId::Dv01]).unwrap();
-    
+    let result_short = loan_short
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .unwrap();
+    let result_long = loan_long
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .unwrap();
+
     let dv01_short = *result_short.measures.get("dv01").unwrap();
     let dv01_long = *result_long.measures.get("dv01").unwrap();
 
@@ -140,4 +144,3 @@ fn test_dv01_increases_with_maturity() {
         dv01_short
     );
 }
-

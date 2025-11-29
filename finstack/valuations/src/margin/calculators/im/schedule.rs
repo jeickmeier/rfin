@@ -79,9 +79,18 @@ impl RegulatorySchedule {
         let mut rates = HashMap::new();
 
         // Interest Rate
-        rates.insert((ScheduleAssetClass::InterestRate, MaturityBucket::Short), 0.01); // 1%
-        rates.insert((ScheduleAssetClass::InterestRate, MaturityBucket::Medium), 0.02); // 2%
-        rates.insert((ScheduleAssetClass::InterestRate, MaturityBucket::Long), 0.04); // 4%
+        rates.insert(
+            (ScheduleAssetClass::InterestRate, MaturityBucket::Short),
+            0.01,
+        ); // 1%
+        rates.insert(
+            (ScheduleAssetClass::InterestRate, MaturityBucket::Medium),
+            0.02,
+        ); // 2%
+        rates.insert(
+            (ScheduleAssetClass::InterestRate, MaturityBucket::Long),
+            0.04,
+        ); // 4%
 
         // Credit
         rates.insert((ScheduleAssetClass::Credit, MaturityBucket::Short), 0.02); // 2%
@@ -95,7 +104,10 @@ impl RegulatorySchedule {
 
         // Commodity
         rates.insert((ScheduleAssetClass::Commodity, MaturityBucket::Short), 0.15);
-        rates.insert((ScheduleAssetClass::Commodity, MaturityBucket::Medium), 0.15);
+        rates.insert(
+            (ScheduleAssetClass::Commodity, MaturityBucket::Medium),
+            0.15,
+        );
         rates.insert((ScheduleAssetClass::Commodity, MaturityBucket::Long), 0.15);
 
         // FX
@@ -219,7 +231,9 @@ impl ImCalculator for ScheduleImCalculator {
         let currency = pv.currency();
         let notional = Money::new(pv.amount().abs(), currency);
 
-        let rate = self.schedule.rate(self.default_asset_class, self.default_maturity_years);
+        let rate = self
+            .schedule
+            .rate(self.default_asset_class, self.default_maturity_years);
         let im_amount = notional * rate;
 
         let mut breakdown = HashMap::new();
@@ -286,4 +300,3 @@ mod tests {
         assert_eq!(im.amount(), 5_000_000.0);
     }
 }
-

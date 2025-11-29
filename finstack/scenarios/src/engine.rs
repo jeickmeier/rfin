@@ -503,6 +503,22 @@ impl ScenarioEngine {
                         );
                     }
                 }
+                OperationSpec::AssetCorrelationPts { delta_pts: _ }
+                | OperationSpec::PrepayDefaultCorrelationPts { delta_pts: _ }
+                | OperationSpec::RecoveryCorrelationPts { delta_pts: _ }
+                | OperationSpec::PrepayFactorLoadingPts { delta_pts: _ } => {
+                    // Note: Correlation operations for structured credit instruments
+                    // require direct access to StructuredCredit instruments.
+                    // These operations are applied via the asset_corr adapter
+                    // when StructuredCredit instruments are in scope.
+                    // The engine provides placeholders here; actual application
+                    // happens in the valuations layer via:
+                    //   crate::adapters::asset_corr::apply_asset_correlation_shock
+                    //   crate::adapters::asset_corr::apply_prepay_default_correlation_shock
+                    warnings.push(
+                        "Correlation operation: requires StructuredCredit instruments (use adapters::asset_corr directly)".to_string(),
+                    );
+                }
                 _ => {} // statements and time roll handled elsewhere
             }
         }

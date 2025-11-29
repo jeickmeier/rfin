@@ -204,7 +204,13 @@ mod tests {
         ns.add_position("POS_001".into());
         ns.add_position("POS_002".into());
 
-        assert_eq!(manager.get(&bilateral_id).expect("should exist").position_count(), 2);
+        assert_eq!(
+            manager
+                .get(&bilateral_id)
+                .expect("should exist")
+                .position_count(),
+            2
+        );
     }
 
     #[test]
@@ -224,7 +230,9 @@ mod tests {
         ns.merge_sensitivities(&sens1);
         ns.merge_sensitivities(&sens2);
 
-        let agg = ns.aggregated_sensitivities.expect("should have sensitivities");
+        let agg = ns
+            .aggregated_sensitivities
+            .expect("should have sensitivities");
 
         // 5Y should be netted: 100,000 - 50,000 = 50,000
         assert_eq!(
@@ -238,4 +246,3 @@ mod tests {
         );
     }
 }
-

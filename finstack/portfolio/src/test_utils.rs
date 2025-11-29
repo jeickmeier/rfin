@@ -45,4 +45,3 @@ pub fn build_test_market_at(as_of: Date) -> MarketContext {
 
     MarketContext::new().insert_discount(curve)
 }
-

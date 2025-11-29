@@ -32,9 +32,9 @@ impl Default for MarginCallTiming {
     fn default() -> Self {
         Self {
             notification_deadline_hours: 13, // 1:00 PM local time
-            response_deadline_hours: 2,       // 2 hours to respond
-            dispute_resolution_days: 2,       // 2 days to resolve disputes
-            delivery_grace_days: 1,           // 1 day grace for delivery
+            response_deadline_hours: 2,      // 2 hours to respond
+            dispute_resolution_days: 2,      // 2 days to resolve disputes
+            delivery_grace_days: 1,          // 1 day grace for delivery
         }
     }
 }
@@ -247,4 +247,3 @@ mod tests {
         assert_eq!(timing.dispute_resolution_days, 2);
     }
 }
-

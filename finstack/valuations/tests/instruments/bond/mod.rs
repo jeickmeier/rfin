@@ -14,6 +14,6 @@ mod helpers_tests;
 mod integration;
 mod metrics;
 mod pricing;
+mod test_bond_pricing;
 mod test_ytm_edge_cases;
 mod validation;
-mod test_bond_pricing;

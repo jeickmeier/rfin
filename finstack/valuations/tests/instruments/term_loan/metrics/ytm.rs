@@ -109,8 +109,7 @@ fn test_ytm_discount_loan() {
     assert!(result.is_ok());
     let result = result.unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
-    
+
     // YTM should be higher than coupon for discount loan
     assert!(ytm > 0.03);
 }
-

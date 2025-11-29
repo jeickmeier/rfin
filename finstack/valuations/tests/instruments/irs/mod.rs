@@ -15,6 +15,6 @@ mod integration;
 mod metrics;
 mod pricing;
 mod proptests;
+mod test_swap_pricing;
 mod test_swap_symmetry;
 mod validation;
-mod test_swap_pricing;  

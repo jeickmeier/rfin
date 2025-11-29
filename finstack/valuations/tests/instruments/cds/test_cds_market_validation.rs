@@ -364,11 +364,11 @@ fn test_expected_loss_formula_validation() {
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
     // Calculate time to maturity using the same day count as the pricer
-    let t_maturity = cds.premium.dc.year_fraction(
-        as_of,
-        end,
-        finstack_core::dates::DayCountCtx::default(),
-    ).unwrap();
+    let t_maturity = cds
+        .premium
+        .dc
+        .year_fraction(as_of, end, finstack_core::dates::DayCountCtx::default())
+        .unwrap();
 
     // Theoretical undiscounted expected loss:
     // EL = Notional × (1 - S(T)) × LGD

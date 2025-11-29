@@ -10,7 +10,11 @@ use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
 
-fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+fn build_flat_discount_curve(
+    rate: f64,
+    base_date: Date,
+    curve_id: &str,
+) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
     flat_discount_curve(rate, base_date, curve_id)
 }
 
@@ -47,7 +51,10 @@ fn test_term_loan_yields_with_callability() {
 
     // Add first call at 2027-01-01 at 101% of outstanding
     loan.call_schedule = Some(LoanCallSchedule {
-        calls: vec![LoanCall { date: date!(2027 - 01 - 01), price_pct_of_par: 101.0 }],
+        calls: vec![LoanCall {
+            date: date!(2027 - 01 - 01),
+            price_pct_of_par: 101.0,
+        }],
     });
 
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
@@ -105,7 +112,9 @@ fn test_term_loan_yields_to_horizons() {
     let yt4y = *result.measures.get("yt4y").unwrap();
 
     // All finite and positive
-    for y in [ytm, yt2y, yt3y, yt4y] { assert!(y.is_finite() && y > 0.0); }
+    for y in [ytm, yt2y, yt3y, yt4y] {
+        assert!(y.is_finite() && y > 0.0);
+    }
 
     // Horizon yields should be non-decreasing with longer horizons in this setup
     assert!(yt2y <= yt3y + 1e-12);
@@ -114,7 +123,3 @@ fn test_term_loan_yields_to_horizons() {
     // YT4Y equals YTM when maturity is 4 years
     assert!((yt4y - ytm).abs() < 1e-8);
 }
-
-
-
-

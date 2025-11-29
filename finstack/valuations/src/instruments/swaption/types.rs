@@ -655,11 +655,7 @@ impl Swaption {
     /// # Returns
     /// `Some(GreekInputs)` containing forward, annuity, sigma, and time to expiry,
     /// or `None` if the option has expired.
-    pub fn greek_inputs(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<Option<GreekInputs>> {
+    pub fn greek_inputs(&self, curves: &MarketContext, as_of: Date) -> Result<Option<GreekInputs>> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
         let t = self.year_fraction(as_of, self.expiry, self.day_count)?;
 
@@ -839,12 +835,12 @@ impl BermudanSwaption {
     ///
     /// Returns a 10NC2 payer swaption (10-year swap, callable quarterly after 2 years).
     pub fn example() -> Self {
-        let swap_start = Date::from_calendar_date(2025, time::Month::January, 17)
-            .expect("Valid example date");
-        let swap_end = Date::from_calendar_date(2035, time::Month::January, 17)
-            .expect("Valid example date");
-        let first_exercise = Date::from_calendar_date(2027, time::Month::January, 17)
-            .expect("Valid example date");
+        let swap_start =
+            Date::from_calendar_date(2025, time::Month::January, 17).expect("Valid example date");
+        let swap_end =
+            Date::from_calendar_date(2035, time::Month::January, 17).expect("Valid example date");
+        let first_exercise =
+            Date::from_calendar_date(2027, time::Month::January, 17).expect("Valid example date");
 
         Self {
             id: InstrumentId::new("BERM-10NC2-USD"),
@@ -982,17 +978,22 @@ impl BermudanSwaption {
     /// Calculate time to first exercise in years.
     pub fn time_to_first_exercise(&self, as_of: Date) -> Result<f64> {
         match self.first_exercise() {
-            Some(first) => self
-                .day_count
-                .year_fraction(as_of, first, finstack_core::dates::DayCountCtx::default()),
+            Some(first) => self.day_count.year_fraction(
+                as_of,
+                first,
+                finstack_core::dates::DayCountCtx::default(),
+            ),
             None => Err(Error::Validation("No exercise dates".into())),
         }
     }
 
     /// Calculate time to swap maturity in years.
     pub fn time_to_maturity(&self, as_of: Date) -> Result<f64> {
-        self.day_count
-            .year_fraction(as_of, self.swap_end, finstack_core::dates::DayCountCtx::default())
+        self.day_count.year_fraction(
+            as_of,
+            self.swap_end,
+            finstack_core::dates::DayCountCtx::default(),
+        )
     }
 
     /// Get exercise dates as year fractions from valuation date.

@@ -152,29 +152,28 @@ impl InterpStyle {
         values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Interp> {
-        let interp = match self {
-            InterpStyle::Linear => {
-                Interp::Linear(LinearDf::new_allow_any_values(knots, values, extrapolation)?)
-            }
-            InterpStyle::LogLinear => {
-                // LogLinear requires positive values for log transform
-                Interp::LogLinear(LogLinearDf::new(knots, values, extrapolation)?)
-            }
-            InterpStyle::MonotoneConvex => {
-                // MonotoneConvex typically requires positive values
-                Interp::MonotoneConvex(MonotoneConvex::new(knots, values, extrapolation)?)
-            }
-            InterpStyle::CubicHermite => {
-                Interp::CubicHermite(CubicHermite::new_allow_any_values(
+        let interp =
+            match self {
+                InterpStyle::Linear => Interp::Linear(LinearDf::new_allow_any_values(
                     knots,
                     values,
                     extrapolation,
-                )?)
-            }
-            InterpStyle::FlatFwd => {
-                Interp::FlatFwd(FlatFwd::new_allow_any_values(knots, values, extrapolation)?)
-            }
-        };
+                )?),
+                InterpStyle::LogLinear => {
+                    // LogLinear requires positive values for log transform
+                    Interp::LogLinear(LogLinearDf::new(knots, values, extrapolation)?)
+                }
+                InterpStyle::MonotoneConvex => {
+                    // MonotoneConvex typically requires positive values
+                    Interp::MonotoneConvex(MonotoneConvex::new(knots, values, extrapolation)?)
+                }
+                InterpStyle::CubicHermite => Interp::CubicHermite(
+                    CubicHermite::new_allow_any_values(knots, values, extrapolation)?,
+                ),
+                InterpStyle::FlatFwd => {
+                    Interp::FlatFwd(FlatFwd::new_allow_any_values(knots, values, extrapolation)?)
+                }
+            };
         Ok(interp)
     }
 }

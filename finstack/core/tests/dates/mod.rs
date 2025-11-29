@@ -17,16 +17,15 @@ mod rules_coverage;
 mod rules_serde;
 
 // Calendar Infrastructure
-mod calendars;
 mod adjustment;
+mod calendars;
 mod composite;
-mod registry;
 mod generated;
+mod registry;
 
 // Day Count Conventions
 mod daycount;
 
 // Schedules & Utilities
-mod schedule;
 mod extensions;
-
+mod schedule;

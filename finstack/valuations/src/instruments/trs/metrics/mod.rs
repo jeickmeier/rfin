@@ -29,7 +29,8 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     let common_metrics = vec![
         (
             MetricId::Dividend01,
-            Arc::new(dividend_risk::DividendRiskCalculator) as Arc<dyn crate::metrics::MetricCalculator>,
+            Arc::new(dividend_risk::DividendRiskCalculator)
+                as Arc<dyn crate::metrics::MetricCalculator>,
         ),
         (
             MetricId::ParSpread,
@@ -54,14 +55,18 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::trs::EquityTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined()
+        )),
         &["EquityTotalReturnSwap"],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::trs::EquityTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::key_rate()
+        )),
         &["EquityTotalReturnSwap"],
     );
 
@@ -70,14 +75,18 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::trs::FIIndexTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined()
+        )),
         &["FIIndexTotalReturnSwap"],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::trs::FIIndexTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::key_rate()
+        )),
         &["FIIndexTotalReturnSwap"],
     );
 }

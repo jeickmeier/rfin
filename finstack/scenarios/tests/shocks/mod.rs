@@ -3,4 +3,3 @@ mod bucket_filtering_test;
 mod curve_variants_test;
 mod instrument_shocks_test;
 mod tenor_shocks_test;
-

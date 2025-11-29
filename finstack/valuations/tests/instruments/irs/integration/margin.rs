@@ -5,12 +5,7 @@
 //! - DV01-based SIMM calculations
 //! - CSA bilateral vs cleared margin requirements
 
-use finstack_core::{
-    currency::Currency,
-    dates::Date,
-    money::Money,
-    types::InstrumentId,
-};
+use finstack_core::{currency::Currency, dates::Date, money::Money, types::InstrumentId};
 use finstack_valuations::{
     instruments::{irs::InterestRateSwap, PayReceive},
     margin::{
@@ -136,7 +131,10 @@ fn test_irs_with_cleared_margin() {
 
     let spec = swap.margin_spec.as_ref().expect("margin spec exists");
 
-    assert!(matches!(spec.clearing_status, ClearingStatus::Cleared { .. }));
+    assert!(matches!(
+        spec.clearing_status,
+        ClearingStatus::Cleared { .. }
+    ));
     if let ClearingStatus::Cleared { ccp } = &spec.clearing_status {
         assert_eq!(ccp, "LCH");
     }
@@ -178,7 +176,10 @@ fn test_simm_calculator_exists() {
     let ir_margin = simm.calculate_ir_delta(&empty_dv01);
 
     // Empty sensitivities should produce zero margin
-    assert_eq!(ir_margin, 0.0, "Empty sensitivities should produce zero margin");
+    assert_eq!(
+        ir_margin, 0.0,
+        "Empty sensitivities should produce zero margin"
+    );
 }
 
 #[test]

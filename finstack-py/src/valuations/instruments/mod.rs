@@ -117,8 +117,16 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyEquityOption, InstrumentType::EquityOption);
     try_extract!(value, PyConvertibleBond, InstrumentType::Convertible);
     try_extract!(value, PySwaption, InstrumentType::Swaption);
-    try_extract!(value, PyEquityTotalReturnSwap, InstrumentType::EquityTotalReturnSwap);
-    try_extract!(value, PyFiIndexTotalReturnSwap, InstrumentType::FIIndexTotalReturnSwap);
+    try_extract!(
+        value,
+        PyEquityTotalReturnSwap,
+        InstrumentType::EquityTotalReturnSwap
+    );
+    try_extract!(
+        value,
+        PyFiIndexTotalReturnSwap,
+        InstrumentType::FIIndexTotalReturnSwap
+    );
     try_extract!(value, PyVarianceSwap, InstrumentType::VarianceSwap);
     try_extract!(value, PyCreditDefaultSwap, InstrumentType::CDS);
     try_extract!(value, PyCdsIndex, InstrumentType::CDSIndex);

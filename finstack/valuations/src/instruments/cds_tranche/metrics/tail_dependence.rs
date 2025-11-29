@@ -41,7 +41,9 @@ impl MetricCalculator for TailDependenceCalculator {
             .instrument
             .as_any()
             .downcast_ref::<CdsTranche>()
-            .ok_or(finstack_core::Error::Input(finstack_core::error::InputError::Invalid))?;
+            .ok_or(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ))?;
 
         // Get the credit index data to determine correlation
         let index_data = match context.curves.credit_index_ref(&tranche.credit_index_id) {
@@ -136,7 +138,10 @@ mod tests {
     #[test]
     fn test_student_t_tail_dependence_positive() {
         let lambda = calculate_student_t_tail_dependence(0.5, 5.0);
-        assert!(lambda > 0.0, "Student-t should have positive tail dependence");
+        assert!(
+            lambda > 0.0,
+            "Student-t should have positive tail dependence"
+        );
         assert!(lambda < 1.0);
     }
 
@@ -171,4 +176,3 @@ mod tests {
         assert!(lambda < 0.1);
     }
 }
-

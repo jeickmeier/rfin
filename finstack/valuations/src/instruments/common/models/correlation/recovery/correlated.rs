@@ -164,19 +164,6 @@ mod tests {
         // R(Z) = μ_R + ρ_R * σ_R * Z
         // With ρ_R = -0.40 (negative correlation) and Z = -2 (stress):
         // R = 0.40 + (-0.40) * 0.25 * (-2) = 0.40 + 0.20 = 0.60
-        //
-        // The formula produces HIGHER recovery when Z is negative.
-        // This is because in the copula model:
-        // - Z < 0 means high defaults (bad market)
-        // - ρ_R < 0 means recovery is NEGATIVELY correlated with Z
-        // - So when Z is low, recovery is HIGH
-        //
-        // This may seem counterintuitive, but the model interprets Z as
-        // "market quality" where low Z = bad market, and negative correlation
-        // means recovery moves OPPOSITE to Z.
-        //
-        // In practice, if we want recovery to fall in stress, we should
-        // use POSITIVE correlation with a "stress factor" that is HIGH in stress.
 
         let stress_recovery = model.conditional_recovery(-2.0);
         let expected = 0.40 + (-0.40) * 0.25 * (-2.0); // = 0.60
@@ -293,4 +280,3 @@ mod tests {
         assert!(conservative.correlation() < standard.correlation());
     }
 }
-

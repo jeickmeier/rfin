@@ -150,8 +150,9 @@ impl Marginable for CreditDefaultSwap {
         let years_to_maturity = STANDARD_CDS_MATURITY_YEARS;
 
         // Risky duration approximation
-        let risky_duration =
-            years_to_maturity * (1.0 - self.protection.recovery_rate) * DURATION_APPROXIMATION_FACTOR;
+        let risky_duration = years_to_maturity
+            * (1.0 - self.protection.recovery_rate)
+            * DURATION_APPROXIMATION_FACTOR;
         let cs01 = self.notional.amount().abs() * risky_duration * ONE_BP;
 
         // Extract reference entity name from credit curve id
@@ -175,15 +176,15 @@ impl Marginable for CreditDefaultSwap {
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         use crate::instruments::cds::pricer::CDSPricer;
-        
+
         // Get discount and survival curves from market context
         let disc = market.get_discount_ref(self.premium.discount_curve_id.as_str())?;
         let surv = market.get_hazard_ref(self.protection.credit_curve_id.as_str())?;
-        
+
         let pricer = CDSPricer::new();
         let pv_prot = pricer.pv_protection_leg(self, disc, surv, as_of)?;
         let pv_prem = pricer.pv_premium_leg(self, disc, surv, as_of)?;
-        
+
         // NPV from protection buyer perspective (PayFixed)
         let npv = match self.side {
             crate::instruments::common::parameters::legs::PayReceive::PayFixed => {
@@ -193,7 +194,7 @@ impl Marginable for CreditDefaultSwap {
                 pv_prem.checked_sub(pv_prot)?
             }
         };
-        
+
         Ok(npv)
     }
 }
@@ -313,7 +314,7 @@ impl Marginable for FIIndexTotalReturnSwap {
 
         let signed_dv01 = match self.side {
             crate::instruments::trs::TrsSide::ReceiveTotalReturn => -dv01, // Long bond = short rates
-            crate::instruments::trs::TrsSide::PayTotalReturn => dv01,      // Short bond = long rates
+            crate::instruments::trs::TrsSide::PayTotalReturn => dv01, // Short bond = long rates
         };
 
         // Map duration to appropriate tenor bucket
@@ -346,10 +347,7 @@ impl Marginable for Repo {
     fn netting_set_id(&self) -> Option<NettingSetId> {
         // Repos typically have their own netting arrangements
         // Use the repo ID as a simple netting set identifier
-        Some(NettingSetId::bilateral(
-            self.id.as_str(),
-            "REPO_NETTING",
-        ))
+        Some(NettingSetId::bilateral(self.id.as_str(), "REPO_NETTING"))
     }
 
     fn simm_sensitivities(
@@ -416,7 +414,9 @@ mod tests {
 
         // Calculate sensitivities
         let market = MarketContext::new();
-        let sens = swap.simm_sensitivities(&market, start).expect("sensitivities");
+        let sens = swap
+            .simm_sensitivities(&market, start)
+            .expect("sensitivities");
 
         // Should have IR delta
         assert!(!sens.ir_delta.is_empty());

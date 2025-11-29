@@ -133,5 +133,8 @@ fn test_dv01_with_different_day_counts() {
     // Validate - different day counts give slightly different DV01
     // because the interest accrual amounts differ (Act360 has higher YF)
     // Note: Discounting uses curve's day count, but interest accrual differs
-    assert_ne!(dv01_360, dv01_365, "Day count should affect DV01 via interest accrual");
+    assert_ne!(
+        dv01_360, dv01_365,
+        "Day count should affect DV01 via interest accrual"
+    );
 }

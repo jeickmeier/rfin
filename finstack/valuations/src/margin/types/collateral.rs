@@ -98,7 +98,9 @@ impl std::str::FromStr for CollateralAssetClass {
             }
             "equity" | "equities" | "stock" => Ok(CollateralAssetClass::Equity),
             "gold" => Ok(CollateralAssetClass::Gold),
-            "mutual_funds" | "mutualfunds" | "etf" | "funds" => Ok(CollateralAssetClass::MutualFunds),
+            "mutual_funds" | "mutualfunds" | "etf" | "funds" => {
+                Ok(CollateralAssetClass::MutualFunds)
+            }
             other => Err(format!("Unknown collateral asset class: {}", other)),
         }
     }
@@ -467,7 +469,7 @@ mod tests {
             max_remaining_years: Some(5.0),
         };
         assert!(!constraints.is_satisfied(0.5)); // Too short
-        assert!(constraints.is_satisfied(2.0));  // Within range
+        assert!(constraints.is_satisfied(2.0)); // Within range
         assert!(!constraints.is_satisfied(6.0)); // Too long
     }
 
@@ -494,4 +496,3 @@ mod tests {
         assert!(!schedule.rehypothecation_allowed);
     }
 }
-

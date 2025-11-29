@@ -285,7 +285,10 @@ impl SwaptionLsmcPricer {
     }
 
     /// Create a new pricer with full configuration.
-    pub fn with_config(swaption_config: SwaptionLsmcConfig, hw_process: HullWhite1FProcess) -> Self {
+    pub fn with_config(
+        swaption_config: SwaptionLsmcConfig,
+        hw_process: HullWhite1FProcess,
+    ) -> Self {
         let config = swaption_config.to_lsmc_config();
         Self {
             config,

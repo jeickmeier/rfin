@@ -158,9 +158,8 @@ impl Copula for RandomFactorLoadingCopula {
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
         // Double integral: outer over loading shock η, inner over market Z
-        self.outer_quadrature().integrate(|eta| {
-            self.inner_quadrature().integrate(|z| f(&[z, eta]))
-        })
+        self.outer_quadrature()
+            .integrate(|eta| self.inner_quadrature().integrate(|z| f(&[z, eta])))
     }
 
     fn num_factors(&self) -> usize {
@@ -194,6 +193,7 @@ impl Copula for RandomFactorLoadingCopula {
 
 #[cfg(test)]
 mod tests {
+    use super::super::GaussianCopula;
     use super::*;
     use finstack_core::math::standard_normal_inv_cdf;
 
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_zero_volatility_equals_gaussian() {
         let rfl_copula = RandomFactorLoadingCopula::new(0.0);
-        let gaussian_copula = super::super::GaussianCopula::new();
+        let gaussian_copula = GaussianCopula::new();
 
         let threshold = standard_normal_inv_cdf(0.05);
         let correlation = 0.30;
@@ -302,11 +302,8 @@ mod tests {
             &[0.5, 0.0], // Z=0.5, η=0 (no loading shock)
             correlation,
         );
-        let gaussian_prob = gaussian_copula.conditional_default_prob(
-            threshold,
-            &[0.5],
-            correlation,
-        );
+        let gaussian_prob =
+            gaussian_copula.conditional_default_prob(threshold, &[0.5], correlation);
 
         assert!(
             (rfl_prob - gaussian_prob).abs() < 0.01,
@@ -316,4 +313,3 @@ mod tests {
         );
     }
 }
-

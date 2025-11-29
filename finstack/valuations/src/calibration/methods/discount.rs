@@ -1175,7 +1175,14 @@ pub fn create_ois_swap_from_quote(
             fixed_dc,
             float_dc,
             ..
-        } => (*maturity, *rate, *fixed_freq, *float_freq, *fixed_dc, *float_dc),
+        } => (
+            *maturity,
+            *rate,
+            *fixed_freq,
+            *float_freq,
+            *fixed_dc,
+            *float_dc,
+        ),
         _ => {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::Invalid,

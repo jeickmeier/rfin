@@ -10,8 +10,10 @@
 //!   Asian, Barrier, Lookback, Quanto, Heston)
 //! - [`volatility`]: Volatility models (SABR) and Black-Scholes helper functions
 //! - [`trees`]: Tree-based methods (Binomial, Trinomial, Multi-factor, Short-rate)
+//! - [`correlation`]: Shared correlation infrastructure (copulas, recovery models, factor models)
 
 pub mod closed_form;
+pub mod correlation;
 #[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub mod trees;
@@ -27,6 +29,12 @@ pub use closed_form::{
     heston_call_price_fourier, heston_put_price_fourier, quanto_call, quanto_call_simple,
     quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call, up_out_call, AsianGreeks,
     AsianPriceResult, BarrierType, CallGreeks, HestonParams, PutGreeks,
+};
+pub use correlation::{
+    joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,
+    CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,
+    RandomFactorLoadingCopula, RecoveryModel, RecoverySpec, SingleFactorModel, StudentTCopula,
+    TwoFactorModel,
 };
 pub use trees::{
     short_rate_keys, single_factor_equity_state, state_keys, two_factor_equity_rates_state,

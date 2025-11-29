@@ -277,7 +277,9 @@ mod tests {
 
         let exposure = Money::new(5_000_000.0, Currency::USD);
         let posted = Money::new(3_000_000.0, Currency::USD);
-        let result = calc.calculate(exposure, posted, test_date(2025, 1, 15)).expect("calc ok");
+        let result = calc
+            .calculate(exposure, posted, test_date(2025, 1, 15))
+            .expect("calc ok");
 
         // With zero threshold, delivery = exposure - posted = 2M
         assert_eq!(result.delivery_amount.amount(), 2_000_000.0);
@@ -292,7 +294,9 @@ mod tests {
         // Exposure below threshold: no margin call
         let exposure = Money::new(500_000.0, Currency::USD);
         let posted = Money::new(0.0, Currency::USD);
-        let result = calc.calculate(exposure, posted, test_date(2025, 1, 15)).expect("calc ok");
+        let result = calc
+            .calculate(exposure, posted, test_date(2025, 1, 15))
+            .expect("calc ok");
 
         assert_eq!(result.delivery_amount.amount(), 0.0);
         assert!(!result.requires_call());
@@ -306,7 +310,9 @@ mod tests {
         // Exposure dropped, have excess collateral
         let exposure = Money::new(1_000_000.0, Currency::USD);
         let posted = Money::new(3_000_000.0, Currency::USD);
-        let result = calc.calculate(exposure, posted, test_date(2025, 1, 15)).expect("calc ok");
+        let result = calc
+            .calculate(exposure, posted, test_date(2025, 1, 15))
+            .expect("calc ok");
 
         // Return = posted - required = 3M - 1M = 2M
         assert_eq!(result.delivery_amount.amount(), 0.0);
@@ -320,7 +326,9 @@ mod tests {
 
         let exposure = Money::new(300_000.0, Currency::USD);
         let posted = Money::new(0.0, Currency::USD);
-        let result = calc.calculate(exposure, posted, test_date(2025, 1, 15)).expect("calc ok");
+        let result = calc
+            .calculate(exposure, posted, test_date(2025, 1, 15))
+            .expect("calc ok");
 
         // 300K < 500K MTA, no call
         assert!(!result.requires_call());
@@ -332,9 +340,18 @@ mod tests {
         let calc = VmCalculator::new(csa);
 
         let exposures = vec![
-            (test_date(2025, 1, 15), Money::new(1_000_000.0, Currency::USD)),
-            (test_date(2025, 1, 16), Money::new(2_000_000.0, Currency::USD)),
-            (test_date(2025, 1, 17), Money::new(1_500_000.0, Currency::USD)),
+            (
+                test_date(2025, 1, 15),
+                Money::new(1_000_000.0, Currency::USD),
+            ),
+            (
+                test_date(2025, 1, 16),
+                Money::new(2_000_000.0, Currency::USD),
+            ),
+            (
+                test_date(2025, 1, 17),
+                Money::new(1_500_000.0, Currency::USD),
+            ),
         ];
 
         let calls = calc
@@ -348,4 +365,3 @@ mod tests {
         assert_eq!(calls[2].call_type, MarginCallType::VariationMarginReturn);
     }
 }
-

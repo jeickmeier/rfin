@@ -1,4 +1,4 @@
-//! Student-t copula for tail dependence modeling in CDS tranche pricing.
+//! Student-t copula for tail dependence modeling in credit portfolio pricing.
 //!
 //! The Student-t copula addresses the "Gaussian copula killed Wall Street" critique
 //! by modeling tail dependence - the empirically observed phenomenon that joint
@@ -215,10 +215,8 @@ impl Copula for StudentTCopula {
 
         // For Student-t, the conditional threshold involves the t-distribution
         // P(default | T=z) ≈ t_{ν}((t^{-1}(PD) - √ρ·z) / √(1-ρ))
-        let t_threshold = self.student_t_inv_cdf(
-            finstack_core::math::norm_cdf(default_threshold),
-            nu,
-        );
+        let t_threshold =
+            self.student_t_inv_cdf(finstack_core::math::norm_cdf(default_threshold), nu);
 
         let conditional_threshold = (t_threshold - sqrt_rho * z) / sqrt_1mr;
 
@@ -359,4 +357,3 @@ mod tests {
         assert!(prob_pos < prob_zero);
     }
 }
-

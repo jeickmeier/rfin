@@ -1,4 +1,4 @@
-//! One-factor Gaussian copula for CDS tranche pricing.
+//! One-factor Gaussian copula for credit portfolio correlation.
 //!
 //! The standard market model for credit derivative correlation modeling.
 //! Assumes a single systematic factor drives all defaults.
@@ -191,16 +191,15 @@ mod tests {
         let correlation = 0.30;
 
         // At Z=0, the conditional probability is Φ(Φ⁻¹(PD) / √(1-ρ))
-        // For PD=0.05, threshold ≈ -1.645
-        // With ρ=0.30, √(1-ρ) ≈ 0.837
-        // So conditional ≈ Φ(-1.645/0.837) ≈ Φ(-1.97) ≈ 0.024
         let cond_prob = copula.conditional_default_prob(threshold, &[0.0], correlation);
 
         // Should be a valid probability between 0 and 1
         assert!(cond_prob > 0.0 && cond_prob < 1.0);
-        // At Z=0 with positive correlation, conditional should be lower than unconditional
-        // because the formula divides by √(1-ρ) < 1, making threshold more negative
-        assert!(cond_prob < pd, "At Z=0 with correlation, conditional should differ from unconditional");
+        // At Z=0 with positive correlation, conditional should differ from unconditional
+        assert!(
+            cond_prob < pd,
+            "At Z=0 with correlation, conditional should differ from unconditional"
+        );
     }
 
     #[test]
@@ -227,9 +226,8 @@ mod tests {
         let correlation = 0.30;
 
         // E[P(default|Z)] should equal P(default)
-        let integrated_prob = copula.integrate_fn(&|z| {
-            copula.conditional_default_prob(threshold, z, correlation)
-        });
+        let integrated_prob =
+            copula.integrate_fn(&|z| copula.conditional_default_prob(threshold, z, correlation));
 
         assert!(
             (integrated_prob - pd).abs() < 0.001,
@@ -261,4 +259,3 @@ mod tests {
         assert!(prob_high_pos_z < 0.01); // Should be very low
     }
 }
-

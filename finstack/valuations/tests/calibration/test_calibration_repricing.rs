@@ -58,9 +58,8 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
     );
 
     use finstack_valuations::metrics::{Dv01CalculatorConfig, UnifiedDv01Calculator};
-    let dv01_calc = UnifiedDv01Calculator::<InterestRateSwap>::new(
-        Dv01CalculatorConfig::parallel_combined(),
-    );
+    let dv01_calc =
+        UnifiedDv01Calculator::<InterestRateSwap>::new(Dv01CalculatorConfig::parallel_combined());
     dv01_calc.calculate(&mut metric_ctx).unwrap()
 }
 

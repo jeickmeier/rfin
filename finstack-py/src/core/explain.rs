@@ -5,11 +5,12 @@
 //! - `ExplanationTrace`: Container for execution trace entries
 //! - `TraceEntry`: Execution events (available as dicts via pythonize)
 
-use finstack_core::explain::{ExplainOpts, ExplanationTrace};
+use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyResult};
-use pythonize::pythonize;
+use pythonize::{depythonize, pythonize};
+use serde_json;
 
 /// Opt-in configuration for generating explanation traces.
 ///
@@ -81,7 +82,7 @@ impl PyExplainOpts {
 ///
 /// Traces are organized by type (calibration, pricing, waterfall) and contain
 /// a sequence of domain-specific entries.
-#[pyclass(name = "ExplanationTrace", module = "finstack.core.explain", frozen)]
+#[pyclass(name = "ExplanationTrace", module = "finstack.core.explain")]
 #[derive(Clone, Debug)]
 pub struct PyExplanationTrace {
     pub(crate) inner: ExplanationTrace,
@@ -125,6 +126,13 @@ impl PyExplanationTrace {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    /// Append a trace entry, respecting optional caps.
+    #[pyo3(text_signature = "(self, entry, max_entries=None)")]
+    fn push(&mut self, entry: PyRef<PyTraceEntry>, max_entries: Option<usize>) -> PyResult<()> {
+        self.inner.push(entry.inner.clone(), max_entries);
+        Ok(())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "ExplanationTrace(type='{}', entries={}, truncated={})",
@@ -132,6 +140,137 @@ impl PyExplanationTrace {
             self.inner.entries.len(),
             self.inner.is_truncated()
         )
+    }
+}
+
+/// Domain-specific trace entry for explainability output.
+#[pyclass(name = "TraceEntry", module = "finstack.core.explain", frozen)]
+#[derive(Clone, Debug)]
+pub struct PyTraceEntry {
+    pub(crate) inner: TraceEntry,
+}
+
+impl PyTraceEntry {
+    pub(crate) fn new(inner: TraceEntry) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyTraceEntry {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, iteration, residual, knots_updated, converged)")]
+    fn calibration_iteration(
+        _cls: &Bound<'_, PyType>,
+        iteration: usize,
+        residual: f64,
+        knots_updated: Vec<String>,
+        converged: bool,
+    ) -> Self {
+        Self::new(TraceEntry::CalibrationIteration {
+            iteration,
+            residual,
+            knots_updated,
+            converged,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, date, cashflow_amount, cashflow_currency, discount_factor, pv_amount, pv_currency, curve_id)"
+    )]
+    fn cashflow_pv(
+        _cls: &Bound<'_, PyType>,
+        date: String,
+        cashflow_amount: f64,
+        cashflow_currency: String,
+        discount_factor: f64,
+        pv_amount: f64,
+        pv_currency: String,
+        curve_id: String,
+    ) -> Self {
+        Self::new(TraceEntry::CashflowPV {
+            date,
+            cashflow_amount,
+            cashflow_currency,
+            discount_factor,
+            pv_amount,
+            pv_currency,
+            curve_id,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, period, step_name, cash_in_amount, cash_in_currency, cash_out_amount, cash_out_currency, shortfall_amount=None, shortfall_currency=None)"
+    )]
+    fn waterfall_step(
+        _cls: &Bound<'_, PyType>,
+        period: usize,
+        step_name: String,
+        cash_in_amount: f64,
+        cash_in_currency: String,
+        cash_out_amount: f64,
+        cash_out_currency: String,
+        shortfall_amount: Option<f64>,
+        shortfall_currency: Option<String>,
+    ) -> Self {
+        Self::new(TraceEntry::WaterfallStep {
+            period,
+            step_name,
+            cash_in_amount,
+            cash_in_currency,
+            cash_out_amount,
+            cash_out_currency,
+            shortfall_amount,
+            shortfall_currency,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name, description, metadata=None)")]
+    fn computation_step(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        description: String,
+        metadata: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let meta = if let Some(value) = metadata {
+            Some(depythonize::<serde_json::Value>(&value)?)
+        } else {
+            None
+        };
+        Ok(Self::new(TraceEntry::ComputationStep {
+            name,
+            description,
+            metadata: meta,
+        }))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, row_labels, col_labels, sensitivity_matrix)")]
+    fn jacobian(
+        _cls: &Bound<'_, PyType>,
+        row_labels: Vec<String>,
+        col_labels: Vec<String>,
+        sensitivity_matrix: Vec<Vec<f64>>,
+    ) -> Self {
+        Self::new(TraceEntry::Jacobian {
+            row_labels,
+            col_labels,
+            sensitivity_matrix,
+        })
+    }
+
+    #[getter]
+    fn kind(&self) -> &'static str {
+        match self.inner {
+            TraceEntry::CalibrationIteration { .. } => "calibration_iteration",
+            TraceEntry::CashflowPV { .. } => "cashflow_pv",
+            TraceEntry::WaterfallStep { .. } => "waterfall_step",
+            TraceEntry::ComputationStep { .. } => "computation_step",
+            TraceEntry::Jacobian { .. } => "jacobian",
+        }
     }
 }
 
@@ -147,8 +286,9 @@ pub(crate) fn register<'py>(
 
     module.add_class::<PyExplainOpts>()?;
     module.add_class::<PyExplanationTrace>()?;
+    module.add_class::<PyTraceEntry>()?;
 
-    let exports = ["ExplainOpts", "ExplanationTrace"];
+    let exports = ["ExplainOpts", "ExplanationTrace", "TraceEntry"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

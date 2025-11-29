@@ -84,7 +84,10 @@ pub use builder::PortfolioBuilder;
 pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
 pub use error::{PortfolioError, Result};
 pub use grouping::{aggregate_by_attribute, group_by_attribute};
-pub use margin::{NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator, PortfolioMarginResult};
+pub use margin::{
+    NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
+    PortfolioMarginResult,
+};
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use portfolio::Portfolio;
 pub use position::{Position, PositionUnit};

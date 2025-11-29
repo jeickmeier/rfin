@@ -399,14 +399,14 @@ impl ValuationResult {
     /// # let as_of = create_date(2025, Month::January, 15)?;
     /// # let pv = Money::new(1_000_000.0, Currency::USD);
     /// let mut covenants = IndexMap::new();
-/// covenants.insert("dscr".to_string(), CovenantReport {
-///     covenant_type: "dscr".to_string(),
-///     passed: true,
-///     actual_value: Some(1.5),
-///     threshold: Some(1.25),
-///     details: Some("DSCR test passed".to_string()),
-///     headroom: Some(0.25),
-/// });
+    /// covenants.insert("dscr".to_string(), CovenantReport {
+    ///     covenant_type: "dscr".to_string(),
+    ///     passed: true,
+    ///     actual_value: Some(1.5),
+    ///     threshold: Some(1.25),
+    ///     details: Some("DSCR test passed".to_string()),
+    ///     headroom: Some(0.25),
+    /// });
     ///
     /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
     ///     .with_covenants(covenants);
@@ -447,25 +447,25 @@ impl ValuationResult {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let as_of = create_date(2025, Month::January, 15)?;
     /// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: true,
-///         actual_value: Some(1.5),
-///         threshold: Some(1.25),
-///         details: None,
-///         headroom: Some(0.25),
-///     })
-///     .with_covenant("ltv", CovenantReport {
-///         covenant_type: "ltv".to_string(),
-///         passed: true,
-///         actual_value: Some(0.70),
-///         threshold: Some(0.80),
-///         details: None,
-///         headroom: Some(0.10),
-///     });
-///
-/// assert_eq!(result.covenants.as_ref().expect("should succeed").len(), 2);
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(1.5),
+    ///         threshold: Some(1.25),
+    ///         details: None,
+    ///         headroom: Some(0.25),
+    ///     })
+    ///     .with_covenant("ltv", CovenantReport {
+    ///         covenant_type: "ltv".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(0.70),
+    ///         threshold: Some(0.80),
+    ///         details: None,
+    ///         headroom: Some(0.10),
+    ///     });
+    ///
+    /// assert_eq!(result.covenants.as_ref().expect("should succeed").len(), 2);
     /// # Ok(())
     /// # }
     /// ```
@@ -500,17 +500,17 @@ impl ValuationResult {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let as_of = create_date(2025, Month::January, 15)?;
     /// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: true,
-///         actual_value: Some(1.5),
-///         threshold: Some(1.25),
-///         details: None,
-///         headroom: Some(0.25),
-///     });
-///
-/// assert!(result.all_covenants_passed());
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(1.5),
+    ///         threshold: Some(1.25),
+    ///         details: None,
+    ///         headroom: Some(0.25),
+    ///     });
+    ///
+    /// assert!(result.all_covenants_passed());
     /// # Ok(())
     /// # }
     /// ```
@@ -543,19 +543,19 @@ impl ValuationResult {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let as_of = create_date(2025, Month::January, 15)?;
     /// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: false,
-///         actual_value: Some(1.1),
-///         threshold: Some(1.25),
-///         details: Some("DSCR below threshold".to_string()),
-///         headroom: Some(-0.15),
-///     });
-///
-/// let failed = result.failed_covenants();
-/// assert_eq!(failed.len(), 1);
-/// assert_eq!(failed[0], "dscr");
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: false,
+    ///         actual_value: Some(1.1),
+    ///         threshold: Some(1.25),
+    ///         details: Some("DSCR below threshold".to_string()),
+    ///         headroom: Some(-0.15),
+    ///     });
+    ///
+    /// let failed = result.failed_covenants();
+    /// assert_eq!(failed.len(), 1);
+    /// assert_eq!(failed[0], "dscr");
     /// # Ok(())
     /// # }
     /// ```

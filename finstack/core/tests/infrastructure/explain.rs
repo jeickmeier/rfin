@@ -179,4 +179,3 @@ mod property_tests {
         assert!(trace.is_truncated());
     }
 }
-

@@ -70,4 +70,3 @@ fn test_ytw_is_minimum_of_ytm_and_ytc() {
     assert!(ytw <= ytm + 1e-12);
     assert!(ytw <= ytc + 1e-12);
 }
-

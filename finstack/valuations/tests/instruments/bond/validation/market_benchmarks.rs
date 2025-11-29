@@ -104,13 +104,11 @@ fn test_bond_ytm_benchmark_1() {
     // Verify self-consistency: price from computed YTM should match target
     use finstack_valuations::cashflow::traits::CashflowProvider;
     let flows = bond.build_schedule(&market, as_of).unwrap();
-    let recalc_price = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
-        &bond,
-        &flows,
-        as_of,
-        ytm,
-    )
-    .unwrap();
+    let recalc_price =
+        finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+            &bond, &flows, as_of, ytm,
+        )
+        .unwrap();
 
     // The recalculated dirty price should match clean price + accrued (= 95 at issue)
     let target_dirty = 95.0; // No accrued at issue date

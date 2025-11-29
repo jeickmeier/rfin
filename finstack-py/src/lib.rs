@@ -44,6 +44,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     core::explain::register(py, &core_mod)?;
     core::market_data::register(py, &core_mod)?;
     core::math::register(py, &core_mod)?;
+    core::volatility::register(py, &core_mod)?;
     core::types::register(py, &core_mod)?;
     core::expr::register(py, &core_mod)?;
 
@@ -58,6 +59,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "explain",
             "market_data",
             "math",
+            "volatility",
             "types",
             "expr",
         ],
@@ -76,6 +78,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         "explain",
         "market_data",
         "math",
+        "volatility",
         "types",
         "expr",
     ] {

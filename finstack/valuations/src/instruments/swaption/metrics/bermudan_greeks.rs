@@ -119,11 +119,11 @@ impl MetricCalculator for BermudanDeltaCalculator {
             .instrument
             .as_any()
             .downcast_ref::<BermudanSwaption>()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Expected BermudanSwaption".into())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Expected BermudanSwaption".into()))?;
 
-        let disc = context.curves.get_discount_ref(swaption.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(swaption.discount_curve_id.as_str())?;
 
         // Base price
         let base_price = self.price_bermudan(swaption, disc, context.as_of, self.sigma)?;
@@ -209,11 +209,11 @@ impl MetricCalculator for BermudanVegaCalculator {
             .instrument
             .as_any()
             .downcast_ref::<BermudanSwaption>()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Expected BermudanSwaption".into())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Expected BermudanSwaption".into()))?;
 
-        let disc = context.curves.get_discount_ref(swaption.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(swaption.discount_curve_id.as_str())?;
 
         // Bump volatility
         let sigma_up = self.sigma * (1.0 + self.bump_pct);
@@ -275,11 +275,11 @@ impl MetricCalculator for BermudanGammaCalculator {
             .instrument
             .as_any()
             .downcast_ref::<BermudanSwaption>()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Expected BermudanSwaption".into())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Expected BermudanSwaption".into()))?;
 
-        let disc = context.curves.get_discount_ref(swaption.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(swaption.discount_curve_id.as_str())?;
         let ttm = swaption.time_to_maturity(context.as_of)?;
 
         if ttm <= 0.0 {
@@ -374,11 +374,11 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
             .instrument
             .as_any()
             .downcast_ref::<BermudanSwaption>()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Expected BermudanSwaption".into())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Expected BermudanSwaption".into()))?;
 
-        let disc = context.curves.get_discount_ref(swaption.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(swaption.discount_curve_id.as_str())?;
         let ttm = swaption.time_to_maturity(context.as_of)?;
 
         if ttm <= 0.0 {

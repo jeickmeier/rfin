@@ -172,9 +172,9 @@ impl ArbitrageViolation {
     /// Get the magnitude of the violation for severity assessment.
     pub fn magnitude(&self) -> f64 {
         match self {
-            ArbitrageViolation::NonMonotonicCorrelation {
-                corr1, corr2, ..
-            } => (corr1 - corr2).abs(),
+            ArbitrageViolation::NonMonotonicCorrelation { corr1, corr2, .. } => {
+                (corr1 - corr2).abs()
+            }
             ArbitrageViolation::InvalidCorrelationBounds { correlation, .. } => {
                 if *correlation < 0.0 {
                     -correlation
@@ -829,8 +829,8 @@ mod tests {
     fn non_monotonic_curve() -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder("NON_MONOTONIC")
             .points(vec![
-                (3.0, 0.50),  // Higher than next
-                (7.0, 0.40),  // Violation: decreases
+                (3.0, 0.50), // Higher than next
+                (7.0, 0.40), // Violation: decreases
                 (10.0, 0.60),
             ])
             .build()
@@ -1075,7 +1075,7 @@ mod tests {
     fn test_boundary_warnings() {
         let curve = BaseCorrelationCurve::builder("BOUNDARY")
             .points(vec![
-                (3.0, 0.01),  // Very low - should warn
+                (3.0, 0.01), // Very low - should warn
                 (7.0, 0.50),
                 (10.0, 0.99), // Very high - should warn
             ])

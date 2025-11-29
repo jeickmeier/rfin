@@ -9,9 +9,7 @@ use finstack_valuations::covenants::{
         CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWindow,
         SpringingCondition, ThresholdTest,
     },
-    forward::{
-        Comparator, CovenantForecast, CovenantForecastConfig, FutureBreach, McConfig,
-    },
+    forward::{Comparator, CovenantForecast, CovenantForecastConfig, FutureBreach, McConfig},
     mod_types::CovenantReport,
     schedule::ThresholdSchedule,
 };
@@ -556,4 +554,3 @@ fn json_format_stability() {
     assert!(json.contains("\"RateIncrease\""));
     assert!(json.contains("\"bp_increase\": 50.0"));
 }
-

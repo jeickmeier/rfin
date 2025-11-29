@@ -231,7 +231,10 @@ impl SimmSensitivities {
         merge_map!(self.ir_delta, other.ir_delta);
         merge_map!(self.ir_vega, other.ir_vega);
         merge_map!(self.credit_qualifying_delta, other.credit_qualifying_delta);
-        merge_map!(self.credit_non_qualifying_delta, other.credit_non_qualifying_delta);
+        merge_map!(
+            self.credit_non_qualifying_delta,
+            other.credit_non_qualifying_delta
+        );
         merge_map!(self.equity_delta, other.equity_delta);
         merge_map!(self.equity_vega, other.equity_vega);
         merge_map_copy_key!(self.fx_delta, other.fx_delta);
@@ -360,11 +363,7 @@ pub trait Marginable: Instrument {
     ///
     /// # Returns
     /// SIMM sensitivities or error if calculation fails
-    fn simm_sensitivities(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> Result<SimmSensitivities>;
+    fn simm_sensitivities(&self, market: &MarketContext, as_of: Date) -> Result<SimmSensitivities>;
 
     /// Get the current mark-to-market value for VM calculation.
     ///
@@ -456,8 +455,10 @@ mod tests {
     #[test]
     fn test_simm_risk_class_display() {
         assert_eq!(SimmRiskClass::InterestRate.to_string(), "InterestRate");
-        assert_eq!(SimmRiskClass::CreditQualifying.to_string(), "CreditQualifying");
+        assert_eq!(
+            SimmRiskClass::CreditQualifying.to_string(),
+            "CreditQualifying"
+        );
         assert_eq!(SimmRiskClass::Fx.to_string(), "FX");
     }
 }
-

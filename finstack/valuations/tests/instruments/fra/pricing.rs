@@ -240,7 +240,11 @@ fn test_high_rate_environment() {
     let pv = fra.value(&market, BASE_DATE).unwrap();
 
     // Market standard: At-market FRA should have PV < $1 even at high rates
-    assert_near_zero(pv.amount(), 1.0, "At-market high rates should have near-zero PV");
+    assert_near_zero(
+        pv.amount(),
+        1.0,
+        "At-market high rates should have near-zero PV",
+    );
 }
 
 #[test]

@@ -354,7 +354,9 @@ impl CDSTranchePricerConfig {
     /// * `vol` - Recovery volatility (typical: 0.20-0.30)
     /// * `corr` - Correlation with factor (typical: -0.30 to -0.50)
     pub fn with_custom_stochastic_recovery(mut self, mean: f64, vol: f64, corr: f64) -> Self {
-        self.recovery_spec = Some(super::recovery::RecoverySpec::market_correlated(mean, vol, corr));
+        self.recovery_spec = Some(super::recovery::RecoverySpec::market_correlated(
+            mean, vol, corr,
+        ));
         self
     }
 

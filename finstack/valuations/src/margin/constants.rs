@@ -55,4 +55,3 @@ pub mod tenor_buckets {
 ///
 /// Spreads below this level are typically considered investment grade.
 pub const INVESTMENT_GRADE_SPREAD_THRESHOLD_BP: f64 = 200.0;
-

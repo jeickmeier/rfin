@@ -133,4 +133,3 @@ fn test_premium_pricing() {
     // Should trade at premium (above par)
     assert!(pv.amount() > 10_000_000.0);
 }
-

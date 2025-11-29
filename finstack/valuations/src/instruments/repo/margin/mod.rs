@@ -29,4 +29,3 @@ mod spec;
 
 pub use cashflows::*;
 pub use spec::*;
-

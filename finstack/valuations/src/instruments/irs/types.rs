@@ -17,7 +17,6 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
 use crate::margin::types::OtcMarginSpec;
 
-
 // Re-export common enums from parameters
 pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive};
 

@@ -120,10 +120,7 @@ fn test_builder_with_amortization() {
     // Assert
     assert!(loan.is_ok());
     let loan = loan.unwrap();
-    assert!(matches!(
-        loan.amortization,
-        AmortizationSpec::Linear { .. }
-    ));
+    assert!(matches!(loan.amortization, AmortizationSpec::Linear { .. }));
 }
 
 #[test]
@@ -233,4 +230,3 @@ fn test_pik_coupon_type() {
     let loan = loan.unwrap();
     assert!(matches!(loan.coupon_type, CouponType::PIK));
 }
-

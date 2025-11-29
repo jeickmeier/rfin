@@ -49,10 +49,10 @@ use finstack_core::Result;
 pub struct HaircutImCalculator {
     /// Eligible collateral schedule with haircuts
     eligible_collateral: EligibleCollateralSchedule,
-    
+
     /// Default collateral asset class to assume
     default_asset_class: CollateralAssetClass,
-    
+
     /// Whether to apply FX haircut addon
     apply_fx_addon: bool,
 }
@@ -147,10 +147,7 @@ impl ImCalculator for HaircutImCalculator {
         let im_amount = collateral_value * total_haircut;
 
         let mut breakdown = std::collections::HashMap::new();
-        breakdown.insert(
-            self.default_asset_class.to_string(),
-            im_amount,
-        );
+        breakdown.insert(self.default_asset_class.to_string(), im_amount);
 
         Ok(ImResult::with_breakdown(
             im_amount,
@@ -190,11 +187,11 @@ mod tests {
         let calc = HaircutImCalculator::bcbs_standard().with_fx_addon(true);
 
         let collateral = Money::new(10_000_000.0, Currency::USD);
-        
+
         let im_no_fx = calc
             .calculate_for_collateral(collateral, CollateralAssetClass::Cash, false)
             .expect("calculation ok");
-        
+
         let im_with_fx = calc
             .calculate_for_collateral(collateral, CollateralAssetClass::Cash, true)
             .expect("calculation ok");
@@ -211,4 +208,3 @@ mod tests {
         assert_eq!(CollateralAssetClass::Gold.standard_haircut(), 0.15);
     }
 }
-

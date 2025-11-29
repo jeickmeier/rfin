@@ -9,9 +9,8 @@
 
 mod common;
 
+mod integration;
 mod interp;
 mod solver;
-mod integration;
 mod stats;
 mod summation;
-

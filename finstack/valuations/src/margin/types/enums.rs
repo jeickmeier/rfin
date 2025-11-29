@@ -167,23 +167,38 @@ mod tests {
     fn margin_frequency_display_and_parse() {
         assert_eq!(MarginFrequency::Daily.to_string(), "daily");
         assert_eq!(MarginFrequency::Weekly.to_string(), "weekly");
-        assert_eq!("daily".parse::<MarginFrequency>().expect("valid"), MarginFrequency::Daily);
-        assert_eq!("on_demand".parse::<MarginFrequency>().expect("valid"), MarginFrequency::OnDemand);
+        assert_eq!(
+            "daily".parse::<MarginFrequency>().expect("valid"),
+            MarginFrequency::Daily
+        );
+        assert_eq!(
+            "on_demand".parse::<MarginFrequency>().expect("valid"),
+            MarginFrequency::OnDemand
+        );
     }
 
     #[test]
     fn im_methodology_display_and_parse() {
         assert_eq!(ImMethodology::Simm.to_string(), "simm");
         assert_eq!(ImMethodology::Schedule.to_string(), "schedule");
-        assert_eq!("simm".parse::<ImMethodology>().expect("valid"), ImMethodology::Simm);
-        assert_eq!("clearing_house".parse::<ImMethodology>().expect("valid"), ImMethodology::ClearingHouse);
+        assert_eq!(
+            "simm".parse::<ImMethodology>().expect("valid"),
+            ImMethodology::Simm
+        );
+        assert_eq!(
+            "clearing_house".parse::<ImMethodology>().expect("valid"),
+            ImMethodology::ClearingHouse
+        );
     }
 
     #[test]
     fn clearing_status_display() {
         assert_eq!(ClearingStatus::Bilateral.to_string(), "bilateral");
         assert_eq!(
-            ClearingStatus::Cleared { ccp: "LCH".to_string() }.to_string(),
+            ClearingStatus::Cleared {
+                ccp: "LCH".to_string()
+            }
+            .to_string(),
             "cleared:LCH"
         );
     }
@@ -195,4 +210,3 @@ mod tests {
         assert_eq!(ClearingStatus::default(), ClearingStatus::Bilateral);
     }
 }
-

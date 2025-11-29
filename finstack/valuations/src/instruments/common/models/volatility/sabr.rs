@@ -835,10 +835,11 @@ impl SABRCalibrator {
             let rho = params[1];
 
             // Solve for alpha that matches ATM vol exactly
-            let alpha = match solve_alpha_for_atm(forward, atm_vol, time_to_expiry, beta, nu, rho, tol) {
-                Ok(a) => a,
-                Err(_) => return 1e12,
-            };
+            let alpha =
+                match solve_alpha_for_atm(forward, atm_vol, time_to_expiry, beta, nu, rho, tol) {
+                    Ok(a) => a,
+                    Err(_) => return 1e12,
+                };
 
             // Create model and compute smile errors (excluding ATM)
             if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
@@ -880,7 +881,15 @@ impl SABRCalibrator {
         let rho = solution[1];
 
         // Final alpha solve with calibrated nu/rho
-        let alpha = solve_alpha_for_atm(forward, atm_vol, time_to_expiry, beta, nu, rho, self.tolerance)?;
+        let alpha = solve_alpha_for_atm(
+            forward,
+            atm_vol,
+            time_to_expiry,
+            beta,
+            nu,
+            rho,
+            self.tolerance,
+        )?;
 
         SABRParameters::new(alpha, beta, nu, rho)
     }

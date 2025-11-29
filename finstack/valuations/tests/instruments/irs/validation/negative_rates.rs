@@ -241,7 +241,10 @@ fn test_irs_deep_negative_rates() {
         &[MetricId::Pv01, MetricId::Dv01, MetricId::ParRate],
     );
 
-    assert!(result.is_ok(), "All metrics should compute with deep negative rates");
+    assert!(
+        result.is_ok(),
+        "All metrics should compute with deep negative rates"
+    );
 
     let measures = result.unwrap().measures;
 
@@ -341,4 +344,3 @@ fn test_annuity_positive_with_negative_rates() {
     // With negative rates, annuity should be slightly higher than with positive rates
     // because discount factors > 1
 }
-

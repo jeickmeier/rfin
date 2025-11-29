@@ -226,8 +226,12 @@ fn test_zero_volatility_option_limits() {
     let registry = standard_registry();
 
     if let Ok(pv) = atm_option.value(&market, as_of) {
-        let mut context =
-            MetricContext::new(Arc::new(atm_option.clone()), Arc::new(market.clone()), as_of, pv);
+        let mut context = MetricContext::new(
+            Arc::new(atm_option.clone()),
+            Arc::new(market.clone()),
+            as_of,
+            pv,
+        );
 
         if let Ok(metrics) = registry.compute(&[MetricId::Delta, MetricId::Vega], &mut context) {
             if let Some(&delta) = metrics.get(&MetricId::Delta) {
@@ -812,7 +816,10 @@ fn test_vol_smile_greeks() {
     let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
 
     let results = registry
-        .compute(&[MetricId::Delta, MetricId::Vega, MetricId::Gamma], &mut context)
+        .compute(
+            &[MetricId::Delta, MetricId::Vega, MetricId::Gamma],
+            &mut context,
+        )
         .unwrap();
 
     // Verify Greeks compute correctly with smile

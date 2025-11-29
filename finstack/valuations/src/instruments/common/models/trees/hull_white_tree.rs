@@ -83,8 +83,8 @@ pub struct HullWhiteTreeConfig {
 impl Default for HullWhiteTreeConfig {
     fn default() -> Self {
         Self {
-            kappa: 0.03,  // 3% mean reversion
-            sigma: 0.01,  // 100 bps volatility
+            kappa: 0.03, // 3% mean reversion
+            sigma: 0.01, // 100 bps volatility
             steps: 100,
             max_nodes: None,
         }
@@ -606,7 +606,13 @@ impl HullWhiteTree {
         let p_end = self.bond_price(step, node_idx, swap_end_time, discount_curve);
 
         // Annuity
-        let annuity = self.annuity(step, node_idx, payment_times, accrual_fractions, discount_curve);
+        let annuity = self.annuity(
+            step,
+            node_idx,
+            payment_times,
+            accrual_fractions,
+            discount_curve,
+        );
 
         if annuity.abs() < 1e-12 {
             return 0.0;
@@ -636,9 +642,7 @@ impl HullWhiteTree {
             .iter()
             .zip(accrual_fractions.iter())
             .filter(|(&pay_t, _)| pay_t > t)
-            .map(|(&pay_t, &tau)| {
-                tau * self.bond_price(step, node_idx, pay_t, discount_curve)
-            })
+            .map(|(&pay_t, &tau)| tau * self.bond_price(step, node_idx, pay_t, discount_curve))
             .sum()
     }
 
@@ -655,11 +659,7 @@ impl HullWhiteTree {
     ///
     /// The `intermediate_value_fn` takes (step, node_idx, continuation_value) and returns
     /// the adjusted value (e.g., max(continuation, exercise_value) for Bermudan options).
-    pub fn backward_induction<F>(
-        &self,
-        terminal_values: &[f64],
-        intermediate_value_fn: F,
-    ) -> f64
+    pub fn backward_induction<F>(&self, terminal_values: &[f64], intermediate_value_fn: F) -> f64
     where
         F: Fn(usize, usize, f64) -> f64,
     {
@@ -759,7 +759,8 @@ mod tests {
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 200);
         let curve = test_discount_curve();
 
-        let tree = HullWhiteTree::calibrate(config, &curve, 5.0).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, 5.0).expect("Calibration should succeed");
 
         // Tree should have correct number of steps
         assert_eq!(tree.num_steps(), 200);
@@ -775,7 +776,7 @@ mod tests {
 
             let error = (sum_q - target_df).abs();
             let error_bps = (error / target_df) * 10000.0;
-            
+
             // Production tolerance: < 1 basis point
             assert!(
                 error_bps < 1.0,
@@ -794,7 +795,8 @@ mod tests {
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 200);
         let curve = test_discount_curve();
 
-        let tree = HullWhiteTree::calibrate(config, &curve, 2.0).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, 2.0).expect("Calibration should succeed");
         let final_step = tree.num_steps();
         let mid_node = tree.num_nodes(final_step) / 2;
 
@@ -815,7 +817,8 @@ mod tests {
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 10);
         let curve = test_discount_curve();
 
-        let tree = HullWhiteTree::calibrate(config, &curve, 1.0).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, 1.0).expect("Calibration should succeed");
 
         // Zero payoff should give zero value
         let terminal = vec![0.0; tree.num_nodes(10)];
@@ -830,7 +833,8 @@ mod tests {
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 200);
         let curve = test_discount_curve();
 
-        let tree = HullWhiteTree::calibrate(config, &curve, 1.0).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, 1.0).expect("Calibration should succeed");
         let final_step = tree.num_steps();
 
         // Unit payoff at all nodes should give approximately the discount factor
@@ -840,7 +844,7 @@ mod tests {
         let target_df = curve.df(1.0);
         let error = (value - target_df).abs();
         let error_bps = (error / target_df) * 10000.0;
-        
+
         // Production standard: pricing error < 1 basis point
         assert!(
             error_bps < 1.0,
@@ -851,4 +855,3 @@ mod tests {
         );
     }
 }
-

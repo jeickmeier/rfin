@@ -239,20 +239,12 @@ impl InflationSwap {
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
-                .year_fraction(
-                    start,
-                    end,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
+                .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0)
         } else {
             // Negative year fraction for dates before the base
             -DayCount::Act365F
-                .year_fraction(
-                    end,
-                    start,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
+                .year_fraction(end, start, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0)
         }
     }

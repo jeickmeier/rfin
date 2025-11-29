@@ -166,4 +166,3 @@ fn test_negative_rate_environment() {
     // Should be valued above par in negative rate environment
     assert!(pv.amount() > 10_000_000.0);
 }
-

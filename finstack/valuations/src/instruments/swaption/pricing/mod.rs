@@ -20,4 +20,3 @@
 pub mod tree_valuator;
 
 pub use tree_valuator::BermudanSwaptionTreeValuator;
-

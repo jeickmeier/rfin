@@ -11,6 +11,7 @@
 //! - test_curve_monotonicity: Property-based tests for discount curve properties
 //! - test_forward_parity: Property-based tests for forward rate parity
 
+mod test_calibration;
 mod test_calibration_repricing;
 mod test_calibration_serialization;
 mod test_curve_monotonicity;
@@ -19,4 +20,3 @@ mod test_forward_parity;
 mod test_hazard_curve_calibration;
 mod test_simple_calibration_builder;
 mod test_swaption_vol_calibration;
-mod test_calibration;

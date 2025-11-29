@@ -221,7 +221,7 @@ impl ImParameters {
             methodology: ImMethodology::Simm,
             mpor_days: 10,
             threshold: Money::new(50_000_000.0, currency), // €50M equivalent
-            mta: Money::new(0.0, currency),                    // Typically combined with VM MTA
+            mta: Money::new(0.0, currency),                // Typically combined with VM MTA
             segregated: true,
         }
     }
@@ -243,7 +243,7 @@ impl ImParameters {
     pub fn cleared(currency: Currency) -> Self {
         Self {
             methodology: ImMethodology::ClearingHouse,
-            mpor_days: 5, // CCPs typically use shorter MPOR
+            mpor_days: 5,                         // CCPs typically use shorter MPOR
             threshold: Money::new(0.0, currency), // No threshold for cleared
             mta: Money::new(0.0, currency),
             segregated: false, // CCP manages segregation
@@ -326,4 +326,3 @@ mod tests {
         assert_eq!(params.threshold, Money::new(0.0, Currency::USD));
     }
 }
-

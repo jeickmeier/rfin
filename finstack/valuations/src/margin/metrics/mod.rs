@@ -265,4 +265,3 @@ mod tests {
         assert_eq!(h01.haircut_bps(), 200.0); // 2% = 200bp
     }
 }
-

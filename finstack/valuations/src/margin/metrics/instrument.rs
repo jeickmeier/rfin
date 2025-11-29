@@ -89,8 +89,9 @@ impl InitialMarginMetric {
             self.calculate_otc_im(instrument, spec, market, as_of)
         } else if let Some(repo_spec) = instrument.repo_margin_spec() {
             // For repos, use haircut-based IM
-            let haircut_calc =
-                HaircutImCalculator::new(repo_spec.eligible_substitutes.clone().unwrap_or_default());
+            let haircut_calc = HaircutImCalculator::new(
+                repo_spec.eligible_substitutes.clone().unwrap_or_default(),
+            );
             haircut_calc.calculate(instrument, market, as_of)
         } else {
             // No margin spec - return zero IM
@@ -118,10 +119,7 @@ impl InitialMarginMetric {
     ) -> Result<ImResult> {
         match spec.im_methodology {
             ImMethodology::Simm => {
-                let simm = self
-                    .simm_calculator
-                    .clone()
-                    .unwrap_or_default();
+                let simm = self.simm_calculator.clone().unwrap_or_default();
 
                 // Get sensitivities from instrument
                 let sensitivities = instrument.simm_sensitivities(market, as_of)?;
@@ -138,9 +136,7 @@ impl InitialMarginMetric {
                 schedule.calculate(instrument, market, as_of)
             }
             ImMethodology::Haircut => {
-                let haircut_calc = HaircutImCalculator::new(
-                    spec.csa.eligible_collateral.clone(),
-                );
+                let haircut_calc = HaircutImCalculator::new(spec.csa.eligible_collateral.clone());
                 haircut_calc.calculate(instrument, market, as_of)
             }
             ImMethodology::ClearingHouse => {
@@ -178,7 +174,12 @@ impl InitialMarginMetric {
         }
 
         // Get MPOR from spec
-        let mpor_days = spec.csa.im_params.as_ref().map(|p| p.mpor_days).unwrap_or(10);
+        let mpor_days = spec
+            .csa
+            .im_params
+            .as_ref()
+            .map(|p| p.mpor_days)
+            .unwrap_or(10);
 
         Ok(ImResult::with_breakdown(
             Money::new(total_im, currency),

@@ -265,7 +265,9 @@ impl CashFlowSchedule {
     /// Returns error if:
     /// - Amortization or repayment exceeds current outstanding
     /// - Currency mismatch between flows and notional
-    pub fn outstanding_by_date_including_notional(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
+    pub fn outstanding_by_date_including_notional(
+        &self,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut result: Vec<(Date, Money)> = Vec::new();
         if self.flows.is_empty() {
             return Ok(result);

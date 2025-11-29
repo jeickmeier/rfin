@@ -13,10 +13,12 @@ use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
 use finstack_valuations::calibration::{Calibrator, CreditQuote};
 use finstack_valuations::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
-use finstack_valuations::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
+use finstack_valuations::instruments::common::parameters::legs::{
+    PremiumLegSpec, ProtectionLegSpec,
+};
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::PricingOverrides;
 use time::Month;
 
 fn create_test_discount_curve(base: Date) -> DiscountCurve {

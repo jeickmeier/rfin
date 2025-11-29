@@ -211,7 +211,10 @@ mod tests {
     #[test]
     fn margin_call_type_display() {
         assert_eq!(MarginCallType::InitialMargin.to_string(), "initial_margin");
-        assert_eq!(MarginCallType::VariationMarginDelivery.to_string(), "vm_delivery");
+        assert_eq!(
+            MarginCallType::VariationMarginDelivery.to_string(),
+            "vm_delivery"
+        );
     }
 
     #[test]
@@ -261,4 +264,3 @@ mod tests {
         assert_eq!(call.days_to_settle(), 2);
     }
 }
-

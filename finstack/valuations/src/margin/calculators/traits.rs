@@ -140,4 +140,3 @@ pub trait ImCalculator: Send + Sync {
     /// Get the methodology this calculator implements.
     fn methodology(&self) -> ImMethodology;
 }
-

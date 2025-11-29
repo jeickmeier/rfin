@@ -134,14 +134,15 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             .collect();
 
         // Backward induction with exercise decisions
-        self.tree.backward_induction(&terminal, |step, node_idx, continuation| {
-            if self.exercise_steps.contains(&step) {
-                let exercise = self.exercise_value(step, node_idx);
-                continuation.max(exercise)
-            } else {
-                continuation
-            }
-        })
+        self.tree
+            .backward_induction(&terminal, |step, node_idx, continuation| {
+                if self.exercise_steps.contains(&step) {
+                    let exercise = self.exercise_value(step, node_idx);
+                    continuation.max(exercise)
+                } else {
+                    continuation
+                }
+            })
     }
 
     /// Compute exercise value at a node.
@@ -289,9 +290,11 @@ impl BermudanSwaptionPriceResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::swaption::{BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement};
     use crate::instruments::common::models::trees::HullWhiteTreeConfig;
     use crate::instruments::common::parameters::OptionType;
+    use crate::instruments::swaption::{
+        BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+    };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Frequency};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -302,9 +305,7 @@ mod tests {
 
     fn test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
-            .base_date(
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
-            )
+            .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
             .knots([
                 (0.0, 1.0),
                 (0.5, 0.985),
@@ -356,7 +357,8 @@ mod tests {
 
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
 
         let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of);
         assert!(valuator.is_ok(), "Valuator creation should succeed");
@@ -370,7 +372,8 @@ mod tests {
 
         let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+        let tree =
+            HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
 
         let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of)
             .expect("Valuator creation should succeed");
@@ -378,7 +381,9 @@ mod tests {
         let price = valuator.price();
 
         // Price should be non-negative (it's an option)
-        assert!(price >= 0.0, "Bermudan swaption price should be non-negative");
+        assert!(
+            price >= 0.0,
+            "Bermudan swaption price should be non-negative"
+        );
     }
 }
-

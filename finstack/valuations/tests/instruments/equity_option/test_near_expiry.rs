@@ -11,8 +11,8 @@
 use super::helpers::*;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
-use time::Duration;
 use time::macros::date;
+use time::Duration;
 
 #[test]
 fn test_near_expiry_gamma_stability() {
@@ -250,7 +250,11 @@ fn test_expired_option_greeks() {
 
     let call = create_call(as_of, expiry, 100.0);
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Gamma, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Gamma, MetricId::Vega],
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -309,4 +313,3 @@ fn test_vega_decreases_near_expiry() {
         vega_7d
     );
 }
-

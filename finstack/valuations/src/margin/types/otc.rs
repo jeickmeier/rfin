@@ -236,4 +236,3 @@ mod tests {
         assert_eq!(spec.csa.vm_params.threshold, Money::new(0.0, Currency::EUR));
     }
 }
-

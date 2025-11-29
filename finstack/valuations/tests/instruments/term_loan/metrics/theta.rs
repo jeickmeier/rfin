@@ -50,8 +50,7 @@ fn test_theta_reflects_time_decay() {
     assert!(result.is_ok());
     let result = result.unwrap();
     let theta = *result.measures.get("theta").unwrap();
-    
+
     // Theta should be finite
     assert!(theta.is_finite());
 }
-

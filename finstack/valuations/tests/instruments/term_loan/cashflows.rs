@@ -133,4 +133,3 @@ fn test_pik_interest_capitalization() {
     assert!(!cashflows.is_empty());
     // PIK interest capitalizes, so fewer cash payments expected
 }
-

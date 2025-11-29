@@ -324,7 +324,9 @@ fn test_put_call_parity_at_forward() {
 
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);
-    let forward = pricer.forward_spread_bp(&temp_option, &market, as_of).unwrap();
+    let forward = pricer
+        .forward_spread_bp(&temp_option, &market, as_of)
+        .unwrap();
 
     // Create call and put at forward strike
     let call = CdsOptionBuilder::new()

@@ -319,7 +319,11 @@ impl SimmCalculator {
         // Credit Delta
         let total_credit = sensitivities.total_credit_delta();
         if total_credit.abs() > 0.0 {
-            let qualifying = sensitivities.credit_qualifying_delta.values().sum::<f64>().abs()
+            let qualifying = sensitivities
+                .credit_qualifying_delta
+                .values()
+                .sum::<f64>()
+                .abs()
                 >= sensitivities
                     .credit_non_qualifying_delta
                     .values()
@@ -328,7 +332,10 @@ impl SimmCalculator {
             let credit_margin = self.calculate_credit_delta(total_credit, qualifying);
             if credit_margin > 0.0 {
                 total_im += credit_margin;
-                breakdown.insert("Credit_Delta".to_string(), Money::new(credit_margin, currency));
+                breakdown.insert(
+                    "Credit_Delta".to_string(),
+                    Money::new(credit_margin, currency),
+                );
             }
         }
 
@@ -338,7 +345,10 @@ impl SimmCalculator {
             let equity_margin = self.calculate_equity_delta(total_equity);
             if equity_margin > 0.0 {
                 total_im += equity_margin;
-                breakdown.insert("Equity_Delta".to_string(), Money::new(equity_margin, currency));
+                breakdown.insert(
+                    "Equity_Delta".to_string(),
+                    Money::new(equity_margin, currency),
+                );
             }
         }
 
@@ -379,9 +389,8 @@ impl ImCalculator for SimmCalculator {
         let mut risk_class_margins = HashMap::new();
 
         // IR risk (primary for IRS, bonds)
-        let ir_margin = self.calculate_ir_delta(&HashMap::from([
-            ("5y".to_string(), estimated_dv01),
-        ]));
+        let ir_margin =
+            self.calculate_ir_delta(&HashMap::from([("5y".to_string(), estimated_dv01)]));
         risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
         breakdown.insert(
             SimmRiskClass::InterestRate.to_string(),
@@ -461,7 +470,7 @@ mod tests {
         let calc = SimmCalculator::new(SimmVersion::V2_6);
 
         let cs01 = 50_000.0; // $50K CS01
-        
+
         let cq_margin = calc.calculate_credit_delta(cs01, true);
         let cnq_margin = calc.calculate_credit_delta(cs01, false);
 
@@ -494,4 +503,3 @@ mod tests {
         assert!((total - 1_118_033.99).abs() < 1.0);
     }
 }
-

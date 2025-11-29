@@ -34,7 +34,6 @@
 
 # cds
 - High: Add stochastic recovery and correlation hooks; richer accrual-on-default conventions (market fallbacks).
-- High: Extend bucketed CS01 to tenor-specific hazard bumps and credit-curve smoothing diagnostics.
 
 # cds_index
 - High: Support stochastic spread simulation and correlation for scenario analytics.

@@ -69,7 +69,8 @@ fn test_bermudan_price_positive() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
     let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
 
-    let swaption = test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
     let curve = test_discount_curve();
 
     let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
@@ -82,7 +83,11 @@ fn test_bermudan_price_positive() {
     let price = valuator.price();
 
     // Price should be non-negative
-    assert!(price >= 0.0, "Bermudan swaption price should be non-negative, got {}", price);
+    assert!(
+        price >= 0.0,
+        "Bermudan swaption price should be non-negative, got {}",
+        price
+    );
 }
 
 #[test]
@@ -92,8 +97,10 @@ fn test_bermudan_payer_vs_receiver() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
     let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
 
-    let payer = test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
-    let receiver = test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Put);
+    let payer =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+    let receiver =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Put);
 
     let curve = test_discount_curve();
     let ttm = payer.time_to_maturity(as_of).expect("Valid ttm");
@@ -110,7 +117,10 @@ fn test_bermudan_payer_vs_receiver() {
 
     // Both should be positive
     assert!(payer_price >= 0.0, "Payer price should be non-negative");
-    assert!(receiver_price >= 0.0, "Receiver price should be non-negative");
+    assert!(
+        receiver_price >= 0.0,
+        "Receiver price should be non-negative"
+    );
 }
 
 #[test]
@@ -167,11 +177,9 @@ fn test_bermudan_more_exercise_dates_higher_value() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
 
     // Early first exercise (more exercise opportunities)
-    let early_first =
-        Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
+    let early_first = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
     // Late first exercise (fewer exercise opportunities)
-    let late_first =
-        Date::from_calendar_date(2029, Month::January, 1).expect("Valid date");
+    let late_first = Date::from_calendar_date(2029, Month::January, 1).expect("Valid date");
 
     let early_swaption =
         test_bermudan_swaption(swap_start, swap_end, early_first, 0.03, OptionType::Call);
@@ -208,14 +216,19 @@ fn test_expired_bermudan_zero_value() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
     let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
 
-    let swaption = test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
 
     // Time to maturity should be negative when as_of is after swap_end
     let ttm = swaption.time_to_maturity(as_of);
     // The result may be an error or a negative value depending on day count implementation
     // An error is also acceptable for expired instruments
     if let Ok(t) = ttm {
-        assert!(t < 0.0, "Expired swaption should have negative TTM, got {}", t);
+        assert!(
+            t < 0.0,
+            "Expired swaption should have negative TTM, got {}",
+            t
+        );
     }
 }
 
@@ -255,8 +268,9 @@ fn test_bermudan_schedule_with_lockout() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
     let lockout_end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
 
-    let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Frequency::semi_annual())
-        .with_lockout(lockout_end);
+    let schedule =
+        BermudanSchedule::co_terminal(first_exercise, swap_end, Frequency::semi_annual())
+            .with_lockout(lockout_end);
 
     let effective_dates = schedule.effective_dates();
 
@@ -290,4 +304,3 @@ fn test_bermudan_to_european_conversion() {
     // European expiry should be the first Bermudan exercise date
     assert_eq!(european.expiry, first_exercise);
 }
-

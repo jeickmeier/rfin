@@ -39,6 +39,9 @@ pub mod tranche_valuation;
 pub mod rate_helpers;
 pub mod rates;
 
+// Stochastic models
+pub mod stochastic;
+
 // ============================================================================
 // Re-export structural components
 // ============================================================================
@@ -95,4 +98,41 @@ pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 pub use tranche_valuation::{
     calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
     calculate_tranche_z_spread, TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
+};
+
+// ============================================================================
+// Re-export stochastic models
+// ============================================================================
+
+pub use stochastic::{
+    // Scenario tree infrastructure
+    BranchingSpec,
+    // Default models
+    CopulaBasedDefault,
+    // Risk metrics and sensitivities
+    CorrelationSensitivities,
+    // Correlation
+    CorrelationStructure,
+    // Prepayment models
+    FactorCorrelatedPrepay,
+    IntensityProcessDefault,
+    // Stochastic pricing engine
+    PricingMode,
+    RichardRollPrepay,
+    ScenarioNode,
+    ScenarioNodeId,
+    ScenarioPath,
+    ScenarioTree,
+    ScenarioTreeConfig,
+    SensitivityConfig,
+    StochasticDefault,
+    StochasticDefaultSpec,
+    StochasticMetrics,
+    StochasticMetricsCalculator,
+    StochasticPrepaySpec,
+    StochasticPrepayment,
+    StochasticPricer,
+    StochasticPricerConfig,
+    StochasticPricingResult,
+    TranchePricingResult,
 };

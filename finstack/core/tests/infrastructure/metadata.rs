@@ -121,4 +121,3 @@ mod property_tests {
         assert_eq!(original.version, deserialized.version);
     }
 }
-

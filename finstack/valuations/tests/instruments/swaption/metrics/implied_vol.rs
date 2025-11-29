@@ -74,7 +74,12 @@ fn test_implied_vol_inversion() {
     let implied_vol = *result.measures.get("implied_vol").unwrap();
 
     // Should recover input vol very precisely - solver uses 1e-10 tolerance
-    assert_approx_eq(implied_vol, 0.40, IMPLIED_VOL_ROUNDTRIP_TOL, "Implied vol inversion");
+    assert_approx_eq(
+        implied_vol,
+        0.40,
+        IMPLIED_VOL_ROUNDTRIP_TOL,
+        "Implied vol inversion",
+    );
 }
 
 #[test]

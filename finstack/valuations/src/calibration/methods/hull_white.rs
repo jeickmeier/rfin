@@ -269,7 +269,8 @@ impl HullWhiteCalibrator {
                 for &expiry in expiry_dates {
                     let expiry_time = self.day_count.year_fraction(self.base_date, expiry, ctx)?;
                     let swap_end_time =
-                        self.day_count.year_fraction(self.base_date, *swap_end, ctx)?;
+                        self.day_count
+                            .year_fraction(self.base_date, *swap_end, ctx)?;
                     let tenor = swap_end_time - expiry_time;
 
                     if expiry_time > 0.0 && tenor > 0.0 {
@@ -447,8 +448,7 @@ impl HullWhiteCalibrator {
         )?;
 
         // Compute errors
-        let (rmse_bp, individual_errors) =
-            self.compute_errors(kappa, optimal_sigma, targets, disc);
+        let (rmse_bp, individual_errors) = self.compute_errors(kappa, optimal_sigma, targets, disc);
 
         Ok(HullWhiteCalibrationResult {
             kappa,
@@ -598,8 +598,8 @@ struct SwaptionTargetSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
@@ -634,8 +634,7 @@ mod tests {
     #[test]
     fn test_hull_white_calibrator_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-        let calibrator =
-            HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F);
+        let calibrator = HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F);
 
         assert_eq!(calibrator.config.initial_kappa, 0.03);
         assert_eq!(calibrator.config.initial_sigma, 0.01);
@@ -644,8 +643,7 @@ mod tests {
     #[test]
     fn test_diagonal_targets() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-        let calibrator =
-            HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F);
+        let calibrator = HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F);
 
         let disc = test_discount_curve();
         let vol_surface = test_vol_surface();
@@ -667,8 +665,8 @@ mod tests {
     fn test_calibrate_with_fixed_kappa() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let config = HullWhiteCalibrationConfig::with_fixed_kappa(0.03);
-        let calibrator = HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F)
-            .with_config(config);
+        let calibrator =
+            HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F).with_config(config);
 
         // Just verify the calibrator setup works
         assert_eq!(calibrator.config.fix_kappa, Some(0.03));
@@ -693,4 +691,3 @@ mod tests {
         }
     }
 }
-

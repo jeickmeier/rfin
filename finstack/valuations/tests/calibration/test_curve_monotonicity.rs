@@ -155,13 +155,21 @@ fn test_negative_rate_curve_via_zero_rates() {
         .knots(knots)
         .build();
 
-    assert!(curve.is_ok(), "Near-zero rate curve should build: {:?}", curve.err());
+    assert!(
+        curve.is_ok(),
+        "Near-zero rate curve should build: {:?}",
+        curve.err()
+    );
 
     let curve = curve.unwrap();
 
     // Verify zero rates are very small
     let z1 = curve.zero(1.0);
-    assert!(z1.abs() < 0.01, "Zero rate should be < 1% for near-zero curve: {:.4}", z1);
+    assert!(
+        z1.abs() < 0.01,
+        "Zero rate should be < 1% for near-zero curve: {:.4}",
+        z1
+    );
 }
 
 /// Test near-zero rate flat curve.
@@ -188,7 +196,10 @@ fn test_flat_near_zero_rate_curve() {
 
     // Verify zero rates are small but positive
     let z5 = curve.zero(5.0);
-    assert!(z5.abs() < 0.001, "Zero rate should be < 10bp for near-zero curve");
+    assert!(
+        z5.abs() < 0.001,
+        "Zero rate should be < 10bp for near-zero curve"
+    );
 }
 
 /// Test steep high rate (EM-style) curve.

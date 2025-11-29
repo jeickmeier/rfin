@@ -4,6 +4,7 @@
 //! exported from these submodules contain the business logic for applying
 //! shocks to market data, financial statements, instruments, and time.
 
+pub mod asset_corr;
 pub mod basecorr;
 pub mod curves;
 pub mod equity;
@@ -13,5 +14,9 @@ pub mod statements;
 pub mod time_roll;
 pub mod vol;
 
+pub use asset_corr::{
+    apply_asset_correlation_shock, apply_prepay_default_correlation_shock,
+    apply_selective_correlation_shock, AssetCorrelationShockResult,
+};
 pub use time_roll::RollForwardReport;
 pub use vol::ArbitrageViolation;

@@ -8,8 +8,7 @@
 
 mod test_helpers;
 
-mod primitives;
+mod daycount;
 mod discounting;
 mod irr;
-mod daycount;
-
+mod primitives;

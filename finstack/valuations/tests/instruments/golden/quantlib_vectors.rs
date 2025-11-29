@@ -294,7 +294,9 @@ fn test_swap_symmetry() {
         .build()
         .unwrap();
 
-    let market = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
 
     let payer = InterestRateSwap::create_usd_swap(
         InstrumentId::new("PAYER"),
@@ -329,4 +331,3 @@ fn test_swap_symmetry() {
         sum
     );
 }
-

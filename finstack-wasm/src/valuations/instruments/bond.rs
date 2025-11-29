@@ -585,7 +585,9 @@ impl JsBond {
             .map_err(|e| js_error(e.to_string()))?;
 
         // Get outstanding path (properly calculated by the Rust library)
-        let outstanding_path = sched.outstanding_path().map_err(|e| js_error(e.to_string()))?;
+        let outstanding_path = sched
+            .outstanding_path()
+            .map_err(|e| js_error(e.to_string()))?;
 
         // Convert to JS arrays
         let result = Array::new();

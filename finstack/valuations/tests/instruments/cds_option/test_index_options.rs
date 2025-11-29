@@ -122,7 +122,12 @@ fn test_very_small_index_factor() {
 
     // Small factor should give proportionally smaller value
     let ratio = pv_small / pv_full;
-    assert_approx_eq(ratio, 0.01, 0.001, "Very small index factor should scale linearly");
+    assert_approx_eq(
+        ratio,
+        0.01,
+        0.001,
+        "Very small index factor should scale linearly",
+    );
 }
 
 #[test]

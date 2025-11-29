@@ -33,7 +33,7 @@ fn create_margined_repo() -> Repo {
     let mut repo = create_test_repo();
     repo.margin_spec = Some(RepoMarginSpec {
         margin_type: RepoMarginType::MarkToMarket,
-        margin_ratio: 1.02, // 2% over-collateralization
+        margin_ratio: 1.02,          // 2% over-collateralization
         margin_call_threshold: 0.01, // 1% threshold
         call_frequency: MarginFrequency::Daily,
         settlement_lag: 1,
@@ -261,7 +261,10 @@ fn test_margin_spec_serialization_roundtrip() {
 
         assert_eq!(spec.margin_type, deserialized.margin_type);
         assert_eq!(spec.margin_ratio, deserialized.margin_ratio);
-        assert_eq!(spec.margin_call_threshold, deserialized.margin_call_threshold);
+        assert_eq!(
+            spec.margin_call_threshold,
+            deserialized.margin_call_threshold
+        );
         assert_eq!(spec.settlement_lag, deserialized.settlement_lag);
         assert_eq!(spec.pays_margin_interest, deserialized.pays_margin_interest);
         assert_eq!(spec.margin_interest_rate, deserialized.margin_interest_rate);

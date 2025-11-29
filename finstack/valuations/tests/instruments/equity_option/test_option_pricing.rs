@@ -143,11 +143,7 @@ fn test_option_gamma_determinism() {
     }
 
     // Correctness: Gamma must be positive for non-expired options
-    assert!(
-        gammas[0] > 0.0,
-        "Gamma {} must be positive",
-        gammas[0]
-    );
+    assert!(gammas[0] > 0.0, "Gamma {} must be positive", gammas[0]);
 }
 
 #[test]

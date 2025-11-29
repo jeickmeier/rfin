@@ -31,13 +31,24 @@ impl MetricCalculator for GammaCalculator {
                     0.0
                 } else {
                     use crate::instruments::common::models::d1_black76;
-                    let d1 = d1_black76(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
-                    finstack_core::math::norm_pdf(d1) / (inputs.forward * inputs.sigma * inputs.time_to_expiry.sqrt())
+                    let d1 = d1_black76(
+                        inputs.forward,
+                        option.strike_rate,
+                        inputs.sigma,
+                        inputs.time_to_expiry,
+                    );
+                    finstack_core::math::norm_pdf(d1)
+                        / (inputs.forward * inputs.sigma * inputs.time_to_expiry.sqrt())
                 }
             }
             VolatilityModel::Normal => {
                 use crate::instruments::common::models::volatility::normal::d_bachelier;
-                let d = d_bachelier(inputs.forward, option.strike_rate, inputs.sigma, inputs.time_to_expiry);
+                let d = d_bachelier(
+                    inputs.forward,
+                    option.strike_rate,
+                    inputs.sigma,
+                    inputs.time_to_expiry,
+                );
                 finstack_core::math::norm_pdf(d) / (inputs.sigma * inputs.time_to_expiry.sqrt())
             }
         };

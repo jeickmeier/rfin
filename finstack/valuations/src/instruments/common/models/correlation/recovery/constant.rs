@@ -128,4 +128,3 @@ mod tests {
         assert!((sub.rate() - 0.25).abs() < 1e-10);
     }
 }
-
