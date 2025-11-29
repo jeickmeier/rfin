@@ -525,7 +525,7 @@ impl TrancheValuationExt for StructuredCredit {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<TrancheValuation> {
-        use crate::instruments::structured_credit::components::{
+        use crate::instruments::structured_credit::metrics::{
             calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
             calculate_tranche_z_spread,
         };
@@ -649,6 +649,25 @@ impl core::fmt::Debug for StructuredCredit {
             .field("payment_frequency", &self.payment_frequency)
             .field("discount_curve_id", &self.discount_curve_id)
             .finish()
+    }
+}
+
+impl core::fmt::Display for StructuredCredit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let pool_balance = self.pool.total_balance();
+        let tranche_count = self.tranches.tranches.len();
+
+        write!(
+            f,
+            "{} {:?} | Pool: {} {} | {} tranches | {} -> {}",
+            self.id.as_str(),
+            self.deal_type,
+            pool_balance.amount(),
+            pool_balance.currency(),
+            tranche_count,
+            self.closing_date,
+            self.legal_maturity,
+        )
     }
 }
 

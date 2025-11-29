@@ -1,13 +1,20 @@
-//! Tranche-specific valuation and metrics for structured credit instruments.
+//! Tranche-specific valuation types and traits for structured credit instruments.
 //!
-//! This module provides functionality to value and calculate metrics for individual
-//! tranches within structured credit instruments (CLO, ABS, RMBS, CMBS).
+//! This module provides result types for individual tranche valuation within
+//! structured credit instruments (CLO, ABS, RMBS, CMBS).
+//!
+//! # Note
+//!
+//! The actual metric calculation functions have been moved to the `metrics/` module:
+//! - [`calculate_tranche_wal`](super::super::metrics::calculate_tranche_wal) → `metrics/pricing/wal.rs`
+//! - [`calculate_tranche_duration`](super::super::metrics::calculate_tranche_duration) → `metrics/risk/duration.rs`
+//! - [`calculate_tranche_z_spread`](super::super::metrics::calculate_tranche_z_spread) → `metrics/risk/spreads.rs`
+//! - [`calculate_tranche_cs01`](super::super::metrics::calculate_tranche_cs01) → `metrics/risk/spreads.rs`
 
 use crate::cashflow::traits::DatedFlows;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::MetricId;
 use finstack_core::cashflow::CashFlow;
-use finstack_core::dates::{Date, DayCountCtx};
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -24,7 +31,7 @@ pub struct TrancheCashflowResult {
     pub detailed_flows: Vec<CashFlow>,
     /// Interest cashflows (component of total)
     pub interest_flows: DatedFlows,
-    /// Principal cashflows (component of total)  
+    /// Principal cashflows (component of total)
     pub principal_flows: DatedFlows,
     /// PIK capitalization flows (using CFKind::PIK)
     pub pik_flows: DatedFlows,
@@ -93,224 +100,14 @@ pub trait TrancheValuationExt {
     ) -> Result<TrancheValuation>;
 }
 
-/// Calculate tranche-specific WAL
-pub fn calculate_tranche_wal(cashflows: &TrancheCashflowResult, as_of: Date) -> Result<f64> {
-    let mut weighted_sum = 0.0;
-    let mut total_principal = 0.0;
-
-    for (date, amount) in &cashflows.principal_flows {
-        if *date <= as_of {
-            continue;
-        }
-
-        let years = finstack_core::dates::DayCount::Act365F
-            .year_fraction(as_of, *date, finstack_core::dates::DayCountCtx::default())
-            .unwrap_or(0.0);
-        weighted_sum += amount.amount() * years;
-        total_principal += amount.amount();
-    }
-
-    if total_principal > 0.0 {
-        Ok(weighted_sum / total_principal)
-    } else {
-        Ok(0.0)
-    }
-}
-
-/// Calculate tranche-specific modified duration
-pub fn calculate_tranche_duration(
-    cashflows: &DatedFlows,
-    discount_curve: &DiscountCurve,
-    as_of: Date,
-    pv: Money,
-) -> Result<f64> {
-    use finstack_core::dates::DayCount;
-
-    let day_count = DayCount::Act365F;
-    let mut weighted_pv = 0.0;
-
-    // Pre-compute as_of discount factor for correct theta
-    let disc_dc = discount_curve.day_count();
-    let t_as_of = disc_dc
-        .year_fraction(discount_curve.base_date(), as_of, DayCountCtx::default())
-        .unwrap_or(0.0);
-    let df_as_of = discount_curve.df(t_as_of);
-
-    for (date, amount) in cashflows {
-        if *date <= as_of {
-            continue;
-        }
-
-        let years = day_count
-            .year_fraction(as_of, *date, DayCountCtx::default())
-            .unwrap_or(0.0);
-
-        // Discount from as_of
-        let t_cf = disc_dc
-            .year_fraction(discount_curve.base_date(), *date, DayCountCtx::default())
-            .unwrap_or(0.0);
-        let df_cf_abs = discount_curve.df(t_cf);
-        let df = if df_as_of != 0.0 {
-            df_cf_abs / df_as_of
-        } else {
-            1.0
-        };
-        let flow_pv = amount.amount() * df;
-
-        weighted_pv += flow_pv * years;
-    }
-
-    if pv.amount() > 0.0 {
-        Ok(weighted_pv / pv.amount())
-    } else {
-        Ok(0.0)
-    }
-}
-
-/// Calculate tranche-specific Z-spread in basis points
-pub fn calculate_tranche_z_spread(
-    cashflows: &DatedFlows,
-    discount_curve: &DiscountCurve,
-    target_pv: Money,
-    as_of: Date,
-) -> Result<f64> {
-    use finstack_core::dates::DayCount;
-    use finstack_core::math::solver::{BrentSolver, Solver};
-
-    let day_count = DayCount::Act365F;
-    let base_date = discount_curve.base_date();
-
-    // Pre-compute as_of discount factor for correct theta
-    let disc_dc = discount_curve.day_count();
-    let t_as_of_val = disc_dc
-        .year_fraction(base_date, as_of, DayCountCtx::default())
-        .unwrap_or(0.0);
-    let df_as_of_val = discount_curve.df(t_as_of_val);
-
-    let objective = |z: f64| -> f64 {
-        let mut pv = 0.0;
-        for (date, amount) in cashflows {
-            if *date <= as_of {
-                continue;
-            }
-
-            let t_from_as_of = day_count
-                .year_fraction(as_of, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
-
-            // Discount from as_of
-            let t_cf = disc_dc
-                .year_fraction(base_date, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
-            let df_cf_abs = discount_curve.df(t_cf);
-            let df = if df_as_of_val != 0.0 {
-                df_cf_abs / df_as_of_val
-            } else {
-                1.0
-            };
-            let df_z = df * (-z * t_from_as_of).exp();
-
-            pv += amount.amount() * df_z;
-        }
-        pv - target_pv.amount()
-    };
-
-    let solver = BrentSolver::new()
-        .with_tolerance(1e-8)
-        .with_initial_bracket_size(Some(0.5));
-
-    let z_spread = solver.solve(objective, 0.0)?;
-
-    // Convert to basis points
-    Ok(z_spread * 10_000.0)
-}
-
-/// Calculate tranche-specific CS01
-pub fn calculate_tranche_cs01(
-    cashflows: &DatedFlows,
-    discount_curve: &DiscountCurve,
-    z_spread: f64,
-    as_of: Date,
-) -> Result<f64> {
-    use crate::constants::ONE_BASIS_POINT;
-    use finstack_core::dates::DayCount;
-
-    let day_count = DayCount::Act365F;
-    let base_date = discount_curve.base_date();
-
-    // Pre-compute as_of discount factor for correct theta
-    let disc_dc = discount_curve.day_count();
-    let t_as_of_val = disc_dc
-        .year_fraction(base_date, as_of, DayCountCtx::default())
-        .unwrap_or(0.0);
-    let df_as_of_val = discount_curve.df(t_as_of_val);
-
-    // Calculate base PV
-    let mut base_pv = 0.0;
-    let mut bumped_pv = 0.0;
-    let bumped_spread = z_spread + ONE_BASIS_POINT;
-
-    for (date, amount) in cashflows {
-        if *date <= as_of {
-            continue;
-        }
-
-        let t_from_as_of = day_count
-            .year_fraction(as_of, *date, DayCountCtx::default())
-            .unwrap_or(0.0);
-
-        // Discount from as_of
-        let t_cf = disc_dc
-            .year_fraction(base_date, *date, DayCountCtx::default())
-            .unwrap_or(0.0);
-        let df_cf_abs = discount_curve.df(t_cf);
-        let df = if df_as_of_val != 0.0 {
-            df_cf_abs / df_as_of_val
-        } else {
-            1.0
-        };
-
-        // Base PV
-        let df_base = df * (-z_spread * t_from_as_of).exp();
-        base_pv += amount.amount() * df_base;
-
-        // Bumped PV
-        let df_bumped = df * (-bumped_spread * t_from_as_of).exp();
-        bumped_pv += amount.amount() * df_bumped;
-    }
-
-    // CS01 = -(PV_bumped - PV_base)
-    Ok(-(bumped_pv - base_pv))
-}
-
-/// Tranche-specific metric calculator wrapper
-pub struct TrancheMetricCalculator {
-    /// Base metric calculator to wrap
-    pub base_calculator: Box<dyn MetricCalculator>,
-    /// Tranche identifier for context-specific calculations
-    pub tranche_id: String,
-}
-
-impl MetricCalculator for TrancheMetricCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Set context to use tranche-specific cashflows
-        // This would require modifying MetricContext to support tranche filtering
-        self.base_calculator.calculate(context)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        self.base_calculator.dependencies()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
 
     #[test]
-    fn test_tranche_wal_calculation() {
-        let cashflows = TrancheCashflowResult {
+    fn test_tranche_cashflow_result_creation() {
+        let cashflow_result = TrancheCashflowResult {
             tranche_id: "AAA".to_string(),
             cashflows: vec![],
             detailed_flows: vec![],
@@ -332,10 +129,8 @@ mod tests {
             total_pik: Money::new(0.0, Currency::USD),
         };
 
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
-        let wal = calculate_tranche_wal(&cashflows, as_of).expect("should succeed");
-
-        // Should be approximately 1.0 year (average of 0.5 and 1.5 years)
-        assert!((wal - 1.0).abs() < 0.1);
+        assert_eq!(cashflow_result.tranche_id, "AAA");
+        assert_eq!(cashflow_result.principal_flows.len(), 2);
+        assert_eq!(cashflow_result.total_principal.amount(), 200_000.0);
     }
 }

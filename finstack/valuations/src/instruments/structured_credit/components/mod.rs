@@ -66,7 +66,6 @@ pub mod waterfall;
 // ============================================================================
 
 pub mod market_context;
-pub mod specs;
 
 // ============================================================================
 // STOCHASTIC COMPONENTS (multi-path simulation models)
@@ -113,10 +112,13 @@ pub use validation::{
 pub use rate_helpers::tenor_to_period_end;
 pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 
-// Tranche-level valuation metrics
-pub use tranche_valuation::{
+// Tranche-level types (metrics moved to metrics/ module)
+pub use tranche_valuation::{TrancheCashflowResult, TrancheValuation, TrancheValuationExt};
+
+// Tranche-level metrics (re-exported from metrics/ for backward compatibility)
+pub use super::metrics::{
     calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
-    calculate_tranche_z_spread, TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
+    calculate_tranche_z_spread,
 };
 
 // ============================================================================
@@ -127,7 +129,8 @@ pub use tranche_valuation::{
 pub use market_context::{CreditFactors, MarketConditions, MarketFactors};
 
 // Deterministic behavioral curves (PSA, SDA, constant CPR/CDR)
-pub use specs::{
+// Re-exported from cashflow builder as single source of truth
+pub use crate::cashflow::builder::{
     DefaultCurve, DefaultModelSpec, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
 };
 

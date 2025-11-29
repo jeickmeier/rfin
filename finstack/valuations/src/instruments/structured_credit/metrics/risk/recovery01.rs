@@ -18,7 +18,7 @@ impl MetricCalculator for Recovery01Calculator {
         let instrument: &StructuredCredit = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::structured_credit::components::specs::RecoveryModelSpec;
+        use crate::cashflow::builder::RecoveryModelSpec;
 
         // Get current recovery spec and create bumped versions
         let recovery_up = RecoveryModelSpec {

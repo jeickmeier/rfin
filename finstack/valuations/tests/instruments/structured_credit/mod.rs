@@ -51,5 +51,8 @@ pub mod waterfall_golden;
 // Property tests (invariant verification)
 pub mod waterfall_properties;
 
+// Academic golden tests (Fabozzi, PSA, WARF references)
+pub mod academic_golden;
+
 // BucketedDv01 smoke tests
 pub mod test_bucketed_dv01;

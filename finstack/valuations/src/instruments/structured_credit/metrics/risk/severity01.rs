@@ -29,7 +29,7 @@ impl MetricCalculator for Severity01Calculator {
         let instrument: &StructuredCredit = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::structured_credit::components::specs::RecoveryModelSpec;
+        use crate::cashflow::builder::RecoveryModelSpec;
 
         // Loss Severity = 1 - Recovery Rate
         // So bumping severity up means bumping recovery down, and vice versa

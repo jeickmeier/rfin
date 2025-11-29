@@ -1,10 +1,45 @@
 //! WAL (Weighted Average Life) calculator for structured credit.
 
+use crate::instruments::structured_credit::components::TrancheCashflowResult;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::Result;
 
-use crate::instruments::structured_credit::calculate_tranche_wal;
+/// Calculate tranche-specific WAL from a `TrancheCashflowResult`.
+///
+/// WAL measures the average time until principal is repaid, weighted by the
+/// amount of principal. This is a critical metric for structured credit as it
+/// captures the impact of prepayments, amortization, and defaults.
+///
+/// # Formula
+///
+/// WAL = Σ(Principal_i × Time_i) / Σ(Principal_i)
+///
+/// Where:
+/// - Principal_i = principal payment at time i
+/// - Time_i = years from valuation date to payment date i
+pub fn calculate_tranche_wal(cashflows: &TrancheCashflowResult, as_of: Date) -> Result<f64> {
+    let mut weighted_sum = 0.0;
+    let mut total_principal = 0.0;
+
+    for (date, amount) in &cashflows.principal_flows {
+        if *date <= as_of {
+            continue;
+        }
+
+        let years = finstack_core::dates::DayCount::Act365F
+            .year_fraction(as_of, *date, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        weighted_sum += amount.amount() * years;
+        total_principal += amount.amount();
+    }
+
+    if total_principal > 0.0 {
+        Ok(weighted_sum / total_principal)
+    } else {
+        Ok(0.0)
+    }
+}
 
 /// Calculates WAL (Weighted Average Life) in years.
 ///
@@ -32,7 +67,7 @@ pub struct WalCalculator;
 impl MetricCalculator for WalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Prefer the detailed tranche cashflow result if available for an exact WAL.
-        if let Some(details) = &context.detailed_tranche_cashflows {
+        if let Some(ref details) = context.detailed_tranche_cashflows {
             return calculate_tranche_wal(details, context.as_of);
         }
 

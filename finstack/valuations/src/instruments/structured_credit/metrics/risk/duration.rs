@@ -1,8 +1,11 @@
 //! Duration calculators for structured credit.
 
+use crate::cashflow::traits::DatedFlows;
 use crate::constants::ONE_BASIS_POINT;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::money::Money;
 use finstack_core::Result;
 
 /// Calculates Macaulay duration for structured credit.
@@ -175,5 +178,67 @@ impl MetricCalculator for ModifiedDurationCalculator {
 
     fn dependencies(&self) -> &[MetricId] {
         &[] // Uses cashflows and discount curve from context
+    }
+}
+
+/// Calculate tranche-specific modified duration from cashflows and discount curve.
+///
+/// This is the primary duration calculation for tranche-level analytics,
+/// measuring PV-weighted average time to receive cashflows.
+///
+/// # Arguments
+///
+/// * `cashflows` - The dated cashflows for the tranche
+/// * `discount_curve` - The discount curve for PV calculation
+/// * `as_of` - The valuation date
+/// * `pv` - The present value of the tranche
+///
+/// # Returns
+///
+/// Modified duration in years
+pub fn calculate_tranche_duration(
+    cashflows: &DatedFlows,
+    discount_curve: &DiscountCurve,
+    as_of: Date,
+    pv: Money,
+) -> Result<f64> {
+    let day_count = DayCount::Act365F;
+    let mut weighted_pv = 0.0;
+
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of = disc_dc
+        .year_fraction(discount_curve.base_date(), as_of, DayCountCtx::default())
+        .unwrap_or(0.0);
+    let df_as_of = discount_curve.df(t_as_of);
+
+    for (date, amount) in cashflows {
+        if *date <= as_of {
+            continue;
+        }
+
+        let years = day_count
+            .year_fraction(as_of, *date, DayCountCtx::default())
+            .unwrap_or(0.0);
+
+        // Discount from as_of
+        let t_cf = disc_dc
+            .year_fraction(discount_curve.base_date(), *date, DayCountCtx::default())
+            .unwrap_or(0.0);
+        let df_cf_abs = discount_curve.df(t_cf);
+        let df = if df_as_of != 0.0 {
+            df_cf_abs / df_as_of
+        } else {
+            1.0
+        };
+        let flow_pv = amount.amount() * df;
+
+        weighted_pv += flow_pv * years;
+    }
+
+    if pv.amount() > 0.0 {
+        Ok(weighted_pv / pv.amount())
+    } else {
+        Ok(0.0)
     }
 }

@@ -1,5 +1,6 @@
 //! YTM (Yield to Maturity) calculator for structured credit.
 
+use crate::instruments::structured_credit::config::YTM_SOLVER_TOLERANCE;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -84,7 +85,8 @@ impl MetricCalculator for YtmCalculator {
         };
 
         // Solve for YTM using Brent solver
-        let solver = BrentSolver::new().with_tolerance(1e-8);
+        // Tolerance: 1e-6 = 0.01 bps precision (market standard)
+        let solver = BrentSolver::new().with_tolerance(YTM_SOLVER_TOLERANCE);
 
         // Initial guess: 5% is reasonable for structured credit
         let ytm = solver.solve(objective, 0.05)?;

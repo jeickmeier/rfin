@@ -24,7 +24,7 @@ impl MetricCalculator for Default01Calculator {
         let instrument: &StructuredCredit = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::structured_credit::components::specs::DefaultModelSpec;
+        use crate::cashflow::builder::DefaultModelSpec;
 
         // Create bumped default specs
         let default_up = DefaultModelSpec {

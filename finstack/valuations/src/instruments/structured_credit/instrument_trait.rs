@@ -11,16 +11,353 @@
 use super::components::{
     AssetPool, CreditFactors, DefaultModelSpec, MarketConditions, PaymentRecipient,
     PrepaymentModelSpec, RecoveryModelSpec, TrancheCashflowResult, TrancheStructure,
-    WaterfallEngine,
+    WaterfallEngine, WaterfallResult,
 };
 use super::config::POOL_BALANCE_CLEANUP_THRESHOLD;
 use super::simulation_helpers::{update_tranche_balance, PeriodFlows, RecoveryLagBuffer};
 use crate::cashflow::traits::DatedFlows;
+use finstack_core::currency::Currency;
 use finstack_core::dates::months_between;
 use finstack_core::dates::{Date, Frequency, ScheduleBuilder};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;
+
+// ============================================================================
+// PERIOD SIMULATION CONTEXT
+// ============================================================================
+
+/// Context for simulating a single payment period.
+///
+/// This struct encapsulates all the mutable state needed during period simulation,
+/// improving readability and enabling easier unit testing of period logic.
+struct PeriodSimulationContext<'a> {
+    /// Current pool outstanding balance
+    pool_outstanding: Money,
+    /// Recovery lag buffer for delayed recovery processing
+    recovery_buffer: RecoveryLagBuffer,
+    /// Tranche balances (mutable during simulation)
+    tranche_balances: HashMap<String, Money>,
+    /// Results accumulator for each tranche
+    results: HashMap<String, TrancheCashflowResult>,
+    /// Previous payment date (for accrual calculations)
+    prev_date: Option<Date>,
+    /// Base currency for the deal
+    base_ccy: Currency,
+    /// Months per payment period
+    months_per_period: f64,
+    /// Recovery lag in months
+    recovery_lag_months: u32,
+    /// Reference to the asset pool
+    pool: &'a AssetPool,
+    /// Reference to the tranche structure
+    tranches: &'a TrancheStructure,
+    /// Closing date for seasoning calculations
+    closing_date: Date,
+    /// Pre-computed PaymentRecipient keys for each tranche (avoids per-period allocations)
+    tranche_recipient_keys: Vec<PaymentRecipient>,
+}
+
+impl<'a> PeriodSimulationContext<'a> {
+    /// Create a new period simulation context.
+    fn new(
+        pool: &'a AssetPool,
+        tranches: &'a TrancheStructure,
+        closing_date: Date,
+        months_per_period: f64,
+        recovery_lag_months: u32,
+    ) -> Self {
+        let base_ccy = pool.base_currency();
+
+        // Initialize results map for each tranche
+        let results: HashMap<String, TrancheCashflowResult> = tranches
+            .tranches
+            .iter()
+            .map(|t| {
+                (
+                    t.id.to_string(),
+                    TrancheCashflowResult {
+                        tranche_id: t.id.to_string(),
+                        cashflows: Vec::new(),
+                        detailed_flows: Vec::new(),
+                        interest_flows: Vec::new(),
+                        principal_flows: Vec::new(),
+                        pik_flows: Vec::new(),
+                        final_balance: t.current_balance,
+                        total_interest: Money::new(0.0, base_ccy),
+                        total_principal: Money::new(0.0, base_ccy),
+                        total_pik: Money::new(0.0, base_ccy),
+                    },
+                )
+            })
+            .collect();
+
+        // Track tranche balances over time
+        let tranche_balances: HashMap<String, Money> = tranches
+            .tranches
+            .iter()
+            .map(|t| (t.id.to_string(), t.current_balance))
+            .collect();
+
+        // Pre-compute PaymentRecipient keys to avoid allocations in the hot path.
+        // These are allocated once at initialization and reused for every period.
+        let tranche_recipient_keys: Vec<PaymentRecipient> = tranches
+            .tranches
+            .iter()
+            .map(|t| PaymentRecipient::Tranche(t.id.to_string()))
+            .collect();
+
+        Self {
+            pool_outstanding: pool.total_balance(),
+            recovery_buffer: RecoveryLagBuffer::new(),
+            tranche_balances,
+            results,
+            prev_date: Some(closing_date),
+            base_ccy,
+            months_per_period,
+            recovery_lag_months,
+            pool,
+            tranches,
+            closing_date,
+            tranche_recipient_keys,
+        }
+    }
+
+    /// Check if the pool balance is below cleanup threshold.
+    fn is_pool_exhausted(&self) -> bool {
+        self.pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD
+    }
+
+    /// Process a single payment period and update internal state.
+    ///
+    /// Returns `Ok(())` if the period was processed successfully.
+    fn simulate_period<I: StructuredCreditInstrument + ?Sized>(
+        &mut self,
+        instrument: &I,
+        waterfall_engine: &WaterfallEngine,
+        pay_date: Date,
+        context: &MarketContext,
+    ) -> finstack_core::Result<()> {
+        let seasoning_months = months_between(self.closing_date, pay_date);
+
+        // Step 1: Calculate pool cashflows for the period
+        let interest_collections = instrument.calculate_period_interest_collections(
+            pay_date,
+            self.prev_date,
+            self.months_per_period,
+            context,
+        )?;
+
+        // Update prev_date for next iteration
+        self.prev_date = Some(pay_date);
+
+        let (prepay_amt, default_amt, recovery_amt) = instrument
+            .calculate_period_prepayments_and_defaults(
+                pay_date,
+                seasoning_months,
+                self.pool_outstanding,
+                self.months_per_period,
+            )?;
+
+        // Add new recoveries to the lag buffer (they'll be released after the lag period)
+        self.recovery_buffer.add_recovery(pay_date, recovery_amt);
+
+        // Release matured recoveries from the buffer
+        let released_recoveries = self.recovery_buffer.release_matured(
+            pay_date,
+            self.recovery_lag_months,
+            self.base_ccy,
+        )?;
+
+        // Reinvestment Logic:
+        // If in reinvestment period, retain principal (prepay + released recoveries) to buy new assets.
+        let is_reinvestment_active = self
+            .pool
+            .reinvestment_period
+            .as_ref()
+            .is_some_and(|period| pay_date <= period.end_date);
+
+        let (principal_available_for_waterfall, _reinvested_amount) = if is_reinvestment_active {
+            // In reinvestment, we keep principal collections.
+            (
+                Money::new(0.0, self.base_ccy),
+                prepay_amt.checked_add(released_recoveries)?,
+            )
+        } else {
+            // Not reinvesting, all principal goes to waterfall
+            (
+                prepay_amt.checked_add(released_recoveries)?,
+                Money::new(0.0, self.base_ccy),
+            )
+        };
+
+        let period_flows = PeriodFlows {
+            interest_collections,
+            prepayments: prepay_amt,
+            defaults: default_amt,
+            recoveries: released_recoveries,
+        };
+
+        let total_cash_for_waterfall =
+            interest_collections.checked_add(principal_available_for_waterfall)?;
+
+        // Step 2: Run waterfall to distribute cash
+        let waterfall_result = waterfall_engine.execute_waterfall(
+            total_cash_for_waterfall,
+            period_flows.interest_collections,
+            pay_date,
+            self.tranches,
+            self.pool_outstanding,
+            self.pool,
+            context,
+        )?;
+
+        // Step 3: Record flows and update balances for all tranches
+        self.process_waterfall_distributions(pay_date, &waterfall_result, context)?;
+
+        // Step 4: Update pool balance
+        self.update_pool_balance(
+            is_reinvestment_active,
+            default_amt,
+            released_recoveries,
+            &period_flows,
+        )?;
+
+        Ok(())
+    }
+
+    /// Process waterfall distributions and update tranche results.
+    ///
+    /// Uses pre-computed `PaymentRecipient` keys to avoid allocations in the hot path.
+    fn process_waterfall_distributions(
+        &mut self,
+        pay_date: Date,
+        waterfall_result: &WaterfallResult,
+        context: &MarketContext,
+    ) -> finstack_core::Result<()> {
+        // Iterate using index to access pre-computed recipient keys without cloning
+        for (idx, tranche) in self.tranches.tranches.iter().enumerate() {
+            // Use pre-computed key to avoid allocation
+            let recipient_key = &self.tranche_recipient_keys[idx];
+
+            if let Some(payment) = waterfall_result.distributions.get(recipient_key) {
+                if payment.amount() > 0.0 {
+                    // Use tranche.id.as_str() for lookups to avoid allocation
+                    let tranche_id_str = tranche.id.as_str();
+
+                    let current_balance = self
+                        .tranche_balances
+                        .get(tranche_id_str)
+                        .copied()
+                        .unwrap_or(Money::new(0.0, self.base_ccy));
+                    let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
+
+                    let interest_portion = Money::new(
+                        current_balance.amount() * coupon_rate * (self.months_per_period / 12.0),
+                        self.base_ccy,
+                    );
+
+                    let principal_payment = payment
+                        .checked_sub(interest_portion)
+                        .unwrap_or(Money::new(0.0, self.base_ccy));
+
+                    // Update the results for this tranche
+                    if let Some(res) = self.results.get_mut(tranche_id_str) {
+                        res.cashflows.push((pay_date, *payment));
+                        if interest_portion.amount() > 0.0 {
+                            res.interest_flows.push((pay_date, interest_portion));
+                            res.total_interest = res.total_interest.checked_add(interest_portion)?;
+                        }
+                        if principal_payment.amount() > 0.0 {
+                            res.principal_flows.push((pay_date, principal_payment));
+                            res.total_principal =
+                                res.total_principal.checked_add(principal_payment)?;
+                        }
+                    }
+
+                    // Update tranche balance for next period's interest calc
+                    update_tranche_balance(
+                        &mut self.tranche_balances,
+                        tranche_id_str,
+                        *payment,
+                        interest_portion,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Update pool balance based on period flows and reinvestment status.
+    fn update_pool_balance(
+        &mut self,
+        is_reinvestment_active: bool,
+        default_amt: Money,
+        released_recoveries: Money,
+        period_flows: &PeriodFlows,
+    ) -> finstack_core::Result<()> {
+        // With recovery lag, the accounting is:
+        // - Defaults: Pool balance decreases immediately by full default amount
+        // - Prepayments: Pool balance decreases immediately
+        // - Recoveries: Cash comes back after the lag period
+
+        if is_reinvestment_active {
+            // During reinvestment, defaults reduce pool immediately
+            // Prepayments and released recoveries get reinvested (balance maintained)
+            self.pool_outstanding = self
+                .pool_outstanding
+                .checked_sub(default_amt)?
+                .checked_add(released_recoveries)?;
+        } else {
+            // Normal amortization: balance reduces by prepays and defaults
+            self.pool_outstanding = self
+                .pool_outstanding
+                .checked_sub(period_flows.prepayments)?
+                .checked_sub(period_flows.defaults)?;
+        }
+        Ok(())
+    }
+
+    /// Finalize results by updating final balances and building detailed flows.
+    fn finalize_results(mut self) -> HashMap<String, TrancheCashflowResult> {
+        for (tranche_id, res) in self.results.iter_mut() {
+            res.final_balance = self
+                .tranche_balances
+                .get(tranche_id)
+                .copied()
+                .unwrap_or(Money::new(0.0, self.base_ccy));
+
+            for (date, amount) in &res.interest_flows {
+                if amount.amount() > 0.0 {
+                    let cf = finstack_core::cashflow::CashFlow {
+                        date: *date,
+                        reset_date: None,
+                        amount: *amount,
+                        kind: finstack_core::cashflow::CFKind::Fixed,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    };
+                    res.detailed_flows.push(cf);
+                }
+            }
+            for (date, amount) in &res.principal_flows {
+                if amount.amount() > 0.0 {
+                    let cf = finstack_core::cashflow::CashFlow {
+                        date: *date,
+                        reset_date: None,
+                        amount: *amount,
+                        kind: finstack_core::cashflow::CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    };
+                    res.detailed_flows.push(cf);
+                }
+            }
+        }
+
+        self.results
+    }
+}
 
 /// Common trait for structured credit instruments (internal implementation detail)
 pub(crate) trait StructuredCreditInstrument {
@@ -118,13 +455,11 @@ pub(crate) trait StructuredCreditInstrument {
                         let base = fwd.base_date();
                         // Use the curve's own day count for consistency with calibration
                         let dc = fwd.day_count();
-                        let t2 = dc
-                            .year_fraction(
-                                base,
-                                pay_date,
-                                finstack_core::dates::DayCountCtx::default(),
-                            )
-                            .unwrap_or(0.0);
+                        let t2 = dc.year_fraction(
+                            base,
+                            pay_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )?;
                         // Use the curve's actual tenor instead of hardcoded 0.25
                         let tenor = fwd.tenor();
                         let t1 = (t2 - tenor).max(0.0);
@@ -162,6 +497,14 @@ pub(crate) trait StructuredCreditInstrument {
         pool_outstanding: Money,
         months_per_period: f64,
     ) -> finstack_core::Result<(Money, Money, Money)> {
+        // Validate months_per_period to prevent invalid powf behavior
+        if months_per_period <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "months_per_period must be positive, got {}",
+                months_per_period
+            )));
+        }
+
         let base_ccy = pool_outstanding.currency();
         let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
         let mdr = self.calculate_default_rate(pay_date, seasoning_months);
@@ -189,35 +532,10 @@ pub(crate) trait StructuredCreditInstrument {
     ) -> finstack_core::Result<HashMap<String, TrancheCashflowResult>> {
         let pool = self.pool();
         let tranches = self.tranches();
-        let base_ccy = pool.base_currency();
-        let mut pool_outstanding = pool.total_balance();
 
-        if pool_outstanding.amount() <= 0.0 {
+        if pool.total_balance().amount() <= 0.0 {
             return Ok(HashMap::new());
         }
-
-        // Initialize results map for each tranche
-        let mut results: HashMap<String, TrancheCashflowResult> = tranches
-            .tranches
-            .iter()
-            .map(|t| {
-                (
-                    t.id.to_string(),
-                    TrancheCashflowResult {
-                        tranche_id: t.id.to_string(),
-                        cashflows: Vec::new(),
-                        detailed_flows: Vec::new(),
-                        interest_flows: Vec::new(),
-                        principal_flows: Vec::new(),
-                        pik_flows: Vec::new(),
-                        final_balance: t.current_balance,
-                        total_interest: Money::new(0.0, base_ccy),
-                        total_principal: Money::new(0.0, base_ccy),
-                        total_pik: Money::new(0.0, base_ccy),
-                    },
-                )
-            })
-            .collect();
 
         // Get date configurations
         let dates_closing_date = self.closing_date();
@@ -225,20 +543,30 @@ pub(crate) trait StructuredCreditInstrument {
         let dates_legal_maturity = self.legal_maturity();
         let dates_payment_frequency = self.payment_frequency();
 
-        // Track tranche balances over time
-        let mut tranche_balances: HashMap<String, Money> = tranches
-            .tranches
-            .iter()
-            .map(|t| (t.id.to_string(), t.current_balance))
-            .collect();
+        // Validate and extract months per period - structured credit requires month-based frequencies
+        let months_per_period = match dates_payment_frequency.months() {
+            Some(m) => m as f64,
+            None => {
+                return Err(finstack_core::Error::Validation(
+                    "Structured credit instruments require month-based payment frequencies \
+                     (Monthly, Quarterly, SemiAnnual, or Annual). Day-based frequencies are not supported."
+                        .to_string(),
+                ));
+            }
+        };
+
+        // Initialize simulation context with all mutable state
+        let recovery_lag_months = self.recovery_spec_ref().recovery_lag;
+        let mut sim_ctx = PeriodSimulationContext::new(
+            pool,
+            tranches,
+            dates_closing_date,
+            months_per_period,
+            recovery_lag_months,
+        );
 
         // Initialize waterfall engine
         let waterfall_engine = self.create_waterfall_engine();
-        let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
-
-        // Initialize recovery lag buffer for delayed recovery processing
-        let recovery_lag_months = self.recovery_spec_ref().recovery_lag;
-        let mut recovery_buffer = RecoveryLagBuffer::new();
 
         // Generate payment schedule
         let schedule =
@@ -247,206 +575,16 @@ pub(crate) trait StructuredCreditInstrument {
                 .build()?;
 
         // Simulate period-by-period
-        let mut prev_date = Some(dates_closing_date);
-
         for pay_date in schedule.dates {
-            if pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD {
+            if sim_ctx.is_pool_exhausted() {
                 break;
             }
 
-            let seasoning_months = months_between(dates_closing_date, pay_date);
-
-            // Step 1: Calculate pool cashflows for the period
-            let interest_collections = self.calculate_period_interest_collections(
-                pay_date,
-                prev_date,
-                months_per_period,
-                context,
-            )?;
-
-            // Update prev_date for next iteration
-            prev_date = Some(pay_date);
-
-            let (prepay_amt, default_amt, recovery_amt) = self
-                .calculate_period_prepayments_and_defaults(
-                    pay_date,
-                    seasoning_months,
-                    pool_outstanding,
-                    months_per_period,
-                )?;
-
-            // Add new recoveries to the lag buffer (they'll be released after the lag period)
-            recovery_buffer.add_recovery(pay_date, recovery_amt);
-
-            // Release matured recoveries from the buffer
-            let released_recoveries =
-                recovery_buffer.release_matured(pay_date, recovery_lag_months, base_ccy)?;
-
-            // Reinvestment Logic:
-            // If in reinvestment period, retain principal (prepay + released recoveries) to buy new assets.
-            // We assume reinvestment at Par (maintaining pool balance), so we don't pass principal to waterfall.
-            // Note: Defaults reduce the pool balance permanently by the loss amount.
-            // With recovery lag, the actual recovery comes later, so we track it separately.
-            let is_reinvestment_active = if let Some(period) = &pool.reinvestment_period {
-                pay_date <= period.end_date
-            } else {
-                false
-            };
-
-            let (principal_available_for_waterfall, _reinvested_amount) = if is_reinvestment_active
-            {
-                // In reinvestment, we keep principal collections.
-                // Available for waterfall is only interest (plus maybe some specialized leakage, ignored here).
-                (
-                    Money::new(0.0, base_ccy),
-                    prepay_amt.checked_add(released_recoveries)?,
-                )
-            } else {
-                // Not reinvesting, all principal goes to waterfall
-                (
-                    prepay_amt.checked_add(released_recoveries)?,
-                    Money::new(0.0, base_ccy),
-                )
-            };
-
-            let period_flows = PeriodFlows {
-                interest_collections,
-                prepayments: prepay_amt,
-                defaults: default_amt,
-                recoveries: released_recoveries, // Use released (lagged) recoveries
-            };
-
-            let total_cash_for_waterfall =
-                interest_collections.checked_add(principal_available_for_waterfall)?;
-
-            // Step 2: Run waterfall to distribute cash
-            let waterfall_result = waterfall_engine.execute_waterfall(
-                total_cash_for_waterfall,
-                period_flows.interest_collections,
-                pay_date,
-                tranches,
-                pool_outstanding,
-                pool,
-                context,
-            )?;
-
-            // Step 3: Record flows and update balances for all tranches
-            for tranche in &tranches.tranches {
-                let tranche_id = tranche.id.to_string();
-                if let Some(payment) = waterfall_result
-                    .distributions
-                    .get(&PaymentRecipient::Tranche(tranche_id.clone()))
-                {
-                    if payment.amount() > 0.0 {
-                        let current_balance = tranche_balances
-                            .get(&tranche_id)
-                            .copied()
-                            .unwrap_or(Money::new(0.0, base_ccy));
-                        let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
-
-                        let interest_portion = Money::new(
-                            current_balance.amount() * coupon_rate * (months_per_period / 12.0),
-                            base_ccy,
-                        );
-
-                        let principal_payment = payment
-                            .checked_sub(interest_portion)
-                            .unwrap_or(Money::new(0.0, base_ccy));
-
-                        // Update the results for this tranche
-                        if let Some(res) = results.get_mut(&tranche_id) {
-                            res.cashflows.push((pay_date, *payment));
-                            if interest_portion.amount() > 0.0 {
-                                res.interest_flows.push((pay_date, interest_portion));
-                                res.total_interest =
-                                    res.total_interest.checked_add(interest_portion)?;
-                            }
-                            if principal_payment.amount() > 0.0 {
-                                res.principal_flows.push((pay_date, principal_payment));
-                                res.total_principal =
-                                    res.total_principal.checked_add(principal_payment)?;
-                            }
-                        }
-
-                        // Update tranche balance for next period's interest calc
-                        update_tranche_balance(
-                            &mut tranche_balances,
-                            &tranche_id,
-                            *payment,
-                            interest_portion,
-                        )?;
-                    }
-                }
-            }
-
-            // Step 4: Update pool balance
-            //
-            // With recovery lag, the accounting is:
-            // - Defaults: Pool balance decreases immediately by full default amount
-            // - Prepayments: Pool balance decreases immediately
-            // - Recoveries: Cash comes back after the lag period (handled via released_recoveries)
-            //
-            // During reinvestment period:
-            // - We reinvest prepayments and released recoveries to buy new assets
-            // - Defaults still reduce pool balance immediately
-            // - Released recoveries that come in get reinvested
-            //
-            // The key difference with recovery lag:
-            // - Without lag: loss = defaults - recoveries (immediate offset)
-            // - With lag: defaults reduce balance immediately, recoveries add cash later
-
-            if is_reinvestment_active {
-                // During reinvestment, defaults reduce pool immediately
-                // Prepayments and released recoveries get reinvested (balance maintained)
-                // So net change = -defaults + reinvested_recoveries
-                // Note: prepayments don't reduce balance during reinvestment (they're reinvested)
-                pool_outstanding = pool_outstanding
-                    .checked_sub(default_amt)?
-                    .checked_add(released_recoveries)?;
-            } else {
-                // Normal amortization: balance reduces by prepays and defaults
-                pool_outstanding = pool_outstanding
-                    .checked_sub(period_flows.prepayments)?
-                    .checked_sub(period_flows.defaults)?;
-            }
+            sim_ctx.simulate_period(self, &waterfall_engine, pay_date, context)?;
         }
 
-        // Final step: update final balances and detailed flows in results
-        for (tranche_id, res) in results.iter_mut() {
-            res.final_balance = tranche_balances
-                .get(tranche_id)
-                .copied()
-                .unwrap_or(Money::new(0.0, base_ccy));
-
-            for (date, amount) in &res.interest_flows {
-                if amount.amount() > 0.0 {
-                    let cf = finstack_core::cashflow::CashFlow {
-                        date: *date,
-                        reset_date: None,
-                        amount: *amount,
-                        kind: finstack_core::cashflow::CFKind::Fixed,
-                        accrual_factor: 0.0,
-                        rate: None,
-                    };
-                    res.detailed_flows.push(cf);
-                }
-            }
-            for (date, amount) in &res.principal_flows {
-                if amount.amount() > 0.0 {
-                    let cf = finstack_core::cashflow::CashFlow {
-                        date: *date,
-                        reset_date: None,
-                        amount: *amount,
-                        kind: finstack_core::cashflow::CFKind::Amortization,
-                        accrual_factor: 0.0,
-                        rate: None,
-                    };
-                    res.detailed_flows.push(cf);
-                }
-            }
-        }
-
-        Ok(results)
+        // Finalize and return results
+        Ok(sim_ctx.finalize_results())
     }
 
     /// Generate complete tranche-specific cashflows using waterfall engine

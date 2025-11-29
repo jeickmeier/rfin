@@ -6,4 +6,4 @@ pub mod wal;
 
 pub use accrued::AccruedCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
-pub use wal::WalCalculator;
+pub use wal::{calculate_tranche_wal, WalCalculator};

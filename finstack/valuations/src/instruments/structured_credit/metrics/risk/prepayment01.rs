@@ -24,7 +24,7 @@ impl MetricCalculator for Prepayment01Calculator {
         let instrument: &StructuredCredit = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::structured_credit::components::specs::PrepaymentModelSpec;
+        use crate::cashflow::builder::PrepaymentModelSpec;
 
         // Create bumped prepayment specs
         let prepayment_up = PrepaymentModelSpec {

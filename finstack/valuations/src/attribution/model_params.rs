@@ -5,9 +5,7 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::{ConversionSpec, ConvertibleBond};
-use crate::instruments::structured_credit::components::specs::{
-    DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-};
+use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use crate::instruments::structured_credit::StructuredCredit;
 use finstack_core::prelude::*;
 use std::sync::Arc;

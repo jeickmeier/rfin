@@ -1,9 +1,15 @@
 //! Spread calculators for structured credit (Z-spread, CS01, Spread Duration).
 
+use crate::cashflow::traits::DatedFlows;
 use crate::constants::ONE_BASIS_POINT;
+use crate::instruments::structured_credit::config::{
+    Z_SPREAD_INITIAL_BRACKET, Z_SPREAD_SOLVER_TOLERANCE,
+};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::solver::{BrentSolver, Solver};
+use finstack_core::money::Money;
 use finstack_core::Result;
 
 // Z-spread bounds in decimal (not basis points)
@@ -11,8 +17,6 @@ use finstack_core::Result;
 const Z_SPREAD_MIN: f64 = -0.05;
 // 5000 bps (50%) for distressed credits
 const Z_SPREAD_MAX: f64 = 0.50;
-// Initial bracket size: ±250 bps
-const Z_SPREAD_INITIAL_BRACKET: f64 = 0.025;
 
 /// Calculates Z-spread for structured credit.
 ///
@@ -103,8 +107,9 @@ impl MetricCalculator for ZSpreadCalculator {
         // - Premium bonds may have negative Z-spread
         //
         // We start with a moderate bracket and allow expansion for edge cases.
+        // Tolerance: 1e-6 = 0.01 bps precision (market standard)
         let solver = BrentSolver::new()
-            .with_tolerance(1e-8)
+            .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
             .with_initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
 
         let valid_range = Z_SPREAD_MIN..=Z_SPREAD_MAX;
@@ -132,7 +137,7 @@ impl MetricCalculator for ZSpreadCalculator {
 
                 // Final fallback: wider bracket with explicit bounds
                 let wide_solver = BrentSolver::new()
-                    .with_tolerance(1e-8)
+                    .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
                     .with_initial_bracket_size(Some(0.20)); // ±2000 bps
 
                 wide_solver.solve(objective, 0.05)
@@ -291,4 +296,143 @@ impl MetricCalculator for SpreadDurationCalculator {
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Cs01, MetricId::DirtyPrice]
     }
+}
+
+/// Calculate tranche-specific Z-spread in basis points.
+///
+/// Z-spread (zero-volatility spread) is the constant spread added to the
+/// discount curve that equates the present value of cashflows to the market price.
+///
+/// # Arguments
+///
+/// * `cashflows` - The dated cashflows for the tranche
+/// * `discount_curve` - The discount curve for PV calculation
+/// * `target_pv` - The target present value to solve for
+/// * `as_of` - The valuation date
+///
+/// # Returns
+///
+/// Z-spread in basis points
+pub fn calculate_tranche_z_spread(
+    cashflows: &DatedFlows,
+    discount_curve: &DiscountCurve,
+    target_pv: Money,
+    as_of: Date,
+) -> Result<f64> {
+    let day_count = DayCount::Act365F;
+    let base_date = discount_curve.base_date();
+
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of_val = disc_dc
+        .year_fraction(base_date, as_of, DayCountCtx::default())
+        .unwrap_or(0.0);
+    let df_as_of_val = discount_curve.df(t_as_of_val);
+
+    let objective = |z: f64| -> f64 {
+        let mut pv = 0.0;
+        for (date, amount) in cashflows {
+            if *date <= as_of {
+                continue;
+            }
+
+            let t_from_as_of = day_count
+                .year_fraction(as_of, *date, DayCountCtx::default())
+                .unwrap_or(0.0);
+
+            // Discount from as_of
+            let t_cf = disc_dc
+                .year_fraction(base_date, *date, DayCountCtx::default())
+                .unwrap_or(0.0);
+            let df_cf_abs = discount_curve.df(t_cf);
+            let df = if df_as_of_val != 0.0 {
+                df_cf_abs / df_as_of_val
+            } else {
+                1.0
+            };
+            let df_z = df * (-z * t_from_as_of).exp();
+
+            pv += amount.amount() * df_z;
+        }
+        pv - target_pv.amount()
+    };
+
+    // Tolerance: 1e-6 = 0.01 bps precision (market standard)
+    let solver = BrentSolver::new()
+        .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
+        .with_initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
+
+    let z_spread = solver.solve(objective, 0.0)?;
+
+    // Convert to basis points
+    Ok(z_spread * 10_000.0)
+}
+
+/// Calculate tranche-specific CS01 (credit spread sensitivity).
+///
+/// CS01 measures the dollar change in value for a 1 basis point parallel shift
+/// in the credit spread.
+///
+/// # Arguments
+///
+/// * `cashflows` - The dated cashflows for the tranche
+/// * `discount_curve` - The discount curve for PV calculation
+/// * `z_spread` - The Z-spread in decimal (not basis points)
+/// * `as_of` - The valuation date
+///
+/// # Returns
+///
+/// CS01 in currency units (dollar value change per 1bp spread increase)
+pub fn calculate_tranche_cs01(
+    cashflows: &DatedFlows,
+    discount_curve: &DiscountCurve,
+    z_spread: f64,
+    as_of: Date,
+) -> Result<f64> {
+    let day_count = DayCount::Act365F;
+    let base_date = discount_curve.base_date();
+
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of_val = disc_dc
+        .year_fraction(base_date, as_of, DayCountCtx::default())
+        .unwrap_or(0.0);
+    let df_as_of_val = discount_curve.df(t_as_of_val);
+
+    // Calculate base PV
+    let mut base_pv = 0.0;
+    let mut bumped_pv = 0.0;
+    let bumped_spread = z_spread + ONE_BASIS_POINT;
+
+    for (date, amount) in cashflows {
+        if *date <= as_of {
+            continue;
+        }
+
+        let t_from_as_of = day_count
+            .year_fraction(as_of, *date, DayCountCtx::default())
+            .unwrap_or(0.0);
+
+        // Discount from as_of
+        let t_cf = disc_dc
+            .year_fraction(base_date, *date, DayCountCtx::default())
+            .unwrap_or(0.0);
+        let df_cf_abs = discount_curve.df(t_cf);
+        let df = if df_as_of_val != 0.0 {
+            df_cf_abs / df_as_of_val
+        } else {
+            1.0
+        };
+
+        // Base PV
+        let df_base = df * (-z_spread * t_from_as_of).exp();
+        base_pv += amount.amount() * df_base;
+
+        // Bumped PV
+        let df_bumped = df * (-bumped_spread * t_from_as_of).exp();
+        bumped_pv += amount.amount() * df_bumped;
+    }
+
+    // CS01 = -(PV_bumped - PV_base)
+    Ok(-(bumped_pv - base_pv))
 }

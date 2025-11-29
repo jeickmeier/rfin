@@ -19,6 +19,10 @@ pub use pool::*;
 pub use pricing::*;
 pub use risk::*;
 
+// Re-export standalone tranche metric functions for backward compatibility
+pub use pricing::calculate_tranche_wal;
+pub use risk::{calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_z_spread};
+
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use crate::metrics::MetricId;

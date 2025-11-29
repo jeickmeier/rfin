@@ -2,6 +2,15 @@
 //!
 //! These tests replicate known waterfall distributions from actual deal prospectuses
 //! to ensure accuracy and correctness of the waterfall engine.
+//!
+//! # Tolerance Standards
+//!
+//! Waterfall calculations are **deterministic** and should produce exact results
+//! within floating-point precision. Tolerances used:
+//!
+//! - **Cash conservation**: `CASH_TOLERANCE` (0.01) - accounts only for f64 representation
+//! - **Fee allocations**: Exact expected values with `CASH_TOLERANCE`
+//! - **Interest calculations**: Exact expected values with `CASH_TOLERANCE`
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -13,6 +22,14 @@ use finstack_valuations::instruments::structured_credit::{
     PaymentType, Recipient, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
     WaterfallBuilder, WaterfallTier,
 };
+
+// ============================================================================
+// Market-Standard Tolerances for Waterfall Tests
+// ============================================================================
+
+/// Cash distribution tolerance: deterministic calculations should be exact
+/// within f64 representation error (1 cent on any amount).
+const CASH_TOLERANCE: f64 = 0.01;
 
 /// Helper to create a simple market context for testing
 fn create_test_market() -> MarketContext {
@@ -207,8 +224,15 @@ fn test_golden_clo_2_0_full_payment() {
     // Tier 1: Fees
     let (tier_id, amount) = &result.tier_allocations[0];
     assert_eq!(tier_id, "fees");
-    // Trustee: $50k + Senior Mgmt: $250M * 0.004 / 4 = $250k → Total $300k
-    assert!((amount.amount() - 300_000.0).abs() < 100.0);
+    // Trustee: $50,000 (fixed) + Senior Mgmt: $250M × 0.004 / 4 = $250,000
+    // Total: $300,000.00 (exact deterministic calculation)
+    let expected_fees = 50_000.0 + (250_000_000.0 * 0.004 / 4.0);
+    assert!(
+        (amount.amount() - expected_fees).abs() < CASH_TOLERANCE,
+        "Fee allocation mismatch: expected {}, got {}",
+        expected_fees,
+        amount.amount()
+    );
 
     // Tier 2: Interest payments
     let (tier_id, _) = &result.tier_allocations[1];
@@ -226,14 +250,22 @@ fn test_golden_clo_2_0_full_payment() {
     // No cash should be diverted
     assert_eq!(result.diverted_cash.amount(), 0.0);
 
-    // Total distributed + remaining should equal available
+    // Cash conservation: total distributed + remaining must equal available
+    // This is a fundamental invariant that must hold exactly (within f64 precision)
     let total_distributed: f64 = result
         .tier_allocations
         .iter()
         .map(|(_, amt)| amt.amount())
         .sum();
     let total = total_distributed + result.remaining_cash.amount();
-    assert!((total - available_cash.amount()).abs() < 1.0);
+    assert!(
+        (total - available_cash.amount()).abs() < CASH_TOLERANCE,
+        "Cash conservation violated: distributed {} + remaining {} = {} != available {}",
+        total_distributed,
+        result.remaining_cash.amount(),
+        total,
+        available_cash.amount()
+    );
 }
 
 #[test]
@@ -578,8 +610,17 @@ fn test_golden_cre_pro_rata_distribution() {
     assert!(pref_tier.is_some());
     let (_, pref_amount) = pref_tier.unwrap();
 
-    // Expected: 8% pref on $50M / 4 = $1M quarterly
-    assert!((pref_amount.amount() - 1_000_000.0).abs() < 10_000.0);
+    // Expected: 8% pref on $50M / 4 = $1,000,000 quarterly
+    // LP: $47.5M × 8% / 4 = $950,000
+    // GP: $2.5M × 8% / 4 = $50,000
+    // Total: $1,000,000.00 (exact)
+    let expected_pref = (47_500_000.0 + 2_500_000.0) * 0.08 / 4.0;
+    assert!(
+        (pref_amount.amount() - expected_pref).abs() < CASH_TOLERANCE,
+        "Preferred return mismatch: expected {}, got {}",
+        expected_pref,
+        pref_amount.amount()
+    );
 
     // Verify residual tier exists
     let residual_tier = result
@@ -651,6 +692,7 @@ fn test_golden_cash_conservation() {
         .unwrap();
 
     // Cash conservation: sum(tiers) + remaining = available
+    // This fundamental invariant must hold exactly (within f64 precision)
     let total_allocated: f64 = result
         .tier_allocations
         .iter()
@@ -660,8 +702,10 @@ fn test_golden_cash_conservation() {
     let total = total_allocated + result.remaining_cash.amount();
 
     assert!(
-        (total - available_cash.amount()).abs() < 0.01,
-        "Cash conservation violated: {} != {}",
+        (total - available_cash.amount()).abs() < CASH_TOLERANCE,
+        "Cash conservation violated: allocated {} + remaining {} = {} != available {}",
+        total_allocated,
+        result.remaining_cash.amount(),
         total,
         available_cash.amount()
     );
