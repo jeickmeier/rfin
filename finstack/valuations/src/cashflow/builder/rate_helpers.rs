@@ -64,6 +64,49 @@ impl Default for FloatingRateParams {
     }
 }
 
+impl FloatingRateParams {
+    /// Validate the floating rate parameters.
+    ///
+    /// Checks that:
+    /// - Spread and gearing are finite numbers
+    /// - Gearing is positive (non-zero)
+    /// - Floor/cap pairs are not contradictory (floor <= cap)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if all parameters are valid, otherwise returns an error
+    /// describing the validation failure.
+    pub fn validate(&self) -> Result<()> {
+        use finstack_core::error::InputError;
+
+        // Check spread is finite
+        if !self.spread_bp.is_finite() {
+            return Err(finstack_core::Error::Input(InputError::Invalid));
+        }
+
+        // Check gearing is positive and finite
+        if !self.gearing.is_finite() || self.gearing <= 0.0 {
+            return Err(finstack_core::Error::Input(InputError::Invalid));
+        }
+
+        // Check index floor <= index cap if both specified
+        if let (Some(floor), Some(cap)) = (self.index_floor_bp, self.index_cap_bp) {
+            if floor > cap {
+                return Err(finstack_core::Error::Input(InputError::Invalid));
+            }
+        }
+
+        // Check all-in floor <= all-in cap if both specified
+        if let (Some(floor), Some(cap)) = (self.all_in_floor_bp, self.all_in_cap_bp) {
+            if floor > cap {
+                return Err(finstack_core::Error::Input(InputError::Invalid));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// Project floating rate with optional floor, cap, and gearing.
 ///
 /// Delegates to `project_floating_rate_with_curve` using standard defaults.
@@ -126,6 +169,9 @@ pub fn project_floating_rate_detailed(
     fwd: &ForwardCurve,
     params: &FloatingRateParams,
 ) -> Result<f64> {
+    // Validate parameters before projection
+    params.validate()?;
+
     let fwd_dc = fwd.day_count();
     let fwd_base = fwd.base_date();
 
@@ -436,5 +482,95 @@ mod tests {
             "Rate should be reasonable: {}",
             rate
         );
+    }
+
+    // =========================================================================
+    // Validation tests
+    // =========================================================================
+
+    #[test]
+    fn test_params_validate_default_succeeds() {
+        let params = FloatingRateParams::default();
+        assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn test_params_validate_valid_floor_cap() {
+        let params = FloatingRateParams {
+            all_in_floor_bp: Some(100.0),
+            all_in_cap_bp: Some(500.0),
+            ..Default::default()
+        };
+        assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn test_params_validate_contradictory_all_in_floor_cap() {
+        let params = FloatingRateParams {
+            all_in_floor_bp: Some(500.0), // 5% floor
+            all_in_cap_bp: Some(300.0),   // 3% cap < floor!
+            ..Default::default()
+        };
+        assert!(params.validate().is_err());
+    }
+
+    #[test]
+    fn test_params_validate_contradictory_index_floor_cap() {
+        let params = FloatingRateParams {
+            index_floor_bp: Some(200.0),
+            index_cap_bp: Some(100.0), // cap < floor!
+            ..Default::default()
+        };
+        assert!(params.validate().is_err());
+    }
+
+    #[test]
+    fn test_params_validate_nan_spread() {
+        let params = FloatingRateParams {
+            spread_bp: f64::NAN,
+            ..Default::default()
+        };
+        assert!(params.validate().is_err());
+    }
+
+    #[test]
+    fn test_params_validate_zero_gearing() {
+        let params = FloatingRateParams {
+            gearing: 0.0,
+            ..Default::default()
+        };
+        assert!(params.validate().is_err());
+    }
+
+    #[test]
+    fn test_params_validate_negative_gearing() {
+        let params = FloatingRateParams {
+            gearing: -1.0,
+            ..Default::default()
+        };
+        assert!(params.validate().is_err());
+    }
+
+    #[test]
+    fn test_projection_fails_on_invalid_params() {
+        let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
+
+        let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
+            .base_date(reset)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.03), (1.0, 0.03)])
+            .build()
+            .expect("ForwardCurve builder should succeed");
+
+        // Invalid params: cap < floor
+        let params = FloatingRateParams {
+            all_in_floor_bp: Some(500.0),
+            all_in_cap_bp: Some(300.0),
+            ..Default::default()
+        };
+
+        let result = project_floating_rate_detailed(reset, period_end, &fwd_curve, &params);
+        assert!(result.is_err(), "Should fail with contradictory floor/cap");
     }
 }

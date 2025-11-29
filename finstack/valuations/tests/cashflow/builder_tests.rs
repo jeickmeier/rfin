@@ -109,7 +109,7 @@ fn pik_capitalization_increases_outstanding() {
     let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let s = b.build().unwrap();
-    let path = s.outstanding_path();
+    let path = s.outstanding_path().unwrap();
     // Find last outstanding before redemption
     let last_before = path
         .iter()
@@ -269,7 +269,7 @@ fn outstanding_by_date_dedup_and_values() {
         .fixed_cf(fixed.clone());
     let s = b.build().unwrap();
 
-    let end_by_date = s.outstanding_by_date();
+    let end_by_date = s.outstanding_by_date().unwrap();
 
     // 1) One entry per unique date
     let unique_dates: std::collections::BTreeSet<Date> = s.flows.iter().map(|cf| cf.date).collect();
@@ -280,7 +280,7 @@ fn outstanding_by_date_dedup_and_values() {
     }
 
     // 2) Values match the final outstanding on each date from outstanding_path()
-    let path = s.outstanding_path();
+    let path = s.outstanding_path().unwrap();
     let mut last_by_date: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
     for (d, m) in path {
         last_by_date.insert(d, m.amount());

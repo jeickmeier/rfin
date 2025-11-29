@@ -28,7 +28,7 @@ impl MetricCalculator for YtwCalculator {
         )?;
 
         // Use outstanding_by_date_including_notional for correct principal path
-        let out_path = schedule.outstanding_by_date_including_notional();
+        let out_path = schedule.outstanding_by_date_including_notional()?;
 
         // Candidate exercises: each call and final maturity
         let mut candidates: Vec<(Date, Money)> = Vec::new();

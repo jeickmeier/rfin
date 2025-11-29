@@ -148,7 +148,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
     println!("PIK toggle bond PV: {}", pv);
 
     // Show outstanding path (PIK increases principal)
-    let outstanding_path = custom_schedule.outstanding_path();
+    let outstanding_path = custom_schedule.outstanding_path()?;
     println!("\nOutstanding principal path:");
     for (date, amount) in outstanding_path.iter().take(5) {
         println!("  {}: {}", date, amount);

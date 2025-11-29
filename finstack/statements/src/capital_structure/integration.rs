@@ -73,7 +73,7 @@ pub fn calculate_period_flows(
     }
 
     // Get closing balance from outstanding_by_date
-    let outstanding_path = full_schedule.outstanding_by_date();
+    let outstanding_path = full_schedule.outstanding_by_date()?;
     let closing_balance = outstanding_path
         .iter()
         .rev()
@@ -296,7 +296,7 @@ pub fn aggregate_instrument_cashflows(
         }
 
         // Use precise outstanding balance tracking from valuations
-        let outstanding_path = full_schedule.outstanding_by_date();
+        let outstanding_path = full_schedule.outstanding_by_date()?;
         for (date, outstanding_amount) in outstanding_path {
             if let Some(period_id) = periods
                 .iter()

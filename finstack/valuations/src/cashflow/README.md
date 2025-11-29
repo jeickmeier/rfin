@@ -215,7 +215,7 @@ let schedule = CashFlowSchedule::builder()
     .build()?;
 
 // Track outstanding balance
-let outstanding = schedule.outstanding_by_date();
+let outstanding = schedule.outstanding_by_date()?;
 for (date, balance) in outstanding {
     println!("{}: Outstanding = {}", date, balance);
 }
@@ -320,8 +320,8 @@ let amorts = schedule.amortizations();
 let redemptions = schedule.redemptions();
 
 // Outstanding balance tracking
-let path: Vec<(Date, Money)> = schedule.outstanding_path();
-let by_date: Vec<(Date, Money)> = schedule.outstanding_by_date();
+let path: Vec<(Date, Money)> = schedule.outstanding_path()?;
+let by_date: Vec<(Date, Money)> = schedule.outstanding_by_date()?;
 ```
 
 ### 3. Aggregation
@@ -479,7 +479,7 @@ let schedule = CashFlowSchedule::builder()
     .build()?;
 
 // Print all flows grouped by date
-for (date, balance) in schedule.outstanding_by_date() {
+for (date, balance) in schedule.outstanding_by_date()? {
     let day_flows: Vec<_> = schedule.flows.iter()
         .filter(|cf| cf.date == date)
         .collect();
@@ -528,7 +528,7 @@ let schedule = CashFlowSchedule::builder()
     .build()?;
 
 // Outstanding grows during PIK period
-let outstanding = schedule.outstanding_by_date();
+let outstanding = schedule.outstanding_by_date()?;
 for (date, balance) in outstanding {
     println!("{}: {}", date, balance);
 }
@@ -728,9 +728,9 @@ pub(crate) fn emit_outstanding_fee(
     builder: &CashflowBuilder,
     bps: f64,
     dates: &[Date],
-) -> Vec<CashFlow> {
+) -> finstack_core::Result<Vec<CashFlow>> {
     let mut fees = Vec::new();
-    let outstanding_path = builder.outstanding_path();
+    let outstanding_path = builder.outstanding_path()?;
     
     for &date in dates {
         if let Some(&(_, outstanding)) = outstanding_path.iter()

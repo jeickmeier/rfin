@@ -4,7 +4,7 @@
 //! stochastic cashflow modeling. Supports standard fee structures (upfront,
 //! commitment, usage, and facility fees) and both fixed and floating rate bases.
 
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -71,8 +71,27 @@ pub struct RevolvingCredit {
     #[cfg_attr(feature = "serde", serde(default))]
     pub recovery_rate: f64,
 
+    /// Stub rule for schedule generation when dates don't align with frequency.
+    ///
+    /// Determines how to handle partial periods at the start or end of the schedule:
+    /// - `ShortFront`: Short stub at the beginning (most common for RCFs)
+    /// - `ShortBack`: Short stub at the end
+    /// - `LongFront`: Long stub at the beginning
+    /// - `LongBack`: Long stub at the end
+    /// - `None`: No stub allowed (dates must align exactly)
+    ///
+    /// Defaults to `ShortFront` for maximum flexibility with unaligned dates.
+    #[builder(default = StubKind::ShortFront)]
+    #[cfg_attr(feature = "serde", serde(default = "default_stub_kind"))]
+    pub stub_rule: StubKind,
+
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
+}
+
+/// Default stub kind for revolving credit facilities.
+fn default_stub_kind() -> StubKind {
+    StubKind::ShortFront
 }
 
 impl RevolvingCredit {
@@ -128,6 +147,7 @@ impl RevolvingCredit {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .hazard_curve_id_opt(None)
             .recovery_rate(0.0)
+            .stub_rule(StubKind::ShortFront)
             .attributes(Attributes::new())
             .build()
             .expect("Example RevolvingCredit construction should not fail")

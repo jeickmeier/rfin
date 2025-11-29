@@ -137,8 +137,11 @@ pub fn generate_three_factor_paths(
     let process = RevolvingCreditProcess::new(process_params);
 
     // Convert payment dates to time points using facility's day count
-    let time_points = dates_to_times(payment_dates, facility.commitment_date, day_count)?;
-    let time_grid = TimeGrid::from_times(time_points.clone())?;
+    let raw_time_points = dates_to_times(payment_dates, facility.commitment_date, day_count)?;
+
+    // Refine grid to ensure no step exceeds MAX_MC_TIME_STEP for numerical stability
+    let refined = refine_time_grid(&raw_time_points);
+    let time_grid = TimeGrid::from_times(refined.times.clone())?;
 
     // Set up discretization scheme
     let disc = RevolvingCreditDiscretization::new(process.correlation())?;
@@ -148,6 +151,7 @@ pub fn generate_three_factor_paths(
     let num_steps = time_grid.num_steps();
     let num_factors = process.num_factors();
     let initial_state = process.params().initial_state(facility.utilization_rate());
+    let num_payment_dates = payment_dates.len();
 
     let mut paths = Vec::with_capacity(num_paths);
     let seed = stoch_spec.seed.unwrap_or(42);
@@ -168,21 +172,25 @@ pub fn generate_three_factor_paths(
 
         for _path_idx in 0..num_paths {
             let mut state = initial_state.to_vec();
-            let mut utilization_path = Vec::with_capacity(num_steps + 1);
-            let mut short_rate_path = Vec::with_capacity(num_steps + 1);
-            let mut credit_spread_path = Vec::with_capacity(num_steps + 1);
+            // Only record states at payment dates, not at intermediate simulation steps
+            let mut utilization_path = Vec::with_capacity(num_payment_dates);
+            let mut short_rate_path = Vec::with_capacity(num_payment_dates);
+            let mut credit_spread_path = Vec::with_capacity(num_payment_dates);
 
             // For deterministic forward, set initial rate from curve
             if let Some((ref times, ref rates)) = rate_curve_opt {
                 state[1] = interpolate_rate(time_grid.times()[0], times, rates);
             }
 
-            // Record initial state
+            // Record initial state (first payment date)
             utilization_path.push(state[0].clamp(0.0, 1.0));
             short_rate_path.push(state[1]);
             credit_spread_path.push(state[2].max(0.0));
 
-            // Evolve through time
+            // Track which payment date index we're recording next
+            let mut next_payment_idx = 1;
+
+            // Evolve through time on the refined grid
             for i in 0..num_steps {
                 let t_next = time_grid.times()[i + 1];
 
@@ -203,17 +211,22 @@ pub fn generate_three_factor_paths(
                     state[1] = interpolate_rate(t_next, times, rates);
                 }
 
-                // Record state (with bounds for utilization and spread)
-                utilization_path.push(state[0].clamp(0.0, 1.0));
-                short_rate_path.push(state[1]);
-                credit_spread_path.push(state[2].max(0.0));
+                // Only record state at payment dates (not intermediate steps)
+                if next_payment_idx < refined.payment_indices.len()
+                    && i + 1 == refined.payment_indices[next_payment_idx]
+                {
+                    utilization_path.push(state[0].clamp(0.0, 1.0));
+                    short_rate_path.push(state[1]);
+                    credit_spread_path.push(state[2].max(0.0));
+                    next_payment_idx += 1;
+                }
             }
 
             paths.push(ThreeFactorPathData {
                 utilization_path,
                 short_rate_path,
                 credit_spread_path,
-                time_points: time_grid.times().to_vec(),
+                time_points: raw_time_points.clone(),
                 payment_dates: payment_dates.to_vec(),
             });
         }
@@ -229,7 +242,7 @@ pub fn generate_three_factor_paths(
         };
 
         for _iter_idx in 0..num_iterations {
-            // Generate random variates for this iteration
+            // Generate random variates for this iteration (on the refined grid)
             let mut z_sequences: Vec<Vec<f64>> = Vec::with_capacity(num_steps);
             for _ in 0..num_steps {
                 rng.fill_std_normals(&mut z);
@@ -244,21 +257,25 @@ pub fn generate_three_factor_paths(
                 }
 
                 let mut state = initial_state.to_vec();
-                let mut utilization_path = Vec::with_capacity(num_steps + 1);
-                let mut short_rate_path = Vec::with_capacity(num_steps + 1);
-                let mut credit_spread_path = Vec::with_capacity(num_steps + 1);
+                // Only record states at payment dates, not at intermediate simulation steps
+                let mut utilization_path = Vec::with_capacity(num_payment_dates);
+                let mut short_rate_path = Vec::with_capacity(num_payment_dates);
+                let mut credit_spread_path = Vec::with_capacity(num_payment_dates);
 
                 // For deterministic forward, set initial rate from curve
                 if let Some((ref times, ref rates)) = rate_curve_opt {
                     state[1] = interpolate_rate(time_grid.times()[0], times, rates);
                 }
 
-                // Record initial state
+                // Record initial state (first payment date)
                 utilization_path.push(state[0].clamp(0.0, 1.0));
                 short_rate_path.push(state[1]);
                 credit_spread_path.push(state[2].max(0.0));
 
-                // Evolve through time
+                // Track which payment date index we're recording next
+                let mut next_payment_idx = 1;
+
+                // Evolve through time on the refined grid
                 for (i, z_seq) in z_sequences.iter().enumerate().take(num_steps) {
                     let t_next = time_grid.times()[i + 1];
 
@@ -284,17 +301,22 @@ pub fn generate_three_factor_paths(
                         state[1] = interpolate_rate(t_next, times, rates);
                     }
 
-                    // Record state (with bounds for utilization and spread)
-                    utilization_path.push(state[0].clamp(0.0, 1.0));
-                    short_rate_path.push(state[1]);
-                    credit_spread_path.push(state[2].max(0.0));
+                    // Only record state at payment dates (not intermediate steps)
+                    if next_payment_idx < refined.payment_indices.len()
+                        && i + 1 == refined.payment_indices[next_payment_idx]
+                    {
+                        utilization_path.push(state[0].clamp(0.0, 1.0));
+                        short_rate_path.push(state[1]);
+                        credit_spread_path.push(state[2].max(0.0));
+                        next_payment_idx += 1;
+                    }
                 }
 
                 paths.push(ThreeFactorPathData {
                     utilization_path,
                     short_rate_path,
                     credit_spread_path,
-                    time_points: time_grid.times().to_vec(),
+                    time_points: raw_time_points.clone(),
                     payment_dates: payment_dates.to_vec(),
                 });
             }
@@ -435,6 +457,13 @@ fn build_credit_spread_params(
     }
 }
 
+/// Maximum time step for Monte Carlo simulation (in years).
+///
+/// Stochastic processes like CIR (credit spread) and Hull-White (rates) require
+/// sufficiently fine time steps for numerical convergence and boundary stability.
+/// A step of ~30 days (1/12 year) provides good accuracy without excessive overhead.
+const MAX_MC_TIME_STEP: f64 = 1.0 / 12.0; // ~30 days
+
 /// Convert payment dates to time points (years from commitment date).
 ///
 /// Uses the specified day count convention for consistent time fraction calculations
@@ -448,6 +477,70 @@ fn dates_to_times(
         .iter()
         .map(|&date| day_count.year_fraction(commitment_date, date, DayCountCtx::default()))
         .collect()
+}
+
+/// Result of refining a time grid.
+///
+/// Contains both the refined grid and a mapping from refined indices to
+/// original payment date indices (for extracting state at payment dates only).
+struct RefinedGrid {
+    /// Refined time points with intermediate steps inserted
+    times: Vec<f64>,
+    /// Indices in the refined grid that correspond to original payment dates
+    payment_indices: Vec<usize>,
+}
+
+/// Refine a time grid to ensure no step exceeds MAX_MC_TIME_STEP.
+///
+/// Inserts intermediate points between existing grid points where the step size
+/// exceeds the maximum. This ensures stochastic process convergence without
+/// modifying the original payment date alignment.
+///
+/// # Arguments
+///
+/// * `times` - Original time points (years from commitment date)
+///
+/// # Returns
+///
+/// A `RefinedGrid` containing the refined times and indices mapping back to
+/// original payment dates.
+fn refine_time_grid(times: &[f64]) -> RefinedGrid {
+    if times.len() < 2 {
+        return RefinedGrid {
+            times: times.to_vec(),
+            payment_indices: (0..times.len()).collect(),
+        };
+    }
+
+    let mut refined = Vec::with_capacity(times.len() * 4); // Pre-allocate with margin
+    let mut payment_indices = Vec::with_capacity(times.len());
+
+    refined.push(times[0]);
+    payment_indices.push(0);
+
+    for i in 0..(times.len() - 1) {
+        let t0 = times[i];
+        let t1 = times[i + 1];
+        let dt = t1 - t0;
+
+        if dt > MAX_MC_TIME_STEP {
+            // Insert intermediate points
+            let num_steps = (dt / MAX_MC_TIME_STEP).ceil() as usize;
+            let step_size = dt / num_steps as f64;
+
+            for j in 1..num_steps {
+                refined.push(t0 + j as f64 * step_size);
+            }
+        }
+
+        refined.push(t1);
+        payment_indices.push(refined.len() - 1);
+    }
+
+    RefinedGrid {
+        times: refined,
+        payment_indices,
+    }
 }
 
 /// Interpolate rate from knot points (linear interpolation).

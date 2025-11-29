@@ -93,7 +93,7 @@ pub(super) fn solve_irr_to_date(
         crate::instruments::term_loan::cashflows::generate_cashflows(loan, curves, as_of)?;
 
     // Get outstanding at exercise date
-    let out_path = schedule.outstanding_by_date_including_notional();
+    let out_path = schedule.outstanding_by_date_including_notional()?;
     let mut outstanding_at = Money::new(0.0, loan.currency);
     for (d, amt) in &out_path {
         if *d <= exercise_date {

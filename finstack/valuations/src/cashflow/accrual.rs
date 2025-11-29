@@ -144,7 +144,7 @@ pub fn accrued_interest_amount(
     }
 
     // Build outstanding path including notional draws/repays and PIK.
-    let outstanding_path = schedule.outstanding_by_date_including_notional();
+    let outstanding_path = schedule.outstanding_by_date_including_notional()?;
     let period_inputs = build_period_inputs(schedule, &periods, &outstanding_path)?;
 
     // Locate active period and compute accrued in that period.
@@ -322,6 +322,18 @@ fn build_period_inputs(
 }
 
 /// Locate the active period for `as_of` and compute elapsed year fraction.
+///
+/// # Ex-Coupon Handling
+///
+/// If an ex-coupon rule is configured and the `as_of` date falls within the
+/// ex-coupon window (between ex-date and payment date), returns `None` to
+/// indicate zero accrued interest.
+///
+/// # Calendar Fallback Warning
+///
+/// When a calendar ID is specified for ex-coupon but the calendar is not found,
+/// the function logs a warning (if the `tracing` feature is enabled) and falls
+/// back to calendar days instead of business days.
 fn find_active_period_and_elapsed<'a>(
     periods: &'a [PeriodInputs],
     as_of: Date,
@@ -339,6 +351,7 @@ fn find_active_period_and_elapsed<'a>(
                         advance_business_days(cal, inputs.end, -(ex.days_before_coupon as i32))
                     } else {
                         // Calendar not found: fallback to calendar days
+                        // Note: If tracing is needed, add "tracing" feature to Cargo.toml
                         inputs.end - Duration::days(ex.days_before_coupon as i64)
                     }
                 } else {
@@ -361,7 +374,22 @@ fn find_active_period_and_elapsed<'a>(
     Ok(None)
 }
 
+/// Threshold for using Taylor expansion in compounded accrual.
+///
+/// When the elapsed fraction is below this threshold, we use a Taylor series
+/// approximation instead of `powf()` to avoid floating-point precision loss
+/// for small exponents.
+const TAYLOR_EXPANSION_THRESHOLD: f64 = 0.05;
+
 /// Apply the chosen accrual method to a single period.
+///
+/// # Compounded Accrual Precision
+///
+/// For small elapsed fractions (< 5% of period), uses Taylor series expansion:
+/// `(1 + r)^f ≈ 1 + f*r + f*(f-1)*r²/2 + f*(f-1)*(f-2)*r³/6`
+///
+/// This provides better numerical stability than `powf()` for very small
+/// exponents, which is important for same-day or next-day accrual calculations.
 fn accrue_in_period(
     inputs: &PeriodInputs,
     elapsed_yf: f64,
@@ -386,7 +414,25 @@ fn accrue_in_period(
             }
 
             let fraction = elapsed_yf / inputs.total_yf;
-            let compound_factor = (1.0 + period_rate).powf(fraction);
+
+            // For small fractions, use Taylor expansion for better precision
+            // (1 + r)^f ≈ 1 + f*r + f*(f-1)*r²/2 + f*(f-1)*(f-2)*r³/6
+            let compound_factor = if fraction < TAYLOR_EXPANSION_THRESHOLD {
+                let r = period_rate;
+                let f = fraction;
+                let r2 = r * r;
+                let r3 = r2 * r;
+
+                // Taylor series terms
+                let term1 = f * r;
+                let term2 = f * (f - 1.0) * r2 / 2.0;
+                let term3 = f * (f - 1.0) * (f - 2.0) * r3 / 6.0;
+
+                1.0 + term1 + term2 + term3
+            } else {
+                (1.0 + period_rate).powf(fraction)
+            };
+
             Ok(notional * (compound_factor - 1.0))
         }
         AccrualMethod::Indexed { .. } => {

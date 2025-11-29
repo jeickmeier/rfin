@@ -175,8 +175,8 @@ impl Evaluator {
         ) {
             for (instrument_id, instrument) in insts {
                 let schedule = instrument.build_full_schedule(market_ctx, as_of_date)?;
-                let opening_balance = schedule
-                    .outstanding_by_date()
+                let outstanding_path = schedule.outstanding_by_date()?;
+                let opening_balance = outstanding_path
                     .iter()
                     .filter(|(d, _)| *d <= first_period.start)
                     .map(|(_, outstanding)| {
@@ -188,8 +188,7 @@ impl Evaluator {
                     })
                     .next_back()
                     .unwrap_or_else(|| {
-                        schedule
-                            .outstanding_by_date()
+                        outstanding_path
                             .first()
                             .map(|(_, outstanding)| {
                                 if outstanding.amount() < 0.0 {

@@ -28,7 +28,7 @@ impl MetricCalculator for AllInRateCalculator {
             crate::instruments::term_loan::cashflows::generate_cashflows(loan, market, as_of)?;
 
         // Get outstanding path including notional draws/repays, amortization, and PIK
-        let out_path = schedule.outstanding_by_date_including_notional();
+        let out_path = schedule.outstanding_by_date_including_notional()?;
 
         // Helper to look up outstanding at a given date (piecewise-constant: last value <= target)
         let outstanding_at = |target: finstack_core::dates::Date| -> finstack_core::Result<Money> {

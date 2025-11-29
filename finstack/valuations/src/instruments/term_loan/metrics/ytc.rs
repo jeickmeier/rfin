@@ -45,7 +45,7 @@ impl MetricCalculator for YtcCalculator {
         )?;
 
         // Use outstanding_by_date_including_notional to get correct principal path
-        let out_path = schedule.outstanding_by_date_including_notional();
+        let out_path = schedule.outstanding_by_date_including_notional()?;
         let mut outstanding_at = Money::new(0.0, loan.currency);
         for (d, amt) in &out_path {
             if *d <= call.date {

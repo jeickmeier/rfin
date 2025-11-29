@@ -128,12 +128,21 @@ impl CashFlowSchedule {
 
     /// Outstanding principal path computed from principal/PIK/amortization flows.
     ///
+    /// Returns one entry per cashflow, tracking the outstanding balance after
+    /// each flow is processed. Useful for debugging and detailed analysis.
+    ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values
     /// (the builder internally manages the reduction of outstanding balance).
     /// PIK amounts are positive and increase outstanding.
     ///
-    /// Example
-    /// -------
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Amortization exceeds current outstanding (would result in negative balance)
+    /// - Currency mismatch between flows and notional
+    ///
+    /// # Example
+    ///
     /// ```rust
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
@@ -150,12 +159,12 @@ impl CashFlowSchedule {
     ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0, rate: None },
     /// ];
     /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashflowMeta::default() };
-    /// let path = s.outstanding_path();
+    /// let path = s.outstanding_path().expect("valid schedule");
     /// assert_eq!(path.len(), 2);
     /// assert_eq!(path[0].1.amount(), 90.0);  // 100 - 10 = 90
     /// assert_eq!(path[1].1.amount(), 95.0);  // 90 + 5 = 95
     /// ```
-    pub fn outstanding_path(&self) -> Vec<(Date, Money)> {
+    pub fn outstanding_path(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut out = Vec::new();
         let mut outstanding = self.notional.initial;
         for cf in &self.flows {
@@ -163,20 +172,16 @@ impl CashFlowSchedule {
                 CFKind::Amortization => {
                     // Amortization amounts are stored as positive in the builder
                     // but economically represent principal reductions
-                    outstanding = outstanding
-                        .checked_sub(cf.amount)
-                        .expect("Outstanding balance calculation should succeed");
+                    outstanding = outstanding.checked_sub(cf.amount)?;
                 }
                 CFKind::PIK => {
-                    outstanding = outstanding
-                        .checked_add(cf.amount)
-                        .expect("Outstanding balance calculation should succeed");
+                    outstanding = outstanding.checked_add(cf.amount)?;
                 }
                 _ => {}
             }
             out.push((cf.date, outstanding));
         }
-        out
+        Ok(out)
     }
 
     // Convenience iterators for callers to avoid ad-hoc filtering.
@@ -205,11 +210,19 @@ impl CashFlowSchedule {
     /// End-of-date outstanding path: one entry per unique date after applying
     /// Amortization/PIK on that date. Redemption does not reduce outstanding here.
     ///
+    /// This is more compact than [`Self::outstanding_path()`] as it groups by date.
+    ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values.
-    pub fn outstanding_by_date(&self) -> Vec<(Date, Money)> {
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Amortization exceeds current outstanding (would result in negative balance)
+    /// - Currency mismatch between flows and notional
+    pub fn outstanding_by_date(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut result: Vec<(Date, Money)> = Vec::new();
         if self.flows.is_empty() {
-            return result;
+            return Ok(result);
         }
 
         let mut outstanding = self.notional.initial;
@@ -222,14 +235,10 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding = outstanding
-                            .checked_sub(self.flows[j].amount)
-                            .expect("Outstanding balance calculation should succeed");
+                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
                     }
                     CFKind::PIK => {
-                        outstanding = outstanding
-                            .checked_add(self.flows[j].amount)
-                            .expect("Outstanding balance calculation should succeed");
+                        outstanding = outstanding.checked_add(self.flows[j].amount)?;
                     }
                     _ => {}
                 }
@@ -239,7 +248,7 @@ impl CashFlowSchedule {
             i = j;
         }
 
-        result
+        Ok(result)
     }
 
     /// End-of-date outstanding path including Notional draws/repays.
@@ -247,10 +256,19 @@ impl CashFlowSchedule {
     /// Applies Amortization (reduces), PIK (increases), and Notional
     /// (draws negative, repays positive) to compute outstanding after
     /// all flows on each date have been processed.
-    pub fn outstanding_by_date_including_notional(&self) -> Vec<(Date, Money)> {
+    ///
+    /// This is the most complete outstanding tracking method, suitable for
+    /// instruments with notional draws/repays like revolving credit facilities.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Amortization or repayment exceeds current outstanding
+    /// - Currency mismatch between flows and notional
+    pub fn outstanding_by_date_including_notional(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut result: Vec<(Date, Money)> = Vec::new();
         if self.flows.is_empty() {
-            return result;
+            return Ok(result);
         }
 
         let mut outstanding = self.notional.initial;
@@ -263,20 +281,14 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding = outstanding
-                            .checked_sub(self.flows[j].amount)
-                            .expect("Outstanding balance calculation should succeed");
+                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
                     }
                     CFKind::PIK => {
-                        outstanding = outstanding
-                            .checked_add(self.flows[j].amount)
-                            .expect("Outstanding balance calculation should succeed");
+                        outstanding = outstanding.checked_add(self.flows[j].amount)?;
                     }
                     CFKind::Notional => {
                         // Draws negative, repays positive -> subtract to apply sign
-                        outstanding = outstanding
-                            .checked_sub(self.flows[j].amount)
-                            .expect("Outstanding balance calculation should succeed");
+                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
                     }
                     _ => {}
                 }
@@ -286,7 +298,7 @@ impl CashFlowSchedule {
             i = j;
         }
 
-        result
+        Ok(result)
     }
     /// Compute pre-period present values aggregated by period.
     ///
