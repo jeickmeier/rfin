@@ -1,0 +1,39 @@
+# Basket
+
+## Features
+- Generic basket instrument that mixes constituent references (embedded instruments or market-data prices) with weights/units.
+- NAV calculation supports per-share or total modes, expense ratio drag, and FX conversion via `FxProvider`.
+- Builder helpers (`BasketPricingConfig`, `ConstituentReference`) for controlling fees, currency, and validation.
+
+## Methodology & References
+- Deterministic aggregation of constituent PVs using the shared `BasketCalculator` with optional expense drag.
+- Currency conversions performed through `MarketContext` FX queries; no stochastic correlation between names.
+- Aligned with ETF/index basket conventions (per-share NAV, expense accrual).
+
+## Usage Example
+```rust
+use finstack_valuations::instruments::basket::Basket;
+
+let basket = Basket::example();
+let pv = basket.value(&market_context, as_of_date)?;
+```
+
+## Limitations / Known Issues
+- No dynamic rebalancing or path-dependent constituent weights; holdings are static for valuation.
+- Does not model constituent correlation or tracking error—relies on underlying instrument pricing.
+- Expense treatment is deterministic; performance-fee or hurdle-style fees are out of scope.
+
+## Pricing Methodology
+- Aggregates constituent PVs using `BasketCalculator` with per-share or total modes, applying expense drag to NAV.
+- Converts constituent values to basket currency via `FxProvider` when needed; deterministic weights/units.
+- Relies on underlying instrument pricing or market data prices; no correlation modeling inside the basket engine.
+
+## Metrics
+- NAV and per-constituent contributions; expense drag impact.
+- Optional DV01/FX exposure metrics via underlying instruments’ metrics when constituent instruments are provided.
+- Aggregate currency exposure and AUM-style totals for reporting.
+
+## Future Enhancements
+- Add drift/vol attribution and tracking-error style diagnostics.
+- Support scheduled rebalancing rules and turnover costs.
+- Provide built-in stress reporting (single-name shocks, FX shocks) with cached constituent impacts.

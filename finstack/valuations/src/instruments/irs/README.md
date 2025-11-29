@@ -752,6 +752,14 @@ mod tests {
 
 ---
 
+## Limitations / Known Issues
+
+- Pricing assumes deterministic forward/discount curves; no stochastic rates or convexity beyond supported compounding configs.
+- Only vanilla fixed/float and OIS compounding structures are modeled; CMS, callable, or cross-currency swaps live in other modules.
+- CSA/funding adjustments are controlled via curve selection; no embedded FVA/CVA/DVA calculations.
+
+---
+
 ## Version History
 
 - **v1.0** (Phase 1 Complete): Core pricing, metrics, OIS support, market standards
@@ -775,3 +783,17 @@ When contributing to the IRS module:
 
 Part of the Finstack library. See root LICENSE file for details.
 
+## Pricing Methodology
+- Builds fixed and floating leg schedules using shared date-generation (stubs, BDC, calendars), projecting floats from forward curves and discounting on chosen curve.
+- Supports OIS compounding, stub handling, and seasonal/lockout features via compounding config; par rate solved via root find on annuity.
+- Optional hazard/credit weighting for survival-adjusted PVs; deterministic curves otherwise.
+
+## Metrics
+- PV, par/par-forward swap rate, DV01 (parallel and key-rate), annuity, and bucketed cashflow PVs by leg.
+- CS01 when hazard curve supplied; carry/roll and accrual metrics for coupon periods.
+- Sensitivities to stub/compounding settings via schedule recomputation; theta via roll-forward PV.
+
+## Future Enhancements
+- Add multi-curve CSA basis adjustments and funding valuation adjustments (FVA/CVA/DVA) hooks.
+- Support Bermudan/cancellable swap optionality directly in-module or via swaption interop.
+- Provide stochastic-rate (HW/LMM) pricing pathways for long-dated exotic compounding.

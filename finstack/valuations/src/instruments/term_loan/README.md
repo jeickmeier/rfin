@@ -706,6 +706,15 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 
 ---
 
+## Limitations / Known Issues
+
+- Deterministic cashflow engine only; no stochastic credit or rate simulation within this module.
+- GAAP/IFRS effective interest rate amortization is not implemented (see planned `OidEirSpec`).
+- Covenant modeling is limited to the provided toggles/step-ups/sweeps; bespoke legal triggers require extensions.
+- Pricing excludes funding-side adjustments (FVA/CVA/DVA) and assumes single-currency loans.
+
+---
+
 ## Future Enhancements
 
 Planned features (currently experimental or not implemented):
@@ -718,22 +727,12 @@ Planned features (currently experimental or not implemented):
 
 ---
 
-## Contributing
+## Pricing Methodology
+- Deterministic cashflow engine builds funding, coupon, amortization, fees, OID, PIK, and call events using schedule/covenant specs.
+- Discounting via loan discount curve on holder-view cashflows; floating coupons projected off reference curves with floors/caps and reset lags.
+- Metrics like YTM/YTC/YTW solved via IRR on filtered cashflows; discount margin/all-in rate solved iteratively against spreads.
 
-When contributing to the term_loan module:
-
-1. **Follow Finstack standards**: See `.cursor/rules/rust/code-standards.mdc`
-2. **Document all public APIs**: Per `.cursor/rules/rust/documentation.mdc`
-3. **Add tests**: Unit, integration, and property tests
-4. **Maintain determinism**: Use Decimal, stable ordering, and predictable algorithms
-5. **Preserve serde stability**: Do not rename fields; use deprecation for removals
-6. **Run lints and tests**: `make lint && make test-rust` before committing
-
----
-
-## License
-
-Part of the Finstack project. See workspace root for license information.
-
-
-
+## Metrics
+- Core metrics: PV, YTM/YTC/YTW/Yn-year, discount margin, all-in rate, DV01/bucketed DV01, CS01/bucketed CS01, theta.
+- Loan-specific outputs: outstanding balance path, amortization/call cashflow breakdowns, covenant-triggered event reporting.
+- Supports custom metrics via registry; IRR helpers for yield solving shared in `metrics/irr_helpers.rs`.

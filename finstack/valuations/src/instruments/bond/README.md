@@ -585,3 +585,22 @@ Use `Bond::with_convention()` for standard regional conventions.
 - [`metrics`] for bond-specific risk metrics
 - [`pricing`] for bond pricing engines
 
+## Limitations / Known Issues
+
+- Deterministic curve inputs only; no stochastic rate/credit paths or optionality beyond the implemented call/put/OAS engines.
+- Does not model tax/withholding, accrued settlement pricing, or fail penalties—these must be handled upstream.
+- Inflation linkage and convertibility live in dedicated modules; keep parity if combining features across modules.
+
+## Pricing Methodology
+- Generates holder-view cashflows per `CashflowSpec` (fixed, float, amortizing, callable/putable) using schedule builders and day-count rules.
+- Discounting/pricing via dedicated engines: discount curve PV, hazard-adjusted FRP, and tree-based OAS for embedded options.
+- Quote conversions (price/yield/spread) solved with ytm/ycs solvers; accrual and ex-coupon handled explicitly.
+
+## Metrics
+- Price/yield/spread ladder (clean/dirty price, YTM/YTW), duration (Macaulay/Modified), convexity.
+- Spread metrics (Z, OAS, I-spread), DV01/CS01 (parallel and bucketed), accrued interest, carry/roll.
+- Option-adjusted measures when tree/OAS engine is used; cashflow PV breakdown by leg.
+
+## Future Enhancements
+- Add full callable/putable amortizing parity with more tree/PDE models and stochastic rates.
+- Expand risk to include curve-shift scenarios (non-parallel) and callable bond Greeks.

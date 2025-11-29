@@ -222,6 +222,15 @@ let irr_opt = calculate_path_irr(&cashflows_as_(t, amt), base_date, day_count);
 
 ---
 
+## Limitations / Known Issues
+
+- CSA/funding adjustments are external; discounting is curve-driven without embedded FVA/CVA/DVA.
+- Stochastic mode depends on the `mc` feature; without it, only deterministic utilization paths are available.
+- Covenant coverage is limited to the modeled triggers; bespoke covenants or restructuring events need explicit extensions.
+- Multi-currency facilities are not modeled; all amounts assume a single currency throughout the lifecycle.
+
+---
+
 ## Python and examples
 
 Python bindings expose the same shapes and behaviors. Example scripts illustrating deterministic vs stochastic pricing, path analysis, and period analysis are available in:
@@ -241,3 +250,17 @@ The design allows for:
 All extensions should preserve the unified engine paradigm to maintain parity and keep PV/metrics consistent across modes.
 
 
+## Pricing Methodology
+- Deterministic engine: generates draws/repays, fees, and interest using schedules and rate specs; discounts cashflows via curve.
+- Stochastic engine (requires `mc`): simulates utilization, rates, and credit spread factors with correlation; maps to cashflows via unified engine.
+- Hazard/survival weighting optionally applied for credit risk; supports fee tiers and PIK/cash splits where configured.
+
+## Metrics
+- PV, facility-level DV01/CS01/Theta/Bucketed DV01 via generic calculators using cashflow outputs.
+- Utilization metrics (peak/average), fee attribution, and carry/roll analyses.
+- Scenario metrics from stochastic paths: distribution of utilization, loss-adjusted PV, and covenant breach statistics when modeled.
+
+## Future Enhancements
+- Add GAAP/IFRS effective interest treatment and CECL/expected-loss hooks.
+- Enrich stochastic engine with jump/regime processes and multi-currency support with FX hedging.
+- Provide prebuilt stress packs (utilization/rate/credit) and visualization for drawdown/liquidity analytics.

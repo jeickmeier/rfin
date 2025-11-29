@@ -1,0 +1,39 @@
+# FX Swap
+
+## Features
+- Near/far FX swap with explicit base/quote currencies, settlement dates, and base notional.
+- Optional explicit near/far rates or forward points; otherwise derives spot/forward from FX matrix and discount curves.
+- Uses domestic and foreign discount curves and integrates with FX matrix for conversions.
+
+## Methodology & References
+- Standard FX swap PV: discount near/far exchanges in each currency, convert foreign leg to domestic via spot/forward, and sum.
+- Forward parity uses `F = S × DF_for / DF_dom` when far rate not supplied.
+- Deterministic discounting; no funding adjustments or cross-currency basis beyond curve inputs.
+
+## Usage Example
+```rust
+use finstack_valuations::instruments::fx_swap::FxSwap;
+
+let swap = FxSwap::example();
+let pv = swap.value(&market_context, as_of_date)?;
+```
+
+## Limitations / Known Issues
+- Assumes availability of FX matrix when near/far rates are absent.
+- No explicit CSA/basis handling beyond the chosen curves; funding adjustments must be modeled externally.
+- Does not model optional early termination or broken-date rollovers beyond supplied dates.
+
+## Pricing Methodology
+- Discounts near/far exchanges in each currency using domestic/foreign curves; converts foreign leg via spot/forward.
+- Forward derived from parity if `far_rate` absent: `F = S × DF_for / DF_dom`; near rate from FX matrix or override.
+- PV is sum of domestic leg and converted foreign leg; deterministic two-leg valuation.
+
+## Metrics
+- PV plus forward points and par far rate implied from curves.
+- DV01 on domestic/foreign curves and FX delta exposures via bump-and-revalue.
+- Cashflow breakdown by near/far legs for attribution.
+
+## Future Enhancements
+- Add CSA/basis spread handling and discount-curve alignment diagnostics.
+- Support broken-date interpolation for near/far beyond standard tenors.
+- Provide FX swaption hooks or optional early termination features.
