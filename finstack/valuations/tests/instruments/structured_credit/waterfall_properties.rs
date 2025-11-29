@@ -51,7 +51,7 @@ fn property_cash_conservation() {
     let test_cases = vec![1_000.0, 10_000.0, 100_000.0, 1_000_000.0, 10_000_000.0];
 
     for available_amount in test_cases {
-        let mut waterfall = WaterfallBuilder::new(currency)
+        let waterfall = WaterfallBuilder::new(currency)
             .add_tier(
                 WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                     "recipient1",
@@ -111,7 +111,7 @@ fn property_non_negative_distributions() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
@@ -168,7 +168,7 @@ fn property_priority_ordering() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("high_priority", 1, PaymentType::Fee)
                 .allocation_mode(AllocationMode::Sequential)
@@ -237,7 +237,7 @@ fn property_pro_rata_weight_distribution() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("pro_rata_tier", 1, PaymentType::Interest)
                 .allocation_mode(AllocationMode::ProRata)
@@ -308,7 +308,7 @@ fn property_shortfall_computation() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
@@ -399,7 +399,7 @@ fn property_tier_count_consistency() {
         );
     }
 
-    let mut waterfall = builder.build();
+    let waterfall = builder.build();
 
     let result = waterfall
         .execute_waterfall(
@@ -430,7 +430,7 @@ fn property_diversion_tracking() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Principal)
                 .divertible(true)
@@ -486,7 +486,7 @@ fn property_monotonic_tier_allocation() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee)
                 .allocation_mode(AllocationMode::Sequential)
@@ -563,7 +563,7 @@ fn property_coverage_test_result_format() {
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
-    let mut waterfall = WaterfallBuilder::new(currency)
+    let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee)
                 .add_recipient(Recipient::new(

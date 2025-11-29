@@ -256,7 +256,7 @@ pub(crate) trait StructuredCreditInstrument {
             .collect();
 
         // Initialize waterfall engine
-        let mut waterfall_engine = self.create_waterfall_engine();
+        let waterfall_engine = self.create_waterfall_engine();
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
 
         // Generate payment schedule

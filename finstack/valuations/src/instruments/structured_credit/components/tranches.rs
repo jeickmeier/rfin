@@ -324,24 +324,28 @@ impl Tranche {
     }
 
     /// Builder methods for fluent construction
+    #[must_use]
     pub fn with_rating(mut self, rating: CreditRating) -> Self {
         self.rating = Some(rating);
         self
     }
 
     /// Add overcollateralization coverage trigger
+    #[must_use]
     pub fn with_oc_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.oc_trigger = Some(trigger);
         self
     }
 
     /// Add interest coverage trigger
+    #[must_use]
     pub fn with_ic_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.ic_trigger = Some(trigger);
         self
     }
 
     /// Mark tranche as revolving (enables reinvestment)
+    #[must_use]
     pub fn revolving(mut self) -> Self {
         self.is_revolving = true;
         self.can_reinvest = true;
@@ -349,6 +353,7 @@ impl Tranche {
     }
 
     /// Set expected maturity date (typically earlier than legal maturity)
+    #[must_use]
     pub fn with_expected_maturity(mut self, date: Date) -> Self {
         self.expected_maturity = Some(date);
         self
@@ -387,12 +392,14 @@ impl TrancheBuilder {
     }
 
     /// Set tranche ID
+    #[must_use]
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
     /// Set attachment and detachment points (as percentages)
+    #[must_use]
     pub fn attachment_detachment(mut self, attachment: f64, detachment: f64) -> Self {
         self.attachment_point = Some(attachment);
         self.detachment_point = Some(detachment);
@@ -400,42 +407,49 @@ impl TrancheBuilder {
     }
 
     /// Set tranche seniority level
+    #[must_use]
     pub fn seniority(mut self, seniority: TrancheSeniority) -> Self {
         self.seniority = Some(seniority);
         self
     }
 
     /// Set original tranche balance
+    #[must_use]
     pub fn balance(mut self, balance: Money) -> Self {
         self.original_balance = Some(balance);
         self
     }
 
     /// Set coupon specification (fixed or floating)
+    #[must_use]
     pub fn coupon(mut self, coupon: TrancheCoupon) -> Self {
         self.coupon = Some(coupon);
         self
     }
 
     /// Set legal maturity date
+    #[must_use]
     pub fn legal_maturity(mut self, date: Date) -> Self {
         self.legal_maturity = Some(date);
         self
     }
 
     /// Set credit rating
+    #[must_use]
     pub fn rating(mut self, rating: CreditRating) -> Self {
         self.rating = Some(rating);
         self
     }
 
     /// Set payment frequency
+    #[must_use]
     pub fn payment_frequency(mut self, freq: Frequency) -> Self {
         self.payment_frequency = freq;
         self
     }
 
     /// Set day count convention
+    #[must_use]
     pub fn day_count(mut self, dc: DayCount) -> Self {
         self.day_count = dc;
         self

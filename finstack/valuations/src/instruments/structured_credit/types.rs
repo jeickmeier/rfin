@@ -309,6 +309,15 @@ impl StructuredCredit {
     }
 
     /// Create a canonical example CLO structured credit deal with minimal components.
+    ///
+    /// This method is intended for testing, documentation examples, and quick prototyping.
+    /// It creates a fully valid CLO deal with a single senior tranche and basic waterfall.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the hard-coded example dates (2024-01-01, 2034-01-01) are invalid.
+    /// This should never happen barring library bugs in the `time` crate.
+    #[must_use]
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
@@ -898,6 +907,7 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         use super::components::cpr_to_smm;
+        use super::config::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
 
         // Check overrides in priority order
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
@@ -909,14 +919,11 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         }
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
-            // Inline PSA calculation
-            use super::components::cpr_to_smm;
-            let psa_ramp_months = 30;
-            let psa_terminal_cpr = 0.06;
-            let base_cpr = if seasoning <= psa_ramp_months {
-                (seasoning as f64 / psa_ramp_months as f64) * psa_terminal_cpr
+            // PSA calculation using standard constants
+            let base_cpr = if seasoning <= PSA_RAMP_MONTHS {
+                (seasoning as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
             } else {
-                psa_terminal_cpr
+                PSA_TERMINAL_CPR
             };
             let cpr = base_cpr * psa_mult;
             return Some(cpr_to_smm(cpr));
@@ -927,6 +934,7 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
 
     fn default_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         use super::components::cdr_to_mdr;
+        use super::config::{SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR};
 
         // Check overrides in priority order
         if let Some(cdr) = self.behavior_overrides.cdr_annual {
@@ -934,22 +942,19 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
-            // Inline SDA calculation
-            let peak_month = 30;
-            let peak_cdr = 0.006;
-            let terminal_cdr = 0.0003;
+            // SDA calculation using standard constants
+            let decline_period = (SDA_PEAK_MONTH * 2 - SDA_PEAK_MONTH) as f64; // 30 months decline
 
-            let cdr = if seasoning <= peak_month {
+            let cdr = if seasoning <= SDA_PEAK_MONTH {
                 // Ramp up to peak
-                (seasoning as f64 / peak_month as f64) * peak_cdr
-            } else if seasoning <= 60 {
+                (seasoning as f64 / SDA_PEAK_MONTH as f64) * SDA_PEAK_CDR
+            } else if seasoning <= SDA_PEAK_MONTH * 2 {
                 // Decline from peak to terminal
-                let months_past_peak = (seasoning - peak_month) as f64;
-                let decline_period = 30.0;
-                peak_cdr - (months_past_peak / decline_period) * (peak_cdr - terminal_cdr)
+                let months_past_peak = (seasoning - SDA_PEAK_MONTH) as f64;
+                SDA_PEAK_CDR - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
             } else {
                 // Terminal rate
-                terminal_cdr
+                SDA_TERMINAL_CDR
             } * sda_mult;
 
             // Convert CDR to MDR

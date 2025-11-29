@@ -139,12 +139,14 @@ impl Recipient {
     }
 
     /// Set weight for pro-rata allocation
+    #[must_use]
     pub fn with_weight(mut self, weight: f64) -> Self {
         self.weight = Some(weight);
         self
     }
 
     /// Create a fixed fee recipient
+    #[must_use]
     pub fn fixed_fee(id: impl Into<String>, provider: impl Into<String>, amount: Money) -> Self {
         Self::new(
             id,
@@ -154,6 +156,7 @@ impl Recipient {
     }
 
     /// Create a tranche interest recipient
+    #[must_use]
     pub fn tranche_interest(id: impl Into<String>, tranche_id: impl Into<String>) -> Self {
         let tranche_id_str = tranche_id.into();
         Self::new(
@@ -166,6 +169,7 @@ impl Recipient {
     }
 
     /// Create a tranche principal recipient
+    #[must_use]
     pub fn tranche_principal(
         id: impl Into<String>,
         tranche_id: impl Into<String>,
@@ -203,6 +207,7 @@ pub struct WaterfallTier {
 
 impl WaterfallTier {
     /// Create a new waterfall tier
+    #[must_use]
     pub fn new(id: impl Into<String>, priority: usize, payment_type: PaymentType) -> Self {
         Self {
             id: id.into(),
@@ -215,18 +220,21 @@ impl WaterfallTier {
     }
 
     /// Add a recipient to this tier
+    #[must_use]
     pub fn add_recipient(mut self, recipient: Recipient) -> Self {
         self.recipients.push(recipient);
         self
     }
 
     /// Set allocation mode
+    #[must_use]
     pub fn allocation_mode(mut self, mode: AllocationMode) -> Self {
         self.allocation_mode = mode;
         self
     }
 
     /// Mark as divertible
+    #[must_use]
     pub fn divertible(mut self, divertible: bool) -> Self {
         self.divertible = divertible;
         self
@@ -424,6 +432,7 @@ pub struct WaterfallEngine {
 
 impl WaterfallEngine {
     /// Create new waterfall engine
+    #[must_use]
     pub fn new(base_currency: Currency) -> Self {
         Self {
             tiers: Vec::new(),
@@ -433,6 +442,7 @@ impl WaterfallEngine {
     }
 
     /// Add a tier
+    #[must_use]
     pub fn add_tier(mut self, tier: WaterfallTier) -> Self {
         self.tiers.push(tier);
         self.tiers.sort_by_key(|t| t.priority);
@@ -440,6 +450,7 @@ impl WaterfallEngine {
     }
 
     /// Add coverage trigger for OC/IC diversion
+    #[must_use]
     pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.coverage_triggers.push(trigger);
         self
@@ -448,7 +459,7 @@ impl WaterfallEngine {
     /// Execute waterfall to distribute available cash
     #[allow(clippy::too_many_arguments)]
     pub fn execute_waterfall(
-        &mut self,
+        &self,
         available_cash: Money,
         interest_collections: Money,
         payment_date: Date,
@@ -472,7 +483,7 @@ impl WaterfallEngine {
     /// Execute waterfall with optional explanation trace
     #[allow(clippy::too_many_arguments)]
     pub fn execute_waterfall_with_explanation(
-        &mut self,
+        &self,
         available_cash: Money,
         interest_collections: Money,
         payment_date: Date,
@@ -622,7 +633,7 @@ impl WaterfallEngine {
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn execute_waterfall_with_workspace(
-        &mut self,
+        &self,
         available_cash: Money,
         interest_collections: Money,
         payment_date: Date,
@@ -1277,6 +1288,7 @@ pub struct WaterfallBuilder {
 
 impl WaterfallBuilder {
     /// Create new builder
+    #[must_use]
     pub fn new(base_currency: Currency) -> Self {
         Self {
             engine: WaterfallEngine::new(base_currency),
@@ -1285,6 +1297,7 @@ impl WaterfallBuilder {
     }
 
     /// Add a tier
+    #[must_use]
     pub fn add_tier(mut self, mut tier: WaterfallTier) -> Self {
         if tier.priority == 0 {
             tier.priority = self.next_priority;
@@ -1295,12 +1308,14 @@ impl WaterfallBuilder {
     }
 
     /// Add coverage trigger
+    #[must_use]
     pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.engine = self.engine.add_coverage_trigger(trigger);
         self
     }
 
     /// Build the waterfall engine
+    #[must_use]
     pub fn build(self) -> WaterfallEngine {
         self.engine
     }

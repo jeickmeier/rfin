@@ -33,6 +33,20 @@ pub enum DealType {
     Card,
 }
 
+impl core::fmt::Display for DealType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DealType::CLO => write!(f, "CLO"),
+            DealType::CBO => write!(f, "CBO"),
+            DealType::ABS => write!(f, "ABS"),
+            DealType::RMBS => write!(f, "RMBS"),
+            DealType::CMBS => write!(f, "CMBS"),
+            DealType::Auto => write!(f, "Auto ABS"),
+            DealType::Card => write!(f, "Credit Card ABS"),
+        }
+    }
+}
+
 // ============================================================================
 // CREDIT & RATINGS
 // ============================================================================
@@ -72,6 +86,24 @@ impl CreditRating {
     }
 }
 
+impl core::fmt::Display for CreditRating {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            CreditRating::AAA => write!(f, "AAA"),
+            CreditRating::AA => write!(f, "AA"),
+            CreditRating::A => write!(f, "A"),
+            CreditRating::BBB => write!(f, "BBB"),
+            CreditRating::BB => write!(f, "BB"),
+            CreditRating::B => write!(f, "B"),
+            CreditRating::CCC => write!(f, "CCC"),
+            CreditRating::CC => write!(f, "CC"),
+            CreditRating::C => write!(f, "C"),
+            CreditRating::D => write!(f, "D"),
+            CreditRating::NR => write!(f, "NR"),
+        }
+    }
+}
+
 /// Tranche seniority levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -84,6 +116,17 @@ pub enum TrancheSeniority {
     Subordinated = 2,
     /// Equity/first loss piece
     Equity = 3,
+}
+
+impl core::fmt::Display for TrancheSeniority {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TrancheSeniority::Senior => write!(f, "Senior"),
+            TrancheSeniority::Mezzanine => write!(f, "Mezzanine"),
+            TrancheSeniority::Subordinated => write!(f, "Subordinated"),
+            TrancheSeniority::Equity => write!(f, "Equity"),
+        }
+    }
 }
 
 // ============================================================================
