@@ -421,10 +421,7 @@ mod tests {
 
     #[test]
     fn test_duplicate_tier_id() {
-        let tiers = vec![
-            create_valid_tier("tier1", 1),
-            create_valid_tier("tier1", 2),
-        ];
+        let tiers = vec![create_valid_tier("tier1", 1), create_valid_tier("tier1", 2)];
 
         let errors = validate_tiers(&tiers);
         assert_eq!(errors.len(), 1);
@@ -441,4 +438,3 @@ mod tests {
         assert!(matches!(errors[0], ValidationError::EmptyTier { .. }));
     }
 }
-

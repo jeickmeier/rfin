@@ -5,9 +5,9 @@
 
 use super::{
     AllocationMode, AssetPool, BehaviorOverrides, CreditFactors, DealMetadata, DealType,
-    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient, RecoveryModelSpec,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
-    WaterfallTier,
+    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient,
+    RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
+    TrancheStructure, Waterfall, WaterfallTier,
 };
 use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Frequency};
@@ -370,5 +370,4 @@ impl StructuredCredit {
         inst.default_assumptions = DefaultAssumptions::rmbs_standard();
         inst
     }
-
 }

@@ -41,11 +41,11 @@ pub use enums::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConse
 pub use enums::TrancheSeniority as Seniority;
 
 // Pool types - use Pool as the primary name
+pub use pool::AssetPool as Pool;
 pub use pool::{
     calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
     PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
 };
-pub use pool::AssetPool as Pool;
 
 // Tranche types
 pub use tranches::{
@@ -60,12 +60,12 @@ pub use setup::{CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssu
 pub use reinvestment::ReinvestmentManager;
 
 // Waterfall types
+pub use waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 pub use waterfall::{
     AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
     PaymentType, Recipient, RecipientType, Waterfall, WaterfallBuilder, WaterfallDistribution,
     WaterfallTier, WaterfallWorkspace,
 };
-pub use waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 
 // Result types
 pub use results::{TrancheCashflows, TrancheValuation, TrancheValuationExt};
@@ -80,9 +80,7 @@ pub use crate::instruments::structured_credit::pricing::{
 // ============================================================================
 
 // Re-export deterministic model specs from cashflow builder
-pub use crate::cashflow::builder::{
-    DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-};
+pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 
 // ============================================================================
 // IMPORTS FOR STRUCTUREDCREDIT
@@ -387,8 +385,7 @@ impl StructuredCredit {
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
-            let decline_period =
-                (constants::SDA_PEAK_MONTH * 2 - constants::SDA_PEAK_MONTH) as f64;
+            let decline_period = (constants::SDA_PEAK_MONTH * 2 - constants::SDA_PEAK_MONTH) as f64;
 
             let cdr = if seasoning <= constants::SDA_PEAK_MONTH {
                 (seasoning as f64 / constants::SDA_PEAK_MONTH as f64) * constants::SDA_PEAK_CDR
@@ -479,7 +476,11 @@ impl Instrument for StructuredCredit {
         let base_value = self.value(context, as_of)?;
 
         if metrics.is_empty() {
-            return Ok(ValuationResult::stamped(self.id.as_str(), as_of, base_value));
+            return Ok(ValuationResult::stamped(
+                self.id.as_str(),
+                as_of,
+                base_value,
+            ));
         }
 
         let flows = self.build_schedule(context, as_of)?;

@@ -13,7 +13,8 @@ pub mod validation;
 
 // Re-export commonly used functions
 pub use rate_helpers::tenor_to_period_end;
-pub use rates::{cdr_to_mdr, cpr_to_smm, frequency_periods_per_year, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
+pub use rates::{
+    cdr_to_mdr, cpr_to_smm, frequency_periods_per_year, mdr_to_cdr, psa_to_cpr, smm_to_cpr,
+};
 pub use simulation::{update_tranche_balance, PeriodFlows, RecoveryQueue};
 pub use validation::{get_validation_errors, is_valid_waterfall_spec, ValidationError};
-

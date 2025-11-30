@@ -502,4 +502,3 @@ mod tests {
         assert!(bumped.prepay_default_correlation() >= -0.99);
     }
 }
-

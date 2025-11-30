@@ -232,7 +232,9 @@ mod tests {
         let tree_config = ScenarioTreeConfig::new(
             12,
             1.0,
-            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(3),
+            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
+                3,
+            ),
         );
 
         let config = StochasticPricerConfig::new(today, curve, tree_config);
@@ -249,7 +251,9 @@ mod tests {
         let tree_config = ScenarioTreeConfig::new(
             12,
             1.0,
-            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(3),
+            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
+                3,
+            ),
         );
 
         let config = StochasticPricerConfig::new(today, curve, tree_config)

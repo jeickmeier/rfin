@@ -60,8 +60,8 @@ use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceive
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo};
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PoolAsset, Recipient, RecipientType,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
@@ -847,7 +847,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let sc_id = format!("CLO_{}", i);
 
         // Create simple pool
-        let mut pool = AssetPool::new(sc_id.clone(), DealType::CLO, Currency::USD);
+        let mut pool = Pool::new(sc_id.clone(), DealType::CLO, Currency::USD);
         for j in 0..10 {
             pool.assets.push(PoolAsset::fixed_rate_bond(
                 format!("{}_ASSET_{}", sc_id, j),
@@ -862,7 +862,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             format!("{}_SENIOR", sc_id),
             0.0,
             100.0, // Must reach 100% for valid structure
-            TrancheSeniority::Senior,
+            Seniority::Senior,
             Money::new(10_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.04 },
             maturity_5y(),

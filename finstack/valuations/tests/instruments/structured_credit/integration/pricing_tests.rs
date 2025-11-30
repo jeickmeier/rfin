@@ -10,8 +10,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PoolAsset, Recipient, RecipientType,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -24,8 +24,8 @@ fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
 }
 
-fn create_simple_pool() -> AssetPool {
-    let mut pool = AssetPool::new("POOL", DealType::ABS, Currency::USD);
+fn create_simple_pool() -> Pool {
+    let mut pool = Pool::new("POOL", DealType::ABS, Currency::USD);
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "A1",
         Money::new(5_000_000.0, Currency::USD),
@@ -46,7 +46,7 @@ fn create_simple_tranches() -> TrancheStructure {
         "SENIOR",
         0.0,
         100.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(8_000_000.0, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.035 },
         Date::from_calendar_date(2030, Month::January, 1).unwrap(),
@@ -289,7 +289,7 @@ fn test_structured_credit_metric_dependency_resolution() {
 #[test]
 fn test_structured_credit_pool_balance_cleanup() {
     // Arrange: Pool with very small remaining balance
-    let mut pool = AssetPool::new("SMALL_POOL", DealType::ABS, Currency::USD);
+    let mut pool = Pool::new("SMALL_POOL", DealType::ABS, Currency::USD);
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "A1",
         Money::new(50.0, Currency::USD), // Below cleanup threshold

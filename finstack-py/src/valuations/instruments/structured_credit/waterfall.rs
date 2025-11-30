@@ -9,8 +9,8 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode as RustAllocationMode, PaymentCalculation as RustPaymentCalculation,
-    PaymentType as RustPaymentType, Recipient as RustRecipient,
-    RecipientType as RustRecipientType, WaterfallTier as RustWaterfallTier,
+    PaymentType as RustPaymentType, Recipient as RustRecipient, RecipientType as RustRecipientType,
+    WaterfallTier as RustWaterfallTier,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

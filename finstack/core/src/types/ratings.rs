@@ -414,4 +414,3 @@ mod tests {
         assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
     }
 }
-

@@ -13,13 +13,14 @@
 //! - **Interest calculations**: Exact expected values with `CASH_TOLERANCE`
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
 use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation, PaymentType,
-    Recipient, RecipientType, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    AllocationMode, DealType, ManagementFeeType, PaymentCalculation, PaymentType, Pool, Recipient,
+    RecipientType, Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
     WaterfallBuilder, WaterfallTier,
 };
 
@@ -37,12 +38,12 @@ fn create_test_market() -> MarketContext {
 }
 
 /// Helper to create a test asset pool
-fn create_test_pool(balance: f64, currency: Currency) -> AssetPool {
+fn create_test_pool(balance: f64, currency: Currency) -> Pool {
     use finstack_core::types::ratings::CreditRating;
     use finstack_core::types::InstrumentId;
     use finstack_valuations::instruments::structured_credit::{AssetType, PoolAsset};
 
-    let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, currency);
+    let mut pool = Pool::new("TEST_POOL", DealType::CLO, currency);
 
     // Add assets to match the specified balance
     let num_assets = 10;
@@ -80,7 +81,7 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
         "CLASS_A",
         0.0,
         70.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(175_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.05 },
         Date::from_calendar_date(2031, time::Month::January, 1).unwrap(),
@@ -91,7 +92,7 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
         "CLASS_B",
         70.0,
         85.0,
-        TrancheSeniority::Mezzanine,
+        Seniority::Mezzanine,
         Money::new(37_500_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.065 },
         Date::from_calendar_date(2031, time::Month::January, 1).unwrap(),
@@ -102,7 +103,7 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
         "CLASS_C",
         85.0,
         95.0,
-        TrancheSeniority::Subordinated,
+        Seniority::Subordinated,
         Money::new(25_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.08 },
         Date::from_calendar_date(2031, time::Month::January, 1).unwrap(),
@@ -113,7 +114,7 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
         "EQUITY",
         95.0,
         100.0,
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(12_500_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.0 },
         Date::from_calendar_date(2031, time::Month::January, 1).unwrap(),
@@ -121,6 +122,32 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
     .unwrap();
 
     TrancheStructure::new(vec![class_a, class_b, class_c, equity]).unwrap()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_waterfall(
+    waterfall: &Waterfall,
+    available_cash: Money,
+    interest_collections: Money,
+    payment_date: Date,
+    tranches: &TrancheStructure,
+    pool_balance: Money,
+    pool: &Pool,
+    market: &MarketContext,
+) -> WaterfallDistribution {
+    let period_start = add_months(payment_date, -3);
+    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+        waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        period_start,
+        tranches,
+        pool_balance,
+        pool,
+        market,
+    )
+    .expect("waterfall execution")
 }
 
 #[test]
@@ -206,17 +233,16 @@ fn test_golden_clo_2_0_full_payment() {
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
     let pool_balance = Money::new(250_000_000.0, currency);
 
-    let result = waterfall
-        .execute_waterfall(
-            available_cash,
-            interest_collections,
-            payment_date,
-            &tranches,
-            pool_balance,
-            &pool,
-            &market,
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        &tranches,
+        pool_balance,
+        &pool,
+        &market,
+    );
 
     // Verify tier allocations
     assert_eq!(result.tier_allocations.len(), 4);
@@ -335,17 +361,16 @@ fn test_golden_clo_oc_breach_diversion() {
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
     let pool_balance = Money::new(200_000_000.0, currency);
 
-    let result = waterfall
-        .execute_waterfall(
-            available_cash,
-            interest_collections,
-            payment_date,
-            &tranches,
-            pool_balance,
-            &pool,
-            &market,
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        &tranches,
+        pool_balance,
+        &pool,
+        &market,
+    );
 
     // With impaired collateral, OC test should fail
     // OC ratio = $200M / ($175M) = 1.14 < 1.25 required
@@ -385,7 +410,7 @@ fn test_golden_cmbs_sequential_pay() {
         "CLASS_A",
         0.0,
         70.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(300_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.04 },
         Date::from_calendar_date(2034, time::Month::January, 1).unwrap(),
@@ -396,7 +421,7 @@ fn test_golden_cmbs_sequential_pay() {
         "CLASS_B",
         70.0,
         85.0,
-        TrancheSeniority::Mezzanine,
+        Seniority::Mezzanine,
         Money::new(75_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.045 },
         Date::from_calendar_date(2034, time::Month::January, 1).unwrap(),
@@ -407,7 +432,7 @@ fn test_golden_cmbs_sequential_pay() {
         "CLASS_C",
         85.0,
         100.0,
-        TrancheSeniority::Subordinated,
+        Seniority::Subordinated,
         Money::new(50_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.05 },
         Date::from_calendar_date(2034, time::Month::January, 1).unwrap(),
@@ -462,17 +487,16 @@ fn test_golden_cmbs_sequential_pay() {
     let payment_date = Date::from_calendar_date(2024, time::Month::February, 1).unwrap();
     let pool_balance = Money::new(500_000_000.0, currency);
 
-    let result = waterfall
-        .execute_waterfall(
-            available_cash,
-            interest_collections,
-            payment_date,
-            &tranches,
-            pool_balance,
-            &pool,
-            &market,
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        &tranches,
+        pool_balance,
+        &pool,
+        &market,
+    );
 
     // CMBS should NOT have coverage tests
     assert_eq!(result.coverage_tests.len(), 0);
@@ -504,7 +528,7 @@ fn test_golden_cre_pro_rata_distribution() {
         "LP",
         0.0,
         95.0,
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(47_500_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.08 },
         Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
@@ -515,7 +539,7 @@ fn test_golden_cre_pro_rata_distribution() {
         "GP",
         95.0,
         100.0,
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(2_500_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.08 },
         Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
@@ -589,17 +613,16 @@ fn test_golden_cre_pro_rata_distribution() {
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
     let pool_balance = Money::new(50_000_000.0, currency);
 
-    let result = waterfall
-        .execute_waterfall(
-            available_cash,
-            interest_collections,
-            payment_date,
-            &tranches,
-            pool_balance,
-            &pool,
-            &market,
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        &tranches,
+        pool_balance,
+        &pool,
+        &market,
+    );
 
     // Verify pro-rata preferred return tier
     let pref_tier = result
@@ -679,17 +702,16 @@ fn test_golden_cash_conservation() {
     let available_cash = Money::new(1_000_000.0, currency);
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
 
-    let result = waterfall
-        .execute_waterfall(
-            available_cash,
-            Money::new(0.0, currency),
-            payment_date,
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &market,
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        available_cash,
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &market,
+    );
 
     // Cash conservation: sum(tiers) + remaining = available
     // This fundamental invariant must hold exactly (within f64 precision)

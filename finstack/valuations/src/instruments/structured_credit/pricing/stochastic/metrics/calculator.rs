@@ -2,7 +2,9 @@
 //!
 //! Computes risk metrics from scenario trees or Monte Carlo paths.
 
-use crate::instruments::structured_credit::pricing::stochastic::tree::{ScenarioTree, ScenarioTreeConfig};
+use crate::instruments::structured_credit::pricing::stochastic::tree::{
+    ScenarioTree, ScenarioTreeConfig,
+};
 
 /// Stochastic risk metrics for structured credit.
 #[derive(Clone, Debug)]

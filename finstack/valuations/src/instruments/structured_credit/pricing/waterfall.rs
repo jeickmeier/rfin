@@ -4,14 +4,13 @@
 //! All type definitions are in `types::waterfall`.
 
 use super::coverage_tests::{CoverageTest, TestContext};
-use crate::instruments::structured_credit::types::constants::QUARTERLY_PERIODS_PER_YEAR;
 use crate::instruments::structured_credit::types::{
     AllocationMode, PaymentCalculation, PaymentRecord, PaymentType, Pool, Recipient, RecipientType,
     TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 use crate::instruments::structured_credit::utils::frequency_periods_per_year;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -49,6 +48,7 @@ pub fn execute_waterfall(
     available_cash: Money,
     interest_collections: Money,
     payment_date: Date,
+    period_start: Date,
     tranches: &TrancheStructure,
     pool_balance: Money,
     pool: &Pool,
@@ -59,6 +59,7 @@ pub fn execute_waterfall(
         available_cash,
         interest_collections,
         payment_date,
+        period_start,
         tranches,
         pool_balance,
         pool,
@@ -74,6 +75,7 @@ pub fn execute_waterfall_with_explanation(
     available_cash: Money,
     interest_collections: Money,
     payment_date: Date,
+    period_start: Date,
     tranches: &TrancheStructure,
     pool_balance: Money,
     pool: &Pool,
@@ -125,22 +127,21 @@ pub fn execute_waterfall_with_explanation(
 
     // Process tiers in priority order
     for tier in &waterfall.tiers {
-        let (target_recipients, tier_diverted): (&[Recipient], bool) =
-            if tier.divertible && diversion_active {
-                let senior_tier = waterfall
-                    .tiers
-                    .iter()
-                    .filter(|t| {
-                        t.priority < tier.priority && t.payment_type == PaymentType::Principal
-                    })
-                    .min_by_key(|t| t.priority);
+        let (target_recipients, tier_diverted): (&[Recipient], bool) = if tier.divertible
+            && diversion_active
+        {
+            let senior_tier = waterfall
+                .tiers
+                .iter()
+                .filter(|t| t.priority < tier.priority && t.payment_type == PaymentType::Principal)
+                .min_by_key(|t| t.priority);
 
-                senior_tier
-                    .map(|s| (&s.recipients[..], true))
-                    .unwrap_or((&tier.recipients[..], false))
-            } else {
-                (&tier.recipients[..], false)
-            };
+            senior_tier
+                .map(|s| (&s.recipients[..], true))
+                .unwrap_or((&tier.recipients[..], false))
+        } else {
+            (&tier.recipients[..], false)
+        };
 
         let tier_cash = match tier.allocation_mode {
             AllocationMode::Sequential => allocate_sequential(
@@ -151,6 +152,7 @@ pub fn execute_waterfall_with_explanation(
                 tranches,
                 &tranche_index,
                 pool_balance,
+                period_start,
                 payment_date,
                 market,
                 tier_diverted,
@@ -167,6 +169,7 @@ pub fn execute_waterfall_with_explanation(
                 tranches,
                 &tranche_index,
                 pool_balance,
+                period_start,
                 payment_date,
                 market,
                 tier_diverted,
@@ -207,6 +210,7 @@ pub fn execute_waterfall_with_workspace(
     available_cash: Money,
     interest_collections: Money,
     payment_date: Date,
+    period_start: Date,
     tranches: &TrancheStructure,
     pool_balance: Money,
     pool: &Pool,
@@ -255,22 +259,21 @@ pub fn execute_waterfall_with_workspace(
     }
 
     for tier in &waterfall.tiers {
-        let (target_recipients, tier_diverted): (&[Recipient], bool) =
-            if tier.divertible && diversion_active {
-                let senior_tier = waterfall
-                    .tiers
-                    .iter()
-                    .filter(|t| {
-                        t.priority < tier.priority && t.payment_type == PaymentType::Principal
-                    })
-                    .min_by_key(|t| t.priority);
+        let (target_recipients, tier_diverted): (&[Recipient], bool) = if tier.divertible
+            && diversion_active
+        {
+            let senior_tier = waterfall
+                .tiers
+                .iter()
+                .filter(|t| t.priority < tier.priority && t.payment_type == PaymentType::Principal)
+                .min_by_key(|t| t.priority);
 
-                senior_tier
-                    .map(|s| (&s.recipients[..], true))
-                    .unwrap_or((&tier.recipients[..], false))
-            } else {
-                (&tier.recipients[..], false)
-            };
+            senior_tier
+                .map(|s| (&s.recipients[..], true))
+                .unwrap_or((&tier.recipients[..], false))
+        } else {
+            (&tier.recipients[..], false)
+        };
 
         let tier_cash = match tier.allocation_mode {
             AllocationMode::Sequential => allocate_sequential(
@@ -281,6 +284,7 @@ pub fn execute_waterfall_with_workspace(
                 tranches,
                 &tranche_index,
                 pool_balance,
+                period_start,
                 payment_date,
                 market,
                 tier_diverted,
@@ -297,6 +301,7 @@ pub fn execute_waterfall_with_workspace(
                 tranches,
                 &tranche_index,
                 pool_balance,
+                period_start,
                 payment_date,
                 market,
                 tier_diverted,
@@ -421,6 +426,7 @@ fn allocate_sequential(
     tranches: &TrancheStructure,
     tranche_index: &HashMap<&str, usize>,
     pool_balance: Money,
+    period_start: Date,
     payment_date: Date,
     market: &MarketContext,
     diverted: bool,
@@ -443,6 +449,7 @@ fn allocate_sequential(
             tranches,
             tranche_index,
             pool_balance,
+            period_start,
             payment_date,
             market,
         )?;
@@ -524,6 +531,7 @@ fn allocate_pro_rata(
     tranches: &TrancheStructure,
     tranche_index: &HashMap<&str, usize>,
     pool_balance: Money,
+    period_start: Date,
     payment_date: Date,
     market: &MarketContext,
     diverted: bool,
@@ -548,6 +556,7 @@ fn allocate_pro_rata(
             tranches,
             tranche_index,
             pool_balance,
+            period_start,
             payment_date,
             market,
         )?;
@@ -756,6 +765,7 @@ fn calculate_payment_amount(
     tranches: &TrancheStructure,
     tranche_index: &HashMap<&str, usize>,
     pool_balance: Money,
+    period_start: Date,
     payment_date: Date,
     market: &MarketContext,
 ) -> Result<Money> {
@@ -763,13 +773,17 @@ fn calculate_payment_amount(
         PaymentCalculation::FixedAmount { amount } => Ok(*amount),
 
         PaymentCalculation::PercentageOfCollateral { rate, annualized } => {
-            let period_rate = if *annualized {
-                rate / QUARTERLY_PERIODS_PER_YEAR
+            let accrual_fraction = if *annualized {
+                DayCount::Act360.year_fraction(
+                    period_start,
+                    payment_date,
+                    DayCountCtx::default(),
+                )?
             } else {
-                *rate
+                1.0
             };
             Ok(Money::new(
-                pool_balance.amount() * period_rate,
+                pool_balance.amount() * rate * accrual_fraction,
                 base_currency,
             ))
         }
@@ -778,11 +792,18 @@ fn calculate_payment_amount(
             if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
                 let tranche = &tranches.tranches[idx];
                 let rate = tranche.coupon.current_rate_with_index(payment_date, market);
-                // Use tranche's actual payment frequency instead of hardcoded quarterly
-                let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
-                let period_rate = rate / periods_per_year;
+                let periods_per_year =
+                    frequency_periods_per_year(tranche.payment_frequency).max(f64::EPSILON);
+                let day_count_ctx = DayCountCtx {
+                    frequency: Some(tranche.payment_frequency),
+                    ..DayCountCtx::default()
+                };
+                let accrual_fraction = tranche
+                    .day_count
+                    .year_fraction(period_start, payment_date, day_count_ctx)
+                    .unwrap_or(1.0 / periods_per_year);
                 Ok(Money::new(
-                    tranche.current_balance.amount() * period_rate,
+                    tranche.current_balance.amount() * rate * accrual_fraction,
                     base_currency,
                 ))
             } else {
@@ -821,4 +842,3 @@ fn calculate_payment_amount(
         PaymentCalculation::ResidualCash => Ok(available),
     }
 }
-

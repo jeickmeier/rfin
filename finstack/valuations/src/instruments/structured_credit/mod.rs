@@ -28,7 +28,7 @@
 
 pub mod config {
     //! Configuration and constants for structured credit instruments.
-    
+
     /// Industry-standard constants for structured credit modeling.
     pub mod constants {
         pub use crate::instruments::structured_credit::types::constants::*;
@@ -41,11 +41,10 @@ pub mod config {
 
 // New module structure
 pub mod metrics;
-pub mod pricing;
 pub mod pricer;
+pub mod pricing;
 pub mod types;
 pub mod utils;
-
 
 // ============================================================================
 // PRELUDE
@@ -102,39 +101,73 @@ pub mod prelude {
 
 pub use pricer::StructuredCreditDiscountingPricer;
 pub use types::{
-    // Main instrument
-    StructuredCredit,
-    // Metadata
-    BehaviorOverrides, DealMetadata, Metadata, Overrides,
     // Pool types
-    calculate_pool_stats, ConcentrationCheckResult, ConcentrationViolation, Pool, PoolAsset,
-    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
-    // Tranche types
-    CoverageTrigger, CreditEnhancement, Seniority, Tranche, TrancheBehaviorType, TrancheBuilder,
-    TrancheCoupon, TrancheStructure,
+    calculate_pool_stats,
     // Waterfall types
-    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
-    PaymentType, Recipient, RecipientType, Waterfall, WaterfallBuilder, WaterfallDistribution,
-    WaterfallTier, WaterfallWorkspace,
-    // Result types
-    TrancheCashflows, TrancheValuation, TrancheValuationExt,
+    AllocationMode,
     // Enums
-    AssetType, DealType, PaymentMode, TriggerConsequence,
+    AssetType,
+    // Metadata
+    BehaviorOverrides,
+    ConcentrationCheckResult,
+    ConcentrationViolation,
+    // Stochastic specs
+    CorrelationStructure,
     // Configuration
-    CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
+    CoverageTestConfig,
+    CoverageTestType,
+    // Tranche types
+    CoverageTrigger,
+    CreditEnhancement,
+    DealConfig,
+    DealDates,
+    DealFees,
+    DealMetadata,
+    DealType,
+    DefaultAssumptions,
+    ManagementFeeType,
+    Metadata,
+    Overrides,
+    PaymentCalculation,
+    PaymentMode,
+    PaymentRecord,
+    PaymentType,
+    Pool,
+    PoolAsset,
+    PoolStats,
+    Recipient,
+    RecipientType,
+    ReinvestmentCriteria,
     // Reinvestment
     ReinvestmentManager,
-    // Stochastic specs
-    CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
+    ReinvestmentPeriod,
+    Seniority,
+    StochasticDefaultSpec,
+    StochasticPrepaySpec,
+    // Main instrument
+    StructuredCredit,
+    Tranche,
+    TrancheBehaviorType,
+    TrancheBuilder,
+    // Result types
+    TrancheCashflows,
+    TrancheCoupon,
+    TrancheStructure,
+    TrancheValuation,
+    TrancheValuationExt,
+    TriggerConsequence,
+    Waterfall,
+    WaterfallBuilder,
+    WaterfallDistribution,
+    WaterfallTier,
+    WaterfallWorkspace,
 };
 
 // Behavioral models
-pub use types::{CreditFactors, DefaultModelSpec, MarketConditions, PrepaymentModelSpec, RecoveryModelSpec};
 pub use crate::cashflow::builder::{DefaultCurve, PrepaymentCurve};
-
-// Legacy re-exports for backward compatibility
-pub use types::enums::TrancheSeniority;
-pub use types::pool::AssetPool;
+pub use types::{
+    CreditFactors, DefaultModelSpec, MarketConditions, PrepaymentModelSpec, RecoveryModelSpec,
+};
 
 // ============================================================================
 // UTILITIES
@@ -162,20 +195,41 @@ pub use pricing::diversion::{DiversionCondition, DiversionEngine, DiversionRule}
 // ============================================================================
 
 pub use metrics::{
-    calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
-    calculate_tranche_z_spread, register_structured_credit_metrics,
+    calculate_tranche_cs01,
+    calculate_tranche_duration,
+    calculate_tranche_wal,
+    calculate_tranche_z_spread,
+    register_structured_credit_metrics,
     // Deal-specific metrics
-    AbsChargeOffCalculator, AbsCreditEnhancementCalculator, AbsDelinquencyCalculator,
-    AbsExcessSpreadCalculator, AbsSpeedCalculator,
+    AbsChargeOffCalculator,
+    AbsCreditEnhancementCalculator,
+    AbsDelinquencyCalculator,
+    AbsExcessSpreadCalculator,
+    AbsSpeedCalculator,
     // Pricing metrics
-    AccruedCalculator, CdrCalculator, CleanPriceCalculator, CloWalCalculator, CloWarfCalculator,
-    CloWasCalculator, CmbsDscrCalculator, CmbsLtvCalculator, CprCalculator, Cs01Calculator,
+    AccruedCalculator,
+    CdrCalculator,
+    CleanPriceCalculator,
+    CloWalCalculator,
+    CloWarfCalculator,
+    CloWasCalculator,
+    CmbsDscrCalculator,
+    CmbsLtvCalculator,
+    CprCalculator,
+    Cs01Calculator,
     DirtyPriceCalculator,
     // Risk metrics
-    MacaulayDurationCalculator, ModifiedDurationCalculator, RmbsFicoCalculator, RmbsLtvCalculator,
-    RmbsWalCalculator, SpreadDurationCalculator, WalCalculator,
+    MacaulayDurationCalculator,
+    ModifiedDurationCalculator,
+    RmbsFicoCalculator,
+    RmbsLtvCalculator,
+    RmbsWalCalculator,
+    SpreadDurationCalculator,
+    WalCalculator,
     // Pool metrics
-    WamCalculator, YtmCalculator, ZSpreadCalculator,
+    WamCalculator,
+    YtmCalculator,
+    ZSpreadCalculator,
 };
 
 // ============================================================================
@@ -186,17 +240,17 @@ pub use types::constants::{
     ABS_SERVICING_FEE_BPS, BASELINE_UNEMPLOYMENT_RATE, BASIS_POINTS_DIVISOR,
     CLO_SENIOR_MGMT_FEE_BPS, CLO_SUBORDINATED_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL,
     CMBS_MASTER_SERVICER_FEE_BPS, CMBS_SPECIAL_SERVICER_FEE_BPS, CREDIT_CARD_SEASONALITY,
-    DAYS_PER_YEAR, DEFAULT_AUTO_ABS_SPEED, DEFAULT_AUTO_RAMP_MONTHS, DEFAULT_BURNOUT_THRESHOLD_MONTHS,
-    DEFAULT_MAX_COV_LITE, DEFAULT_MAX_DIP, DEFAULT_MAX_OBLIGOR_CONCENTRATION,
-    DEFAULT_MAX_SECOND_LIEN, DEFAULT_MAX_TOP10_CONCENTRATION, DEFAULT_MAX_TOP5_CONCENTRATION,
-    DEFAULT_RESOLUTION_LAG_MONTHS, MIN_PREPAYMENT_RATE, MONTHS_PER_YEAR, MORTGAGE_SEASONALITY,
-    PERCENTAGE_MULTIPLIER, POOL_BALANCE_CLEANUP_THRESHOLD, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
-    QUARTERLY_PERIODS_PER_YEAR, RMBS_SERVICING_FEE_BPS, SDA_PEAK_CDR, SDA_PEAK_MONTH,
-    SDA_TERMINAL_CDR, STANDARD_CDR_RATES, STANDARD_PSA_SPEEDS, STANDARD_SEVERITY_RATES,
+    DAYS_PER_YEAR, DEFAULT_AUTO_ABS_SPEED, DEFAULT_AUTO_RAMP_MONTHS,
+    DEFAULT_BURNOUT_THRESHOLD_MONTHS, DEFAULT_MAX_COV_LITE, DEFAULT_MAX_DIP,
+    DEFAULT_MAX_OBLIGOR_CONCENTRATION, DEFAULT_MAX_SECOND_LIEN, DEFAULT_MAX_TOP10_CONCENTRATION,
+    DEFAULT_MAX_TOP5_CONCENTRATION, DEFAULT_RESOLUTION_LAG_MONTHS, MIN_PREPAYMENT_RATE,
+    MONTHS_PER_YEAR, MORTGAGE_SEASONALITY, PERCENTAGE_MULTIPLIER, POOL_BALANCE_CLEANUP_THRESHOLD,
+    PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, QUARTERLY_PERIODS_PER_YEAR, RMBS_SERVICING_FEE_BPS,
+    SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR, STANDARD_CDR_RATES, STANDARD_PSA_SPEEDS,
+    STANDARD_SEVERITY_RATES,
 };
 
 // Re-export waterfall coverage trigger with clear name
 /// Waterfall-level coverage trigger (for waterfall diversion).
 /// Use this when building waterfall engines with coverage test diversion.
 pub use types::waterfall::CoverageTrigger as WaterfallCoverageTrigger;
-

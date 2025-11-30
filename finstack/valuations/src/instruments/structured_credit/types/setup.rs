@@ -4,8 +4,8 @@
 //! fees, coverage tests, and default assumptions.
 
 use super::constants::*;
-use crate::instruments::irs::InterestRateSwap;
 use super::enums::DealType;
+use crate::instruments::irs::InterestRateSwap;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;

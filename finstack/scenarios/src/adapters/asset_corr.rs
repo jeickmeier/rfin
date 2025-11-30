@@ -63,11 +63,15 @@ pub fn apply_asset_correlation_shock(
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
             let original = corr_structure.asset_correlation();
-            result.original_correlations.push((inst.id.as_str().to_string(), original));
+            result
+                .original_correlations
+                .push((inst.id.as_str().to_string(), original));
 
             let new_corr_structure = corr_structure.bump_asset(shock_points);
             let new = new_corr_structure.asset_correlation();
-            result.new_correlations.push((inst.id.as_str().to_string(), new));
+            result
+                .new_correlations
+                .push((inst.id.as_str().to_string(), new));
 
             // Check for clamping
             let expected = original + shock_points;
@@ -108,11 +112,15 @@ pub fn apply_prepay_default_correlation_shock(
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
             let original = corr_structure.prepay_default_correlation();
-            result.original_correlations.push((inst.id.as_str().to_string(), original));
+            result
+                .original_correlations
+                .push((inst.id.as_str().to_string(), original));
 
             let new_corr_structure = corr_structure.bump_prepay_default(shock_points);
             let new = new_corr_structure.prepay_default_correlation();
-            result.new_correlations.push((inst.id.as_str().to_string(), new));
+            result
+                .new_correlations
+                .push((inst.id.as_str().to_string(), new));
 
             // Check for clamping
             let expected = original + shock_points;
@@ -224,9 +232,7 @@ pub fn set_correlation_structure(
 }
 
 /// Enable stochastic pricing for instruments with default configurations.
-pub fn enable_stochastic_pricing(
-    instruments: &mut [StructuredCredit],
-) -> Result<usize> {
+pub fn enable_stochastic_pricing(instruments: &mut [StructuredCredit]) -> Result<usize> {
     let mut count = 0;
     for inst in instruments.iter_mut() {
         if !inst.is_stochastic() {
@@ -253,67 +259,62 @@ mod tests {
     #[test]
     fn test_asset_correlation_shock() {
         let mut instruments = vec![sample_instrument()];
-        
-        let result = apply_asset_correlation_shock(&mut instruments, 0.05)
-            .expect("should succeed");
-        
+
+        let result = apply_asset_correlation_shock(&mut instruments, 0.05).expect("should succeed");
+
         assert_eq!(result.instruments_modified, 1);
-        
+
         // New correlation should be ~25%
         let new_corr = instruments[0]
             .correlation_structure
             .as_ref()
             .expect("should have correlation")
             .asset_correlation();
-        
+
         assert!((new_corr - 0.25).abs() < 0.01);
     }
 
     #[test]
     fn test_asset_correlation_clamping() {
         let mut instruments = vec![sample_instrument()];
-        
+
         // Large shock that would push past 99%
-        let result = apply_asset_correlation_shock(&mut instruments, 0.90)
-            .expect("should succeed");
-        
+        let result = apply_asset_correlation_shock(&mut instruments, 0.90).expect("should succeed");
+
         assert!(!result.warnings.is_empty(), "Should have clamping warning");
-        
+
         let new_corr = instruments[0]
             .correlation_structure
             .as_ref()
             .expect("should have correlation")
             .asset_correlation();
-        
+
         assert!(new_corr <= 0.99);
     }
 
     #[test]
     fn test_prepay_default_correlation_shock() {
         let mut instruments = vec![sample_instrument()];
-        
+
         // Shock prepay-default correlation by +0.10 (from -30% to -20%)
-        let result = apply_prepay_default_correlation_shock(&mut instruments, 0.10)
-            .expect("should succeed");
-        
+        let result =
+            apply_prepay_default_correlation_shock(&mut instruments, 0.10).expect("should succeed");
+
         assert_eq!(result.instruments_modified, 1);
-        
+
         let new_corr = instruments[0]
             .correlation_structure
             .as_ref()
             .expect("should have correlation")
             .prepay_default_correlation();
-        
+
         assert!((new_corr - (-0.20)).abs() < 0.01);
     }
 
     #[test]
     fn test_selective_shock() {
-        let mut instruments = vec![
-            sample_instrument(),
-            sample_instrument(),
-        ];
-        
+        let mut instruments = vec![sample_instrument(), sample_instrument()];
+
         // Only shock first instrument
         let count = std::cell::Cell::new(0);
         let result = apply_selective_correlation_shock(
@@ -325,8 +326,9 @@ mod tests {
             },
             Some(0.05),
             None,
-        ).expect("should succeed");
-        
+        )
+        .expect("should succeed");
+
         assert_eq!(result.instruments_modified, 1);
     }
 
@@ -344,4 +346,3 @@ mod tests {
         assert!(instruments[0].is_stochastic());
     }
 }
-

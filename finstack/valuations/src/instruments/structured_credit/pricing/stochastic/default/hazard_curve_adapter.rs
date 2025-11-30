@@ -75,8 +75,8 @@ impl HazardCurveDefault {
         Self {
             hazard_curve,
             factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
-            volatility: 0.30,      // Default volatility
-            correlation: 0.20,     // Default correlation
+            volatility: 0.30,  // Default volatility
+            correlation: 0.20, // Default correlation
         }
     }
 
@@ -338,4 +338,3 @@ mod tests {
         );
     }
 }
-

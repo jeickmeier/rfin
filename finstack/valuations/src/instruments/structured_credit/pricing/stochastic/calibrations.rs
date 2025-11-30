@@ -161,13 +161,26 @@ mod tests {
     #[test]
     fn test_clo_higher_correlation_than_rmbs() {
         // Corporate loans have higher correlation than mortgages
-        assert!(CLO_STANDARD.default_correlation > RMBS_STANDARD.default_correlation);
+        let clo_corr = CLO_STANDARD.default_correlation;
+        let rmbs_corr = RMBS_STANDARD.default_correlation;
+        assert!(
+            clo_corr > rmbs_corr,
+            "CLO correlation ({}) should exceed RMBS ({})",
+            clo_corr,
+            rmbs_corr
+        );
     }
 
     #[test]
     fn test_cmbs_lower_prepayment_than_rmbs() {
         // Commercial mortgages have lockouts limiting prepayment
-        assert!(CMBS_STANDARD.base_cpr < RMBS_STANDARD.base_cpr);
+        let cmbs_cpr = CMBS_STANDARD.base_cpr;
+        let rmbs_cpr = RMBS_STANDARD.base_cpr;
+        assert!(
+            cmbs_cpr < rmbs_cpr,
+            "CMBS CPR ({}) should be less than RMBS ({})",
+            cmbs_cpr,
+            rmbs_cpr
+        );
     }
 }
-

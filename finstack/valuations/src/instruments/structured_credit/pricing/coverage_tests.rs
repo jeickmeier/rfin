@@ -334,4 +334,3 @@ mod tests {
         assert!(result.is_passing);
     }
 }
-

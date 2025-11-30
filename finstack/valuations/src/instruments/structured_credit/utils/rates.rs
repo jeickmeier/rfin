@@ -296,4 +296,3 @@ mod tests {
         assert!((frequency_periods_per_year(Frequency::Days(7)) - 52.142857).abs() < 0.001);
     }
 }
-

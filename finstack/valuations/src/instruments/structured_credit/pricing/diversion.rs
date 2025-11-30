@@ -374,4 +374,3 @@ mod tests {
         assert_eq!(active.get("tier_c"), None);
     }
 }
-

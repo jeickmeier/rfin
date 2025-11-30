@@ -4,12 +4,14 @@
 //! regardless of the specific configuration or input values.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, AssetPool, DealType, PaymentCalculation, PaymentType, Recipient, RecipientType,
-    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallBuilder, WaterfallTier,
+    AllocationMode, DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType,
+    Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall, WaterfallBuilder,
+    WaterfallTier,
 };
 
 /// Helper to create a simple market context
@@ -18,8 +20,8 @@ fn create_market() -> MarketContext {
 }
 
 /// Helper to create a minimal pool
-fn create_pool(currency: Currency) -> AssetPool {
-    AssetPool::new("TEST", DealType::CLO, currency)
+fn create_pool(currency: Currency) -> Pool {
+    Pool::new("TEST", DealType::CLO, currency)
 }
 
 /// Helper to create a simple single-tranche structure
@@ -28,7 +30,7 @@ fn create_single_tranche(currency: Currency) -> TrancheStructure {
         "TEST_TRANCHE",
         0.0,
         100.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(100_000_000.0, currency),
         TrancheCoupon::Fixed { rate: 0.05 },
         Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
@@ -36,6 +38,32 @@ fn create_single_tranche(currency: Currency) -> TrancheStructure {
     .unwrap();
 
     TrancheStructure::new(vec![tranche]).unwrap()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_waterfall(
+    waterfall: &Waterfall,
+    available_cash: Money,
+    interest_collections: Money,
+    payment_date: Date,
+    tranches: &TrancheStructure,
+    pool_balance: Money,
+    pool: &Pool,
+    market: &MarketContext,
+) -> WaterfallDistribution {
+    let period_start = add_months(payment_date, -3);
+    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+        waterfall,
+        available_cash,
+        interest_collections,
+        payment_date,
+        period_start,
+        tranches,
+        pool_balance,
+        pool,
+        market,
+    )
+    .expect("waterfall execution")
 }
 
 #[test]
@@ -71,17 +99,17 @@ fn property_cash_conservation() {
             )
             .build();
 
-        let result = waterfall
-            .execute_waterfall(
-                Money::new(available_amount, currency),
-                Money::new(0.0, currency),
-                Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-                &tranches,
-                Money::new(100_000_000.0, currency),
-                &pool,
-                &create_market(),
-            )
-            .unwrap();
+        let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let result = run_waterfall(
+            &waterfall,
+            Money::new(available_amount, currency),
+            Money::new(0.0, currency),
+            payment_date,
+            &tranches,
+            Money::new(100_000_000.0, currency),
+            &pool,
+            &create_market(),
+        );
 
         let total_allocated: f64 = result
             .tier_allocations
@@ -122,17 +150,17 @@ fn property_non_negative_distributions() {
         )
         .build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(5_000.0, currency), // Less than required
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(5_000.0, currency), // Less than required
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     // All tier allocations must be non-negative
     for (tier_id, amount) in &result.tier_allocations {
@@ -193,17 +221,17 @@ fn property_priority_ordering() {
         .build();
 
     // Case 1: Insufficient funds - only tier 1 gets paid
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(75_000.0, currency),
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(75_000.0, currency),
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     let tier1_amount = result
         .tier_allocations
@@ -263,17 +291,17 @@ fn property_pro_rata_weight_distribution() {
         )
         .build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(150_000.0, currency), // Less than total requested
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(150_000.0, currency), // Less than total requested
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     let dist1 = result
         .distributions
@@ -320,17 +348,17 @@ fn property_shortfall_computation() {
         .build();
 
     // Case 1: Full payment
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(200_000.0, currency),
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(200_000.0, currency),
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     for record in &result.payment_records {
         let computed_shortfall = record.requested_amount.amount() - record.paid_amount.amount();
@@ -346,17 +374,16 @@ fn property_shortfall_computation() {
     }
 
     // Case 2: Partial payment
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(50_000.0, currency),
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(50_000.0, currency),
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     for record in &result.payment_records {
         let computed_shortfall = record.requested_amount.amount() - record.paid_amount.amount();
@@ -400,17 +427,17 @@ fn property_tier_count_consistency() {
 
     let waterfall = builder.build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(15_000.0, currency), // Only enough for ~1.5 tiers
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(15_000.0, currency), // Only enough for ~1.5 tiers
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     // Should have allocation entry for each tier
     assert_eq!(
@@ -444,17 +471,17 @@ fn property_diversion_tracking() {
         )
         .build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(1_000_000.0, currency),
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(1_000_000.0, currency),
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     // Property: had_diversions consistency
     if result.had_diversions {
@@ -521,17 +548,17 @@ fn property_monotonic_tier_allocation() {
         )
         .build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(100_000.0, currency), // Enough for 2 tiers
-            Money::new(0.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(100_000.0, currency), // Enough for 2 tiers
+        Money::new(0.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     let amounts: Vec<f64> = result
         .tier_allocations
@@ -564,14 +591,13 @@ fn property_coverage_test_result_format() {
 
     let waterfall = WaterfallBuilder::new(currency)
         .add_tier(
-            WaterfallTier::new("tier1", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "fee",
-                    RecipientType::ServiceProvider("Test".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(1_000.0, currency),
-                    },
-                )),
+            WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "fee",
+                RecipientType::ServiceProvider("Test".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(1_000.0, currency),
+                },
+            )),
         )
         .add_coverage_trigger(
             finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger {
@@ -582,17 +608,17 @@ fn property_coverage_test_result_format() {
         )
         .build();
 
-    let result = waterfall
-        .execute_waterfall(
-            Money::new(10_000.0, currency),
-            Money::new(5_000.0, currency),
-            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
-            &tranches,
-            Money::new(100_000_000.0, currency),
-            &pool,
-            &create_market(),
-        )
-        .unwrap();
+    let payment_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = run_waterfall(
+        &waterfall,
+        Money::new(10_000.0, currency),
+        Money::new(5_000.0, currency),
+        payment_date,
+        &tranches,
+        Money::new(100_000_000.0, currency),
+        &pool,
+        &create_market(),
+    );
 
     for (test_id, ratio, passed) in &result.coverage_tests {
         // Test ID should not be empty

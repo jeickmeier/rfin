@@ -131,4 +131,3 @@ mod tests {
         assert_eq!(cashflows.total_principal.amount(), 200_000.0);
     }
 }
-

@@ -184,14 +184,9 @@ let waterfall = WaterfallBuilder::new(Currency::USD)
     .build();
 
 // Execute (free function API)
+let period_start = last_payment_date;
 let result = execute_waterfall(
-    &waterfall, available_cash, interest_collections, payment_date,
-    &tranches, pool_balance, &pool, &market,
-)?;
-
-// Or method API
-let result = waterfall.execute_waterfall(
-    available_cash, interest_collections, payment_date,
+    &waterfall, available_cash, interest_collections, payment_date, period_start,
     &tranches, pool_balance, &pool, &market,
 )?;
 ```

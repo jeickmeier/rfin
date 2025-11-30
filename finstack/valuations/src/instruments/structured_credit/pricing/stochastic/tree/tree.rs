@@ -7,12 +7,12 @@ use super::{
     config::ScenarioTreeConfig,
     node::{ScenarioNode, ScenarioNodeId, ScenarioPath},
 };
-
 use crate::instruments::common::models::correlation::factor_model::FactorSpec;
 use crate::instruments::common::models::correlation::recovery::RecoverySpec;
 use finstack_core::math::standard_normal_inv_cdf;
+use std::collections::HashMap;
 
-/// Non-recombining scenario tree for structured credit.
+/// Recombining scenario tree for structured credit.
 ///
 /// Each node in the tree represents a possible state at a point in time,
 /// including prepayment behavior, default behavior, and pool state.
@@ -54,8 +54,8 @@ impl ScenarioTree {
         let root = ScenarioNode::root(config.initial_balance, config.initial_seasoning);
         tree.nodes.push(root);
 
-        // Build the tree recursively
-        tree.expand_tree(0)?;
+        // Build the tree using recombining trinomial logic
+        tree.build_recombining_tree()?;
 
         // Collect terminal node indices
         tree.terminal_indices = tree
@@ -69,65 +69,108 @@ impl ScenarioTree {
         Ok(tree)
     }
 
-    /// Expand the tree from a given node.
-    fn expand_tree(&mut self, node_idx: usize) -> Result<(), String> {
-        // Extract needed data from parent node before mutations
-        let (period, burnout_factor) = {
-            let node = &self.nodes[node_idx];
-            (node.period, node.burnout_factor)
-        };
+    /// Build the tree using recombining trinomial branching.
+    ///
+    /// Mirrors the shared lattice geometry implemented in
+    /// `common::models::trees::trinomial_tree` to keep node growth at O(n²).
+    fn build_recombining_tree(&mut self) -> Result<(), String> {
+        let mut layer_map: HashMap<(usize, i32), usize> = HashMap::new();
+        layer_map.insert((0, 0), 0);
 
-        // Stop at terminal period
-        if period >= self.config.num_periods {
-            return Ok(());
-        }
+        for period in 0..self.config.num_periods {
+            let mut current_positions: Vec<(i32, usize)> = layer_map
+                .iter()
+                .filter(|((p, _), _)| *p == period)
+                .map(|((_, pos), &idx)| (*pos, idx))
+                .collect();
+            current_positions.sort_by_key(|(pos, _)| *pos);
 
-        // Get branching info
-        let num_branches = self.config.branching.branches_at_node(0.0);
+            for (position, parent_idx) in current_positions {
+                let burnout_factor = self.nodes[parent_idx].burnout_factor;
+                let branch_count = self.config.branching.branches_at_node(0.0).clamp(1, 3);
+                let deltas: Vec<i32> = match branch_count {
+                    1 => vec![0],
+                    2 => vec![-1, 1],
+                    _ => vec![-1, 0, 1],
+                };
 
-        // Pre-compute all children data before modifying nodes
-        let children_data: Vec<_> = (0..num_branches)
-            .map(|branch_idx| {
-                let factors = self.generate_factors_stateless(branch_idx, num_branches);
-                let smm = self.conditional_smm_stateless(&factors, burnout_factor);
-                let mdr = self.conditional_mdr_stateless(&factors);
-                let recovery = self.conditional_recovery(&factors);
-                let trans_prob = 1.0 / num_branches as f64;
-                (factors, smm, mdr, recovery, trans_prob)
-            })
-            .collect();
+                for (branch_idx, delta) in deltas.iter().enumerate() {
+                    let factors = self.generate_factors_stateless(branch_idx, deltas.len());
+                    let smm = self.conditional_smm_stateless(&factors, burnout_factor);
+                    let mdr = self.conditional_mdr_stateless(&factors);
+                    let recovery = self.conditional_recovery(&factors);
+                    let trans_prob = 1.0 / deltas.len() as f64;
 
-        // Generate child nodes
-        let mut children_indices = Vec::with_capacity(num_branches);
+                    let child_id = ScenarioNodeId(self.nodes.len());
+                    let mut child = self.nodes[parent_idx]
+                        .child(child_id, trans_prob, factors, smm, mdr, recovery);
+                    let scheduled = self.scheduled_principal(child.period, child.pool_balance);
+                    child.apply_cashflows(scheduled, self.config.pool_coupon);
 
-        for (factors, smm, mdr, recovery, trans_prob) in children_data {
-            let child_id = ScenarioNodeId(self.nodes.len());
-            let child =
-                self.nodes[node_idx].child(child_id, trans_prob, factors, smm, mdr, recovery);
-
-            children_indices.push(child_id.0);
-            self.nodes.push(child);
-        }
-
-        // Update parent's children list
-        self.nodes[node_idx].children = children_indices
-            .iter()
-            .map(|&i| ScenarioNodeId(i))
-            .collect();
-
-        // Apply cash flows to children
-        for &child_idx in &children_indices {
-            let scheduled_principal = self.scheduled_principal(child_idx);
-            let pool_coupon = self.config.pool_coupon;
-            self.nodes[child_idx].apply_cashflows(scheduled_principal, pool_coupon);
-        }
-
-        // Recursively expand children
-        for child_idx in children_indices {
-            self.expand_tree(child_idx)?;
+                    let key = (period + 1, position + delta);
+                    if let Some(&existing_idx) = layer_map.get(&key) {
+                        let existing_id = self.nodes[existing_idx].id;
+                        self.merge_nodes(existing_idx, child);
+                        self.nodes[parent_idx].children.push(existing_id);
+                    } else {
+                        self.nodes[parent_idx].children.push(child_id);
+                        self.nodes.push(child);
+                        let idx = self.nodes.len() - 1;
+                        layer_map.insert((period + 1, position + delta), idx);
+                    }
+                }
+            }
         }
 
         Ok(())
+    }
+
+    fn merge_nodes(&mut self, target_idx: usize, incoming: ScenarioNode) {
+        let target = &mut self.nodes[target_idx];
+        let total_prob = target.cumulative_probability + incoming.cumulative_probability;
+        if total_prob <= f64::EPSILON {
+            return;
+        }
+
+        let weight_existing = target.cumulative_probability / total_prob;
+        let weight_new = incoming.cumulative_probability / total_prob;
+
+        target.smm = target.smm * weight_existing + incoming.smm * weight_new;
+        target.mdr = target.mdr * weight_existing + incoming.mdr * weight_new;
+        target.recovery_rate =
+            target.recovery_rate * weight_existing + incoming.recovery_rate * weight_new;
+        target.pool_balance =
+            target.pool_balance * weight_existing + incoming.pool_balance * weight_new;
+        target.burnout_factor =
+            target.burnout_factor * weight_existing + incoming.burnout_factor * weight_new;
+        target.principal_payment =
+            target.principal_payment * weight_existing + incoming.principal_payment * weight_new;
+        target.interest_payment =
+            target.interest_payment * weight_existing + incoming.interest_payment * weight_new;
+        target.prepayment_amount =
+            target.prepayment_amount * weight_existing + incoming.prepayment_amount * weight_new;
+        target.default_amount =
+            target.default_amount * weight_existing + incoming.default_amount * weight_new;
+        target.recovery_amount =
+            target.recovery_amount * weight_existing + incoming.recovery_amount * weight_new;
+        target.cumulative_prepayments = target.cumulative_prepayments * weight_existing
+            + incoming.cumulative_prepayments * weight_new;
+        target.cumulative_defaults = target.cumulative_defaults * weight_existing
+            + incoming.cumulative_defaults * weight_new;
+        target.cumulative_losses =
+            target.cumulative_losses * weight_existing + incoming.cumulative_losses * weight_new;
+
+        if target.factor_realizations.len() == incoming.factor_realizations.len() {
+            for (existing, new_val) in target
+                .factor_realizations
+                .iter_mut()
+                .zip(incoming.factor_realizations.iter())
+            {
+                *existing = *existing * weight_existing + *new_val * weight_new;
+            }
+        }
+
+        target.cumulative_probability = total_prob;
     }
 
     /// Generate factor realizations for a branch (stateless version).
@@ -237,24 +280,20 @@ impl ScenarioTree {
     }
 
     /// Calculate scheduled principal for a given period.
-    fn scheduled_principal(&self, node_idx: usize) -> f64 {
-        let node = &self.nodes[node_idx];
-
-        // Simple level-pay amortization
-        // For a real implementation, this would use the actual amortization schedule
-        let remaining_periods = self.config.num_periods - node.period + 1;
+    fn scheduled_principal(&self, period: usize, pool_balance: f64) -> f64 {
+        let remaining_periods = self.config.num_periods.saturating_sub(period) + 1;
         if remaining_periods == 0 {
             return 0.0;
         }
 
         let r = self.config.pool_coupon / 12.0;
         if r.abs() < 1e-10 {
-            return node.pool_balance / remaining_periods as f64;
+            return pool_balance / remaining_periods as f64;
         }
 
         // Level payment amount
-        let payment = node.pool_balance * r / (1.0 - (1.0 + r).powi(-(remaining_periods as i32)));
-        let interest = node.pool_balance * r;
+        let payment = pool_balance * r / (1.0 - (1.0 + r).powi(-(remaining_periods as i32)));
+        let interest = pool_balance * r;
 
         (payment - interest).max(0.0)
     }
@@ -464,11 +503,11 @@ mod tests {
         let config = ScenarioTreeConfig::new(3, 0.25, BranchingSpec::fixed(2));
         let tree = ScenarioTree::build(&config).expect("Failed to build tree");
 
-        // 1 + 2 + 4 + 8 = 15 nodes
-        assert_eq!(tree.num_nodes(), 15);
+        // Recombining tree: (n + 1)^2 nodes
+        assert_eq!(tree.num_nodes(), (config.num_periods + 1).pow(2));
 
-        // 2^3 = 8 terminal nodes
-        assert_eq!(tree.num_terminal_nodes(), 8);
+        // Terminal nodes = 2 * n + 1
+        assert_eq!(tree.num_terminal_nodes(), 2 * config.num_periods + 1);
     }
 
     #[test]
@@ -492,10 +531,9 @@ mod tests {
 
         let paths = tree.paths();
 
-        // 2^2 = 4 paths
-        assert_eq!(paths.len(), 4);
+        // Recombining tree exposes unique terminal states
+        assert_eq!(paths.len(), tree.num_terminal_nodes());
 
-        // All paths should have length 3 (root + 2 periods)
         for path in &paths {
             assert_eq!(path.len(), 3);
         }

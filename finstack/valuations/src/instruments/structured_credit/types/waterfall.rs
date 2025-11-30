@@ -428,33 +428,6 @@ impl Waterfall {
         self
     }
 
-    /// Execute waterfall to distribute available cash.
-    ///
-    /// This is a convenience method that delegates to the free function
-    /// `crate::instruments::structured_credit::pricing::execute_waterfall`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn execute_waterfall(
-        &self,
-        available_cash: finstack_core::money::Money,
-        interest_collections: finstack_core::money::Money,
-        payment_date: finstack_core::dates::Date,
-        tranches: &super::TrancheStructure,
-        pool_balance: finstack_core::money::Money,
-        pool: &super::Pool,
-        market: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<WaterfallDistribution> {
-        crate::instruments::structured_credit::pricing::execute_waterfall(
-            self,
-            available_cash,
-            interest_collections,
-            payment_date,
-            tranches,
-            pool_balance,
-            pool,
-            market,
-        )
-    }
-
     /// Create a standard sequential waterfall for a given tranche structure.
     ///
     /// This creates a typical CLO/ABS waterfall with:
@@ -500,7 +473,9 @@ impl Waterfall {
                 .allocation_mode(AllocationMode::Sequential);
             let interest_tier = interest_recipients
                 .into_iter()
-                .fold(interest_tier, |tier, recipient| tier.add_recipient(recipient));
+                .fold(interest_tier, |tier, recipient| {
+                    tier.add_recipient(recipient)
+                });
             engine.tiers.push(interest_tier);
             priority += 1;
         }
@@ -523,7 +498,9 @@ impl Waterfall {
                 .divertible(true);
             let principal_tier = principal_recipients
                 .into_iter()
-                .fold(principal_tier, |tier, recipient| tier.add_recipient(recipient));
+                .fold(principal_tier, |tier, recipient| {
+                    tier.add_recipient(recipient)
+                });
             engine.tiers.push(principal_tier);
             priority += 1;
         }
@@ -582,4 +559,3 @@ impl WaterfallBuilder {
         self.engine
     }
 }
-

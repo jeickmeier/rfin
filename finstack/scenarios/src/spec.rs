@@ -369,7 +369,6 @@ pub enum OperationSpec {
     // ========================================================================
     // Structured Credit Correlation Operations
     // ========================================================================
-
     /// Shock asset correlation for structured credit instruments.
     ///
     /// Applies a parallel shift to asset correlation parameters. For flat

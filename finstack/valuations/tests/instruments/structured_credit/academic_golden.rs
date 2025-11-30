@@ -17,7 +17,7 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::ratings::{moodys_warf_factor, CreditRating};
 use finstack_valuations::instruments::structured_credit::{
-    cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, AssetPool, DealType, PoolAsset,
+    cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, DealType, Pool, PoolAsset,
 };
 use time::Month;
 
@@ -136,11 +136,11 @@ fn test_cdr_mdr_golden_conversion() {
     // Reference: Fabozzi, Fixed Income Mathematics
 
     let test_cases: [(f64, &str); 5] = [
-        (0.01, "1% CDR"),   // Low default
-        (0.02, "2% CDR"),   // Standard CLO
-        (0.05, "5% CDR"),   // High default
-        (0.10, "10% CDR"),  // Stressed
-        (0.20, "20% CDR"),  // Severely distressed
+        (0.01, "1% CDR"),  // Low default
+        (0.02, "2% CDR"),  // Standard CLO
+        (0.05, "5% CDR"),  // High default
+        (0.10, "10% CDR"), // Stressed
+        (0.20, "20% CDR"), // Severely distressed
     ];
 
     for (cdr, label) in test_cases {
@@ -280,7 +280,7 @@ fn test_wal_golden_uniform_amortization() {
     // WAL = (1 + 2 + 3 + 4) / 4 = 2.5 years
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let pool = AssetPool::new("UNIFORM_POOL", DealType::ABS, Currency::USD);
+    let pool = Pool::new("UNIFORM_POOL", DealType::ABS, Currency::USD);
 
     let cashflows = vec![
         (
@@ -323,7 +323,7 @@ fn test_wal_golden_front_loaded() {
     // WAL = 0.70 × 1 + 0.20 × 2 + 0.10 × 3 = 0.70 + 0.40 + 0.30 = 1.4 years
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let pool = AssetPool::new("FRONT_LOADED", DealType::ABS, Currency::USD);
+    let pool = Pool::new("FRONT_LOADED", DealType::ABS, Currency::USD);
 
     let total_principal = 100_000.0;
     let cashflows = vec![
@@ -363,7 +363,7 @@ fn test_wal_golden_back_loaded() {
     // WAL = 0.10 × 1 + 0.20 × 2 + 0.70 × 3 = 0.10 + 0.40 + 2.10 = 2.6 years
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let pool = AssetPool::new("BACK_LOADED", DealType::ABS, Currency::USD);
+    let pool = Pool::new("BACK_LOADED", DealType::ABS, Currency::USD);
 
     let total_principal = 100_000.0;
     let cashflows = vec![
@@ -413,7 +413,7 @@ fn test_was_golden_calculation() {
 
     let maturity = Date::from_calendar_date(2030, Month::December, 31).unwrap();
 
-    let mut pool = AssetPool::new("WAS_TEST", DealType::CLO, Currency::USD);
+    let mut pool = Pool::new("WAS_TEST", DealType::CLO, Currency::USD);
 
     pool.assets.push(
         PoolAsset::floating_rate_loan(
@@ -513,4 +513,3 @@ fn test_recovery_rate_golden_industry_standards() {
         "CMBS standard recovery should be 65%"
     );
 }
-

@@ -20,8 +20,8 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PoolAsset, Recipient, RecipientType,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -39,8 +39,8 @@ fn closing_date() -> Date {
 }
 
 // Helper to create a pool with a specified number of assets
-fn create_pool(deal_type: DealType, num_assets: usize) -> AssetPool {
-    let mut pool = AssetPool::new("POOL", deal_type, Currency::USD);
+fn create_pool(deal_type: DealType, num_assets: usize) -> Pool {
+    let mut pool = Pool::new("POOL", deal_type, Currency::USD);
     let asset_balance = 10_000_000.0 / (num_assets as f64);
 
     for i in 0..num_assets {
@@ -63,7 +63,7 @@ fn create_tranches(total_balance: f64) -> TrancheStructure {
         "SENIOR",
         0.0,
         70.0, // 70% senior
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(total_balance * 0.70, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.035 },
         maturity_date(),
@@ -74,7 +74,7 @@ fn create_tranches(total_balance: f64) -> TrancheStructure {
         "MEZZ",
         70.0,
         90.0, // 20% mezzanine
-        TrancheSeniority::Mezzanine,
+        Seniority::Mezzanine,
         Money::new(total_balance * 0.20, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.06 },
         maturity_date(),
@@ -85,7 +85,7 @@ fn create_tranches(total_balance: f64) -> TrancheStructure {
         "EQUITY",
         90.0,
         100.0, // 10% equity
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(total_balance * 0.10, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.12 },
         maturity_date(),

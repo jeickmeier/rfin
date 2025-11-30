@@ -4,10 +4,10 @@
 //! prepayment and default modeling for structured credit instruments.
 
 use super::{DealType, StructuredCredit};
+use crate::cashflow::builder::PrepaymentModelSpec;
 use crate::instruments::structured_credit::pricing::{
     CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
 };
-use crate::cashflow::builder::PrepaymentModelSpec;
 
 impl StructuredCredit {
     // =========================================================================

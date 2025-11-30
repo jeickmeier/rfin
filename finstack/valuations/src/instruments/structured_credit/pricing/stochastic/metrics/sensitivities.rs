@@ -5,8 +5,8 @@
 //! - RecoveryCorrelation01: Sensitivity to recovery-default correlation
 //! - PrepaymentVol01: Sensitivity to prepayment volatility
 
-use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 use super::calculator::StochasticMetricsCalculator;
+use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 
 /// Sensitivity configuration.
 #[derive(Clone, Debug)]

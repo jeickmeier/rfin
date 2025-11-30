@@ -623,15 +623,15 @@ mod tests {
         // p = 0: all probability on k=0
         let dist_zero = binomial_distribution(5, 0.0);
         assert!((dist_zero[0] - 1.0).abs() < 1e-10);
-        for k in 1..=5 {
-            assert!(dist_zero[k] < 1e-10);
+        for val in dist_zero.iter().skip(1) {
+            assert!(*val < 1e-10);
         }
 
         // p = 1: all probability on k=n
         let dist_one = binomial_distribution(5, 1.0);
         assert!((dist_one[5] - 1.0).abs() < 1e-10);
-        for k in 0..5 {
-            assert!(dist_one[k] < 1e-10);
+        for val in dist_one.iter().take(5) {
+            assert!(*val < 1e-10);
         }
 
         // n = 0: single element

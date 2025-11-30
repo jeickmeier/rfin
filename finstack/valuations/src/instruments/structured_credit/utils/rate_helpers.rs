@@ -93,4 +93,3 @@ pub fn asset_all_in_rate(
     }
     fallback_rate
 }
-

@@ -3,9 +3,9 @@
 //! Provides functionality to extract model-specific parameters from instruments,
 //! create modified versions with different parameters, and measure parameter shifts.
 
+use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::{ConversionSpec, ConvertibleBond};
-use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use crate::instruments::structured_credit::StructuredCredit;
 use finstack_core::prelude::*;
 use std::sync::Arc;

@@ -21,18 +21,34 @@ pub use waterfall::{execute_waterfall, execute_waterfall_with_workspace};
 
 // Re-export stochastic types
 pub use stochastic::{
+    // Scenario tree infrastructure
+    BranchingSpec,
+    // Default models
+    CopulaBasedDefault,
+    // Risk metrics and sensitivities
+    CorrelationSensitivities,
     // Correlation structures
     CorrelationStructure,
-    // Default models
-    CopulaBasedDefault, IntensityProcessDefault, StochasticDefault, StochasticDefaultSpec,
     // Prepayment models
-    FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepaySpec, StochasticPrepayment,
-    // Scenario tree infrastructure
-    BranchingSpec, ScenarioNode, ScenarioNodeId, ScenarioPath, ScenarioTree, ScenarioTreeConfig,
+    FactorCorrelatedPrepay,
+    IntensityProcessDefault,
     // Stochastic pricing engine
-    PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
+    PricingMode,
+    RichardRollPrepay,
+    ScenarioNode,
+    ScenarioNodeId,
+    ScenarioPath,
+    ScenarioTree,
+    ScenarioTreeConfig,
+    SensitivityConfig,
+    StochasticDefault,
+    StochasticDefaultSpec,
+    StochasticMetrics,
+    StochasticMetricsCalculator,
+    StochasticPrepaySpec,
+    StochasticPrepayment,
+    StochasticPricer,
+    StochasticPricerConfig,
+    StochasticPricingResult,
     TranchePricingResult,
-    // Risk metrics and sensitivities
-    CorrelationSensitivities, SensitivityConfig, StochasticMetrics, StochasticMetricsCalculator,
 };
-

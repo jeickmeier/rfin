@@ -1,11 +1,14 @@
 //! Stochastic pricing engine.
 
-use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTree;
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};
+use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTree;
+use crate::instruments::structured_credit::types::waterfall::WaterfallWorkspace;
 
 use finstack_core::currency::Currency;
+use finstack_core::math::random::{RandomNumberGenerator, TestRng};
 use finstack_core::money::Money;
+use std::cmp::Ordering;
 
 /// Stochastic pricing engine for structured credit.
 ///
@@ -54,17 +57,23 @@ impl StochasticPricer {
         notional: f64,
         currency: Currency,
     ) -> Result<StochasticPricingResult, String> {
-        // Build scenario tree
         let tree = ScenarioTree::build(&self.config.tree_config)?;
+        let mut result = self.build_tree_result(&tree, notional, currency)?;
+        result.pricing_mode = "Tree".to_string();
+        Ok(result)
+    }
 
-        // Compute expected values from tree
+    fn build_tree_result(
+        &self,
+        tree: &ScenarioTree,
+        notional: f64,
+        currency: Currency,
+    ) -> Result<StochasticPricingResult, String> {
         let expected_cashflow = tree.expected_value(|n| n.total_cashflow()) * notional;
         let expected_loss = tree.expected_loss() * notional;
         let unexpected_loss = tree.unexpected_loss() * notional;
         let expected_shortfall = tree.expected_shortfall(self.config.es_confidence) * notional;
-
-        // Compute present value using discount curve
-        let npv = self.compute_tree_npv(&tree, notional)?;
+        let npv = self.compute_tree_npv(tree, notional)?;
 
         let npv_amount = Money::new(npv, currency);
         let el_amount = Money::new(expected_loss, currency);
@@ -73,19 +82,16 @@ impl StochasticPricer {
 
         let mut result =
             StochasticPricingResult::new(npv_amount, el_amount, tree.num_terminal_nodes());
-        result.pricing_mode = "Tree".to_string();
         result = result
             .with_unexpected_loss(ul_amount)
             .with_expected_shortfall(es_amount, self.config.es_confidence);
 
-        // Compute clean price
         if notional > 0.0 {
             result.clean_price = npv / notional * 100.0;
             result.dirty_price = result.clean_price;
         }
 
-        // Log diagnostic info
-        let _ = expected_cashflow; // Suppress unused warning
+        let _ = expected_cashflow;
 
         Ok(result)
     }
@@ -111,6 +117,46 @@ impl StochasticPricer {
         Ok(npv)
     }
 
+    fn path_present_value(
+        &self,
+        tree: &ScenarioTree,
+        terminal_index: usize,
+        scale: f64,
+        currency: Currency,
+        workspace: &mut WaterfallWorkspace,
+    ) -> f64 {
+        workspace.tier_allocations.clear();
+        let nodes = tree.nodes();
+        let mut idx = terminal_index;
+
+        loop {
+            let node = &nodes[idx];
+            if node.period == 0 {
+                break;
+            }
+
+            let discounted =
+                node.total_cashflow() * scale * self.config.discount_curve.df(node.time);
+            workspace
+                .tier_allocations
+                .push((String::new(), Money::new(discounted, currency)));
+
+            if let Some(parent) = node.parent {
+                idx = parent.index();
+            } else {
+                break;
+            }
+        }
+
+        let pv = workspace
+            .tier_allocations
+            .iter()
+            .map(|(_, amt)| amt.amount())
+            .sum::<f64>();
+        workspace.tier_allocations.clear();
+        pv
+    }
+
     /// Monte Carlo pricing.
     fn price_monte_carlo(
         &self,
@@ -118,14 +164,48 @@ impl StochasticPricer {
         currency: Currency,
         num_paths: usize,
     ) -> Result<StochasticPricingResult, String> {
-        // For now, fall back to tree pricing
-        // Full MC implementation would generate paths independently
-        let tree_result = self.price_tree(notional, currency)?;
+        if num_paths == 0 {
+            return Err("Monte Carlo pricing requires at least one simulation path".to_string());
+        }
 
-        let mut result = tree_result;
-        result.pricing_mode = format!("MonteCarlo({})", num_paths);
-        result.num_paths = num_paths;
+        let tree = ScenarioTree::build(&self.config.tree_config)?;
+        let mut workspace = MonteCarloWorkspace::new(num_paths);
+        workspace.build_distribution(&tree)?;
 
+        let initial_balance = self.config.tree_config.initial_balance;
+        let scale = if initial_balance.abs() > f64::EPSILON {
+            notional / initial_balance
+        } else {
+            1.0
+        };
+
+        let mut rng = TestRng::new(self.config.seed);
+
+        for _ in 0..num_paths {
+            workspace.tier_workspace.clear();
+            let u = rng.uniform();
+            let terminal_idx = workspace.sample_index(u);
+            let node_index = workspace.terminal_indices[terminal_idx];
+            let path_loss = tree.nodes()[node_index].cumulative_losses * scale;
+            let path_pv = self.path_present_value(
+                &tree,
+                node_index,
+                scale,
+                currency,
+                &mut workspace.tier_workspace,
+            );
+            workspace.record_path(path_pv, path_loss);
+        }
+
+        let pricing_mode = format!("MonteCarlo({})", num_paths);
+        let mut result = workspace.finalize(
+            currency,
+            num_paths,
+            notional,
+            self.config.es_confidence,
+            &pricing_mode,
+        );
+        result.pricing_mode = pricing_mode;
         Ok(result)
     }
 
@@ -137,11 +217,47 @@ impl StochasticPricer {
         tree_periods: usize,
         mc_paths: usize,
     ) -> Result<StochasticPricingResult, String> {
-        // For now, use tree pricing
-        // Full hybrid would use tree for short horizon, MC for tail
-        let tree_result = self.price_tree(notional, currency)?;
+        if tree_periods == 0 {
+            return self.price_monte_carlo(notional, currency, mc_paths);
+        }
 
-        let mut result = tree_result;
+        if tree_periods >= self.config.tree_config.num_periods || mc_paths == 0 {
+            return self.price_tree(notional, currency);
+        }
+
+        let mut truncated_config = self.config.tree_config.clone();
+        truncated_config.num_periods = tree_periods;
+        let truncated_tree = ScenarioTree::build(&truncated_config)?;
+        let tree_result = self.build_tree_result(&truncated_tree, notional, currency)?;
+        let mc_result = self.price_monte_carlo(notional, currency, mc_paths)?;
+
+        let total_periods = self.config.tree_config.num_periods.max(1);
+        let weight_tree = tree_periods as f64 / total_periods as f64;
+        let weight_mc = 1.0 - weight_tree;
+
+        let combined_npv =
+            weight_tree * tree_result.npv.amount() + weight_mc * mc_result.npv.amount();
+        let combined_el = weight_tree * tree_result.expected_loss.amount()
+            + weight_mc * mc_result.expected_loss.amount();
+        let combined_ul = weight_tree * tree_result.unexpected_loss.amount()
+            + weight_mc * mc_result.unexpected_loss.amount();
+        let combined_es = weight_tree * tree_result.expected_shortfall.amount()
+            + weight_mc * mc_result.expected_shortfall.amount();
+
+        let mut result = StochasticPricingResult::new(
+            Money::new(combined_npv, currency),
+            Money::new(combined_el, currency),
+            mc_paths,
+        );
+
+        if notional > f64::EPSILON {
+            result.clean_price = combined_npv / notional * 100.0;
+            result.dirty_price = result.clean_price;
+        }
+
+        result.unexpected_loss = Money::new(combined_ul, currency);
+        result = result
+            .with_expected_shortfall(Money::new(combined_es, currency), self.config.es_confidence);
         result.pricing_mode = format!("Hybrid({}, {})", tree_periods, mc_paths);
 
         Ok(result)
@@ -193,10 +309,122 @@ impl StochasticPricer {
     }
 }
 
+struct MonteCarloWorkspace {
+    cumulative_probs: Vec<f64>,
+    terminal_indices: Vec<usize>,
+    tier_workspace: WaterfallWorkspace,
+    pv_sum: f64,
+    loss_sum: f64,
+    loss_sq_sum: f64,
+    losses: Vec<f64>,
+}
+
+impl MonteCarloWorkspace {
+    fn new(num_paths: usize) -> Self {
+        Self {
+            cumulative_probs: Vec::new(),
+            terminal_indices: Vec::new(),
+            tier_workspace: WaterfallWorkspace::default(),
+            pv_sum: 0.0,
+            loss_sum: 0.0,
+            loss_sq_sum: 0.0,
+            losses: Vec::with_capacity(num_paths),
+        }
+    }
+
+    fn build_distribution(&mut self, tree: &ScenarioTree) -> Result<(), String> {
+        self.cumulative_probs.clear();
+        self.terminal_indices.clear();
+
+        let mut running = 0.0;
+        for node in tree.terminal_nodes() {
+            running += node.cumulative_probability;
+            self.terminal_indices.push(node.id.index());
+            self.cumulative_probs.push(running);
+        }
+
+        if self.cumulative_probs.is_empty() || running <= f64::EPSILON {
+            return Err("Scenario tree does not contain terminal paths".to_string());
+        }
+
+        for prob in &mut self.cumulative_probs {
+            *prob /= running;
+        }
+
+        Ok(())
+    }
+
+    fn sample_index(&self, sample: f64) -> usize {
+        let target = sample.clamp(0.0, 1.0 - f64::EPSILON);
+        match self
+            .cumulative_probs
+            .binary_search_by(|prob| prob.partial_cmp(&target).unwrap_or(Ordering::Greater))
+        {
+            Ok(idx) => idx,
+            Err(idx) => idx.min(self.terminal_indices.len().saturating_sub(1)),
+        }
+    }
+
+    fn record_path(&mut self, pv: f64, loss: f64) {
+        self.pv_sum += pv;
+        self.loss_sum += loss;
+        self.loss_sq_sum += loss * loss;
+        self.losses.push(loss);
+    }
+
+    fn finalize(
+        mut self,
+        currency: Currency,
+        num_paths: usize,
+        notional: f64,
+        es_confidence: f64,
+        pricing_mode: &str,
+    ) -> StochasticPricingResult {
+        let paths = num_paths.max(1) as f64;
+        let mean_pv = self.pv_sum / paths;
+        let expected_loss = self.loss_sum / paths;
+
+        let pv_money = Money::new(mean_pv, currency);
+        let el_money = Money::new(expected_loss, currency);
+        let mut result = StochasticPricingResult::new(pv_money, el_money, num_paths);
+
+        if notional > f64::EPSILON {
+            result.clean_price = mean_pv / notional * 100.0;
+            result.dirty_price = result.clean_price;
+        }
+
+        let loss_variance = (self.loss_sq_sum / paths) - expected_loss * expected_loss;
+        let unexpected_loss = loss_variance.max(0.0).sqrt();
+        result.unexpected_loss = Money::new(unexpected_loss, currency);
+
+        if !self.losses.is_empty() {
+            let tail = (1.0 - es_confidence).clamp(0.0, 1.0);
+            let mut tail_count = (tail * num_paths as f64).ceil() as usize;
+            if tail_count == 0 {
+                tail_count = 1;
+            }
+            tail_count = tail_count.min(self.losses.len());
+
+            self.losses
+                .sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+            let tail_sum: f64 = self.losses.iter().take(tail_count).sum();
+            let es_value = tail_sum / tail_count as f64;
+            result = result.with_expected_shortfall(Money::new(es_value, currency), es_confidence);
+        } else {
+            result = result.with_expected_shortfall(Money::new(0.0, currency), es_confidence);
+        }
+
+        result.pricing_mode = pricing_mode.to_string();
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::pricing::stochastic::tree::{BranchingSpec, ScenarioTreeConfig};
+    use crate::instruments::structured_credit::pricing::stochastic::tree::{
+        BranchingSpec, ScenarioTreeConfig,
+    };
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -257,6 +485,7 @@ mod tests {
         assert!(result.is_ok());
         let result = result.expect("Pricing should succeed");
         assert!(result.pricing_mode.contains("MonteCarlo"));
+        assert_eq!(result.num_paths, 1000);
     }
 
     #[test]
@@ -279,5 +508,26 @@ mod tests {
         let senior_loss = results[2].expected_loss.amount();
         // Note: Loss amounts are not directly comparable without normalization
         let _ = (equity_loss, senior_loss); // Just ensure they exist
+    }
+
+    #[test]
+    fn test_price_hybrid_mode() {
+        let today = test_date();
+        let curve = test_discount_curve();
+        let tree_config = ScenarioTreeConfig::new(6, 0.5, BranchingSpec::fixed(2));
+        let config = StochasticPricerConfig::new(today, curve, tree_config).with_pricing_mode(
+            PricingMode::Hybrid {
+                tree_periods: 3,
+                mc_paths: 250,
+            },
+        );
+
+        let pricer = StochasticPricer::new(config);
+        let result = pricer.price(1_000_000.0, Currency::USD);
+
+        assert!(result.is_ok());
+        let result = result.expect("Pricing should succeed");
+        assert!(result.pricing_mode.contains("Hybrid"));
+        assert_eq!(result.num_paths, 250);
     }
 }

@@ -7,8 +7,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    DealType, DefaultModelSpec, Pool, PrepaymentModelSpec, RecoveryModelSpec, Seniority,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use time::Month;
 
@@ -85,13 +85,13 @@ fn test_recovery_spec_all_variants_serialize() {
 #[test]
 fn test_clo_json_roundtrip() {
     // Arrange
-    let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
+    let pool = Pool::new("TEST_POOL", DealType::CLO, Currency::USD);
 
     let tranche = Tranche::new(
         "AAA",
         0.0,
         100.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(10_000_000.0, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.05 },
         maturity_date(),
@@ -127,13 +127,13 @@ fn test_clo_json_roundtrip() {
 #[test]
 fn test_rmbs_with_overrides_serialization() {
     // Arrange
-    let pool = AssetPool::new("TEST_POOL", DealType::RMBS, Currency::USD);
+    let pool = Pool::new("TEST_POOL", DealType::RMBS, Currency::USD);
 
     let tranche = Tranche::new(
         "AAA",
         0.0,
         100.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(10_000_000.0, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.05 },
         maturity_date(),

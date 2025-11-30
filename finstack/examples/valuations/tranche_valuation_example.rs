@@ -14,7 +14,7 @@ use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure, TrancheValuationExt, WaterfallBuilder,
 };
 use finstack_valuations::metrics::MetricId;
@@ -146,7 +146,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
     let _as_of = date!(2024 - 01 - 01);
 
     // Create asset pool with $500M of loans
-    let mut pool = AssetPool::new("CLO_2024_01", DealType::CLO, base_currency);
+    let mut pool = Pool::new("CLO_2024_01", DealType::CLO, base_currency);
 
     // Add some sample loans to the pool
     for i in 1..=50 {
@@ -166,7 +166,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         "AAA",
         20.0,  // attachment (20%)
         100.0, // detachment (100%)
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(400_000_000.0, base_currency),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: CurveId::new("SOFR-3M".to_string()),
@@ -191,7 +191,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         "AA",
         10.0, // attachment (10%)
         20.0, // detachment (20%)
-        TrancheSeniority::Mezzanine,
+        Seniority::Mezzanine,
         Money::new(50_000_000.0, base_currency),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: CurveId::new("SOFR-3M".to_string()),
@@ -216,7 +216,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         "Equity",
         0.0,  // attachment (0%)
         10.0, // detachment (10%)
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(50_000_000.0, base_currency),
         TrancheCoupon::Fixed {
             rate: 0.15, // 15% target return

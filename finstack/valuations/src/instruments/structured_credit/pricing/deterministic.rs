@@ -276,7 +276,7 @@ fn simulate_period(
     months_per_period: f64,
 ) -> Result<()> {
     let seasoning_months = months_between(state.closing_date, pay_date);
-    
+
     // Capture period start before updating prev_date (for accrual calculations)
     let period_start = state.prev_date.unwrap_or(state.closing_date);
 
@@ -331,6 +331,7 @@ fn simulate_period(
         total_cash_for_waterfall,
         interest_collections,
         pay_date,
+        period_start,
         state.tranches,
         state.pool_outstanding,
         state.pool,
@@ -353,10 +354,11 @@ fn simulate_period(
                 let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
 
                 // Use tranche's day-count convention for proper accrual calculation
-                let accrual_factor = tranche.day_count
+                let accrual_factor = tranche
+                    .day_count
                     .year_fraction(period_start, pay_date, DayCountCtx::default())
                     .unwrap_or(months_per_period / 12.0);
-                
+
                 let interest_portion = Money::new(
                     current_balance.amount() * coupon_rate * accrual_factor,
                     state.base_ccy,
@@ -438,11 +440,16 @@ fn calculate_period_interest_collections(
         // Use asset's day-count if available, otherwise default to ACT/360 (market standard for loans)
         let accrual_factor = match (prev_date, asset.day_count) {
             (Some(prev), Some(dc)) => dc.year_fraction(prev, pay_date, DayCountCtx::default())?,
-            (Some(prev), None) => DayCount::Act360.year_fraction(prev, pay_date, DayCountCtx::default())?,
+            (Some(prev), None) => {
+                DayCount::Act360.year_fraction(prev, pay_date, DayCountCtx::default())?
+            }
             _ => months_per_period / 12.0, // Fallback only when no prev_date
         };
 
-        let ir = Money::new(asset.balance.amount() * asset_rate * accrual_factor, base_ccy);
+        let ir = Money::new(
+            asset.balance.amount() * asset_rate * accrual_factor,
+            base_ccy,
+        );
         interest_collections = interest_collections.checked_add(ir)?;
     }
 
@@ -500,4 +507,3 @@ fn calculate_default_rate(
 ) -> f64 {
     instrument.default_spec.mdr(seasoning_months).max(0.0)
 }
-

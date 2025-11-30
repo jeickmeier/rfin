@@ -13,9 +13,8 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, AssetType, DealType, ManagementFeeType, PaymentCalculation, Recipient,
-    RecipientType, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
-    Waterfall,
+    AssetType, DealType, ManagementFeeType, PaymentCalculation, Pool, Recipient, RecipientType,
+    Seniority, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use time::Month;
 
@@ -35,8 +34,8 @@ fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
 }
 
-fn create_test_pool() -> AssetPool {
-    let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
+fn create_test_pool() -> Pool {
+    let mut pool = Pool::new("TEST_POOL", DealType::CLO, Currency::USD);
 
     for i in 0..5 {
         let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
@@ -69,7 +68,7 @@ fn create_test_tranches() -> TrancheStructure {
         "EQUITY",
         0.0,
         10.0,
-        TrancheSeniority::Equity,
+        Seniority::Equity,
         Money::new(15_000_000.0, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.15 },
         maturity_date(),
@@ -80,7 +79,7 @@ fn create_test_tranches() -> TrancheStructure {
         "SENIOR_A",
         10.0,
         100.0,
-        TrancheSeniority::Senior,
+        Seniority::Senior,
         Money::new(135_000_000.0, Currency::USD),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
