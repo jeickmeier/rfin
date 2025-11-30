@@ -44,6 +44,12 @@ pub struct CreditIndexData {
     /// Optional individual hazard curves for each constituent issuer
     /// Key is the issuer identifier (e.g., ticker or CUSIP)
     pub issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
+    /// Optional individual recovery rates for each constituent issuer
+    /// Key is the issuer identifier (e.g., ticker or CUSIP)
+    pub issuer_recovery_rates: Option<HashMap<String, f64>>,
+    /// Optional individual weights for each constituent issuer (must sum to 1.0)
+    /// Key is the issuer identifier (e.g., ticker or CUSIP)
+    pub issuer_weights: Option<HashMap<String, f64>>,
 }
 
 impl CreditIndexData {
@@ -83,6 +89,28 @@ impl CreditIndexData {
             Some(curves) => curves.keys().cloned().collect(),
             None => Vec::new(),
         }
+    }
+
+    /// Get the recovery rate for a specific issuer.
+    ///
+    /// Returns the issuer-specific recovery rate if available, otherwise falls back
+    /// to the index recovery rate (homogeneous portfolio assumption).
+    pub fn get_issuer_recovery(&self, issuer_id: &str) -> f64 {
+        self.issuer_recovery_rates
+            .as_ref()
+            .and_then(|m| m.get(issuer_id).copied())
+            .unwrap_or(self.recovery_rate)
+    }
+
+    /// Get the weight for a specific issuer.
+    ///
+    /// Returns the issuer-specific weight if available, otherwise falls back
+    /// to equal weighting (1/N).
+    pub fn get_issuer_weight(&self, issuer_id: &str) -> f64 {
+        self.issuer_weights
+            .as_ref()
+            .and_then(|m| m.get(issuer_id).copied())
+            .unwrap_or(1.0 / self.num_constituents as f64)
     }
 }
 
@@ -132,6 +160,8 @@ pub struct CreditIndexDataBuilder {
     index_credit_curve: Option<Arc<HazardCurve>>,
     base_correlation_curve: Option<Arc<BaseCorrelationCurve>>,
     issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
+    issuer_recovery_rates: Option<HashMap<String, f64>>,
+    issuer_weights: Option<HashMap<String, f64>>,
 }
 
 impl CreditIndexDataBuilder {
@@ -180,6 +210,24 @@ impl CreditIndexDataBuilder {
         self
     }
 
+    /// Add issuer-specific recovery rates for heterogeneous portfolio modeling.
+    ///
+    /// Keys should match issuer identifiers used in `with_issuer_curves`.
+    /// Values are recovery rates as fractions (e.g., 0.40 for 40%).
+    pub fn with_issuer_recovery_rates(mut self, rates: HashMap<String, f64>) -> Self {
+        self.issuer_recovery_rates = Some(rates);
+        self
+    }
+
+    /// Add issuer-specific weights for heterogeneous portfolio modeling.
+    ///
+    /// Keys should match issuer identifiers used in `with_issuer_curves`.
+    /// Values should sum to 1.0 for proper portfolio weighting.
+    pub fn with_issuer_weights(mut self, weights: HashMap<String, f64>) -> Self {
+        self.issuer_weights = Some(weights);
+        self
+    }
+
     /// Build the credit index data.
     pub fn build(self) -> Result<CreditIndexData> {
         let num_constituents = self
@@ -212,6 +260,8 @@ impl CreditIndexDataBuilder {
             index_credit_curve,
             base_correlation_curve,
             issuer_credit_curves: self.issuer_credit_curves,
+            issuer_recovery_rates: self.issuer_recovery_rates,
+            issuer_weights: self.issuer_weights,
         })
     }
 }

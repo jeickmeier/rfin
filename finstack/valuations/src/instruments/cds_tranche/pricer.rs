@@ -811,7 +811,12 @@ impl CDSTranchePricer {
         }
     }
 
-    /// Heterogeneous equity tranche loss via semi-analytical SPA or exact convolution fallback
+    /// Heterogeneous equity tranche loss via semi-analytical SPA or exact convolution fallback.
+    ///
+    /// Supports full bespoke portfolio heterogeneity:
+    /// - Per-issuer hazard curves (default probability)
+    /// - Per-issuer recovery rates (LGD)
+    /// - Per-issuer weights (notional allocation)
     fn calculate_equity_tranche_loss_hetero(
         &self,
         detachment_pct: f64,
@@ -821,81 +826,107 @@ impl CDSTranchePricer {
     ) -> Result<f64> {
         // Precompute unconditional PD_i(t)
         let t = self.years_from_base(index_data, maturity)?;
-        let recovery = index_data.recovery_rate;
-        let lgd = 1.0 - recovery;
-        let weights = 1.0 / (index_data.num_constituents as f64);
         let tranche_width = detachment_pct / 100.0;
 
         // Quadrature setup
         let quad = self.select_quadrature();
 
-        // Build unconditional PD_i and their probit thresholds
+        // Build heterogeneous vectors: PD, LGD, and Weight per issuer
         let mut pd_i: Vec<f64> = Vec::with_capacity(index_data.num_constituents as usize);
+        let mut lgd_i: Vec<f64> = Vec::with_capacity(index_data.num_constituents as usize);
+        let mut weight_i: Vec<f64> = Vec::with_capacity(index_data.num_constituents as usize);
+
         if let Some(curves) = &index_data.issuer_credit_curves {
-            for _id in curves.keys() {
-                let curve = index_data.get_issuer_curve(_id);
+            // Sort issuer IDs for determinism (HashMap iteration order is random)
+            let mut sorted_ids: Vec<&String> = curves.keys().collect();
+            sorted_ids.sort();
+
+            for id in sorted_ids {
+                let curve = index_data.get_issuer_curve(id);
                 let sp = curve.sp(t);
                 pd_i.push((1.0 - sp).clamp(0.0, 1.0));
+
+                let rec = index_data.get_issuer_recovery(id);
+                lgd_i.push((1.0 - rec).max(self.params.lgd_floor));
+
+                let w = index_data.get_issuer_weight(id);
+                weight_i.push(w);
             }
         } else {
-            // Fallback should not happen (caller gates), but ensure safe
+            // Fallback to homogeneous (should not happen if caller gates, but ensure safe)
             let sp = index_data.index_credit_curve.sp(t);
-            pd_i = vec![(1.0 - sp).clamp(0.0, 1.0); index_data.num_constituents as usize];
+            let count = index_data.num_constituents as usize;
+            pd_i = vec![(1.0 - sp).clamp(0.0, 1.0); count];
+            lgd_i = vec![(1.0 - index_data.recovery_rate).max(self.params.lgd_floor); count];
+            weight_i = vec![1.0 / count as f64; count];
         }
 
-        // If issuer marginals are effectively identical, use homogeneous path
-        if let (Some(&min_pd), Some(&max_pd)) = (
-            pd_i.iter().min_by(|a, b| a.total_cmp(b)),
-            pd_i.iter().max_by(|a, b| a.total_cmp(b)),
-        ) {
-            if (max_pd - min_pd).abs() <= self.params.probability_clip {
-                let num_constituents = index_data.num_constituents as usize;
-                let detachment_notional = detachment_pct / 100.0;
-                let maturity_years = t;
-                let default_prob = self.get_default_probability(index_data, maturity_years)?;
-                let default_threshold = standard_normal_inv_cdf(default_prob);
-                let integrand = |z: f64| {
-                    let p = self.conditional_default_probability_enhanced(
-                        default_threshold,
-                        correlation,
-                        z,
-                    );
-                    self.conditional_equity_tranche_loss(
-                        num_constituents,
-                        detachment_notional,
-                        p,
-                        recovery,
-                    )
-                };
-                let expected_loss = if !(self.params.adaptive_integration_low
-                    ..=self.params.adaptive_integration_high)
-                    .contains(&correlation)
-                {
-                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-                } else {
-                    quad.integrate(integrand)
-                };
-                return Ok(expected_loss);
-            }
+        // Check if effectively homogeneous (optimization: use faster binomial path)
+        let is_uniform_pd = pd_i
+            .first()
+            .map(|&first| pd_i.iter().all(|&p| (p - first).abs() <= self.params.probability_clip))
+            .unwrap_or(true);
+        let is_uniform_lgd = lgd_i
+            .first()
+            .map(|&first| lgd_i.iter().all(|&l| (l - first).abs() <= 1e-9))
+            .unwrap_or(true);
+        let is_uniform_weight = weight_i
+            .first()
+            .map(|&first| weight_i.iter().all(|&w| (w - first).abs() <= 1e-9))
+            .unwrap_or(true);
+
+        if is_uniform_pd && is_uniform_lgd && is_uniform_weight {
+            // Use homogeneous binomial path (faster)
+            let num_constituents = index_data.num_constituents as usize;
+            let detachment_notional = detachment_pct / 100.0;
+            let recovery = 1.0 - lgd_i[0];
+            let default_prob = self.get_default_probability(index_data, t)?;
+            let default_threshold = standard_normal_inv_cdf(default_prob);
+            let integrand = |z: f64| {
+                let p = self.conditional_default_probability_enhanced(
+                    default_threshold,
+                    correlation,
+                    z,
+                );
+                self.conditional_equity_tranche_loss(
+                    num_constituents,
+                    detachment_notional,
+                    p,
+                    recovery,
+                )
+            };
+            let expected_loss = if !(self.params.adaptive_integration_low
+                ..=self.params.adaptive_integration_high)
+                .contains(&correlation)
+            {
+                quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+            } else {
+                quad.integrate(integrand)
+            };
+            return Ok(expected_loss);
         }
+
+        // Build probit thresholds for heterogeneous path
         let eps = self.params.probability_clip;
         let probit_i: Vec<f64> = pd_i
             .iter()
             .map(|&p| standard_normal_inv_cdf(p.max(eps).min(1.0 - eps)))
             .collect();
 
-        // Integrand over common factor Z
+        // Integrand over common factor Z using heterogeneous LGD and weights
         let integrand = |z: f64| -> f64 {
-            // Conditional default probs p_i(z)
             let sqrt_rho = correlation.sqrt();
             let sqrt_1mr = (1.0 - correlation).sqrt();
             let mut mean = 0.0;
             let mut var = 0.0;
-            for &th in &probit_i {
+
+            for i in 0..probit_i.len() {
+                let th = probit_i[i];
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
                 let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
-                // Weighted exposure per name
-                let w = weights * lgd;
+
+                // Use per-issuer weight and LGD
+                let w = weight_i[i] * lgd_i[i];
                 mean += w * p;
                 var += w * w * p * (1.0 - p);
             }
@@ -915,7 +946,13 @@ impl CDSTranchePricer {
         let n_const = index_data.num_constituents as usize;
         let small_pool_threshold: usize = 16;
         let el = if n_const <= small_pool_threshold {
-            self.hetero_exact_convolution(detachment_pct, correlation, &probit_i, lgd, weights)
+            self.hetero_exact_convolution_full(
+                detachment_pct,
+                correlation,
+                &probit_i,
+                &lgd_i,
+                &weight_i,
+            )
         } else {
             match self.params.hetero_method {
                 HeteroMethod::Spa => {
@@ -929,13 +966,13 @@ impl CDSTranchePricer {
                     }
                 }
                 HeteroMethod::ExactConvolution => {
-                    // Simple exact convolution fallback via discretization and convolution
-                    self.hetero_exact_convolution(
+                    // Exact convolution with full heterogeneity
+                    self.hetero_exact_convolution_full(
                         detachment_pct,
                         correlation,
                         &probit_i,
-                        lgd,
-                        weights,
+                        &lgd_i,
+                        &weight_i,
                     )
                 }
             }
@@ -943,76 +980,29 @@ impl CDSTranchePricer {
         Ok(el)
     }
 
-    /// SPA-only helper for performance fallback from exact convolution
-    fn calculate_equity_tranche_loss_hetero_spa_only(
-        &self,
-        probit_i: &[f64],
-        correlation: f64,
-        k: f64,
-        lgd: f64,
-        weight: f64,
-    ) -> f64 {
-        let quad = self.select_quadrature();
-        let integrand = |z: f64| -> f64 {
-            let sqrt_rho = correlation.sqrt();
-            let sqrt_1mr = (1.0 - correlation).sqrt();
-            let mut mean = 0.0;
-            let mut var = 0.0;
-            for &th in probit_i {
-                let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
-                let w = weight * lgd;
-                mean += w * p;
-                var += w * w * p * (1.0 - p);
-            }
-            if var <= self.params.spa_variance_floor {
-                return mean.min(k);
-            }
-            let s = var.sqrt();
-            let a = (k - mean) / s;
-            mean * standard_normal_cdf(a) + s * norm_pdf(a) + k * (1.0 - standard_normal_cdf(a))
-        };
-        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
-            .contains(&correlation)
-        {
-            quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-        } else {
-            quad.integrate(integrand)
-        }
-    }
-
-    /// Exact convolution fallback (coarse grid) for heterogeneous conditional equity tranche loss.
+    /// Exact convolution with full heterogeneous LGD and weight vectors.
     ///
-    /// # Grid Quantization
-    ///
-    /// Uses fractional bin distribution to reduce quantization error:
-    /// - Loss is computed as exact floating point value
-    /// - Mass is distributed proportionally between adjacent bins
-    /// - This reduces cumulative rounding error for large portfolios
-    fn hetero_exact_convolution(
+    /// This is the fully bespoke version that supports per-issuer:
+    /// - Hazard rates (via probit thresholds)
+    /// - Recovery rates (via lgd_i)
+    /// - Notional weights (via weight_i)
+    fn hetero_exact_convolution_full(
         &self,
         detachment_pct: f64,
         correlation: f64,
         probit_i: &[f64],
-        lgd: f64,
-        weight: f64,
+        lgd_i: &[f64],
+        weight_i: &[f64],
     ) -> f64 {
-        // Coarse grid size and step (configurable in future)
         let k = detachment_pct / 100.0;
         let grid_step = self.params.grid_step.max(self.params.grid_step_min);
-        let max_points = (k / grid_step).ceil() as usize + 2; // +2 for fractional overflow
+        let max_points = (k / grid_step).ceil() as usize + 2;
+
         if max_points > self.params.max_grid_points {
-            // Performance guard: fall back to SPA approximation
-            return self.calculate_equity_tranche_loss_hetero_spa_only(
-                probit_i,
-                correlation,
-                k,
-                lgd,
-                weight,
-            );
+            // Performance guard: fall back to SPA approximation with heterogeneous vectors
+            return self.hetero_spa_full(probit_i, correlation, k, lgd_i, weight_i);
         }
 
-        // Gauss–Hermite integrate conditional min(L, K) exactly via convolution
         let quad = self.select_quadrature();
         let sqrt_rho = correlation.sqrt();
         let sqrt_1mr = (1.0 - correlation).sqrt();
@@ -1022,39 +1012,38 @@ impl CDSTranchePricer {
             let mut pmf = vec![0.0f64; 1];
             pmf[0] = 1.0;
 
-            for &th in probit_i {
+            for i in 0..probit_i.len() {
+                let th = probit_i[i];
+                let lgd = lgd_i[i];
+                let weight = weight_i[i];
+
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
                 let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
 
-                // Improved grid quantization: use floor and distribute fractionally
+                // Per-issuer loss contribution
                 let loss_exact = weight * lgd / grid_step;
                 let loss_floor = loss_exact.floor() as usize;
                 let frac = loss_exact - loss_floor as f64;
 
-                // Need at least loss_floor + 2 bins for fractional distribution
                 let new_len = pmf.len() + loss_floor + 2;
                 let mut next = vec![0.0f64; new_len.min(max_points)];
 
-                // Convolution with Bernoulli(p) using fractional bin distribution
-                for (i, &mass) in pmf.iter().enumerate() {
-                    // No default case: mass stays at position i
-                    if i < next.len() {
-                        next[i] += mass * (1.0 - p);
+                for (j, &mass) in pmf.iter().enumerate() {
+                    // No default case
+                    if j < next.len() {
+                        next[j] += mass * (1.0 - p);
                     }
 
                     // Default case: distribute mass between floor and ceiling bins
-                    let j_floor = i + loss_floor;
+                    let j_floor = j + loss_floor;
                     let j_ceil = j_floor + 1;
 
                     if j_floor < next.len() {
-                        // Mass at floor bin (weighted by 1 - frac)
                         next[j_floor] += mass * p * (1.0 - frac);
                     }
                     if j_ceil < next.len() && frac > 0.0 {
-                        // Mass at ceiling bin (weighted by frac)
                         next[j_ceil] += mass * p * frac;
                     } else if j_floor < next.len() && frac > 0.0 {
-                        // If ceiling overflows, add to floor (conservative)
                         next[j_floor] += mass * p * frac;
                     }
                 }
@@ -1065,14 +1054,55 @@ impl CDSTranchePricer {
                 }
             }
 
-            // Compute E[min(L, K)] from pmf over grid
-            // Use stable summation for better numerical properties
+            // Compute E[min(L, K)] from pmf
             let mut terms: Vec<f64> = Vec::with_capacity(pmf.len());
             for (i, mass) in pmf.iter().enumerate() {
                 let l = (i as f64) * grid_step;
                 terms.push(mass * l.min(k));
             }
             finstack_core::math::stable_sum(&terms)
+        };
+
+        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
+            .contains(&correlation)
+        {
+            quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+        } else {
+            quad.integrate(integrand)
+        }
+    }
+
+    /// SPA fallback with full heterogeneous vectors.
+    fn hetero_spa_full(
+        &self,
+        probit_i: &[f64],
+        correlation: f64,
+        k: f64,
+        lgd_i: &[f64],
+        weight_i: &[f64],
+    ) -> f64 {
+        let quad = self.select_quadrature();
+        let integrand = |z: f64| -> f64 {
+            let sqrt_rho = correlation.sqrt();
+            let sqrt_1mr = (1.0 - correlation).sqrt();
+            let mut mean = 0.0;
+            let mut var = 0.0;
+
+            for i in 0..probit_i.len() {
+                let th = probit_i[i];
+                let cthr = (th - sqrt_rho * z) / sqrt_1mr;
+                let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
+                let w = weight_i[i] * lgd_i[i];
+                mean += w * p;
+                var += w * w * p * (1.0 - p);
+            }
+
+            if var <= self.params.spa_variance_floor {
+                return mean.min(k);
+            }
+            let s = var.sqrt();
+            let a = (k - mean) / s;
+            mean * standard_normal_cdf(a) + s * norm_pdf(a) + k * (1.0 - standard_normal_cdf(a))
         };
 
         if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)

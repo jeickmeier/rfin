@@ -269,6 +269,10 @@ pub struct CreditIndexState {
     pub base_correlation_curve_id: String,
     /// Optional map of issuer ID → hazard curve ID
     pub issuer_credit_curve_ids: Option<std::collections::HashMap<String, String>>,
+    /// Optional map of issuer ID → recovery rate
+    pub issuer_recovery_rates: Option<std::collections::HashMap<String, f64>>,
+    /// Optional map of issuer ID → weight
+    pub issuer_weights: Option<std::collections::HashMap<String, f64>>,
 }
 
 // -----------------------------------------------------------------------------
@@ -347,6 +351,8 @@ impl From<&MarketContext> for MarketContextState {
                     index_credit_curve_id: data.index_credit_curve.id().to_string(),
                     base_correlation_curve_id: data.base_correlation_curve.id().to_string(),
                     issuer_credit_curve_ids: issuer_ids,
+                    issuer_recovery_rates: data.issuer_recovery_rates.clone(),
+                    issuer_weights: data.issuer_weights.clone(),
                 }
             })
             .collect();
@@ -430,6 +436,8 @@ impl TryFrom<MarketContextState> for MarketContext {
                 index_credit_curve: index_curve,
                 base_correlation_curve: base_corr,
                 issuer_credit_curves: issuer_curves,
+                issuer_recovery_rates: credit_state.issuer_recovery_rates,
+                issuer_weights: credit_state.issuer_weights,
             };
 
             ctx.credit_indices
@@ -1502,6 +1510,8 @@ impl MarketContext {
             index_credit_curve: Arc::clone(&existing_index.index_credit_curve),
             base_correlation_curve: new_curve,
             issuer_credit_curves: existing_index.issuer_credit_curves.clone(),
+            issuer_recovery_rates: existing_index.issuer_recovery_rates.clone(),
+            issuer_weights: existing_index.issuer_weights.clone(),
         };
 
         // Update the context

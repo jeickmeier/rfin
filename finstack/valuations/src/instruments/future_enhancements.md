@@ -45,7 +45,6 @@
 - Moderate: Add normal/Bachelier spread model and displaced-diffusion support for deep OTM/ITM quotes.
 
 # cds_tranche
-- High: Support bespoke portfolios and name-level heterogeneity (hazard/recovery per name).
 - High: Provide tranche option (STO/CDO2) hooks and dynamic spread modeling for risk scenarios.
 
 # cliquet_option
