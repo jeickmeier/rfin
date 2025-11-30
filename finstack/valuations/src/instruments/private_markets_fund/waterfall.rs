@@ -13,6 +13,7 @@ use finstack_core::prelude::*;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -363,11 +364,11 @@ pub struct AllocationRow {
     /// Date of allocation
     pub date: Date,
     /// Period key (for grouping)
-    pub period_key: Option<String>,
+    pub period_key: Option<Arc<str>>,
     /// Deal ID for American-style waterfalls
-    pub deal_id: Option<String>,
+    pub deal_id: Option<Arc<str>>,
     /// Tranche name/description
-    pub tranche: String,
+    pub tranche: Arc<str>,
     /// Amount allocated to LP
     pub to_lp: Money,
     /// Amount allocated to GP
@@ -379,7 +380,7 @@ pub struct AllocationRow {
     /// LP IRR to date (if calculable)
     pub lp_irr_to_date: Option<f64>,
     /// Optional note/description
-    pub note: Option<String>,
+    pub note: Option<Arc<str>>,
 }
 
 /// Complete allocation ledger with metadata.
@@ -456,7 +457,7 @@ impl AllocationLedger {
             row_data.push(row.date.to_string());
             row_data.push(row.period_key.as_deref().unwrap_or("").to_string());
             row_data.push(row.deal_id.as_deref().unwrap_or("").to_string());
-            row_data.push(row.tranche.clone());
+            row_data.push(row.tranche.to_string());
             row_data.push(row.to_lp.amount().to_string());
             row_data.push(row.to_gp.amount().to_string());
             row_data.push(row.lp_unreturned.amount().to_string());
@@ -669,7 +670,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                 })?;
 
                 for mut alloc in allocations {
-                    alloc.deal_id = Some(deal_id.clone());
+                    alloc.deal_id = Some(Arc::from(deal_id.clone()));
                     total_lp_unreturned = alloc.lp_unreturned.amount();
                     total_gp_carry = alloc.gp_carry_cum.amount();
                     ledger_rows.push(alloc);
@@ -714,7 +715,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     (
                         allocation,
                         0.0,
-                        "Return of Capital".to_string(),
+                        Arc::from("Return of Capital"),
                         gp_carry_cum,
                     )
                 }
@@ -733,7 +734,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     (
                         allocation,
                         0.0,
-                        format!("Preferred Return {:.1}%", irr * 100.0),
+                        format!("Preferred Return {:.1}%", irr * 100.0).into(),
                         gp_carry_cum,
                     )
                 }
@@ -783,7 +784,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let to_gp_paid = to_gp_gross * (1.0 - holdback_pct);
                     gp_carry_cum += to_gp_gross;
                     remaining_amount -= to_gp_gross;
-                    (0.0, to_gp_paid, "Catch-Up".to_string(), gp_carry_cum)
+                    (0.0, to_gp_paid, Arc::from("Catch-Up"), gp_carry_cum)
                 }
 
                 Tranche::PromoteTier {
@@ -802,7 +803,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                             rate * 100.0,
                             lp_share * 100.0,
                             gp_share * 100.0
-                        ),
+                        ).into(),
                     };
 
                     remaining_amount = 0.0; // Allocate all remaining
@@ -817,7 +818,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 
             allocations.push(AllocationRow {
                 date: params.allocation_date,
-                period_key: self.period_key_for(params.allocation_date),
+                period_key: self.period_key_for(params.allocation_date).map(Arc::from),
                 deal_id: None, // Set by caller for American style
                 tranche: tranche_name,
                 to_lp: Money::new(to_lp, params.currency),
@@ -910,7 +911,10 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let already_received = total_contributions - contrib_amount; // Net distributions so far
                     Ok((required_total - already_received).max(0.0))
                 } else {
-                    Ok(0.0)
+                    Err(finstack_core::Error::Calibration {
+                        message: "Failed to solve for preferred return amount".into(),
+                        category: "Waterfall".into(),
+                    })
                 }
             }
         }
@@ -1037,15 +1041,15 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         let settlement_row = AllocationRow {
             date: settlement_date,
-            period_key: self.period_key_for(settlement_date),
+            period_key: self.period_key_for(settlement_date).map(Arc::from),
             deal_id: None,
-            tranche: "Clawback Settlement (fund_end)".to_string(),
+            tranche: Arc::from("Clawback Settlement (fund_end)"),
             to_lp,
             to_gp,
             lp_unreturned: last.lp_unreturned, // unchanged
             gp_carry_cum: Money::new(allowed_gp_total, currency),
             lp_irr_to_date: self.calculate_lp_irr_to_date(events, settlement_date),
-            note: Some("Clawback settlement and holdback release".to_string()),
+            note: Some(Arc::from("Clawback settlement and holdback release")),
         };
 
         ledger_rows.push(settlement_row);
@@ -1303,7 +1307,7 @@ mod tests {
 
         assert!(!distribution_rows.is_empty());
         for row in distribution_rows {
-            assert_eq!(row.period_key, Some("2025Q1".to_string()));
+            assert_eq!(row.period_key, Some(Arc::from("2025Q1")));
         }
     }
 
@@ -1374,7 +1378,7 @@ mod tests {
             .expect("Should have clawback settlement");
 
         // Settlement date is the last event date (2025-06-15), which is in Q2
-        assert_eq!(clawback_row.period_key, Some("2025Q2".to_string()));
+        assert_eq!(clawback_row.period_key, Some(Arc::from("2025Q2")));
     }
 
     #[test]
@@ -1402,6 +1406,32 @@ mod tests {
         // All rows should have None period_key (legacy behavior preserved)
         for row in &ledger.rows {
             assert_eq!(row.period_key, None);
+        }
+    }
+
+    #[test]
+    fn solver_failure_propagation() {
+        // Use NaN IRR to force solver failure (cannot solve for target)
+        let spec = WaterfallSpec::builder()
+            .preferred_irr(f64::NAN)
+            .build()
+            .expect("Valid spec");
+
+        let events = vec![
+            FundEvent::contribution(test_date(2020, 1, 1), Money::new(100.0, test_currency())),
+            FundEvent::contribution(test_date(2020, 6, 1), Money::new(100.0, test_currency())),
+            FundEvent::distribution(test_date(2021, 1, 1), Money::new(300.0, test_currency())),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec);
+        let result = engine.run(&events);
+
+        assert!(result.is_err());
+        match result {
+            Err(finstack_core::Error::Calibration { message, .. }) => {
+                assert_eq!(message, "Failed to solve for preferred return amount");
+            }
+            _ => panic!("Expected Calibration error, got {:?}", result),
         }
     }
 }
