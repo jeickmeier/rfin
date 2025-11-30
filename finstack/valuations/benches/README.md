@@ -34,11 +34,14 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 
 ## Benchmark Suite
 
-### bond_pricing.rs - Bond Instruments (16 scenarios)
+### bond_pricing.rs - Bond Instruments (22 scenarios)
 - **bond_pv**: Present value calculation (2Y, 5Y, 10Y, 30Y)
 - **bond_ytm_solve**: YTM solver with Newton-Raphson + Brent (2Y, 5Y, 10Y, 30Y)
 - **bond_duration**: Modified duration and convexity (2Y, 5Y, 10Y, 30Y)
 - **bond_dv01**: Dollar value of 01 (2Y, 5Y, 10Y, 30Y)
+- **bond_tree_pricing**: Short-rate tree PV for callable bonds (5Y, 10Y, 30Y)
+- **bond_tree_oas**: Option-adjusted spread solver via `TreePricer` (5Y, 10Y, 30Y)
+- **bond_spread_metrics**: Z-spread, I-spread, ASW par/market, and discount margin cases
 
 ### swap_pricing.rs - Interest Rate Swaps (12 scenarios)
 - **swap_pv**: Present value (2Y, 5Y, 10Y, 30Y)
@@ -150,6 +153,13 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 | Bond YTM | 5Y | ~50-70 μs | Iterative solver |
 | Bond Duration | 10Y | ~40-50 μs | Numerical bumping |
 | Bond DV01 | 10Y | ~45-60 μs | Bump + reprice |
+| Callable Tree PV | 10Y | ~0.86 ms | Ho-Lee tree, 100 steps |
+| Callable OAS Solver | 10Y | ~8.6 ms | Tree pricer + Brent |
+| Z-Spread | 10Y | ~75 μs | Dirty-price root find |
+| I-Spread | 10Y | ~75 μs | Swap proxy par leg |
+| ASW Par | 10Y | ~65 μs | Discount curve annuity |
+| ASW Market | 10Y | ~80 μs | Adds dirty price reconciliation |
+| Discount Margin | 5Y FRN | ~160 μs | Floating-note solver |
 | Bond Cashflow Gen | 30Y | ~15-20 μs | 60 semi-annual flows |
 | **Swaps** | | | |
 | Swap PV | 5Y | ~15-25 μs | Fixed + float legs |

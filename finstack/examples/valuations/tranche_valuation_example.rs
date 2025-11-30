@@ -156,6 +156,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
             "SOFR-3M",
             450.0, // 450 bps spread
             date!(2030 - 01 - 01),
+            DayCount::Act360,
         )
         .with_rating(CreditRating::BB);
         pool.assets.push(loan);
@@ -238,6 +239,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
                 RecipientType::ServiceProvider("Trustee".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(100_000.0, base_currency),
+                    rounding: None,
                 },
             )),
         )

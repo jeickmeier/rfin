@@ -7,8 +7,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
+use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode, DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType,
     Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall, WaterfallBuilder,
@@ -63,10 +63,7 @@ fn run_waterfall(
         market,
     };
     finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
-        waterfall,
-        tranches,
-        pool,
-        context,
+        waterfall, tranches, pool, context,
     )
     .expect("waterfall execution")
 }
@@ -88,7 +85,7 @@ fn property_cash_conservation() {
                 WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                     "recipient1",
                     RecipientType::ServiceProvider("Test".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(1_000.0, currency),
                     },
                 )),
@@ -149,7 +146,7 @@ fn property_non_negative_distributions() {
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
                 RecipientType::ServiceProvider("Test".into()),
-                PaymentCalculation::FixedAmount {
+                PaymentCalculation::FixedAmount { rounding: None,
                     amount: Money::new(10_000.0, currency),
                 },
             )),
@@ -209,7 +206,7 @@ fn property_priority_ordering() {
                 .add_recipient(Recipient::new(
                     "fee1",
                     RecipientType::ServiceProvider("Provider1".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(100_000.0, currency),
                     },
                 )),
@@ -220,7 +217,7 @@ fn property_priority_ordering() {
                 .add_recipient(Recipient::new(
                     "fee2",
                     RecipientType::ServiceProvider("Provider2".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(50_000.0, currency),
                     },
                 )),
@@ -280,7 +277,7 @@ fn property_pro_rata_weight_distribution() {
                     Recipient::new(
                         "recipient1",
                         RecipientType::ServiceProvider("Provider1".into()),
-                        PaymentCalculation::FixedAmount {
+                        PaymentCalculation::FixedAmount { rounding: None,
                             amount: Money::new(100_000.0, currency),
                         },
                     )
@@ -290,7 +287,7 @@ fn property_pro_rata_weight_distribution() {
                     Recipient::new(
                         "recipient2",
                         RecipientType::ServiceProvider("Provider2".into()),
-                        PaymentCalculation::FixedAmount {
+                        PaymentCalculation::FixedAmount { rounding: None,
                             amount: Money::new(100_000.0, currency),
                         },
                     )
@@ -349,7 +346,7 @@ fn property_shortfall_computation() {
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
                 RecipientType::ServiceProvider("Test".into()),
-                PaymentCalculation::FixedAmount {
+                PaymentCalculation::FixedAmount { rounding: None,
                     amount: Money::new(100_000.0, currency),
                 },
             )),
@@ -428,7 +425,7 @@ fn property_tier_count_consistency() {
                 Recipient::new(
                     format!("recipient{}", i),
                     RecipientType::ServiceProvider(format!("Provider{}", i)),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(10_000.0, currency),
                     },
                 ),
@@ -478,6 +475,7 @@ fn property_diversion_tracking() {
                     PaymentCalculation::TranchePrincipal {
                         tranche_id: "TEST_TRANCHE".into(),
                         target_balance: None,
+                        rounding: None,
                     },
                 )),
         )
@@ -532,7 +530,7 @@ fn property_monotonic_tier_allocation() {
                 .add_recipient(Recipient::new(
                     "r1",
                     RecipientType::ServiceProvider("P1".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(50_000.0, currency),
                     },
                 )),
@@ -543,7 +541,7 @@ fn property_monotonic_tier_allocation() {
                 .add_recipient(Recipient::new(
                     "r2",
                     RecipientType::ServiceProvider("P2".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(50_000.0, currency),
                     },
                 )),
@@ -554,7 +552,7 @@ fn property_monotonic_tier_allocation() {
                 .add_recipient(Recipient::new(
                     "r3",
                     RecipientType::ServiceProvider("P3".into()),
-                    PaymentCalculation::FixedAmount {
+                    PaymentCalculation::FixedAmount { rounding: None,
                         amount: Money::new(50_000.0, currency),
                     },
                 )),
@@ -608,7 +606,7 @@ fn property_coverage_test_result_format() {
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
                 RecipientType::ServiceProvider("Test".into()),
-                PaymentCalculation::FixedAmount {
+                PaymentCalculation::FixedAmount { rounding: None,
                     amount: Money::new(1_000.0, currency),
                 },
             )),

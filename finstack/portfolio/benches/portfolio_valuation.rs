@@ -854,6 +854,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
                 Money::new(1_000_000.0, Currency::USD),
                 0.06,
                 maturity_5y(),
+                DayCount::Act360,
             ));
         }
 
@@ -876,6 +877,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             RecipientType::ServiceProvider("Trustee".to_string()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(10_000.0, Currency::USD),
+                rounding: None,
             },
         )];
         let waterfall = Waterfall::standard_sequential(Currency::USD, &tranches, fees);

@@ -5,7 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
@@ -39,7 +39,7 @@ fn create_test_pool() -> Pool {
 
     for i in 0..5 {
         let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
-            day_count: Some(finstack_core::dates::DayCount::Act360),
+            day_count: finstack_core::dates::DayCount::Act360,
             id: InstrumentId::new(format!("LOAN_{}", i)),
             asset_type: AssetType::FirstLienLoan {
                 industry: Some(format!("Industry_{}", i % 3)),
@@ -56,6 +56,8 @@ fn create_test_pool() -> Pool {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: Some(test_date()),
+            smm_override: None,
+            mdr_override: None,
         };
         pool.assets.push(asset);
     }
@@ -109,16 +111,17 @@ fn create_test_waterfall() -> Waterfall {
         Recipient::new(
             "trustee_fees",
             RecipientType::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount {
+            PaymentCalculation::FixedAmount { rounding: None,
                 amount: Money::new(12_500.0, Currency::USD),
             },
         ),
         Recipient::new(
             "senior_mgmt_fee",
             RecipientType::ManagerFee(ManagementFeeType::Senior),
-            PaymentCalculation::PercentageOfCollateral {
+            PaymentCalculation::PercentageOfCollateral { rounding: None,
                 rate: 0.0040,
                 annualized: true,
+                day_count: None,
             },
         ),
     ];
@@ -135,7 +138,16 @@ fn create_test_market() -> MarketContext {
         .build()
         .expect("Failed to create discount curve");
 
-    MarketContext::new().insert_discount(discount_curve)
+    let forward_curve = ForwardCurve::builder("SOFR-3M", 0.25)
+        .base_date(test_date())
+        .knots(vec![(0.0, 0.05), (1.0, 0.051), (2.0, 0.053), (5.0, 0.055)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .expect("Failed to create forward curve");
+
+    MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_forward(forward_curve)
 }
 
 // ============================================================================

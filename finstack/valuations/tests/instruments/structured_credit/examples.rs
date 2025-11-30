@@ -77,6 +77,7 @@ mod tests {
             "SOFR-3M",
             425.0, // SOFR + 425bps
             maturity,
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::BB)
         .with_industry("Technology")
@@ -88,6 +89,7 @@ mod tests {
             "SOFR-3M",
             475.0, // SOFR + 475bps
             maturity,
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::B)
         .with_industry("Healthcare")
@@ -99,6 +101,7 @@ mod tests {
             Money::new(5_000_000.0, Currency::USD),
             0.09, // 9% fixed
             maturity,
+            finstack_core::dates::DayCount::Thirty360,
         )
         .with_rating(CreditRating::BB)
         .with_industry("Energy");
@@ -142,6 +145,7 @@ mod tests {
                 "SOFR-3M",
                 200.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::AAA),
         );
@@ -153,6 +157,7 @@ mod tests {
                 "SOFR-3M",
                 350.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::A),
         );
@@ -164,6 +169,7 @@ mod tests {
                 "SOFR-3M",
                 450.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::BB),
         );
@@ -175,6 +181,7 @@ mod tests {
                 "SOFR-3M",
                 550.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::B),
         );
@@ -296,6 +303,7 @@ mod tests {
                 "SOFR-3M",
                 425.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::BB)
             .with_industry("Technology")
@@ -309,6 +317,7 @@ mod tests {
                 "SOFR-3M",
                 450.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::B)
             .with_industry("Healthcare")
@@ -322,6 +331,7 @@ mod tests {
                 "SOFR-3M",
                 500.0,
                 maturity,
+                finstack_core::dates::DayCount::Act360,
             )
             .with_rating(CreditRating::B)
             .with_industry("Consumer")

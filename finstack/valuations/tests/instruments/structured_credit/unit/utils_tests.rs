@@ -165,7 +165,7 @@ fn test_reinvestment_manager_selects_cheapest_first() {
 
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let base_asset = PoolAsset {
-        day_count: Some(finstack_core::dates::DayCount::Act360),
+        day_count: finstack_core::dates::DayCount::Act360,
         id: "BASE".to_string().into(),
         asset_type: AssetType::FirstLienLoan { industry: None },
         balance: Money::new(100.0, Currency::USD),
@@ -180,6 +180,8 @@ fn test_reinvestment_manager_selects_cheapest_first() {
         recovery_amount: None,
         purchase_price: None,
         acquisition_date: None,
+        smm_override: None,
+        mdr_override: None,
     };
 
     // Create assets at different prices
@@ -232,6 +234,7 @@ fn test_reinvestment_manager_respects_budget() {
         "SOFR-3M",
         400.0,
         maturity,
+        finstack_core::dates::DayCount::Act360,
     );
 
     let opportunities = vec![asset.clone(), asset.clone(), asset.clone()];

@@ -12,9 +12,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, DealType};
-use crate::instruments::structured_credit::types::constants::{
-    BASIS_POINTS_DIVISOR, DAYS_PER_YEAR,
-};
+use crate::instruments::structured_credit::types::constants::BASIS_POINTS_DIVISOR;
 use finstack_core::types::ratings::CreditRating;
 
 /// Individual asset in the structured credit pool
@@ -51,7 +49,13 @@ pub struct PoolAsset {
     /// Acquisition date
     pub acquisition_date: Option<Date>,
     /// Day count convention for interest calculation
-    pub day_count: Option<DayCount>,
+    pub day_count: DayCount,
+    /// Optional override for Single Monthly Mortality (SMM)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub smm_override: Option<f64>,
+    /// Optional override for Monthly Default Rate (MDR)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub mdr_override: Option<f64>,
 }
 
 impl PoolAsset {
@@ -78,22 +82,22 @@ impl PoolAsset {
             purchase_price: bond
                 .pricing_overrides
                 .quoted_clean_price
-                .map(|p| bond.notional * p),
+                .map(|p| Money::new(p * bond.notional.amount(), bond.notional.currency())),
             acquisition_date: Some(bond.issue),
             day_count: match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
-                crate::instruments::bond::CashflowSpec::Floating(spec) => Some(spec.rate_spec.dc),
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.dc,
+                crate::instruments::bond::CashflowSpec::Floating(spec) => spec.rate_spec.dc,
                 // For amortizing, we look at the base spec
                 crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => {
                     match base.as_ref() {
-                        crate::instruments::bond::CashflowSpec::Fixed(spec) => Some(spec.dc),
-                        crate::instruments::bond::CashflowSpec::Floating(spec) => {
-                            Some(spec.rate_spec.dc)
-                        }
-                        _ => None,
+                        crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.dc,
+                        crate::instruments::bond::CashflowSpec::Floating(spec) => spec.rate_spec.dc,
+                        _ => DayCount::Act360, // Fallback if not clear, though bond should have one
                     }
                 }
             },
+            smm_override: None,
+            mdr_override: None,
         }
     }
 
@@ -107,6 +111,7 @@ impl PoolAsset {
     /// * `index_id` - Reference rate (e.g., "SOFR-3M", "LIBOR-3M")
     /// * `spread_bps` - Spread over index in basis points
     /// * `maturity` - Maturity date
+    /// * `day_count` - Day count convention
     ///
     /// # Example
     /// ```ignore
@@ -116,6 +121,7 @@ impl PoolAsset {
     ///     "SOFR-3M",
     ///     450.0,  // 450bps spread
     ///     maturity_date,
+    ///     DayCount::Act360,
     /// );
     /// // asset.rate will be 0.0 initially (set after index fixings)
     /// // asset.spread_bps will be Some(450.0) for WAS calculation
@@ -126,6 +132,7 @@ impl PoolAsset {
         index_id: impl Into<String>,
         spread_bps: f64,
         maturity: Date,
+        day_count: DayCount,
     ) -> Self {
         Self {
             id: id.into(),
@@ -142,7 +149,9 @@ impl PoolAsset {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: None,
-            day_count: Some(DayCount::Act360), // Standard for loans
+            day_count,
+            smm_override: None,
+            mdr_override: None,
         }
     }
 
@@ -154,6 +163,7 @@ impl PoolAsset {
         balance: Money,
         rate: f64,
         maturity: Date,
+        day_count: DayCount,
     ) -> Self {
         Self {
             id: id.into(),
@@ -170,7 +180,9 @@ impl PoolAsset {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: None,
-            day_count: Some(DayCount::Thirty360), // Standard for US bonds
+            day_count,
+            smm_override: None,
+            mdr_override: None,
         }
     }
 
@@ -194,7 +206,7 @@ impl PoolAsset {
 
     /// Set day count convention
     pub fn with_day_count(mut self, day_count: DayCount) -> Self {
-        self.day_count = Some(day_count);
+        self.day_count = day_count;
         self
     }
 
@@ -468,7 +480,7 @@ impl AssetPool {
 
         for (i, (_, group_assets)) in groups.into_iter().enumerate() {
             let total_balance: f64 = group_assets.iter().map(|a| a.balance.amount()).sum();
-            
+
             if total_balance <= 0.0 {
                 continue;
             }
@@ -480,13 +492,13 @@ impl AssetPool {
 
             let first = group_assets[0];
             let index_id = first.index_id.clone();
-            let day_count = first.day_count.unwrap_or(DayCount::Thirty360);
+            let day_count = first.day_count;
 
             for asset in &group_assets {
                 let weight = asset.balance.amount() / total_balance;
                 weighted_rate += asset.rate * weight;
                 weighted_spread += asset.spread_bps() * weight;
-                
+
                 let days_to_maturity = (asset.maturity - as_of).whole_days() as f64;
                 weighted_maturity_days += days_to_maturity * weight;
 
@@ -499,7 +511,11 @@ impl AssetPool {
             }
 
             let maturity_date = as_of + time::Duration::days(weighted_maturity_days as i64);
-            let spread_opt = if index_id.is_some() { Some(weighted_spread) } else { None };
+            let spread_opt = if index_id.is_some() {
+                Some(weighted_spread)
+            } else {
+                None
+            };
 
             let rep_line = RepLine::new(
                 format!("REP_{}", i),
@@ -550,7 +566,7 @@ impl AssetPool {
             Ok(b) => b.amount(),
             Err(_) => return 0.0,
         };
-        
+
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -574,7 +590,7 @@ impl AssetPool {
             Ok(b) => b.amount(),
             Err(_) => return 0.0,
         };
-        
+
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -583,7 +599,7 @@ impl AssetPool {
             .assets
             .iter()
             .filter_map(|a| {
-                a.remaining_term(as_of, DayCount::Act365F)
+                a.remaining_term(as_of, a.day_count)
                     .ok()
                     .map(|term| term * a.balance.amount())
             })
@@ -606,7 +622,11 @@ impl AssetPool {
 
         for (date, amount) in cashflows {
             if *date > as_of {
-                let years = (*date - as_of).whole_days() as f64 / DAYS_PER_YEAR;
+                // Use Act365F for standardized WAL reporting unless specified otherwise
+                // Ideally this should take a day_count parameter, but Act365F is a common standard for WAL
+                let years = DayCount::Act365F
+                    .year_fraction(as_of, *date, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
                 wal_numerator += amount.amount() * years;
                 total_principal += amount.amount();
             }
@@ -636,14 +656,13 @@ impl AssetPool {
         // However, to avoid allocating a new HashMap every time, we could pass a workspace.
         // For now, we'll stick to the HashMap but pre-allocate capacity.
         // A better optimization for the future would be to integerize obligor IDs.
-        
+
         let mut obligor_balances: HashMap<&str, f64> = HashMap::with_capacity(self.assets.len());
 
         // Group by obligor
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
-                *obligor_balances.entry(obligor.as_str()).or_insert(0.0) +=
-                    asset.balance.amount();
+                *obligor_balances.entry(obligor.as_str()).or_insert(0.0) += asset.balance.amount();
             }
         }
 
@@ -690,7 +709,7 @@ impl AssetPool {
             Ok(b) => b.amount(),
             Err(_) => return 0.0,
         };
-        
+
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -798,8 +817,7 @@ mod tests {
     #[test]
     fn test_rep_line_aggregation() {
         let mut pool = AssetPool::new("TEST_POOL", DealType::RMBS, Currency::USD);
-        let as_of = Date::from_calendar_date(2023, time::Month::January, 1)
-            .expect("valid date");
+        let as_of = Date::from_calendar_date(2023, time::Month::January, 1).expect("valid date");
 
         // Add 3 identical assets
         for i in 0..3 {
@@ -808,6 +826,7 @@ mod tests {
                 Money::new(100_000.0, Currency::USD),
                 0.05,
                 as_of + time::Duration::days(360 * 10), // 10 years
+                finstack_core::dates::DayCount::Thirty360,
             ));
         }
 
@@ -818,22 +837,67 @@ mod tests {
                 Money::new(200_000.0, Currency::USD),
                 0.06,
                 as_of + time::Duration::days(360 * 5), // 5 years
+                finstack_core::dates::DayCount::Thirty360,
             ));
         }
 
         pool.aggregate_to_rep_lines(as_of);
 
         assert!(pool.rep_lines.is_some());
-        let rep_lines = pool.rep_lines.as_ref().expect("rep_lines should be set after aggregation");
-        
+        let rep_lines = pool
+            .rep_lines
+            .as_ref()
+            .expect("rep_lines should be set after aggregation");
+
         // Should have 1 rep line (grouped by type/index/dc)
         assert_eq!(rep_lines.len(), 1);
         let rep = &rep_lines[0];
-        
+
         // Total balance: 3*100k + 2*200k = 700k
         assert_eq!(rep.balance.amount(), 700_000.0);
-        
+
         // Weighted rate: (300k * 0.05 + 400k * 0.06) / 700k = 0.0557...
         assert!((rep.rate - 0.055714).abs() < 0.0001);
+    }
+}
+
+#[cfg(test)]
+mod market_standards_tests {
+    use super::*;
+    use finstack_core::dates::DayCount;
+
+    #[test]
+    fn test_wam_mixed_day_counts() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1)
+            .expect("Valid date");
+        let maturity = Date::from_calendar_date(2026, time::Month::January, 1)
+            .expect("Valid date");
+        
+        // Asset A: Act365F (Standard) -> 1.0 years
+        let asset_a = PoolAsset::fixed_rate_bond(
+            "A",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            maturity,
+            DayCount::Act365F,
+        );
+
+        // Asset B: Thirty360 -> 1.0 years (360/360)
+        let asset_b = PoolAsset::fixed_rate_bond(
+            "B",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            maturity,
+            DayCount::Thirty360,
+        );
+
+        let mut pool = AssetPool::new("POOL", DealType::ABS, Currency::USD);
+        pool.assets.push(asset_a);
+        pool.assets.push(asset_b);
+
+        let wam = pool.weighted_avg_maturity(as_of);
+        
+        // Both should be exactly 1.0
+        assert!((wam - 1.0).abs() < 1e-10);
     }
 }

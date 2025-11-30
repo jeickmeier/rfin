@@ -41,6 +41,7 @@ fn test_pool_asset_floating_rate_loan_creation() {
         "SOFR-3M",
         450.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     );
 
     // Assert
@@ -60,6 +61,7 @@ fn test_pool_asset_fixed_rate_bond_creation() {
         Money::new(5_000_000.0, Currency::USD),
         0.07,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     );
 
     // Assert
@@ -79,6 +81,7 @@ fn test_pool_asset_builder_methods() {
         "SOFR-3M",
         500.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     )
     .with_rating(CreditRating::BB)
     .with_industry("Technology")
@@ -98,6 +101,7 @@ fn test_pool_asset_spread_bps_fallback_to_rate() {
         Money::new(10_000_000.0, Currency::USD),
         0.06,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     );
 
     // Act
@@ -115,6 +119,7 @@ fn test_pool_asset_default_with_recovery() {
         Money::new(1_000_000.0, Currency::USD),
         0.08,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     );
 
     // Act
@@ -133,6 +138,7 @@ fn test_pool_asset_remaining_term_calculation() {
         Money::new(5_000_000.0, Currency::USD),
         0.05,
         Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
     );
 
     // Act
@@ -174,6 +180,7 @@ fn test_asset_pool_total_balance_calculation() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
     pool.assets.push(PoolAsset::floating_rate_loan(
         "L2",
@@ -181,6 +188,7 @@ fn test_asset_pool_total_balance_calculation() {
         "SOFR-3M",
         450.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     // Act
@@ -214,6 +222,7 @@ fn test_asset_pool_performing_balance_excludes_defaults() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     // Add defaulted asset
@@ -223,6 +232,7 @@ fn test_asset_pool_performing_balance_excludes_defaults() {
         "SOFR-3M",
         450.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     );
     defaulted.default_with_recovery(Money::new(2_000_000.0, Currency::USD), test_date());
     pool.assets.push(defaulted);
@@ -249,6 +259,7 @@ fn test_pool_weighted_avg_coupon_single_asset() {
         Money::new(10_000_000.0, Currency::USD),
         0.06,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     // Act
@@ -267,12 +278,14 @@ fn test_pool_weighted_avg_coupon_multiple_assets() {
         Money::new(10_000_000.0, Currency::USD),
         0.06, // 6%
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "B2",
         Money::new(20_000_000.0, Currency::USD),
         0.09, // 9%
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     // Act
@@ -304,6 +317,7 @@ fn test_pool_weighted_avg_spread_floating_rate_assets() {
         "SOFR-3M",
         400.0, // 400bps
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
     pool.assets.push(PoolAsset::floating_rate_loan(
         "L2",
@@ -311,6 +325,7 @@ fn test_pool_weighted_avg_spread_floating_rate_assets() {
         "SOFR-3M",
         500.0, // 500bps
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     // Act
@@ -332,6 +347,7 @@ fn test_pool_weighted_avg_spread_mixed_assets() {
         "SOFR-3M",
         450.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     // Fixed rate (spread derived from rate)
@@ -340,6 +356,7 @@ fn test_pool_weighted_avg_spread_mixed_assets() {
         Money::new(10_000_000.0, Currency::USD),
         0.07, // 700bps
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     // Act
@@ -358,12 +375,14 @@ fn test_pool_weighted_avg_maturity() {
         Money::new(10_000_000.0, Currency::USD),
         0.06,
         Date::from_calendar_date(2028, Month::January, 1).unwrap(), // 3 years
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "B2",
         Money::new(10_000_000.0, Currency::USD),
         0.06,
         Date::from_calendar_date(2032, Month::January, 1).unwrap(), // 7 years
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     // Act
@@ -388,6 +407,7 @@ fn test_pool_diversity_score_single_obligor() {
             "SOFR-3M",
             400.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB1"),
     );
@@ -398,6 +418,7 @@ fn test_pool_diversity_score_single_obligor() {
             "SOFR-3M",
             450.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB1"),
     );
@@ -420,6 +441,7 @@ fn test_pool_diversity_score_multiple_obligors() {
             "SOFR-3M",
             400.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB1"),
     );
@@ -430,6 +452,7 @@ fn test_pool_diversity_score_multiple_obligors() {
             "SOFR-3M",
             450.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB2"),
     );
@@ -468,6 +491,7 @@ fn test_pool_assets_by_industry() {
             "SOFR-3M",
             400.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_industry("Technology"),
     );
@@ -478,6 +502,7 @@ fn test_pool_assets_by_industry() {
             "SOFR-3M",
             450.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_industry("Healthcare"),
     );
@@ -488,6 +513,7 @@ fn test_pool_assets_by_industry() {
             "SOFR-3M",
             500.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_industry("Technology"),
     );
@@ -514,6 +540,7 @@ fn test_pool_assets_by_obligor() {
             "SOFR-3M",
             400.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB1"),
     );
@@ -524,6 +551,7 @@ fn test_pool_assets_by_obligor() {
             "SOFR-3M",
             450.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_obligor("OB1"),
     );
@@ -552,6 +580,7 @@ fn test_calculate_pool_stats_comprehensive() {
             "SOFR-3M",
             400.0,
             maturity_date(),
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::BB)
         .with_industry("Technology")
@@ -564,6 +593,7 @@ fn test_calculate_pool_stats_comprehensive() {
             Money::new(5_000_000.0, Currency::USD),
             0.07,
             maturity_date(),
+            finstack_core::dates::DayCount::Thirty360,
         )
         .with_rating(CreditRating::B)
         .with_industry("Healthcare")
@@ -594,6 +624,7 @@ fn test_calculate_pool_stats_with_defaults() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     // Add defaulted asset
@@ -603,6 +634,7 @@ fn test_calculate_pool_stats_with_defaults() {
         "SOFR-3M",
         450.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     );
     defaulted.default_with_recovery(Money::new(400_000.0, Currency::USD), test_date());
     pool.assets.push(defaulted);
@@ -627,6 +659,7 @@ fn test_pool_zero_balance_asset() {
         Money::new(0.0, Currency::USD), // Zero balance
         0.06,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     // Act
@@ -646,6 +679,7 @@ fn test_pool_negative_days_remaining_term() {
         Money::new(5_000_000.0, Currency::USD),
         0.05,
         Date::from_calendar_date(2020, Month::January, 1).unwrap(), // Past maturity
+        finstack_core::dates::DayCount::Thirty360,
     );
 
     // Act
@@ -659,7 +693,7 @@ fn test_pool_negative_days_remaining_term() {
 fn test_pool_asset_type_classification() {
     // Arrange & Act
     let first_lien = PoolAsset {
-        day_count: Some(finstack_core::dates::DayCount::Act360),
+        day_count: finstack_core::dates::DayCount::Act360,
         id: "L1".to_string().into(),
         asset_type: AssetType::FirstLienLoan {
             industry: Some("Tech".to_string()),
@@ -676,6 +710,8 @@ fn test_pool_asset_type_classification() {
         recovery_amount: None,
         purchase_price: None,
         acquisition_date: None,
+        smm_override: None,
+        mdr_override: None,
     };
 
     // Assert

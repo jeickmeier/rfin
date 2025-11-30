@@ -70,6 +70,7 @@ fn test_oc_test_passing_scenario() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     let equity = Tranche::new(
@@ -124,6 +125,7 @@ fn test_oc_test_failing_scenario() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     let equity = Tranche::new(
@@ -178,6 +180,7 @@ fn test_oc_test_with_cash_balance() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     let equity = Tranche::new(
@@ -231,6 +234,7 @@ fn test_oc_test_cure_amount_calculation() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     let equity = Tranche::new(
@@ -539,6 +543,7 @@ fn test_oc_test_infinity_ratio_zero_debt() {
         "SOFR-3M",
         400.0,
         maturity_date(),
+        finstack_core::dates::DayCount::Act360,
     ));
 
     let equity = Tranche::new(

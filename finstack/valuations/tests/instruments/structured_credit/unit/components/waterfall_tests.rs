@@ -29,6 +29,7 @@ fn test_waterfall_builder_creates_proper_priority_order() {
                 RecipientType::ServiceProvider("Trustee".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(25_000.0, Currency::USD),
+                    rounding: None,
                 },
             )),
         )
@@ -63,6 +64,8 @@ fn test_waterfall_builder_tier_types() {
                 PaymentCalculation::PercentageOfCollateral {
                     rate: 0.004,
                     annualized: true,
+                    day_count: None,
+                    rounding: None,
                 },
             )),
         )
@@ -122,6 +125,7 @@ fn test_payment_priority_ordering() {
             RecipientType::ServiceProvider("Test".into()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(1000.0, Currency::USD),
+                rounding: None,
             },
         )),
     );
@@ -150,6 +154,7 @@ fn test_allocation_mode_sequential() {
             RecipientType::ServiceProvider("P1".into()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(1000.0, Currency::USD),
+                rounding: None,
             },
         ));
 
@@ -217,9 +222,11 @@ fn test_recipient_tranche_principal_helper() {
         PaymentCalculation::TranchePrincipal {
             tranche_id,
             target_balance,
+            rounding,
         } => {
             assert_eq!(tranche_id, "CLASS_A");
             assert_eq!(*target_balance, None);
+            assert_eq!(*rounding, None);
         }
         _ => panic!("Expected TranchePrincipal calculation"),
     }
@@ -270,6 +277,7 @@ fn test_waterfall_engine_add_tier() {
         RecipientType::ServiceProvider("Test".into()),
         PaymentCalculation::FixedAmount {
             amount: Money::new(1000.0, Currency::USD),
+            rounding: None,
         },
     ));
 

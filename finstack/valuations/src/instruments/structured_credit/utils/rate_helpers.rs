@@ -3,7 +3,7 @@
 //! These helpers properly compute floating rate projections using
 //! calendar-aware tenor addition for accurate period end dates.
 
-use finstack_core::dates::{Date, DateExt, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 
 use crate::instruments::structured_credit::types::TrancheCoupon;
@@ -25,14 +25,12 @@ use crate::instruments::structured_credit::types::TrancheCoupon;
 /// - End-of-month dates should roll to end-of-month
 /// - Holiday adjustments (modified following) would be applied downstream
 #[inline]
-pub fn tenor_to_period_end(start: Date, tenor_years: f64) -> Date {
-    let tenor_months = (tenor_years * 12.0).round() as i32;
-
-    if tenor_months > 0 && tenor_months <= 12 {
-        start.add_months(tenor_months)
-    } else {
-        start + time::Duration::days((tenor_years * 365.25) as i64)
-    }
+pub fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -> Date {
+    use finstack_core::dates::{BusinessDayConvention, Tenor};
+    let tenor = Tenor::from_years(tenor_years, day_count);
+    tenor
+        .add_to_date(start, None, BusinessDayConvention::Unadjusted)
+        .expect("Date addition failed")
 }
 
 /// Compute tranche all-in rate (fixed => fixed; floating => index forward + spread with caps/floors).
@@ -49,7 +47,7 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
             };
 
             let tenor = fwd.tenor();
-            let period_end = tenor_to_period_end(date, tenor);
+            let period_end = tenor_to_period_end(date, tenor, fwd.day_count());
 
             crate::cashflow::builder::project_floating_rate(
                 date,

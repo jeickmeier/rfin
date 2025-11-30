@@ -61,7 +61,10 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
     if cpr >= 1.0 {
         return 1.0;
     }
-    1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+    // SMM = 1 - (1 - CPR)^(1/12)
+    //     = 1 - exp(ln(1 - CPR) / 12)
+    //     = -expm1(ln(1 - CPR) / 12)
+    -((1.0 - cpr).ln() / 12.0).exp_m1()
 }
 
 /// Converts monthly SMM to annual CPR.
@@ -115,7 +118,9 @@ pub fn cdr_to_mdr(cdr: f64) -> f64 {
     if cdr >= 1.0 {
         return 1.0;
     }
-    1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+    // MDR = 1 - (1 - CDR)^(1/12)
+    //     = -expm1(ln(1 - CDR) / 12)
+    -((1.0 - cdr).ln() / 12.0).exp_m1()
 }
 
 /// Converts monthly MDR to annual CDR.

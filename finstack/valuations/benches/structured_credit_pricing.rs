@@ -12,7 +12,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -49,6 +49,7 @@ fn create_pool(deal_type: DealType, num_assets: usize) -> Pool {
             Money::new(asset_balance, Currency::USD),
             0.05 + (i as f64 * 0.001), // Vary rates slightly
             Date::from_calendar_date(2028 + (i % 3) as i32, Month::January, 1).unwrap(),
+            DayCount::Act360,
         )
         .with_rating(CreditRating::BBB);
 
@@ -102,6 +103,7 @@ fn create_waterfall(tranches: &TrancheStructure) -> Waterfall {
             RecipientType::ServiceProvider("Trustee".to_string()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(10_000.0, Currency::USD),
+                rounding: None,
             },
         ),
         Recipient::new(
@@ -110,6 +112,8 @@ fn create_waterfall(tranches: &TrancheStructure) -> Waterfall {
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.001, // 0.1% fee
                 annualized: true,
+                day_count: None,
+                rounding: None,
             },
         ),
     ];

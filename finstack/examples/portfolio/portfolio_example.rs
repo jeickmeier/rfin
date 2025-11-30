@@ -1138,6 +1138,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
                     RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(35_714.29, Currency::USD),
+                        rounding: None,
                     },
                 ))
                 .add_recipient(Recipient::new(
@@ -1146,6 +1147,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
                     PaymentCalculation::PercentageOfCollateral {
                         rate: 0.002,
                         annualized: true,
+                        day_count: None,
+                        rounding: None,
                     },
                 )),
         )

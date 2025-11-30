@@ -138,6 +138,39 @@ impl Tenor {
         Self { count, unit }
     }
 
+    /// Create a Tenor from a year fraction using a day count convention.
+    ///
+    /// If the year fraction corresponds to an integer number of months (within a small epsilon),
+    /// it returns a Month-based tenor. Otherwise, it converts to days using the provided
+    /// day count convention.
+    ///
+    /// # Arguments
+    /// * `years` - The time period in years
+    /// * `day_count` - The day count convention to use for day conversion
+    pub fn from_years(years: f64, day_count: DayCount) -> Self {
+        let months = years * 12.0;
+        let rounded_months = months.round();
+
+        if (months - rounded_months).abs() < 1e-4 {
+            // It's effectively an integer number of months
+            let m = rounded_months as u32;
+            if m > 0 && m.is_multiple_of(12) {
+                Self::new(m / 12, TenorUnit::Years)
+            } else {
+                Self::new(m, TenorUnit::Months)
+            }
+        } else {
+            // Convert to days
+            let days = match day_count {
+                DayCount::Thirty360 | DayCount::ThirtyE360 => (years * 360.0).round(),
+                DayCount::Act360 => (years * 360.0).round(),
+                DayCount::Act365F => (years * 365.0).round(),
+                _ => (years * 365.25).round(),
+            };
+            Self::new(days as u32, TenorUnit::Days)
+        }
+    }
+
     /// Parse a tenor string like "1D", "1W", "3M", "5Y".
     ///
     /// # Format

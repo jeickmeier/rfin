@@ -16,9 +16,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
 use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
 use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
-use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode, DealType, ManagementFeeType, PaymentCalculation, PaymentType, Pool, Recipient,
     RecipientType, Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
@@ -53,7 +53,7 @@ fn create_test_pool(balance: f64, currency: Currency) -> Pool {
 
     for i in 0..num_assets {
         let asset = PoolAsset {
-            day_count: Some(finstack_core::dates::DayCount::Act360),
+            day_count: finstack_core::dates::DayCount::Act360,
             id: InstrumentId::new(format!("ASSET_{}", i)),
             asset_type: AssetType::FirstLienLoan {
                 industry: Some("Technology".into()),
@@ -70,6 +70,8 @@ fn create_test_pool(balance: f64, currency: Currency) -> Pool {
             recovery_amount: None,
             purchase_price: None,
             acquisition_date: None,
+            smm_override: None,
+            mdr_override: None,
         };
         pool.assets.push(asset);
     }
@@ -148,10 +150,7 @@ fn run_waterfall(
         market,
     };
     finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
-        waterfall,
-        tranches,
-        pool,
-        context,
+        waterfall, tranches, pool, context,
     )
     .expect("waterfall execution")
 }
@@ -176,6 +175,7 @@ fn test_golden_clo_2_0_full_payment() {
                     RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
+                        rounding: None,
                     },
                 ))
                 .add_recipient(Recipient::new(
@@ -184,6 +184,8 @@ fn test_golden_clo_2_0_full_payment() {
                     PaymentCalculation::PercentageOfCollateral {
                         rate: 0.004, // 40 bps
                         annualized: true,
+                        day_count: None,
+                        rounding: None,
                     },
                 )),
         )
@@ -324,6 +326,7 @@ fn test_golden_clo_oc_breach_diversion() {
                     RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
+                        rounding: None,
                     },
                 )),
         )
@@ -457,6 +460,8 @@ fn test_golden_cmbs_sequential_pay() {
                 PaymentCalculation::PercentageOfCollateral {
                     rate: 0.0025, // 25 bps
                     annualized: true,
+                    day_count: None,
+                    rounding: None,
                 },
             )),
         )
@@ -565,6 +570,7 @@ fn test_golden_cre_pro_rata_distribution() {
                 RecipientType::ServiceProvider("Operating".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(100_000.0, currency),
+                    rounding: None,
                 },
             )),
         )
@@ -578,6 +584,7 @@ fn test_golden_cre_pro_rata_distribution() {
                         RecipientType::Tranche("LP".into()),
                         PaymentCalculation::TrancheInterest {
                             tranche_id: "LP".into(),
+                            rounding: None,
                         },
                     )
                     .with_weight(0.95), // 95% ownership
@@ -588,6 +595,7 @@ fn test_golden_cre_pro_rata_distribution() {
                         RecipientType::Tranche("GP".into()),
                         PaymentCalculation::TrancheInterest {
                             tranche_id: "GP".into(),
+                            rounding: None,
                         },
                     )
                     .with_weight(0.05), // 5% ownership
@@ -700,6 +708,7 @@ fn test_golden_cash_conservation() {
                 RecipientType::ServiceProvider("Provider".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(10_000.0, currency),
+                    rounding: None,
                 },
             )),
         )

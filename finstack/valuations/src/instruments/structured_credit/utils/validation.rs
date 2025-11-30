@@ -405,6 +405,7 @@ mod tests {
             RecipientType::ServiceProvider("Trustee".into()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(1000.0, Currency::USD),
+                rounding: None,
             },
         ))
     }

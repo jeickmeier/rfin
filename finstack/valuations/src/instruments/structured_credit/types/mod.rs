@@ -15,6 +15,8 @@
 pub mod constants;
 pub mod enums;
 pub mod pool;
+/// SoA layout for pool assets.
+pub mod pool_state;
 pub mod results;
 pub mod setup;
 pub mod tranches;
@@ -46,6 +48,7 @@ pub use pool::{
     calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
     PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
 };
+pub use pool_state::PoolState;
 
 // Tranche types
 pub use tranches::{
@@ -63,8 +66,8 @@ pub use reinvestment::ReinvestmentManager;
 pub use waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 pub use waterfall::{
     AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
-    PaymentType, Recipient, RecipientType, Waterfall, WaterfallBuilder, WaterfallDistribution,
-    WaterfallTier, WaterfallWorkspace,
+    PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall, WaterfallBuilder,
+    WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 
 // Result types
@@ -321,15 +324,17 @@ pub struct StructuredCredit {
 
 impl StructuredCredit {
     /// Calculate current loss percentage of the pool.
-    pub fn current_loss_percentage(&self) -> f64 {
-        let total_balance = self.pool.total_balance().map(|b| b.amount()).unwrap_or(0.0);
+    pub fn current_loss_percentage(&self) -> finstack_core::Result<f64> {
+        let total_balance = self.pool.total_balance()?.amount();
         if total_balance == 0.0 {
-            return 0.0;
+            return Ok(0.0);
         }
 
-        (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount())
-            / total_balance
-            * DECIMAL_TO_PERCENT
+        Ok(
+            (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount())
+                / total_balance
+                * DECIMAL_TO_PERCENT,
+        )
     }
 
     /// Calculate expected life of the structure.
@@ -460,17 +465,17 @@ impl StructuredCredit {
         // Use a simple deterministic mixing of the ID and date bytes to ensure reproducibility
         // across different Rust versions/platforms (unlike DefaultHasher).
         let mut seed: u64 = 0xcbf29ce484222325; // FNV offset basis
-        
+
         for byte in self.id.as_bytes() {
             seed ^= *byte as u64;
             seed = seed.wrapping_mul(0x100000001b3); // FNV prime
         }
-        
+
         // Mix in date
         let date_val = as_of.to_julian_day() as u64;
         seed ^= date_val;
         seed = seed.wrapping_mul(0x100000001b3);
-        
+
         seed
     }
 
@@ -502,6 +507,64 @@ impl StructuredCredit {
                 });
 
         (prepay, default, correlation)
+    }
+
+    /// Calculate Option-Adjusted Spread (OAS) given a market price.
+    ///
+    /// This solves for the spread over the discount curve that equates the
+    /// present value of cashflows to the market price.
+    ///
+    /// Note: This currently uses deterministic cashflows (Z-Spread equivalent).
+    /// For true OAS with stochastic prepayment, use `StochasticPricer`.
+    pub fn calculate_oas(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        market_price: f64,
+    ) -> finstack_core::Result<f64> {
+        use finstack_core::math::solver::{BrentSolver, Solver};
+
+        let flows = self.build_schedule(context, as_of)?;
+        let discount_curve = context.get_discount(&self.discount_curve_id)?;
+
+        let price_fn = |spread: f64| -> f64 {
+            let mut pv = 0.0;
+            for (date, amount) in &flows {
+                // Calculate discount factor with spread
+                // DF = exp(-(r + s) * t)
+                // We assume continuous compounding for the spread application
+
+                let t = match DayCount::Act365F.year_fraction(as_of, *date, DayCountCtx::default())
+                {
+                    Ok(t) => t,
+                    Err(_) => return f64::NAN, // Solver handles NAN/Inf usually by erroring, but Brent might need finite
+                };
+
+                if t <= 0.0 {
+                    // Flow is today or past, assume full value or ignore?
+                    // Usually ignore past flows, but build_schedule might return future only.
+                    // If today, DF=1.
+                    pv += amount.amount();
+                    continue;
+                }
+
+                let df_base = discount_curve.df_on_date_curve(*date);
+
+                // Adjustment: df_spread = exp(-spread * t)
+                let df_spread = (-spread * t).exp();
+                let df = df_base * df_spread;
+
+                pv += amount.amount() * df;
+            }
+            pv - market_price
+        };
+
+        // Solve for spread
+        // Initial guess: 100 bps (0.01)
+        // Bracket: -10% to +50%?
+        // BrentSolver finds bracket automatically if not provided.
+        let solver = BrentSolver::new().with_tolerance(1e-6);
+        solver.solve(price_fn, 0.01)
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
@@ -857,7 +920,10 @@ impl core::fmt::Debug for StructuredCredit {
 
 impl core::fmt::Display for StructuredCredit {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let pool_balance = self.pool.total_balance().unwrap_or(Money::new(0.0, self.pool.base_currency()));
+        let pool_balance = self
+            .pool
+            .total_balance()
+            .unwrap_or(Money::new(0.0, self.pool.base_currency()));
         let tranche_count = self.tranches.tranches.len();
 
         write!(

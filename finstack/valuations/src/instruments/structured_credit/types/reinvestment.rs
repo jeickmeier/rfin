@@ -115,7 +115,9 @@ mod tests {
             recovery_amount: None,
             purchase_price: Some(Money::new(95.0, Currency::USD)),
             acquisition_date: None,
-            day_count: Some(finstack_core::dates::DayCount::Act360),
+            day_count: finstack_core::dates::DayCount::Act360,
+            smm_override: None,
+            mdr_override: None,
         };
 
         let b = PoolAsset {

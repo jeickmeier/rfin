@@ -31,12 +31,14 @@ fn create_simple_pool() -> Pool {
         Money::new(5_000_000.0, Currency::USD),
         0.06,
         Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "A2",
         Money::new(3_000_000.0, Currency::USD),
         0.05,
         Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool
 }
@@ -59,7 +61,7 @@ fn create_simple_waterfall() -> Waterfall {
     let fees = vec![Recipient::new(
         "trustee",
         RecipientType::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount {
+        PaymentCalculation::FixedAmount { rounding: None,
             amount: Money::new(10_000.0, Currency::USD),
         },
     )];
@@ -295,6 +297,7 @@ fn test_structured_credit_pool_balance_cleanup() {
         Money::new(50.0, Currency::USD), // Below cleanup threshold
         0.06,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
 
     let tranches = create_simple_tranches();

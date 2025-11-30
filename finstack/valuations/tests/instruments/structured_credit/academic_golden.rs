@@ -422,6 +422,7 @@ fn test_was_golden_calculation() {
             "SOFR-3M",
             400.0,
             maturity,
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::BB),
     );
@@ -433,6 +434,7 @@ fn test_was_golden_calculation() {
             "SOFR-3M",
             450.0,
             maturity,
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::B),
     );
@@ -444,6 +446,7 @@ fn test_was_golden_calculation() {
             "SOFR-3M",
             500.0,
             maturity,
+            finstack_core::dates::DayCount::Act360,
         )
         .with_rating(CreditRating::B),
     );

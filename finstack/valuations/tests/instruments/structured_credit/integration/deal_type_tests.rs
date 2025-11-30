@@ -22,6 +22,7 @@ fn create_minimal_pool(deal_type: DealType) -> Pool {
         Money::new(10_000_000.0, Currency::USD),
         0.06,
         maturity_date(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool
 }

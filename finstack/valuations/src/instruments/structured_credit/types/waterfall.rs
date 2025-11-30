@@ -48,6 +48,24 @@ pub enum ManagementFeeType {
     Incentive,
 }
 
+/// Rounding convention for payments
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum RoundingConvention {
+    /// Round to nearest precision
+    Nearest,
+    /// Round down (floor)
+    Floor,
+    /// Round up (ceiling)
+    Ceiling,
+}
+
+impl Default for RoundingConvention {
+    fn default() -> Self {
+        Self::Nearest
+    }
+}
+
 /// How to calculate payment amount
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -56,6 +74,8 @@ pub enum PaymentCalculation {
     FixedAmount {
         /// Amount.
         amount: Money,
+        /// Rounding convention.
+        rounding: Option<RoundingConvention>,
     },
     /// Percentage of collateral balance
     PercentageOfCollateral {
@@ -63,11 +83,17 @@ pub enum PaymentCalculation {
         rate: f64,
         /// Annualized.
         annualized: bool,
+        /// Day count convention for annualization.
+        day_count: Option<finstack_core::dates::DayCount>,
+        /// Rounding convention.
+        rounding: Option<RoundingConvention>,
     },
     /// Interest due on tranche
     TrancheInterest {
         /// Tranche id.
         tranche_id: String,
+        /// Rounding convention.
+        rounding: Option<RoundingConvention>,
     },
     /// Principal payment to tranche
     TranchePrincipal {
@@ -75,6 +101,8 @@ pub enum PaymentCalculation {
         tranche_id: String,
         /// Target balance.
         target_balance: Option<Money>,
+        /// Rounding convention.
+        rounding: Option<RoundingConvention>,
     },
     /// All remaining cash
     ResidualCash,
@@ -146,7 +174,10 @@ impl Recipient {
         Self::new(
             id,
             RecipientType::ServiceProvider(provider.into()),
-            PaymentCalculation::FixedAmount { amount },
+            PaymentCalculation::FixedAmount {
+                amount,
+                rounding: None,
+            },
         )
     }
 
@@ -159,6 +190,7 @@ impl Recipient {
             RecipientType::Tranche(tranche_id_str.clone()),
             PaymentCalculation::TrancheInterest {
                 tranche_id: tranche_id_str,
+                rounding: None,
             },
         )
     }
@@ -177,6 +209,7 @@ impl Recipient {
             PaymentCalculation::TranchePrincipal {
                 tranche_id: tranche_id_str,
                 target_balance,
+                rounding: None,
             },
         )
     }

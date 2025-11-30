@@ -35,6 +35,7 @@ fn create_simple_pool() -> Pool {
         Money::new(5_000_000.0, Currency::USD),
         0.06,
         Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
     ));
     pool
 }
@@ -59,6 +60,7 @@ fn create_simple_waterfall() -> Waterfall {
         RecipientType::ServiceProvider("Trustee".to_string()),
         PaymentCalculation::FixedAmount {
             amount: Money::new(10_000.0, Currency::USD),
+            rounding: None,
         },
     )];
 

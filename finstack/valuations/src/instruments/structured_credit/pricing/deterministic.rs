@@ -6,13 +6,14 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
 use crate::instruments::structured_credit::types::{
-    Pool, RecipientType, StructuredCredit, TrancheCashflows, TrancheStructure, Waterfall,
+    Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheStructure, Waterfall,
 };
 use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::months_between;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, ScheduleBuilder};
+use finstack_core::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, ScheduleBuilder};
+use finstack_core::dates::calendar::types::Calendar;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -66,6 +67,16 @@ pub fn run_simulation(
     )?
     .frequency(instrument.payment_frequency)
     .build()?;
+
+    // Adjust payment dates for business days
+    // TODO: Add calendar to StructuredCredit. For now use weekends-only calendar.
+    let calendar = Calendar::new("weekends_only", "Weekends Only", true, &[]);
+    let convention = BusinessDayConvention::Following;
+    let mut adjusted_schedule = schedule;
+    for date in &mut adjusted_schedule.dates {
+        *date = adjust(*date, convention, &calendar)?;
+    }
+    let schedule = adjusted_schedule;
 
     // Simulate period-by-period
     for pay_date in schedule.dates {
@@ -145,9 +156,9 @@ pub fn generate_tranche_cashflows(
 
 /// Internal state for period-by-period simulation.
 struct SimulationState<'a> {
-    /// Current balance of each rep line (or asset if no rep lines)
-    rep_line_balances: Vec<Money>,
-    /// Total pool outstanding (sum of rep_line_balances)
+    /// Pool state (SoA layout)
+    pool_state: PoolState,
+    /// Total pool outstanding (sum of balances)
     pool_outstanding: Money,
     recovery_queue: RecoveryQueue,
     tranche_balances: HashMap<String, Money>,
@@ -161,8 +172,6 @@ struct SimulationState<'a> {
     tranches: &'a TrancheStructure,
     closing_date: Date,
     tranche_recipient_keys: Vec<RecipientType>,
-    /// Flag indicating if we are using rep lines or individual assets
-    using_rep_lines: bool,
 }
 
 impl<'a> SimulationState<'a> {
@@ -210,15 +219,13 @@ impl<'a> SimulationState<'a> {
             .map(|t| RecipientType::Tranche(t.id.to_string()))
             .collect();
 
-        // Initialize balances
-        let (rep_line_balances, using_rep_lines) = if let Some(rep_lines) = &pool.rep_lines {
-            (rep_lines.iter().map(|r| r.balance).collect(), true)
-        } else {
-            (pool.assets.iter().map(|a| a.balance).collect(), false)
-        };
+        // Initialize PoolState
+        // Note: For now we convert the full asset list to PoolState.
+        // Future optimization: Support RepLine conversion to PoolState.
+        let pool_state = PoolState::from_pool(pool);
 
         Self {
-            rep_line_balances,
+            pool_state,
             pool_outstanding: pool.total_balance().unwrap_or(Money::new(0.0, base_ccy)), // Safe fallback for init
             recovery_queue: RecoveryQueue::new(),
             tranche_balances,
@@ -231,7 +238,6 @@ impl<'a> SimulationState<'a> {
             tranches,
             closing_date,
             tranche_recipient_keys,
-            using_rep_lines,
         }
     }
 
@@ -299,8 +305,15 @@ fn simulate_period(
 
     // Step 1: Calculate pool cashflows for the period (Interest + Principal Prepay/Default)
     // We now do this in a unified pass over the rep lines/assets to support line-level overrides
-    let (interest_collections, prepay_amt, default_amt, recovery_amt) =
-        calculate_pool_flows(state, instrument, pay_date, period_start, seasoning_months, months_per_period, context)?;
+    let (interest_collections, prepay_amt, default_amt, recovery_amt) = calculate_pool_flows(
+        state,
+        instrument,
+        pay_date,
+        period_start,
+        seasoning_months,
+        months_per_period,
+        context,
+    )?;
 
     state.prev_date = Some(pay_date);
 
@@ -331,21 +344,23 @@ fn simulate_period(
         interest_collections.checked_add(principal_available_for_waterfall)?;
 
     // Step 2: Execute Waterfall
-    let waterfall_context = crate::instruments::structured_credit::pricing::waterfall::WaterfallContext {
-        available_cash: total_cash_for_waterfall,
-        interest_collections,
-        payment_date: pay_date,
-        period_start,
-        pool_balance: state.pool_outstanding,
-        market: context,
-    };
+    let waterfall_context =
+        crate::instruments::structured_credit::pricing::waterfall::WaterfallContext {
+            available_cash: total_cash_for_waterfall,
+            interest_collections,
+            payment_date: pay_date,
+            period_start,
+            pool_balance: state.pool_outstanding,
+            market: context,
+        };
 
-    let waterfall_result = crate::instruments::structured_credit::pricing::waterfall::execute_waterfall(
-        &instrument.create_waterfall(),
-        state.tranches,
-        state.pool,
-        waterfall_context,
-    )?;
+    let waterfall_result =
+        crate::instruments::structured_credit::pricing::waterfall::execute_waterfall(
+            &instrument.create_waterfall(),
+            state.tranches,
+            state.pool,
+            waterfall_context,
+        )?;
 
     // Step 3: Record flows and update balances for all tranches
     for (idx, tranche) in state.tranches.tranches.iter().enumerate() {
@@ -440,127 +455,79 @@ fn calculate_pool_flows(
     let mut total_default = Money::new(0.0, base_ccy);
     let mut total_recovery = Money::new(0.0, base_ccy);
 
-    if state.using_rep_lines {
-        // Iterate over rep lines
-        if let Some(rep_lines) = &state.pool.rep_lines {
-            for (i, rep_line) in rep_lines.iter().enumerate() {
-                let balance = state.rep_line_balances[i];
-                if balance.amount() <= 0.0 {
-                    continue;
-                }
+    // Pre-calculate global rates (optimization)
+    // Future optimization: Handle per-asset overrides if added to PoolState
+    let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
+    let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
+    let recovery_rate = instrument.recovery_spec.rate;
 
-                // 1. Interest
-                let rate = if let Some(idx) = &rep_line.index_id {
-                     match context.get_forward_ref(idx.as_str()) {
-                        Ok(fwd) => {
-                            let base = fwd.base_date();
-                            let dc = fwd.day_count();
-                            let t2 = dc.year_fraction(base, pay_date, DayCountCtx::default())?;
-                            let tenor = fwd.tenor();
-                            let t1 = (t2 - tenor).max(0.0);
-                            let idx_rate = fwd.rate_period(t1, t2);
-                            idx_rate + (rep_line.spread_bps().max(0.0) / 10_000.0)
-                        }
-                        Err(_) => rep_line.rate,
-                    }
-                } else {
-                    rep_line.rate
-                };
+    let global_period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
+    let global_period_mdr = 1.0 - (1.0 - mdr).powf(months_per_period);
 
-                let accrual_factor = rep_line.day_count.year_fraction(prev_date, pay_date, DayCountCtx::default())
-                    .unwrap_or(months_per_period / 12.0);
-                
-                let interest = Money::new(balance.amount() * rate * accrual_factor, base_ccy);
-                total_interest = total_interest.checked_add(interest)?;
+    // Pre-resolve all curves
+    let mut resolved_rates = Vec::with_capacity(state.pool_state.unique_curves.len());
+    for idx_str in &state.pool_state.unique_curves {
+        let fwd = context.get_forward_ref(idx_str)?;
+        let base = fwd.base_date();
+        let dc = fwd.day_count();
+        let t2 = dc.year_fraction(base, pay_date, DayCountCtx::default())?;
+        let tenor = fwd.tenor();
+        let t1 = (t2 - tenor).max(0.0);
+        let r = if t2 > 0.0 && t1 < t2 {
+            fwd.rate_period(t1, t2)
+        } else {
+            // For very short periods (t2 <= tenor or t2 == 0), use spot rate
+            fwd.rate(0.0)
+        };
+        resolved_rates.push(r);
+    }
 
-                // 2. Prepayment & Default
-                // Use override if present, else global
-                let smm = if let Some(cpr) = rep_line.cpr {
-                    crate::instruments::structured_credit::utils::rates::cpr_to_smm(cpr)
-                } else {
-                    instrument.calculate_prepayment_rate(pay_date, seasoning_months + rep_line.seasoning_months)
-                };
-
-                let mdr = if let Some(cdr) = rep_line.cdr {
-                    crate::instruments::structured_credit::utils::rates::cdr_to_mdr(cdr)
-                } else {
-                    instrument.calculate_default_rate(pay_date, seasoning_months + rep_line.seasoning_months)
-                };
-
-                let period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
-                let period_mdr = 1.0 - (1.0 - mdr).powf(months_per_period);
-
-                let prepay = Money::new(balance.amount() * period_smm, base_ccy);
-                let default = Money::new(balance.amount() * period_mdr, base_ccy);
-                
-                let recovery_rate = rep_line.recovery_rate.unwrap_or(instrument.recovery_spec.rate);
-                let recovery = Money::new(default.amount() * recovery_rate, base_ccy);
-
-                total_prepay = total_prepay.checked_add(prepay)?;
-                total_default = total_default.checked_add(default)?;
-                total_recovery = total_recovery.checked_add(recovery)?;
-
-                // Update balance
-                let new_balance = balance.checked_sub(prepay)?.checked_sub(default)?;
-                state.rep_line_balances[i] = new_balance;
-            }
+    let n = state.pool_state.len();
+    for i in 0..n {
+        let balance = state.pool_state.balances[i];
+        if balance <= 0.0 {
+            continue;
         }
-    } else {
-        // Iterate over assets (legacy behavior but unified logic)
-        for (i, asset) in state.pool.assets.iter().enumerate() {
-            let balance = state.rep_line_balances[i];
-            if balance.amount() <= 0.0 {
-                continue;
-            }
 
-            // 1. Interest
-            let rate = if let Some(idx) = &asset.index_id {
-                 match context.get_forward_ref(idx.as_str()) {
-                    Ok(fwd) => {
-                        let base = fwd.base_date();
-                        let dc = fwd.day_count();
-                        let t2 = dc.year_fraction(base, pay_date, DayCountCtx::default())?;
-                        let tenor = fwd.tenor();
-                        let t1 = (t2 - tenor).max(0.0);
-                        let idx_rate = fwd.rate_period(t1, t2);
-                        idx_rate + (asset.spread_bps().max(0.0) / 10_000.0)
-                    }
-                    Err(_) => asset.rate,
-                }
-            } else {
-                asset.rate
-            };
+        // 1. Interest
+        let rate = if let Some(curve_idx) = state.pool_state.curve_indices[i] {
+            let base_rate = resolved_rates[curve_idx];
+            base_rate + (state.pool_state.spread_bps[i].unwrap_or(0.0).max(0.0) / 10_000.0)
+        } else {
+            state.pool_state.rates[i]
+        };
 
-             let accrual_factor = match asset.day_count {
-                Some(dc) => dc.year_fraction(prev_date, pay_date, DayCountCtx::default())?,
-                None => DayCount::Act360.year_fraction(prev_date, pay_date, DayCountCtx::default())?,
-            };
+        let accrual_factor = state.pool_state.day_counts[i]
+            .unwrap_or(DayCount::Act360) // Should be populated now, but safe fallback
+            .year_fraction(prev_date, pay_date, DayCountCtx::default())?;
 
-            let interest = Money::new(balance.amount() * rate * accrual_factor, base_ccy);
-            total_interest = total_interest.checked_add(interest)?;
+        let interest = Money::new(balance * rate * accrual_factor, base_ccy);
+        total_interest = total_interest.checked_add(interest)?;
 
-            // 2. Prepayment & Default
-            // Assets don't have overrides in this model, use global
-            let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
-            let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
+        // 2. Prepayment & Default
+        let period_smm = if let Some(smm) = state.pool_state.smm_overrides[i] {
+            1.0 - (1.0 - smm).powf(months_per_period)
+        } else {
+            global_period_smm
+        };
 
-            let period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
-            let period_mdr = 1.0 - (1.0 - mdr).powf(months_per_period);
+        let period_mdr = if let Some(mdr) = state.pool_state.mdr_overrides[i] {
+            1.0 - (1.0 - mdr).powf(months_per_period)
+        } else {
+            global_period_mdr
+        };
 
-            let prepay = Money::new(balance.amount() * period_smm, base_ccy);
-            let default = Money::new(balance.amount() * period_mdr, base_ccy);
-            
-            let recovery_rate = instrument.recovery_spec.rate;
-            let recovery = Money::new(default.amount() * recovery_rate, base_ccy);
+        let prepay = Money::new(balance * period_smm, base_ccy);
+        let default = Money::new(balance * period_mdr, base_ccy);
+        let recovery = Money::new(default.amount() * recovery_rate, base_ccy);
 
-            total_prepay = total_prepay.checked_add(prepay)?;
-            total_default = total_default.checked_add(default)?;
-            total_recovery = total_recovery.checked_add(recovery)?;
+        total_prepay = total_prepay.checked_add(prepay)?;
+        total_default = total_default.checked_add(default)?;
+        total_recovery = total_recovery.checked_add(recovery)?;
 
-            // Update balance
-            let new_balance = balance.checked_sub(prepay)?.checked_sub(default)?;
-            state.rep_line_balances[i] = new_balance;
-        }
+        // Update balance
+        let new_balance = balance - prepay.amount() - default.amount();
+        state.pool_state.balances[i] = new_balance.max(0.0);
     }
 
     Ok((total_interest, total_prepay, total_default, total_recovery))

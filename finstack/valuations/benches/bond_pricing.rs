@@ -10,12 +10,13 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
@@ -51,7 +52,16 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(curve)
+    let forward_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(base)
+        .knots([(0.0, 0.045), (1.0, 0.047), (3.0, 0.05), (5.0, 0.052)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    MarketContext::new()
+        .insert_discount(curve)
+        .insert_forward(forward_curve)
 }
 
 fn bench_bond_pv(c: &mut Criterion) {
@@ -147,11 +157,186 @@ fn bench_bond_dv01(c: &mut Criterion) {
     group.finish();
 }
 
+fn create_callable_bond(maturity_years: i32) -> Bond {
+    let mut bond = create_test_bond(maturity_years);
+    let issue_year = bond.issue.year();
+    let maturity_year = bond.maturity.year();
+    let total_years = (maturity_year - issue_year).max(0);
+
+    if total_years > 1 {
+        let call_offset = (total_years / 2).max(1);
+        let first_call_year = (issue_year + call_offset).min(maturity_year - 1);
+        let mut schedule = CallPutSchedule::default();
+
+        if first_call_year < maturity_year {
+            let first_call = Date::from_calendar_date(first_call_year, Month::January, 1).unwrap();
+            schedule.calls.push(CallPut {
+                date: first_call,
+                price_pct_of_par: 101.0,
+            });
+        }
+
+        if first_call_year + 1 < maturity_year {
+            let second_call =
+                Date::from_calendar_date(first_call_year + 1, Month::January, 1).unwrap();
+            schedule.calls.push(CallPut {
+                date: second_call,
+                price_pct_of_par: 100.5,
+            });
+        }
+
+        if schedule.has_options() {
+            bond.call_put = Some(schedule);
+        }
+    }
+
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.0);
+    bond
+}
+
+fn create_floating_note(maturity_years: i32) -> Bond {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2025 + maturity_years, Month::January, 1).unwrap();
+    let mut bond = Bond::floating(
+        format!("FRN-{}Y", maturity_years),
+        Money::new(1_000_000.0, Currency::USD),
+        "USD-SOFR-3M",
+        150.0,
+        issue,
+        maturity,
+        Frequency::quarterly(),
+        DayCount::Act360,
+        "USD-OIS",
+    );
+    bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.25);
+    bond
+}
+
+fn bench_callable_bond_tree_pv(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bond_tree_pricing");
+    let market = create_market();
+    let market_ref = &market;
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    for tenor in [5, 10, 30] {
+        let bond = create_callable_bond(tenor);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}Y", tenor)),
+            &tenor,
+            {
+                move |b, _| {
+                    b.iter(|| {
+                        let pv = bond
+                            .value(black_box(market_ref), black_box(as_of))
+                            .unwrap_or_else(|e| panic!("tree pv failed: {e:?}"));
+                        black_box(pv)
+                    });
+                }
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_tree_oas_solver(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bond_tree_oas");
+    let market = create_market();
+    let market_ref = &market;
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let tree_pricer = TreePricer::new();
+    let pricer_ref = &tree_pricer;
+
+    for tenor in [5, 10, 30] {
+        let bond = create_callable_bond(tenor);
+        let clean = bond.pricing_overrides.quoted_clean_price.unwrap_or(99.0);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}Y", tenor)),
+            &tenor,
+            {
+                move |b, _| {
+                    b.iter(|| {
+                        let oas = pricer_ref
+                            .calculate_oas(
+                                &bond,
+                                black_box(market_ref),
+                                black_box(as_of),
+                                black_box(clean),
+                            )
+                            .unwrap_or_else(|e| panic!("tree oas failed: {e:?}"));
+                        black_box(oas)
+                    });
+                }
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_spread_metrics(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bond_spread_metrics");
+    let market = create_market();
+    let market_ref = &market;
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let base_fixed = {
+        let mut bond = create_test_bond(10);
+        bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.25);
+        bond
+    };
+
+    let spread_cases = [
+        ("z_spread_10Y", [MetricId::ZSpread]),
+        ("i_spread_10Y", [MetricId::ISpread]),
+        ("asw_par_10Y", [MetricId::ASWPar]),
+        ("asw_market_10Y", [MetricId::ASWMarket]),
+    ];
+
+    for (label, metrics) in spread_cases {
+        let bond = base_fixed.clone();
+        group.bench_function(label, {
+            move |b| {
+                let metrics_slice: &[MetricId] = &metrics;
+                b.iter(|| {
+                    black_box(
+                        bond.price_with_metrics(
+                            black_box(market_ref),
+                            black_box(as_of),
+                            black_box(metrics_slice),
+                        )
+                        .expect(label),
+                    )
+                });
+            }
+        });
+    }
+
+    let frn = create_floating_note(5);
+    let dm_metrics = [MetricId::DiscountMargin];
+    group.bench_function("discount_margin_5Y", move |b| {
+        let metrics_slice: &[MetricId] = &dm_metrics;
+        b.iter(|| {
+            black_box(
+                frn.price_with_metrics(
+                    black_box(market_ref),
+                    black_box(as_of),
+                    black_box(metrics_slice),
+                )
+                .expect("discount margin"),
+            )
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_bond_pv,
     bench_bond_ytm,
     bench_bond_duration,
-    bench_bond_dv01
+    bench_bond_dv01,
+    bench_callable_bond_tree_pv,
+    bench_tree_oas_solver,
+    bench_spread_metrics
 );
 criterion_main!(benches);

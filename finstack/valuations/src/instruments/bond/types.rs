@@ -664,7 +664,8 @@ impl Bond {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::bond::pricing::tree_engine::BondValuator;
         use crate::instruments::common::models::{
-            short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+            short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
+            TreeModel,
         };
 
         // Calculate time to maturity from the valuation date (as_of) using the
@@ -698,7 +699,11 @@ impl Bond {
             BondValuator::new(self.clone(), market, as_of, time_to_maturity, tree_steps)?;
 
         // Set up initial state variables (no OAS for vanilla pricing)
+        let initial_rate = tree
+            .rate_at_node(0, 0)
+            .unwrap_or_else(|_| discount_curve.zero(0.0));
         let mut vars = StateVariables::new();
+        vars.insert(state_keys::INTEREST_RATE, initial_rate);
         vars.insert(short_rate_keys::OAS, 0.0);
 
         // Price via tree with backward induction applying call/put constraints
