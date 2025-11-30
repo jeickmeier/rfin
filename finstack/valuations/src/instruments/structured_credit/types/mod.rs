@@ -106,9 +106,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use std::any::Any;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -324,7 +322,7 @@ pub struct StructuredCredit {
 impl StructuredCredit {
     /// Calculate current loss percentage of the pool.
     pub fn current_loss_percentage(&self) -> f64 {
-        let total_balance = self.pool.total_balance().amount();
+        let total_balance = self.pool.total_balance().map(|b| b.amount()).unwrap_or(0.0);
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -394,7 +392,7 @@ impl StructuredCredit {
         config: StochasticPricerConfig,
     ) -> finstack_core::Result<StochasticPricingResult> {
         let currency = self.pool.base_currency();
-        let notional = self.pool.total_balance().amount();
+        let notional = self.pool.total_balance()?.amount();
 
         if notional.abs() <= f64::EPSILON {
             return Ok(StochasticPricingResult::new(
@@ -435,8 +433,7 @@ impl StructuredCredit {
     fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
         let months_to_maturity = months_between(as_of, self.legal_maturity).max(1) as usize;
         let horizon_years = DayCount::Act365F
-            .year_fraction(as_of, self.legal_maturity, DayCountCtx::default())
-            .unwrap_or(months_to_maturity as f64 / 12.0)
+            .year_fraction(as_of, self.legal_maturity, DayCountCtx::default())?
             .abs()
             .max(0.25);
 
@@ -448,7 +445,7 @@ impl StructuredCredit {
         tree_config.default_spec = default;
         tree_config.correlation = correlation;
         tree_config.pool_coupon = self.pool.weighted_avg_coupon();
-        tree_config.initial_balance = self.pool.total_balance().amount().max(1.0);
+        tree_config.initial_balance = self.pool.total_balance()?.amount().max(1.0);
         let seasoning = if as_of > self.closing_date {
             months_between(self.closing_date, as_of)
         } else {
@@ -460,11 +457,21 @@ impl StructuredCredit {
     }
 
     fn derive_seed(&self, as_of: Date) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.id.hash(&mut hasher);
-        self.deal_type.hash(&mut hasher);
-        as_of.hash(&mut hasher);
-        hasher.finish()
+        // Use a simple deterministic mixing of the ID and date bytes to ensure reproducibility
+        // across different Rust versions/platforms (unlike DefaultHasher).
+        let mut seed: u64 = 0xcbf29ce484222325; // FNV offset basis
+        
+        for byte in self.id.as_bytes() {
+            seed ^= *byte as u64;
+            seed = seed.wrapping_mul(0x100000001b3); // FNV prime
+        }
+        
+        // Mix in date
+        let date_val = as_of.to_julian_day() as u64;
+        seed ^= date_val;
+        seed = seed.wrapping_mul(0x100000001b3);
+        
+        seed
     }
 
     fn effective_stochastic_specs(
@@ -850,7 +857,7 @@ impl core::fmt::Debug for StructuredCredit {
 
 impl core::fmt::Display for StructuredCredit {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let pool_balance = self.pool.total_balance();
+        let pool_balance = self.pool.total_balance().unwrap_or(Money::new(0.0, self.pool.base_currency()));
         let tranche_count = self.tranches.tranches.len();
 
         write!(

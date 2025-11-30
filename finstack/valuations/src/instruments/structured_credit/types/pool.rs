@@ -334,6 +334,90 @@ pub struct AssetPool {
     pub reserve_account: Money,
     /// Excess spread account (accumulated excess interest)
     pub excess_spread_account: Money,
+
+    /// Aggregated representative lines (optional optimization)
+    /// If present, pricing engine will use these instead of individual assets.
+    pub rep_lines: Option<Vec<RepLine>>,
+}
+
+/// Representative line for aggregated pool modeling
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct RepLine {
+    /// Unique identifier for the rep line
+    pub id: String,
+    /// Aggregated balance
+    pub balance: Money,
+    /// Weighted average coupon
+    pub rate: f64,
+    /// Weighted average spread (for floating rate)
+    pub spread_bps: Option<f64>,
+    /// Reference index (if floating)
+    pub index_id: Option<String>,
+    /// Weighted average maturity date
+    pub maturity: Date,
+    /// Weighted average seasoning in months
+    pub seasoning_months: u32,
+    /// Day count convention
+    pub day_count: DayCount,
+    /// Optional CPR override for this line
+    pub cpr: Option<f64>,
+    /// Optional CDR override for this line
+    pub cdr: Option<f64>,
+    /// Optional recovery rate override
+    pub recovery_rate: Option<f64>,
+}
+
+impl RepLine {
+    /// Create a new rep line
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: impl Into<String>,
+        balance: Money,
+        rate: f64,
+        spread_bps: Option<f64>,
+        index_id: Option<String>,
+        maturity: Date,
+        seasoning_months: u32,
+        day_count: DayCount,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            balance,
+            rate,
+            spread_bps,
+            index_id,
+            maturity,
+            seasoning_months,
+            day_count,
+            cpr: None,
+            cdr: None,
+            recovery_rate: None,
+        }
+    }
+
+    /// Set CPR override
+    pub fn with_cpr(mut self, cpr: f64) -> Self {
+        self.cpr = Some(cpr);
+        self
+    }
+
+    /// Set CDR override
+    pub fn with_cdr(mut self, cdr: f64) -> Self {
+        self.cdr = Some(cdr);
+        self
+    }
+
+    /// Set recovery rate override
+    pub fn with_recovery_rate(mut self, recovery_rate: f64) -> Self {
+        self.recovery_rate = Some(recovery_rate);
+        self
+    }
+
+    /// Get effective spread in basis points
+    pub fn spread_bps(&self) -> f64 {
+        self.spread_bps.unwrap_or(self.rate * BASIS_POINTS_DIVISOR)
+    }
 }
 
 impl AssetPool {
@@ -351,7 +435,87 @@ impl AssetPool {
             collection_account: zero_money,
             reserve_account: zero_money,
             excess_spread_account: zero_money,
+            rep_lines: None,
         }
+    }
+
+    /// Aggregate assets into representative lines based on key characteristics.
+    ///
+    /// Groups assets by:
+    /// - Asset Type
+    /// - Index ID (for floating rate)
+    /// - Day Count
+    ///
+    /// Assets within groups are aggregated by summing balances and weighting rates/spreads.
+    /// Maturity is weighted average.
+    pub fn aggregate_to_rep_lines(&mut self, as_of: Date) {
+        if self.assets.is_empty() {
+            return;
+        }
+
+        let mut groups: HashMap<String, Vec<&PoolAsset>> = HashMap::new();
+
+        for asset in &self.assets {
+            let key = format!(
+                "{:?}|{:?}|{:?}",
+                asset.asset_type, asset.index_id, asset.day_count
+            );
+            groups.entry(key).or_default().push(asset);
+        }
+
+        let mut rep_lines = Vec::with_capacity(groups.len());
+        let base_ccy = self.base_currency();
+
+        for (i, (_, group_assets)) in groups.into_iter().enumerate() {
+            let total_balance: f64 = group_assets.iter().map(|a| a.balance.amount()).sum();
+            
+            if total_balance <= 0.0 {
+                continue;
+            }
+
+            let mut weighted_rate = 0.0;
+            let mut weighted_spread = 0.0;
+            let mut weighted_maturity_days = 0.0;
+            let mut weighted_seasoning = 0.0;
+
+            let first = group_assets[0];
+            let index_id = first.index_id.clone();
+            let day_count = first.day_count.unwrap_or(DayCount::Thirty360);
+
+            for asset in &group_assets {
+                let weight = asset.balance.amount() / total_balance;
+                weighted_rate += asset.rate * weight;
+                weighted_spread += asset.spread_bps() * weight;
+                
+                let days_to_maturity = (asset.maturity - as_of).whole_days() as f64;
+                weighted_maturity_days += days_to_maturity * weight;
+
+                if let Some(acq_date) = asset.acquisition_date {
+                    if as_of > acq_date {
+                        let months = finstack_core::dates::months_between(acq_date, as_of) as f64;
+                        weighted_seasoning += months * weight;
+                    }
+                }
+            }
+
+            let maturity_date = as_of + time::Duration::days(weighted_maturity_days as i64);
+            let spread_opt = if index_id.is_some() { Some(weighted_spread) } else { None };
+
+            let rep_line = RepLine::new(
+                format!("REP_{}", i),
+                Money::new(total_balance, base_ccy),
+                weighted_rate,
+                spread_opt,
+                index_id,
+                maturity_date,
+                weighted_seasoning.round() as u32,
+                day_count,
+            );
+
+            rep_lines.push(rep_line);
+        }
+
+        self.rep_lines = Some(rep_lines);
     }
 
     /// Add asset from existing bond
@@ -362,29 +526,31 @@ impl AssetPool {
     }
 
     /// Total pool balance
-    pub fn total_balance(&self) -> Money {
+    pub fn total_balance(&self) -> finstack_core::Result<Money> {
         self.assets
             .iter()
             .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
                 acc.checked_add(asset.balance)
             })
-            .unwrap_or_else(|_| Money::new(0.0, self.base_currency()))
     }
 
     /// Total pool balance excluding defaulted assets
-    pub fn performing_balance(&self) -> Money {
+    pub fn performing_balance(&self) -> finstack_core::Result<Money> {
         self.assets
             .iter()
             .filter(|a| !a.is_defaulted)
             .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
                 acc.checked_add(asset.balance)
             })
-            .unwrap_or_else(|_| Money::new(0.0, self.base_currency()))
     }
 
     /// Calculate weighted average coupon
     pub fn weighted_avg_coupon(&self) -> f64 {
-        let total_balance = self.total_balance().amount();
+        let total_balance = match self.total_balance() {
+            Ok(b) => b.amount(),
+            Err(_) => return 0.0,
+        };
+        
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -404,7 +570,11 @@ impl AssetPool {
     /// Note: This is NOT the same as Weighted Average Life (WAL).
     /// WAL requires cashflow schedules and is calculated from principal payments.
     pub fn weighted_avg_maturity(&self, as_of: Date) -> f64 {
-        let total_balance = self.total_balance().amount();
+        let total_balance = match self.total_balance() {
+            Ok(b) => b.amount(),
+            Err(_) => return 0.0,
+        };
+        
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -451,17 +621,28 @@ impl AssetPool {
 
     /// Calculate diversity score (simplified Moody's approach)
     pub fn diversity_score(&self) -> f64 {
-        let mut obligor_balances: HashMap<String, f64> = HashMap::new();
-        let total_balance = self.total_balance().amount();
+        let total_balance = match self.total_balance() {
+            Ok(b) => b.amount(),
+            Err(_) => return 0.0,
+        };
 
         if total_balance == 0.0 {
             return 0.0;
         }
 
+        // Collect obligor balances
+        // Optimization: Sort and scan to avoid HashMap allocation if possible,
+        // but since we need to aggregate by string ID, a HashMap is often cleanest.
+        // However, to avoid allocating a new HashMap every time, we could pass a workspace.
+        // For now, we'll stick to the HashMap but pre-allocate capacity.
+        // A better optimization for the future would be to integerize obligor IDs.
+        
+        let mut obligor_balances: HashMap<&str, f64> = HashMap::with_capacity(self.assets.len());
+
         // Group by obligor
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
-                *obligor_balances.entry(obligor.to_owned()).or_insert(0.0) +=
+                *obligor_balances.entry(obligor.as_str()).or_insert(0.0) +=
                     asset.balance.amount();
             }
         }
@@ -505,7 +686,11 @@ impl AssetPool {
     ///
     /// Market standard: uses spread component only for floating rate assets.
     pub fn weighted_avg_spread(&self) -> f64 {
-        let total_balance = self.total_balance().amount();
+        let total_balance = match self.total_balance() {
+            Ok(b) => b.amount(),
+            Err(_) => return 0.0,
+        };
+        
         if total_balance == 0.0 {
             return 0.0;
         }
@@ -539,7 +724,7 @@ pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
     }
 
     // Calculate default rate
-    let total_balance = pool.total_balance().amount();
+    let total_balance = pool.total_balance().map(|b| b.amount()).unwrap_or(0.0);
     let defaulted_balance: f64 = pool
         .assets
         .iter()
@@ -608,5 +793,47 @@ mod tests {
         assert_eq!(pool.id.as_str(), "TEST_POOL");
         assert_eq!(pool.deal_type, DealType::CLO);
         assert_eq!(pool.base_currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_rep_line_aggregation() {
+        let mut pool = AssetPool::new("TEST_POOL", DealType::RMBS, Currency::USD);
+        let as_of = Date::from_calendar_date(2023, time::Month::January, 1)
+            .expect("valid date");
+
+        // Add 3 identical assets
+        for i in 0..3 {
+            pool.assets.push(PoolAsset::fixed_rate_bond(
+                format!("ASSET_{}", i),
+                Money::new(100_000.0, Currency::USD),
+                0.05,
+                as_of + time::Duration::days(360 * 10), // 10 years
+            ));
+        }
+
+        // Add 2 different assets
+        for i in 3..5 {
+            pool.assets.push(PoolAsset::fixed_rate_bond(
+                format!("ASSET_{}", i),
+                Money::new(200_000.0, Currency::USD),
+                0.06,
+                as_of + time::Duration::days(360 * 5), // 5 years
+            ));
+        }
+
+        pool.aggregate_to_rep_lines(as_of);
+
+        assert!(pool.rep_lines.is_some());
+        let rep_lines = pool.rep_lines.as_ref().expect("rep_lines should be set after aggregation");
+        
+        // Should have 1 rep line (grouped by type/index/dc)
+        assert_eq!(rep_lines.len(), 1);
+        let rep = &rep_lines[0];
+        
+        // Total balance: 3*100k + 2*200k = 700k
+        assert_eq!(rep.balance.amount(), 700_000.0);
+        
+        // Weighted rate: (300k * 0.05 + 400k * 0.06) / 700k = 0.0557...
+        assert!((rep.rate - 0.055714).abs() < 0.0001);
     }
 }

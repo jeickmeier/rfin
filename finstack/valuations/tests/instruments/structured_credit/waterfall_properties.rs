@@ -8,6 +8,7 @@ use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
+use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode, DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType,
     Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall, WaterfallBuilder,
@@ -53,16 +54,19 @@ fn run_waterfall(
     market: &MarketContext,
 ) -> WaterfallDistribution {
     let period_start = period_start_override.unwrap_or_else(|| add_months(payment_date, -3));
-    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
-        waterfall,
+    let context = WaterfallContext {
         available_cash,
         interest_collections,
         payment_date,
         period_start,
-        tranches,
         pool_balance,
-        pool,
         market,
+    };
+    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+        waterfall,
+        tranches,
+        pool,
+        context,
     )
     .expect("waterfall execution")
 }

@@ -53,48 +53,47 @@ fn to_currency_units(amount: f64, scale: f64) -> Result<i64> {
 // MAIN EXECUTION FUNCTIONS
 // ============================================================================
 
+/// Context for waterfall execution.
+pub struct WaterfallContext<'a> {
+    /// Total cash available for distribution in this period.
+    pub available_cash: Money,
+    /// Interest collections from the pool for this period.
+    pub interest_collections: Money,
+    /// Payment date for this waterfall period.
+    pub payment_date: Date,
+    /// Start date of the accrual period.
+    pub period_start: Date,
+    /// Current pool balance at the start of the period.
+    pub pool_balance: Money,
+    /// Market context for rate lookups and discounting.
+    pub market: &'a MarketContext,
+}
+
 /// Execute waterfall to distribute available cash.
-#[allow(clippy::too_many_arguments)]
 pub fn execute_waterfall(
     waterfall: &Waterfall,
-    available_cash: Money,
-    interest_collections: Money,
-    payment_date: Date,
-    period_start: Date,
     tranches: &TrancheStructure,
-    pool_balance: Money,
     pool: &Pool,
-    market: &MarketContext,
+    context: WaterfallContext,
 ) -> Result<WaterfallDistribution> {
     execute_waterfall_with_explanation(
         waterfall,
-        available_cash,
-        interest_collections,
-        payment_date,
-        period_start,
         tranches,
-        pool_balance,
         pool,
-        market,
+        context,
         ExplainOpts::disabled(),
     )
 }
 
 /// Execute waterfall with optional explanation trace.
-#[allow(clippy::too_many_arguments)]
 pub fn execute_waterfall_with_explanation(
     waterfall: &Waterfall,
-    available_cash: Money,
-    interest_collections: Money,
-    payment_date: Date,
-    period_start: Date,
     tranches: &TrancheStructure,
-    pool_balance: Money,
     pool: &Pool,
-    market: &MarketContext,
+    context: WaterfallContext,
     explain: ExplainOpts,
 ) -> Result<WaterfallDistribution> {
-    let mut remaining = available_cash;
+    let mut remaining = context.available_cash;
     let mut tier_allocations = Vec::with_capacity(waterfall.tiers.len());
     let estimated_recipients = waterfall
         .tiers
@@ -125,9 +124,9 @@ pub fn execute_waterfall_with_explanation(
         waterfall,
         tranches,
         pool,
-        payment_date,
-        available_cash,
-        interest_collections,
+        context.payment_date,
+        context.available_cash,
+        context.interest_collections,
     )?;
 
     // Check if diversions are active
@@ -163,10 +162,10 @@ pub fn execute_waterfall_with_explanation(
                 remaining,
                 tranches,
                 &tranche_index,
-                pool_balance,
-                period_start,
-                payment_date,
-                market,
+                context.pool_balance,
+                context.period_start,
+                context.payment_date,
+                context.market,
                 tier_diverted,
                 &mut distributions,
                 &mut payment_records,
@@ -180,10 +179,10 @@ pub fn execute_waterfall_with_explanation(
                 remaining,
                 tranches,
                 &tranche_index,
-                pool_balance,
-                period_start,
-                payment_date,
-                market,
+                context.pool_balance,
+                context.period_start,
+                context.payment_date,
+                context.market,
                 tier_diverted,
                 &mut distributions,
                 &mut payment_records,
@@ -201,8 +200,8 @@ pub fn execute_waterfall_with_explanation(
     }
 
     Ok(WaterfallDistribution {
-        payment_date,
-        total_available: available_cash,
+        payment_date: context.payment_date,
+        total_available: context.available_cash,
         tier_allocations,
         distributions,
         payment_records,
@@ -216,21 +215,15 @@ pub fn execute_waterfall_with_explanation(
 }
 
 /// Execute waterfall using a pre-allocated workspace for zero-allocation hot paths.
-#[allow(clippy::too_many_arguments)]
 pub fn execute_waterfall_with_workspace(
     waterfall: &Waterfall,
-    available_cash: Money,
-    interest_collections: Money,
-    payment_date: Date,
-    period_start: Date,
     tranches: &TrancheStructure,
-    pool_balance: Money,
     pool: &Pool,
-    market: &MarketContext,
+    context: WaterfallContext,
     explain: ExplainOpts,
     workspace: &mut WaterfallWorkspace,
 ) -> Result<WaterfallDistribution> {
-    let mut remaining = available_cash;
+    let mut remaining = context.available_cash;
     let mut total_diverted = Money::new(0.0, waterfall.base_currency);
     let mut had_diversions = false;
     let mut diversion_reason = None;
@@ -253,9 +246,9 @@ pub fn execute_waterfall_with_workspace(
         waterfall,
         tranches,
         pool,
-        payment_date,
-        available_cash,
-        interest_collections,
+        context.payment_date,
+        context.available_cash,
+        context.interest_collections,
     )?;
     workspace
         .coverage_tests
@@ -295,10 +288,10 @@ pub fn execute_waterfall_with_workspace(
                 remaining,
                 tranches,
                 &tranche_index,
-                pool_balance,
-                period_start,
-                payment_date,
-                market,
+                context.pool_balance,
+                context.period_start,
+                context.payment_date,
+                context.market,
                 tier_diverted,
                 &mut workspace.distributions,
                 &mut workspace.payment_records,
@@ -312,10 +305,10 @@ pub fn execute_waterfall_with_workspace(
                 remaining,
                 tranches,
                 &tranche_index,
-                pool_balance,
-                period_start,
-                payment_date,
-                market,
+                context.pool_balance,
+                context.period_start,
+                context.payment_date,
+                context.market,
                 tier_diverted,
                 &mut workspace.distributions,
                 &mut workspace.payment_records,
@@ -335,8 +328,8 @@ pub fn execute_waterfall_with_workspace(
     }
 
     Ok(WaterfallDistribution {
-        payment_date,
-        total_available: available_cash,
+        payment_date: context.payment_date,
+        total_available: context.available_cash,
         tier_allocations: workspace.tier_allocations.clone(),
         distributions: workspace.distributions.clone(),
         payment_records: workspace.payment_records.clone(),

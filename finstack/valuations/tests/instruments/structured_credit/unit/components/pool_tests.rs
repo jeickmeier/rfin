@@ -161,7 +161,7 @@ fn test_asset_pool_creation() {
     assert_eq!(pool.deal_type, DealType::CLO);
     assert_eq!(pool.base_currency(), Currency::USD);
     assert_eq!(pool.assets.len(), 0);
-    assert_eq!(pool.total_balance().amount(), 0.0);
+    assert_eq!(pool.total_balance().unwrap().amount(), 0.0);
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn test_asset_pool_total_balance_calculation() {
     ));
 
     // Act
-    let total = pool.total_balance();
+    let total = pool.total_balance().unwrap();
 
     // Assert
     assert_eq!(total.amount(), 25_000_000.0);
@@ -196,7 +196,7 @@ fn test_asset_pool_empty_pool_balance() {
     let pool = Pool::new("EMPTY", DealType::ABS, Currency::USD);
 
     // Act
-    let total = pool.total_balance();
+    let total = pool.total_balance().unwrap();
 
     // Assert
     assert_eq!(total.amount(), 0.0);
@@ -228,8 +228,8 @@ fn test_asset_pool_performing_balance_excludes_defaults() {
     pool.assets.push(defaulted);
 
     // Act
-    let performing = pool.performing_balance();
-    let total = pool.total_balance();
+    let performing = pool.performing_balance().unwrap();
+    let total = pool.total_balance().unwrap();
 
     // Assert
     assert_eq!(performing.amount(), 10_000_000.0); // Only performing asset

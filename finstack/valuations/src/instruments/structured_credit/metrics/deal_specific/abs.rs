@@ -71,7 +71,7 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
             .map(|a| a.balance.amount())
             .sum::<f64>();
 
-        let total_balance = abs.pool.performing_balance().amount();
+        let total_balance = abs.pool.performing_balance()?.amount();
 
         if total_balance > 0.0 {
             Ok(delinquent_balance / total_balance * DECIMAL_TO_PERCENT * self.delinquency_rate)
@@ -93,7 +93,7 @@ impl crate::metrics::MetricCalculator for AbsChargeOffCalculator {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Calculate charge-off rate
-        let total_balance = abs.pool.total_balance();
+        let total_balance = abs.pool.total_balance()?;
         if total_balance.amount() > 0.0 {
             Ok(abs.pool.cumulative_defaults.amount() / total_balance.amount() * DECIMAL_TO_PERCENT)
         } else {
@@ -164,7 +164,7 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
             let subordination = abs
                 .tranches
                 .subordination_amount(senior_tranche.id.as_str());
-            let pool_balance = abs.pool.total_balance();
+            let pool_balance = abs.pool.total_balance()?;
 
             if pool_balance.amount() > 0.0 {
                 Ok(subordination.amount() / pool_balance.amount() * DECIMAL_TO_PERCENT)

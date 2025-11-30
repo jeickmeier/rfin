@@ -273,9 +273,9 @@ fn collateral_balance_with_haircuts(
 ) -> Result<Money> {
     if haircuts.map(|h| h.is_empty()).unwrap_or(true) {
         return Ok(if performing_only {
-            pool.performing_balance()
+            pool.performing_balance()?
         } else {
-            pool.total_balance()
+            pool.total_balance()?
         });
     }
 

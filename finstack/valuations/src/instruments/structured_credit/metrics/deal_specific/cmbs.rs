@@ -55,7 +55,7 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
 
         // DSCR = Net Operating Income / Debt Service
         // Assume NOI is a multiple of the pool interest
-        let pool_interest = cmbs.pool.weighted_avg_coupon() * cmbs.pool.total_balance().amount();
+        let pool_interest = cmbs.pool.weighted_avg_coupon() * cmbs.pool.total_balance()?.amount();
         let noi = pool_interest * self.noi_multiplier;
 
         // Debt service (interest + principal payments)
