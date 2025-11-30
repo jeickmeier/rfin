@@ -6,7 +6,7 @@
 //! - **components/**: Tests for structural building blocks
 //!   - pool: AssetPool, PoolAsset, pool statistics
 //!   - tranches: Tranche, TrancheStructure, attachment points
-//!   - waterfall: WaterfallEngine, payment rules, diversion
+//!   - waterfall: Waterfall, payment rules, diversion
 //!   - coverage: OC/IC test calculations
 //!   - rates: CPR/SMM, CDR/MDR, PSA conversion utilities
 //!   - specs: Prepayment, default, recovery model specifications

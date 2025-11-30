@@ -37,7 +37,7 @@ structured_credit/
 │   ├── enums.rs        # DealType, AssetType, TrancheSeniority, etc.
 │   ├── pool.rs         # AssetPool, PoolAsset, ReinvestmentPeriod
 │   ├── tranches.rs     # Tranche, TrancheStructure, TrancheCoupon
-│   ├── waterfall.rs    # WaterfallEngine, WaterfallTier, Recipient
+│   ├── waterfall.rs    # Waterfall, WaterfallTier, Recipient
 │   ├── results.rs      # TrancheCashflows, TrancheValuation
 │   ├── setup.rs        # DealConfig, DealDates, DealFees
 │   ├── reinvestment.rs # ReinvestmentManager for CLO reinvestment periods

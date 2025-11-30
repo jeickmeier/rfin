@@ -333,6 +333,81 @@ pub fn execute_waterfall_with_workspace(
 }
 
 // ============================================================================
+// ALLOCATION CONTEXT
+// ============================================================================
+
+/// Immutable context for waterfall allocation operations.
+///
+/// Groups parameters that remain constant during allocation, reducing
+/// parameter count in allocation functions.
+pub struct AllocationContext<'a> {
+    /// Base currency for allocations
+    pub base_currency: Currency,
+    /// Tranche structure for looking up tranche data
+    pub tranches: &'a TrancheStructure,
+    /// O(1) lookup from tranche ID to index
+    pub tranche_index: HashMap<&'a str, usize>,
+    /// Current pool balance
+    pub pool_balance: Money,
+    /// Payment date
+    pub payment_date: Date,
+    /// Market context for rate lookups
+    pub market: &'a MarketContext,
+}
+
+impl<'a> AllocationContext<'a> {
+    /// Create a new allocation context.
+    pub fn new(
+        base_currency: Currency,
+        tranches: &'a TrancheStructure,
+        pool_balance: Money,
+        payment_date: Date,
+        market: &'a MarketContext,
+    ) -> Self {
+        let mut tranche_index = HashMap::with_capacity(tranches.tranches.len());
+        for (i, t) in tranches.tranches.iter().enumerate() {
+            tranche_index.insert(t.id.as_str(), i);
+        }
+
+        Self {
+            base_currency,
+            tranches,
+            tranche_index,
+            pool_balance,
+            payment_date,
+            market,
+        }
+    }
+}
+
+/// Mutable state for allocation tracking.
+///
+/// Groups mutable state that is updated during allocation.
+pub struct AllocationState {
+    /// Accumulated distributions by recipient
+    pub distributions: HashMap<RecipientType, Money>,
+    /// Payment records for audit trail
+    pub payment_records: Vec<PaymentRecord>,
+    /// Optional explanation trace
+    pub trace: Option<ExplanationTrace>,
+}
+
+impl AllocationState {
+    /// Create new allocation state with pre-allocated capacity.
+    pub fn with_capacity(estimated_recipients: usize, explain: &ExplainOpts) -> Self {
+        Self {
+            distributions: HashMap::with_capacity(estimated_recipients),
+            payment_records: Vec::with_capacity(estimated_recipients),
+            trace: if explain.enabled {
+                Some(ExplanationTrace::new("waterfall"))
+            } else {
+                None
+            },
+        }
+    }
+}
+
+// ============================================================================
 // ALLOCATION FUNCTIONS
 // ============================================================================
 

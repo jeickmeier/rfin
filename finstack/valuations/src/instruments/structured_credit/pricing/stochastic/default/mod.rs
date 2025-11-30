@@ -4,12 +4,13 @@
 //! - Default correlation through copula models
 //! - Intensity process dynamics (Cox process)
 //! - Factor-correlated CDR
+//! - Hazard curve-based defaults using market-calibrated curves
 //!
 //! # Models
 //!
 //! - **CopulaBasedDefault**: Default correlation via copula (Gaussian, Student-t)
 //! - **IntensityProcessDefault**: Cox process with mean-reverting intensity
-//! - **FactorCorrelatedDefault**: Simple factor-shocked CDR
+//! - **HazardCurveDefault**: Wraps HazardCurve from core for market-calibrated defaults
 //!
 //! # References
 //!
@@ -18,11 +19,13 @@
 //! - Schönbucher, P. J. (2003). "Credit Derivatives Pricing Models."
 
 mod copula_based;
+mod hazard_curve_adapter;
 mod intensity_process;
 mod spec;
 mod traits;
 
 pub use copula_based::CopulaBasedDefault;
+pub use hazard_curve_adapter::HazardCurveDefault;
 pub use intensity_process::IntensityProcessDefault;
 pub use spec::StochasticDefaultSpec;
 pub use traits::{MacroCreditFactors, StochasticDefault};

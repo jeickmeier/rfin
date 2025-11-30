@@ -7,8 +7,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PaymentCalculation, PoolAsset, Recipient, RecipientType,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -53,17 +53,17 @@ fn create_simple_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![senior]).unwrap()
 }
 
-fn create_simple_waterfall() -> WaterfallEngine {
+fn create_simple_waterfall() -> Waterfall {
     let fees = vec![Recipient::new(
         "trustee",
-        PaymentRecipient::ServiceProvider("Trustee".to_string()),
+        RecipientType::ServiceProvider("Trustee".to_string()),
         PaymentCalculation::FixedAmount {
             amount: Money::new(10_000.0, Currency::USD),
         },
     )];
 
     let tranches = create_simple_tranches();
-    WaterfallEngine::standard_sequential(Currency::USD, &tranches, fees)
+    Waterfall::standard_sequential(Currency::USD, &tranches, fees)
 }
 
 #[test]

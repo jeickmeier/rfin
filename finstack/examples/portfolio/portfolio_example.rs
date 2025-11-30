@@ -43,8 +43,8 @@ use finstack_valuations::instruments::inflation_linked_bond::{parameters::*, Inf
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::instruments::irs::*;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, TrancheBuilder, TrancheCoupon, TrancheStructure, WaterfallBuilder,
-    TrancheSeniority,
+    AssetPool, DealType, TrancheBuilder, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    WaterfallBuilder,
 };
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
@@ -1126,8 +1126,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // Create waterfall: fees -> interest -> principal -> equity
     use finstack_valuations::instruments::structured_credit::{
-        AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentType,
-        Recipient, WaterfallTier,
+        AllocationMode, ManagementFeeType, PaymentCalculation, PaymentType, Recipient,
+        RecipientType, WaterfallTier,
     };
 
     let waterfall = WaterfallBuilder::new(Currency::USD)
@@ -1136,14 +1136,14 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "trustee",
-                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(35_714.29, Currency::USD),
                     },
                 ))
                 .add_recipient(Recipient::new(
                     "senior_mgmt",
-                    PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                    RecipientType::ManagerFee(ManagementFeeType::Senior),
                     PaymentCalculation::PercentageOfCollateral {
                         rate: 0.002,
                         annualized: true,
@@ -1174,7 +1174,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .add_tier(
             WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
                 "equity_dist",
-                PaymentRecipient::Equity,
+                RecipientType::Equity,
                 PaymentCalculation::ResidualCash,
             )),
         )

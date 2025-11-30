@@ -257,6 +257,52 @@ pub use risk::{
     calculate_portfolio_var, calculate_var, extract_risk_factors, GenericHVar, MarketHistory,
     MarketScenario, RiskFactorShift, RiskFactorType, VarConfig, VarMethod, VarResult,
 };
+
+// -----------------------------------------------------------------------------
+// Error helper functions
+// -----------------------------------------------------------------------------
+
+/// Create a NotFound error for missing metrics.
+///
+/// Use this when a metric dependency or required metric is not available.
+///
+/// # Examples
+///
+/// ```ignore
+/// use finstack_valuations::metrics::{metric_not_found, MetricId};
+///
+/// fn get_metric(id: MetricId, results: &HashMap<MetricId, f64>) -> Result<f64> {
+///     results.get(&id).copied().ok_or_else(|| metric_not_found(id))
+/// }
+/// ```
+#[inline]
+pub fn metric_not_found(metric: MetricId) -> finstack_core::Error {
+    finstack_core::error::InputError::NotFound {
+        id: format!("metric:{metric:?}"),
+    }
+    .into()
+}
+
+/// Create a NotFound error for missing context fields.
+///
+/// Use this when a required field is not present in a context or configuration.
+///
+/// # Examples
+///
+/// ```ignore
+/// use finstack_valuations::metrics::context_not_found;
+///
+/// fn get_curve_id(context: &PricingContext) -> Result<&CurveId> {
+///     context.discount_curve_id().ok_or_else(|| context_not_found("discount_curve_id"))
+/// }
+/// ```
+#[inline]
+pub fn context_not_found(field: &str) -> finstack_core::Error {
+    finstack_core::error::InputError::NotFound {
+        id: format!("context.{field}"),
+    }
+    .into()
+}
 /// Creates a standard metric registry with all built-in metrics.
 ///
 /// This registry includes metrics for:

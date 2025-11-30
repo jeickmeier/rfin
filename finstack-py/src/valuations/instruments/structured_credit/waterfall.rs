@@ -2,15 +2,15 @@
 //!
 //! This module exposes the generalized waterfall engine to Python, including:
 //! - WaterfallTier, Recipient, AllocationMode
-//! - WaterfallEngine execution
-//! - WaterfallResult with tier allocations
+//! - Waterfall execution
+//! - WaterfallDistribution with tier allocations
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode as RustAllocationMode, PaymentCalculation as RustPaymentCalculation,
-    PaymentRecipient as RustPaymentRecipient, PaymentType as RustPaymentType,
-    Recipient as RustRecipient, WaterfallTier as RustWaterfallTier,
+    PaymentType as RustPaymentType, Recipient as RustRecipient,
+    RecipientType as RustRecipientType, WaterfallTier as RustWaterfallTier,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -142,7 +142,7 @@ impl PyWaterfallTier {
     ) -> PyResult<Py<Self>> {
         let mut inner = slf.inner.clone();
         // Parse recipient type from JSON
-        let rust_recipient: RustPaymentRecipient = serde_json::from_str(recipient_type)
+        let rust_recipient: RustRecipientType = serde_json::from_str(recipient_type)
             .map_err(|e| PyValueError::new_err(format!("Invalid recipient_type: {}", e)))?;
 
         // Parse calculation from JSON

@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// Recipient of waterfall payments
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum PaymentRecipient {
+pub enum RecipientType {
     /// Service provider (trustee, admin, rating agency, etc.)
     ServiceProvider(String),
     /// Manager fee (type indicates senior/subordinated/incentive)
@@ -110,7 +110,7 @@ pub struct Recipient {
     /// Unique identifier
     pub id: String,
     /// Recipient type
-    pub recipient_type: PaymentRecipient,
+    pub recipient_type: RecipientType,
     /// How to calculate payment amount
     pub calculation: PaymentCalculation,
     /// Weight for pro-rata distribution (None = equal weight)
@@ -121,7 +121,7 @@ impl Recipient {
     /// Create a new recipient
     pub fn new(
         id: impl Into<String>,
-        recipient_type: PaymentRecipient,
+        recipient_type: RecipientType,
         calculation: PaymentCalculation,
     ) -> Self {
         Self {
@@ -144,7 +144,7 @@ impl Recipient {
     pub fn fixed_fee(id: impl Into<String>, provider: impl Into<String>, amount: Money) -> Self {
         Self::new(
             id,
-            PaymentRecipient::ServiceProvider(provider.into()),
+            RecipientType::ServiceProvider(provider.into()),
             PaymentCalculation::FixedAmount { amount },
         )
     }
@@ -155,7 +155,7 @@ impl Recipient {
         let tranche_id_str = tranche_id.into();
         Self::new(
             id,
-            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            RecipientType::Tranche(tranche_id_str.clone()),
             PaymentCalculation::TrancheInterest {
                 tranche_id: tranche_id_str,
             },
@@ -172,7 +172,7 @@ impl Recipient {
         let tranche_id_str = tranche_id.into();
         Self::new(
             id,
-            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            RecipientType::Tranche(tranche_id_str.clone()),
             PaymentCalculation::TranchePrincipal {
                 tranche_id: tranche_id_str,
                 target_balance,
@@ -242,7 +242,7 @@ impl WaterfallTier {
 /// Result of waterfall distribution
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct WaterfallResult {
+pub struct WaterfallDistribution {
     /// Payment date
     pub payment_date: Date,
     /// Total available cash at start
@@ -252,7 +252,7 @@ pub struct WaterfallResult {
     pub tier_allocations: Vec<(String, Money)>,
 
     /// Distributions by recipient
-    pub distributions: HashMap<PaymentRecipient, Money>,
+    pub distributions: HashMap<RecipientType, Money>,
     /// Detailed payment records
     pub payment_records: Vec<PaymentRecord>,
 
@@ -284,7 +284,7 @@ pub struct PaymentRecord {
     /// Priority
     pub priority: usize,
     /// Recipient
-    pub recipient: PaymentRecipient,
+    pub recipient: RecipientType,
     /// Requested amount
     pub requested_amount: Money,
     /// Paid amount
@@ -335,7 +335,7 @@ pub struct WaterfallWorkspace {
     /// Pre-allocated tier allocations buffer
     pub tier_allocations: Vec<(String, Money)>,
     /// Pre-allocated distributions map
-    pub distributions: HashMap<PaymentRecipient, Money>,
+    pub distributions: HashMap<RecipientType, Money>,
     /// Pre-allocated payment records buffer
     pub payment_records: Vec<PaymentRecord>,
     /// Pre-allocated coverage test results buffer
@@ -356,8 +356,8 @@ impl WaterfallWorkspace {
         }
     }
 
-    /// Create workspace from a WaterfallEngine and TrancheStructure.
-    pub fn from_engine(engine: &WaterfallEngine, tranches: &super::TrancheStructure) -> Self {
+    /// Create workspace from a Waterfall and TrancheStructure.
+    pub fn from_engine(engine: &Waterfall, tranches: &super::TrancheStructure) -> Self {
         let num_tiers = engine.tiers.len();
         let num_recipients: usize = engine.tiers.iter().map(|t| t.recipients.len()).sum();
         let num_tranches = tranches.tranches.len();
@@ -393,7 +393,7 @@ impl Default for WaterfallWorkspace {
 /// Main waterfall engine with tier-based distribution
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct WaterfallEngine {
+pub struct Waterfall {
     /// Ordered payment tiers
     pub tiers: Vec<WaterfallTier>,
     /// Coverage triggers for OC/IC diversion
@@ -402,7 +402,7 @@ pub struct WaterfallEngine {
     pub base_currency: Currency,
 }
 
-impl WaterfallEngine {
+impl Waterfall {
     /// Create new waterfall engine
     #[must_use]
     pub fn new(base_currency: Currency) -> Self {
@@ -442,7 +442,7 @@ impl WaterfallEngine {
         pool_balance: finstack_core::money::Money,
         pool: &super::Pool,
         market: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<WaterfallResult> {
+    ) -> finstack_core::Result<WaterfallDistribution> {
         crate::instruments::structured_credit::pricing::execute_waterfall(
             self,
             available_cash,
@@ -533,7 +533,7 @@ impl WaterfallEngine {
             .allocation_mode(AllocationMode::Sequential)
             .add_recipient(Recipient::new(
                 "equity_distribution",
-                PaymentRecipient::Equity,
+                RecipientType::Equity,
                 PaymentCalculation::ResidualCash,
             ));
         engine.tiers.push(equity_tier);
@@ -544,7 +544,7 @@ impl WaterfallEngine {
 
 /// Builder for waterfall engine
 pub struct WaterfallBuilder {
-    engine: WaterfallEngine,
+    engine: Waterfall,
     next_priority: usize,
 }
 
@@ -553,7 +553,7 @@ impl WaterfallBuilder {
     #[must_use]
     pub fn new(base_currency: Currency) -> Self {
         Self {
-            engine: WaterfallEngine::new(base_currency),
+            engine: Waterfall::new(base_currency),
             next_priority: 1,
         }
     }
@@ -578,7 +578,7 @@ impl WaterfallBuilder {
 
     /// Build the waterfall engine
     #[must_use]
-    pub fn build(self) -> WaterfallEngine {
+    pub fn build(self) -> Waterfall {
         self.engine
     }
 }

@@ -61,14 +61,10 @@ pub use reinvestment::ReinvestmentManager;
 
 // Waterfall types
 pub use waterfall::{
-    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
-    PaymentRecord, PaymentType, Recipient, WaterfallBuilder, WaterfallEngine, WaterfallResult,
+    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
+    PaymentType, Recipient, RecipientType, Waterfall, WaterfallBuilder, WaterfallDistribution,
     WaterfallTier, WaterfallWorkspace,
 };
-// Type aliases for cleaner naming
-pub use waterfall::WaterfallEngine as Waterfall;
-pub use waterfall::WaterfallResult as WaterfallDistribution;
-pub use waterfall::PaymentRecipient as RecipientType;
 pub use waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 
 // Result types

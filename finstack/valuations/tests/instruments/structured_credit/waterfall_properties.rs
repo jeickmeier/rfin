@@ -8,9 +8,8 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, AssetPool, DealType, PaymentCalculation, PaymentRecipient, PaymentType,
-    Recipient, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallBuilder,
-    WaterfallTier,
+    AllocationMode, AssetPool, DealType, PaymentCalculation, PaymentType, Recipient, RecipientType,
+    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallBuilder, WaterfallTier,
 };
 
 /// Helper to create a simple market context
@@ -55,7 +54,7 @@ fn property_cash_conservation() {
             .add_tier(
                 WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                     "recipient1",
-                    PaymentRecipient::ServiceProvider("Test".into()),
+                    RecipientType::ServiceProvider("Test".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(1_000.0, currency),
                     },
@@ -65,7 +64,7 @@ fn property_cash_conservation() {
                 WaterfallTier::new("tier2", 2, PaymentType::Residual).add_recipient(
                     Recipient::new(
                         "residual",
-                        PaymentRecipient::Equity,
+                        RecipientType::Equity,
                         PaymentCalculation::ResidualCash,
                     ),
                 ),
@@ -115,7 +114,7 @@ fn property_non_negative_distributions() {
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
-                PaymentRecipient::ServiceProvider("Test".into()),
+                RecipientType::ServiceProvider("Test".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(10_000.0, currency),
                 },
@@ -174,7 +173,7 @@ fn property_priority_ordering() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "fee1",
-                    PaymentRecipient::ServiceProvider("Provider1".into()),
+                    RecipientType::ServiceProvider("Provider1".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(100_000.0, currency),
                     },
@@ -185,7 +184,7 @@ fn property_priority_ordering() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "fee2",
-                    PaymentRecipient::ServiceProvider("Provider2".into()),
+                    RecipientType::ServiceProvider("Provider2".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
@@ -244,7 +243,7 @@ fn property_pro_rata_weight_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "recipient1",
-                        PaymentRecipient::ServiceProvider("Provider1".into()),
+                        RecipientType::ServiceProvider("Provider1".into()),
                         PaymentCalculation::FixedAmount {
                             amount: Money::new(100_000.0, currency),
                         },
@@ -254,7 +253,7 @@ fn property_pro_rata_weight_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "recipient2",
-                        PaymentRecipient::ServiceProvider("Provider2".into()),
+                        RecipientType::ServiceProvider("Provider2".into()),
                         PaymentCalculation::FixedAmount {
                             amount: Money::new(100_000.0, currency),
                         },
@@ -278,13 +277,13 @@ fn property_pro_rata_weight_distribution() {
 
     let dist1 = result
         .distributions
-        .get(&PaymentRecipient::ServiceProvider("Provider1".into()))
+        .get(&RecipientType::ServiceProvider("Provider1".into()))
         .map(|m| m.amount())
         .unwrap_or(0.0);
 
     let dist2 = result
         .distributions
-        .get(&PaymentRecipient::ServiceProvider("Provider2".into()))
+        .get(&RecipientType::ServiceProvider("Provider2".into()))
         .map(|m| m.amount())
         .unwrap_or(0.0);
 
@@ -312,7 +311,7 @@ fn property_shortfall_computation() {
         .add_tier(
             WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee",
-                PaymentRecipient::ServiceProvider("Test".into()),
+                RecipientType::ServiceProvider("Test".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(100_000.0, currency),
                 },
@@ -390,7 +389,7 @@ fn property_tier_count_consistency() {
             WaterfallTier::new(format!("tier{}", i), i, PaymentType::Fee).add_recipient(
                 Recipient::new(
                     format!("recipient{}", i),
-                    PaymentRecipient::ServiceProvider(format!("Provider{}", i)),
+                    RecipientType::ServiceProvider(format!("Provider{}", i)),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(10_000.0, currency),
                     },
@@ -436,7 +435,7 @@ fn property_diversion_tracking() {
                 .divertible(true)
                 .add_recipient(Recipient::new(
                     "principal",
-                    PaymentRecipient::Tranche("TEST_TRANCHE".into()),
+                    RecipientType::Tranche("TEST_TRANCHE".into()),
                     PaymentCalculation::TranchePrincipal {
                         tranche_id: "TEST_TRANCHE".into(),
                         target_balance: None,
@@ -492,7 +491,7 @@ fn property_monotonic_tier_allocation() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "r1",
-                    PaymentRecipient::ServiceProvider("P1".into()),
+                    RecipientType::ServiceProvider("P1".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
@@ -503,7 +502,7 @@ fn property_monotonic_tier_allocation() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "r2",
-                    PaymentRecipient::ServiceProvider("P2".into()),
+                    RecipientType::ServiceProvider("P2".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
@@ -514,7 +513,7 @@ fn property_monotonic_tier_allocation() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "r3",
-                    PaymentRecipient::ServiceProvider("P3".into()),
+                    RecipientType::ServiceProvider("P3".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
@@ -568,7 +567,7 @@ fn property_coverage_test_result_format() {
             WaterfallTier::new("tier1", 1, PaymentType::Fee)
                 .add_recipient(Recipient::new(
                     "fee",
-                    PaymentRecipient::ServiceProvider("Test".into()),
+                    RecipientType::ServiceProvider("Test".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(1_000.0, currency),
                     },

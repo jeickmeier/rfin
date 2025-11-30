@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     AssetPool, DealType, PoolAsset, PrepaymentCurve, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheSeniority, TrancheStructure, WaterfallEngine,
+    TrancheSeniority, TrancheStructure, Waterfall,
 };
 use time::Month;
 
@@ -40,8 +40,8 @@ fn create_minimal_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![tranche]).unwrap()
 }
 
-fn create_minimal_waterfall() -> WaterfallEngine {
-    WaterfallEngine::new(Currency::USD)
+fn create_minimal_waterfall() -> Waterfall {
+    Waterfall::new(Currency::USD)
 }
 
 // ============================================================================

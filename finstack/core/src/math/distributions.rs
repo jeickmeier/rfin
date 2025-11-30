@@ -68,6 +68,70 @@
 
 use super::random::RandomNumberGenerator;
 
+/// Generate the complete binomial distribution P(X=k) for k = 0, 1, ..., n.
+///
+/// Returns a normalized probability vector where `dist[k]` = P(X = k).
+/// Uses log-space arithmetic to prevent overflow for large n.
+///
+/// # Mathematical Definition
+///
+/// ```text
+/// dist[k] = P(X = k) = C(n,k) * p^k * (1-p)^(n-k)
+/// ```
+///
+/// # Arguments
+///
+/// * `n` - Number of independent trials (≥ 0)
+/// * `p` - Probability of success on each trial (0 ≤ p ≤ 1)
+///
+/// # Returns
+///
+/// Vector of probabilities `[P(X=0), P(X=1), ..., P(X=n)]` with length n+1.
+/// The vector sums to 1.0 (normalized).
+///
+/// # Use Cases
+///
+/// - **Credit modeling**: Loss distribution for homogeneous pool of n obligors
+/// - **Portfolio analytics**: Number of defaults given conditional default probability
+/// - **Structured credit**: Default distribution for CDO/CLO tranches
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::distributions::binomial_distribution;
+///
+/// // Fair coin: distribution of heads in 10 flips
+/// let dist = binomial_distribution(10, 0.5);
+/// assert_eq!(dist.len(), 11); // P(X=0), P(X=1), ..., P(X=10)
+/// assert!((dist[5] - 0.24609375).abs() < 1e-6); // P(X=5)
+///
+/// // Credit portfolio: default distribution with 5% PD
+/// let loss_dist = binomial_distribution(100, 0.05);
+/// assert_eq!(loss_dist.len(), 101);
+/// // Most probability mass around 5 defaults
+/// assert!(loss_dist[5] > loss_dist[0]);
+/// assert!(loss_dist[5] > loss_dist[20]);
+/// ```
+///
+/// # References
+///
+/// - Johnson, N. L., Kotz, S., & Kemp, A. W. (1993). *Univariate Discrete Distributions*
+///   (2nd ed.). Wiley. Chapter 3.
+pub fn binomial_distribution(n: usize, p: f64) -> Vec<f64> {
+    let mut dist = Vec::with_capacity(n + 1);
+    for k in 0..=n {
+        dist.push(binomial_probability(n, k, p));
+    }
+    // Normalize (should already sum to ~1, but defensive for numerical edge cases)
+    let sum: f64 = dist.iter().sum();
+    if sum > 0.0 && (sum - 1.0).abs() > 1e-10 {
+        for prob in &mut dist {
+            *prob /= sum;
+        }
+    }
+    dist
+}
+
 /// Calculate binomial probability P(X = k) where X ~ Binomial(n, p).
 ///
 /// Computes the probability mass function for the binomial distribution using
@@ -517,6 +581,88 @@ mod tests {
             (sample_mean - 0.5).abs() < 0.1,
             "Beta(0.5, 0.5) mean: expected ~0.5, got {:.4}",
             sample_mean
+        );
+    }
+
+    #[test]
+    fn test_binomial_distribution() {
+        // Test basic distribution
+        let dist = binomial_distribution(10, 0.5);
+        assert_eq!(dist.len(), 11);
+
+        // Test P(X=5) for fair coin
+        assert!(
+            (dist[5] - 0.24609375).abs() < 1e-6,
+            "P(X=5) = {}, expected 0.24609375",
+            dist[5]
+        );
+
+        // Test normalization
+        let sum: f64 = dist.iter().sum();
+        assert!(
+            (sum - 1.0).abs() < 1e-10,
+            "Distribution sum = {}, expected 1.0",
+            sum
+        );
+
+        // Test symmetry for p=0.5
+        for k in 0..=5 {
+            assert!(
+                (dist[k] - dist[10 - k]).abs() < 1e-10,
+                "P({}) = {} should equal P({}) = {}",
+                k,
+                dist[k],
+                10 - k,
+                dist[10 - k]
+            );
+        }
+    }
+
+    #[test]
+    fn test_binomial_distribution_edge_cases() {
+        // p = 0: all probability on k=0
+        let dist_zero = binomial_distribution(5, 0.0);
+        assert!((dist_zero[0] - 1.0).abs() < 1e-10);
+        for k in 1..=5 {
+            assert!(dist_zero[k] < 1e-10);
+        }
+
+        // p = 1: all probability on k=n
+        let dist_one = binomial_distribution(5, 1.0);
+        assert!((dist_one[5] - 1.0).abs() < 1e-10);
+        for k in 0..5 {
+            assert!(dist_one[k] < 1e-10);
+        }
+
+        // n = 0: single element
+        let dist_n0 = binomial_distribution(0, 0.5);
+        assert_eq!(dist_n0.len(), 1);
+        assert!((dist_n0[0] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_binomial_distribution_credit_portfolio() {
+        // Typical credit portfolio: 100 names with 5% PD
+        let dist = binomial_distribution(100, 0.05);
+        assert_eq!(dist.len(), 101);
+
+        // Expected number of defaults = n * p = 5
+        // Most probability mass should be around 5
+        let expected_mean: f64 = (0..=100).map(|k| k as f64 * dist[k]).sum();
+        assert!(
+            (expected_mean - 5.0).abs() < 0.01,
+            "Mean = {}, expected ~5.0",
+            expected_mean
+        );
+
+        // Variance = n * p * (1-p) = 4.75
+        let expected_var: f64 = (0..=100)
+            .map(|k| (k as f64 - expected_mean).powi(2) * dist[k])
+            .sum();
+        assert!(
+            (expected_var - 4.75).abs() < 0.01,
+            "Variance = {}, expected ~4.75",
+            expected_var
         );
     }
 }

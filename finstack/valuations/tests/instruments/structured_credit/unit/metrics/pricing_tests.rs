@@ -10,7 +10,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::TrancheCashflowResult;
+use finstack_valuations::instruments::structured_credit::TrancheCashflows;
 use time::Month;
 
 // ============================================================================
@@ -21,7 +21,7 @@ use time::Month;
 fn test_wal_calculation_equal_payments() {
     // Arrange: Equal principal payments over 4 years
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -65,7 +65,7 @@ fn test_wal_calculation_equal_payments() {
 fn test_wal_calculation_front_loaded_payments() {
     // Arrange: Most principal paid early
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -105,7 +105,7 @@ fn test_wal_calculation_front_loaded_payments() {
 fn test_wal_calculation_back_loaded_payments() {
     // Arrange: Most principal paid late
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -145,7 +145,7 @@ fn test_wal_calculation_back_loaded_payments() {
 fn test_wal_calculation_single_payment() {
     // Arrange: Bullet payment
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -175,7 +175,7 @@ fn test_wal_calculation_single_payment() {
 fn test_wal_calculation_empty_cashflows() {
     // Arrange: No principal payments
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -202,7 +202,7 @@ fn test_wal_calculation_empty_cashflows() {
 fn test_wal_ignores_past_cashflows() {
     // Arrange: Some cashflows in the past
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "TEST".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -242,7 +242,7 @@ fn test_wal_ignores_past_cashflows() {
 fn test_wal_rmbs_with_psa() {
     // Arrange: Typical RMBS principal schedule (front-loaded due to prepayments)
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "RMBS_AAA".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],
@@ -282,7 +282,7 @@ fn test_wal_rmbs_with_psa() {
 fn test_wal_clo_short_duration() {
     // Arrange: Typical CLO with faster amortization
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cashflows = TrancheCashflowResult {
+    let cashflows = TrancheCashflows {
         tranche_id: "CLO_AAA".to_string(),
         cashflows: vec![],
         detailed_flows: vec![],

@@ -5,9 +5,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::Result;
 
-/// Legacy type alias for `TrancheCashflows` (backward compatibility).
-pub type TrancheCashflowResult = TrancheCashflows;
-
 /// Calculate tranche-specific WAL from a `TrancheCashflows`.
 ///
 /// WAL measures the average time until principal is repaid, weighted by the

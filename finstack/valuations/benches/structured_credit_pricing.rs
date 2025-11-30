@@ -20,8 +20,8 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PaymentCalculation, PoolAsset, Recipient, RecipientType,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -95,18 +95,18 @@ fn create_tranches(total_balance: f64) -> TrancheStructure {
     TrancheStructure::new(vec![senior, mezz, equity]).unwrap()
 }
 
-fn create_waterfall(tranches: &TrancheStructure) -> WaterfallEngine {
+fn create_waterfall(tranches: &TrancheStructure) -> Waterfall {
     let fees = vec![
         Recipient::new(
             "trustee",
-            PaymentRecipient::ServiceProvider("Trustee".to_string()),
+            RecipientType::ServiceProvider("Trustee".to_string()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(10_000.0, Currency::USD),
             },
         ),
         Recipient::new(
             "manager",
-            PaymentRecipient::ServiceProvider("Manager".to_string()),
+            RecipientType::ServiceProvider("Manager".to_string()),
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.001, // 0.1% fee
                 annualized: true,
@@ -114,7 +114,7 @@ fn create_waterfall(tranches: &TrancheStructure) -> WaterfallEngine {
         ),
     ];
 
-    WaterfallEngine::standard_sequential(Currency::USD, tranches, fees)
+    Waterfall::standard_sequential(Currency::USD, tranches, fees)
 }
 
 fn create_market() -> MarketContext {

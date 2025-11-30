@@ -5,9 +5,9 @@
 
 use super::{
     AllocationMode, AssetPool, BehaviorOverrides, CreditFactors, DealMetadata, DealType,
-    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient,
-    RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
-    WaterfallEngine, WaterfallTier,
+    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient, RecoveryModelSpec,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    WaterfallTier,
 };
 use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Frequency};
@@ -59,7 +59,7 @@ impl StructuredCredit {
         deal_type: DealType,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
+        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -141,7 +141,7 @@ impl StructuredCredit {
         .expect("Tranche build should not fail");
         let tranches = TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build");
         // Build a simple 2-tier waterfall: pay interest then principal to the tranche
-        let waterfall = WaterfallEngine::new(Currency::USD)
+        let waterfall = Waterfall::new(Currency::USD)
             .add_tier(
                 WaterfallTier::new("Tier1-Interest", 1, PaymentType::Interest)
                     .allocation_mode(AllocationMode::Sequential)
@@ -213,7 +213,7 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
+        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -254,7 +254,7 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
+        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -295,7 +295,7 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
+        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -336,7 +336,7 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: WaterfallEngine,
+        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,

@@ -20,9 +20,11 @@
 //!
 //! - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
 
+use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};
 use crate::instruments::common::models::correlation::copula::{Copula, CopulaSpec, GaussianCopula};
 use crate::instruments::structured_credit::utils::rates::cdr_to_mdr;
+use finstack_core::math::distributions::binomial_distribution;
 use finstack_core::math::standard_normal_inv_cdf;
 
 /// Seasoning curve specification for default models.
@@ -165,20 +167,23 @@ impl CopulaBasedDefault {
 
     /// Standard RMBS calibration.
     ///
+    /// Uses shared calibration constants from [`RMBS_STANDARD`]:
     /// - Base CDR: 2%
     /// - Correlation: 5% (low for diversified pools)
     /// - SDA seasoning curve (100%)
     pub fn rmbs_standard() -> Self {
-        Self::gaussian(0.02, 0.05).with_seasoning_curve(SeasoningCurve::sda(1.0))
+        Self::gaussian(RMBS_STANDARD.base_cdr, RMBS_STANDARD.default_correlation)
+            .with_seasoning_curve(SeasoningCurve::sda(1.0))
     }
 
     /// Standard CLO calibration.
     ///
+    /// Uses shared calibration constants from [`CLO_STANDARD`]:
     /// - Base CDR: 3%
     /// - Correlation: 20% (higher for corporate loans)
     /// - No seasoning curve (flat CDR)
     pub fn clo_standard() -> Self {
-        Self::gaussian(0.03, 0.20)
+        Self::gaussian(CLO_STANDARD.base_cdr, CLO_STANDARD.default_correlation)
     }
 
     /// Add a seasoning curve to the model.
@@ -245,7 +250,7 @@ impl StochasticDefault for CopulaBasedDefault {
         factors: &[f64],
         correlation: f64,
     ) -> Vec<f64> {
-        // For homogeneous pool, use binomial-like distribution
+        // For homogeneous pool, use binomial distribution
         // with conditional default probability
 
         let pd = pds.first().copied().unwrap_or(self.base_cdr);
@@ -255,33 +260,8 @@ impl StochasticDefault for CopulaBasedDefault {
             .copula
             .conditional_default_prob(threshold, factors, correlation);
 
-        // Simple binomial distribution (could use recursive formula for efficiency)
-        let mut dist = vec![0.0; n + 1];
-
-        // P(k) = C(n,k) * p^k * (1-p)^(n-k)
-        // Use log to avoid overflow for large n
-        let log_p = cond_pd.max(1e-10).ln();
-        let log_1mp = (1.0 - cond_pd).max(1e-10).ln();
-
-        let mut log_coeff = 0.0; // log(C(n,k))
-        for (k, prob) in dist.iter_mut().enumerate() {
-            *prob = (log_coeff + k as f64 * log_p + (n - k) as f64 * log_1mp).exp();
-
-            // Update log(C(n,k)) -> log(C(n,k+1))
-            if k < n {
-                log_coeff += ((n - k) as f64).ln() - ((k + 1) as f64).ln();
-            }
-        }
-
-        // Normalize
-        let sum: f64 = dist.iter().sum();
-        if sum > 0.0 {
-            for p in &mut dist {
-                *p /= sum;
-            }
-        }
-
-        dist
+        // Use the core binomial distribution function
+        binomial_distribution(n, cond_pd.clamp(0.0, 1.0))
     }
 
     fn correlation(&self) -> f64 {

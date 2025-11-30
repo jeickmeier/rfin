@@ -62,7 +62,8 @@ pub mod summation;
 
 // Re-exports for ergonomic access
 pub use distributions::{
-    binomial_probability, log_binomial_coefficient, log_factorial, sample_beta,
+    binomial_distribution, binomial_probability, log_binomial_coefficient, log_factorial,
+    sample_beta,
 };
 pub use integration::{
     adaptive_quadrature, adaptive_simpson, gauss_legendre_integrate,

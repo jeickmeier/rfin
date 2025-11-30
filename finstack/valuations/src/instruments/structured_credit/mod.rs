@@ -195,19 +195,6 @@ pub use types::constants::{
     SDA_TERMINAL_CDR, STANDARD_CDR_RATES, STANDARD_PSA_SPEEDS, STANDARD_SEVERITY_RATES,
 };
 
-// ============================================================================
-// BACKWARD COMPATIBILITY ALIASES
-// ============================================================================
-
-/// Legacy type alias for `Waterfall` (backward compatibility).
-pub type WaterfallEngine = Waterfall;
-/// Legacy type alias for `WaterfallDistribution` (backward compatibility).
-pub type WaterfallResult = WaterfallDistribution;
-/// Legacy type alias for `RecipientType` (backward compatibility).
-pub type PaymentRecipient = RecipientType;
-/// Legacy type alias for `TrancheCashflows` (backward compatibility).
-pub type TrancheCashflowResult = TrancheCashflows;
-
 // Re-export waterfall coverage trigger with clear name
 /// Waterfall-level coverage trigger (for waterfall diversion).
 /// Use this when building waterfall engines with coverage test diversion.

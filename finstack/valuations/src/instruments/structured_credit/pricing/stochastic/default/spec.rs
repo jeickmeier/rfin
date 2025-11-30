@@ -3,15 +3,16 @@
 //! Provides a serializable specification enum for stochastic default models,
 //! enabling configuration and deferred construction.
 
-use super::{CopulaBasedDefault, IntensityProcessDefault, StochasticDefault};
+use super::{CopulaBasedDefault, HazardCurveDefault, IntensityProcessDefault, StochasticDefault};
 use crate::cashflow::builder::specs::DefaultModelSpec;
 use crate::instruments::common::models::correlation::copula::CopulaSpec;
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
 /// Stochastic default model specification.
 ///
 /// Allows default model selection and configuration without
 /// constructing the full model.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "model", deny_unknown_fields))]
 pub enum StochasticDefaultSpec {
@@ -58,11 +59,96 @@ pub enum StochasticDefaultSpec {
         /// CDR volatility
         cdr_volatility: f64,
     },
+
+    /// Hazard curve-based default model.
+    ///
+    /// Uses a market-calibrated hazard curve (e.g., from CDS spreads)
+    /// with factor-based stochastic shocks.
+    ///
+    /// Note: This variant cannot be serialized/deserialized directly as it
+    /// contains a HazardCurve. Use `build_from_hazard_curve` for construction.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    HazardCurveBased {
+        /// The calibrated hazard curve
+        hazard_curve: HazardCurve,
+        /// Factor sensitivity (β) for systematic risk shocks
+        factor_sensitivity: f64,
+        /// Volatility of intensity shocks (σ)
+        volatility: f64,
+        /// Asset correlation for default distribution
+        correlation: f64,
+    },
 }
 
 #[cfg(feature = "serde")]
 fn default_correlation() -> f64 {
     0.20
+}
+
+impl PartialEq for StochasticDefaultSpec {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Deterministic(a), Self::Deterministic(b)) => a == b,
+            (
+                Self::Copula {
+                    base_cdr: a1,
+                    copula_spec: a2,
+                    correlation: a3,
+                },
+                Self::Copula {
+                    base_cdr: b1,
+                    copula_spec: b2,
+                    correlation: b3,
+                },
+            ) => a1 == b1 && a2 == b2 && a3 == b3,
+            (
+                Self::IntensityProcess {
+                    base_hazard: a1,
+                    factor_sensitivity: a2,
+                    mean_reversion: a3,
+                    volatility: a4,
+                    correlation: a5,
+                },
+                Self::IntensityProcess {
+                    base_hazard: b1,
+                    factor_sensitivity: b2,
+                    mean_reversion: b3,
+                    volatility: b4,
+                    correlation: b5,
+                },
+            ) => a1 == b1 && a2 == b2 && a3 == b3 && a4 == b4 && a5 == b5,
+            (
+                Self::FactorCorrelated {
+                    base_spec: a1,
+                    factor_loading: a2,
+                    cdr_volatility: a3,
+                },
+                Self::FactorCorrelated {
+                    base_spec: b1,
+                    factor_loading: b2,
+                    cdr_volatility: b3,
+                },
+            ) => a1 == b1 && a2 == b2 && a3 == b3,
+            (
+                Self::HazardCurveBased {
+                    hazard_curve: a1,
+                    factor_sensitivity: a2,
+                    volatility: a3,
+                    correlation: a4,
+                },
+                Self::HazardCurveBased {
+                    hazard_curve: b1,
+                    factor_sensitivity: b2,
+                    volatility: b3,
+                    correlation: b4,
+                },
+            ) => {
+                // Compare by curve ID since HazardCurve doesn't impl PartialEq
+                a1.id() == b1.id() && a2 == b2 && a3 == b3 && a4 == b4
+            }
+            _ => false,
+        }
+    }
 }
 
 impl Default for StochasticDefaultSpec {
@@ -124,6 +210,38 @@ impl StochasticDefaultSpec {
         }
     }
 
+    /// Create a hazard curve-based default spec.
+    ///
+    /// Uses a market-calibrated hazard curve with factor shocks.
+    ///
+    /// # Arguments
+    ///
+    /// * `hazard_curve` - Calibrated hazard curve (e.g., from CDS spreads)
+    /// * `factor_sensitivity` - Sensitivity to systematic factor (typical: 0.3-0.8)
+    pub fn from_hazard_curve(hazard_curve: HazardCurve, factor_sensitivity: f64) -> Self {
+        StochasticDefaultSpec::HazardCurveBased {
+            hazard_curve,
+            factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
+            volatility: 0.30,
+            correlation: 0.20,
+        }
+    }
+
+    /// Create a hazard curve-based default spec with full parameters.
+    pub fn from_hazard_curve_full(
+        hazard_curve: HazardCurve,
+        factor_sensitivity: f64,
+        volatility: f64,
+        correlation: f64,
+    ) -> Self {
+        StochasticDefaultSpec::HazardCurveBased {
+            hazard_curve,
+            factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
+            volatility: volatility.clamp(0.0, 2.0),
+            correlation: correlation.clamp(0.0, 0.99),
+        }
+    }
+
     /// RMBS standard calibration.
     pub fn rmbs_standard() -> Self {
         StochasticDefaultSpec::Copula {
@@ -180,6 +298,17 @@ impl StochasticDefaultSpec {
                 // For now, use copula-based as fallback
                 None
             }
+
+            StochasticDefaultSpec::HazardCurveBased {
+                hazard_curve,
+                factor_sensitivity,
+                volatility,
+                correlation,
+            } => Some(Box::new(
+                HazardCurveDefault::new(hazard_curve.clone(), *factor_sensitivity)
+                    .with_volatility(*volatility)
+                    .with_correlation(*correlation),
+            )),
         }
     }
 
@@ -195,6 +324,7 @@ impl StochasticDefaultSpec {
             StochasticDefaultSpec::Copula { correlation, .. } => Some(*correlation),
             StochasticDefaultSpec::IntensityProcess { correlation, .. } => Some(*correlation),
             StochasticDefaultSpec::FactorCorrelated { factor_loading, .. } => Some(*factor_loading),
+            StochasticDefaultSpec::HazardCurveBased { correlation, .. } => Some(*correlation),
         }
     }
 
@@ -205,6 +335,10 @@ impl StochasticDefaultSpec {
             StochasticDefaultSpec::Copula { base_cdr, .. } => *base_cdr,
             StochasticDefaultSpec::IntensityProcess { base_hazard, .. } => *base_hazard,
             StochasticDefaultSpec::FactorCorrelated { base_spec, .. } => base_spec.cdr,
+            StochasticDefaultSpec::HazardCurveBased { hazard_curve, .. } => {
+                // Approximate 1-year default probability as the base rate
+                1.0 - hazard_curve.sp(1.0)
+            }
         }
     }
 

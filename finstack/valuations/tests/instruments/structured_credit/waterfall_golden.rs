@@ -18,8 +18,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
 use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
-    PaymentType, Recipient, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation, PaymentType,
+    Recipient, RecipientType, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
     WaterfallBuilder, WaterfallTier,
 };
 
@@ -140,14 +140,14 @@ fn test_golden_clo_2_0_full_payment() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "trustee",
-                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
                 ))
                 .add_recipient(Recipient::new(
                     "senior_mgmt",
-                    PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                    RecipientType::ManagerFee(ManagementFeeType::Senior),
                     PaymentCalculation::PercentageOfCollateral {
                         rate: 0.004, // 40 bps
                         annualized: true,
@@ -189,7 +189,7 @@ fn test_golden_clo_2_0_full_payment() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "equity_dist",
-                    PaymentRecipient::Equity,
+                    RecipientType::Equity,
                     PaymentCalculation::ResidualCash,
                 )),
         )
@@ -288,7 +288,7 @@ fn test_golden_clo_oc_breach_diversion() {
                 .allocation_mode(AllocationMode::Sequential)
                 .add_recipient(Recipient::new(
                     "trustee",
-                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    RecipientType::ServiceProvider("Trustee".into()),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(50_000.0, currency),
                     },
@@ -318,7 +318,7 @@ fn test_golden_clo_oc_breach_diversion() {
         .add_tier(
             WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
                 "equity",
-                PaymentRecipient::Equity,
+                RecipientType::Equity,
                 PaymentCalculation::ResidualCash,
             )),
         )
@@ -420,7 +420,7 @@ fn test_golden_cmbs_sequential_pay() {
         .add_tier(
             WaterfallTier::new("servicing", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "master_servicer",
-                PaymentRecipient::ServiceProvider("MasterServicer".into()),
+                RecipientType::ServiceProvider("MasterServicer".into()),
                 PaymentCalculation::PercentageOfCollateral {
                     rate: 0.0025, // 25 bps
                     annualized: true,
@@ -529,7 +529,7 @@ fn test_golden_cre_pro_rata_distribution() {
         .add_tier(
             WaterfallTier::new("opex", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "operating",
-                PaymentRecipient::ServiceProvider("Operating".into()),
+                RecipientType::ServiceProvider("Operating".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(100_000.0, currency),
                 },
@@ -542,7 +542,7 @@ fn test_golden_cre_pro_rata_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "lp_pref",
-                        PaymentRecipient::Tranche("LP".into()),
+                        RecipientType::Tranche("LP".into()),
                         PaymentCalculation::TrancheInterest {
                             tranche_id: "LP".into(),
                         },
@@ -552,7 +552,7 @@ fn test_golden_cre_pro_rata_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "gp_pref",
-                        PaymentRecipient::Tranche("GP".into()),
+                        RecipientType::Tranche("GP".into()),
                         PaymentCalculation::TrancheInterest {
                             tranche_id: "GP".into(),
                         },
@@ -567,7 +567,7 @@ fn test_golden_cre_pro_rata_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "lp_residual",
-                        PaymentRecipient::Tranche("LP".into()),
+                        RecipientType::Tranche("LP".into()),
                         PaymentCalculation::ResidualCash,
                     )
                     .with_weight(0.80),
@@ -575,7 +575,7 @@ fn test_golden_cre_pro_rata_distribution() {
                 .add_recipient(
                     Recipient::new(
                         "gp_promote",
-                        PaymentRecipient::ManagerFee(ManagementFeeType::Incentive),
+                        RecipientType::ManagerFee(ManagementFeeType::Incentive),
                         PaymentCalculation::ResidualCash,
                     )
                     .with_weight(0.20),
@@ -632,10 +632,10 @@ fn test_golden_cre_pro_rata_distribution() {
     // Check that LP gets ~80% and GP gets ~20% of residual
     let lp_dist = result
         .distributions
-        .get(&PaymentRecipient::Tranche("LP".into()));
+        .get(&RecipientType::Tranche("LP".into()));
     let gp_dist = result
         .distributions
-        .get(&PaymentRecipient::ManagerFee(ManagementFeeType::Incentive));
+        .get(&RecipientType::ManagerFee(ManagementFeeType::Incentive));
 
     if let (Some(_lp), Some(gp)) = (lp_dist, gp_dist) {
         // Total residual after opex and pref
@@ -663,7 +663,7 @@ fn test_golden_cash_conservation() {
         .add_tier(
             WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
                 "fee1",
-                PaymentRecipient::ServiceProvider("Provider".into()),
+                RecipientType::ServiceProvider("Provider".into()),
                 PaymentCalculation::FixedAmount {
                     amount: Money::new(10_000.0, currency),
                 },

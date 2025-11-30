@@ -20,12 +20,6 @@ pub const QUARTERLY_PERIODS_PER_YEAR: f64 = 4.0;
 // VALIDATION CONSTANTS
 // ============================================================================
 
-/// Floating point tolerance for validation checks
-pub const VALIDATION_TOLERANCE: f64 = 1e-6;
-
-/// Default capacity for historical coverage test storage (10 years quarterly)
-pub const HISTORICAL_COVERAGE_CAPACITY: usize = 120;
-
 /// Default basis points divisor
 pub const BASIS_POINTS_DIVISOR: f64 = 10_000.0;
 
@@ -55,47 +49,6 @@ pub const YTM_SOLVER_TOLERANCE: f64 = 1e-6;
 /// ±500 bps is sufficient for most structured credit instruments.
 /// Extreme distressed securities may require wider brackets.
 pub const Z_SPREAD_INITIAL_BRACKET: f64 = 0.05; // ±500 bps
-
-/// Price tolerance for dirty/clean price comparisons.
-///
-/// Market standard: 0.01 (1 cent on $100 par = 0.01%).
-pub const PRICE_TOLERANCE: f64 = 0.01;
-
-/// Relative price tolerance for percentage-based comparisons.
-///
-/// Market standard: 0.0001 (0.01% = 1 bps on price).
-pub const PRICE_RELATIVE_TOLERANCE: f64 = 1e-4;
-
-/// Cash amount tolerance for waterfall distribution tests.
-///
-/// Deterministic calculations should match exactly; this tolerance
-/// accounts only for floating-point representation error.
-pub const CASH_DISTRIBUTION_TOLERANCE: f64 = 0.01; // 1 cent
-
-/// Rate conversion roundtrip tolerance.
-///
-/// CPR↔SMM and CDR↔MDR roundtrips should be exact within floating-point precision.
-pub const RATE_CONVERSION_TOLERANCE: f64 = 1e-10;
-
-/// Coverage ratio tolerance for OC/IC test comparisons.
-///
-/// Market standard: 0.01 (1% of coverage ratio).
-pub const COVERAGE_RATIO_TOLERANCE: f64 = 0.01;
-
-/// WAL tolerance in years.
-///
-/// Market standard: 0.01 years (about 3.65 days).
-pub const WAL_TOLERANCE_YEARS: f64 = 0.01;
-
-/// Duration tolerance in years.
-///
-/// Market standard: 0.01 years for modified/Macaulay duration.
-pub const DURATION_TOLERANCE_YEARS: f64 = 0.01;
-
-/// Probability distribution sum tolerance.
-///
-/// Probability distributions must sum to 1.0 within this tolerance.
-pub const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
 
 // ============================================================================
 // SEASONALITY FACTORS

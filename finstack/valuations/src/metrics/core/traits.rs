@@ -5,7 +5,7 @@
 //! while `MetricContext` provides the execution environment with caching.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::structured_credit::TrancheCashflowResult;
+use crate::instruments::structured_credit::TrancheCashflows;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -170,7 +170,7 @@ pub struct MetricContext {
     pub cashflows: Option<Vec<(Date, Money)>>,
 
     /// Tranche-level detailed cashflow results (for structured credit)
-    pub detailed_tranche_cashflows: Option<TrancheCashflowResult>,
+    pub detailed_tranche_cashflows: Option<TrancheCashflows>,
 
     /// Cached discount curve ID.
     pub discount_curve_id: Option<CurveId>,

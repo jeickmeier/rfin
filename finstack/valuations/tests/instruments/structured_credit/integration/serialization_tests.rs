@@ -8,7 +8,7 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     AssetPool, DealType, DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
 };
 use time::Month;
 
@@ -99,7 +99,7 @@ fn test_clo_json_roundtrip() {
     .unwrap();
 
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let waterfall = WaterfallEngine::new(Currency::USD);
+    let waterfall = Waterfall::new(Currency::USD);
 
     let original = StructuredCredit::new_clo(
         "TEST_CLO",
@@ -141,7 +141,7 @@ fn test_rmbs_with_overrides_serialization() {
     .unwrap();
 
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let waterfall = WaterfallEngine::new(Currency::USD);
+    let waterfall = Waterfall::new(Currency::USD);
 
     let mut rmbs = StructuredCredit::new_rmbs(
         "TEST_RMBS",

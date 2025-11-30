@@ -25,8 +25,10 @@
 //! - Duffie, D., & Singleton, K. J. (1999). "Modeling Term Structures of Defaultable Bonds."
 //! - Lando, D. (1998). "On Cox Processes and Credit Risky Securities."
 
+use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};
 use crate::instruments::structured_credit::utils::rates::cdr_to_mdr;
+use finstack_core::math::distributions::binomial_distribution;
 
 /// Intensity process (Cox model) default model.
 ///
@@ -77,19 +79,33 @@ impl IntensityProcessDefault {
 
     /// Standard RMBS calibration.
     ///
+    /// Uses shared calibration constants from [`RMBS_STANDARD`]:
     /// - Base hazard: 2% annual
     /// - Factor sensitivity: 0.5
     /// - Mean reversion: 0.5 (2-year half-life)
     /// - Volatility: 0.30
     pub fn rmbs_standard() -> Self {
-        Self::new(0.02, 0.5, 0.5, 0.30).with_correlation(0.05)
+        Self::new(
+            RMBS_STANDARD.base_cdr,
+            RMBS_STANDARD.default_factor_sensitivity,
+            RMBS_STANDARD.default_mean_reversion,
+            RMBS_STANDARD.default_volatility,
+        )
+        .with_correlation(RMBS_STANDARD.default_correlation)
     }
 
     /// Standard CLO calibration.
     ///
+    /// Uses shared calibration constants from [`CLO_STANDARD`]:
     /// Higher base hazard and factor sensitivity for corporate loans.
     pub fn clo_standard() -> Self {
-        Self::new(0.03, 0.8, 0.3, 0.40).with_correlation(0.25)
+        Self::new(
+            CLO_STANDARD.base_cdr,
+            CLO_STANDARD.default_factor_sensitivity,
+            CLO_STANDARD.default_mean_reversion,
+            CLO_STANDARD.default_volatility,
+        )
+        .with_correlation(CLO_STANDARD.default_correlation)
     }
 
     /// Get the base hazard rate.
@@ -159,30 +175,8 @@ impl StochasticDefault for IntensityProcessDefault {
             (1.0 - (-monthly_intensity).exp()).min(0.9999)
         };
 
-        // Binomial distribution
-        let mut dist = vec![0.0; n + 1];
-
-        let log_p = cond_pd.max(1e-10).ln();
-        let log_1mp = (1.0 - cond_pd).max(1e-10).ln();
-
-        let mut log_coeff = 0.0;
-        for (k, prob) in dist.iter_mut().enumerate() {
-            *prob = (log_coeff + k as f64 * log_p + (n - k) as f64 * log_1mp).exp();
-
-            if k < n {
-                log_coeff += ((n - k) as f64).ln() - ((k + 1) as f64).ln();
-            }
-        }
-
-        // Normalize
-        let sum: f64 = dist.iter().sum();
-        if sum > 0.0 {
-            for p in &mut dist {
-                *p /= sum;
-            }
-        }
-
-        dist
+        // Use the core binomial distribution function
+        binomial_distribution(n, cond_pd.clamp(0.0, 1.0))
     }
 
     fn correlation(&self) -> f64 {

@@ -13,9 +13,9 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, AssetType, DealType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
-    Recipient, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
-    WaterfallEngine,
+    AssetPool, AssetType, DealType, ManagementFeeType, PaymentCalculation, Recipient,
+    RecipientType, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    Waterfall,
 };
 use time::Month;
 
@@ -105,18 +105,18 @@ fn create_test_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![equity, senior]).expect("Failed to create tranche structure")
 }
 
-fn create_test_waterfall() -> WaterfallEngine {
+fn create_test_waterfall() -> Waterfall {
     let fees = vec![
         Recipient::new(
             "trustee_fees",
-            PaymentRecipient::ServiceProvider("Trustee".to_string()),
+            RecipientType::ServiceProvider("Trustee".to_string()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(12_500.0, Currency::USD),
             },
         ),
         Recipient::new(
             "senior_mgmt_fee",
-            PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+            RecipientType::ManagerFee(ManagementFeeType::Senior),
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0040,
                 annualized: true,
@@ -125,7 +125,7 @@ fn create_test_waterfall() -> WaterfallEngine {
     ];
 
     let tranches = create_test_tranches();
-    WaterfallEngine::standard_sequential(Currency::USD, &tranches, fees)
+    Waterfall::standard_sequential(Currency::USD, &tranches, fees)
 }
 
 fn create_test_market() -> MarketContext {

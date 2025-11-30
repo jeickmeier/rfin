@@ -3,8 +3,10 @@
 //! Provides a serializable specification enum for stochastic prepayment models,
 //! enabling configuration and deferred construction.
 
+use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::{FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepayment};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
+use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
 
 /// Stochastic prepayment model specification.
 ///
@@ -133,23 +135,27 @@ impl StochasticPrepaySpec {
     }
 
     /// RMBS agency standard calibration.
+    ///
+    /// Uses shared calibration constants from [`RMBS_STANDARD`].
     pub fn rmbs_agency(pool_coupon: f64) -> Self {
         StochasticPrepaySpec::RichardRoll {
-            base_cpr: 0.06,
-            refi_sensitivity: 2.0,
+            base_cpr: RMBS_STANDARD.base_cpr,
+            refi_sensitivity: RMBS_STANDARD.refi_sensitivity,
             pool_coupon,
-            burnout_rate: 0.10,
-            factor_loading: 0.4,
-            cpr_volatility: 0.20,
+            burnout_rate: RMBS_STANDARD.burnout_rate,
+            factor_loading: RMBS_STANDARD.prepay_factor_loading,
+            cpr_volatility: RMBS_STANDARD.cpr_volatility,
         }
     }
 
     /// CLO standard calibration.
+    ///
+    /// Uses shared calibration constants from [`CLO_STANDARD`].
     pub fn clo_standard() -> Self {
         StochasticPrepaySpec::FactorCorrelated {
-            base_spec: PrepaymentModelSpec::constant_cpr(0.15),
-            factor_loading: 0.25,
-            cpr_volatility: 0.15,
+            base_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD.base_cpr),
+            factor_loading: CLO_STANDARD.prepay_factor_loading,
+            cpr_volatility: CLO_STANDARD.cpr_volatility,
         }
     }
 
@@ -232,19 +238,6 @@ impl StochasticPrepaySpec {
                 cpr_to_smm(avg_cpr)
             }
         }
-    }
-}
-
-/// Convert annual CPR to monthly SMM.
-///
-/// SMM = 1 - (1 - CPR)^(1/12)
-fn cpr_to_smm(cpr: f64) -> f64 {
-    if cpr <= 0.0 {
-        0.0
-    } else if cpr >= 1.0 {
-        1.0
-    } else {
-        1.0 - (1.0 - cpr).powf(1.0 / 12.0)
     }
 }
 
