@@ -11,10 +11,11 @@ use crate::instruments::structured_credit::components::{
     RecoveryModelSpec, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
     WaterfallTier,
 };
-use crate::instruments::structured_credit::config::{
-    DefaultAssumptions, ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS,
-    CLO_TRUSTEE_FEE_ANNUAL, CMBS_MASTER_SERVICER_FEE_BPS, RMBS_SERVICING_FEE_BPS,
+use crate::instruments::structured_credit::types::constants::{
+    ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL,
+    CMBS_MASTER_SERVICER_FEE_BPS, RMBS_SERVICING_FEE_BPS,
 };
+use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};

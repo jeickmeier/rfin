@@ -35,7 +35,7 @@
 //!
 //! PSA speeds are multiples of this curve (e.g., 150% PSA = 1.5x the standard curve).
 
-use super::super::config::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
+use crate::instruments::structured_credit::types::constants::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
 
 /// Converts annual CPR to monthly SMM.
 ///

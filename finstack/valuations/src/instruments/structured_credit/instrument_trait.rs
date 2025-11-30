@@ -13,7 +13,7 @@ use super::components::{
     PrepaymentModelSpec, RecoveryModelSpec, TrancheCashflowResult, TrancheStructure,
     WaterfallEngine, WaterfallResult,
 };
-use super::config::POOL_BALANCE_CLEANUP_THRESHOLD;
+use crate::instruments::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
 use super::simulation_helpers::{update_tranche_balance, PeriodFlows, RecoveryLagBuffer};
 use crate::cashflow::traits::DatedFlows;
 use finstack_core::currency::Currency;
@@ -398,7 +398,7 @@ pub(crate) trait StructuredCreditInstrument {
 
     /// Get default behavioral assumptions
     #[allow(dead_code)]
-    fn default_assumptions(&self) -> &super::config::DefaultAssumptions;
+    fn default_assumptions(&self) -> &super::types::setup::DefaultAssumptions;
 
     /// Create instrument-specific waterfall engine
     fn create_waterfall_engine(&self) -> WaterfallEngine;

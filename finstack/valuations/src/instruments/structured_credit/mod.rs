@@ -170,7 +170,26 @@
 //! - [`RecoveryModelSpec`] for recovery modeling
 
 pub mod components;
-pub mod config;
+pub mod config {
+    //! Configuration and constants for structured credit instruments.
+    //!
+    //! This inline module preserves the legacy
+    //! `crate::instruments::structured_credit::config` API while the
+    //! underlying configuration types live in `types`.
+
+    /// Industry-standard constants and defaults used across structured
+    /// credit modeling. Re-exported from `types::constants`.
+    pub mod constants {
+        pub use crate::instruments::structured_credit::types::constants::*;
+    }
+
+    // Re-export all constants and configuration structures for
+    // backward-compatible access via `structured_credit::config::*`.
+    pub use constants::*;
+    pub use crate::instruments::structured_credit::types::setup::{
+        CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
+    };
+}
 pub mod instrument_trait;
 pub mod metrics;
 pub mod pricer;
@@ -354,13 +373,16 @@ pub use metrics::{
 // Configuration and utilities
 // ============================================================================
 
-pub use config::{
+pub use types::setup::{
     CoverageTestConfig,
     // Deal configuration
     DealConfig,
     DealDates,
     DealFees,
     DefaultAssumptions,
+};
+
+pub use types::constants::{
     ABS_SERVICING_FEE_BPS,
     BASELINE_UNEMPLOYMENT_RATE,
     BASIS_POINTS_DIVISOR,

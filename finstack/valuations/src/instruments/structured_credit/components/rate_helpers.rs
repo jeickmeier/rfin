@@ -6,7 +6,7 @@
 use finstack_core::dates::{Date, DateExt, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 
-use super::tranches::TrancheCoupon;
+use super::TrancheCoupon;
 
 /// Calculate period end date from a tenor value in years.
 ///

@@ -1,17 +1,12 @@
 //! Components for structured credit instruments.
 //!
-//! This module contains all building blocks for structured credit, organized by
-//! whether they support deterministic pricing, stochastic pricing, or both.
+//! This module contains calculation and engine components for structured credit.
+//! Type definitions have been moved to the `types` module for cleaner organization.
 //!
 //! # Module Organization
 //!
-//! ## Common Components (Both Deterministic & Stochastic)
+//! ## Calculation Components
 //!
-//! Core structural types and utilities used by all pricing modes:
-//!
-//! - [`enums`]: Deal types, asset classifications, payment modes
-//! - [`pool`]: Asset pool structure and statistics
-//! - [`tranches`]: Tranche structure with attachment/detachment points
 //! - [`waterfall`]: Tier-based payment distribution engine
 //! - [`coverage_tests`]: OC/IC test calculations for waterfall diversion
 //! - [`diversion`]: Diversion rules with circular reference detection
@@ -20,16 +15,11 @@
 //! - [`rate_helpers`]: Floating rate projection helpers
 //! - [`tranche_valuation`]: Tranche-level metrics (WAL, duration, Z-spread, CS01)
 //!
-//! ## Deterministic Components
+//! ## Behavioral Models
 //!
-//! Single-path behavioral models for standard pricing:
-//!
-//! - [`specs`]: Deterministic behavioral curves (PSA, SDA, constant CPR/CDR)
 //! - [`market_context`]: Market conditions and credit factors for behavioral models
 //!
 //! ## Stochastic Components
-//!
-//! Multi-path simulation models for advanced analytics:
 //!
 //! - [`stochastic`]: Complete stochastic framework including:
 //!   - Correlation structures (single-factor, multi-factor)
@@ -38,56 +28,49 @@
 //!   - Scenario tree infrastructure
 //!   - Stochastic pricer and metrics
 //!
-//! # Pricing Mode Selection
+//! # Type Definitions
 //!
-//! | Use Case | Components | When to Use |
-//! |----------|------------|-------------|
-//! | Standard pricing | Common + Deterministic | Day-to-day valuation, reporting |
-//! | Risk analytics | Common + Stochastic | VaR, scenario analysis, correlation risk |
-//! | Stress testing | Common + Either | Depends on scenario complexity |
+//! Type definitions (enums, pool, tranches, setup) are now in `crate::instruments::structured_credit::types`.
 
 // ============================================================================
-// COMMON COMPONENTS (used by both deterministic and stochastic pricing)
+// CALCULATION COMPONENTS
 // ============================================================================
 
 pub mod coverage_tests;
 pub mod diversion;
-pub mod enums;
-pub mod pool;
 pub mod rate_helpers;
 pub mod rates;
 pub mod tranche_valuation;
-pub mod tranches;
 pub mod validation;
 pub mod waterfall;
 
 // ============================================================================
-// DETERMINISTIC COMPONENTS (single-path behavioral models)
+// BEHAVIORAL MODELS
 // ============================================================================
 
 pub mod market_context;
 
 // ============================================================================
-// STOCHASTIC COMPONENTS (multi-path simulation models)
+// STOCHASTIC COMPONENTS
 // ============================================================================
 
 pub mod stochastic;
 
 // ============================================================================
-// COMMON RE-EXPORTS (used by both deterministic and stochastic pricing)
+// RE-EXPORTS FROM TYPES MODULE (for backward compatibility)
 // ============================================================================
 
-// Core enums and classifications
-pub use enums::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConsequence};
+// Core enums and classifications - re-exported from types
+pub use super::types::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConsequence};
 
-// Pool structure
-pub use pool::{
+// Pool structure - re-exported from types
+pub use super::types::{
     calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
     PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
 };
 
-// Tranche structure
-pub use tranches::{
+// Tranche structure - re-exported from types
+pub use super::types::{
     CoverageTrigger, CreditEnhancement, Tranche, TrancheBehaviorType, TrancheBuilder,
     TrancheCoupon, TrancheStructure,
 };

@@ -5,6 +5,7 @@
 
 use super::constants::*;
 use crate::instruments::irs::InterestRateSwap;
+use super::enums::DealType;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
@@ -357,11 +358,10 @@ impl Default for DefaultAssumptions {
 impl DealConfig {
     /// Create standard deal configuration for a given deal type
     pub fn standard(
-        deal_type: crate::instruments::structured_credit::components::enums::DealType,
+        deal_type: DealType,
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        use crate::instruments::structured_credit::components::enums::DealType;
         let (fees, default_assumptions) = match deal_type {
             DealType::CLO => (
                 DealFees::clo_standard(base_currency),
@@ -399,7 +399,6 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        use crate::instruments::structured_credit::components::enums::DealType;
         Self::standard(DealType::CLO, dates, base_currency)
     }
 
@@ -408,7 +407,6 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        use crate::instruments::structured_credit::components::enums::DealType;
         Self::standard(DealType::RMBS, dates, base_currency)
     }
 
@@ -417,7 +415,6 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        use crate::instruments::structured_credit::components::enums::DealType;
         Self::standard(DealType::ABS, dates, base_currency)
     }
 
@@ -426,7 +423,6 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        use crate::instruments::structured_credit::components::enums::DealType;
         Self::standard(DealType::CMBS, dates, base_currency)
     }
 

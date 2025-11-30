@@ -480,7 +480,7 @@ fn test_recovery_rate_golden_industry_standards() {
     //
     // These are the standard assumptions used in modeling:
 
-    use finstack_valuations::instruments::structured_credit::config::{
+    use finstack_valuations::instruments::structured_credit::types::constants::{
         ABS_AUTO_STANDARD_RECOVERY, CLO_STANDARD_RECOVERY, CMBS_STANDARD_RECOVERY,
         RMBS_STANDARD_RECOVERY,
     };

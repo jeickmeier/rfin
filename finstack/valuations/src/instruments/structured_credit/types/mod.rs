@@ -2,22 +2,77 @@
 //!
 //! This module consolidates four nearly-identical instrument types into a single
 //! clean implementation using composition for deal-specific differences.
+//!
+//! # Module Organization
+//!
+//! All type definitions for instrument setup are consolidated here:
+//!
+//! - [`enums`]: Deal types, asset classifications, payment modes, trigger consequences
+//! - [`setup`]: Deal configuration structures (dates, fees, coverage tests, assumptions)
+//! - [`pool`]: Asset pool structure and statistics
+//! - [`tranches`]: Tranche structure with attachment/detachment points
+//! - [`constants`]: Market-standard constants and default assumptions used by structured credit
+
+// ============================================================================
+// TYPE DEFINITION MODULES
+// ============================================================================
+
+pub mod constants;
+pub mod enums;
+pub mod pool;
+pub mod setup;
+pub mod tranches;
+
+// ============================================================================
+// INTERNAL MODULES
+// ============================================================================
 
 mod constructors;
 mod reinvestment;
 mod stochastic;
 
+// ============================================================================
+// RE-EXPORTS FROM TYPE MODULES
+// ============================================================================
+
+// Constants and defaults
+pub use constants::*;
+
+// Enums
+pub use enums::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConsequence};
+
+// Pool types
+pub use pool::{
+    calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
+    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
+};
+
+// Tranche types
+pub use tranches::{
+    CoverageTrigger, CreditEnhancement, Tranche, TrancheBehaviorType, TrancheBuilder,
+    TrancheCoupon, TrancheStructure,
+};
+
+// Setup/configuration types
+pub use setup::{
+    CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
+};
+
+// Reinvestment
 pub use reinvestment::ReinvestmentManager;
+
+// ============================================================================
+// IMPORTS
+// ============================================================================
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::irs::InterestRateSwap;
 use crate::instruments::structured_credit::components::{
-    cdr_to_mdr, cpr_to_smm, AssetPool, CorrelationStructure, CreditFactors, DealType,
-    DefaultModelSpec, MarketConditions, PrepaymentModelSpec, RecoveryModelSpec,
-    StochasticDefaultSpec, StochasticPrepaySpec, TrancheCashflowResult, TrancheStructure,
-    TrancheValuation, TrancheValuationExt, WaterfallEngine,
+    cdr_to_mdr, cpr_to_smm, CorrelationStructure, CreditFactors, DefaultModelSpec, MarketConditions,
+    PrepaymentModelSpec, RecoveryModelSpec, StochasticDefaultSpec, StochasticPrepaySpec,
+    TrancheCashflowResult, TrancheValuation, TrancheValuationExt, WaterfallEngine,
 };
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -26,10 +81,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use crate::instruments::structured_credit::config::{
-    DefaultAssumptions, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_CDR, SDA_PEAK_MONTH,
-    SDA_TERMINAL_CDR,
-};
 use std::any::Any;
 
 #[cfg(feature = "serde")]
@@ -417,10 +468,11 @@ impl crate::instruments::structured_credit::instrument_trait::StructuredCreditIn
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
             // PSA calculation using standard constants
-            let base_cpr = if seasoning <= PSA_RAMP_MONTHS {
-                (seasoning as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
+            let base_cpr = if seasoning <= constants::PSA_RAMP_MONTHS {
+                (seasoning as f64 / constants::PSA_RAMP_MONTHS as f64)
+                    * constants::PSA_TERMINAL_CPR
             } else {
-                PSA_TERMINAL_CPR
+                constants::PSA_TERMINAL_CPR
             };
             let cpr = base_cpr * psa_mult;
             return Some(cpr_to_smm(cpr));
@@ -437,19 +489,21 @@ impl crate::instruments::structured_credit::instrument_trait::StructuredCreditIn
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
             // SDA calculation using standard constants
-            let decline_period = (SDA_PEAK_MONTH * 2 - SDA_PEAK_MONTH) as f64; // 30 months decline
+            let decline_period =
+                (constants::SDA_PEAK_MONTH * 2 - constants::SDA_PEAK_MONTH) as f64; // 30 months decline
 
-            let cdr = if seasoning <= SDA_PEAK_MONTH {
+            let cdr = if seasoning <= constants::SDA_PEAK_MONTH {
                 // Ramp up to peak
-                (seasoning as f64 / SDA_PEAK_MONTH as f64) * SDA_PEAK_CDR
-            } else if seasoning <= SDA_PEAK_MONTH * 2 {
+                (seasoning as f64 / constants::SDA_PEAK_MONTH as f64) * constants::SDA_PEAK_CDR
+            } else if seasoning <= constants::SDA_PEAK_MONTH * 2 {
                 // Decline from peak to terminal
-                let months_past_peak = (seasoning - SDA_PEAK_MONTH) as f64;
-                SDA_PEAK_CDR
-                    - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
+                let months_past_peak = (seasoning - constants::SDA_PEAK_MONTH) as f64;
+                constants::SDA_PEAK_CDR
+                    - (months_past_peak / decline_period)
+                        * (constants::SDA_PEAK_CDR - constants::SDA_TERMINAL_CDR)
             } else {
                 // Terminal rate
-                SDA_TERMINAL_CDR
+                constants::SDA_TERMINAL_CDR
             } * sda_mult;
 
             // Convert CDR to MDR

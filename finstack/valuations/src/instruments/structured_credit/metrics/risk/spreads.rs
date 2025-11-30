@@ -2,7 +2,7 @@
 
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::ONE_BASIS_POINT;
-use crate::instruments::structured_credit::config::{
+use crate::instruments::structured_credit::types::constants::{
     Z_SPREAD_INITIAL_BRACKET, Z_SPREAD_SOLVER_TOLERANCE,
 };
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};

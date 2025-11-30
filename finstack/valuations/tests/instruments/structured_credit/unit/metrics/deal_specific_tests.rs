@@ -8,8 +8,8 @@
 // Deal-specific metrics are best tested in integration context
 // where we can construct full instruments with realistic data
 
-use finstack_valuations::instruments::structured_credit::components::enums::DealType;
-use finstack_valuations::instruments::structured_credit::config::STANDARD_PSA_SPEEDS;
+use finstack_valuations::instruments::structured_credit::types::DealType;
+use finstack_valuations::instruments::structured_credit::types::constants::STANDARD_PSA_SPEEDS;
 
 #[test]
 fn test_abs_metrics_require_abs_deal_type() {

@@ -11,7 +11,7 @@
 use super::coverage_tests::{CoverageTest, TestContext};
 use super::AssetPool;
 use super::TrancheStructure;
-use crate::instruments::structured_credit::config::QUARTERLY_PERIODS_PER_YEAR;
+use crate::instruments::structured_credit::types::constants::QUARTERLY_PERIODS_PER_YEAR;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
@@ -1255,7 +1255,7 @@ impl WaterfallEngine {
 
         let mut interest_recipients = Vec::new();
         for tranche in &sorted_tranches {
-            if tranche.seniority != super::enums::TrancheSeniority::Equity {
+            if tranche.seniority != super::TrancheSeniority::Equity {
                 interest_recipients.push(Recipient::tranche_interest(
                     format!("{}_interest", tranche.id.as_str()),
                     tranche.id.as_str(),
@@ -1278,7 +1278,7 @@ impl WaterfallEngine {
         // Add principal tier
         let mut principal_recipients = Vec::new();
         for tranche in &sorted_tranches {
-            if tranche.seniority != super::enums::TrancheSeniority::Equity {
+            if tranche.seniority != super::TrancheSeniority::Equity {
                 principal_recipients.push(Recipient::tranche_principal(
                     format!("{}_principal", tranche.id.as_str()),
                     tranche.id.as_str(),
