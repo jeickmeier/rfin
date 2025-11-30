@@ -9,6 +9,7 @@ use crate::instruments::structured_credit::types::{
     AllocationMode, PaymentCalculation, PaymentRecord, PaymentType, Pool, Recipient, RecipientType,
     TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
+use crate::instruments::structured_credit::utils::frequency_periods_per_year;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
@@ -702,7 +703,9 @@ fn calculate_payment_amount(
             if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
                 let tranche = &tranches.tranches[idx];
                 let rate = tranche.coupon.current_rate_with_index(payment_date, market);
-                let period_rate = rate / QUARTERLY_PERIODS_PER_YEAR;
+                // Use tranche's actual payment frequency instead of hardcoded quarterly
+                let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
+                let period_rate = rate / periods_per_year;
                 Ok(Money::new(
                     tranche.current_balance.amount() * period_rate,
                     base_currency,

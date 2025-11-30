@@ -13,7 +13,7 @@ use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::months_between;
-use finstack_core::dates::{Date, DayCountCtx, ScheduleBuilder};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, ScheduleBuilder};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -276,12 +276,15 @@ fn simulate_period(
     months_per_period: f64,
 ) -> Result<()> {
     let seasoning_months = months_between(state.closing_date, pay_date);
+    
+    // Capture period start before updating prev_date (for accrual calculations)
+    let period_start = state.prev_date.unwrap_or(state.closing_date);
 
     // Step 1: Calculate pool cashflows for the period
     let interest_collections = calculate_period_interest_collections(
         &instrument.pool,
         pay_date,
-        state.prev_date,
+        Some(period_start),
         months_per_period,
         context,
     )?;
@@ -349,8 +352,13 @@ fn simulate_period(
                     .unwrap_or(Money::new(0.0, state.base_ccy));
                 let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
 
+                // Use tranche's day-count convention for proper accrual calculation
+                let accrual_factor = tranche.day_count
+                    .year_fraction(period_start, pay_date, DayCountCtx::default())
+                    .unwrap_or(months_per_period / 12.0);
+                
                 let interest_portion = Money::new(
-                    current_balance.amount() * coupon_rate * (months_per_period / 12.0),
+                    current_balance.amount() * coupon_rate * accrual_factor,
                     state.base_ccy,
                 );
 
@@ -427,10 +435,11 @@ fn calculate_period_interest_collections(
             asset.rate
         };
 
-        let accrual_factor = if let (Some(prev), Some(dc)) = (prev_date, asset.day_count) {
-            dc.year_fraction(prev, pay_date, DayCountCtx::default())?
-        } else {
-            months_per_period / 12.0
+        // Use asset's day-count if available, otherwise default to ACT/360 (market standard for loans)
+        let accrual_factor = match (prev_date, asset.day_count) {
+            (Some(prev), Some(dc)) => dc.year_fraction(prev, pay_date, DayCountCtx::default())?,
+            (Some(prev), None) => DayCount::Act360.year_fraction(prev, pay_date, DayCountCtx::default())?,
+            _ => months_per_period / 12.0, // Fallback only when no prev_date
         };
 
         let ir = Money::new(asset.balance.amount() * asset_rate * accrual_factor, base_ccy);

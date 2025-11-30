@@ -6,6 +6,7 @@ use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;
+use tracing::warn;
 
 use super::super::specs::DefaultEvent;
 
@@ -86,10 +87,15 @@ pub fn emit_default_on(
             let recovery_date = if let (Some(bdc), Some(ref cal_id)) =
                 (event.recovery_bdc, &event.recovery_calendar_id)
             {
-                // Resolve calendar by string code; fall back to unadjusted date on failure.
+                // Resolve calendar by string code; warn and fall back to unadjusted date on failure.
                 if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id.as_str()) {
                     adjust(base_recovery_date, bdc, cal)?
                 } else {
+                    warn!(
+                        calendar_id = %cal_id,
+                        recovery_date = %base_recovery_date,
+                        "Calendar not found for recovery date adjustment, using unadjusted date"
+                    );
                     base_recovery_date
                 }
             } else {

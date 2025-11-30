@@ -3,21 +3,11 @@
 //! This module provides OC and IC test calculations for waterfall diversion.
 
 use crate::instruments::structured_credit::types::{Pool, TrancheStructure};
-use finstack_core::dates::Frequency;
+use crate::instruments::structured_credit::utils::frequency_periods_per_year;
 use finstack_core::money::Money;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-/// Calculate periods per year from a payment frequency.
-#[inline]
-fn frequency_periods_per_year(freq: Frequency) -> f64 {
-    match freq {
-        Frequency::Months(m) if m > 0 => 12.0 / m as f64,
-        Frequency::Days(d) if d > 0 => 365.0 / d as f64,
-        _ => 4.0,
-    }
-}
 
 /// Coverage test type (OC/IC).
 #[derive(Debug, Clone)]

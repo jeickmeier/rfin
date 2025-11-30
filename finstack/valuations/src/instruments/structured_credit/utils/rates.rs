@@ -182,6 +182,41 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
     (psa_speed * base_cpr).min(1.0)
 }
 
+/// Calculate periods per year from a payment frequency.
+///
+/// # Arguments
+///
+/// * `freq` - Payment frequency specification
+///
+/// # Returns
+///
+/// Number of payment periods per year. Returns 4.0 (quarterly) as fallback
+/// for unusual frequency specifications.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_core::dates::Frequency;
+/// use finstack_valuations::instruments::structured_credit::utils::rates::frequency_periods_per_year;
+///
+/// // Monthly = 12 periods/year
+/// assert_eq!(frequency_periods_per_year(Frequency::monthly()), 12.0);
+///
+/// // Quarterly = 4 periods/year
+/// assert_eq!(frequency_periods_per_year(Frequency::quarterly()), 4.0);
+///
+/// // Semi-annual = 2 periods/year
+/// assert_eq!(frequency_periods_per_year(Frequency::semi_annual()), 2.0);
+/// ```
+#[inline]
+pub fn frequency_periods_per_year(freq: finstack_core::dates::Frequency) -> f64 {
+    match freq {
+        finstack_core::dates::Frequency::Months(m) if m > 0 => 12.0 / m as f64,
+        finstack_core::dates::Frequency::Days(d) if d > 0 => 365.0 / d as f64,
+        _ => 4.0, // Default to quarterly
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,6 +268,32 @@ mod tests {
         assert_eq!(cdr_to_mdr(1.5), 1.0);
         assert_eq!(psa_to_cpr(-1.0, 15), 0.0);
         assert_eq!(psa_to_cpr(17.0, 30), 1.0);
+    }
+
+    #[test]
+    fn test_frequency_periods_per_year() {
+        use finstack_core::dates::Frequency;
+
+        // Monthly = 12 periods/year
+        assert_eq!(frequency_periods_per_year(Frequency::monthly()), 12.0);
+
+        // Quarterly = 4 periods/year
+        assert_eq!(frequency_periods_per_year(Frequency::quarterly()), 4.0);
+
+        // Semi-annual = 2 periods/year
+        assert_eq!(frequency_periods_per_year(Frequency::semi_annual()), 2.0);
+
+        // Annual = 1 period/year
+        assert_eq!(frequency_periods_per_year(Frequency::annual()), 1.0);
+
+        // Bi-monthly (every 2 months) = 6 periods/year
+        assert_eq!(frequency_periods_per_year(Frequency::Months(2)), 6.0);
+
+        // Daily (252 business days common) -> 365/1 = 365
+        assert_eq!(frequency_periods_per_year(Frequency::Days(1)), 365.0);
+
+        // Weekly (every 7 days) -> 365/7 ≈ 52.14
+        assert!((frequency_periods_per_year(Frequency::Days(7)) - 52.142857).abs() < 0.001);
     }
 }
 
