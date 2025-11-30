@@ -19,9 +19,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-#[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::swap_rate_utils::ForwardSwapRate;
-
 /// Convexity-adjusted Black pricer for CMS options.
 pub struct CmsOptionPricer;
 
@@ -80,14 +77,7 @@ impl CmsOptionPricer {
 
             // Convexity adjustment
             let raw_convexity_adj = if time_to_fixing > 0.0 {
-                #[cfg(feature = "mc")]
-                {
-                    ForwardSwapRate::convexity_adjustment(vol, time_to_fixing, inst.cms_tenor)
-                }
-                #[cfg(not(feature = "mc"))]
-                {
-                    0.0 // Convexity adjustment requires MC module utilities
-                }
+                convexity_adjustment(vol, time_to_fixing, inst.cms_tenor)
             } else {
                 0.0
             };
@@ -141,7 +131,7 @@ impl CmsOptionPricer {
         self.price_internal_with_convexity(inst, curves, as_of, 1.0)
     }
 
-    fn calculate_forward_swap_rate(
+    pub(crate) fn calculate_forward_swap_rate(
         &self,
         inst: &CmsOption,
         market: &MarketContext,
@@ -310,4 +300,24 @@ impl Pricer for CmsOptionPricer {
 pub fn npv(inst: &CmsOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = CmsOptionPricer::new();
     pricer.price_internal(inst, curves, as_of)
+}
+
+/// Compute convexity adjustment for CMS rate (simplified approximation).
+///
+/// Convexity adjustment accounts for the difference between CMS rate
+/// and forward swap rate due to volatility.
+///
+/// # Arguments
+///
+/// * `volatility` - Swap rate volatility
+/// * `tenor` - Time to fixing date
+/// * `swap_tenor` - Tenor of the CMS swap
+///
+/// # Returns
+///
+/// Convexity adjustment to add to forward swap rate
+pub(crate) fn convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
+    // Simplified convexity adjustment
+    // More sophisticated: use full volatility smile and correlation
+    0.5 * volatility * volatility * tenor * swap_tenor / (1.0 + 0.03 * swap_tenor)
 }

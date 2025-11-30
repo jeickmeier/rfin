@@ -10,6 +10,8 @@ use super::super::{
 use crate::instruments::common::models::correlation::factor_model::FactorSpec;
 use crate::instruments::common::models::correlation::recovery::RecoverySpec;
 
+const MAX_NODE_CAPACITY: usize = 50_000_000;
+
 /// Branching specification for scenario tree generation.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -108,14 +110,12 @@ impl BranchingSpec {
     pub fn estimate_terminal_nodes(&self, num_periods: usize) -> usize {
         match self {
             BranchingSpec::Fixed { branches } => {
-                // branches^periods terminal nodes
-                (*branches).pow(num_periods as u32)
+                saturating_pow(*branches, num_periods).min(MAX_NODE_CAPACITY)
             }
             BranchingSpec::Adaptive { min, .. } => {
-                // Conservative estimate using minimum branching
-                (*min).pow(num_periods as u32)
+                saturating_pow(*min, num_periods).min(MAX_NODE_CAPACITY)
             }
-            BranchingSpec::Stratified { num_paths, .. } => *num_paths,
+            BranchingSpec::Stratified { num_paths, .. } => (*num_paths).min(MAX_NODE_CAPACITY),
         }
     }
 }
@@ -273,22 +273,32 @@ impl ScenarioTreeConfig {
 
     /// Estimate total number of nodes in the tree.
     pub fn estimate_total_nodes(&self) -> usize {
-        // Sum of geometric series: 1 + b + b² + ... + b^n = (b^(n+1) - 1) / (b - 1)
-        match &self.branching {
-            BranchingSpec::Fixed { branches } => {
-                let b = *branches;
-                if b == 1 {
-                    return self.num_periods + 1;
+        let levels = self.num_periods.saturating_add(1);
+        levels
+            .saturating_mul(levels)
+            .min(MAX_NODE_CAPACITY)
+            .saturating_add(levels.saturating_mul(2))
+            .min(MAX_NODE_CAPACITY)
+    }
+}
+
+fn saturating_pow(base: usize, exp: usize) -> usize {
+    if base == 0 {
+        return 0;
+    }
+    let mut result = 1usize;
+    for _ in 0..exp {
+        match result.checked_mul(base) {
+            Some(value) => {
+                result = value;
+                if result >= MAX_NODE_CAPACITY {
+                    return MAX_NODE_CAPACITY;
                 }
-                (b.pow(self.num_periods as u32 + 1) - 1) / (b - 1)
             }
-            _ => {
-                // Rough estimate
-                let terminals = self.branching.estimate_terminal_nodes(self.num_periods);
-                terminals * 2 // Approximate factor
-            }
+            None => return MAX_NODE_CAPACITY,
         }
     }
+    result
 }
 
 #[cfg(test)]
@@ -346,8 +356,8 @@ mod tests {
     fn test_estimate_nodes() {
         let config = ScenarioTreeConfig::new(3, 0.25, BranchingSpec::fixed(3));
 
-        // 1 + 3 + 9 + 27 = 40 nodes
-        assert_eq!(config.estimate_total_nodes(), 40);
+        // Recombining lattice => (n + 1)^2 with buffer
+        assert_eq!(config.estimate_total_nodes(), 24);
     }
 
     #[test]

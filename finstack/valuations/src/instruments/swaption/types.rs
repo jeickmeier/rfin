@@ -424,63 +424,17 @@ impl Swaption {
         }
     }
 
-    /// Black (lognormal) model PV.
-    pub fn price_black(
+    /// Helper for common pricing logic
+    fn price_model_base<F>(
         &self,
         disc: &dyn Discounting,
         volatility: f64,
         as_of: Date,
-    ) -> Result<Money> {
-        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
-        if time_to_expiry <= 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
-        let forward_rate = self.forward_swap_rate(disc, as_of)?;
-        let annuity = self.annuity(disc, as_of, forward_rate)?;
-
-        // Use stable handling if volatility is near zero
-        if volatility <= 0.0 || !volatility.is_finite() {
-            // Intrinsic value
-            let val = match self.option_type {
-                OptionType::Call => (forward_rate - self.strike_rate).max(0.0),
-                OptionType::Put => (self.strike_rate - forward_rate).max(0.0),
-            };
-            return Ok(Money::new(
-                val * annuity * self.notional.amount(),
-                self.notional.currency(),
-            ));
-        }
-
-        // Use centralized Black76 helpers for forward-based pricing
-        use crate::instruments::common::models::{d1_black76, d2_black76};
-        let d1 = d1_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
-        let d2 = d2_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
-
-        let value = match self.option_type {
-            OptionType::Call => {
-                annuity
-                    * (forward_rate * finstack_core::math::norm_cdf(d1)
-                        - self.strike_rate * finstack_core::math::norm_cdf(d2))
-            }
-            OptionType::Put => {
-                annuity
-                    * (self.strike_rate * finstack_core::math::norm_cdf(-d2)
-                        - forward_rate * finstack_core::math::norm_cdf(-d1))
-            }
-        };
-        Ok(Money::new(
-            value * self.notional.amount(),
-            self.notional.currency(),
-        ))
-    }
-
-    /// Bachelier (normal) model PV.
-    pub fn price_normal(
-        &self,
-        disc: &dyn Discounting,
-        volatility: f64,
-        as_of: Date,
-    ) -> Result<Money> {
+        model_fn: F,
+    ) -> Result<Money>
+    where
+        F: Fn(f64, f64, f64, f64, f64) -> f64, // forward, strike, vol, t, annuity -> value
+    {
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
@@ -489,10 +443,7 @@ impl Swaption {
         let forward_rate = self.forward_swap_rate(disc, as_of)?;
         let annuity = self.annuity(disc, as_of, forward_rate)?;
 
-        use crate::instruments::common::models::volatility::normal::bachelier_price;
-
-        let value = bachelier_price(
-            self.option_type,
+        let value = model_fn(
             forward_rate,
             self.strike_rate,
             volatility,
@@ -504,6 +455,57 @@ impl Swaption {
             value * self.notional.amount(),
             self.notional.currency(),
         ))
+    }
+
+    /// Black (lognormal) model PV.
+    pub fn price_black(
+        &self,
+        disc: &dyn Discounting,
+        volatility: f64,
+        as_of: Date,
+    ) -> Result<Money> {
+        self.price_model_base(disc, volatility, as_of, |fwd, strike, vol, t, annuity| {
+            // Use stable handling if volatility is near zero
+            if vol <= 0.0 || !vol.is_finite() {
+                // Intrinsic value
+                let val = match self.option_type {
+                    OptionType::Call => (fwd - strike).max(0.0),
+                    OptionType::Put => (strike - fwd).max(0.0),
+                };
+                return val * annuity;
+            }
+
+            // Use centralized Black76 helpers for forward-based pricing
+            use crate::instruments::common::models::{d1_black76, d2_black76};
+            let d1 = d1_black76(fwd, strike, vol, t);
+            let d2 = d2_black76(fwd, strike, vol, t);
+
+            match self.option_type {
+                OptionType::Call => {
+                    annuity
+                        * (fwd * finstack_core::math::norm_cdf(d1)
+                            - strike * finstack_core::math::norm_cdf(d2))
+                }
+                OptionType::Put => {
+                    annuity
+                        * (strike * finstack_core::math::norm_cdf(-d2)
+                            - fwd * finstack_core::math::norm_cdf(-d1))
+                }
+            }
+        })
+    }
+
+    /// Bachelier (normal) model PV.
+    pub fn price_normal(
+        &self,
+        disc: &dyn Discounting,
+        volatility: f64,
+        as_of: Date,
+    ) -> Result<Money> {
+        self.price_model_base(disc, volatility, as_of, |fwd, strike, vol, t, annuity| {
+            use crate::instruments::common::models::volatility::normal::bachelier_price;
+            bachelier_price(self.option_type, fwd, strike, vol, t, annuity)
+        })
     }
 
     /// SABR-implied volatility PV via Black price (default).
@@ -554,7 +556,8 @@ impl Swaption {
             return Ok(0.0);
         }
         let mut prev = dates[0];
-        for &d in &dates[1..] {
+        for window in dates.windows(2) {
+            let d = window[1];
             let t = self.year_fraction(as_of, d, self.day_count)?;
             let accrual = self.year_fraction(prev, d, self.day_count)?;
             let df = disc.df(t);

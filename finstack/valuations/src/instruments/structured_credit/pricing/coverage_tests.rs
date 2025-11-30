@@ -4,7 +4,11 @@
 
 use crate::instruments::structured_credit::types::{Pool, TrancheStructure};
 use crate::instruments::structured_credit::utils::frequency_periods_per_year;
+use finstack_core::error::{Error as CoreError, InputError};
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
+use finstack_core::Result;
+use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -87,7 +91,7 @@ impl CoverageTest {
     }
 
     /// Calculate the test result.
-    pub fn calculate(&self, context: &TestContext) -> TestResult {
+    pub fn calculate(&self, context: &TestContext) -> Result<TestResult> {
         match self {
             Self::OC {
                 id,
@@ -114,30 +118,27 @@ impl CoverageTest {
         required_ratio: f64,
         include_cash: bool,
         performing_only: bool,
-    ) -> TestResult {
+    ) -> Result<TestResult> {
         let tranche = context
             .tranches
             .tranches
             .iter()
             .find(|t| t.id.as_str() == context.tranche_id)
-            .expect("Tranche not found in context");
+            .ok_or_else(|| {
+                CoreError::from(InputError::NotFound {
+                    id: format!("tranche:{}", context.tranche_id),
+                })
+            })?;
 
         let tranche_balance = tranche.current_balance;
         let senior_balance = context.tranches.senior_balance(context.tranche_id);
 
-        let numerator = if performing_only {
-            context.pool.performing_balance()
-        } else {
-            context.pool.total_balance()
-        };
+        let mut numerator =
+            collateral_balance_with_haircuts(context.pool, performing_only, context.haircuts)?;
 
-        let numerator = if include_cash {
-            numerator
-                .checked_add(context.cash_balance)
-                .unwrap_or(numerator)
-        } else {
-            numerator
-        };
+        if include_cash {
+            numerator = numerator.checked_add(context.cash_balance)?;
+        }
 
         let denominator = tranche_balance
             .checked_add(senior_balance)
@@ -149,7 +150,12 @@ impl CoverageTest {
             f64::INFINITY
         };
 
-        let is_passing = ratio >= required_ratio;
+        let mut is_passing = ratio >= required_ratio;
+        if let Some(threshold) = context.par_value_threshold {
+            if ratio < threshold {
+                is_passing = false;
+            }
+        }
 
         let cure_amount = if !is_passing {
             let required_collateral = denominator.amount() * required_ratio;
@@ -159,12 +165,12 @@ impl CoverageTest {
             None
         };
 
-        TestResult {
+        Ok(TestResult {
             test_id,
             current_ratio: ratio,
             is_passing,
             cure_amount,
-        }
+        })
     }
 
     fn calculate_ic(
@@ -172,13 +178,17 @@ impl CoverageTest {
         context: &TestContext,
         test_id: String,
         required_ratio: f64,
-    ) -> TestResult {
+    ) -> Result<TestResult> {
         let tranche = context
             .tranches
             .tranches
             .iter()
             .find(|t| t.id.as_str() == context.tranche_id)
-            .expect("Tranche not found in context");
+            .ok_or_else(|| {
+                CoreError::from(InputError::NotFound {
+                    id: format!("tranche:{}", context.tranche_id),
+                })
+            })?;
 
         let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
         let interest_due = Money::new(
@@ -212,12 +222,12 @@ impl CoverageTest {
 
         let is_passing = ratio >= required_ratio;
 
-        TestResult {
+        Ok(TestResult {
             test_id,
             current_ratio: ratio,
             is_passing,
             cure_amount: None,
-        }
+        })
     }
 }
 
@@ -236,6 +246,10 @@ pub struct TestContext<'a> {
     pub cash_balance: Money,
     /// Interest collections.
     pub interest_collections: Money,
+    /// Optional rating haircuts for collateral.
+    pub haircuts: Option<&'a HashMap<CreditRating, f64>>,
+    /// Optional par value threshold (ratio).
+    pub par_value_threshold: Option<f64>,
 }
 
 /// Result of a coverage test calculation.
@@ -250,6 +264,42 @@ pub struct TestResult {
     pub is_passing: bool,
     /// Cure amount if failing (OC tests only).
     pub cure_amount: Option<Money>,
+}
+
+fn collateral_balance_with_haircuts(
+    pool: &Pool,
+    performing_only: bool,
+    haircuts: Option<&HashMap<CreditRating, f64>>,
+) -> Result<Money> {
+    if haircuts.map(|h| h.is_empty()).unwrap_or(true) {
+        return Ok(if performing_only {
+            pool.performing_balance()
+        } else {
+            pool.total_balance()
+        });
+    }
+
+    let mut total = Money::new(0.0, pool.base_currency());
+    for asset in &pool.assets {
+        if performing_only && asset.is_defaulted {
+            continue;
+        }
+
+        let mut amount = asset.balance.amount();
+        if let Some(map) = haircuts {
+            let haircut = asset
+                .credit_quality
+                .and_then(|rating| map.get(&rating).copied())
+                .or_else(|| map.get(&CreditRating::NR).copied())
+                .unwrap_or(0.0)
+                .clamp(0.0, 1.0);
+            amount *= 1.0 - haircut;
+        }
+
+        total = total.checked_add(Money::new(amount, total.currency()))?;
+    }
+
+    Ok(total)
 }
 
 #[cfg(test)]
@@ -293,9 +343,13 @@ mod tests {
             as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(0.0, Currency::USD),
+            haircuts: None,
+            par_value_threshold: None,
         };
 
-        let result = test.calculate(&context);
+        let result = test
+            .calculate(&context)
+            .expect("calculation should succeed");
 
         assert_eq!(result.current_ratio, 0.0);
         assert!(!result.is_passing);
@@ -326,9 +380,13 @@ mod tests {
             as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(1_500.0, Currency::USD),
+            haircuts: None,
+            par_value_threshold: None,
         };
 
-        let result = test.calculate(&context);
+        let result = test
+            .calculate(&context)
+            .expect("calculation should succeed");
 
         assert!((result.current_ratio - 1.2).abs() < 0.01);
         assert!(result.is_passing);

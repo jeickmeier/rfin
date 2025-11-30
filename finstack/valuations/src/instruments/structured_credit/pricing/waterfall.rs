@@ -11,6 +11,7 @@ use crate::instruments::structured_credit::types::{
 use crate::instruments::structured_credit::utils::frequency_periods_per_year;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::error::Error as CoreError;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -35,6 +36,17 @@ fn currency_decimal_places(currency: Currency) -> u32 {
 fn currency_scale_factor(currency: Currency) -> f64 {
     let decimals = currency_decimal_places(currency);
     10_f64.powi(decimals as i32)
+}
+
+#[inline]
+fn to_currency_units(amount: f64, scale: f64) -> Result<i64> {
+    let scaled = amount * scale;
+    if !scaled.is_finite() || scaled.abs() > i64::MAX as f64 {
+        return Err(CoreError::Validation(
+            "Tier amount exceeds penny-safe allocation capacity".to_string(),
+        ));
+    }
+    Ok(scaled.round() as i64)
 }
 
 // ============================================================================
@@ -574,7 +586,7 @@ fn allocate_pro_rata(
 
     // Penny-safe allocation using largest remainder method
     let scale = currency_scale_factor(base_currency);
-    let tier_available_units = (tier_available.amount() * scale).round() as i64;
+    let tier_available_units = to_currency_units(tier_available.amount(), scale)?;
 
     let mut allocations_data: Vec<(usize, &Recipient, Money, i64, f64)> =
         Vec::with_capacity(recipient_requests.len());
@@ -713,6 +725,18 @@ fn evaluate_coverage_tests(
 ) -> Result<Vec<(String, f64, bool)>> {
     let mut results = Vec::with_capacity(waterfall.coverage_triggers.len() * 2);
 
+    let (haircuts, par_value_threshold) = match waterfall.coverage_rules.as_ref() {
+        Some(rules) if !rules.is_empty() => (
+            if rules.haircuts.is_empty() {
+                None
+            } else {
+                Some(&rules.haircuts)
+            },
+            rules.par_value_threshold,
+        ),
+        _ => (None, None),
+    };
+
     for trigger in &waterfall.coverage_triggers {
         if let Some(oc_trigger_level) = trigger.oc_trigger {
             let ctx = TestContext {
@@ -722,10 +746,12 @@ fn evaluate_coverage_tests(
                 as_of,
                 cash_balance: available_cash,
                 interest_collections,
+                haircuts,
+                par_value_threshold,
             };
 
             let oc_test = CoverageTest::new_oc(oc_trigger_level);
-            let result = oc_test.calculate(&ctx);
+            let result = oc_test.calculate(&ctx)?;
             results.push((
                 format!("OC_{}", trigger.tranche_id),
                 result.current_ratio,
@@ -741,10 +767,12 @@ fn evaluate_coverage_tests(
                 as_of,
                 cash_balance: available_cash,
                 interest_collections,
+                haircuts,
+                par_value_threshold,
             };
 
             let ic_test = CoverageTest::new_ic(ic_trigger_level);
-            let result = ic_test.calculate(&ctx);
+            let result = ic_test.calculate(&ctx)?;
             results.push((
                 format!("IC_{}", trigger.tranche_id),
                 result.current_ratio,

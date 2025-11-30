@@ -5,8 +5,8 @@
 //!
 //! # Pricing Modes
 //!
-//! - **Tree-based**: Exact pricing using non-recombining scenario tree
-//! - **Monte Carlo**: Statistical pricing with variance reduction
+//! - **Tree-based**: Exact pricing using the recombining scenario lattice
+//! - **Monte Carlo**: Statistical re-sampling of the tree distribution (with optional variance reduction)
 //!
 //! # Features
 //!

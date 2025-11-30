@@ -12,6 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
+use finstack_core::types::ratings::CreditRating;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -302,6 +303,48 @@ pub struct PaymentRecord {
 /// Simple OC/IC trigger for diversion
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct CoverageTestRules {
+    /// Haircuts applied by collateral rating
+    pub haircuts: HashMap<CreditRating, f64>,
+    /// Optional par-value threshold ratio (collateral / liabilities)
+    pub par_value_threshold: Option<f64>,
+}
+
+impl CoverageTestRules {
+    /// Create new coverage rules.
+    pub fn new(haircuts: HashMap<CreditRating, f64>, par_value_threshold: Option<f64>) -> Self {
+        Self {
+            haircuts,
+            par_value_threshold,
+        }
+    }
+
+    /// Empty/default rules (no haircuts, no threshold).
+    pub fn empty() -> Self {
+        Self {
+            haircuts: HashMap::new(),
+            par_value_threshold: None,
+        }
+    }
+
+    /// Check whether no rules are configured.
+    pub fn is_empty(&self) -> bool {
+        self.haircuts.is_empty() && self.par_value_threshold.is_none()
+    }
+}
+
+impl From<&super::setup::CoverageTestConfig> for CoverageTestRules {
+    fn from(config: &super::setup::CoverageTestConfig) -> Self {
+        Self {
+            haircuts: config.haircuts.clone(),
+            par_value_threshold: config.par_value_threshold,
+        }
+    }
+}
+
+/// Coverage trigger definition used for diversion logic (OC/IC thresholds).
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CoverageTrigger {
     /// Tranche where test applies
     pub tranche_id: String,
@@ -400,6 +443,8 @@ pub struct Waterfall {
     pub coverage_triggers: Vec<CoverageTrigger>,
     /// Base currency
     pub base_currency: Currency,
+    /// Optional coverage test rules (haircuts, par thresholds)
+    pub coverage_rules: Option<CoverageTestRules>,
 }
 
 impl Waterfall {
@@ -410,6 +455,7 @@ impl Waterfall {
             tiers: Vec::new(),
             coverage_triggers: Vec::new(),
             base_currency,
+            coverage_rules: None,
         }
     }
 
@@ -425,6 +471,13 @@ impl Waterfall {
     #[must_use]
     pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.coverage_triggers.push(trigger);
+        self
+    }
+
+    /// Attach coverage test rules (e.g., rating haircuts).
+    #[must_use]
+    pub fn with_coverage_rules(mut self, rules: CoverageTestRules) -> Self {
+        self.coverage_rules = Some(rules);
         self
     }
 
@@ -550,6 +603,13 @@ impl WaterfallBuilder {
     #[must_use]
     pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.engine = self.engine.add_coverage_trigger(trigger);
+        self
+    }
+
+    /// Attach coverage test rules (haircuts, par thresholds).
+    #[must_use]
+    pub fn coverage_rules(mut self, rules: CoverageTestRules) -> Self {
+        self.engine = self.engine.with_coverage_rules(rules);
         self
     }
 

@@ -24,6 +24,25 @@ fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
 }
 
+fn context_for_tranche<'a>(
+    pool: &'a Pool,
+    tranches: &'a TrancheStructure,
+    tranche_id: &'a str,
+    cash_balance: Money,
+    interest_collections: Money,
+) -> TestContext<'a> {
+    TestContext {
+        pool,
+        tranches,
+        tranche_id,
+        as_of: test_date(),
+        cash_balance,
+        interest_collections,
+        haircuts: None,
+        par_value_threshold: None,
+    }
+}
+
 // ============================================================================
 // OC Test Creation Tests
 // ============================================================================
@@ -77,19 +96,18 @@ fn test_oc_test_passing_scenario() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: 125M / 100M = 1.25 (exactly at threshold, should pass)
     assert!(result.is_passing);
@@ -132,19 +150,18 @@ fn test_oc_test_failing_scenario() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: 120M / 100M = 1.20 < 1.25 (failing)
     assert!(!result.is_passing);
@@ -187,19 +204,18 @@ fn test_oc_test_with_cash_balance() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(5_000_000.0, Currency::USD), // Additional cash
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(5_000_000.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: (120M + 5M) / 100M = 1.25 (passing)
     assert!(result.is_passing);
@@ -241,19 +257,18 @@ fn test_oc_test_cure_amount_calculation() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: Need 125M, have 115M → cure amount = 10M
     assert!(!result.is_passing);
@@ -307,19 +322,18 @@ fn test_ic_test_passing_scenario() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(1_500_000.0, Currency::USD), // 1.5M collected
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(1_500_000.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_ic(1.20);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: 1.5M / 1.25M = 1.20 (passing)
     assert!(result.is_passing);
@@ -355,19 +369,18 @@ fn test_ic_test_failing_scenario() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(1_000_000.0, Currency::USD), // Only 1M
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(1_000_000.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_ic(1.20);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: 1M / 1.25M = 0.80 < 1.20 (failing)
     assert!(!result.is_passing);
@@ -402,19 +415,18 @@ fn test_ic_test_no_cure_amount() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(1_000_000.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(1_000_000.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_ic(1.20);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: IC tests don't calculate cure amounts
     assert!(result.cure_amount.is_none());
@@ -453,19 +465,18 @@ fn test_oc_test_empty_pool() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: Should fail with 0 ratio
     assert!(!result.is_passing);
@@ -501,19 +512,18 @@ fn test_ic_test_no_interest_collections() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_ic(1.20);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: Should fail
     assert!(!result.is_passing);
@@ -555,19 +565,18 @@ fn test_oc_test_infinity_ratio_zero_debt() {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let context = TestContext {
-        pool: &pool,
-        tranches: &tranches,
-        tranche_id: "SENIOR",
-        as_of: test_date(),
-        cash_balance: Money::new(0.0, Currency::USD),
-        interest_collections: Money::new(0.0, Currency::USD),
-    };
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "SENIOR",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
 
     let test = CoverageTest::new_oc(1.25);
 
     // Act
-    let result = test.calculate(&context);
+    let result = test.calculate(&context).expect("coverage calculation");
 
     // Assert: Should pass with infinite ratio
     assert!(result.is_passing);

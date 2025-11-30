@@ -2,15 +2,15 @@
 //!
 //! This module provides:
 //! - **ScenarioNode**: Node state with prepayment, default, and recovery
-//! - **ScenarioTree**: Non-recombining tree data structure
+//! - **ScenarioTree**: Recombining lattice representation of scenario paths
 //! - **ScenarioTreeConfig**: Tree generation configuration
 //!
 //! # Design Philosophy
 //!
-//! We use **non-recombining trees** (accuracy over speed) because:
-//! - Path-dependent state (burnout, cumulative prepayments)
-//! - Complex correlation structures between prepay and default
-//! - Need to preserve full scenario information for risk analysis
+//! The implementation uses a recombining lattice geometry (O(n²) nodes)
+//! while still storing path-dependent statistics (burnout, cumulative
+//! prepayments/defaults). This provides sufficient accuracy for structured
+//! products without the exponential blow-up of a full non-recombining tree.
 //!
 //! # Usage
 //!

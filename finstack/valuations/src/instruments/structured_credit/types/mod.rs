@@ -90,16 +90,25 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::structured_credit::pricing::stochastic::pricer::{
+    PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
+};
+use crate::instruments::structured_credit::pricing::stochastic::tree::{
+    BranchingSpec, ScenarioTreeConfig,
+};
 use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{months_between, Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::error::Error as CoreError;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use std::any::Any;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -357,6 +366,137 @@ impl StructuredCredit {
         self.default_spec.mdr(seasoning_months).max(0.0)
     }
 
+    /// Stochastic pricing convenience that defaults to the tree-based engine.
+    pub fn price_stochastic(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<StochasticPricingResult> {
+        self.price_stochastic_with_mode(context, as_of, PricingMode::Tree)
+    }
+
+    /// Stochastic pricing with an explicit mode (tree, Monte Carlo, or hybrid).
+    pub fn price_stochastic_with_mode(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        pricing_mode: PricingMode,
+    ) -> finstack_core::Result<StochasticPricingResult> {
+        let tree_config = self.build_scenario_tree_config(as_of)?;
+        let discount_curve = context.get_discount(self.discount_curve_id.as_str())?;
+        let config = StochasticPricerConfig::new(as_of, discount_curve, tree_config)
+            .with_pricing_mode(pricing_mode);
+        self.run_stochastic_pricer(config)
+    }
+
+    fn run_stochastic_pricer(
+        &self,
+        config: StochasticPricerConfig,
+    ) -> finstack_core::Result<StochasticPricingResult> {
+        let currency = self.pool.base_currency();
+        let notional = self.pool.total_balance().amount();
+
+        if notional.abs() <= f64::EPSILON {
+            return Ok(StochasticPricingResult::new(
+                Money::new(0.0, currency),
+                Money::new(0.0, currency),
+                0,
+            ));
+        }
+
+        let pricer = StochasticPricer::new(config);
+        let mut result = pricer
+            .price(notional, currency)
+            .map_err(CoreError::Validation)?;
+
+        let tranche_specs: Vec<(String, String, f64, f64)> = self
+            .tranches
+            .tranches
+            .iter()
+            .map(|t| {
+                (
+                    t.id.to_string(),
+                    format!("{:?}", t.seniority),
+                    t.attachment_point / 100.0,
+                    t.detachment_point / 100.0,
+                )
+            })
+            .collect();
+
+        if !tranche_specs.is_empty() {
+            if let Ok(tranche_results) = pricer.price_tranches(&tranche_specs, notional, currency) {
+                result = result.with_tranche_results(tranche_results);
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
+        let months_to_maturity = months_between(as_of, self.legal_maturity).max(1) as usize;
+        let horizon_years = DayCount::Act365F
+            .year_fraction(as_of, self.legal_maturity, DayCountCtx::default())
+            .unwrap_or(months_to_maturity as f64 / 12.0)
+            .abs()
+            .max(0.25);
+
+        let mut tree_config =
+            ScenarioTreeConfig::new(months_to_maturity, horizon_years, BranchingSpec::fixed(3));
+
+        let (prepay, default, correlation) = self.effective_stochastic_specs();
+        tree_config.prepay_spec = prepay;
+        tree_config.default_spec = default;
+        tree_config.correlation = correlation;
+        tree_config.pool_coupon = self.pool.weighted_avg_coupon();
+        tree_config.initial_balance = self.pool.total_balance().amount().max(1.0);
+        let seasoning = if as_of > self.closing_date {
+            months_between(self.closing_date, as_of)
+        } else {
+            0
+        };
+        tree_config.initial_seasoning = seasoning;
+        tree_config = tree_config.with_seed(self.derive_seed(as_of));
+        Ok(tree_config)
+    }
+
+    fn derive_seed(&self, as_of: Date) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.id.hash(&mut hasher);
+        self.deal_type.hash(&mut hasher);
+        as_of.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn effective_stochastic_specs(
+        &self,
+    ) -> (
+        StochasticPrepaySpec,
+        StochasticDefaultSpec,
+        CorrelationStructure,
+    ) {
+        let prepay = self
+            .stochastic_prepay_spec
+            .clone()
+            .unwrap_or_else(|| StochasticPrepaySpec::deterministic(self.prepayment_spec.clone()));
+
+        let default = self
+            .stochastic_default_spec
+            .clone()
+            .unwrap_or_else(|| StochasticDefaultSpec::deterministic(self.default_spec.clone()));
+
+        let correlation =
+            self.correlation_structure
+                .clone()
+                .unwrap_or_else(|| match self.deal_type {
+                    DealType::RMBS => CorrelationStructure::rmbs_standard(),
+                    DealType::CLO | DealType::CBO => CorrelationStructure::clo_standard(),
+                    DealType::CMBS => CorrelationStructure::cmbs_standard(),
+                    _ => CorrelationStructure::abs_auto_standard(),
+                });
+
+        (prepay, default, correlation)
+    }
+
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
             return Some(abs_speed);
@@ -464,7 +604,8 @@ impl Instrument for StructuredCredit {
         let flows = self.build_schedule(context, as_of)?;
 
         use crate::instruments::common::discountable::Discountable;
-        flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
+        let curve_day_count = disc.day_count();
+        flows.npv(disc, as_of, curve_day_count)
     }
 
     fn price_with_metrics(

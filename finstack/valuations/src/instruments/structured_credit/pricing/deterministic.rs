@@ -473,9 +473,9 @@ fn calculate_period_prepayments_and_defaults(
 
     let base_ccy = pool_outstanding.currency();
 
-    // Calculate rates
-    let smm = calculate_prepayment_rate(instrument, pay_date, seasoning_months);
-    let mdr = calculate_default_rate(instrument, pay_date, seasoning_months);
+    // Calculate rates using the instrument's behavioral logic (respect overrides)
+    let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
+    let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
 
     // Adjust for payment period frequency
     let period_smm = 1.0 - (1.0 - smm).powf(months_per_period);
@@ -488,22 +488,4 @@ fn calculate_period_prepayments_and_defaults(
     let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
 
     Ok((prepay_amt, default_amt, recovery_amt))
-}
-
-/// Calculate prepayment rate (SMM) for a given period.
-fn calculate_prepayment_rate(
-    instrument: &StructuredCredit,
-    _pay_date: Date,
-    seasoning_months: u32,
-) -> f64 {
-    instrument.prepayment_spec.smm(seasoning_months).max(0.0)
-}
-
-/// Calculate default rate (MDR) for a given period.
-fn calculate_default_rate(
-    instrument: &StructuredCredit,
-    _pay_date: Date,
-    seasoning_months: u32,
-) -> f64 {
-    instrument.default_spec.mdr(seasoning_months).max(0.0)
 }

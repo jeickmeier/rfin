@@ -158,6 +158,11 @@ impl StochasticPricer {
     }
 
     /// Monte Carlo pricing.
+    ///
+    /// Note: This implementation samples from the terminal distribution of the
+    /// recombining scenario tree (rather than simulating an independent process).
+    /// This keeps the stochastic outputs consistent with the tree configuration
+    /// while still providing a Monte Carlo-style estimator when needed.
     fn price_monte_carlo(
         &self,
         notional: f64,

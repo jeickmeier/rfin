@@ -39,6 +39,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
         PricerKey::new(InstrumentType::Swaption, self.model)
     }
 
+    #[allow(unused_variables)]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -139,6 +140,7 @@ impl Pricer for SwaptionLsmcPricer {
         PricerKey::new(InstrumentType::Swaption, ModelKey::MonteCarloGBM)
     }
 
+    #[allow(unused_variables)]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -153,18 +155,16 @@ impl Pricer for SwaptionLsmcPricer {
                 PricingError::type_mismatch(InstrumentType::Swaption, instrument.key())
             })?;
 
-        // For now, delegate to existing pricer
+        // For now, return error as LSMC is not yet implemented
         // TODO: Implement full LSMC pricing for Bermudan swaptions.
         // This requires:
         // 1. Constructing the underlying swap schedule with all coupon dates.
         // 2. Simulating interest rate paths (e.g., Hull-White 1F/2F or LMM).
         // 3. Implementing Longstaff-Schwartz regression to estimate continuation value.
         // 4. Handling exercise opportunities at each reset date.
-        let pv = swaption
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
-
-        Ok(ValuationResult::stamped(swaption.id(), as_of, pv))
+        Err(PricingError::model_failure(
+            "LSMC pricing not yet implemented for Swaptions",
+        ))
     }
 }
 

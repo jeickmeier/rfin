@@ -149,28 +149,24 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     ///
     /// For a payer swaption: max(0, (S - K) × A × N)
     /// For a receiver swaption: max(0, (K - S) × A × N)
+    /// Compute exercise value at a node.
+    ///
+    /// For a payer swaption: max(0, (S - K) × A × N)
+    /// For a receiver swaption: max(0, (K - S) × A × N)
     fn exercise_value(&self, step: usize, node_idx: usize) -> f64 {
         let t = self.tree.time_at_step(step);
 
-        // Filter to remaining payments (those after current time)
-        let remaining_payment_times: Vec<f64> = self
-            .payment_times
-            .iter()
-            .filter(|&&pay_t| pay_t > t)
-            .copied()
-            .collect();
+        // OPTIMIZATION: Find start index without allocating
+        // payment_times is sorted by construction (from swaption schedule)
+        let start_idx = self.payment_times.partition_point(|&pt| pt <= t);
 
-        let remaining_accruals: Vec<f64> = self
-            .payment_times
-            .iter()
-            .zip(self.accrual_fractions.iter())
-            .filter(|(&pay_t, _)| pay_t > t)
-            .map(|(_, &tau)| tau)
-            .collect();
-
-        if remaining_payment_times.is_empty() {
+        if start_idx >= self.payment_times.len() {
             return 0.0;
         }
+
+        // Use slices instead of allocating new vectors
+        let remaining_payment_times = &self.payment_times[start_idx..];
+        let remaining_accruals = &self.accrual_fractions[start_idx..];
 
         // Compute forward swap rate at this node
         let swap_start = self.swap_start_time.max(t); // Swap starts at exercise time
@@ -179,8 +175,8 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             node_idx,
             swap_start,
             self.swap_end_time,
-            &remaining_payment_times,
-            &remaining_accruals,
+            remaining_payment_times,
+            remaining_accruals,
             self.discount_curve,
         );
 
@@ -188,8 +184,8 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         let annuity = self.tree.annuity(
             step,
             node_idx,
-            &remaining_payment_times,
-            &remaining_accruals,
+            remaining_payment_times,
+            remaining_accruals,
             self.discount_curve,
         );
 
