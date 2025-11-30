@@ -334,6 +334,9 @@ pub struct McConfig {
     pub correlation_matrix: Option<[[f64; 3]; 3]>,
 
     /// Recovery rate on default (e.g., 0.4 for 40% recovery).
+    ///
+    /// Note: This field is currently ignored in favor of `RevolvingCredit::recovery_rate`
+    /// to ensure consistency between path generation and pricing.
     pub recovery_rate: f64,
 
     /// Credit spread process specification.

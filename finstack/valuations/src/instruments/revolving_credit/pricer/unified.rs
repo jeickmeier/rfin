@@ -9,7 +9,7 @@
 //! Stochastic pricing is implemented as averaging many deterministic path pricings,
 //! ensuring consistency between modes and enabling full path capture for distribution analysis.
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -121,6 +121,7 @@ impl RevolvingCreditPricer {
                 &cashflow_dates,
                 facility.recovery_rate,
                 facility.commitment_date,
+                facility.day_count,
             )?
         } else if let Some(ref hazard_id) = facility.hazard_curve_id {
             // Static survival from hazard curve
@@ -175,6 +176,7 @@ impl RevolvingCreditPricer {
                         &future_grid,
                         facility.recovery_rate,
                         facility.commitment_date,
+                        facility.day_count,
                     )?
                 } else if let Some(ref hazard_id) = facility.hazard_curve_id {
                     let hazard = market.get_hazard_ref(hazard_id.as_str())?;
@@ -185,20 +187,22 @@ impl RevolvingCreditPricer {
 
                 // Compute Exposure at grid dates
                 let exposure_at_grid = if let Some(ref path_data) = path_schedule.path_data {
-                    // For stochastic, map grid dates to path data
-                    let mut exposures = Vec::with_capacity(future_grid.len());
-                    for &date in &future_grid {
-                        if let Some(idx) = path_data.payment_dates.iter().position(|&d| d == date) {
-                            exposures.push(
-                                path_data.utilization_path[idx]
-                                    * facility.commitment_amount.amount(),
-                            );
-                        } else {
-                            // Fallback: if date not found in path (unlikely if grid came from path), use 0
-                            exposures.push(0.0);
-                        }
-                    }
-                    exposures
+                    // Optimized lookup: grid_dates came from path_data.payment_dates
+                    // so we just need to align them.
+                    // Since future_grid is just path_data.payment_dates filtered by > as_of,
+                    // we can zip and filter.
+                    path_data
+                        .payment_dates
+                        .iter()
+                        .zip(path_data.utilization_path.iter())
+                        .filter_map(|(date, util)| {
+                            if *date > as_of {
+                                Some(util * facility.commitment_amount.amount())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
                 } else {
                     // For deterministic, simulate balance evolution
                     let mut exposures = Vec::with_capacity(future_grid.len());
@@ -220,6 +224,7 @@ impl RevolvingCreditPricer {
                         &[as_of],
                         facility.recovery_rate,
                         facility.commitment_date,
+                        facility.day_count,
                     )?[0]
                 } else if let Some(ref hazard_id) = facility.hazard_curve_id {
                     let hazard = market.get_hazard_ref(hazard_id.as_str())?;
@@ -527,11 +532,11 @@ impl RevolvingCreditPricer {
         cashflow_dates: &[Date],
         recovery_rate: f64,
         commitment_date: Date,
+        day_count: DayCount,
     ) -> Result<Vec<f64>> {
-        use finstack_core::dates::{DayCount, DayCountCtx};
-        // Use Act365F for time grid consistency with path generation
-        // (path time_points are computed using facility.day_count)
-        let dc = DayCount::Act365F;
+        use finstack_core::dates::DayCountCtx;
+        // Use facility day count for consistency with path generation
+        let dc = day_count;
 
         // First, compute cumulative hazard at each payment date
         let mut cumulative_hazards = Vec::with_capacity(time_points.len());
@@ -680,6 +685,7 @@ mod tests {
             &cashflow_dates,
             recovery,
             start,
+            DayCount::Act365F,
         )
         .expect("should succeed");
 
@@ -691,5 +697,56 @@ mod tests {
         for &s in &survivals {
             assert!(s > 0.0 && s <= 1.0);
         }
+    }
+
+    #[test]
+    fn test_day_count_consistency() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+        let dc_act360 = DayCount::Act360;
+        
+        // Create time points using Act360 (approx 1.0139 for 1 year)
+        let t_end_act360 = dc_act360.year_fraction(start, end, Default::default()).expect("valid date range for year fraction");
+        let time_points = vec![0.0, t_end_act360];
+        
+        // Spread path: 100bps constant
+        let spreads = vec![0.01, 0.01];
+        let recovery = 0.0; // Simple hazard = spread
+        
+        // We want to look up survival at 'end' date
+        let cashflow_dates = vec![end];
+        let payment_dates = vec![start, end]; // Dummy
+        
+        // 1. Correct: Pass Act360
+        let survivals_correct = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
+            &spreads,
+            &time_points,
+            &payment_dates,
+            &cashflow_dates,
+            recovery,
+            start,
+            dc_act360,
+        ).expect("should succeed");
+        
+        // Should match exact calculation: exp(-hazard * t)
+        // hazard = 0.01
+        // t = t_end_act360
+        let expected = (-0.01 * t_end_act360).exp();
+        assert!((survivals_correct[0] - expected).abs() < 1e-10, 
+            "Correct day count should yield exact match. Got {}, expected {}", survivals_correct[0], expected);
+            
+        // 2. Incorrect: Pass Act365F (simulating the bug)
+        let survivals_mismatch = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
+            &spreads,
+            &time_points,
+            &payment_dates,
+            &cashflow_dates,
+            recovery,
+            start,
+            DayCount::Act365F,
+        ).expect("should succeed");
+        
+        assert!((survivals_mismatch[0] - survivals_correct[0]).abs() > 1e-5,
+            "Mismatching day counts should yield different results");
     }
 }

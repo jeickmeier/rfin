@@ -417,7 +417,8 @@ fn build_credit_spread_params(
             let lambda0 = first_lambda.unwrap_or(avg_lambda).max(0.0);
 
             // Map hazard ↔ spread using s ≈ (1 − R) · λ
-            let one_minus_r = (1.0 - mc_config.recovery_rate).max(1e-6);
+            // Use facility recovery rate for consistency with pricing
+            let one_minus_r = (1.0 - facility.recovery_rate).max(1e-6);
             let s0 = (one_minus_r * lambda0).max(CIR_MIN_SPREAD);
             let s_bar = (one_minus_r * avg_lambda).max(CIR_MIN_SPREAD);
 
@@ -461,8 +462,8 @@ fn build_credit_spread_params(
 ///
 /// Stochastic processes like CIR (credit spread) and Hull-White (rates) require
 /// sufficiently fine time steps for numerical convergence and boundary stability.
-/// A step of ~30 days (1/12 year) provides good accuracy without excessive overhead.
-const MAX_MC_TIME_STEP: f64 = 1.0 / 12.0; // ~30 days
+/// A step of ~1 week (1/52 year) provides better accuracy for volatile processes.
+const MAX_MC_TIME_STEP: f64 = 1.0 / 52.0; // ~1 week
 
 /// Convert payment dates to time points (years from commitment date).
 ///
