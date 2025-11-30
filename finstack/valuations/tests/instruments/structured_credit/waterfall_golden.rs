@@ -16,13 +16,14 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
+use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode, DealType, ManagementFeeType, PaymentCalculation, PaymentType, Pool, Recipient,
     RecipientType, Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
     WaterfallBuilder, WaterfallTier,
 };
+use time::Duration;
 
 // ============================================================================
 // Market-Standard Tolerances for Waterfall Tests
@@ -132,10 +133,11 @@ fn run_waterfall(
     payment_date: Date,
     tranches: &TrancheStructure,
     pool_balance: Money,
+    period_start_override: Option<Date>,
     pool: &Pool,
     market: &MarketContext,
 ) -> WaterfallDistribution {
-    let period_start = add_months(payment_date, -3);
+    let period_start = period_start_override.unwrap_or_else(|| add_months(payment_date, -3));
     finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
         waterfall,
         available_cash,
@@ -232,7 +234,7 @@ fn test_golden_clo_2_0_full_payment() {
     let interest_collections = Money::new(3_000_000.0, currency);
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
     let pool_balance = Money::new(250_000_000.0, currency);
-
+    let period_start = payment_date - Duration::days(90);
     let result = run_waterfall(
         &waterfall,
         available_cash,
@@ -240,6 +242,7 @@ fn test_golden_clo_2_0_full_payment() {
         payment_date,
         &tranches,
         pool_balance,
+        Some(period_start),
         &pool,
         &market,
     );
@@ -368,6 +371,7 @@ fn test_golden_clo_oc_breach_diversion() {
         payment_date,
         &tranches,
         pool_balance,
+        None,
         &pool,
         &market,
     );
@@ -494,6 +498,7 @@ fn test_golden_cmbs_sequential_pay() {
         payment_date,
         &tranches,
         pool_balance,
+        None,
         &pool,
         &market,
     );
@@ -612,6 +617,7 @@ fn test_golden_cre_pro_rata_distribution() {
     let interest_collections = Money::new(0.0, currency);
     let payment_date = Date::from_calendar_date(2024, time::Month::April, 1).unwrap();
     let pool_balance = Money::new(50_000_000.0, currency);
+    let period_start = payment_date - Duration::days(90);
 
     let result = run_waterfall(
         &waterfall,
@@ -620,6 +626,7 @@ fn test_golden_cre_pro_rata_distribution() {
         payment_date,
         &tranches,
         pool_balance,
+        Some(period_start),
         &pool,
         &market,
     );
@@ -709,6 +716,7 @@ fn test_golden_cash_conservation() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &market,
     );

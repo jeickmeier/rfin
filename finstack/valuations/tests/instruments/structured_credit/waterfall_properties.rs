@@ -48,10 +48,11 @@ fn run_waterfall(
     payment_date: Date,
     tranches: &TrancheStructure,
     pool_balance: Money,
+    period_start_override: Option<Date>,
     pool: &Pool,
     market: &MarketContext,
 ) -> WaterfallDistribution {
-    let period_start = add_months(payment_date, -3);
+    let period_start = period_start_override.unwrap_or_else(|| add_months(payment_date, -3));
     finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
         waterfall,
         available_cash,
@@ -107,6 +108,7 @@ fn property_cash_conservation() {
             payment_date,
             &tranches,
             Money::new(100_000_000.0, currency),
+            None,
             &pool,
             &create_market(),
         );
@@ -158,6 +160,7 @@ fn property_non_negative_distributions() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -229,6 +232,7 @@ fn property_priority_ordering() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -299,6 +303,7 @@ fn property_pro_rata_weight_distribution() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -356,6 +361,7 @@ fn property_shortfall_computation() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -381,6 +387,7 @@ fn property_shortfall_computation() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -435,6 +442,7 @@ fn property_tier_count_consistency() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -479,6 +487,7 @@ fn property_diversion_tracking() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -556,6 +565,7 @@ fn property_monotonic_tier_allocation() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );
@@ -616,6 +626,7 @@ fn property_coverage_test_result_format() {
         payment_date,
         &tranches,
         Money::new(100_000_000.0, currency),
+        None,
         &pool,
         &create_market(),
     );

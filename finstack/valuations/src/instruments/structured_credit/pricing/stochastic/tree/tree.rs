@@ -503,11 +503,11 @@ mod tests {
         let config = ScenarioTreeConfig::new(3, 0.25, BranchingSpec::fixed(2));
         let tree = ScenarioTree::build(&config).expect("Failed to build tree");
 
-        // Recombining tree: (n + 1)^2 nodes
-        assert_eq!(tree.num_nodes(), (config.num_periods + 1).pow(2));
+        let expected_nodes = (config.num_periods + 1) * (config.num_periods + 2) / 2;
+        assert_eq!(tree.num_nodes(), expected_nodes);
 
-        // Terminal nodes = 2 * n + 1
-        assert_eq!(tree.num_terminal_nodes(), 2 * config.num_periods + 1);
+        // Binomial tree: terminal nodes = n + 1
+        assert_eq!(tree.num_terminal_nodes(), config.num_periods + 1);
     }
 
     #[test]
