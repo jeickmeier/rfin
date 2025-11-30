@@ -6,17 +6,17 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::structured_credit::types::pool::RepLine;
 use finstack_valuations::instruments::structured_credit::{
     BehaviorOverrides, CorrelationStructure, CoverageTrigger, DealType, DefaultAssumptions,
     DefaultModelSpec, Pool, PoolAsset, PrepaymentModelSpec, RecoveryModelSpec,
-    ReinvestmentCriteria, ReinvestmentPeriod, Seniority, StructuredCredit,
-    StochasticDefaultSpec, StochasticPrepaySpec, Tranche, TrancheCoupon, TrancheStructure,
+    ReinvestmentCriteria, ReinvestmentPeriod, Seniority, StochasticDefaultSpec,
+    StochasticPrepaySpec, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
     TriggerConsequence, Waterfall,
 };
-use finstack_valuations::instruments::{irs::PayReceive, json_loader::InstrumentEnvelope};
 use finstack_valuations::instruments::{irs::InterestRateSwap, json_loader::InstrumentJson};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::{irs::PayReceive, json_loader::InstrumentEnvelope};
 use time::Month;
 
 fn maturity_date() -> Date {
@@ -229,8 +229,8 @@ fn test_recovery_spec_json_format() {
 fn build_full_feature_structured_credit() -> StructuredCredit {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
-    use finstack_core::types::{CurveId, InstrumentId};
     use finstack_core::types::ratings::CreditRating;
+    use finstack_core::types::{CurveId, InstrumentId};
 
     let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     let first_payment = Date::from_calendar_date(2024, Month::April, 1).unwrap();
@@ -308,8 +308,14 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         legal,
     )
     .unwrap()
-    .with_oc_trigger(CoverageTrigger::new(1.15, TriggerConsequence::DivertCashFlow))
-    .with_ic_trigger(CoverageTrigger::new(1.05, TriggerConsequence::DivertCashFlow))
+    .with_oc_trigger(CoverageTrigger::new(
+        1.15,
+        TriggerConsequence::DivertCashFlow,
+    ))
+    .with_ic_trigger(CoverageTrigger::new(
+        1.05,
+        TriggerConsequence::DivertCashFlow,
+    ))
     .revolving();
     equity.expected_maturity = Some(Date::from_calendar_date(2030, Month::January, 1).unwrap());
     equity.rating = Some(CreditRating::BB);
@@ -371,14 +377,15 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
     deal.default_spec = DefaultModelSpec::sda(125.0);
     deal.recovery_spec = RecoveryModelSpec::with_lag(0.55, 10);
 
-    deal.market_conditions = finstack_valuations::instruments::structured_credit::MarketConditions {
-        refi_rate: 0.035,
-        original_rate: Some(0.05),
-        hpa: Some(0.02),
-        unemployment: Some(0.05),
-        seasonal_factor: Some(0.98),
-        custom_factors: vec![("stress".to_string(), 1.2)].into_iter().collect(),
-    };
+    deal.market_conditions =
+        finstack_valuations::instruments::structured_credit::MarketConditions {
+            refi_rate: 0.035,
+            original_rate: Some(0.05),
+            hpa: Some(0.02),
+            unemployment: Some(0.05),
+            seasonal_factor: Some(0.98),
+            custom_factors: vec![("stress".to_string(), 1.2)].into_iter().collect(),
+        };
 
     deal.credit_factors = finstack_valuations::instruments::structured_credit::CreditFactors {
         credit_score: Some(720),
@@ -415,19 +422,16 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         psa_speed: Some(110.0),
         sda_speed: Some(1.2),
         abs_speed_monthly: Some(0.011),
-        cpr_by_asset_type: vec![("abs_auto".to_string(), 0.20)]
-            .into_iter()
-            .collect(),
-        cdr_by_asset_type: vec![("abs_auto".to_string(), 0.03)]
-            .into_iter()
-            .collect(),
-        recovery_by_asset_type: vec![("abs_auto".to_string(), 0.50)]
-            .into_iter()
-            .collect(),
+        cpr_by_asset_type: vec![("abs_auto".to_string(), 0.20)].into_iter().collect(),
+        cdr_by_asset_type: vec![("abs_auto".to_string(), 0.03)].into_iter().collect(),
+        recovery_by_asset_type: vec![("abs_auto".to_string(), 0.50)].into_iter().collect(),
     };
 
-    deal.stochastic_prepay_spec =
-        Some(StochasticPrepaySpec::factor_correlated(PrepaymentModelSpec::psa(1.1), 0.25, 0.12));
+    deal.stochastic_prepay_spec = Some(StochasticPrepaySpec::factor_correlated(
+        PrepaymentModelSpec::psa(1.1),
+        0.25,
+        0.12,
+    ));
     deal.stochastic_default_spec = Some(StochasticDefaultSpec::gaussian_copula(0.025, 0.35));
     deal.correlation_structure = Some(CorrelationStructure::sectored(0.28, 0.12, -0.18));
 
@@ -488,7 +492,10 @@ fn test_structured_credit_full_feature_json_roundtrip() {
     );
 
     // Tranche structure (ratings, triggers, targets, attributes)
-    assert_eq!(original.tranches.tranches.len(), parsed.tranches.tranches.len());
+    assert_eq!(
+        original.tranches.tranches.len(),
+        parsed.tranches.tranches.len()
+    );
     let orig_equity = &original.tranches.tranches[0];
     let parsed_equity = &parsed.tranches.tranches[0];
     assert_eq!(orig_equity.rating, parsed_equity.rating);
@@ -496,10 +503,7 @@ fn test_structured_credit_full_feature_json_roundtrip() {
         orig_equity.oc_trigger.as_ref().unwrap().trigger_level,
         parsed_equity.oc_trigger.as_ref().unwrap().trigger_level
     );
-    assert_eq!(
-        orig_equity.attributes.tags,
-        parsed_equity.attributes.tags
-    );
+    assert_eq!(orig_equity.attributes.tags, parsed_equity.attributes.tags);
 
     let orig_senior = &original.tranches.tranches[1];
     let parsed_senior = &parsed.tranches.tranches[1];
@@ -520,9 +524,18 @@ fn test_structured_credit_full_feature_json_roundtrip() {
     );
 
     // Market and credit factors
-    assert_eq!(original.market_conditions.refi_rate, parsed.market_conditions.refi_rate);
-    assert_eq!(original.market_conditions.original_rate, parsed.market_conditions.original_rate);
-    assert_eq!(original.credit_factors.credit_score, parsed.credit_factors.credit_score);
+    assert_eq!(
+        original.market_conditions.refi_rate,
+        parsed.market_conditions.refi_rate
+    );
+    assert_eq!(
+        original.market_conditions.original_rate,
+        parsed.market_conditions.original_rate
+    );
+    assert_eq!(
+        original.credit_factors.credit_score,
+        parsed.credit_factors.credit_score
+    );
     assert_eq!(original.credit_factors.dti, parsed.credit_factors.dti);
 
     // Default assumptions and tags
@@ -535,10 +548,7 @@ fn test_structured_credit_full_feature_json_roundtrip() {
             .default_assumptions
             .cpr_by_asset_type
             .get("abs_auto"),
-        parsed
-            .default_assumptions
-            .cpr_by_asset_type
-            .get("abs_auto")
+        parsed.default_assumptions.cpr_by_asset_type.get("abs_auto")
     );
     assert_eq!(original.attributes.tags, parsed.attributes.tags);
     assert_eq!(original.attributes.meta, parsed.attributes.meta);
@@ -575,7 +585,10 @@ fn test_structured_credit_instrument_envelope_roundtrip() {
         InstrumentJson::StructuredCredit(sc) => {
             assert_eq!(sc.id, instrument.id);
             assert_eq!(sc.pool.assets.len(), instrument.pool.assets.len());
-            assert_eq!(sc.tranches.tranches.len(), instrument.tranches.tranches.len());
+            assert_eq!(
+                sc.tranches.tranches.len(),
+                instrument.tranches.tranches.len()
+            );
             assert_eq!(
                 sc.stochastic_default_spec, instrument.stochastic_default_spec,
                 "Stochastic default spec should survive envelope roundtrip"
@@ -610,8 +623,7 @@ fn test_structured_credit_full_example_json_file_roundtrip() {
 
     // Ensure re-serialization maintains the shape
     let serialized = serde_json::to_string(&envelope).expect("serialize");
-    let parsed: InstrumentEnvelope =
-        serde_json::from_str(&serialized).expect("second deserialize");
+    let parsed: InstrumentEnvelope = serde_json::from_str(&serialized).expect("second deserialize");
 
     match parsed.instrument {
         InstrumentJson::StructuredCredit(sc) => assert_eq!(sc.id.as_str(), "FULL-CLO"),

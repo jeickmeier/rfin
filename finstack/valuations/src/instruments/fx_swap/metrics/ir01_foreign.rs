@@ -95,16 +95,22 @@ impl MetricCalculator for ForeignIR01 {
             }
         };
 
-        // Far rate uses bumped foreign df in parity
+        // Far rate uses bumped foreign df in parity: F = S × DF_for / DF_dom
         // Only needed if not fixed
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
             None => {
-                if df_dom_far.abs() > 1e-12 {
-                    near_rate * df_for_far_b / df_dom_far
+                let dom_ratio = if df_dom_near.abs() > 1e-12 {
+                    df_dom_far / df_dom_near
                 } else {
-                    near_rate
-                }
+                    1.0
+                };
+                let for_ratio = if df_for_near_b.abs() > 1e-12 {
+                    df_for_far_b / df_for_near_b
+                } else {
+                    1.0
+                };
+                near_rate * for_ratio / dom_ratio
             }
         };
 

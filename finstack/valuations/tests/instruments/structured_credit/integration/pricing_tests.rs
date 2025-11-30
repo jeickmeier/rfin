@@ -61,7 +61,8 @@ fn create_simple_waterfall() -> Waterfall {
     let fees = vec![Recipient::new(
         "trustee",
         RecipientType::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount { rounding: None,
+        PaymentCalculation::FixedAmount {
+            rounding: None,
             amount: Money::new(10_000.0, Currency::USD),
         },
     )];

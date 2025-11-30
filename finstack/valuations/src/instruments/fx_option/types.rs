@@ -14,6 +14,13 @@ use finstack_core::Result;
 use super::calculator::{FxOptionCalculator, FxOptionGreeks};
 use super::parameters::FxOptionParams;
 
+fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> FxUnderlyingParams {
+    // Fall back to currency-aware OIS curves instead of hardwiring USD legs.
+    let domestic = CurveId::new(format!("{}-OIS", quote_currency));
+    let foreign = CurveId::new(format!("{}-OIS", base_currency));
+    FxUnderlyingParams::new(base_currency, quote_currency, domestic, foreign)
+}
+
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -110,8 +117,7 @@ impl FxOption {
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
             FxUnderlyingParams::gbp_usd()
         } else {
-            // Fallback for other pairs - use USD for both curves
-            FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
+            default_fx_underlying(base_currency, quote_currency)
         };
         Self::builder()
             .id(id.into())
@@ -148,8 +154,7 @@ impl FxOption {
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
             FxUnderlyingParams::gbp_usd()
         } else {
-            // Fallback for other pairs - use USD for both curves
-            FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
+            default_fx_underlying(base_currency, quote_currency)
         };
         Self::builder()
             .id(id.into())
@@ -169,6 +174,69 @@ impl FxOption {
             .attributes(Attributes::new())
             .build()
             .expect("FX European put construction should not fail")
+    }
+
+    /// Create a European option from trade date using joint calendar spot roll and tenor.
+    ///
+    /// `spot_lag_days` defaults to T+2 in most markets. The expiry is rolled on the
+    /// joint base/quote calendars using the provided business day convention.
+    #[allow(clippy::too_many_arguments)]
+    pub fn european_from_trade_date(
+        id: impl Into<InstrumentId>,
+        base_currency: Currency,
+        quote_currency: Currency,
+        strike: f64,
+        trade_date: Date,
+        expiry_tenor_days: i64,
+        notional: Money,
+        vol_surface_id: impl Into<CurveId>,
+        base_calendar_id: Option<String>,
+        quote_calendar_id: Option<String>,
+        spot_lag_days: u32,
+        bdc: finstack_core::dates::BusinessDayConvention,
+        option_type: OptionType,
+    ) -> finstack_core::Result<Self> {
+        use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
+        let spot_settle = roll_spot_date(
+            trade_date,
+            spot_lag_days,
+            bdc,
+            base_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
+        )?;
+        let expiry = adjust_joint_calendar(
+            spot_settle + time::Duration::days(expiry_tenor_days),
+            bdc,
+            base_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
+        )?;
+
+        let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
+            FxUnderlyingParams::usd_eur()
+        } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
+            FxUnderlyingParams::gbp_usd()
+        } else {
+            super::types::default_fx_underlying(base_currency, quote_currency)
+        };
+
+        Ok(Self::builder()
+            .id(id.into())
+            .base_currency(fx_underlying.base_currency)
+            .quote_currency(fx_underlying.quote_currency)
+            .strike(strike)
+            .option_type(option_type)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .notional(notional)
+            .settlement(SettlementType::Cash)
+            .domestic_discount_curve_id(fx_underlying.domestic_discount_curve_id.to_owned())
+            .foreign_discount_curve_id(fx_underlying.foreign_discount_curve_id.to_owned())
+            .vol_surface_id(vol_surface_id.into())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("FX option construction should not fail"))
     }
 
     /// Create a new FX option using parameter structs

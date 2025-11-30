@@ -66,9 +66,12 @@ impl BarrierOptionMcPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Get time to maturity
-        let t = inst
-            .day_count
+        // Get discount curve
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+
+        // Time to maturity using the discount curve's basis for consistency with DF/zero().
+        let t = disc_curve
+            .day_count()
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t <= 0.0 {
             // Expired: return intrinsic value if barrier not hit (simplified)
@@ -87,8 +90,6 @@ impl BarrierOptionMcPricer {
             ));
         }
 
-        // Get discount curve
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),

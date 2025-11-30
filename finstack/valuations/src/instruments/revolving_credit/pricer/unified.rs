@@ -704,19 +704,21 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
         let dc_act360 = DayCount::Act360;
-        
+
         // Create time points using Act360 (approx 1.0139 for 1 year)
-        let t_end_act360 = dc_act360.year_fraction(start, end, Default::default()).expect("valid date range for year fraction");
+        let t_end_act360 = dc_act360
+            .year_fraction(start, end, Default::default())
+            .expect("valid date range for year fraction");
         let time_points = vec![0.0, t_end_act360];
-        
+
         // Spread path: 100bps constant
         let spreads = vec![0.01, 0.01];
         let recovery = 0.0; // Simple hazard = spread
-        
+
         // We want to look up survival at 'end' date
         let cashflow_dates = vec![end];
         let payment_dates = vec![start, end]; // Dummy
-        
+
         // 1. Correct: Pass Act360
         let survivals_correct = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
             &spreads,
@@ -726,15 +728,20 @@ mod tests {
             recovery,
             start,
             dc_act360,
-        ).expect("should succeed");
-        
+        )
+        .expect("should succeed");
+
         // Should match exact calculation: exp(-hazard * t)
         // hazard = 0.01
         // t = t_end_act360
         let expected = (-0.01 * t_end_act360).exp();
-        assert!((survivals_correct[0] - expected).abs() < 1e-10, 
-            "Correct day count should yield exact match. Got {}, expected {}", survivals_correct[0], expected);
-            
+        assert!(
+            (survivals_correct[0] - expected).abs() < 1e-10,
+            "Correct day count should yield exact match. Got {}, expected {}",
+            survivals_correct[0],
+            expected
+        );
+
         // 2. Incorrect: Pass Act365F (simulating the bug)
         let survivals_mismatch = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
             &spreads,
@@ -744,9 +751,12 @@ mod tests {
             recovery,
             start,
             DayCount::Act365F,
-        ).expect("should succeed");
-        
-        assert!((survivals_mismatch[0] - survivals_correct[0]).abs() > 1e-5,
-            "Mismatching day counts should yield different results");
+        )
+        .expect("should succeed");
+
+        assert!(
+            (survivals_mismatch[0] - survivals_correct[0]).abs() > 1e-5,
+            "Mismatching day counts should yield different results"
+        );
     }
 }

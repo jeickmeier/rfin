@@ -868,11 +868,9 @@ mod market_standards_tests {
 
     #[test]
     fn test_wam_mixed_day_counts() {
-        let as_of = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid date");
-        let maturity = Date::from_calendar_date(2026, time::Month::January, 1)
-            .expect("Valid date");
-        
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date");
+        let maturity = Date::from_calendar_date(2026, time::Month::January, 1).expect("Valid date");
+
         // Asset A: Act365F (Standard) -> 1.0 years
         let asset_a = PoolAsset::fixed_rate_bond(
             "A",
@@ -896,7 +894,7 @@ mod market_standards_tests {
         pool.assets.push(asset_b);
 
         let wam = pool.weighted_avg_maturity(as_of);
-        
+
         // Both should be exactly 1.0
         assert!((wam - 1.0).abs() < 1e-10);
     }

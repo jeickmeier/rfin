@@ -7,7 +7,9 @@
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{
+    adjust, calendar::registry::CalendarRegistry, BusinessDayConvention, Date, DayCount,
+};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -37,6 +39,27 @@ pub struct ForwardRateAgreement {
     pub day_count: DayCount,
     /// Reset lag in business days (fixing to value date)
     pub reset_lag: i32,
+    /// Optional fixing calendar identifier for business day adjustment
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub fixing_calendar_id: Option<String>,
+    /// Optional business day convention for fixing date adjustment (default: ModifiedFollowing)
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub fixing_bdc: Option<BusinessDayConvention>,
+    /// Optional observed fixing (locked rate) when known
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub observed_fixing: Option<f64>,
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
@@ -81,6 +104,29 @@ impl ForwardRateAgreement {
         context: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        // Settlement for a FRA occurs at the start of the accrual period; past
+        // settlement implies zero PV.
+        if as_of >= self.start_date {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
+        // Derive fixing date from reset lag with calendar/BDC adjustment.
+        let mut inferred_fixing_date =
+            self.start_date - time::Duration::days(self.reset_lag as i64);
+        let bdc = self
+            .fixing_bdc
+            .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                inferred_fixing_date = adjust(inferred_fixing_date, bdc, cal)?;
+            }
+        }
+        let fixing_date = if self.fixing_date != inferred_fixing_date {
+            inferred_fixing_date
+        } else {
+            self.fixing_date
+        };
+
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
         let fwd = context.get_forward_ref(&self.forward_id)?;
 
@@ -88,10 +134,10 @@ impl ForwardRateAgreement {
         // forward curve's own day-count/time basis, not the instrument accrual basis.
         let fwd_base = fwd.base_date();
         let fwd_dc = fwd.day_count();
-        let _t_fixing = fwd_dc
+        let t_fixing = fwd_dc
             .year_fraction(
                 fwd_base,
-                self.fixing_date,
+                fixing_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
@@ -126,7 +172,17 @@ impl ForwardRateAgreement {
         }
 
         // Forward rate over the period and DF to settlement (start)
-        let forward_rate = fwd.rate_period(t_start, t_end);
+        // If fixing date has passed, prefer observed fixing when available; otherwise
+        // anchor projection at the fixing horizon to avoid theta drift.
+        let forward_rate = if as_of >= fixing_date {
+            if let Some(obs) = self.observed_fixing {
+                obs
+            } else {
+                fwd.rate_period(t_start.max(t_fixing), t_end)
+            }
+        } else {
+            fwd.rate_period(t_start, t_end)
+        };
 
         // Discount from as_of date for correct theta calculation
         let disc_dc = disc.day_count();

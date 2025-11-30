@@ -41,6 +41,20 @@ pub struct FxSwap {
     /// Optional far leg FX rate (quote per base). If None, source from forwards.
     #[builder(optional)]
     pub far_rate: Option<f64>,
+    /// Optional base currency calendar for spot/settlement adjustment metadata.
+    #[builder(default)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub base_calendar_id: Option<String>,
+    /// Optional quote currency calendar for spot/settlement adjustment metadata.
+    #[builder(default)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -71,6 +85,57 @@ impl FxSwap {
             .expect("Example FX swap construction should not fail")
     }
 
+    /// Construct an FX swap from trade date and tenor using joint calendar spot roll.
+    ///
+    /// `spot_lag_days` defaults to 2 in most markets; supply calendar IDs to enforce
+    /// base/quote business-day adjustment.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_trade_date(
+        id: impl Into<InstrumentId>,
+        base_currency: Currency,
+        quote_currency: Currency,
+        trade_date: Date,
+        far_tenor_days: i64,
+        base_notional: Money,
+        domestic_discount_curve_id: impl Into<CurveId>,
+        foreign_discount_curve_id: impl Into<CurveId>,
+        base_calendar_id: Option<String>,
+        quote_calendar_id: Option<String>,
+        spot_lag_days: u32,
+        bdc: finstack_core::dates::BusinessDayConvention,
+    ) -> finstack_core::Result<Self> {
+        use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
+        let near_date = roll_spot_date(
+            trade_date,
+            spot_lag_days,
+            bdc,
+            base_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
+        )?;
+        let far_unadjusted = near_date + time::Duration::days(far_tenor_days);
+        let far_date = adjust_joint_calendar(
+            far_unadjusted,
+            bdc,
+            base_calendar_id.as_deref(),
+            quote_calendar_id.as_deref(),
+        )?;
+
+        Ok(Self::builder()
+            .id(id.into())
+            .base_currency(base_currency)
+            .quote_currency(quote_currency)
+            .near_date(near_date)
+            .far_date(far_date)
+            .base_notional(base_notional)
+            .domestic_discount_curve_id(domestic_discount_curve_id.into())
+            .foreign_discount_curve_id(foreign_discount_curve_id.into())
+            .base_calendar_id_opt(base_calendar_id)
+            .quote_calendar_id_opt(quote_calendar_id)
+            .attributes(Attributes::new())
+            .build()
+            .expect("FX swap construction should not fail"))
+    }
+
     /// Create a new FX swap using parameter structs
     pub fn new(
         id: InstrumentId,
@@ -88,6 +153,8 @@ impl FxSwap {
             foreign_discount_curve_id: underlying_params.foreign_discount_curve_id.to_owned(),
             near_rate: swap_params.near_rate,
             far_rate: swap_params.far_rate,
+            base_calendar_id: None,
+            quote_calendar_id: None,
             attributes: Attributes::new(),
         }
     }
@@ -197,14 +264,33 @@ impl FxSwap {
         // Contract rates default to model when not provided explicitly
         let contract_spot = self.near_rate.unwrap_or(model_spot);
 
-        // Calculate model forward only if far leg is active or needed
-        // We use a safe fallback if df_dom_far is zero or very small to avoid NaN,
-        // though in practice DFs shouldn't be zero.
-        let model_fwd = if df_dom_far.abs() > 1e-12 {
-            model_spot * df_for_far / df_dom_far
+        // Calculate foreign leg discount factors (needed for forward calculation)
+        let t_near_for = for_dc
+            .year_fraction(
+                foreign_disc.base_date(),
+                self.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let df_for_near = if df_as_of_for != 0.0 {
+            foreign_disc.df(t_near_for) / df_as_of_for
         } else {
-            model_spot // Fallback, though unlikely to be used if far date is past
+            1.0
         };
+
+        // Calculate model forward only if far leg is active or needed.
+        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near).
+        let dom_ratio = if df_dom_near.abs() > 1e-12 {
+            df_dom_far / df_dom_near
+        } else {
+            1.0
+        };
+        let for_ratio = if df_for_near.abs() > 1e-12 {
+            df_for_far / df_for_near
+        } else {
+            1.0
+        };
+        let model_fwd = model_spot * for_ratio / dom_ratio;
         let contract_fwd = self.far_rate.unwrap_or(model_fwd);
 
         // Currency safety
@@ -220,20 +306,6 @@ impl FxSwap {
         // - Domestic leg: pay quote currency at near, receive quote currency at far
         // - Foreign leg discounted with foreign curve, then converted to quote currency
         // - Domestic leg discounted with domestic curve using contract rates
-
-        // Calculate foreign leg discount factors
-        let t_near_for = for_dc
-            .year_fraction(
-                foreign_disc.base_date(),
-                self.near_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_for_near = if df_as_of_for != 0.0 {
-            foreign_disc.df(t_near_for) / df_as_of_for
-        } else {
-            1.0
-        };
 
         // Foreign leg PV in base currency, then convert to quote currency
         // Only include flows that have not settled

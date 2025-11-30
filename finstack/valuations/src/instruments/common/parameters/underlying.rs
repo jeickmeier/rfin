@@ -122,7 +122,17 @@ impl UnderlyingParams for EquityUnderlyingParams {
     }
 
     fn primary_curve_id(&self) -> &str {
-        "USD-OIS" // Default - should be enhanced to be configurable
+        match self.currency {
+            Currency::USD => "USD-OIS",
+            Currency::EUR => "EUR-OIS",
+            Currency::GBP => "GBP-OIS",
+            Currency::JPY => "JPY-OIS",
+            Currency::CHF => "CHF-OIS",
+            Currency::CAD => "CAD-OIS",
+            Currency::AUD => "AUD-OIS",
+            Currency::NZD => "NZD-OIS",
+            _ => "USD-OIS", // Fallback for less common currencies
+        }
     }
 }
 

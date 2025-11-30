@@ -37,6 +37,7 @@ impl MetricCalculator for CarryPv {
 
         let df_dom_near = calc_df(domestic_disc, fx_swap.near_date, df_as_of_dom);
         let df_dom_far = calc_df(domestic_disc, fx_swap.far_date, df_as_of_dom);
+        let df_for_near = calc_df(foreign_disc, fx_swap.near_date, df_as_of_for);
         let df_for_far = calc_df(foreign_disc, fx_swap.far_date, df_as_of_for);
 
         let include_near = fx_swap.near_date >= as_of;
@@ -59,11 +60,18 @@ impl MetricCalculator for CarryPv {
             .into());
         };
 
-        let model_fwd = if df_dom_far.abs() > 1e-12 {
-            model_spot * df_for_far / df_dom_far
+        // Covered interest parity: F = S × DF_for / DF_dom
+        let dom_ratio = if df_dom_near.abs() > 1e-12 {
+            df_dom_far / df_dom_near
         } else {
-            model_spot
+            1.0
         };
+        let for_ratio = if df_for_near.abs() > 1e-12 {
+            df_for_far / df_for_near
+        } else {
+            1.0
+        };
+        let model_fwd = model_spot * for_ratio / dom_ratio;
         let base_amount = fx_swap.base_notional.amount();
 
         // Carry PV corresponds to the converted foreign leg PV using model-implied rates.

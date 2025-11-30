@@ -794,16 +794,15 @@ fn calculate_payment_amount(
             rounding,
         } => {
             let accrual_fraction = if *annualized {
-                day_count
-                    .unwrap_or(DayCount::Act360)
-                    .year_fraction(period_start, payment_date, DayCountCtx::default())?
+                day_count.unwrap_or(DayCount::Act360).year_fraction(
+                    period_start,
+                    payment_date,
+                    DayCountCtx::default(),
+                )?
             } else {
                 1.0
             };
-            (
-                pool_balance.amount() * rate * accrual_fraction,
-                *rounding,
-            )
+            (pool_balance.amount() * rate * accrual_fraction, *rounding)
         }
 
         PaymentCalculation::TrancheInterest {
@@ -816,12 +815,12 @@ fn calculate_payment_amount(
                 })
             })?;
             let tranche = &tranches.tranches[idx];
-            let rate = tranche
-                .coupon
-                .current_rate_with_index(payment_date, market);
-            let accrual_fraction = tranche
-                .day_count
-                .year_fraction(period_start, payment_date, DayCountCtx::default())?;
+            let rate = tranche.coupon.current_rate_with_index(payment_date, market);
+            let accrual_fraction = tranche.day_count.year_fraction(
+                period_start,
+                payment_date,
+                DayCountCtx::default(),
+            )?;
             (
                 tranche.current_balance.amount() * rate * accrual_fraction,
                 *rounding,
@@ -871,9 +870,9 @@ fn calculate_payment_amount(
 #[cfg(test)]
 mod market_standards_tests {
     use crate::instruments::structured_credit::types::PaymentCalculation;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount};
     use finstack_core::money::Money;
-    use finstack_core::currency::Currency;
 
     #[test]
     fn test_fee_calc_day_count() {
@@ -884,15 +883,13 @@ mod market_standards_tests {
             rounding: None,
         };
 
-        let _start = Date::from_calendar_date(2025, time::Month::January, 1)
-            .expect("Valid date");
-        let _end = Date::from_calendar_date(2025, time::Month::April, 1)
-            .expect("Valid date"); // 3 months
+        let _start = Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date");
+        let _end = Date::from_calendar_date(2025, time::Month::April, 1).expect("Valid date"); // 3 months
         let _pool_bal = Money::new(1_000_000.0, Currency::USD);
 
         // 30/360: 3 full months = 90 days. 90/360 = 0.25
         // Fee = 1M * 1% * 0.25 = 2500
-        
+
         // We need to mock the context, but calculate_payment_amount is private/internal to pricing/waterfall.rs
         // However, we can test the logic if we can access it.
         // Since we can't easily unit test private functions from outside, we'll rely on integration test or add this to pricing/waterfall.rs

@@ -494,21 +494,21 @@ impl BondValuator {
                 // Distributed mapping: spread cashflow between two nearest time steps
                 // to reduce discretization error and improve convergence.
                 let raw = (time_frac / time_to_maturity) * tree_steps as f64;
-                
+
                 // Ensure we don't go out of bounds
                 let raw_clamped = raw.clamp(0.0, tree_steps as f64);
-                
+
                 // Lower step index
                 let step_idx = raw_clamped.floor() as usize;
-                
+
                 // Weight for the upper step (fractional part)
                 let weight = raw_clamped - step_idx as f64;
-                
+
                 // Distribute to step_idx (weight: 1.0 - weight)
                 if step_idx > 0 {
                     *coupon_map.entry(step_idx).or_insert(0.0) += amount.amount() * (1.0 - weight);
                 }
-                
+
                 // Distribute to step_idx + 1 (weight: weight)
                 if step_idx < tree_steps {
                     *coupon_map.entry(step_idx + 1).or_insert(0.0) += amount.amount() * weight;

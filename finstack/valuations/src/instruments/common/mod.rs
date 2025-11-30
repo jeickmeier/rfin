@@ -18,6 +18,7 @@ pub mod discountable;
 pub mod helpers;
 
 // Common parameter types shared across instruments
+pub mod fx_dates;
 pub mod parameters;
 
 // Option pricing models and frameworks (includes closed-form, volatility, and tree models)
@@ -35,6 +36,7 @@ pub mod period_pv;
 
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
+pub use fx_dates::{adjust_joint_calendar, roll_spot_date};
 pub use helpers::{build_with_metrics_dyn, instrument_to_arc, validate_currency_consistency};
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,

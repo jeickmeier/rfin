@@ -65,8 +65,6 @@ impl MetricCalculator for DomesticIR01 {
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
-        let df_dom_near_b = df_dom_near * (-bump * t_near).exp();
-
         let t_far = domestic_disc
             .day_count()
             .year_fraction(
@@ -75,6 +73,7 @@ impl MetricCalculator for DomesticIR01 {
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
+        let df_dom_near_b = df_dom_near * (-bump * t_near).exp();
         let df_dom_far_b = df_dom_far * (-bump * t_far).exp();
 
         // Resolve near rate at as_of
@@ -96,16 +95,22 @@ impl MetricCalculator for DomesticIR01 {
             }
         };
 
-        // Far rate uses bumped domestic df in parity
+        // Far rate uses bumped domestic df in parity: F = S × DF_for / DF_dom
         // Only needed if not fixed
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
             None => {
-                if df_dom_far_b.abs() > 1e-12 {
-                    near_rate * df_for_far / df_dom_far_b
+                let dom_ratio = if df_dom_near_b.abs() > 1e-12 {
+                    df_dom_far_b / df_dom_near_b
                 } else {
-                    near_rate
-                }
+                    1.0
+                };
+                let for_ratio = if df_for_near.abs() > 1e-12 {
+                    df_for_far / df_for_near
+                } else {
+                    1.0
+                };
+                near_rate * for_ratio / dom_ratio
             }
         };
 

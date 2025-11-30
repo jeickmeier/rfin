@@ -840,11 +840,8 @@ impl CDSTranchePricer {
             let base_recovery = index_data.recovery_rate;
 
             // Build recovery model if configured, otherwise use constant
-            let recovery_model: Option<Box<dyn RecoveryModel>> = self
-                .params
-                .recovery_spec
-                .as_ref()
-                .map(|spec| spec.build());
+            let recovery_model: Option<Box<dyn RecoveryModel>> =
+                self.params.recovery_spec.as_ref().map(|spec| spec.build());
 
             let detachment_notional = detachment_pct / 100.0;
             let quad = self.select_quadrature();
@@ -936,7 +933,10 @@ impl CDSTranchePricer {
         // Check if effectively homogeneous (optimization: use faster binomial path)
         let is_uniform_pd = pd_i
             .first()
-            .map(|&first| pd_i.iter().all(|&p| (p - first).abs() <= self.params.probability_clip))
+            .map(|&first| {
+                pd_i.iter()
+                    .all(|&p| (p - first).abs() <= self.params.probability_clip)
+            })
             .unwrap_or(true);
         let is_uniform_lgd = lgd_i
             .first()
@@ -954,11 +954,8 @@ impl CDSTranchePricer {
             let base_recovery = 1.0 - lgd_i[0];
 
             // Build recovery model if configured (same as homogeneous path)
-            let recovery_model: Option<Box<dyn RecoveryModel>> = self
-                .params
-                .recovery_spec
-                .as_ref()
-                .map(|spec| spec.build());
+            let recovery_model: Option<Box<dyn RecoveryModel>> =
+                self.params.recovery_spec.as_ref().map(|spec| spec.build());
 
             let default_prob = self.get_default_probability(index_data, t)?;
             let default_threshold = standard_normal_inv_cdf(default_prob);
@@ -3272,8 +3269,8 @@ mod tests {
         let tranche_params = CDSTrancheParams::new(
             "CDX.NA.IG.42",
             42,
-            0.0,  // attach at 0%
-            3.0,  // detach at 3%
+            0.0, // attach at 0%
+            3.0, // detach at 3%
             Money::new(10_000_000.0, Currency::USD),
             maturity,
             500.0, // 5% running coupon

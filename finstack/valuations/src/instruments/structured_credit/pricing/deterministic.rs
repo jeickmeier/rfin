@@ -11,9 +11,13 @@ use crate::instruments::structured_credit::types::{
 use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::months_between;
-use finstack_core::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, ScheduleBuilder};
+use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::calendar::types::Calendar;
+use finstack_core::dates::months_between;
+use finstack_core::dates::HolidayCalendar;
+use finstack_core::dates::{
+    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, ScheduleBuilder,
+};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -68,13 +72,24 @@ pub fn run_simulation(
     .frequency(instrument.payment_frequency)
     .build()?;
 
-    // Adjust payment dates for business days
-    // TODO: Add calendar to StructuredCredit. For now use weekends-only calendar.
-    let calendar = Calendar::new("weekends_only", "Weekends Only", true, &[]);
-    let convention = BusinessDayConvention::Following;
+    // Adjust payment dates for business days using instrument calendar/BDC when provided.
+    let fallback_calendar = Calendar::new("weekends_only", "Weekends Only", true, &[]);
+    let calendar: &dyn HolidayCalendar =
+        if let Some(cal_id) = instrument.payment_calendar_id.as_deref() {
+            if let Some(resolved) = CalendarRegistry::global().resolve_str(cal_id) {
+                resolved
+            } else {
+                &fallback_calendar
+            }
+        } else {
+            &fallback_calendar
+        };
+    let convention = instrument
+        .payment_bdc
+        .unwrap_or(BusinessDayConvention::Following);
     let mut adjusted_schedule = schedule;
     for date in &mut adjusted_schedule.dates {
-        *date = adjust(*date, convention, &calendar)?;
+        *date = adjust(*date, convention, calendar)?;
     }
     let schedule = adjusted_schedule;
 

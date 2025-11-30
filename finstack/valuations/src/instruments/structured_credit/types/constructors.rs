@@ -185,6 +185,8 @@ impl StructuredCredit {
             reinvestment_end_date: None,
             legal_maturity: params.legal_maturity,
             payment_frequency: config.payment_frequency,
+            payment_calendar_id: None,
+            payment_bdc: None,
             discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
             attributes: Attributes::new(),
             prepayment_spec: config.prepayment_spec,

@@ -803,7 +803,8 @@ impl<'a> EquityWaterfallEngine<'a> {
                             rate * 100.0,
                             lp_share * 100.0,
                             gp_share * 100.0
-                        ).into(),
+                        )
+                        .into(),
                     };
 
                     remaining_amount = 0.0; // Allocate all remaining

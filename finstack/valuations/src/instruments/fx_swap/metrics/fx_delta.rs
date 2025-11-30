@@ -75,12 +75,18 @@ impl MetricCalculator for FxDeltaCalculator {
             // Recompute near/far rates with bumped spot when not fixed
             let near_rate = fx_swap.near_rate.unwrap_or(spot);
 
-            // Model forward logic
-            let model_fwd = if df_dom_far.abs() > 1e-12 {
-                spot * df_for_far / df_dom_far
+            // Covered interest parity: F = S × DF_for / DF_dom
+            let dom_ratio = if df_dom_near.abs() > 1e-12 {
+                df_dom_far / df_dom_near
             } else {
-                spot
+                1.0
             };
+            let for_ratio = if df_for_near.abs() > 1e-12 {
+                df_for_far / df_for_near
+            } else {
+                1.0
+            };
+            let model_fwd = spot * for_ratio / dom_ratio;
 
             let far_rate = fx_swap.far_rate.unwrap_or(model_fwd);
             let base_amt = fx_swap.base_notional.amount();

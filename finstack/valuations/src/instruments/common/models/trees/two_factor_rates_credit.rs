@@ -9,8 +9,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::{Error, Result};
 
-use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
 use super::state_keys;
+use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
 
 /// Configuration for rates + credit two-factor tree.
 #[derive(Clone, Debug)]
@@ -158,7 +158,7 @@ impl TreeModel for RatesCreditTree {
             let mut new_values: Vec<Vec<f64>> = vec![vec![0.0; k + 1]; k + 1];
             for i in 0..=k {
                 let r_t = r0 * u_r.powi(i as i32) * d_r.powi((k - i) as i32);
-                
+
                 // Calculate rate transition probability with mean reversion
                 // drift ~ -a * (ln(r) - ln(base))
                 // p_r = 0.5 + drift * sqrt(dt) / (2 * vol)

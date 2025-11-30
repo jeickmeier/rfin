@@ -102,7 +102,9 @@ use crate::instruments::structured_credit::pricing::stochastic::tree::{
 use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{months_between, Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{
+    months_between, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency,
+};
 use finstack_core::error::Error as CoreError;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -250,6 +252,22 @@ pub struct StructuredCredit {
 
     /// Payment frequency for the structure.
     pub payment_frequency: Frequency,
+
+    /// Optional payment calendar identifier for schedule adjustments.
+    #[builder(default)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub payment_calendar_id: Option<String>,
+
+    /// Business day convention for tranche payments (defaults to Following).
+    #[builder(default)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub payment_bdc: Option<BusinessDayConvention>,
 
     /// Discount curve for valuation.
     pub discount_curve_id: CurveId,

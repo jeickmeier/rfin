@@ -111,14 +111,16 @@ fn create_test_waterfall() -> Waterfall {
         Recipient::new(
             "trustee_fees",
             RecipientType::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount { rounding: None,
+            PaymentCalculation::FixedAmount {
+                rounding: None,
                 amount: Money::new(12_500.0, Currency::USD),
             },
         ),
         Recipient::new(
             "senior_mgmt_fee",
             RecipientType::ManagerFee(ManagementFeeType::Senior),
-            PaymentCalculation::PercentageOfCollateral { rounding: None,
+            PaymentCalculation::PercentageOfCollateral {
+                rounding: None,
                 rate: 0.0040,
                 annualized: true,
                 day_count: None,

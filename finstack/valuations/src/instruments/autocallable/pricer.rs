@@ -65,20 +65,21 @@ impl AutocallableMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        // Get time to final observation date
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+
+        // Get time to final observation date using the discount curve's basis to
+        // align DF/zero calculations with the time grid.
         let final_date = inst
             .observation_dates
             .last()
             .copied()
             .unwrap_or(inst.observation_dates[0]);
-        let t = inst
-            .day_count
-            .year_fraction(as_of, final_date, DayCountCtx::default())?;
+        let disc_dc = disc_curve.day_count();
+        let t = disc_dc.year_fraction(as_of, final_date, DayCountCtx::default())?;
         if t <= 0.0 {
             return Ok(Money::new(0.0, inst.notional.currency()));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -119,7 +120,7 @@ impl AutocallableMcPricer {
             .observation_dates
             .iter()
             .map(|&date| {
-                inst.day_count
+                disc_dc
                     .year_fraction(as_of, date, DayCountCtx::default())
                     .unwrap_or(0.0)
             })

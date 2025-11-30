@@ -74,12 +74,20 @@ impl MetricCalculator for FX01 {
         let bumped_spot = original_spot + bump;
 
         // Recompute near/far rates with bumped spot when not fixed
+        // Covered interest parity: F = S × DF_for / DF_dom
         let near_rate = fx_swap.near_rate.unwrap_or(bumped_spot);
-        let far_rate = fx_swap.far_rate.unwrap_or(if df_dom_far.abs() > 1e-12 {
-            bumped_spot * df_for_far / df_dom_far
+        let dom_ratio = if df_dom_near.abs() > 1e-12 {
+            df_dom_far / df_dom_near
         } else {
-            bumped_spot
-        });
+            1.0
+        };
+        let for_ratio = if df_for_near.abs() > 1e-12 {
+            df_for_far / df_for_near
+        } else {
+            1.0
+        };
+        let bumped_fwd = bumped_spot * for_ratio / dom_ratio;
+        let far_rate = fx_swap.far_rate.unwrap_or(bumped_fwd);
 
         let base_amt = fx_swap.base_notional.amount();
 

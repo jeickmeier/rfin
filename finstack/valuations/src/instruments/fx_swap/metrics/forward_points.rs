@@ -21,9 +21,13 @@ impl MetricCalculator for ForwardPoints {
         let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        // Use curve-consistent discount factors on dates
-        let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);
-        let df_for_far = foreign_disc.df_on_date_curve(fx_swap.far_date);
+        // Use curve-consistent discount factors on dates (relative to as_of)
+        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
+        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+        let df_dom_near = domestic_disc.df_on_date_curve(fx_swap.near_date) / df_as_of_dom;
+        let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date) / df_as_of_dom;
+        let df_for_near = foreign_disc.df_on_date_curve(fx_swap.near_date) / df_as_of_for;
+        let df_for_far = foreign_disc.df_on_date_curve(fx_swap.far_date) / df_as_of_for;
 
         // Resolve near spot rate
         let near_rate = match fx_swap.near_rate {
@@ -45,9 +49,22 @@ impl MetricCalculator for ForwardPoints {
         };
 
         // Resolve far forward rate from curves when not provided
+        // Covered interest parity: F = S × DF_for / DF_dom
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
-            None => near_rate * df_for_far / df_dom_far,
+            None => {
+                let dom_ratio = if df_dom_near.abs() > 1e-12 {
+                    df_dom_far / df_dom_near
+                } else {
+                    1.0
+                };
+                let for_ratio = if df_for_near.abs() > 1e-12 {
+                    df_for_far / df_for_near
+                } else {
+                    1.0
+                };
+                near_rate * for_ratio / dom_ratio
+            }
         };
 
         Ok(far_rate - near_rate)

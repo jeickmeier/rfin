@@ -519,7 +519,7 @@ impl ShortRateTree {
         };
 
         rates[0] = vec![r0];
-        
+
         // State prices (Arrow-Debreu prices) for the current step
         let mut state_prices = vec![1.0]; // Q[0] = 1.0
 
@@ -533,13 +533,13 @@ impl ShortRateTree {
             // But rates[i] is already fixed!
             // We are determining rates[i+1] which applies to [t_{i+1}, t_{i+2}].
             // So we calibrate rates[i+1] to match P(0, t_{i+2}).
-            
+
             let next_next_time = if step + 2 < self.time_steps.len() {
                 self.time_steps[step + 2]
             } else {
                 // End of tree, no need to calibrate further rates (they won't be used for discounting)
                 // But we still need to populate the vector to avoid index errors
-                0.0 
+                0.0
             };
 
             let next_nodes = step + 2;
@@ -550,7 +550,7 @@ impl ShortRateTree {
             for (i, &current_rate) in rates[step].iter().enumerate() {
                 let q = state_prices[i];
                 let df = (-current_rate * dt).exp();
-                
+
                 // Up move (to i+1)
                 // Base rate change: +sigma*sqrt(dt)
                 let r_up_base = current_rate + sigma * dt.sqrt();
@@ -558,7 +558,7 @@ impl ShortRateTree {
                     next_rates_base[i + 1] = r_up_base;
                     next_state_prices[i + 1] += q * df * 0.5;
                 }
-                
+
                 // Down move (to i)
                 // Base rate change: -sigma*sqrt(dt)
                 let r_down_base = current_rate - sigma * dt.sqrt();
@@ -577,7 +577,7 @@ impl ShortRateTree {
                     // Discount from t_{i+2} to t_{i+1} using r_{i+1}
                     p_model_base += q_next * (-r_base * dt).exp();
                 }
-                
+
                 if p_model_base > 0.0 && p_target > 0.0 {
                     // P_target = P_model_base * exp(-theta * dt * dt) ?
                     // No, r_final = r_base + theta * dt.
@@ -606,8 +606,6 @@ impl ShortRateTree {
 
         Ok(())
     }
-
-
 
     /// Calibrate Black-Derman-Toy model using state-price recursion.
     ///
@@ -766,7 +764,7 @@ impl TreeModel for ShortRateTree {
             println!("DEBUG: ShortRateTree::price - rates is empty");
             return Err(Error::Internal); // Tree not calibrated
         }
-        
+
         // Ensure initial rate is present
         if !initial_vars.contains_key(state_keys::INTEREST_RATE) {
             if let Some(row) = self.rates.first() {

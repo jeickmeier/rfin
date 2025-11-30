@@ -106,6 +106,9 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         fixed_rate: 0.05, // At-market: 5% = forward rate
         day_count: DayCount::Act360,
         reset_lag: 2,
+        fixing_calendar_id: None,
+        fixing_bdc: None,
+        observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         pay_fixed: true, // true = receive fixed (confusing naming!)
@@ -201,6 +204,9 @@ impl TestFraBuilder {
             fixed_rate: self.fixed_rate,
             day_count: self.day_count,
             reset_lag: self.reset_lag,
+            fixing_calendar_id: None,
+            fixing_bdc: None,
+            observed_fixing: None,
             discount_curve_id: self.discount_curve_id.into(),
             forward_id: self.forward_id.into(),
             pay_fixed: self.pay_fixed,

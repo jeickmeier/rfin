@@ -5,24 +5,30 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
-use finstack_valuations::instruments::structured_credit::{
-    PaymentCalculation, PaymentType, Pool, Recipient, RecipientType,
-    TrancheStructure, WaterfallBuilder, WaterfallTier, DealType,
-};
 use finstack_valuations::instruments::structured_credit::types::RoundingConvention;
+use finstack_valuations::instruments::structured_credit::{
+    DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType, TrancheStructure,
+    WaterfallBuilder, WaterfallTier,
+};
 
 fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
     let currency = Currency::USD;
     let pool = Pool::new("TEST", DealType::CLO, currency);
     let tranches = TrancheStructure::new(vec![
         finstack_valuations::instruments::structured_credit::Tranche::new(
-            "A", 0.0, 100.0,
+            "A",
+            0.0,
+            100.0,
             finstack_valuations::instruments::structured_credit::Seniority::Senior,
             Money::new(100.0, currency),
-            finstack_valuations::instruments::structured_credit::TrancheCoupon::Fixed { rate: 0.05 },
+            finstack_valuations::instruments::structured_credit::TrancheCoupon::Fixed {
+                rate: 0.05,
+            },
             Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
-        ).unwrap()
-    ]).unwrap();
+        )
+        .unwrap(),
+    ])
+    .unwrap();
     let market = MarketContext::new();
 
     let waterfall = WaterfallBuilder::new(currency)
@@ -54,7 +60,8 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
     )
     .unwrap();
 
-    result.distributions
+    result
+        .distributions
         .get(&RecipientType::ServiceProvider("Test".into()))
         .map(|m| m.amount())
         .unwrap_or(0.0)
