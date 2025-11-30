@@ -60,6 +60,13 @@ use finstack_core::math::{
 };
 use finstack_core::prelude::*;
 
+// Calendar imports for business day settlement
+use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::HolidayCalendar;
+
+// Recovery model import for optional stochastic recovery
+use super::recovery::RecoveryModel;
+
 #[cfg(test)]
 use finstack_core::math::log_factorial;
 
@@ -131,6 +138,44 @@ const DEFAULT_PAR_SPREAD_MAX_ITER: usize = 50;
 
 /// Tolerance for par spread solver convergence
 const DEFAULT_PAR_SPREAD_TOLERANCE: f64 = 1e-6;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Add business days to a date using a calendar if provided.
+///
+/// If a calendar is provided, uses `is_business_day()` to skip holidays and weekends.
+/// If no calendar is provided, falls back to weekend-only logic (skips Saturday/Sunday).
+///
+/// # Arguments
+/// * `start` - Starting date
+/// * `days` - Number of business days to add (must be non-negative)
+/// * `calendar` - Optional holiday calendar for business day determination
+///
+/// # Returns
+/// The date after adding the specified number of business days.
+fn add_business_days(
+    start: Date,
+    days: i32,
+    calendar: Option<&dyn HolidayCalendar>,
+) -> Result<Date> {
+    let mut date = start;
+    let mut remaining = days;
+    while remaining > 0 {
+        date = date.next_day().ok_or(finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid,
+        ))?;
+        let is_business = match calendar {
+            Some(cal) => cal.is_business_day(date),
+            None => !date.is_weekend(),
+        };
+        if is_business {
+            remaining -= 1;
+        }
+    }
+    Ok(date)
+}
 
 /// Parameters for the CDS Tranche pricing model.
 ///
@@ -511,8 +556,8 @@ impl CDSTranchePricer {
     /// - For index tranches (CDX, iTraxx): T+1 business days
     /// - For bespoke tranches: T+3 business days
     ///
-    /// Note: Currently uses simple calendar day advancement. In production,
-    /// this should be enhanced to use proper business day calendars.
+    /// Uses business day calendars when available via the tranche's `calendar_id`.
+    /// Falls back to weekend-only logic when no calendar is specified.
     fn calculate_settlement_date(
         &self,
         tranche: &CdsTranche,
@@ -534,15 +579,13 @@ impl CDSTranchePricer {
             self.params.bespoke_settlement_lag
         };
 
-        // Simple calendar day advancement
-        // TODO: Enhance with proper business day calendar support when available
-        let mut date = as_of;
-        for _ in 0..settlement_lag {
-            date = date.next_day().ok_or(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            ))?;
-        }
-        Ok(date)
+        // Use calendar if available, otherwise fall back to weekday-only adjustment
+        let calendar: Option<&dyn HolidayCalendar> = tranche
+            .calendar_id
+            .as_deref()
+            .and_then(|id| CalendarRegistry::global().resolve_str(id));
+
+        add_business_days(as_of, settlement_lag, calendar)
     }
 
     /// Calculate effective attachment/detachment points given accumulated losses.
@@ -741,10 +784,25 @@ impl CDSTranchePricer {
         dates: &[Date],
     ) -> Result<Vec<(Date, f64)>> {
         let mut el_curve = Vec::with_capacity(dates.len());
+        let mut prev_el = 0.0;
 
         for &date in dates {
             let el_fraction = self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
+
+            // Warn if EL decreased (indicates numerical issue or model limitation)
+            // This can happen due to base correlation model inconsistencies
+            if el_fraction < prev_el - 1e-6 {
+                tracing::debug!(
+                    "EL decreased from {:.6} to {:.6} at {:?} (Δ={:.6})",
+                    prev_el,
+                    el_fraction,
+                    date,
+                    prev_el - el_fraction
+                );
+            }
+
             el_curve.push((date, el_fraction));
+            prev_el = el_fraction;
         }
 
         Ok(el_curve)
@@ -779,7 +837,14 @@ impl CDSTranchePricer {
         } else {
             // Homogeneous: use index marginals
             let num_constituents = index_data.num_constituents as usize;
-            let recovery_rate = index_data.recovery_rate;
+            let base_recovery = index_data.recovery_rate;
+
+            // Build recovery model if configured, otherwise use constant
+            let recovery_model: Option<Box<dyn RecoveryModel>> = self
+                .params
+                .recovery_spec
+                .as_ref()
+                .map(|spec| spec.build());
 
             let detachment_notional = detachment_pct / 100.0;
             let quad = self.select_quadrature();
@@ -792,6 +857,13 @@ impl CDSTranchePricer {
                     correlation,
                     z,
                 );
+
+                // Use stochastic recovery if configured, otherwise constant
+                let recovery_rate = match &recovery_model {
+                    Some(model) => model.conditional_recovery(z),
+                    None => base_recovery,
+                };
+
                 self.conditional_equity_tranche_loss(
                     num_constituents,
                     detachment_notional,
@@ -879,7 +951,15 @@ impl CDSTranchePricer {
             // Use homogeneous binomial path (faster)
             let num_constituents = index_data.num_constituents as usize;
             let detachment_notional = detachment_pct / 100.0;
-            let recovery = 1.0 - lgd_i[0];
+            let base_recovery = 1.0 - lgd_i[0];
+
+            // Build recovery model if configured (same as homogeneous path)
+            let recovery_model: Option<Box<dyn RecoveryModel>> = self
+                .params
+                .recovery_spec
+                .as_ref()
+                .map(|spec| spec.build());
+
             let default_prob = self.get_default_probability(index_data, t)?;
             let default_threshold = standard_normal_inv_cdf(default_prob);
             let integrand = |z: f64| {
@@ -888,6 +968,13 @@ impl CDSTranchePricer {
                     correlation,
                     z,
                 );
+
+                // Use stochastic recovery if configured, otherwise constant
+                let recovery = match &recovery_model {
+                    Some(model) => model.conditional_recovery(z),
+                    None => base_recovery,
+                };
+
                 self.conditional_equity_tranche_loss(
                     num_constituents,
                     detachment_notional,
@@ -1363,7 +1450,18 @@ impl CDSTranchePricer {
             let incremental_loss_amount = tranche_notional * delta_el_fraction;
 
             if incremental_loss_amount > 0.0 {
-                let discount_factor = discount_curve.df(t);
+                // Use mid-period discounting if enabled (consistent with premium leg)
+                let df_time = if self.params.mid_period_protection {
+                    let t_prev = if i == 0 {
+                        0.0
+                    } else {
+                        self.years_from_base(index_data, payment_dates[i - 1])?
+                    };
+                    (t_prev + t) * 0.5
+                } else {
+                    t
+                };
+                let discount_factor = discount_curve.df(df_time);
                 pv_protection += incremental_loss_amount * discount_factor;
             }
 
@@ -1431,6 +1529,24 @@ impl CDSTranchePricer {
             let min_corr = bumped_points[i - 1].1 + MONOTONICITY_EPSILON;
             if bumped_points[i].1 < min_corr {
                 bumped_points[i].1 = min_corr.min(self.params.max_correlation);
+            }
+        }
+
+        // After monotonicity enforcement, check for potential EL arbitrage
+        // (in debug builds only to avoid performance impact in production)
+        #[cfg(debug_assertions)]
+        {
+            // Log warning if bumping created tight correlation spacing
+            // This may indicate potential convexity violations in the EL surface
+            for i in 2..bumped_points.len() {
+                let d_prev = bumped_points[i - 1].1 - bumped_points[i - 2].1;
+                let d_curr = bumped_points[i].1 - bumped_points[i - 1].1;
+                if d_curr < d_prev * 0.5 && d_curr < 0.01 {
+                    tracing::warn!(
+                        "Base correlation bump may violate convexity at {:.1}%: Δρ compressed from {:.4} to {:.4}",
+                        bumped_points[i].0, d_prev, d_curr
+                    );
+                }
             }
         }
 
@@ -3040,41 +3156,87 @@ mod tests {
     #[test]
     fn test_settlement_date_calculation() {
         // Test settlement date logic for different index types
+        // Using Wednesday Jan 1, 2025 so T+1 is Thursday (no weekend crossing)
         let model = CDSTranchePricer::new();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
-        // CDX index should use T+1
+        // CDX index should use T+1 business days
         let mut cdx_tranche = sample_tranche();
         cdx_tranche.index_name = "CDX.NA.IG.42".to_string();
         cdx_tranche.effective_date = None;
+        cdx_tranche.calendar_id = None; // No calendar, weekend-only logic
         let cdx_settle = model.calculate_settlement_date(&cdx_tranche, &market_ctx, as_of);
         assert!(cdx_settle.is_ok());
-        // Should be 1 day after as_of
+        // Should be 1 business day after as_of (Wed -> Thu)
         assert_eq!(
             cdx_settle.expect("CDX settlement should be Ok"),
-            as_of.next_day().expect("Next day should exist"),
-            "CDX should settle T+1"
+            Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date"),
+            "CDX should settle T+1 business day"
         );
 
-        // Bespoke index should use T+3
+        // Bespoke index should use T+3 business days
+        // From Wed Jan 1: Thu Jan 2 (+1), Fri Jan 3 (+2), Mon Jan 6 (+3, skipping weekend)
         let mut bespoke_tranche = sample_tranche();
         bespoke_tranche.index_name = "BESPOKE".to_string();
         bespoke_tranche.effective_date = None;
+        bespoke_tranche.calendar_id = None;
         let bespoke_settle = model.calculate_settlement_date(&bespoke_tranche, &market_ctx, as_of);
         assert!(bespoke_settle.is_ok());
-        // Should be 3 days after as_of
-        let expected = as_of
-            .next_day()
-            .expect("Next day should exist")
-            .next_day()
-            .expect("Next day should exist")
-            .next_day()
-            .expect("Next day should exist");
+        // T+3 from Wed Jan 1 = Mon Jan 6 (skipping Sat/Sun)
+        let expected = Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date");
         assert_eq!(
             bespoke_settle.expect("Bespoke settlement should be Ok"),
             expected,
-            "Bespoke should settle T+3"
+            "Bespoke should settle T+3 business days"
+        );
+    }
+
+    #[test]
+    fn test_settlement_date_skips_weekends() {
+        let model = CDSTranchePricer::new();
+        let market_ctx = sample_market_context();
+        // Friday Jan 3, 2025
+        let friday = Date::from_calendar_date(2025, Month::January, 3).expect("Valid test date");
+
+        let mut tranche = sample_tranche();
+        tranche.index_name = "CDX.NA.IG.42".to_string();
+        tranche.effective_date = None;
+        tranche.calendar_id = None; // No calendar, weekend-only logic
+
+        let settle = model
+            .calculate_settlement_date(&tranche, &market_ctx, friday)
+            .expect("Settlement date calculation should succeed");
+        // T+1 from Friday should be Monday (skip Sat/Sun)
+        let expected_monday =
+            Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date");
+        assert_eq!(
+            settle, expected_monday,
+            "T+1 from Friday should be Monday, skipping weekend"
+        );
+    }
+
+    #[test]
+    fn test_settlement_date_weekday() {
+        let model = CDSTranchePricer::new();
+        let market_ctx = sample_market_context();
+        // Wednesday Jan 1, 2025
+        let wednesday = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        let mut tranche = sample_tranche();
+        tranche.index_name = "CDX.NA.IG.42".to_string();
+        tranche.effective_date = None;
+        tranche.calendar_id = None;
+
+        let settle = model
+            .calculate_settlement_date(&tranche, &market_ctx, wednesday)
+            .expect("Settlement date calculation should succeed");
+        // T+1 from Wednesday should be Thursday
+        let expected_thursday =
+            Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
+        assert_eq!(
+            settle, expected_thursday,
+            "T+1 from Wednesday should be Thursday"
         );
     }
 
@@ -3098,5 +3260,79 @@ mod tests {
         assert!(accrued_mid.is_ok());
         let accrued = accrued_mid.expect("Accrued premium should be Ok");
         assert!(accrued >= 0.0, "Accrued premium should be non-negative");
+    }
+
+    #[test]
+    fn test_stochastic_recovery_impacts_equity_tranche() {
+        let market_ctx = sample_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        // Create equity tranche (0-3%) which is most sensitive to stochastic recovery
+        let tranche_params = CDSTrancheParams::new(
+            "CDX.NA.IG.42",
+            42,
+            0.0,  // attach at 0%
+            3.0,  // detach at 3%
+            Money::new(10_000_000.0, Currency::USD),
+            maturity,
+            500.0, // 5% running coupon
+        );
+        let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
+        let tranche = CdsTranche::new(
+            "CDX_IG42_0_3_5Y",
+            &tranche_params,
+            &schedule_params,
+            finstack_core::types::CurveId::from("USD-OIS"),
+            finstack_core::types::CurveId::from("CDX.NA.IG.42"),
+            TrancheSide::SellProtection,
+        );
+
+        // Constant recovery (default)
+        let pricer_const = CDSTranchePricer::new();
+        let pv_const = pricer_const
+            .price_tranche(&tranche, &market_ctx, as_of)
+            .expect("Constant recovery pricing should succeed")
+            .amount();
+
+        // Stochastic recovery (market-correlated)
+        let pricer_stoch = CDSTranchePricer::with_params(
+            CDSTranchePricerConfig::default().with_stochastic_recovery(),
+        );
+        let pv_stoch = pricer_stoch
+            .price_tranche(&tranche, &market_ctx, as_of)
+            .expect("Stochastic recovery pricing should succeed")
+            .amount();
+
+        // Both should be finite
+        assert!(
+            pv_const.is_finite(),
+            "Constant recovery PV should be finite"
+        );
+        assert!(
+            pv_stoch.is_finite(),
+            "Stochastic recovery PV should be finite"
+        );
+
+        // PVs should differ - stochastic recovery impacts equity tranche
+        // Note: The exact magnitude depends on the market-standard stochastic recovery calibration
+        // (mean=40%, vol=25%, corr=-40%), but we expect at least some difference
+        let pv_diff = (pv_stoch - pv_const).abs();
+        assert!(
+            pv_diff > 0.0,
+            "Stochastic recovery should change PV; const={}, stoch={}",
+            pv_const,
+            pv_stoch
+        );
+    }
+
+    #[test]
+    fn test_stochastic_recovery_default_is_deterministic() {
+        // Verify that default configuration uses deterministic (constant) recovery
+        let pricer = CDSTranchePricer::new();
+        assert!(
+            pricer.config().recovery_spec.is_none(),
+            "Default recovery_spec should be None (deterministic)"
+        );
     }
 }

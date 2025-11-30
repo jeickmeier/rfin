@@ -22,6 +22,7 @@ nalgebra = { version = "0.33", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
 num-complex = "0.4"
+statrs = { version = "0.17", default-features = false }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

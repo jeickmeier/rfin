@@ -135,6 +135,23 @@ impl CdsTranche {
         credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
     ) -> Self {
+        // Validate percent vs fraction - catch common misuse
+        // attach_pct and detach_pct should be in percent (0-100), not fractions (0-1)
+        debug_assert!(
+            tranche_params.attach_pct <= 100.0 && tranche_params.detach_pct <= 100.0,
+            "attach_pct ({}) and detach_pct ({}) should be in percent (0-100), not fraction",
+            tranche_params.attach_pct,
+            tranche_params.detach_pct
+        );
+
+        // Warn if values look like fractions (very small non-zero detachment)
+        if tranche_params.detach_pct <= 1.0 && tranche_params.detach_pct > 0.0 {
+            tracing::warn!(
+                "detach_pct={} looks like a fraction; expected percent (e.g., 3.0 for 3%)",
+                tranche_params.detach_pct
+            );
+        }
+
         Self {
             id: id.into(),
             index_name: tranche_params.index_name.to_owned(),

@@ -27,6 +27,7 @@ use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 use crate::instruments::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
+use statrs::distribution::{ContinuousCDF, StudentsT};
 
 /// Calculator for tail dependence coefficient.
 ///
@@ -89,8 +90,8 @@ fn calculate_student_t_tail_dependence(correlation: f64, df: f64) -> f64 {
 
     let arg = -((nu + 1.0) * (1.0 - rho) / (1.0 + rho)).sqrt();
 
-    // Student-t CDF approximation
-    let t_cdf = student_t_cdf_approx(arg, nu + 1.0);
+    // Use accurate Student-t CDF from statrs
+    let t_cdf = student_t_cdf(arg, nu + 1.0);
 
     2.0 * t_cdf
 }
@@ -110,22 +111,81 @@ fn calculate_rfl_tail_dependence(correlation: f64, loading_vol: f64) -> f64 {
     prob_high * effective_high_corr.sqrt() * 0.5
 }
 
-/// Approximate Student-t CDF using normal approximation with correction.
-fn student_t_cdf_approx(x: f64, df: f64) -> f64 {
+/// Calculate Student-t CDF using statrs for accuracy.
+///
+/// For high degrees of freedom (df > 100), uses the normal approximation
+/// which is accurate and faster. Otherwise uses the exact Student-t CDF
+/// from the statrs library.
+fn student_t_cdf(x: f64, df: f64) -> f64 {
     if df > 100.0 {
+        // High df: normal approximation is accurate and faster
         return finstack_core::math::norm_cdf(x);
     }
 
-    // Cornish-Fisher approximation
-    let t2 = x * x;
-    let z = x * (1.0 - 1.0 / (4.0 * df)) / (1.0 + t2 / (2.0 * df)).sqrt();
-
-    finstack_core::math::norm_cdf(z)
+    // Use statrs for accurate Student-t CDF
+    match StudentsT::new(0.0, 1.0, df) {
+        Ok(dist) => dist.cdf(x),
+        Err(_) => {
+            // Fallback for invalid df (should not happen with df > 2)
+            finstack_core::math::norm_cdf(x)
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_student_t_cdf_accuracy() {
+        // Compare against known values from statistical tables
+        // t-distribution with df=5, x=-2.0 should give CDF ≈ 0.0510
+        let df = 5.0;
+        let x = -2.0;
+        let cdf = student_t_cdf(x, df);
+
+        // Expected value from statistical tables
+        assert!(
+            (cdf - 0.051).abs() < 0.002,
+            "CDF({}, df={}) = {}, expected ~0.051",
+            x,
+            df,
+            cdf
+        );
+    }
+
+    #[test]
+    fn test_student_t_cdf_symmetric() {
+        // Student-t CDF should be symmetric: F(-x) = 1 - F(x)
+        let df = 5.0;
+        let x = 1.5;
+        let cdf_neg = student_t_cdf(-x, df);
+        let cdf_pos = student_t_cdf(x, df);
+
+        assert!(
+            (cdf_neg + cdf_pos - 1.0).abs() < 1e-10,
+            "CDF symmetry violated: F(-{}) + F({}) = {} + {} ≠ 1",
+            x,
+            x,
+            cdf_neg,
+            cdf_pos
+        );
+    }
+
+    #[test]
+    fn test_student_t_cdf_high_df_approaches_normal() {
+        // With high df, Student-t approaches Normal
+        let x = -1.5;
+        let t_cdf = student_t_cdf(x, 200.0);
+        let normal_cdf = finstack_core::math::norm_cdf(x);
+
+        assert!(
+            (t_cdf - normal_cdf).abs() < 0.01,
+            "High df t-distribution should approximate normal: t={}, normal={}",
+            t_cdf,
+            normal_cdf
+        );
+    }
 
     #[test]
     fn test_gaussian_tail_dependence() {
