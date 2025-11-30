@@ -238,6 +238,27 @@ let mdr = cdr_to_mdr(0.02);       // 2% annual CDR → monthly MDR
 - `CoverageTestConfig` - OC/IC triggers
 - `DefaultAssumptions` - Behavioral assumptions
 
+## Market Conventions
+
+### Day-Count Conventions
+
+Interest accrual uses proper day-count conventions throughout:
+
+- **Tranche interest**: Uses each tranche's `day_count` field (typically ACT/360)
+- **Pool interest collections**: Uses asset-level day-count when available, defaults to ACT/360 for loans
+- **Coverage tests**: Uses tranche payment frequency for IC calculations
+
+### Payment Frequencies
+
+The module respects tranche-specific payment frequencies rather than assuming quarterly:
+
+- **ABS**: Typically monthly (`Frequency::monthly()`)
+- **CLO**: Typically quarterly (`Frequency::quarterly()`)
+- **CMBS**: Typically monthly (`Frequency::monthly()`)
+- **RMBS**: Typically monthly (`Frequency::monthly()`)
+
+Use `utils::frequency_periods_per_year(freq)` to convert frequencies to periods per year.
+
 ## Coverage Triggers
 
 Two types of coverage triggers are available:
