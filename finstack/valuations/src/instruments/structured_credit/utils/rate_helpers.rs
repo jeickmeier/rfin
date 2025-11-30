@@ -6,7 +6,7 @@
 use finstack_core::dates::{Date, DateExt, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 
-use super::TrancheCoupon;
+use crate::instruments::structured_credit::types::TrancheCoupon;
 
 /// Calculate period end date from a tenor value in years.
 ///
@@ -26,15 +26,11 @@ use super::TrancheCoupon;
 /// - Holiday adjustments (modified following) would be applied downstream
 #[inline]
 pub fn tenor_to_period_end(start: Date, tenor_years: f64) -> Date {
-    // Convert tenor years to months for standard tenors
     let tenor_months = (tenor_years * 12.0).round() as i32;
 
     if tenor_months > 0 && tenor_months <= 12 {
-        // Use core's add_months for proper month arithmetic
-        // This handles end-of-month clamping and edge cases correctly
         start.add_months(tenor_months)
     } else {
-        // Fallback for unusual tenors (>12 months or fractional)
         start + time::Duration::days((tenor_years * 365.25) as i64)
     }
 }
@@ -47,7 +43,6 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
     match coupon {
         TrancheCoupon::Fixed { rate } => *rate,
         TrancheCoupon::Floating(spec) => {
-            // Use centralized projection
             let fwd = match market.get_forward_ref(spec.index_id.as_str()) {
                 Ok(c) => c,
                 Err(_) => return spec.spread_bp / 10_000.0,
@@ -85,7 +80,6 @@ pub fn asset_all_in_rate(
     if let Some(idx) = index_id {
         if let Ok(fwd) = market.get_forward_ref(idx) {
             let base = fwd.base_date();
-            // Use the curve's own day count for consistency with calibration
             let dc = fwd.day_count();
             let t2 = dc
                 .year_fraction(base, date, DayCountCtx::default())
@@ -97,6 +91,6 @@ pub fn asset_all_in_rate(
             return idx_rate + spread;
         }
     }
-    // Fallback to stored all-in
     fallback_rate
 }
+

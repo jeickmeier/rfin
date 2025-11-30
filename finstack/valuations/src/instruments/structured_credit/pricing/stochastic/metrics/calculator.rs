@@ -2,7 +2,7 @@
 //!
 //! Computes risk metrics from scenario trees or Monte Carlo paths.
 
-use super::super::tree::{ScenarioTree, ScenarioTreeConfig};
+use crate::instruments::structured_credit::pricing::stochastic::tree::{ScenarioTree, ScenarioTreeConfig};
 
 /// Stochastic risk metrics for structured credit.
 #[derive(Clone, Debug)]
@@ -408,7 +408,7 @@ impl StochasticMetricsCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::components::stochastic::tree::BranchingSpec;
+    use crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec;
 
     #[test]
     fn test_metrics_zero() {

@@ -7,7 +7,7 @@
 //! - Principal payments with OC/IC test triggers
 //! - Equity distribution
 
-use super::super::components::waterfall::CoverageTrigger;
+use super::super::types::WaterfallCoverageTrigger as CoverageTrigger;
 use super::super::components::{
     AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentType,
     Recipient, WaterfallBuilder, WaterfallEngine, WaterfallTier,

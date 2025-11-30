@@ -1,6 +1,6 @@
 //! Stochastic pricing engine.
 
-use super::super::tree::ScenarioTree;
+use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTree;
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};
 
@@ -196,8 +196,7 @@ impl StochasticPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::components::stochastic::BranchingSpec;
-    use crate::instruments::structured_credit::components::stochastic::ScenarioTreeConfig;
+    use crate::instruments::structured_credit::pricing::stochastic::tree::{BranchingSpec, ScenarioTreeConfig};
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;

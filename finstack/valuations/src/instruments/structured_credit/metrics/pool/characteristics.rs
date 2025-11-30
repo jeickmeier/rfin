@@ -85,7 +85,7 @@ impl MetricCalculator for CprCalculator {
             }
 
             // Fall back to deal type defaults
-            use super::super::super::components::DealType;
+            use super::super::super::types::DealType;
             return Ok(match sc.deal_type {
                 DealType::RMBS => 0.06,                 // 6% CPR (100% PSA)
                 DealType::ABS | DealType::Auto => 0.15, // 15% CPR
@@ -142,7 +142,7 @@ impl MetricCalculator for CdrCalculator {
             }
 
             // Fall back to deal type defaults
-            use super::super::super::components::DealType;
+            use super::super::super::types::DealType;
             return Ok(match sc.deal_type {
                 DealType::ABS | DealType::Auto => 0.01, // 1% default for ABS
                 DealType::RMBS => 0.006,                // 0.6% (100% SDA)

@@ -1,15 +1,7 @@
-//! Tranche-specific valuation types and traits for structured credit instruments.
+//! Result types for structured credit tranche valuation.
 //!
 //! This module provides result types for individual tranche valuation within
 //! structured credit instruments (CLO, ABS, RMBS, CMBS).
-//!
-//! # Note
-//!
-//! The actual metric calculation functions have been moved to the `metrics/` module:
-//! - [`calculate_tranche_wal`](super::super::metrics::calculate_tranche_wal) → `metrics/pricing/wal.rs`
-//! - [`calculate_tranche_duration`](super::super::metrics::calculate_tranche_duration) → `metrics/risk/duration.rs`
-//! - [`calculate_tranche_z_spread`](super::super::metrics::calculate_tranche_z_spread) → `metrics/risk/spreads.rs`
-//! - [`calculate_tranche_cs01`](super::super::metrics::calculate_tranche_cs01) → `metrics/risk/spreads.rs`
 
 use crate::cashflow::traits::DatedFlows;
 use crate::metrics::MetricId;
@@ -20,69 +12,74 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use std::collections::HashMap;
 
-/// Result containing tranche-specific cashflows and metadata
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// Result containing tranche-specific cashflows and metadata.
 #[derive(Debug, Clone)]
-pub struct TrancheCashflowResult {
-    /// Tranche identifier
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct TrancheCashflows {
+    /// Tranche identifier.
     pub tranche_id: String,
-    /// Cashflow schedule for this tranche (simple dated flows for backward compatibility)
+    /// Cashflow schedule for this tranche (simple dated flows).
     pub cashflows: DatedFlows,
-    /// Detailed cashflows with proper classification using CFKind
+    /// Detailed cashflows with proper classification using CFKind.
     pub detailed_flows: Vec<CashFlow>,
-    /// Interest cashflows (component of total)
+    /// Interest cashflows (component of total).
     pub interest_flows: DatedFlows,
-    /// Principal cashflows (component of total)
+    /// Principal cashflows (component of total).
     pub principal_flows: DatedFlows,
-    /// PIK capitalization flows (using CFKind::PIK)
+    /// PIK capitalization flows.
     pub pik_flows: DatedFlows,
-    /// Final tranche balance after all payments
+    /// Final tranche balance after all payments.
     pub final_balance: Money,
-    /// Total interest received
+    /// Total interest received.
     pub total_interest: Money,
-    /// Total principal received
+    /// Total principal received.
     pub total_principal: Money,
-    /// Total PIK capitalized
+    /// Total PIK capitalized.
     pub total_pik: Money,
 }
 
-/// Tranche-specific valuation result
+/// Tranche-specific valuation result.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TrancheValuation {
-    /// Tranche identifier
+    /// Tranche identifier.
     pub tranche_id: String,
-    /// Present value of all cashflows
+    /// Present value of all cashflows.
     pub pv: Money,
-    /// Clean price (as percentage of par)
+    /// Clean price (as percentage of par).
     pub clean_price: f64,
-    /// Dirty price (as percentage of par)
+    /// Dirty price (as percentage of par).
     pub dirty_price: f64,
-    /// Accrued interest
+    /// Accrued interest.
     pub accrued: Money,
-    /// Weighted average life
+    /// Weighted average life.
     pub wal: f64,
-    /// Modified duration
+    /// Modified duration.
     pub modified_duration: f64,
-    /// Z-spread (basis points)
+    /// Z-spread (basis points).
     pub z_spread_bps: f64,
-    /// CS01 (credit DV01)
+    /// CS01 (credit DV01).
     pub cs01: f64,
-    /// Yield to maturity
+    /// Yield to maturity.
     pub ytm: f64,
-    /// Additional metrics
+    /// Additional metrics.
     pub metrics: HashMap<MetricId, f64>,
 }
 
-/// Extension trait for tranche-specific valuation
+/// Extension trait for tranche-specific valuation.
 pub trait TrancheValuationExt {
-    /// Generate cashflows for a specific tranche after waterfall allocation
+    /// Generate cashflows for a specific tranche after waterfall allocation.
     fn get_tranche_cashflows(
         &self,
         tranche_id: &str,
         context: &MarketContext,
         as_of: Date,
-    ) -> Result<TrancheCashflowResult>;
+    ) -> Result<TrancheCashflows>;
 
-    /// Calculate present value for a specific tranche
+    /// Calculate present value for a specific tranche.
     fn value_tranche(
         &self,
         tranche_id: &str,
@@ -90,7 +87,7 @@ pub trait TrancheValuationExt {
         as_of: Date,
     ) -> Result<Money>;
 
-    /// Get full valuation with metrics for a specific tranche
+    /// Get full valuation with metrics for a specific tranche.
     fn value_tranche_with_metrics(
         &self,
         tranche_id: &str,
@@ -106,8 +103,8 @@ mod tests {
     use finstack_core::currency::Currency;
 
     #[test]
-    fn test_tranche_cashflow_result_creation() {
-        let cashflow_result = TrancheCashflowResult {
+    fn test_tranche_cashflows_creation() {
+        let cashflows = TrancheCashflows {
             tranche_id: "AAA".to_string(),
             cashflows: vec![],
             detailed_flows: vec![],
@@ -129,8 +126,9 @@ mod tests {
             total_pik: Money::new(0.0, Currency::USD),
         };
 
-        assert_eq!(cashflow_result.tranche_id, "AAA");
-        assert_eq!(cashflow_result.principal_flows.len(), 2);
-        assert_eq!(cashflow_result.total_principal.amount(), 200_000.0);
+        assert_eq!(cashflows.tranche_id, "AAA");
+        assert_eq!(cashflows.principal_flows.len(), 2);
+        assert_eq!(cashflows.total_principal.amount(), 200_000.0);
     }
 }
+

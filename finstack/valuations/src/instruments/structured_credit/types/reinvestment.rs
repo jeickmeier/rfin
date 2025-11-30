@@ -7,7 +7,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
-use crate::instruments::structured_credit::components::{AssetPool, PoolAsset};
+use super::pool::{AssetPool, PoolAsset};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -90,7 +90,7 @@ impl ReinvestmentManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::components::{AssetType, DealType};
+    use crate::instruments::structured_credit::types::{AssetType, DealType};
     use finstack_core::currency::Currency;
 
     #[test]

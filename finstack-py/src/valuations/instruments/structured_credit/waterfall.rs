@@ -4,7 +4,6 @@
 //! - WaterfallTier, Recipient, AllocationMode
 //! - WaterfallEngine execution
 //! - WaterfallResult with tier allocations
-//! - Pre-built templates (CLO, CMBS, CRE)
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -15,7 +14,6 @@ use finstack_valuations::instruments::structured_credit::{
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule};
 
 // ============================================================================
 // ENUMS
@@ -283,149 +281,6 @@ impl PyWaterfallTier {
 }
 
 // ============================================================================
-// TEMPLATE FUNCTIONS
-// ============================================================================
-
-/// Create a CLO 2.0 waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     dict: Waterfall configuration as JSON-serializable dict
-///
-/// Examples:
-///     >>> waterfall = clo_2_0_template("USD")
-///     >>> print(waterfall["tiers"])
-#[pyfunction]
-#[pyo3(text_signature = "(currency)")]
-fn clo_2_0_template(currency: String) -> PyResult<PyObject> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall = finstack_valuations::instruments::structured_credit::clo_2_0_template(curr);
-
-    Python::with_gil(|py| {
-        let json = serde_json::to_string(&waterfall)
-            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))?;
-        let json_module = PyModule::import(py, "json")?;
-        let result = json_module.call_method1("loads", (json,))?;
-        Ok(result.into())
-    })
-}
-
-/// Create a CMBS standard waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     dict: Waterfall configuration as JSON-serializable dict
-#[pyfunction]
-#[pyo3(text_signature = "(currency)")]
-fn cmbs_standard_template(currency: String) -> PyResult<PyObject> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall =
-        finstack_valuations::instruments::structured_credit::cmbs_standard_template(curr);
-
-    Python::with_gil(|py| {
-        let json = serde_json::to_string(&waterfall)
-            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))?;
-        let json_module = PyModule::import(py, "json")?;
-        let result = json_module.call_method1("loads", (json,))?;
-        Ok(result.into())
-    })
-}
-
-/// Create a CRE operating company waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     dict: Waterfall configuration as JSON-serializable dict
-#[pyfunction]
-#[pyo3(text_signature = "(currency)")]
-fn cre_operating_company_template(currency: String) -> PyResult<PyObject> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall =
-        finstack_valuations::instruments::structured_credit::cre_operating_company_template(curr);
-
-    Python::with_gil(|py| {
-        let json = serde_json::to_string(&waterfall)
-            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))?;
-        let json_module = PyModule::import(py, "json")?;
-        let result = json_module.call_method1("loads", (json,))?;
-        Ok(result.into())
-    })
-}
-
-/// Get a waterfall template by name.
-///
-/// Args:
-///     template_name: Template name ("clo_2.0", "cmbs_standard", "cre_operating")
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     dict: Waterfall configuration as JSON-serializable dict
-///
-/// Examples:
-///     >>> waterfall = get_waterfall_template("clo_2.0", "USD")
-#[pyfunction]
-#[pyo3(text_signature = "(template_name, currency)")]
-fn get_waterfall_template(template_name: String, currency: String) -> PyResult<PyObject> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall =
-        finstack_valuations::instruments::structured_credit::get_template(&template_name, curr)
-            .ok_or_else(|| {
-                PyValueError::new_err(format!("Template '{}' not found", template_name))
-            })?;
-
-    Python::with_gil(|py| {
-        let json = serde_json::to_string(&waterfall)
-            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))?;
-        let json_module = PyModule::import(py, "json")?;
-        let result = json_module.call_method1("loads", (json,))?;
-        Ok(result.into())
-    })
-}
-
-/// List available waterfall templates.
-///
-/// Returns:
-///     list[dict]: List of template metadata with name, description, and deal_type
-///
-/// Examples:
-///     >>> templates = available_waterfall_templates()
-///     >>> for t in templates:
-///     ...     print(f"{t['name']}: {t['description']}")
-#[pyfunction]
-#[pyo3(text_signature = "()")]
-fn available_waterfall_templates(py: Python<'_>) -> PyResult<Py<pyo3::types::PyList>> {
-    let templates = finstack_valuations::instruments::structured_credit::available_templates();
-
-    let result = pyo3::types::PyList::empty(py);
-    for t in templates {
-        let dict = PyDict::new(py);
-        dict.set_item("name", t.name)?;
-        dict.set_item("description", t.description)?;
-        dict.set_item("deal_type", format!("{:?}", t.deal_type))?;
-        result.append(dict)?;
-    }
-    Ok(result.into())
-}
-
-// ============================================================================
 // REGISTRATION
 // ============================================================================
 
@@ -436,20 +291,6 @@ pub(crate) fn register<'py>(
     module.add_class::<PyAllocationMode>()?;
     module.add_class::<PyPaymentType>()?;
     module.add_class::<PyWaterfallTier>()?;
-    module.add_function(wrap_pyfunction!(clo_2_0_template, module)?)?;
-    module.add_function(wrap_pyfunction!(cmbs_standard_template, module)?)?;
-    module.add_function(wrap_pyfunction!(cre_operating_company_template, module)?)?;
-    module.add_function(wrap_pyfunction!(get_waterfall_template, module)?)?;
-    module.add_function(wrap_pyfunction!(available_waterfall_templates, module)?)?;
 
-    Ok(vec![
-        "AllocationMode",
-        "PaymentType",
-        "WaterfallTier",
-        "clo_2_0_template",
-        "cmbs_standard_template",
-        "cre_operating_company_template",
-        "get_waterfall_template",
-        "available_waterfall_templates",
-    ])
+    Ok(vec!["AllocationMode", "PaymentType", "WaterfallTier"])
 }

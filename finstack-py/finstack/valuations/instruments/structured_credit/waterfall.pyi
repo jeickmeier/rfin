@@ -1,7 +1,6 @@
 """Structured credit waterfall engine bindings."""
 
 from enum import IntEnum
-from typing import Any, Optional
 
 class AllocationMode(IntEnum):
     """Allocation mode within a tier.
@@ -137,73 +136,3 @@ class WaterfallTier:
         """Get number of recipients."""
         ...
 
-def clo_2_0_template(currency: str) -> dict[str, Any]:
-    """Create a CLO 2.0 waterfall template.
-
-    Args:
-        currency: Currency code (e.g., "USD")
-
-    Returns:
-        Waterfall configuration as JSON-serializable dict
-
-    Examples:
-        >>> from finstack.valuations.instruments import clo_2_0_template
-        >>> waterfall = clo_2_0_template("USD")
-        >>> sorted(waterfall.keys())
-        ['base_currency', 'coverage_triggers', 'tiers']
-    """
-    ...
-
-def cmbs_standard_template(currency: str) -> dict[str, Any]:
-    """Create a CMBS standard waterfall template.
-
-    Args:
-        currency: Currency code (e.g., "USD")
-
-    Returns:
-        Waterfall configuration as JSON-serializable dict
-    """
-    ...
-
-def cre_operating_company_template(currency: str) -> dict[str, Any]:
-    """Create a CRE operating company waterfall template.
-
-    Args:
-        currency: Currency code (e.g., "USD")
-
-    Returns:
-        Waterfall configuration as JSON-serializable dict
-    """
-    ...
-
-def get_waterfall_template(template_name: str, currency: str) -> dict[str, Any]:
-    """Get a waterfall template by name.
-
-    Args:
-        template_name: Template name ("clo_2.0", "cmbs_standard", "cre_operating")
-        currency: Currency code (e.g., "USD")
-
-    Returns:
-        Waterfall configuration as JSON-serializable dict
-
-    Examples:
-        >>> from finstack.valuations.instruments import get_waterfall_template
-        >>> waterfall = get_waterfall_template("clo_2.0", "USD")
-        >>> len(waterfall["coverage_triggers"])
-        2
-    """
-    ...
-
-def available_waterfall_templates() -> list[dict[str, str]]:
-    """List available waterfall templates.
-
-    Returns:
-        List of template metadata with name, description, and deal_type
-
-        Examples:
-            >>> from finstack.valuations.instruments import available_waterfall_templates
-            >>> templates = available_waterfall_templates()
-            >>> templates[0]["name"]
-            'clo_2.0'
-    """
-    ...

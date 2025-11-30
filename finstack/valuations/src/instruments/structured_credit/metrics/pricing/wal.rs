@@ -1,11 +1,14 @@
 //! WAL (Weighted Average Life) calculator for structured credit.
 
-use crate::instruments::structured_credit::components::TrancheCashflowResult;
+use crate::instruments::structured_credit::types::TrancheCashflows;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::Result;
 
-/// Calculate tranche-specific WAL from a `TrancheCashflowResult`.
+/// Legacy type alias for `TrancheCashflows` (backward compatibility).
+pub type TrancheCashflowResult = TrancheCashflows;
+
+/// Calculate tranche-specific WAL from a `TrancheCashflows`.
 ///
 /// WAL measures the average time until principal is repaid, weighted by the
 /// amount of principal. This is a critical metric for structured credit as it
@@ -18,7 +21,7 @@ use finstack_core::Result;
 /// Where:
 /// - Principal_i = principal payment at time i
 /// - Time_i = years from valuation date to payment date i
-pub fn calculate_tranche_wal(cashflows: &TrancheCashflowResult, as_of: Date) -> Result<f64> {
+pub fn calculate_tranche_wal(cashflows: &TrancheCashflows, as_of: Date) -> Result<f64> {
     let mut weighted_sum = 0.0;
     let mut total_principal = 0.0;
 

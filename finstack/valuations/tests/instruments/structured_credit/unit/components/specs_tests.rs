@@ -10,7 +10,7 @@
 //! and re-exported from structured_credit. Core functionality is tested
 //! in the builder module tests.
 
-use finstack_valuations::instruments::structured_credit::components::{
+use finstack_valuations::instruments::structured_credit::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
 

@@ -1,34 +1,34 @@
-//! Helper types for structured credit simulation.
+//! Simulation helpers for structured credit cashflow projection.
 //!
-//! This module contains internal helpers used by the simulation engine
-//! in `instrument_trait.rs`. These are implementation details not exposed
-//! in the public API.
+//! This module contains internal helpers used by the pricing engine
+//! for period-by-period simulation.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::months_between;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use std::collections::{HashMap, VecDeque};
 
-/// Recovery lag buffer for delayed recovery processing.
+/// Recovery queue for delayed recovery processing.
 ///
 /// Recoveries from defaulted assets are typically received 6-12 months after
-/// the default event. This buffer holds pending recoveries until they can be
+/// the default event. This queue holds pending recoveries until they can be
 /// released based on the configured recovery lag.
 #[derive(Debug, Default)]
-pub(crate) struct RecoveryLagBuffer {
+pub struct RecoveryQueue {
     /// Queue of pending recoveries: (origination_date, recovery_amount)
     pending: VecDeque<(Date, Money)>,
 }
 
-impl RecoveryLagBuffer {
-    /// Create a new empty recovery lag buffer.
+impl RecoveryQueue {
+    /// Create a new empty recovery queue.
     pub fn new() -> Self {
         Self {
             pending: VecDeque::new(),
         }
     }
 
-    /// Add a new recovery to the buffer.
+    /// Add a new recovery to the queue.
     pub fn add_recovery(&mut self, origination_date: Date, amount: Money) {
         if amount.amount() > 0.0 {
             self.pending.push_back((origination_date, amount));
@@ -42,11 +42,10 @@ impl RecoveryLagBuffer {
         &mut self,
         current_date: Date,
         recovery_lag_months: u32,
-        base_currency: finstack_core::currency::Currency,
+        base_currency: Currency,
     ) -> finstack_core::Result<Money> {
         let mut released = Money::new(0.0, base_currency);
 
-        // Pop all recoveries that have matured
         while let Some((orig_date, _)) = self.pending.front() {
             let months_elapsed = months_between(*orig_date, current_date);
             if months_elapsed >= recovery_lag_months {
@@ -54,7 +53,6 @@ impl RecoveryLagBuffer {
                     released = released.checked_add(amount)?;
                 }
             } else {
-                // Remaining entries are not yet mature
                 break;
             }
         }
@@ -63,17 +61,20 @@ impl RecoveryLagBuffer {
     }
 }
 
-/// Cashflows generated in a single payment period
-pub(crate) struct PeriodFlows {
+/// Cashflows generated in a single payment period.
+pub struct PeriodFlows {
+    /// Interest collected from pool assets.
     pub interest_collections: Money,
+    /// Principal from prepayments.
     pub prepayments: Money,
+    /// Principal lost to defaults (gross).
     pub defaults: Money,
-    #[allow(dead_code)]
+    /// Recoveries received this period.
     pub recoveries: Money,
 }
 
 impl PeriodFlows {
-    /// Total cash available for distribution
+    /// Total cash available for distribution.
     #[allow(dead_code)]
     pub fn total_cash(&self) -> finstack_core::Result<Money> {
         let principal = self.prepayments.checked_add(self.recoveries)?;
@@ -81,8 +82,8 @@ impl PeriodFlows {
     }
 }
 
-/// Update tranche balance after payment (helper function)
-pub(crate) fn update_tranche_balance(
+/// Update tranche balance after payment.
+pub fn update_tranche_balance(
     tranche_balances: &mut HashMap<String, Money>,
     tranche_id: &str,
     payment: Money,
@@ -98,3 +99,4 @@ pub(crate) fn update_tranche_balance(
 
     Ok(())
 }
+

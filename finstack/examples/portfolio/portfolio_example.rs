@@ -42,8 +42,9 @@ use finstack_valuations::instruments::fx_swap::FxSwap;
 use finstack_valuations::instruments::inflation_linked_bond::{parameters::*, InflationLinkedBond};
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::instruments::irs::*;
-use finstack_valuations::instruments::structured_credit::components::{
+use finstack_valuations::instruments::structured_credit::{
     AssetPool, DealType, TrancheBuilder, TrancheCoupon, TrancheStructure, WaterfallBuilder,
+    TrancheSeniority,
 };
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
@@ -1093,7 +1094,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let senior_tranche = TrancheBuilder::new()
         .id("SENIOR_A")
         .attachment_detachment(15.0, 100.0)  // 15% subordination to 100%
-        .seniority(finstack_valuations::instruments::structured_credit::components::TrancheSeniority::Senior)
+        .seniority(TrancheSeniority::Senior)
         .balance(Money::new(10_000_000.0, Currency::USD))  // $10M senior tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.035 })  // 3.5% coupon
         .legal_maturity(date!(2031 - 01 - 15))
@@ -1103,7 +1104,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let mezz_tranche = TrancheBuilder::new()
         .id("MEZZANINE_B")
         .attachment_detachment(5.0, 15.0)  // 5% subordination to 15%
-        .seniority(finstack_valuations::instruments::structured_credit::components::TrancheSeniority::Mezzanine)
+        .seniority(TrancheSeniority::Mezzanine)
         .balance(Money::new(10_000_000.0, Currency::USD))  // $10M mezzanine tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.055 })  // 5.5% coupon
         .legal_maturity(date!(2031 - 01 - 15))
@@ -1113,7 +1114,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let equity_tranche = TrancheBuilder::new()
         .id("EQUITY")
         .attachment_detachment(0.0, 5.0)  // 0% subordination to 5%
-        .seniority(finstack_valuations::instruments::structured_credit::components::TrancheSeniority::Equity)
+        .seniority(TrancheSeniority::Equity)
         .balance(Money::new(10_000_000.0, Currency::USD))  // $10M equity tranche
         .coupon(TrancheCoupon::Fixed { rate: 0.00 })  // No coupon
         .legal_maturity(date!(2031 - 01 - 15))

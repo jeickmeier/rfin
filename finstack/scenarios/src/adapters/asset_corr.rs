@@ -27,7 +27,7 @@
 //! - Recovery correlation: [-0.99, 0.99]
 
 use crate::error::Result;
-use finstack_valuations::instruments::structured_credit::components::CorrelationStructure;
+use finstack_valuations::instruments::structured_credit::pricing::stochastic::CorrelationStructure;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 
 /// Result of an asset correlation shock operation.

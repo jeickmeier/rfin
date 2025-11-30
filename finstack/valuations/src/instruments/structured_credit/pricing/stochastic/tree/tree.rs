@@ -457,7 +457,7 @@ impl ScenarioTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::components::stochastic::BranchingSpec;
+    use crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec;
 
     #[test]
     fn test_build_simple_tree() {

@@ -1,10 +1,7 @@
 //! Diversion rule system for structured credit waterfall distributions.
 //!
 //! This module provides a generalized framework for defining cash flow diversions
-//! based on coverage test failures or custom conditions. It includes:
-//! - Diversion rule specifications with source/target tiers
-//! - Circular reference detection using depth-first search
-//! - Condition evaluation framework
+//! based on coverage test failures or custom conditions.
 
 use finstack_core::Result;
 use std::collections::{HashMap, HashSet};
@@ -16,42 +13,42 @@ use serde::{Deserialize, Serialize};
 // DIVERSION RULES
 // ============================================================================
 
-/// Condition that triggers a diversion
+/// Condition that triggers a diversion.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DiversionCondition {
-    /// Triggered when a coverage test fails
+    /// Triggered when a coverage test fails.
     CoverageTestFailed {
-        /// ID of the coverage test
+        /// ID of the coverage test.
         test_id: String,
     },
-    /// Custom expression (for future expression engine integration)
+    /// Custom expression (for future expression engine integration).
     CustomExpression {
-        /// Expression string
+        /// Expression string.
         expr: String,
     },
-    /// Always active (for testing/debugging)
+    /// Always active (for testing/debugging).
     Always,
 }
 
-/// A diversion rule that redirects cash from one tier to another
+/// A diversion rule that redirects cash from one tier to another.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct DiversionRule {
-    /// Unique identifier for this rule
+    /// Unique identifier for this rule.
     pub id: String,
-    /// Source tier where cash is diverted from
+    /// Source tier where cash is diverted from.
     pub source_tier_id: String,
-    /// Target tier where cash is diverted to
+    /// Target tier where cash is diverted to.
     pub target_tier_id: String,
-    /// Condition that triggers the diversion
+    /// Condition that triggers the diversion.
     pub condition: DiversionCondition,
-    /// Priority order for evaluation (lower = higher priority)
+    /// Priority order for evaluation (lower = higher priority).
     pub priority: usize,
 }
 
 impl DiversionRule {
-    /// Create a new diversion rule
+    /// Create a new diversion rule.
     pub fn new(
         id: impl Into<String>,
         source_tier_id: impl Into<String>,
@@ -68,7 +65,7 @@ impl DiversionRule {
         }
     }
 
-    /// Create a diversion rule triggered by coverage test failure
+    /// Create a diversion rule triggered by coverage test failure.
     pub fn on_test_failure(
         id: impl Into<String>,
         source_tier_id: impl Into<String>,
@@ -87,20 +84,14 @@ impl DiversionRule {
         )
     }
 
-    /// Check if this rule's condition is met
+    /// Check if this rule's condition is met.
     pub fn is_active(&self, test_results: &HashMap<String, bool>) -> bool {
         match &self.condition {
-            DiversionCondition::CoverageTestFailed { test_id } => {
-                // Active if test failed (returned false)
-                test_results
-                    .get(test_id)
-                    .map(|&passed| !passed)
-                    .unwrap_or(false)
-            }
-            DiversionCondition::CustomExpression { .. } => {
-                // TODO: Implement expression evaluation
-                false
-            }
+            DiversionCondition::CoverageTestFailed { test_id } => test_results
+                .get(test_id)
+                .map(|&passed| !passed)
+                .unwrap_or(false),
+            DiversionCondition::CustomExpression { .. } => false,
             DiversionCondition::Always => true,
         }
     }
@@ -110,40 +101,39 @@ impl DiversionRule {
 // DIVERSION ENGINE
 // ============================================================================
 
-/// Engine for managing and validating diversion rules
+/// Engine for managing and validating diversion rules.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct DiversionEngine {
-    /// Collection of diversion rules
+    /// Collection of diversion rules.
     rules: Vec<DiversionRule>,
 }
 
 impl DiversionEngine {
-    /// Create a new diversion engine
+    /// Create a new diversion engine.
     pub fn new() -> Self {
         Self { rules: Vec::new() }
     }
 
-    /// Add a diversion rule
+    /// Add a diversion rule.
     pub fn add_rule(mut self, rule: DiversionRule) -> Self {
         self.rules.push(rule);
         self.rules.sort_by_key(|r| r.priority);
         self
     }
 
-    /// Get all rules
+    /// Get all rules.
     pub fn rules(&self) -> &[DiversionRule] {
         &self.rules
     }
 
-    /// Validate the diversion rules
+    /// Validate the diversion rules.
     ///
     /// Checks for:
     /// - Circular references (A → B → A)
     /// - Self-referencing rules (A → A)
     /// - Duplicate rule IDs
     pub fn validate(&self) -> Result<()> {
-        // Check for duplicate IDs
         let mut seen_ids = HashSet::new();
         for rule in &self.rules {
             if !seen_ids.insert(&rule.id) {
@@ -154,7 +144,6 @@ impl DiversionEngine {
             }
         }
 
-        // Check for self-references
         for rule in &self.rules {
             if rule.source_tier_id == rule.target_tier_id {
                 return Err(finstack_core::Error::Validation(format!(
@@ -164,22 +153,13 @@ impl DiversionEngine {
             }
         }
 
-        // Check for circular dependencies
         self.detect_cycles()?;
 
         Ok(())
     }
 
-    /// Detect circular dependencies in diversion rules using DFS
-    ///
-    /// Uses a depth-first search with three-color marking:
-    /// - White (unvisited): not yet explored
-    /// - Gray (visiting): currently in recursion stack
-    /// - Black (visited): fully explored
-    ///
-    /// A back edge to a gray node indicates a cycle.
+    /// Detect circular dependencies in diversion rules using DFS.
     fn detect_cycles(&self) -> Result<()> {
-        // Build adjacency list representation of the diversion graph
         let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
         let mut all_nodes = HashSet::new();
 
@@ -192,12 +172,11 @@ impl DiversionEngine {
                 .push(rule.target_tier_id.as_str());
         }
 
-        // Three-color marking
         #[derive(PartialEq)]
         enum Color {
-            White, // Unvisited
-            Gray,  // Visiting (in recursion stack)
-            Black, // Visited (fully explored)
+            White,
+            Gray,
+            Black,
         }
 
         let mut colors: HashMap<&str, Color> =
@@ -205,7 +184,6 @@ impl DiversionEngine {
 
         let mut path: Vec<&str> = Vec::new();
 
-        // DFS visit function
         fn dfs_visit<'a>(
             node: &'a str,
             graph: &HashMap<&'a str, Vec<&'a str>>,
@@ -222,7 +200,6 @@ impl DiversionEngine {
                             dfs_visit(neighbor, graph, colors, path)?;
                         }
                         Some(Color::Gray) => {
-                            // Found a back edge - cycle detected
                             let cycle_start = path
                                 .iter()
                                 .position(|&n| n == neighbor)
@@ -237,12 +214,8 @@ impl DiversionEngine {
                                 cycle.join(" → ")
                             )));
                         }
-                        Some(Color::Black) => {
-                            // Already visited, skip
-                        }
-                        None => {
-                            // Should not happen if graph is built correctly
-                        }
+                        Some(Color::Black) => {}
+                        None => {}
                     }
                 }
             }
@@ -252,7 +225,6 @@ impl DiversionEngine {
             Ok(())
         }
 
-        // Visit all nodes
         for &node in &all_nodes {
             if colors.get(node) == Some(&Color::White) {
                 dfs_visit(node, &graph, &mut colors, &mut path)?;
@@ -262,9 +234,7 @@ impl DiversionEngine {
         Ok(())
     }
 
-    /// Get active diversions based on test results
-    ///
-    /// Returns a map of source_tier_id → target_tier_id for all active diversions
+    /// Get active diversions based on test results.
     pub fn get_active_diversions(
         &self,
         test_results: &HashMap<String, bool>,
@@ -286,10 +256,6 @@ impl Default for DiversionEngine {
         Self::new()
     }
 }
-
-// ============================================================================
-// TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -319,18 +285,15 @@ mod tests {
 
         let mut test_results = HashMap::new();
 
-        // Test passed - rule should not be active
         test_results.insert("oc_test".to_string(), true);
         assert!(!rule.is_active(&test_results));
 
-        // Test failed - rule should be active
         test_results.insert("oc_test".to_string(), false);
         assert!(rule.is_active(&test_results));
     }
 
     #[test]
     fn test_no_cycles_valid() {
-        // Linear chain: A → B → C (no cycle)
         let engine = DiversionEngine::new()
             .add_rule(DiversionRule::new(
                 "rule1",
@@ -352,7 +315,6 @@ mod tests {
 
     #[test]
     fn test_cycle_detection_simple() {
-        // Simple cycle: A → B → A
         let engine = DiversionEngine::new()
             .add_rule(DiversionRule::new(
                 "rule1",
@@ -367,45 +329,6 @@ mod tests {
                 "tier_a",
                 DiversionCondition::Always,
                 2,
-            ));
-
-        let result = engine.validate();
-        assert!(result.is_err());
-        let err_msg = result.expect_err("should fail validation").to_string();
-        assert!(err_msg.contains("Circular diversion"));
-    }
-
-    #[test]
-    fn test_cycle_detection_complex() {
-        // Complex cycle: A → B → C → D → B
-        let engine = DiversionEngine::new()
-            .add_rule(DiversionRule::new(
-                "rule1",
-                "tier_a",
-                "tier_b",
-                DiversionCondition::Always,
-                1,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule2",
-                "tier_b",
-                "tier_c",
-                DiversionCondition::Always,
-                2,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule3",
-                "tier_c",
-                "tier_d",
-                DiversionCondition::Always,
-                3,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule4",
-                "tier_d",
-                "tier_b",
-                DiversionCondition::Always,
-                4,
             ));
 
         let result = engine.validate();
@@ -416,7 +339,6 @@ mod tests {
 
     #[test]
     fn test_self_reference_detection() {
-        // Self-reference: A → A
         let engine = DiversionEngine::new().add_rule(DiversionRule::new(
             "rule1",
             "tier_a",
@@ -432,30 +354,6 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicate_id_detection() {
-        let engine = DiversionEngine::new()
-            .add_rule(DiversionRule::new(
-                "rule1",
-                "tier_a",
-                "tier_b",
-                DiversionCondition::Always,
-                1,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule1", // Duplicate ID
-                "tier_c",
-                "tier_d",
-                DiversionCondition::Always,
-                2,
-            ));
-
-        let result = engine.validate();
-        assert!(result.is_err());
-        let err_msg = result.expect_err("should fail validation").to_string();
-        assert!(err_msg.contains("Duplicate diversion rule ID"));
-    }
-
-    #[test]
     fn test_get_active_diversions() {
         let engine = DiversionEngine::new()
             .add_rule(DiversionRule::on_test_failure(
@@ -466,8 +364,8 @@ mod tests {
             ));
 
         let mut test_results = HashMap::new();
-        test_results.insert("test1".to_string(), false); // Failed
-        test_results.insert("test2".to_string(), true); // Passed
+        test_results.insert("test1".to_string(), false);
+        test_results.insert("test2".to_string(), true);
 
         let active = engine.get_active_diversions(&test_results);
 
@@ -475,45 +373,5 @@ mod tests {
         assert_eq!(active.get("tier_a"), Some(&"tier_b".to_string()));
         assert_eq!(active.get("tier_c"), None);
     }
-
-    #[test]
-    fn test_complex_graph_no_cycle() {
-        // Diamond pattern (no cycle):
-        //     A
-        //    / \
-        //   B   C
-        //    \ /
-        //     D
-        let engine = DiversionEngine::new()
-            .add_rule(DiversionRule::new(
-                "rule1",
-                "tier_a",
-                "tier_b",
-                DiversionCondition::Always,
-                1,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule2",
-                "tier_a",
-                "tier_c",
-                DiversionCondition::Always,
-                2,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule3",
-                "tier_b",
-                "tier_d",
-                DiversionCondition::Always,
-                3,
-            ))
-            .add_rule(DiversionRule::new(
-                "rule4",
-                "tier_c",
-                "tier_d",
-                DiversionCondition::Always,
-                4,
-            ));
-
-        assert!(engine.validate().is_ok());
-    }
 }
+

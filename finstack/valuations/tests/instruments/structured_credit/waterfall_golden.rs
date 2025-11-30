@@ -16,7 +16,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::components::waterfall::CoverageTrigger;
+use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
     PaymentType, Recipient, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,

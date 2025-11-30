@@ -2,11 +2,9 @@
 //!
 //! This module exposes the generalized waterfall engine to TypeScript/JavaScript, including:
 //! - WaterfallTier, AllocationMode, PaymentType
-//! - Waterfall templates (CLO, CMBS, CRE)
 //! - JSON serialization/deserialization
 
 use crate::core::error::js_error;
-use finstack_core::currency::Currency;
 use finstack_valuations::instruments::structured_credit::{
     AllocationMode as RustAllocationMode, PaymentType as RustPaymentType,
     WaterfallTier as RustWaterfallTier,
@@ -161,127 +159,4 @@ impl JsWaterfallTier {
     }
 }
 
-// ============================================================================
-// TEMPLATE FUNCTIONS
-// ============================================================================
-
-/// Create a CLO 2.0 waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     JSON string of waterfall configuration
-///
-/// Example:
-/// ```javascript
-/// const waterfall = clo20Template("USD");
-/// const config = JSON.parse(waterfall);
-/// console.log(config.tiers.length); // 5 tiers
-/// ```
-#[wasm_bindgen(js_name = clo20Template)]
-pub fn clo_2_0_template(currency: &str) -> Result<String, JsValue> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| js_error(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall = finstack_valuations::instruments::structured_credit::clo_2_0_template(curr);
-
-    serde_json::to_string_pretty(&waterfall).map_err(|e| js_error(e.to_string()))
-}
-
-/// Create a CMBS standard waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     JSON string of waterfall configuration
-#[wasm_bindgen(js_name = cmbsStandardTemplate)]
-pub fn cmbs_standard_template(currency: &str) -> Result<String, JsValue> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| js_error(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall =
-        finstack_valuations::instruments::structured_credit::cmbs_standard_template(curr);
-
-    serde_json::to_string_pretty(&waterfall).map_err(|e| js_error(e.to_string()))
-}
-
-/// Create a CRE operating company waterfall template.
-///
-/// Args:
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     JSON string of waterfall configuration
-#[wasm_bindgen(js_name = creOperatingCompanyTemplate)]
-pub fn cre_operating_company_template(currency: &str) -> Result<String, JsValue> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| js_error(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall =
-        finstack_valuations::instruments::structured_credit::cre_operating_company_template(curr);
-
-    serde_json::to_string_pretty(&waterfall).map_err(|e| js_error(e.to_string()))
-}
-
-/// Get a waterfall template by name.
-///
-/// Args:
-///     template_name: Template name ("clo_2.0", "cmbs_standard", "cre_operating")
-///     currency: Currency code (e.g., "USD")
-///
-/// Returns:
-///     JSON string of waterfall configuration
-///
-/// Example:
-/// ```javascript
-/// const waterfall = getWaterfallTemplate("clo_2.0", "USD");
-/// const config = JSON.parse(waterfall);
-/// ```
-#[wasm_bindgen(js_name = getWaterfallTemplate)]
-pub fn get_waterfall_template(template_name: &str, currency: &str) -> Result<String, JsValue> {
-    let curr: Currency = currency
-        .parse()
-        .map_err(|e| js_error(format!("Invalid currency: {:?}", e)))?;
-
-    let waterfall = finstack_valuations::instruments::structured_credit::get_template(
-        template_name,
-        curr,
-    )
-    .ok_or_else(|| js_error(format!("Template '{}' not found", template_name)))?;
-
-    serde_json::to_string_pretty(&waterfall).map_err(|e| js_error(e.to_string()))
-}
-
-/// List available waterfall templates.
-///
-/// Returns:
-///     JSON string array of template metadata
-///
-/// Example:
-/// ```javascript
-/// const templates = JSON.parse(availableWaterfallTemplates());
-/// templates.forEach(t => console.log(`${t.name}: ${t.description}`));
-/// ```
-#[wasm_bindgen(js_name = availableWaterfallTemplates)]
-pub fn available_waterfall_templates() -> Result<String, JsValue> {
-    let templates = finstack_valuations::instruments::structured_credit::available_templates();
-
-    let metadata: Vec<_> = templates
-        .into_iter()
-        .map(|t| {
-            serde_json::json!({
-                "name": t.name,
-                "description": t.description,
-                "deal_type": format!("{:?}", t.deal_type),
-            })
-        })
-        .collect();
-
-    serde_json::to_string_pretty(&metadata).map_err(|e| js_error(e.to_string()))
-}
 

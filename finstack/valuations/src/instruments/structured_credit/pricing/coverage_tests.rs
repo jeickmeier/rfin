@@ -1,55 +1,50 @@
-//! Simplified coverage tests for structured credit instruments.
+//! Coverage test calculations for structured credit instruments.
 //!
 //! This module provides OC and IC test calculations for waterfall diversion.
-//! Removed: ParValue tests, historical tracking, aggregate results.
 
+use crate::instruments::structured_credit::types::{Pool, TrancheStructure};
 use finstack_core::dates::Frequency;
 use finstack_core::money::Money;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::AssetPool;
-
 /// Calculate periods per year from a payment frequency.
-///
-/// Returns 4.0 for quarterly, 12.0 for monthly, 2.0 for semi-annual, etc.
-/// For day-based frequencies, approximates using 365 days per year.
 #[inline]
 fn frequency_periods_per_year(freq: Frequency) -> f64 {
     match freq {
         Frequency::Months(m) if m > 0 => 12.0 / m as f64,
         Frequency::Days(d) if d > 0 => 365.0 / d as f64,
-        _ => 4.0, // Default to quarterly if invalid
+        _ => 4.0,
     }
 }
 
-/// Simplified coverage test type (OC/IC only)
+/// Coverage test type (OC/IC).
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum CoverageTest {
-    /// Overcollateralization test
+    /// Overcollateralization test.
     OC {
-        /// Unique test identifier
+        /// Unique test identifier.
         id: String,
-        /// Required OC ratio (e.g., 1.25 = 125%)
+        /// Required OC ratio (e.g., 1.25 = 125%).
         required_ratio: f64,
-        /// Include cash in numerator
+        /// Include cash in numerator.
         include_cash: bool,
-        /// Include only performing assets
+        /// Include only performing assets.
         performing_only: bool,
     },
-    /// Interest coverage test
+    /// Interest coverage test.
     IC {
-        /// Unique test identifier
+        /// Unique test identifier.
         id: String,
-        /// Required IC ratio (e.g., 1.20 = 120%)
+        /// Required IC ratio (e.g., 1.20 = 120%).
         required_ratio: f64,
     },
 }
 
 impl CoverageTest {
-    /// Create new OC test with standard settings
+    /// Create new OC test with standard settings.
     pub fn new_oc(required_ratio: f64) -> Self {
         Self::OC {
             id: format!("oc_test_{}", (required_ratio * 100.0) as u32),
@@ -59,7 +54,7 @@ impl CoverageTest {
         }
     }
 
-    /// Create new OC test with explicit ID
+    /// Create new OC test with explicit ID.
     pub fn new_oc_with_id(id: impl Into<String>, required_ratio: f64) -> Self {
         Self::OC {
             id: id.into(),
@@ -69,7 +64,7 @@ impl CoverageTest {
         }
     }
 
-    /// Create new IC test
+    /// Create new IC test.
     pub fn new_ic(required_ratio: f64) -> Self {
         Self::IC {
             id: format!("ic_test_{}", (required_ratio * 100.0) as u32),
@@ -77,7 +72,7 @@ impl CoverageTest {
         }
     }
 
-    /// Create new IC test with explicit ID
+    /// Create new IC test with explicit ID.
     pub fn new_ic_with_id(id: impl Into<String>, required_ratio: f64) -> Self {
         Self::IC {
             id: id.into(),
@@ -85,7 +80,7 @@ impl CoverageTest {
         }
     }
 
-    /// Get the test ID
+    /// Get the test ID.
     pub fn id(&self) -> &str {
         match self {
             Self::OC { id, .. } => id.as_str(),
@@ -93,7 +88,7 @@ impl CoverageTest {
         }
     }
 
-    /// Get the required ratio for this test
+    /// Get the required ratio for this test.
     pub fn required_level(&self) -> f64 {
         match self {
             Self::OC { required_ratio, .. } => *required_ratio,
@@ -101,7 +96,7 @@ impl CoverageTest {
         }
     }
 
-    /// Calculate the test result
+    /// Calculate the test result.
     pub fn calculate(&self, context: &TestContext) -> TestResult {
         match self {
             Self::OC {
@@ -130,7 +125,6 @@ impl CoverageTest {
         include_cash: bool,
         performing_only: bool,
     ) -> TestResult {
-        // Find the target tranche
         let tranche = context
             .tranches
             .tranches
@@ -138,13 +132,9 @@ impl CoverageTest {
             .find(|t| t.id.as_str() == context.tranche_id)
             .expect("Tranche not found in context");
 
-        // Compute tranche balance
         let tranche_balance = tranche.current_balance;
-
-        // Compute senior balance (all tranches with higher priority)
         let senior_balance = context.tranches.senior_balance(context.tranche_id);
 
-        // Calculate numerator
         let numerator = if performing_only {
             context.pool.performing_balance()
         } else {
@@ -159,7 +149,6 @@ impl CoverageTest {
             numerator
         };
 
-        // Calculate denominator
         let denominator = tranche_balance
             .checked_add(senior_balance)
             .unwrap_or(tranche_balance);
@@ -194,7 +183,6 @@ impl CoverageTest {
         test_id: String,
         required_ratio: f64,
     ) -> TestResult {
-        // Find the target tranche
         let tranche = context
             .tranches
             .tranches
@@ -202,8 +190,6 @@ impl CoverageTest {
             .find(|t| t.id.as_str() == context.tranche_id)
             .expect("Tranche not found in context");
 
-        // Compute interest due for this tranche using actual payment frequency
-        // (e.g., 4 for quarterly, 12 for monthly, 2 for semi-annual)
         let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
         let interest_due = Money::new(
             tranche.current_balance.amount() * tranche.coupon.current_rate(context.as_of)
@@ -211,7 +197,6 @@ impl CoverageTest {
             tranche.current_balance.currency(),
         );
 
-        // Compute senior interest due using each tranche's payment frequency
         let senior_tranches = context.tranches.senior_to(context.tranche_id);
         let senior_interest_due = senior_tranches
             .iter()
@@ -241,53 +226,51 @@ impl CoverageTest {
             test_id,
             current_ratio: ratio,
             is_passing,
-            cure_amount: None, // IC tests don't have a cure amount
+            cure_amount: None,
         }
     }
 }
 
 /// Context needed to calculate coverage tests.
-///
-/// Simplified context that provides pool and tranche structure references,
-/// allowing the test to compute derived values (like senior balance, interest due) internally.
 #[derive(Debug)]
-/// Test Context structure.
 pub struct TestContext<'a> {
-    /// pool.
-    pub pool: &'a AssetPool,
-    /// tranches.
-    pub tranches: &'a super::TrancheStructure,
-    /// tranche id.
+    /// Pool reference.
+    pub pool: &'a Pool,
+    /// Tranche structure reference.
+    pub tranches: &'a TrancheStructure,
+    /// Target tranche ID.
     pub tranche_id: &'a str,
-    /// as of.
+    /// As-of date.
     pub as_of: finstack_core::dates::Date,
-    /// cash balance.
+    /// Cash balance.
     pub cash_balance: Money,
-    /// interest collections.
+    /// Interest collections.
     pub interest_collections: Money,
 }
 
-/// Shared result structure for coverage tests
+/// Result of a coverage test calculation.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TestResult {
-    /// Test identifier
+    /// Test identifier.
     pub test_id: String,
-    /// Current calculated ratio
+    /// Current calculated ratio.
     pub current_ratio: f64,
-    /// Whether test is currently passing
+    /// Whether test is currently passing.
     pub is_passing: bool,
-    /// Cure amount if failing (OC tests only)
+    /// Cure amount if failing (OC tests only).
     pub cure_amount: Option<Money>,
 }
 
-// CoverageTests collection removed - use individual CoverageTest::calculate() for ad-hoc checks
-
 #[cfg(test)]
-mod coverage_test_tests {
-    use super::super::DealType;
+mod tests {
     use super::*;
+    use crate::instruments::structured_credit::types::{
+        DealType, Pool, Seniority, Tranche, TrancheCoupon, TrancheStructure,
+    };
     use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use time::Month;
 
     #[test]
     fn test_oc_test_creation() {
@@ -297,19 +280,14 @@ mod coverage_test_tests {
 
     #[test]
     fn test_oc_test_calculation() {
-        use super::super::{Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure};
-        use finstack_core::dates::Date;
-        use time::Month;
-
-        let pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
+        let pool = Pool::new("TEST", DealType::CLO, Currency::USD);
         let test = CoverageTest::new_oc(1.25);
 
-        // Create a simple tranche structure
         let tranche = Tranche::new(
             "TEST_TRANCHE",
             0.0,
             100.0,
-            TrancheSeniority::Senior,
+            Seniority::Senior,
             Money::new(100_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
             Date::from_calendar_date(2030, Month::January, 1).expect("Valid date"),
@@ -329,28 +307,20 @@ mod coverage_test_tests {
 
         let result = test.calculate(&context);
 
-        // Empty pool should give 0 ratio
         assert_eq!(result.current_ratio, 0.0);
         assert!(!result.is_passing);
     }
 
     #[test]
     fn test_ic_test_calculation() {
-        use super::super::{Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure};
-        use finstack_core::dates::Date;
-        use time::Month;
-
-        let pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
+        let pool = Pool::new("TEST", DealType::CLO, Currency::USD);
         let test = CoverageTest::new_ic(1.20);
 
-        // Create a tranche structure
-        // Interest due = 100k * 5% / 4 = 1,250
-        // To get ratio of 1.2, we need collections = 1.2 * 1,250 = 1,500
         let tranche = Tranche::new(
             "TEST_TRANCHE",
             0.0,
             100.0,
-            TrancheSeniority::Senior,
+            Seniority::Senior,
             Money::new(100_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
             Date::from_calendar_date(2030, Month::January, 1).expect("Valid date"),
@@ -370,8 +340,8 @@ mod coverage_test_tests {
 
         let result = test.calculate(&context);
 
-        // Should pass at 1.2 ratio
         assert!((result.current_ratio - 1.2).abs() < 0.01);
         assert!(result.is_passing);
     }
 }
+

@@ -1,0 +1,585 @@
+//! Waterfall type definitions for structured credit instruments.
+//!
+//! This module contains all data structures for waterfall distribution:
+//! - Payment recipients and calculation methods
+//! - Tier structures and allocation modes
+//! - Coverage triggers for OC/IC tests
+//! - Result types for waterfall execution
+//!
+//! Execution logic is in `crate::instruments::structured_credit::pricing::waterfall`.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::explain::ExplanationTrace;
+use finstack_core::money::Money;
+use std::collections::HashMap;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// CORE TYPES
+// ============================================================================
+
+/// Recipient of waterfall payments
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PaymentRecipient {
+    /// Service provider (trustee, admin, rating agency, etc.)
+    ServiceProvider(String),
+    /// Manager fee (type indicates senior/subordinated/incentive)
+    ManagerFee(ManagementFeeType),
+    /// Tranche payment
+    Tranche(String),
+    /// Equity/residual distribution
+    Equity,
+}
+
+/// Type of management fee
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ManagementFeeType {
+    /// Senior variant.
+    Senior,
+    /// Subordinated variant.
+    Subordinated,
+    /// Incentive variant.
+    Incentive,
+}
+
+/// How to calculate payment amount
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PaymentCalculation {
+    /// Fixed amount
+    FixedAmount {
+        /// Amount.
+        amount: Money,
+    },
+    /// Percentage of collateral balance
+    PercentageOfCollateral {
+        /// Rate.
+        rate: f64,
+        /// Annualized.
+        annualized: bool,
+    },
+    /// Interest due on tranche
+    TrancheInterest {
+        /// Tranche id.
+        tranche_id: String,
+    },
+    /// Principal payment to tranche
+    TranchePrincipal {
+        /// Tranche id.
+        tranche_id: String,
+        /// Target balance.
+        target_balance: Option<Money>,
+    },
+    /// All remaining cash
+    ResidualCash,
+}
+
+/// Allocation mode within a tier
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum AllocationMode {
+    /// Pay recipients sequentially in order until tier allocation exhausted
+    Sequential,
+    /// Distribute proportionally by weight or equally if no weights
+    ProRata,
+}
+
+/// Payment type classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PaymentType {
+    /// Fee payment
+    Fee,
+    /// Interest payment
+    Interest,
+    /// Principal payment
+    Principal,
+    /// Residual/equity distribution
+    Residual,
+}
+
+/// Individual payment recipient within a tier
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Recipient {
+    /// Unique identifier
+    pub id: String,
+    /// Recipient type
+    pub recipient_type: PaymentRecipient,
+    /// How to calculate payment amount
+    pub calculation: PaymentCalculation,
+    /// Weight for pro-rata distribution (None = equal weight)
+    pub weight: Option<f64>,
+}
+
+impl Recipient {
+    /// Create a new recipient
+    pub fn new(
+        id: impl Into<String>,
+        recipient_type: PaymentRecipient,
+        calculation: PaymentCalculation,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            recipient_type,
+            calculation,
+            weight: None,
+        }
+    }
+
+    /// Set weight for pro-rata allocation
+    #[must_use]
+    pub fn with_weight(mut self, weight: f64) -> Self {
+        self.weight = Some(weight);
+        self
+    }
+
+    /// Create a fixed fee recipient
+    #[must_use]
+    pub fn fixed_fee(id: impl Into<String>, provider: impl Into<String>, amount: Money) -> Self {
+        Self::new(
+            id,
+            PaymentRecipient::ServiceProvider(provider.into()),
+            PaymentCalculation::FixedAmount { amount },
+        )
+    }
+
+    /// Create a tranche interest recipient
+    #[must_use]
+    pub fn tranche_interest(id: impl Into<String>, tranche_id: impl Into<String>) -> Self {
+        let tranche_id_str = tranche_id.into();
+        Self::new(
+            id,
+            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            PaymentCalculation::TrancheInterest {
+                tranche_id: tranche_id_str,
+            },
+        )
+    }
+
+    /// Create a tranche principal recipient
+    #[must_use]
+    pub fn tranche_principal(
+        id: impl Into<String>,
+        tranche_id: impl Into<String>,
+        target_balance: Option<Money>,
+    ) -> Self {
+        let tranche_id_str = tranche_id.into();
+        Self::new(
+            id,
+            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            PaymentCalculation::TranchePrincipal {
+                tranche_id: tranche_id_str,
+                target_balance,
+            },
+        )
+    }
+}
+
+/// Waterfall tier with multiple recipients
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct WaterfallTier {
+    /// Unique tier identifier
+    pub id: String,
+    /// Priority order (lower = higher priority)
+    pub priority: usize,
+    /// Recipients in this tier
+    pub recipients: Vec<Recipient>,
+    /// Payment type classification
+    pub payment_type: PaymentType,
+    /// How to allocate within tier
+    pub allocation_mode: AllocationMode,
+    /// Whether this tier can be diverted if coverage tests fail
+    pub divertible: bool,
+}
+
+impl WaterfallTier {
+    /// Create a new waterfall tier
+    #[must_use]
+    pub fn new(id: impl Into<String>, priority: usize, payment_type: PaymentType) -> Self {
+        Self {
+            id: id.into(),
+            priority,
+            recipients: Vec::new(),
+            payment_type,
+            allocation_mode: AllocationMode::Sequential,
+            divertible: false,
+        }
+    }
+
+    /// Add a recipient to this tier
+    #[must_use]
+    pub fn add_recipient(mut self, recipient: Recipient) -> Self {
+        self.recipients.push(recipient);
+        self
+    }
+
+    /// Set allocation mode
+    #[must_use]
+    pub fn allocation_mode(mut self, mode: AllocationMode) -> Self {
+        self.allocation_mode = mode;
+        self
+    }
+
+    /// Mark as divertible
+    #[must_use]
+    pub fn divertible(mut self, divertible: bool) -> Self {
+        self.divertible = divertible;
+        self
+    }
+}
+
+// ============================================================================
+// WATERFALL RESULT
+// ============================================================================
+
+/// Result of waterfall distribution
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct WaterfallResult {
+    /// Payment date
+    pub payment_date: Date,
+    /// Total available cash at start
+    pub total_available: Money,
+
+    /// Tier-level allocations
+    pub tier_allocations: Vec<(String, Money)>,
+
+    /// Distributions by recipient
+    pub distributions: HashMap<PaymentRecipient, Money>,
+    /// Detailed payment records
+    pub payment_records: Vec<PaymentRecord>,
+
+    /// Coverage test results (test_name, value, passed)
+    pub coverage_tests: Vec<(String, f64, bool)>,
+
+    /// Total diverted cash
+    pub diverted_cash: Money,
+    /// Remaining undistributed cash
+    pub remaining_cash: Money,
+    /// Whether any diversions occurred
+    pub had_diversions: bool,
+    /// Diversion reason if applicable
+    pub diversion_reason: Option<String>,
+
+    /// Optional explanation trace (enabled via ExplainOpts)
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub explanation: Option<ExplanationTrace>,
+}
+
+/// Record of individual payment
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PaymentRecord {
+    /// Tier id
+    pub tier_id: String,
+    /// Recipient id within tier
+    pub recipient_id: String,
+    /// Priority
+    pub priority: usize,
+    /// Recipient
+    pub recipient: PaymentRecipient,
+    /// Requested amount
+    pub requested_amount: Money,
+    /// Paid amount
+    pub paid_amount: Money,
+    /// Shortfall
+    pub shortfall: Money,
+    /// Diverted
+    pub diverted: bool,
+}
+
+// ============================================================================
+// COVERAGE TRIGGERS
+// ============================================================================
+
+/// Simple OC/IC trigger for diversion
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct CoverageTrigger {
+    /// Tranche where test applies
+    pub tranche_id: String,
+    /// OC trigger level (e.g., 1.15 = 115%)
+    pub oc_trigger: Option<f64>,
+    /// IC trigger level (e.g., 1.10 = 110%)
+    pub ic_trigger: Option<f64>,
+}
+
+/// Type of coverage test (simplified to OC/IC only)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum CoverageTestType {
+    /// Overcollateralization test
+    OC,
+    /// Interest coverage test
+    IC,
+}
+
+// ============================================================================
+// WATERFALL WORKSPACE (Pre-allocated Buffers)
+// ============================================================================
+
+/// Pre-allocated workspace for waterfall execution to avoid hot-path allocations.
+///
+/// This struct holds reusable buffers that are cleared between periods rather than
+/// reallocated. For Monte Carlo simulations with thousands of paths and hundreds
+/// of periods, this significantly reduces allocation overhead.
+#[derive(Debug, Clone)]
+pub struct WaterfallWorkspace {
+    /// Pre-allocated tier allocations buffer
+    pub tier_allocations: Vec<(String, Money)>,
+    /// Pre-allocated distributions map
+    pub distributions: HashMap<PaymentRecipient, Money>,
+    /// Pre-allocated payment records buffer
+    pub payment_records: Vec<PaymentRecord>,
+    /// Pre-allocated coverage test results buffer
+    pub coverage_tests: Vec<(String, f64, bool)>,
+    /// Pre-allocated tranche index (built once per deal, reused across periods)
+    pub tranche_index: HashMap<String, usize>,
+}
+
+impl WaterfallWorkspace {
+    /// Create a new workspace with pre-allocated capacity.
+    pub fn new(num_tiers: usize, num_recipients: usize, num_tranches: usize) -> Self {
+        Self {
+            tier_allocations: Vec::with_capacity(num_tiers),
+            distributions: HashMap::with_capacity(num_recipients),
+            payment_records: Vec::with_capacity(num_recipients),
+            coverage_tests: Vec::with_capacity(num_tranches * 2),
+            tranche_index: HashMap::with_capacity(num_tranches),
+        }
+    }
+
+    /// Create workspace from a WaterfallEngine and TrancheStructure.
+    pub fn from_engine(engine: &WaterfallEngine, tranches: &super::TrancheStructure) -> Self {
+        let num_tiers = engine.tiers.len();
+        let num_recipients: usize = engine.tiers.iter().map(|t| t.recipients.len()).sum();
+        let num_tranches = tranches.tranches.len();
+
+        let mut workspace = Self::new(num_tiers, num_recipients, num_tranches);
+
+        for (i, t) in tranches.tranches.iter().enumerate() {
+            workspace.tranche_index.insert(t.id.to_string(), i);
+        }
+
+        workspace
+    }
+
+    /// Clear all buffers for reuse in the next period.
+    pub fn clear(&mut self) {
+        self.tier_allocations.clear();
+        self.distributions.clear();
+        self.payment_records.clear();
+        self.coverage_tests.clear();
+    }
+}
+
+impl Default for WaterfallWorkspace {
+    fn default() -> Self {
+        Self::new(8, 32, 8)
+    }
+}
+
+// ============================================================================
+// WATERFALL ENGINE
+// ============================================================================
+
+/// Main waterfall engine with tier-based distribution
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct WaterfallEngine {
+    /// Ordered payment tiers
+    pub tiers: Vec<WaterfallTier>,
+    /// Coverage triggers for OC/IC diversion
+    pub coverage_triggers: Vec<CoverageTrigger>,
+    /// Base currency
+    pub base_currency: Currency,
+}
+
+impl WaterfallEngine {
+    /// Create new waterfall engine
+    #[must_use]
+    pub fn new(base_currency: Currency) -> Self {
+        Self {
+            tiers: Vec::new(),
+            coverage_triggers: Vec::new(),
+            base_currency,
+        }
+    }
+
+    /// Add a tier
+    #[must_use]
+    pub fn add_tier(mut self, tier: WaterfallTier) -> Self {
+        self.tiers.push(tier);
+        self.tiers.sort_by_key(|t| t.priority);
+        self
+    }
+
+    /// Add coverage trigger for OC/IC diversion
+    #[must_use]
+    pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
+        self.coverage_triggers.push(trigger);
+        self
+    }
+
+    /// Execute waterfall to distribute available cash.
+    ///
+    /// This is a convenience method that delegates to the free function
+    /// `crate::instruments::structured_credit::pricing::execute_waterfall`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn execute_waterfall(
+        &self,
+        available_cash: finstack_core::money::Money,
+        interest_collections: finstack_core::money::Money,
+        payment_date: finstack_core::dates::Date,
+        tranches: &super::TrancheStructure,
+        pool_balance: finstack_core::money::Money,
+        pool: &super::Pool,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<WaterfallResult> {
+        crate::instruments::structured_credit::pricing::execute_waterfall(
+            self,
+            available_cash,
+            interest_collections,
+            payment_date,
+            tranches,
+            pool_balance,
+            pool,
+            market,
+        )
+    }
+
+    /// Create a standard sequential waterfall for a given tranche structure.
+    ///
+    /// This creates a typical CLO/ABS waterfall with:
+    /// 1. Fees tier (sequential)
+    /// 2. Interest tier (sequential, by priority)
+    /// 3. Principal tier (sequential, by priority, divertible)
+    /// 4. Equity tier (residual)
+    pub fn standard_sequential(
+        base_currency: Currency,
+        tranches: &super::TrancheStructure,
+        fee_recipients: Vec<Recipient>,
+    ) -> Self {
+        let mut engine = Self::new(base_currency);
+        let mut priority = 1;
+
+        // Add fees tier
+        if !fee_recipients.is_empty() {
+            let fees_tier = WaterfallTier::new("fees", priority, PaymentType::Fee)
+                .allocation_mode(AllocationMode::Sequential);
+            let fees_tier = fee_recipients
+                .into_iter()
+                .fold(fees_tier, |tier, recipient| tier.add_recipient(recipient));
+            engine.tiers.push(fees_tier);
+            priority += 1;
+        }
+
+        // Add interest tier
+        let mut sorted_tranches = tranches.tranches.clone();
+        sorted_tranches.sort_by_key(|t| t.payment_priority);
+
+        let mut interest_recipients = Vec::new();
+        for tranche in &sorted_tranches {
+            if tranche.seniority != super::TrancheSeniority::Equity {
+                interest_recipients.push(Recipient::tranche_interest(
+                    format!("{}_interest", tranche.id.as_str()),
+                    tranche.id.as_str(),
+                ));
+            }
+        }
+
+        if !interest_recipients.is_empty() {
+            let interest_tier = WaterfallTier::new("interest", priority, PaymentType::Interest)
+                .allocation_mode(AllocationMode::Sequential);
+            let interest_tier = interest_recipients
+                .into_iter()
+                .fold(interest_tier, |tier, recipient| tier.add_recipient(recipient));
+            engine.tiers.push(interest_tier);
+            priority += 1;
+        }
+
+        // Add principal tier
+        let mut principal_recipients = Vec::new();
+        for tranche in &sorted_tranches {
+            if tranche.seniority != super::TrancheSeniority::Equity {
+                principal_recipients.push(Recipient::tranche_principal(
+                    format!("{}_principal", tranche.id.as_str()),
+                    tranche.id.as_str(),
+                    None,
+                ));
+            }
+        }
+
+        if !principal_recipients.is_empty() {
+            let principal_tier = WaterfallTier::new("principal", priority, PaymentType::Principal)
+                .allocation_mode(AllocationMode::Sequential)
+                .divertible(true);
+            let principal_tier = principal_recipients
+                .into_iter()
+                .fold(principal_tier, |tier, recipient| tier.add_recipient(recipient));
+            engine.tiers.push(principal_tier);
+            priority += 1;
+        }
+
+        // Add equity tier
+        let equity_tier = WaterfallTier::new("equity", priority, PaymentType::Residual)
+            .allocation_mode(AllocationMode::Sequential)
+            .add_recipient(Recipient::new(
+                "equity_distribution",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            ));
+        engine.tiers.push(equity_tier);
+
+        engine
+    }
+}
+
+/// Builder for waterfall engine
+pub struct WaterfallBuilder {
+    engine: WaterfallEngine,
+    next_priority: usize,
+}
+
+impl WaterfallBuilder {
+    /// Create new builder
+    #[must_use]
+    pub fn new(base_currency: Currency) -> Self {
+        Self {
+            engine: WaterfallEngine::new(base_currency),
+            next_priority: 1,
+        }
+    }
+
+    /// Add a tier
+    #[must_use]
+    pub fn add_tier(mut self, mut tier: WaterfallTier) -> Self {
+        if tier.priority == 0 {
+            tier.priority = self.next_priority;
+            self.next_priority += 1;
+        }
+        self.engine = self.engine.add_tier(tier);
+        self
+    }
+
+    /// Add coverage trigger
+    #[must_use]
+    pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
+        self.engine = self.engine.add_coverage_trigger(trigger);
+        self
+    }
+
+    /// Build the waterfall engine
+    #[must_use]
+    pub fn build(self) -> WaterfallEngine {
+        self.engine
+    }
+}
+

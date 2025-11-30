@@ -3,17 +3,11 @@
 //! This module provides deal-type specific constructors that apply
 //! appropriate defaults for ABS, CLO, CMBS, and RMBS instruments.
 
-use super::{BehaviorOverrides, DealMetadata, StructuredCredit};
-use crate::instruments::structured_credit::components::ManagementFeeType;
-use crate::instruments::structured_credit::components::{
-    AllocationMode, AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions,
-    PaymentCalculation, PaymentRecipient, PaymentType, PrepaymentModelSpec, Recipient,
-    RecoveryModelSpec, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
-    WaterfallTier,
-};
-use crate::instruments::structured_credit::types::constants::{
-    ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL,
-    CMBS_MASTER_SERVICER_FEE_BPS, RMBS_SERVICING_FEE_BPS,
+use super::{
+    AllocationMode, AssetPool, BehaviorOverrides, CreditFactors, DealMetadata, DealType,
+    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient,
+    RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    WaterfallEngine, WaterfallTier,
 };
 use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Frequency};
@@ -38,7 +32,6 @@ pub(super) struct DealConfig {
 pub(super) struct InstrumentParams<'a> {
     pub pool: AssetPool,
     pub tranches: TrancheStructure,
-    pub waterfall: WaterfallEngine,
     pub legal_maturity: Date,
     pub discount_curve_id: &'a str,
 }
@@ -187,7 +180,6 @@ impl StructuredCredit {
             deal_type,
             pool: params.pool,
             tranches: params.tranches,
-            waterfall: params.waterfall,
             closing_date,
             first_payment_date: config.first_payment_date,
             reinvestment_end_date: None,
@@ -213,6 +205,10 @@ impl StructuredCredit {
     }
 
     /// Create a new ABS instrument from its building blocks.
+    ///
+    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
+    /// Waterfall is now created dynamically based on deal type.
+    #[allow(unused_variables)]
     pub fn new_abs(
         id: impl Into<String>,
         pool: AssetPool,
@@ -229,7 +225,6 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                waterfall,
                 legal_maturity,
                 discount_curve_id: &disc_id_str,
             },
@@ -251,6 +246,10 @@ impl StructuredCredit {
     }
 
     /// Create a new CLO instrument from its building blocks.
+    ///
+    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
+    /// Waterfall is now created dynamically based on deal type.
+    #[allow(unused_variables)]
     pub fn new_clo(
         id: impl Into<String>,
         pool: AssetPool,
@@ -267,7 +266,6 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                waterfall,
                 legal_maturity,
                 discount_curve_id: &disc_id_str,
             },
@@ -289,6 +287,10 @@ impl StructuredCredit {
     }
 
     /// Create a new CMBS instrument from its building blocks.
+    ///
+    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
+    /// Waterfall is now created dynamically based on deal type.
+    #[allow(unused_variables)]
     pub fn new_cmbs(
         id: impl Into<String>,
         pool: AssetPool,
@@ -305,7 +307,6 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                waterfall,
                 legal_maturity,
                 discount_curve_id: &disc_id_str,
             },
@@ -327,6 +328,10 @@ impl StructuredCredit {
     }
 
     /// Create a new RMBS instrument from its building blocks.
+    ///
+    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
+    /// Waterfall is now created dynamically based on deal type.
+    #[allow(unused_variables)]
     pub fn new_rmbs(
         id: impl Into<String>,
         pool: AssetPool,
@@ -343,7 +348,6 @@ impl StructuredCredit {
             InstrumentParams {
                 pool,
                 tranches,
-                waterfall,
                 legal_maturity,
                 discount_curve_id: &disc_id_str,
             },
@@ -367,63 +371,4 @@ impl StructuredCredit {
         inst
     }
 
-    /// Create waterfall engine based on deal type
-    pub(crate) fn create_waterfall_engine_internal(&self) -> WaterfallEngine {
-        let base_ccy = self.pool.base_currency();
-
-        let fees = match self.deal_type {
-            DealType::ABS => {
-                vec![Recipient::new(
-                    "servicing_fees",
-                    PaymentRecipient::ServiceProvider("Servicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: ABS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            DealType::CLO => {
-                vec![
-                    Recipient::new(
-                        "trustee_fees",
-                        PaymentRecipient::ServiceProvider("Trustee".to_string()),
-                        PaymentCalculation::FixedAmount {
-                            amount: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_ccy),
-                        },
-                    ),
-                    Recipient::new(
-                        "senior_mgmt_fee",
-                        PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-                        PaymentCalculation::PercentageOfCollateral {
-                            rate: CLO_SENIOR_MGMT_FEE_BPS / BASIS_POINTS_DIVISOR,
-                            annualized: true,
-                        },
-                    ),
-                ]
-            }
-            DealType::CMBS => {
-                vec![Recipient::new(
-                    "master_servicing",
-                    PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: CMBS_MASTER_SERVICER_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            DealType::RMBS => {
-                vec![Recipient::new(
-                    "servicing_fees",
-                    PaymentRecipient::ServiceProvider("Servicer".to_string()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: RMBS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
-                        annualized: true,
-                    },
-                )]
-            }
-            _ => vec![],
-        };
-
-        WaterfallEngine::standard_sequential(base_ccy, &self.tranches, fees)
-    }
 }

@@ -5,7 +5,7 @@
 //! - RecoveryCorrelation01: Sensitivity to recovery-default correlation
 //! - PrepaymentVol01: Sensitivity to prepayment volatility
 
-use super::super::tree::ScenarioTreeConfig;
+use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 use super::calculator::StochasticMetricsCalculator;
 
 /// Sensitivity configuration.
@@ -268,7 +268,7 @@ fn bump_prepay_volatility(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::components::stochastic::tree::BranchingSpec;
+    use crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec;
 
     #[test]
     fn test_sensitivity_config_default() {

@@ -16,7 +16,7 @@ use crate::instruments::common::models::correlation::recovery::RecoverySpec;
 
 mod golden_tests {
     use super::*;
-    use crate::instruments::structured_credit::components::stochastic::prepayment::StochasticPrepaySpec;
+    use super::prepayment::StochasticPrepaySpec;
 
     /// Test that 100% PSA deterministic prepayment matches the standard curve.
     ///
@@ -368,7 +368,7 @@ mod property_tests {
     #[test]
     fn test_default_correlation_sensitivity() {
         use crate::instruments::common::models::correlation::copula::CopulaSpec;
-        use crate::instruments::structured_credit::components::stochastic::default::CopulaBasedDefault;
+        use super::default::CopulaBasedDefault;
 
         // Create copula-based default models with different correlations
         let model_low = CopulaBasedDefault::new(0.02, CopulaSpec::Gaussian, 0.10);

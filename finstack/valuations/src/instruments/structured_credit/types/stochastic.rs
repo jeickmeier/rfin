@@ -3,11 +3,11 @@
 //! This module provides methods to enable and configure stochastic
 //! prepayment and default modeling for structured credit instruments.
 
-use super::StructuredCredit;
-use crate::instruments::structured_credit::components::{
-    CorrelationStructure, DealType, PrepaymentModelSpec, StochasticDefaultSpec,
-    StochasticPrepaySpec,
+use super::{DealType, StructuredCredit};
+use crate::instruments::structured_credit::pricing::{
+    CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
 };
+use crate::cashflow::builder::PrepaymentModelSpec;
 
 impl StructuredCredit {
     // =========================================================================

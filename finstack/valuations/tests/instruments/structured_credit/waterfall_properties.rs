@@ -575,7 +575,7 @@ fn property_coverage_test_result_format() {
                 )),
         )
         .add_coverage_trigger(
-            finstack_valuations::instruments::structured_credit::components::waterfall::CoverageTrigger {
+            finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger {
                 tranche_id: "TEST_TRANCHE".into(),
                 oc_trigger: Some(1.25),
                 ic_trigger: Some(1.20),

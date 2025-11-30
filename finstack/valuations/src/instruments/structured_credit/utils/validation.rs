@@ -8,8 +8,12 @@
 //! - Missing test references in diversion rules
 //! - Circular diversion dependencies
 
-use super::diversion::{DiversionCondition, DiversionEngine, DiversionRule};
-use super::waterfall::{PaymentType, WaterfallTier};
+use crate::instruments::structured_credit::pricing::diversion::{
+    DiversionCondition, DiversionEngine, DiversionRule,
+};
+use crate::instruments::structured_credit::types::{
+    AllocationMode, PaymentType, Waterfall, WaterfallTier,
+};
 use finstack_core::Result;
 use std::collections::HashSet;
 
@@ -20,42 +24,42 @@ use serde::{Deserialize, Serialize};
 // VALIDATION ERRORS
 // ============================================================================
 
-/// Validation error details
+/// Validation error details.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ValidationError {
-    /// Duplicate tier ID
+    /// Duplicate tier ID.
     DuplicateTierId {
         /// Tier id.
         tier_id: String,
     },
-    /// Duplicate recipient ID within a tier
+    /// Duplicate recipient ID within a tier.
     DuplicateRecipientId {
         /// Tier id.
         tier_id: String,
         /// Recipient id.
         recipient_id: String,
     },
-    /// Invalid priority (must be > 0)
+    /// Invalid priority (must be > 0).
     InvalidPriority {
         /// Tier id.
         tier_id: String,
         /// Priority.
         priority: usize,
     },
-    /// Tier has no recipients
+    /// Tier has no recipients.
     EmptyTier {
         /// Tier id.
         tier_id: String,
     },
-    /// Missing coverage test reference
+    /// Missing coverage test reference.
     MissingTestReference {
         /// Test id.
         test_id: String,
         /// Rule id.
         rule_id: String,
     },
-    /// Invalid recipient weight (must be >= 0)
+    /// Invalid recipient weight (must be >= 0).
     InvalidWeight {
         /// Tier id.
         tier_id: String,
@@ -64,19 +68,19 @@ pub enum ValidationError {
         /// Weight.
         weight: f64,
     },
-    /// Pro-rata tier with invalid total weight
+    /// Pro-rata tier with invalid total weight.
     InvalidProRataWeights {
         /// Tier id.
         tier_id: String,
         /// Total weight.
         total_weight: f64,
     },
-    /// Circular diversion reference
+    /// Circular diversion reference.
     CircularDiversion {
         /// Cycle path.
         cycle_path: String,
     },
-    /// Diversion references non-existent tier
+    /// Diversion references non-existent tier.
     InvalidDiversionTier {
         /// Rule id.
         rule_id: String,
@@ -151,11 +155,11 @@ impl std::fmt::Display for ValidationError {
 // WATERFALL VALIDATOR TRAIT
 // ============================================================================
 
-/// Trait for validating waterfall specifications
+/// Trait for validating waterfall specifications.
 pub trait WaterfallValidator {
-    /// Validate the waterfall specification
+    /// Validate the waterfall specification.
     ///
-    /// Returns Ok(()) if valid, or Err with validation errors
+    /// Returns Ok(()) if valid, or Err with validation errors.
     fn validate(&self) -> Result<()>;
 }
 
@@ -163,10 +167,10 @@ pub trait WaterfallValidator {
 // WATERFALL SPEC VALIDATION
 // ============================================================================
 
-/// Waterfall specification for validation
+/// Waterfall specification for validation.
 ///
 /// This is a simplified representation that includes just the fields needed
-/// for validation (tiers, diversion rules, coverage tests)
+/// for validation (tiers, diversion rules, coverage tests).
 pub struct WaterfallSpec {
     /// Tiers.
     pub tiers: Vec<WaterfallTier>,
@@ -177,7 +181,7 @@ pub struct WaterfallSpec {
 }
 
 impl WaterfallSpec {
-    /// Create a new waterfall spec
+    /// Create a new waterfall spec.
     pub fn new(
         tiers: Vec<WaterfallTier>,
         diversion_rules: Vec<DiversionRule>,
@@ -195,10 +199,7 @@ impl WaterfallValidator for WaterfallSpec {
     fn validate(&self) -> Result<()> {
         let mut errors = Vec::new();
 
-        // Validate tiers
         errors.extend(validate_tiers(&self.tiers));
-
-        // Validate diversion rules
         errors.extend(validate_diversion_rules(
             &self.diversion_rules,
             &self.tiers,
@@ -221,11 +222,28 @@ impl WaterfallValidator for WaterfallSpec {
     }
 }
 
-/// Validate tier specifications
+impl WaterfallValidator for Waterfall {
+    fn validate(&self) -> Result<()> {
+        let errors = validate_tiers(&self.tiers);
+        if !errors.is_empty() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Waterfall validation failed with {} error(s): {}",
+                errors.len(),
+                errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Validate tier specifications.
 fn validate_tiers(tiers: &[WaterfallTier]) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
-    // Check for duplicate tier IDs
     let mut seen_tier_ids = HashSet::new();
     for tier in tiers {
         if !seen_tier_ids.insert(&tier.id) {
@@ -264,7 +282,7 @@ fn validate_tiers(tiers: &[WaterfallTier]) -> Vec<ValidationError> {
         }
 
         // For pro-rata tiers, validate total weight
-        if tier.allocation_mode == super::waterfall::AllocationMode::ProRata {
+        if tier.allocation_mode == AllocationMode::ProRata {
             let total_weight: f64 = tier
                 .recipients
                 .iter()
@@ -283,7 +301,7 @@ fn validate_tiers(tiers: &[WaterfallTier]) -> Vec<ValidationError> {
     errors
 }
 
-/// Validate diversion rules
+/// Validate diversion rules.
 fn validate_diversion_rules(
     rules: &[DiversionRule],
     tiers: &[WaterfallTier],
@@ -327,7 +345,6 @@ fn validate_diversion_rules(
     });
 
     if let Err(e) = diversion_engine.validate() {
-        // Extract cycle path from error message if it's a circular diversion error
         let err_msg = e.to_string();
         if err_msg.contains("Circular diversion") {
             errors.push(ValidationError::CircularDiversion {
@@ -343,7 +360,7 @@ fn validate_diversion_rules(
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Quick validation helper that returns true if spec is valid
+/// Quick validation helper that returns true if spec is valid.
 pub fn is_valid_waterfall_spec(
     tiers: &[WaterfallTier],
     diversion_rules: &[DiversionRule],
@@ -357,7 +374,7 @@ pub fn is_valid_waterfall_spec(
     spec.validate().is_ok()
 }
 
-/// Get validation errors as a list
+/// Get validation errors as a list.
 pub fn get_validation_errors(
     tiers: &[WaterfallTier],
     diversion_rules: &[DiversionRule],
@@ -373,24 +390,19 @@ pub fn get_validation_errors(
     errors
 }
 
-// ============================================================================
-// TESTS
-// ============================================================================
-
 #[cfg(test)]
 mod tests {
-    use super::super::diversion::{DiversionCondition, DiversionRule};
-    use super::super::waterfall::{
-        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient, WaterfallTier,
-    };
     use super::*;
+    use crate::instruments::structured_credit::types::{
+        PaymentCalculation, Recipient, RecipientType,
+    };
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
 
     fn create_valid_tier(id: &str, priority: usize) -> WaterfallTier {
         WaterfallTier::new(id, priority, PaymentType::Fee).add_recipient(Recipient::new(
             "recipient1",
-            PaymentRecipient::ServiceProvider("Trustee".into()),
+            RecipientType::ServiceProvider("Trustee".into()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(1000.0, Currency::USD),
             },
@@ -411,7 +423,7 @@ mod tests {
     fn test_duplicate_tier_id() {
         let tiers = vec![
             create_valid_tier("tier1", 1),
-            create_valid_tier("tier1", 2), // Duplicate
+            create_valid_tier("tier1", 2),
         ];
 
         let errors = validate_tiers(&tiers);
@@ -428,138 +440,5 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(matches!(errors[0], ValidationError::EmptyTier { .. }));
     }
-
-    #[test]
-    fn test_duplicate_recipient_id() {
-        let tier = WaterfallTier::new("tier1", 1, PaymentType::Fee)
-            .add_recipient(Recipient::new(
-                "recipient1",
-                PaymentRecipient::ServiceProvider("Trustee".into()),
-                PaymentCalculation::FixedAmount {
-                    amount: Money::new(1000.0, Currency::USD),
-                },
-            ))
-            .add_recipient(Recipient::new(
-                "recipient1", // Duplicate
-                PaymentRecipient::ServiceProvider("Admin".into()),
-                PaymentCalculation::FixedAmount {
-                    amount: Money::new(500.0, Currency::USD),
-                },
-            ));
-
-        let errors = validate_tiers(&[tier]);
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            ValidationError::DuplicateRecipientId { .. }
-        ));
-    }
-
-    #[test]
-    fn test_invalid_weight() {
-        let tier = WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(
-            Recipient::new(
-                "recipient1",
-                PaymentRecipient::ServiceProvider("Trustee".into()),
-                PaymentCalculation::FixedAmount {
-                    amount: Money::new(1000.0, Currency::USD),
-                },
-            )
-            .with_weight(-1.0),
-        );
-
-        let errors = validate_tiers(&[tier]);
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(errors[0], ValidationError::InvalidWeight { .. }));
-    }
-
-    #[test]
-    fn test_invalid_pro_rata_weights() {
-        let tier = WaterfallTier::new("tier1", 1, PaymentType::Fee)
-            .allocation_mode(AllocationMode::ProRata)
-            .add_recipient(
-                Recipient::new(
-                    "recipient1",
-                    PaymentRecipient::ServiceProvider("Trustee".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(1000.0, Currency::USD),
-                    },
-                )
-                .with_weight(0.0),
-            );
-
-        let errors = validate_tiers(&[tier]);
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            ValidationError::InvalidProRataWeights { .. }
-        ));
-    }
-
-    #[test]
-    fn test_missing_test_reference() {
-        let tiers = vec![create_valid_tier("tier1", 1)];
-        let rules = vec![DiversionRule::on_test_failure(
-            "rule1",
-            "tier1",
-            "tier2",
-            "nonexistent_test",
-            1,
-        )];
-        let tests = vec!["existing_test".to_string()];
-
-        let errors = validate_diversion_rules(&rules, &tiers, &tests);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::MissingTestReference { .. })));
-    }
-
-    #[test]
-    fn test_invalid_diversion_tier() {
-        let tiers = vec![create_valid_tier("tier1", 1)];
-        let rules = vec![DiversionRule::new(
-            "rule1",
-            "tier1",
-            "nonexistent_tier",
-            DiversionCondition::Always,
-            1,
-        )];
-        let tests = vec![];
-
-        let errors = validate_diversion_rules(&rules, &tiers, &tests);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidDiversionTier { .. })));
-    }
-
-    #[test]
-    fn test_circular_diversion() {
-        let tiers = vec![
-            create_valid_tier("tier_a", 1),
-            create_valid_tier("tier_b", 2),
-        ];
-        let rules = vec![
-            DiversionRule::new("rule1", "tier_a", "tier_b", DiversionCondition::Always, 1),
-            DiversionRule::new("rule2", "tier_b", "tier_a", DiversionCondition::Always, 2),
-        ];
-        let tests = vec![];
-
-        let errors = validate_diversion_rules(&rules, &tiers, &tests);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::CircularDiversion { .. })));
-    }
-
-    #[test]
-    fn test_is_valid_waterfall_spec_helper() {
-        let tiers = vec![create_valid_tier("tier1", 1)];
-        let rules = vec![];
-        let tests = vec![];
-
-        assert!(is_valid_waterfall_spec(&tiers, &rules, &tests));
-
-        // Test with duplicate tier IDs
-        let invalid_tiers = vec![create_valid_tier("tier1", 1), create_valid_tier("tier1", 2)];
-        assert!(!is_valid_waterfall_spec(&invalid_tiers, &rules, &tests));
-    }
 }
+

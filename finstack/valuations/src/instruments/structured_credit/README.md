@@ -26,41 +26,36 @@ let result = clo.price_with_metrics(&context, as_of, &[
 
 ```
 structured_credit/
-├── mod.rs              # Main module with comprehensive documentation
+├── mod.rs              # Main module with exports and documentation
+├── pricer.rs           # StructuredCreditDiscountingPricer
 ├── README.md           # This file
 │
-├── types/              # Main instrument types
+├── types/              # All data structures
 │   ├── mod.rs          # StructuredCredit struct, trait implementations
 │   ├── constructors.rs # new_abs(), new_clo(), new_cmbs(), new_rmbs()
+│   ├── constants.rs    # Industry constants (PSA, SDA, fees, etc.)
+│   ├── enums.rs        # DealType, AssetType, TrancheSeniority, etc.
+│   ├── pool.rs         # AssetPool, PoolAsset, ReinvestmentPeriod
+│   ├── tranches.rs     # Tranche, TrancheStructure, TrancheCoupon
+│   ├── waterfall.rs    # WaterfallEngine, WaterfallTier, Recipient
+│   ├── results.rs      # TrancheCashflows, TrancheValuation
+│   ├── setup.rs        # DealConfig, DealDates, DealFees
 │   ├── reinvestment.rs # ReinvestmentManager for CLO reinvestment periods
 │   └── stochastic.rs   # Stochastic configuration helpers
 │
-├── config/             # Configuration and constants
+├── pricing/            # Pricing and cashflow projection (pure functions)
 │   ├── mod.rs          # Re-exports
-│   ├── constants.rs    # Industry constants (PSA, SDA, fees, etc.)
-│   └── structures.rs   # DealConfig, DealDates, DealFees, CoverageTestConfig
-│
-├── components/         # Building blocks (organized by pricing mode)
-│   ├── mod.rs          # Re-exports with clear common/deterministic/stochastic grouping
-│   │
-│   │   # COMMON (both deterministic & stochastic)
-│   ├── enums.rs        # DealType, AssetType, TrancheSeniority, PaymentMode
-│   ├── pool.rs         # AssetPool, PoolAsset, PoolStats
-│   ├── tranches.rs     # Tranche, TrancheStructure, TrancheCoupon
-│   ├── waterfall.rs    # WaterfallEngine, WaterfallTier, Recipient
+│   ├── deterministic.rs # Core simulation loop
+│   ├── waterfall.rs    # Waterfall execution logic
 │   ├── coverage_tests.rs # OC/IC test calculations
 │   ├── diversion.rs    # Diversion rules with cycle detection
-│   ├── validation.rs   # WaterfallValidator, ValidationError
-│   ├── rates.rs        # CPR/SMM, CDR/MDR, PSA conversions
-│   ├── rate_helpers.rs # Floating rate projection helpers
-│   ├── tranche_valuation.rs # Per-tranche WAL, duration, Z-spread, CS01
-│   │
-│   │   # DETERMINISTIC (single-path behavioral models)
-│   ├── specs.rs        # PSA, SDA, constant CPR/CDR curves
-│   ├── market_context.rs # MarketConditions, CreditFactors for behavioral models
-│   │
-│   │   # STOCHASTIC (multi-path simulation)
-│   └── stochastic/     # Copula, intensity, factor models (see stochastic/README.md)
+│   └── stochastic/     # Stochastic pricing
+│       ├── prepayment/ # Factor-correlated, Richard-Roll models
+│       ├── default/    # Copula-based, intensity process models
+│       ├── correlation/ # Correlation structures
+│       ├── tree/       # Scenario tree infrastructure
+│       ├── pricer/     # Stochastic pricing engine
+│       └── metrics/    # Risk metrics and sensitivities
 │
 ├── metrics/            # Risk metrics by category
 │   ├── mod.rs          # Registration function, re-exports
@@ -69,15 +64,14 @@ structured_credit/
 │   ├── pool/           # WARF, WAS, CPR, CDR pool characteristics
 │   └── deal_specific/  # ABS, CLO, CMBS, RMBS-specific metrics
 │
-├── templates/          # Reusable waterfall templates
-│   ├── mod.rs          # Template registry
-│   ├── clo.rs          # CLO 2.0 standard waterfall
-│   ├── cmbs.rs         # CMBS standard waterfall
-│   └── cre.rs          # CRE operating company waterfall
+├── utils/              # Helper functions
+│   ├── mod.rs          # Re-exports
+│   ├── rates.rs        # cpr_to_smm, cdr_to_mdr, psa_to_cpr
+│   ├── rate_helpers.rs # Floating rate projection helpers
+│   ├── simulation.rs   # RecoveryQueue, PeriodFlows
+│   └── validation.rs   # Waterfall validation
 │
-├── pricer.rs           # StructuredCreditDiscountingPricer
-├── instrument_trait.rs # StructuredCreditInstrument trait + simulation
-└── simulation_helpers.rs # Internal simulation helpers
+└── templates/          # Pre-built deal templates
 ```
 
 ## Deal Types
@@ -91,9 +85,9 @@ structured_credit/
 
 ## Behavioral Models
 
-### Deterministic Models (`components/specs.rs`)
+### Deterministic Models
 
-Single-path models for standard valuation:
+Single-path models for standard valuation (from `types::DefaultModelSpec`, `types::PrepaymentModelSpec`):
 
 | Model | Type | Use Case |
 |-------|------|----------|
@@ -103,9 +97,9 @@ Single-path models for standard valuation:
 | **Constant CDR** | Default | Flat annual rate |
 | **Constant Recovery** | Recovery | Fixed rate with lag |
 
-### Stochastic Models (`components/stochastic/`)
+### Stochastic Models
 
-Multi-path simulation for advanced analytics:
+Multi-path simulation for advanced analytics (from `pricing::stochastic`):
 
 | Model | Type | Use Case |
 |-------|------|----------|
@@ -135,7 +129,10 @@ Pool Cashflows → Fees → Senior Interest → Subordinate Interest → Princip
 ## Key APIs
 
 ### Creating Instruments
+
 ```rust
+use finstack_valuations::instruments::structured_credit::prelude::*;
+
 // With defaults
 let clo = StructuredCredit::new_clo(id, pool, tranches, waterfall, close, maturity, curve);
 let abs = StructuredCredit::new_abs(...);
@@ -153,6 +150,7 @@ let deal = StructuredCredit::builder()
 ```
 
 ### Valuation
+
 ```rust
 // Simple NPV
 let pv = deal.value(&context, as_of)?;
@@ -164,8 +162,47 @@ let result = deal.price_with_metrics(&context, as_of, &[MetricId::WAL])?;
 let tranche_val = deal.value_tranche_with_metrics("CLASS_A", &context, as_of, &metrics)?;
 ```
 
-### Stochastic Pricing
+### Waterfall Execution
+
 ```rust
+use finstack_valuations::instruments::structured_credit::{
+    WaterfallBuilder, WaterfallTier, Recipient, PaymentType, AllocationMode,
+    execute_waterfall,
+};
+
+// Build waterfall
+let waterfall = WaterfallBuilder::new(Currency::USD)
+    .add_tier(
+        WaterfallTier::new("fees", 1, PaymentType::Fee)
+            .add_recipient(Recipient::fixed_fee("trustee", "Trustee", Money::new(25_000.0, Currency::USD)))
+    )
+    .add_tier(
+        WaterfallTier::new("interest", 2, PaymentType::Interest)
+            .allocation_mode(AllocationMode::Sequential)
+            .add_recipient(Recipient::tranche_interest("A_INT", "CLASS_A"))
+    )
+    .build();
+
+// Execute (free function API)
+let result = execute_waterfall(
+    &waterfall, available_cash, interest_collections, payment_date,
+    &tranches, pool_balance, &pool, &market,
+)?;
+
+// Or method API
+let result = waterfall.execute_waterfall(
+    available_cash, interest_collections, payment_date,
+    &tranches, pool_balance, &pool, &market,
+)?;
+```
+
+### Stochastic Pricing
+
+```rust
+use finstack_valuations::instruments::structured_credit::pricing::stochastic::{
+    StochasticPrepaySpec, StochasticDefaultSpec, CorrelationStructure,
+};
+
 // Enable stochastic models
 deal.enable_stochastic_defaults();
 
@@ -175,19 +212,65 @@ deal.with_stochastic_prepay(StochasticPrepaySpec::rmbs_agency(0.045))
     .with_correlation(CorrelationStructure::rmbs_standard());
 ```
 
+### Rate Conversions
+
+```rust
+use finstack_valuations::instruments::structured_credit::{
+    cpr_to_smm, smm_to_cpr, cdr_to_mdr, mdr_to_cdr, psa_to_cpr,
+};
+
+let smm = cpr_to_smm(0.06);       // 6% annual CPR → monthly SMM
+let cpr = psa_to_cpr(1.5, 30);    // 150% PSA at month 30
+let mdr = cdr_to_mdr(0.02);       // 2% annual CDR → monthly MDR
+```
+
 ## Configuration
 
-### Constants (`config/constants.rs`)
+### Constants (`types/constants.rs`)
 - Fee defaults (CLO_SENIOR_MGMT_FEE_BPS, etc.)
 - PSA/SDA model parameters
 - Concentration limits
 
-### Structures (`config/structures.rs`)
+### Structures (`types/setup.rs`)
 - `DealConfig` - Complete deal configuration
 - `DealDates` - Key dates
 - `DealFees` - Fee structure by deal type
 - `CoverageTestConfig` - OC/IC triggers
 - `DefaultAssumptions` - Behavioral assumptions
+
+## Coverage Triggers
+
+Two types of coverage triggers are available:
+
+### Tranche-Level Triggers (`CoverageTrigger`)
+
+Used for tranche-specific OC/IC thresholds:
+
+```rust
+use finstack_valuations::instruments::structured_credit::{
+    CoverageTrigger, TriggerConsequence,
+};
+
+let trigger = CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow)
+    .with_cure_level(1.25);
+```
+
+### Waterfall-Level Triggers (`WaterfallCoverageTrigger`)
+
+Used when building waterfalls with coverage test diversion:
+
+```rust
+use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger;
+
+let waterfall = WaterfallBuilder::new(Currency::USD)
+    // ... add tiers ...
+    .add_coverage_trigger(WaterfallCoverageTrigger {
+        tranche_id: "CLASS_A".into(),
+        oc_trigger: Some(1.25),
+        ic_trigger: Some(1.20),
+    })
+    .build();
+```
 
 ## Primary Documentation
 
@@ -198,7 +281,7 @@ The most comprehensive documentation is in `mod.rs`, which includes:
 - Academic/industry references
 - Usage examples
 
-See also `components/stochastic/README.md` for stochastic modeling.
+See also `pricing/stochastic/README.md` for stochastic modeling.
 
 ## Related Crates
 

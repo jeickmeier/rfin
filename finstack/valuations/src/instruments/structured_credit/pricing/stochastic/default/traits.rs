@@ -6,7 +6,7 @@
 /// Macroeconomic credit factors affecting default rates.
 ///
 /// These are economy-wide factors that influence default behavior,
-/// distinct from individual loan-level `CreditFactors` in `market_context.rs`.
+/// distinct from individual loan-level `CreditFactors` in the types module.
 #[derive(Clone, Debug, Default)]
 pub struct MacroCreditFactors {
     /// Unemployment rate (e.g., 0.05 for 5%)

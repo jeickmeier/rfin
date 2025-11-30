@@ -7,231 +7,86 @@
 //! - Overcollateralization and coverage tests
 //! - Deal-specific metrics (WAL, WARF, WAS, DSCR, LTV)
 //!
-//! This unified implementation consolidates ABS, RMBS, CMBS, and CLO into a single
-//! `StructuredCredit` type with deal-type-specific behaviors, eliminating ~1,400 lines
-//! of duplicate code while maintaining full feature parity.
-//!
-//! # Structured Credit Overview
-//!
-//! Structured credit securities are backed by pools of loans or receivables,
-//! with cashflows distributed to multiple tranches based on seniority and
-//! performance triggers. The fundamental structure:
-//!
-//! **Assets → Pool Cashflows → Waterfall → Tranches**
-//!
-//! # Deal Types
-//!
-//! ## ABS (Asset-Backed Securities)
-//! - **Collateral**: Auto loans, credit cards, student loans, equipment leases
-//! - **Prepayment**: CPR or ABS speed curve
-//! - **Default**: CDR with severity
-//! - **Key metrics**: Charge-off rate, delinquency, excess spread
-//!
-//! ## RMBS (Residential Mortgage-Backed Securities)
-//! - **Collateral**: Residential mortgages
-//! - **Prepayment**: PSA model (Public Securities Association curve)
-//! - **Default**: SDA model (Standard Default Assumption)
-//! - **Key metrics**: FICO score, LTV, WAC, WAM
-//!
-//! ## CMBS (Commercial Mortgage-Backed Securities)
-//! - **Collateral**: Commercial real estate mortgages
-//! - **Prepayment**: Lockout, defeasance, yield maintenance
-//! - **Default**: Property-level modeling
-//! - **Key metrics**: DSCR (debt service coverage), LTV, property type concentration
-//!
-//! ## CLO (Collateralized Loan Obligations)
-//! - **Collateral**: Leveraged loans (typically BB/B rated)
-//! - **Prepayment**: Loan repayment and refinancing
-//! - **Default**: Obligor default with recovery
-//! - **Key metrics**: WARF (weighted average rating factor), WAS (weighted average spread)
-//!
-//! # Waterfall Mechanics
-//!
-//! Cashflows from the collateral pool are distributed via waterfall:
-//!
-//! 1. **Fees**: Servicing, trustee, management fees
-//! 2. **Senior interest**: Most senior tranche gets interest
-//! 3. **Subordinate interest**: Lower tranches get interest (if coverage tests pass)
-//! 4. **Principal**: Sequential-pay (senior first) or pro-rata
-//! 5. **Equity**: Residual to equity tranche
-//!
-//! ## Sequential Pay
-//! Principal pays down tranches in order of seniority until fully redeemed.
-//!
-//! ## Pro Rata
-//! Principal distributed proportionally across tranches.
-//!
-//! ## Coverage Tests
-//! If tests fail, principal may be redirected to senior tranches (turbo):
-//! - **OC test**: Overcollateralization ratio
-//! - **IC test**: Interest coverage ratio
-//!
-//! # Pricing Methodology
-//!
-//! Structured credit pricing requires:
-//!
-//! 1. **Pool cashflow projection**: Apply prepayment/default/recovery models
-//! 2. **Waterfall execution**: Distribute pool cashflows per deal rules
-//! 3. **Tranche valuation**: Discount tranche cashflows at appropriate spread
-//!
-//! ```text
-//! Tranche_PV = Σ Tranche_CF(t) × DF(t, spread)
-//! ```
-//!
-//! # Behavioral Models
-//!
-//! ## Prepayment Models
-//! - **PSA (RMBS)**: Public Securities Association curve (100% PSA = 0.2% → 6% CPR over 30 months)
-//! - **CPR (General)**: Constant prepayment rate
-//! - **ABS speed**: Deal-specific speed curves
-//!
-//! ## Default Models
-//! - **CDR**: Constant default rate
-//! - **SDA (RMBS)**: Standard Default Assumption curve
-//! - **Vintage curves**: Historical cohort performance
-//!
-//! ## Recovery Models
-//! - **Constant severity**: Fixed loss given default (e.g., 40%)
-//! - **Time-varying**: Recovery varies with market conditions
-//! - **Collateral-based**: Recovery from underlying asset value
-//!
-//! # Key Metrics by Deal Type
-//!
-//! **ABS Metrics:**
-//! - Charge-off rate, Delinquency rate, Excess spread, Speed
-//!
-//! **RMBS Metrics:**
-//! - Weighted average FICO, Weighted average LTV, WAC, WAM, CPR, CDR
-//!
-//! **CMBS Metrics:**
-//! - DSCR, LTV, Property type concentration, WAC
-//!
-//! **CLO Metrics:**
-//! - WARF (rating factor), WAS (spread), Obligor concentration, Covenant compliance
-//!
-//! **Common Metrics:**
-//! - WAL (weighted average life), Duration, Convexity, Z-spread, OAS
-//! - DV01, CS01, Prepayment01, Default01, Recovery01, Severity01
-//!
-//! # References
-//!
-//! ## Industry Standards
-//!
-//! - S&P Global Ratings. "CDO Evaluator Applies Correlation and Monte Carlo
-//!   Simulation to Determine Portfolio Quality." Ratings Direct, various editions.
-//!
-//! - Moody's Investors Service. "WARF®: Measuring Portfolio Credit Risk in CLOs."
-//!   Special Comment, December 2009.
-//!
-//! ## Academic References
-//!
-//! - Hu, J. (2007). "Assessing the Credit Risk of CDOs Backed by Structured Finance
-//!   Securities: Rating Analysts' Challenges and Solutions." *Working Paper*, Federal
-//!   Reserve Bank of Chicago.
-//!
-//! - Duffie, D., & Gârleanu, N. (2001). "Risk and Valuation of Collateralized Debt
-//!   Obligations." *Financial Analysts Journal*, 57(1), 41-59.
-//!
-//! - Goodman, L. S., Li, S., Lucas, D. J., Zimmerman, T. A., & Fabozzi, F. J. (2008).
-//!   *Subprime Mortgage Credit Derivatives*. Wiley.
-//!
-//! ## Prepayment and Default Models
-//!
-//! - PSA Standard: Public Securities Association (1985). "PSA Prepayment Model."
-//!
-//! - Schwartz, E. S., & Torous, W. N. (1989). "Prepayment and the Valuation of
-//!   Mortgage-Backed Securities." *Journal of Finance*, 44(2), 375-392.
-//!
-//! # Implementation Notes
-//!
-//! - **Unified type**: Single `StructuredCredit` handles all deal types
-//! - **Deal-specific behavior**: Controlled via `DealType` enum
-//! - **Waterfall engine**: Generic waterfall with configurable rules
-//! - **Performance**: Optimized for repeated scenario analysis
-//! - **Serialization**: Full serde support for deal specifications
-//!
 //! # Module Organization
 //!
-//! - [`components`]: Structural elements (pool, tranches, waterfall, coverage tests)
-//! - [`metrics`]: Risk metrics organized by category (pricing, risk, pool, deal-specific)
-//! - [`types`]: Main `StructuredCredit` instrument type and `ReinvestmentManager`
-//! - [`pricer`]: Waterfall execution and valuation
-//! - [`config`]: Deal configuration, fees, and industry constants
+//! - [`types`]: All data structures (instrument, pool, tranches, waterfall, results)
+//! - [`pricing`]: Pure functions for cashflow simulation and waterfall execution
+//! - [`metrics`]: Risk metrics organized by category
+//! - [`utils`]: Helper functions (rate conversions, validation)
 //!
 //! # See Also
 //!
 //! - [`StructuredCredit`] for main instrument struct
 //! - [`DealType`] for ABS/RMBS/CMBS/CLO specification
-//! - [`AssetPool`] for collateral pool modeling
+//! - [`Pool`] for collateral pool modeling
 //! - [`Tranche`] for tranche structure
-//! - [`WaterfallEngine`] for cashflow distribution
-//! - [`PrepaymentModelSpec`] for prepayment behavior
-//! - [`DefaultModelSpec`] for default behavior
-//! - [`RecoveryModelSpec`] for recovery modeling
+//! - [`Waterfall`] for cashflow distribution
 
-pub mod components;
+// ============================================================================
+// MODULES
+// ============================================================================
+
 pub mod config {
     //! Configuration and constants for structured credit instruments.
-    //!
-    //! This inline module preserves the legacy
-    //! `crate::instruments::structured_credit::config` API while the
-    //! underlying configuration types live in `types`.
-
-    /// Industry-standard constants and defaults used across structured
-    /// credit modeling. Re-exported from `types::constants`.
+    
+    /// Industry-standard constants for structured credit modeling.
     pub mod constants {
         pub use crate::instruments::structured_credit::types::constants::*;
     }
-
-    // Re-export all constants and configuration structures for
-    // backward-compatible access via `structured_credit::config::*`.
-    pub use constants::*;
     pub use crate::instruments::structured_credit::types::setup::{
         CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
     };
+    pub use constants::*;
 }
-pub mod instrument_trait;
+
+// New module structure
 pub mod metrics;
+pub mod pricing;
 pub mod pricer;
-pub mod simulation_helpers;
-pub mod templates;
 pub mod types;
+pub mod utils;
+
+
+// ============================================================================
+// PRELUDE
+// ============================================================================
 
 /// Prelude module for end-users.
-///
-/// Import this module to get the most commonly used types for working with
-/// structured credit instruments.
-///
-/// See unit tests and `examples/` for usage.
 pub mod prelude {
     // Main types
     pub use super::DealType;
     pub use super::StructuredCredit;
 
     // Building blocks
-    pub use super::calculate_pool_stats;
-    pub use super::AssetPool;
+    pub use super::Pool;
     pub use super::PoolAsset;
     pub use super::Tranche;
     pub use super::TrancheBuilder;
     pub use super::TrancheCoupon;
-    pub use super::TrancheSeniority;
     pub use super::TrancheStructure;
 
-    // Behavioral models (as specs for serialization)
+    // Seniority
+    pub use super::Seniority;
+
+    // Waterfall
+    pub use super::Waterfall;
+    pub use super::WaterfallBuilder;
+    pub use super::WaterfallTier;
+
+    // Behavioral models
     pub use super::DefaultModelSpec;
     pub use super::PrepaymentModelSpec;
     pub use super::RecoveryModelSpec;
 
     // Metadata and overrides
-    pub use super::BehaviorOverrides;
-    pub use super::DealMetadata;
+    pub use super::Metadata;
+    pub use super::Overrides;
 
     // Enums
     pub use super::AssetType;
 
     // Results
-    pub use super::TrancheCashflowResult;
+    pub use super::TrancheCashflows;
     pub use super::TrancheValuation;
     pub use super::TrancheValuationExt;
 
@@ -242,193 +97,119 @@ pub mod prelude {
 }
 
 // ============================================================================
-// Main instrument type and pricer
+// MAIN TYPES
 // ============================================================================
 
 pub use pricer::StructuredCreditDiscountingPricer;
-pub use types::{BehaviorOverrides, DealMetadata, StructuredCredit};
+pub use types::{
+    // Main instrument
+    StructuredCredit,
+    // Metadata
+    BehaviorOverrides, DealMetadata, Metadata, Overrides,
+    // Pool types
+    calculate_pool_stats, ConcentrationCheckResult, ConcentrationViolation, Pool, PoolAsset,
+    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
+    // Tranche types
+    CoverageTrigger, CreditEnhancement, Seniority, Tranche, TrancheBehaviorType, TrancheBuilder,
+    TrancheCoupon, TrancheStructure,
+    // Waterfall types
+    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
+    PaymentType, Recipient, RecipientType, Waterfall, WaterfallBuilder, WaterfallDistribution,
+    WaterfallTier, WaterfallWorkspace,
+    // Result types
+    TrancheCashflows, TrancheValuation, TrancheValuationExt,
+    // Enums
+    AssetType, DealType, PaymentMode, TriggerConsequence,
+    // Configuration
+    CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
+    // Reinvestment
+    ReinvestmentManager,
+    // Stochastic specs
+    CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
+};
+
+// Behavioral models
+pub use types::{CreditFactors, DefaultModelSpec, MarketConditions, PrepaymentModelSpec, RecoveryModelSpec};
+pub use crate::cashflow::builder::{DefaultCurve, PrepaymentCurve};
+
+// Legacy re-exports for backward compatibility
+pub use types::enums::TrancheSeniority;
+pub use types::pool::AssetPool;
 
 // ============================================================================
-// Components (structural + behavioral)
+// UTILITIES
 // ============================================================================
 
-pub use components::{
-    // Rate conversion utilities
-    calculate_pool_stats,
-    calculate_tranche_cs01,
-    calculate_tranche_duration,
-    calculate_tranche_wal,
-    calculate_tranche_z_spread,
-    cdr_to_mdr,
-    cpr_to_smm,
-    get_validation_errors,
-    is_valid_waterfall_spec,
-    mdr_to_cdr,
-    psa_to_cpr,
-    smm_to_cpr,
-    AllocationMode,
-    // Pool
-    AssetPool,
-    // Enumerations
-    AssetType,
-    ConcentrationCheckResult,
-    ConcentrationViolation,
-    // Coverage tests
-    CoverageTest,
-    CoverageTestType,
-    CoverageTrigger,
-    CreditEnhancement,
-    CreditFactors,
-    DealType,
-    // Behavioral models
-    DefaultCurve,
-    DefaultModelSpec,
-    // Diversion system
-    DiversionCondition,
-    DiversionEngine,
-    DiversionRule,
-    ManagementFeeType,
-    // Market context
-    MarketConditions,
-    MarketFactors,
-    PaymentCalculation,
-    PaymentMode,
-    PaymentRecipient,
-    PaymentRecord,
-    PaymentType,
-    PoolAsset,
-    PoolStats,
-    PrepaymentCurve,
-    PrepaymentModelSpec,
-    Recipient,
-    RecoveryModelSpec,
-    ReinvestmentCriteria,
-    ReinvestmentPeriod,
-    TestContext,
-    TestResult,
-    // Tranches
-    Tranche,
-    TrancheBehaviorType,
-    TrancheBuilder,
-    // Tranche valuation
-    TrancheCashflowResult,
-    TrancheCoupon,
-    TrancheSeniority,
-    TrancheStructure,
-    TrancheValuation,
-    TrancheValuationExt,
-    TriggerConsequence,
-    // Validation
-    ValidationError,
-    WaterfallBuilder,
-    // Waterfall
-    WaterfallEngine,
-    WaterfallResult,
-    WaterfallTier,
-    WaterfallValidator,
-    // Workspace for zero-allocation waterfall execution
-    WaterfallWorkspace,
+pub use utils::{
+    cdr_to_mdr, cpr_to_smm, get_validation_errors, is_valid_waterfall_spec, mdr_to_cdr, psa_to_cpr,
+    smm_to_cpr, ValidationError,
 };
 
 // ============================================================================
-// Metrics (re-exported for convenience)
+// PRICING FUNCTIONS
+// ============================================================================
+
+pub use pricing::{
+    execute_waterfall, execute_waterfall_with_workspace, generate_cashflows,
+    generate_tranche_cashflows, run_simulation,
+};
+
+pub use pricing::coverage_tests::{CoverageTest, TestContext, TestResult};
+pub use pricing::diversion::{DiversionCondition, DiversionEngine, DiversionRule};
+
+// ============================================================================
+// METRICS
 // ============================================================================
 
 pub use metrics::{
-    // Registration function
-    register_structured_credit_metrics,
+    calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
+    calculate_tranche_z_spread, register_structured_credit_metrics,
     // Deal-specific metrics
-    AbsChargeOffCalculator,
-    AbsCreditEnhancementCalculator,
-    AbsDelinquencyCalculator,
-    AbsExcessSpreadCalculator,
-    AbsSpeedCalculator,
+    AbsChargeOffCalculator, AbsCreditEnhancementCalculator, AbsDelinquencyCalculator,
+    AbsExcessSpreadCalculator, AbsSpeedCalculator,
     // Pricing metrics
-    AccruedCalculator,
-    CdrCalculator,
-    CleanPriceCalculator,
-    CloWalCalculator,
-    CloWarfCalculator,
-    CloWasCalculator,
-    CmbsDscrCalculator,
-    CmbsLtvCalculator,
-    CprCalculator,
-    Cs01Calculator,
+    AccruedCalculator, CdrCalculator, CleanPriceCalculator, CloWalCalculator, CloWarfCalculator,
+    CloWasCalculator, CmbsDscrCalculator, CmbsLtvCalculator, CprCalculator, Cs01Calculator,
     DirtyPriceCalculator,
     // Risk metrics
-    MacaulayDurationCalculator,
-    ModifiedDurationCalculator,
-    RmbsFicoCalculator,
-    RmbsLtvCalculator,
-    RmbsWalCalculator,
-    SpreadDurationCalculator,
-    WalCalculator,
+    MacaulayDurationCalculator, ModifiedDurationCalculator, RmbsFicoCalculator, RmbsLtvCalculator,
+    RmbsWalCalculator, SpreadDurationCalculator, WalCalculator,
     // Pool metrics
-    WamCalculator,
-    YtmCalculator,
-    ZSpreadCalculator,
+    WamCalculator, YtmCalculator, ZSpreadCalculator,
 };
 
 // ============================================================================
-// Configuration and utilities
+// CONSTANTS
 // ============================================================================
-
-pub use types::setup::{
-    CoverageTestConfig,
-    // Deal configuration
-    DealConfig,
-    DealDates,
-    DealFees,
-    DefaultAssumptions,
-};
 
 pub use types::constants::{
-    ABS_SERVICING_FEE_BPS,
-    BASELINE_UNEMPLOYMENT_RATE,
-    BASIS_POINTS_DIVISOR,
-    CLO_SENIOR_MGMT_FEE_BPS,
-    CLO_SUBORDINATED_MGMT_FEE_BPS,
-    CLO_TRUSTEE_FEE_ANNUAL,
-    CMBS_MASTER_SERVICER_FEE_BPS,
-    CMBS_SPECIAL_SERVICER_FEE_BPS,
-    CREDIT_CARD_SEASONALITY,
-    // Constants
-    DAYS_PER_YEAR,
-    DEFAULT_AUTO_ABS_SPEED,
-    DEFAULT_AUTO_RAMP_MONTHS,
-    DEFAULT_BURNOUT_THRESHOLD_MONTHS,
-    DEFAULT_MAX_COV_LITE,
-    DEFAULT_MAX_DIP,
-    DEFAULT_MAX_OBLIGOR_CONCENTRATION,
-    DEFAULT_MAX_SECOND_LIEN,
-    DEFAULT_MAX_TOP10_CONCENTRATION,
-    DEFAULT_MAX_TOP5_CONCENTRATION,
-    DEFAULT_RESOLUTION_LAG_MONTHS,
-    MIN_PREPAYMENT_RATE,
-    MONTHS_PER_YEAR,
-    MORTGAGE_SEASONALITY,
-    PERCENTAGE_MULTIPLIER,
-    POOL_BALANCE_CLEANUP_THRESHOLD,
-    PSA_RAMP_MONTHS,
-    PSA_TERMINAL_CPR,
-    QUARTERLY_PERIODS_PER_YEAR,
-    RMBS_SERVICING_FEE_BPS,
-    SDA_PEAK_CDR,
-    SDA_PEAK_MONTH,
-    SDA_TERMINAL_CDR,
-    STANDARD_CDR_RATES,
-    STANDARD_PSA_SPEEDS,
-    STANDARD_SEVERITY_RATES,
+    ABS_SERVICING_FEE_BPS, BASELINE_UNEMPLOYMENT_RATE, BASIS_POINTS_DIVISOR,
+    CLO_SENIOR_MGMT_FEE_BPS, CLO_SUBORDINATED_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL,
+    CMBS_MASTER_SERVICER_FEE_BPS, CMBS_SPECIAL_SERVICER_FEE_BPS, CREDIT_CARD_SEASONALITY,
+    DAYS_PER_YEAR, DEFAULT_AUTO_ABS_SPEED, DEFAULT_AUTO_RAMP_MONTHS, DEFAULT_BURNOUT_THRESHOLD_MONTHS,
+    DEFAULT_MAX_COV_LITE, DEFAULT_MAX_DIP, DEFAULT_MAX_OBLIGOR_CONCENTRATION,
+    DEFAULT_MAX_SECOND_LIEN, DEFAULT_MAX_TOP10_CONCENTRATION, DEFAULT_MAX_TOP5_CONCENTRATION,
+    DEFAULT_RESOLUTION_LAG_MONTHS, MIN_PREPAYMENT_RATE, MONTHS_PER_YEAR, MORTGAGE_SEASONALITY,
+    PERCENTAGE_MULTIPLIER, POOL_BALANCE_CLEANUP_THRESHOLD, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
+    QUARTERLY_PERIODS_PER_YEAR, RMBS_SERVICING_FEE_BPS, SDA_PEAK_CDR, SDA_PEAK_MONTH,
+    SDA_TERMINAL_CDR, STANDARD_CDR_RATES, STANDARD_PSA_SPEEDS, STANDARD_SEVERITY_RATES,
 };
 
-// Reinvestment management
-pub use types::ReinvestmentManager;
-
 // ============================================================================
-// Waterfall Templates
+// BACKWARD COMPATIBILITY ALIASES
 // ============================================================================
 
-pub use templates::{
-    available_templates, clo_2_0_template, cmbs_standard_template, cre_operating_company_template,
-    get_template, WaterfallTemplate,
-};
+/// Legacy type alias for `Waterfall` (backward compatibility).
+pub type WaterfallEngine = Waterfall;
+/// Legacy type alias for `WaterfallDistribution` (backward compatibility).
+pub type WaterfallResult = WaterfallDistribution;
+/// Legacy type alias for `RecipientType` (backward compatibility).
+pub type PaymentRecipient = RecipientType;
+/// Legacy type alias for `TrancheCashflows` (backward compatibility).
+pub type TrancheCashflowResult = TrancheCashflows;
+
+// Re-export waterfall coverage trigger with clear name
+/// Waterfall-level coverage trigger (for waterfall diversion).
+/// Use this when building waterfall engines with coverage test diversion.
+pub use types::waterfall::CoverageTrigger as WaterfallCoverageTrigger;
+

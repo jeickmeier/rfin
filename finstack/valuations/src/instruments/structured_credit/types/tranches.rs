@@ -151,7 +151,7 @@ impl TrancheCoupon {
                 };
 
                 let tenor = fwd.tenor();
-                let period_end = crate::instruments::structured_credit::components::rate_helpers::tenor_to_period_end(date, tenor);
+                let period_end = crate::instruments::structured_credit::utils::rate_helpers::tenor_to_period_end(date, tenor);
 
                 crate::cashflow::builder::project_floating_rate_with_curve(
                     date,

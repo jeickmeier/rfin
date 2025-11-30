@@ -4,7 +4,7 @@ use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
 
-use super::super::super::components::DealType;
+use crate::instruments::structured_credit::DealType;
 
 /// ABS Speed calculator - monthly absolute prepayment speed
 pub struct AbsSpeedCalculator {

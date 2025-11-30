@@ -1,0 +1,19 @@
+//! Utility functions for structured credit instruments.
+//!
+//! This module provides helper functions used across the structured credit module:
+//! - Rate conversions (CPR↔SMM, CDR↔MDR, PSA→CPR)
+//! - Simulation helpers (recovery queue, period flows)
+//! - Validation framework for waterfall specifications
+//! - Rate projection helpers for floating rate assets
+
+pub mod rate_helpers;
+pub mod rates;
+pub mod simulation;
+pub mod validation;
+
+// Re-export commonly used functions
+pub use rate_helpers::tenor_to_period_end;
+pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
+pub use simulation::{update_tranche_balance, PeriodFlows, RecoveryQueue};
+pub use validation::{get_validation_errors, is_valid_waterfall_spec, ValidationError};
+

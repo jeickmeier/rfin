@@ -1,0 +1,238 @@
+//! Rate conversion utilities for structured credit instruments.
+//!
+//! Provides standard conversions between different rate conventions:
+//! - CPR (Constant Prepayment Rate) ↔ SMM (Single Monthly Mortality)
+//! - CDR (Constant Default Rate) ↔ MDR (Monthly Default Rate)
+//! - PSA to CPR conversions
+//!
+//! # Mathematical Foundations
+//!
+//! ## CPR ↔ SMM
+//!
+//! CPR is an annualized prepayment rate, while SMM is the monthly equivalent.
+//!
+//! ```text
+//! SMM = 1 - (1 - CPR)^(1/12)
+//! CPR = 1 - (1 - SMM)^12
+//! ```
+//!
+//! ## CDR ↔ MDR
+//!
+//! Similarly, CDR is annualized and MDR is monthly:
+//!
+//! ```text
+//! MDR = 1 - (1 - CDR)^(1/12)
+//! CDR = 1 - (1 - MDR)^12
+//! ```
+//!
+//! ## PSA Model
+//!
+//! The PSA (Public Securities Association) prepayment model defines a standard
+//! prepayment curve for residential mortgages:
+//!
+//! - Months 1-30: CPR ramps linearly from 0% to 6%
+//! - Month 30+: CPR stays at 6%
+//!
+//! PSA speeds are multiples of this curve (e.g., 150% PSA = 1.5x the standard curve).
+
+use crate::instruments::structured_credit::types::constants::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
+
+/// Converts annual CPR to monthly SMM.
+///
+/// # Arguments
+///
+/// * `cpr` - Annual constant prepayment rate (as decimal, e.g., 0.06 for 6%)
+///
+/// # Returns
+///
+/// Monthly single mortality rate (as decimal). Input is clamped to [0, 1].
+///
+/// # Formula
+///
+/// ```text
+/// SMM = 1 - (1 - CPR)^(1/12)
+/// ```
+#[inline]
+pub fn cpr_to_smm(cpr: f64) -> f64 {
+    let cpr = cpr.clamp(0.0, 1.0);
+    if cpr == 0.0 {
+        return 0.0;
+    }
+    if cpr >= 1.0 {
+        return 1.0;
+    }
+    1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+}
+
+/// Converts monthly SMM to annual CPR.
+///
+/// # Arguments
+///
+/// * `smm` - Monthly single mortality rate (as decimal, e.g., 0.005 for 0.5%)
+///
+/// # Returns
+///
+/// Annual constant prepayment rate (as decimal). Input is clamped to [0, 1].
+///
+/// # Formula
+///
+/// ```text
+/// CPR = 1 - (1 - SMM)^12
+/// ```
+#[inline]
+pub fn smm_to_cpr(smm: f64) -> f64 {
+    let smm = smm.clamp(0.0, 1.0);
+    if smm == 0.0 {
+        return 0.0;
+    }
+    if smm >= 1.0 {
+        return 1.0;
+    }
+    1.0 - (1.0 - smm).powi(12)
+}
+
+/// Converts annual CDR to monthly MDR.
+///
+/// # Arguments
+///
+/// * `cdr` - Annual constant default rate (as decimal, e.g., 0.02 for 2%)
+///
+/// # Returns
+///
+/// Monthly default rate (as decimal). Input is clamped to [0, 1].
+///
+/// # Formula
+///
+/// ```text
+/// MDR = 1 - (1 - CDR)^(1/12)
+/// ```
+#[inline]
+pub fn cdr_to_mdr(cdr: f64) -> f64 {
+    let cdr = cdr.clamp(0.0, 1.0);
+    if cdr == 0.0 {
+        return 0.0;
+    }
+    if cdr >= 1.0 {
+        return 1.0;
+    }
+    1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+}
+
+/// Converts monthly MDR to annual CDR.
+///
+/// # Arguments
+///
+/// * `mdr` - Monthly default rate (as decimal, e.g., 0.002 for 0.2%)
+///
+/// # Returns
+///
+/// Annual constant default rate (as decimal). Input is clamped to [0, 1].
+///
+/// # Formula
+///
+/// ```text
+/// CDR = 1 - (1 - MDR)^12
+/// ```
+#[inline]
+pub fn mdr_to_cdr(mdr: f64) -> f64 {
+    let mdr = mdr.clamp(0.0, 1.0);
+    if mdr == 0.0 {
+        return 0.0;
+    }
+    if mdr >= 1.0 {
+        return 1.0;
+    }
+    1.0 - (1.0 - mdr).powi(12)
+}
+
+/// Converts PSA speed to CPR at a given month.
+///
+/// # Arguments
+///
+/// * `psa_speed` - PSA speed multiplier (e.g., 1.0 for 100% PSA, 1.5 for 150% PSA).
+///   Negative values are clamped to 0.
+/// * `month` - Month number (1-indexed, i.e., month 1 is the first month)
+///
+/// # Returns
+///
+/// Annual CPR at the given month (as decimal), clamped to [0, 1].
+///
+/// # PSA Model
+///
+/// The standard PSA model (100% PSA):
+/// - Month 1: CPR = 0.2%
+/// - Month 2: CPR = 0.4%
+/// - ...
+/// - Month 30: CPR = 6.0%
+/// - Month 31+: CPR = 6.0%
+///
+/// PSA speeds scale this curve linearly. For example, 150% PSA at month 30 = 9% CPR.
+pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
+    let psa_speed = psa_speed.max(0.0);
+    if month == 0 || psa_speed == 0.0 {
+        return 0.0;
+    }
+
+    let base_cpr = if month <= PSA_RAMP_MONTHS {
+        (month as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
+    } else {
+        PSA_TERMINAL_CPR
+    };
+
+    (psa_speed * base_cpr).min(1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cpr_smm_roundtrip() {
+        let test_cprs = vec![0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.30];
+        for cpr in test_cprs {
+            let smm = cpr_to_smm(cpr);
+            let cpr_back = smm_to_cpr(smm);
+            assert!(
+                (cpr - cpr_back).abs() < 1e-10,
+                "Roundtrip failed for CPR={}: got {}",
+                cpr,
+                cpr_back
+            );
+        }
+    }
+
+    #[test]
+    fn test_cdr_mdr_roundtrip() {
+        let test_cdrs = vec![0.0, 0.01, 0.02, 0.05, 0.10];
+        for cdr in test_cdrs {
+            let mdr = cdr_to_mdr(cdr);
+            let cdr_back = mdr_to_cdr(mdr);
+            assert!(
+                (cdr - cdr_back).abs() < 1e-10,
+                "Roundtrip failed for CDR={}: got {}",
+                cdr,
+                cdr_back
+            );
+        }
+    }
+
+    #[test]
+    fn test_psa_curve() {
+        assert!((psa_to_cpr(1.0, 1) - 0.002).abs() < 1e-10);
+        assert!((psa_to_cpr(1.0, 15) - 0.03).abs() < 1e-10);
+        assert!((psa_to_cpr(1.0, 30) - 0.06).abs() < 1e-10);
+        assert!((psa_to_cpr(1.0, 100) - 0.06).abs() < 1e-10);
+        assert!((psa_to_cpr(1.5, 30) - 0.09).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_boundary_clamping() {
+        assert_eq!(cpr_to_smm(-0.05), 0.0);
+        assert_eq!(cpr_to_smm(1.5), 1.0);
+        assert_eq!(cdr_to_mdr(-0.02), 0.0);
+        assert_eq!(cdr_to_mdr(1.5), 1.0);
+        assert_eq!(psa_to_cpr(-1.0, 15), 0.0);
+        assert_eq!(psa_to_cpr(17.0, 30), 1.0);
+    }
+}
+
