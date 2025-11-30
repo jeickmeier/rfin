@@ -681,12 +681,13 @@ impl Bond {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        // Tree configuration - use 100 steps and 1% volatility as defaults
-        // These can be overridden via attributes if needed for specific calibration
-        let tree_steps = 100;
+        // Tree configuration - use overrides if present, otherwise defaults
+        let tree_steps = self.pricing_overrides.tree_steps.unwrap_or(100);
+        let volatility = self.pricing_overrides.tree_volatility.unwrap_or(0.01);
+
         let tree_config = ShortRateTreeConfig {
             steps: tree_steps,
-            volatility: 0.01,
+            volatility,
             ..Default::default()
         };
 

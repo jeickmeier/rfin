@@ -55,6 +55,13 @@ pub struct PricingOverrides {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub term_loan: Option<TermLoanOverrides>,
 
+    // ----- Tree Pricing Overrides -----
+    /// Number of time steps for tree-based pricing (e.g., 100)
+    pub tree_steps: Option<usize>,
+    /// Volatility for tree-based pricing (annualized).
+    /// Interpretation depends on the model (Normal vs Lognormal).
+    pub tree_volatility: Option<f64>,
+
     // ----- Scenario Shock Fields -----
     /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
     ///
@@ -155,6 +162,18 @@ impl PricingOverrides {
         self
     }
 
+    /// Set number of time steps for tree-based pricing.
+    pub fn with_tree_steps(mut self, steps: usize) -> Self {
+        self.tree_steps = Some(steps);
+        self
+    }
+
+    /// Set volatility for tree-based pricing.
+    pub fn with_tree_volatility(mut self, vol: f64) -> Self {
+        self.tree_volatility = Some(vol);
+        self
+    }
+
     /// Apply a scenario price shock (as decimal percentage).
     ///
     /// The shock is applied as a multiplier: `price * (1 + shock_pct)`.
@@ -240,6 +259,16 @@ impl PricingOverrides {
             }
         }
         if let Some(v) = self.rate_bump_bp {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(steps) = self.tree_steps {
+            if steps == 0 {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        if let Some(v) = self.tree_volatility {
             if !nonneg(v) {
                 return Err(InputError::NegativeValue.into());
             }

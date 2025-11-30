@@ -47,8 +47,8 @@ use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 
 use super::tree_framework::{
-    price_recombining_tree, RecombiningInputs, StateGenerator, StateVariables, TreeBranching,
-    TreeGreeks, TreeModel, TreeValuator,
+    price_recombining_tree, state_keys, RecombiningInputs, StateGenerator, StateVariables,
+    TreeBranching, TreeGreeks, TreeModel, TreeValuator,
 };
 
 // ============================================================================
@@ -387,12 +387,14 @@ impl ShortRateTreeConfig {
     }
 }
 
+use std::sync::Arc;
+
 /// Short-rate tree for valuing bonds with embedded options
 #[derive(Clone, Debug)]
 pub struct ShortRateTree {
     config: ShortRateTreeConfig,
     /// Calibrated short rates at each node: rates[step][node]
-    rates: Vec<Vec<f64>>,
+    rates: Arc<Vec<Vec<f64>>>,
     /// Transition probabilities: probs[step] gives (p_up, p_down) for that step
     probs: Vec<(f64, f64)>,
     /// Time steps in years
@@ -406,7 +408,7 @@ impl ShortRateTree {
     pub fn new(config: ShortRateTreeConfig) -> Self {
         Self {
             config,
-            rates: Vec::new(),
+            rates: Arc::new(Vec::new()),
             probs: Vec::new(),
             time_steps: Vec::new(),
             calibration_curve_id: CurveId::new(""),
@@ -485,116 +487,138 @@ impl ShortRateTree {
         self.time_steps = (0..=self.config.steps).map(|i| i as f64 * dt).collect();
 
         // Initialize data structures
-        self.rates = vec![Vec::new(); self.config.steps + 1];
+        let mut rates = vec![Vec::new(); self.config.steps + 1];
         self.probs = vec![(0.5, 0.5); self.config.steps]; // Default to equal probabilities
 
         match self.config.model {
-            ShortRateModel::HoLee => self.calibrate_ho_lee(discount_curve, dt)?,
-            ShortRateModel::BlackDermanToy => self.calibrate_bdt(discount_curve, dt)?,
+            ShortRateModel::HoLee => self.calibrate_ho_lee(&mut rates, discount_curve, dt)?,
+            ShortRateModel::BlackDermanToy => self.calibrate_bdt(&mut rates, discount_curve, dt)?,
         }
+
+        self.rates = Arc::new(rates);
 
         Ok(())
     }
 
     /// Calibrate Ho-Lee model parameters
-    fn calibrate_ho_lee(&mut self, discount_curve: &dyn Discounting, dt: f64) -> Result<()> {
+    fn calibrate_ho_lee(
+        &mut self,
+        rates: &mut [Vec<f64>],
+        discount_curve: &dyn Discounting,
+        dt: f64,
+    ) -> Result<()> {
         let sigma = self.config.volatility;
 
         // Initialize first step with current short rate
+        // r0 should match P(0, T1) = exp(-r0 * T1)
+        // r0 = -ln(P(0, T1)) / T1
         let r0 = if self.time_steps[1] > 0.0 {
             -discount_curve.df(self.time_steps[1]).ln() / self.time_steps[1]
         } else {
             0.03 // Fallback rate
         };
 
-        self.rates[0] = vec![r0];
+        rates[0] = vec![r0];
+        
+        // State prices (Arrow-Debreu prices) for the current step
+        let mut state_prices = vec![1.0]; // Q[0] = 1.0
 
-        // Build tree forward, calibrating to match discount curve at each step
+        // Build tree forward
         for step in 0..self.config.steps {
-            let current_time = self.time_steps[step];
-            let next_time = self.time_steps[step + 1];
+            // We are at step i (time t_i). We have rates[i] and state_prices[i].
+            // We want to determine rates[i+1] such that the bond price P(0, t_{i+2}) matches market.
+            // Note: rates[i] determines discounting from t_{i+1} to t_i.
+            // Wait, rates[i] applies to [t_i, t_{i+1}].
+            // So rates[i] determines P(0, t_{i+1}) given P(0, t_i).
+            // But rates[i] is already fixed!
+            // We are determining rates[i+1] which applies to [t_{i+1}, t_{i+2}].
+            // So we calibrate rates[i+1] to match P(0, t_{i+2}).
+            
+            let next_next_time = if step + 2 < self.time_steps.len() {
+                self.time_steps[step + 2]
+            } else {
+                // End of tree, no need to calibrate further rates (they won't be used for discounting)
+                // But we still need to populate the vector to avoid index errors
+                0.0 
+            };
 
-            // Number of nodes at next step
             let next_nodes = step + 2;
-            let mut next_rates = vec![0.0; next_nodes];
+            let mut next_rates_base = vec![0.0; next_nodes];
+            let mut next_state_prices = vec![0.0; next_nodes];
 
-            // For Ho-Lee, rates evolve as: r(t+dt) = r(t) + theta(t)*dt + sigma*dW
-            // where theta(t) is chosen to fit the discount curve
-
-            // Calculate theta to match the discount curve
-            let theta = self.calculate_ho_lee_drift(
-                discount_curve,
-                current_time,
-                next_time,
-                &self.rates[step],
-                dt,
-            )?;
-
-            // Build next step rates
-            for (i, &current_rate) in self.rates[step].iter().enumerate() {
-                // Up move
+            // 1. Calculate next state prices and base rates (without theta)
+            for (i, &current_rate) in rates[step].iter().enumerate() {
+                let q = state_prices[i];
+                let df = (-current_rate * dt).exp();
+                
+                // Up move (to i+1)
+                // Base rate change: +sigma*sqrt(dt)
+                let r_up_base = current_rate + sigma * dt.sqrt();
                 if i + 1 < next_nodes {
-                    next_rates[i + 1] = current_rate + theta * dt + sigma * dt.sqrt();
+                    next_rates_base[i + 1] = r_up_base;
+                    next_state_prices[i + 1] += q * df * 0.5;
                 }
-                // Down move
+                
+                // Down move (to i)
+                // Base rate change: -sigma*sqrt(dt)
+                let r_down_base = current_rate - sigma * dt.sqrt();
                 if i < next_nodes {
-                    next_rates[i] = current_rate + theta * dt - sigma * dt.sqrt();
+                    next_rates_base[i] = r_down_base;
+                    next_state_prices[i] += q * df * 0.5;
                 }
             }
 
-            // For recombining tree, ensure proper structure
-            // In a proper binomial tree, each step has step+1 nodes
-            // The up and down moves should recombine
+            // 2. Solve for theta
+            let theta = if next_next_time > 0.0 {
+                let p_target = discount_curve.df(next_next_time);
+                let mut p_model_base = 0.0;
+                for (j, &q_next) in next_state_prices.iter().enumerate() {
+                    let r_base = next_rates_base[j];
+                    // Discount from t_{i+2} to t_{i+1} using r_{i+1}
+                    p_model_base += q_next * (-r_base * dt).exp();
+                }
+                
+                if p_model_base > 0.0 && p_target > 0.0 {
+                    // P_target = P_model_base * exp(-theta * dt * dt) ?
+                    // No, r_final = r_base + theta * dt.
+                    // exp(-(r_base + theta*dt)*dt) = exp(-r_base*dt) * exp(-theta*dt^2)
+                    // sum(Q * exp(-r_final*dt)) = sum(Q * exp(-r_base*dt)) * exp(-theta*dt^2)
+                    // P_target = P_model_base * exp(-theta * dt^2)
+                    // ln(P_target/P_model_base) = -theta * dt^2
+                    // theta = -ln(P_target/P_model_base) / dt^2
+                    -(p_target / p_model_base).ln() / (dt * dt)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
 
-            self.rates[step + 1] = next_rates;
+            // 3. Apply theta to get final rates
+            let mut next_rates = vec![0.0; next_nodes];
+            for j in 0..next_nodes {
+                next_rates[j] = next_rates_base[j] + theta * dt;
+            }
+
+            rates[step + 1] = next_rates;
+            state_prices = next_state_prices;
         }
 
         Ok(())
     }
 
-    /// Calculate Ho-Lee drift term to match discount curve
-    fn calculate_ho_lee_drift(
-        &self,
-        discount_curve: &dyn Discounting,
-        current_time: f64,
-        next_time: f64,
-        current_rates: &[f64],
-        dt: f64,
-    ) -> Result<f64> {
-        // For Ho-Lee calibration, theta is chosen so that the expected
-        // discount factor matches the market curve
 
-        // Expected short rate at current step
-        let expected_rate = if current_rates.is_empty() {
-            0.03 // Fallback
-        } else {
-            current_rates.iter().sum::<f64>() / current_rates.len() as f64
-        };
-
-        // Calculate theta using the forward rate implied by the discount curve
-        let df_current = if current_time > 0.0 {
-            discount_curve.df(current_time)
-        } else {
-            1.0
-        };
-        let df_next = discount_curve.df(next_time);
-
-        if df_current <= 0.0 || df_next <= 0.0 {
-            return Err(Error::Internal);
-        }
-
-        // Implied forward rate
-        let implied_forward = (df_current / df_next - 1.0) / dt;
-
-        // Return the drift needed to match the forward rate
-        Ok(implied_forward - expected_rate)
-    }
 
     /// Calibrate Black-Derman-Toy model using state-price recursion.
     ///
     /// Implements proper BDT calibration that matches the discount curve at each step
     /// by solving for the drift parameter using state-price recursion and root finding.
-    fn calibrate_bdt(&mut self, discount_curve: &dyn Discounting, dt: f64) -> Result<()> {
+    fn calibrate_bdt(
+        &mut self,
+        rates: &mut [Vec<f64>],
+        discount_curve: &dyn Discounting,
+        dt: f64,
+    ) -> Result<()> {
         use finstack_core::math::{BrentSolver, Solver};
 
         let sigma = self.config.volatility;
@@ -612,7 +636,7 @@ impl ShortRateTree {
             0.03 // Fallback rate
         };
 
-        self.rates[0] = vec![r0.max(1e-6)]; // Ensure positive for lognormal
+        rates[0] = vec![r0.max(1e-6)]; // Ensure positive for lognormal
         let mut state_prices = vec![vec![1.0]]; // Q[0] = [1.0]
 
         // Set transition probabilities (constant for BDT)
@@ -631,7 +655,7 @@ impl ShortRateTree {
 
             let num_nodes = step + 1;
             let current_state_prices = &state_prices[step];
-            let current_rates = &self.rates[step];
+            let current_rates = &rates[step];
 
             // Solve for drift parameter alpha such that model ZCB price matches market
             let objective = |alpha: f64| -> f64 {
@@ -698,7 +722,7 @@ impl ShortRateTree {
                 }
             }
 
-            self.rates[step + 1] = next_rates;
+            rates[step + 1] = next_rates;
             state_prices.push(next_state_prices);
         }
 
@@ -733,20 +757,30 @@ impl ShortRateTree {
 impl TreeModel for ShortRateTree {
     fn price<V: TreeValuator>(
         &self,
-        initial_vars: StateVariables,
+        mut initial_vars: StateVariables,
         time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
     ) -> Result<f64> {
         if self.rates.is_empty() {
+            println!("DEBUG: ShortRateTree::price - rates is empty");
             return Err(Error::Internal); // Tree not calibrated
+        }
+        
+        // Ensure initial rate is present
+        if !initial_vars.contains_key(state_keys::INTEREST_RATE) {
+            if let Some(row) = self.rates.first() {
+                if let Some(&r0) = row.first() {
+                    initial_vars.insert(state_keys::INTEREST_RATE, r0);
+                }
+            }
         }
 
         // Get OAS from initial variables (default to 0)
         let oas = initial_vars.get("oas").copied().unwrap_or(0.0);
 
         // Create custom state generator that uses pre-calibrated rates
-        // Clone rates to avoid lifetime issues with closures
+        // Clone rates (cheap Arc clone) to avoid lifetime issues with closures
         let rates_clone = self.rates.clone();
         let state_gen: StateGenerator = Box::new(move |step: usize, node: usize| -> f64 {
             if step < rates_clone.len() && node < rates_clone[step].len() {

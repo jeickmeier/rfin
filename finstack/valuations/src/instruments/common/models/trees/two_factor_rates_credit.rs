@@ -9,7 +9,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::{Error, Result};
 
-use super::tree_framework::{state_keys, NodeState, StateVariables, TreeModel, TreeValuator};
+use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
+use super::state_keys;
 
 /// Configuration for rates + credit two-factor tree.
 #[derive(Clone, Debug)]
@@ -26,6 +27,10 @@ pub struct RatesCreditConfig {
     pub base_hazard: f64,
     /// Instantaneous correlation between rate and hazard shocks
     pub correlation: f64,
+    /// Mean reversion speed for short rate (0.0 = no reversion)
+    pub rate_mean_reversion: f64,
+    /// Mean reversion speed for hazard rate (0.0 = no reversion)
+    pub hazard_mean_reversion: f64,
 }
 
 impl Default for RatesCreditConfig {
@@ -37,6 +42,8 @@ impl Default for RatesCreditConfig {
             base_rate: 0.02,
             base_hazard: 0.01,
             correlation: 0.0,
+            rate_mean_reversion: 0.0,
+            hazard_mean_reversion: 0.0,
         }
     }
 }
@@ -122,14 +129,9 @@ impl TreeModel for RatesCreditTree {
         // Multiplicative symmetric moves and equal probabilities (0.5) per factor
         let u_r = (self.config.rate_vol * dt.sqrt()).exp();
         let d_r = 1.0 / u_r;
-        let p_r = 0.5;
 
         let u_h = (self.config.hazard_vol * dt.sqrt()).exp();
         let d_h = 1.0 / u_h;
-        let p_h = 0.5;
-
-        let (p_uu, p_ud, p_du, p_dd) = self.joint_probabilities(p_r, p_h);
-
         // Terminal payoff grid values[i][j] for i: rate ups, j: hazard ups
         let mut values: Vec<Vec<f64>> = vec![vec![0.0; steps + 1]; steps + 1];
         let mut vars = initial_vars.clone();
@@ -156,8 +158,34 @@ impl TreeModel for RatesCreditTree {
             let mut new_values: Vec<Vec<f64>> = vec![vec![0.0; k + 1]; k + 1];
             for i in 0..=k {
                 let r_t = r0 * u_r.powi(i as i32) * d_r.powi((k - i) as i32);
+                
+                // Calculate rate transition probability with mean reversion
+                // drift ~ -a * (ln(r) - ln(base))
+                // p_r = 0.5 + drift * sqrt(dt) / (2 * vol)
+                let p_r = if self.config.rate_mean_reversion > 0.0 {
+                    let log_r = r_t.ln();
+                    let log_base = self.config.base_rate.ln();
+                    let drift = -self.config.rate_mean_reversion * (log_r - log_base);
+                    (0.5 + drift * dt.sqrt() / (2.0 * self.config.rate_vol)).clamp(0.0, 1.0)
+                } else {
+                    0.5
+                };
+
                 for j in 0..=k {
                     let h_t = h0 * u_h.powi(j as i32) * d_h.powi((k - j) as i32);
+
+                    // Calculate hazard transition probability with mean reversion
+                    let p_h = if self.config.hazard_mean_reversion > 0.0 {
+                        let log_h = h_t.ln();
+                        let log_base = self.config.base_hazard.ln();
+                        let drift = -self.config.hazard_mean_reversion * (log_h - log_base);
+                        (0.5 + drift * dt.sqrt() / (2.0 * self.config.hazard_vol)).clamp(0.0, 1.0)
+                    } else {
+                        0.5
+                    };
+
+                    // Calculate joint probabilities for this node
+                    let (p_uu, p_ud, p_du, p_dd) = self.joint_probabilities(p_r, p_h);
 
                     // Continuation from four children at step k+1
                     let v_uu = values[i + 1][j + 1];
