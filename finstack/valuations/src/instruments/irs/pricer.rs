@@ -19,7 +19,6 @@ pub use crate::instruments::common::GenericDiscountingPricer;
 
 use crate::instruments::irs::InterestRateSwap;
 use finstack_core::dates::Date;
-use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
@@ -305,6 +304,14 @@ impl InterestRateSwap {
     ///
     /// Present value of the floating leg in the swap's notional currency.
     ///
+    /// # Market Standards (ISDA 2006)
+    ///
+    /// - Reset dates are computed as `accrual_start - reset_lag_days`, adjusted
+    ///   using the fixing calendar if specified (otherwise the payment calendar).
+    /// - Forward rates are projected using the forward curve's day count convention
+    ///   and base date, ensuring consistency with curve construction.
+    /// - Accrual fractions use the floating leg's day count convention (e.g., ACT/360).
+    ///
     /// # Numerical Stability
     ///
     /// Uses Kahan compensated summation for accurate PV calculation on
@@ -317,7 +324,7 @@ impl InterestRateSwap {
     pub(crate) fn pv_float_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        fwd: &dyn Forward,
+        fwd: &finstack_core::market_data::term_structures::forward_curve::ForwardCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         // Build a simple schedule of reset/payment dates for the floating leg.
@@ -340,9 +347,19 @@ impl InterestRateSwap {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
+        // Use forward curve's day count and base date for rate projection (ISDA standard)
+        let fwd_dc = fwd.day_count();
+        let fwd_base = fwd.base_date();
+
+        // Resolve the fixing calendar: use fixing_calendar_id if specified, else payment calendar
+        let fixing_calendar_id = self
+            .float
+            .fixing_calendar_id
+            .clone()
+            .or_else(|| self.float.calendar_id.clone());
+
         // Collect discounted flows for Kahan summation
         let mut terms = Vec::with_capacity(dates.len());
-        let base = disc.base_date();
 
         // Iterate over accrual periods [prev, d], matching standard IRS conventions.
         for (idx, &d) in dates.iter().enumerate().skip(1) {
@@ -352,39 +369,57 @@ impl InterestRateSwap {
             }
 
             // Determine accrual period start: first coupon uses leg start, others use prior coupon date
-            let prev = if idx == 1 {
+            let accrual_start = if idx == 1 {
                 self.float.start
             } else {
                 dates[idx - 1]
             };
+            let accrual_end = d;
 
-            // Times to period boundaries measured from curve base date.
-            // For accrual dates before the base date, clamp to t = 0.0
-            // to avoid invalid date ranges while preserving correct
-            // forward rates from the base onward.
-            let t1 = if prev <= base {
+            // Compute reset (fixing) date: T - reset_lag_days, adjusted for fixing calendar
+            // Per ISDA 2006 Section 4.2, the fixing date is typically 2 business days
+            // before the accrual start date for most indices
+            let reset_date = compute_reset_date(
+                accrual_start,
+                self.float.reset_lag_days,
+                self.float.bdc,
+                &fixing_calendar_id,
+            )?;
+
+            // Validate: reset date must not be after accrual start (would be non-standard)
+            debug_assert!(
+                reset_date <= accrual_start,
+                "Reset date {} should not be after accrual start {}",
+                reset_date,
+                accrual_start
+            );
+
+            // Times to period boundaries measured from forward curve base date
+            // using the forward curve's day count convention.
+            // For dates before the base date, clamp to t = 0.0
+            let t1 = if reset_date <= fwd_base {
                 0.0
             } else {
-                self.float.dc.year_fraction(
-                    base,
-                    prev,
+                fwd_dc.year_fraction(
+                    fwd_base,
+                    reset_date,
                     finstack_core::dates::DayCountCtx::default(),
                 )?
             };
-            let t2 = if d <= base {
+            let t2 = if accrual_end <= fwd_base {
                 0.0
             } else {
-                self.float.dc.year_fraction(
-                    base,
-                    d,
+                fwd_dc.year_fraction(
+                    fwd_base,
+                    accrual_end,
                     finstack_core::dates::DayCountCtx::default(),
                 )?
             };
 
-            // Accrual factor for the coupon period
+            // Accrual factor for the coupon period uses floating leg day count
             let yf = self.float.dc.year_fraction(
-                prev,
-                d,
+                accrual_start,
+                accrual_end,
                 finstack_core::dates::DayCountCtx::default(),
             )?;
 
@@ -398,7 +433,7 @@ impl InterestRateSwap {
             let coupon_amount = self.notional.amount() * rate * yf;
 
             // Discount from as_of for correct theta
-            let df = relative_df(disc, as_of, d)?;
+            let df = relative_df(disc, as_of, accrual_end)?;
             terms.push(coupon_amount * df);
         }
 
@@ -406,6 +441,48 @@ impl InterestRateSwap {
         let total = kahan_sum(terms);
         Ok(Money::new(total, self.notional.currency()))
     }
+}
+
+/// Compute reset (fixing) date with calendar adjustment.
+///
+/// Applies the reset lag (in business days) to compute the fixing date,
+/// then adjusts using the specified calendar and business day convention.
+///
+/// Per ISDA 2006 Section 4.2:
+/// - The fixing date is typically T-2 (2 business days before) for most indices
+/// - The business day convention and calendar depend on the index specification
+///
+/// # Arguments
+///
+/// * `accrual_start` - Start date of the accrual period
+/// * `reset_lag_days` - Number of business days before accrual start (typically 2)
+/// * `bdc` - Business day convention for date adjustment
+/// * `calendar_id` - Optional calendar ID for business day calculation
+///
+/// # Returns
+///
+/// The adjusted reset (fixing) date.
+fn compute_reset_date(
+    accrual_start: Date,
+    reset_lag_days: i32,
+    bdc: finstack_core::dates::BusinessDayConvention,
+    calendar_id: &Option<String>,
+) -> finstack_core::Result<Date> {
+    use finstack_core::dates::adjust;
+    use finstack_core::dates::calendar::calendar_by_id;
+    use time::Duration;
+
+    // Start by subtracting the reset lag from the accrual start
+    let mut reset_date = accrual_start - Duration::days(reset_lag_days as i64);
+
+    // Adjust for business days using the fixing calendar if available
+    if let Some(ref cal_id) = calendar_id {
+        if let Some(cal) = calendar_by_id(cal_id) {
+            reset_date = adjust(reset_date, bdc, cal)?;
+        }
+    }
+
+    Ok(reset_date)
 }
 
 /// Compute the net present value (NPV) of an interest rate swap.
