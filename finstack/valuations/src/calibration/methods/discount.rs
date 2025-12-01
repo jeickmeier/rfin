@@ -726,6 +726,9 @@ impl DiscountCurveCalibrator {
                     quote_rate: Some(*rate),
                     discount_curve_id: "CALIB_CURVE".into(),
                     attributes: Default::default(),
+                    spot_lag_days: None,
+                    bdc: None,
+                    calendar_id: None,
                 };
 
                 // Price the deposit - should be zero at par rate
@@ -1462,6 +1465,9 @@ mod tests {
                     quote_rate: Some(*rate),
                     discount_curve_id: "USD-OIS".into(),
                     attributes: Default::default(),
+                    spot_lag_days: None,
+                    bdc: None,
+                    calendar_id: None,
                 };
                 let pv = dep
                     .value(&ctx, base_date)

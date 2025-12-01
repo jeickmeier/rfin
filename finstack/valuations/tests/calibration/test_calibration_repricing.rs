@@ -243,6 +243,9 @@ fn test_discount_curve_deposit_repricing() {
                 quote_rate: Some(*rate),
                 discount_curve_id: "USD-OIS".into(),
                 attributes: Default::default(),
+                spot_lag_days: None,
+                bdc: None,
+                calendar_id: None,
             };
             let pv = dep.value(&ctx, base_date).unwrap();
 

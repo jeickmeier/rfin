@@ -3,12 +3,23 @@
 //! Defines the `Deposit` instrument with explicit trait implementations
 //! mirroring the modern instrument style used elsewhere in valuations.
 //! Pricing logic is implemented as instance methods on the instrument struct.
+//!
+//! # Market Conventions
+//!
+//! Money-market deposits settle on business days with currency-specific spot lags:
+//! - **USD/EUR/JPY**: T+2 settlement (two business days after trade date)
+//! - **GBP**: T+0 settlement (same day)
+//!
+//! The instrument supports optional spot lag and business day convention fields
+//! to properly compute settlement dates when building cashflow schedules.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::{adjust, BusinessDayConvention, Date, DayCount, HolidayCalendar};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::Duration;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
@@ -17,6 +28,18 @@ use crate::instruments::common::traits::Attributes;
 ///
 /// Represents a single-period deposit where principal is exchanged
 /// at start and principal plus interest at maturity.
+///
+/// # Market Convention Fields
+///
+/// The instrument supports optional settlement convention fields for proper
+/// business-day adjusted cashflow generation:
+///
+/// - `spot_lag_days`: Number of business days from trade date to spot date (default: 2 for USD/EUR/JPY, 0 for GBP)
+/// - `bdc`: Business day convention for date adjustment (default: ModifiedFollowing)
+/// - `calendar_id`: Holiday calendar identifier for business day logic (e.g., "nyse", "target")
+///
+/// When these fields are set and `as_of` is provided to `build_schedule`, the effective
+/// start date is computed as `as_of + spot_lag` adjusted by the business day convention.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -39,12 +62,35 @@ pub struct Deposit {
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
+
+    /// Optional spot lag in business days from trade date to effective start.
+    ///
+    /// Market convention: T+2 for USD/EUR/JPY, T+0 for GBP.
+    /// If not set, the raw `start` date is used without adjustment.
+    #[builder(optional)]
+    pub spot_lag_days: Option<i32>,
+
+    /// Business day convention for date adjustments.
+    ///
+    /// Used to adjust the effective start/end dates to valid business days.
+    /// Default: `ModifiedFollowing` (standard money market convention).
+    #[builder(optional)]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub bdc: Option<BusinessDayConvention>,
+
+    /// Optional holiday calendar identifier for business day logic.
+    ///
+    /// Examples: "nyse", "target", "london", "tokyo".
+    /// When set, enables calendar-aware spot date and accrual date adjustments.
+    #[builder(optional)]
+    pub calendar_id: Option<String>,
 }
 
 impl Deposit {
     /// Create a canonical example deposit for testing and documentation.
     ///
-    /// Returns a 6-month USD deposit with 4.5% quoted rate.
+    /// Returns a 6-month USD deposit with 4.5% quoted rate and standard
+    /// T+2 spot settlement with ModifiedFollowing business day convention.
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))
@@ -58,6 +104,8 @@ impl Deposit {
             .quote_rate_opt(Some(0.045))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
+            .spot_lag_days_opt(Some(2))
+            .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
             .build()
             .expect("Example deposit construction should not fail")
     }
@@ -181,30 +229,154 @@ impl Deposit {
 
         Ok(())
     }
+
+    /// Compute the effective start date considering spot lag and business day adjustments.
+    ///
+    /// If `spot_lag_days` is set, computes the start date as `as_of + spot_lag` business days
+    /// (or calendar days if no calendar is set), then applies the business day convention.
+    ///
+    /// If `spot_lag_days` is not set, returns the raw `start` date optionally adjusted by BDC.
+    ///
+    /// # Arguments
+    /// * `as_of` - The valuation/trade date
+    ///
+    /// # Returns
+    /// The effective start date after all adjustments.
+    pub fn effective_start_date(&self, as_of: Date) -> finstack_core::Result<Date> {
+        let calendar: Option<&dyn HolidayCalendar> = self
+            .calendar_id
+            .as_deref()
+            .and_then(|id| CalendarRegistry::global().resolve_str(id));
+
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
+
+        let base_start = if let Some(lag_days) = self.spot_lag_days {
+            // Compute spot date: as_of + spot_lag business days
+            add_business_days_impl(as_of, lag_days, calendar)?
+        } else {
+            // Use raw start date
+            self.start
+        };
+
+        // Apply business day adjustment if calendar is available
+        if let Some(cal) = calendar {
+            adjust(base_start, bdc, cal)
+        } else {
+            Ok(base_start)
+        }
+    }
+
+    /// Compute the effective end date considering business day adjustments.
+    ///
+    /// The end date is adjusted using the business day convention and calendar if set.
+    ///
+    /// # Returns
+    /// The effective end date after all adjustments.
+    pub fn effective_end_date(&self) -> finstack_core::Result<Date> {
+        let calendar: Option<&dyn HolidayCalendar> = self
+            .calendar_id
+            .as_deref()
+            .and_then(|id| CalendarRegistry::global().resolve_str(id));
+
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
+
+        // Apply business day adjustment if calendar is available
+        if let Some(cal) = calendar {
+            adjust(self.end, bdc, cal)
+        } else {
+            Ok(self.end)
+        }
+    }
+}
+
+/// Add business days using calendar-aware logic.
+///
+/// If a calendar is provided, walks business days using the calendar.
+/// Otherwise, uses simple weekday-only logic (skips Saturday/Sunday).
+fn add_business_days_impl(
+    start: Date,
+    n: i32,
+    calendar: Option<&dyn HolidayCalendar>,
+) -> finstack_core::Result<Date> {
+    if n == 0 {
+        return Ok(start);
+    }
+
+    let step = if n >= 0 { 1i64 } else { -1i64 };
+    let mut remaining = n.abs();
+    let mut current = start;
+
+    while remaining > 0 {
+        current = current.saturating_add(Duration::days(step));
+
+        let is_business_day = if let Some(cal) = calendar {
+            cal.is_business_day(current)
+        } else {
+            // Weekends-only check
+            !matches!(
+                current.weekday(),
+                time::Weekday::Saturday | time::Weekday::Sunday
+            )
+        };
+
+        if is_business_day {
+            remaining -= 1;
+        }
+    }
+
+    Ok(current)
 }
 
 impl CashflowProvider for Deposit {
     fn build_schedule(
         &self,
         _curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Validate deposit parameters before building schedule
         self.validate()?;
 
+        // Compute effective dates with spot lag and business day adjustments
+        // When spot_lag_days is set, compute effective start from as_of
+        // Otherwise, use the raw start/end dates (optionally BDC-adjusted)
+        let effective_start = if self.spot_lag_days.is_some() {
+            self.effective_start_date(as_of)?
+        } else {
+            // Even without spot lag, apply BDC if calendar is set
+            self.effective_start_date(self.start)?
+        };
+        let effective_end = self.effective_end_date()?;
+
+        // Validate effective date ordering
+        if effective_end <= effective_start {
+            return Err(finstack_core::Error::Validation(format!(
+                "Deposit effective end date ({}) must be after effective start date ({})",
+                effective_end, effective_start
+            )));
+        }
+
+        // Validate that effective start is on or after as_of when spot_lag is used
+        // This enforces proper settlement timing
+        if self.spot_lag_days.is_some() && effective_start < as_of {
+            return Err(finstack_core::Error::Validation(format!(
+                "Deposit effective start date ({}) must be on or after as_of date ({}) when spot_lag is specified",
+                effective_start, as_of
+            )));
+        }
+
         // True single-period deposit: two flows with simple interest
-        // Propagate year fraction errors instead of silently defaulting to 0
+        // Use effective dates for proper accrual calculation
         let yf = self.day_count.year_fraction(
-            self.start,
-            self.end,
+            effective_start,
+            effective_end,
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
         let r = self.quote_rate.unwrap_or(0.0);
         let redemption = self.notional * (1.0 + r * yf);
         Ok(vec![
-            (self.start, self.notional * -1.0),
-            (self.end, redemption),
+            (effective_start, self.notional * -1.0),
+            (effective_end, redemption),
         ])
     }
 }

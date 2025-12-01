@@ -90,8 +90,10 @@ fn test_cashflow_dates_match_repo_dates() {
     let context = create_standard_market_context();
     let collateral = treasury_collateral();
 
-    let start = date(2025, 2, 1);
-    let maturity = date(2025, 8, 1);
+    // Use business days (Wed/Mon) to avoid adjustment
+    // Note: Repo::term sets target2 calendar + Following BDC
+    let start = date(2025, 1, 15); // Wednesday - business day
+    let maturity = date(2025, 8, 1); // Friday - business day
 
     let repo = Repo::term(
         "CF_DATES",
@@ -103,15 +105,18 @@ fn test_cashflow_dates_match_repo_dates() {
         "USD-OIS",
     );
 
-    let cashflows = repo.build_schedule(&context, date(2025, 1, 15)).unwrap();
+    // Get the expected adjusted dates
+    let (adj_start, adj_maturity) = repo.adjusted_dates().unwrap();
+
+    let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
     assert_eq!(
-        cashflows[0].0, start,
-        "First cashflow should be at start date"
+        cashflows[0].0, adj_start,
+        "First cashflow should be at adjusted start date"
     );
     assert_eq!(
-        cashflows[1].0, maturity,
-        "Second cashflow should be at maturity"
+        cashflows[1].0, adj_maturity,
+        "Second cashflow should be at adjusted maturity"
     );
 }
 

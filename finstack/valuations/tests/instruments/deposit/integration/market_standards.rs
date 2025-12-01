@@ -4,8 +4,10 @@
 
 use crate::deposit::common::*;
 use finstack_core::currency::Currency;
-use finstack_core::dates::DayCount;
+use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::metrics::MetricId;
 
 #[test]
@@ -241,4 +243,185 @@ fn test_rate_quote_vs_price_quote() {
     assert!(pv_par.amount().abs() < 200.0);
     // Off-market rate should have non-zero PV
     assert!(pv_rate.amount().abs() > 10.0);
+}
+
+/// Test T+2 spot lag with NYSE calendar.
+///
+/// Trade date: Friday (2025-01-03)
+/// Expected spot date: Tuesday (2025-01-07) - skips Saturday and Sunday
+/// Maturity: 1 month later (2025-02-07)
+///
+/// This validates that business-day aware spot lag correctly handles weekends
+/// and that PV is computed using the adjusted effective dates.
+#[test]
+fn test_usd_deposit_friday_trade_with_nyse_calendar() {
+    // Setup: Friday trade date
+    // January 3, 2025 is a Friday
+    let trade_date = date(2025, 1, 3);
+
+    // Create market context - curve base starts at spot date (T+2 = Tuesday Jan 7)
+    let expected_spot_date = date(2025, 1, 7); // Tuesday (after skipping weekend)
+    let ctx = ctx_with_flat_rate(expected_spot_date, "USD-OIS", 0.02);
+
+    // Build deposit with T+2 spot lag and NYSE calendar
+    // End date set to ~1 month after expected spot
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-USD-1M-FRIDAY"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(trade_date) // Will be adjusted by spot lag
+        .end(date(2025, 2, 7)) // 1 month maturity from spot
+        .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.02))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .spot_lag_days_opt(Some(2))
+        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+        .calendar_id_opt(Some("nyse".to_string()))
+        .build()
+        .expect("Valid deposit");
+
+    // Compute effective dates
+    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    let effective_end = dep.effective_end_date().unwrap();
+
+    // Validate effective dates
+    assert_eq!(
+        effective_start, expected_spot_date,
+        "Spot date should be Tuesday (T+2 business days from Friday)"
+    );
+
+    // End date should be Feb 7, 2025 (which is a Friday - business day)
+    assert_eq!(effective_end, date(2025, 2, 7));
+
+    // Execute - NPV should be computable with adjusted dates
+    let pv = dep.npv(&ctx, trade_date).unwrap();
+
+    // Validate - at market rate, PV should be near zero
+    assert!(
+        pv.amount().abs() < 100.0,
+        "PV at market rate should be near zero, got: {}",
+        pv.amount()
+    );
+    assert_eq!(pv.currency(), Currency::USD);
+}
+
+/// Test that deposit without spot lag uses raw dates.
+///
+/// When spot_lag_days is not set, the raw start/end dates should be used
+/// (optionally BDC-adjusted if calendar is set).
+#[test]
+fn test_deposit_without_spot_lag_uses_raw_dates() {
+    let trade_date = date(2025, 1, 3); // Friday
+    let ctx = ctx_with_flat_rate(trade_date, "USD-OIS", 0.02);
+
+    // Build deposit WITHOUT spot_lag_days - should use raw start date
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-USD-RAW"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(trade_date)
+        .end(date(2025, 2, 3))
+        .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.02))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        // No spot_lag_days_opt - should use raw dates
+        .build()
+        .expect("Valid deposit");
+
+    // Effective start should be raw start date since no spot lag specified
+    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    assert_eq!(
+        effective_start, trade_date,
+        "Without spot_lag, effective start should equal raw start"
+    );
+
+    // Execute - should price without error
+    let pv = dep.npv(&ctx, trade_date).unwrap();
+    assert!(pv.amount().is_finite());
+}
+
+/// Test T+0 settlement for GBP (same-day settlement).
+///
+/// GBP deposits settle on trade date (T+0), unlike USD/EUR which are T+2.
+#[test]
+fn test_gbp_deposit_t0_settlement() {
+    let trade_date = date(2025, 1, 3); // Friday
+    let ctx = ctx_with_flat_rate(trade_date, "GBP-OIS", 0.02);
+
+    // Build GBP deposit with T+0 spot lag
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-GBP-1M"))
+        .notional(Money::new(1_000_000.0, Currency::GBP))
+        .start(trade_date)
+        .end(date(2025, 2, 3))
+        .day_count(DayCount::Act365F) // GBP uses Act/365
+        .quote_rate_opt(Some(0.02))
+        .discount_curve_id(CurveId::new("GBP-OIS"))
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .spot_lag_days_opt(Some(0)) // T+0 for GBP
+        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+        .build()
+        .expect("Valid deposit");
+
+    // Effective start should be trade date (T+0)
+    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    assert_eq!(
+        effective_start, trade_date,
+        "GBP T+0 settlement should start on trade date"
+    );
+
+    // Execute
+    let pv = dep.npv(&ctx, trade_date).unwrap();
+    assert_eq!(pv.currency(), Currency::GBP);
+    assert!(pv.amount().is_finite());
+}
+
+/// Test that business day adjustment properly handles end-of-month rolls.
+///
+/// ModifiedFollowing convention should roll forward unless it crosses month boundary,
+/// in which case it rolls backward.
+#[test]
+fn test_modified_following_eom_adjustment() {
+    // January 31, 2025 is a Friday - business day
+    // If end date falls on Saturday, ModifiedFollowing should roll to Friday
+    let trade_date = date(2025, 1, 27); // Monday
+
+    // Create context with base at a valid business day (unused in this test but kept for consistency)
+    let _ctx = ctx_with_flat_rate(trade_date, "USD-OIS", 0.02);
+
+    // End date: Feb 1, 2025 is a Saturday - should roll to Friday Jan 31 (preceding in same month)
+    // Actually, ModifiedFollowing rolls forward first, then back if crosses month.
+    // Feb 1 is Saturday -> Following gives Monday Feb 3 which is in Feb (same month? No, different month from Jan 31)
+    // Wait, the end date is Feb 1, so we're checking Feb. Feb 1 -> Feb 3 (Mon) is still in Feb.
+    // Let's use a clearer example: end on Saturday March 1, 2025
+    // March 1, 2025 is a Saturday, so Following would give Monday March 3 (still in March, OK)
+    //
+    // Better test: end date that would roll into next month
+    // Use Saturday Jan 31, 2026 (Jan 31, 2026 is Saturday) - Following gives Monday Feb 2
+    // But ModifiedFollowing should roll back to Friday Jan 30
+    //
+    // Actually Jan 31, 2026 is a Saturday.
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-USD-EOM"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(trade_date)
+        .end(date(2026, 1, 31)) // Saturday - should roll back to Friday Jan 30
+        .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.02))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+        .calendar_id_opt(Some("nyse".to_string()))
+        .build()
+        .expect("Valid deposit");
+
+    let effective_end = dep.effective_end_date().unwrap();
+
+    // Jan 31, 2026 is Saturday; ModifiedFollowing: Following gives Mon Feb 2 (different month),
+    // so we roll Preceding to Fri Jan 30
+    assert_eq!(
+        effective_end,
+        date(2026, 1, 30),
+        "ModifiedFollowing should roll Saturday Jan 31 to Friday Jan 30"
+    );
 }
