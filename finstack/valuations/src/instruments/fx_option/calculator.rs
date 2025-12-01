@@ -8,7 +8,7 @@ use crate::instruments::common::models::{d1, d2};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -446,8 +446,8 @@ mod tests {
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar, surfaces::vol_surface::VolSurface,
-            term_structures::discount_curve::DiscountCurve,
+            context::MarketContext, scalars::MarketScalar,
+            surfaces::vol_surface::VolSurface, term_structures::discount_curve::DiscountCurve,
         },
         money::{
             fx::{FxConversionPolicy, FxMatrix, FxProvider},
@@ -832,7 +832,10 @@ mod tests {
 
         // Compute NPV
         let pv = calc.npv(&option, &ctx, as_of).expect("npv should succeed");
-        assert!(pv.amount() > 0.0, "Call with spot < strike should have positive value");
+        assert!(
+            pv.amount() > 0.0,
+            "Call with spot < strike should have positive value"
+        );
         assert_eq!(pv.currency(), QUOTE);
 
         // Compute Greeks
@@ -842,7 +845,10 @@ mod tests {
 
         // Delta should be positive for call
         assert!(greeks.delta > 0.0, "Call delta should be positive");
-        assert!(greeks.delta < option.notional.amount(), "Delta should be < notional");
+        assert!(
+            greeks.delta < option.notional.amount(),
+            "Delta should be < notional"
+        );
 
         // Gamma should be positive
         assert!(greeks.gamma > 0.0, "Gamma should be positive");
@@ -852,8 +858,15 @@ mod tests {
 
         // Verify Garman-Kohlhagen reference price matches within tolerance
         // Using relative tolerance: 1e-6 relative error on ~$25K = ~$0.025 absolute
-        let gk_price =
-            super::price_gk_core(collected_spot, option.strike, r_d, r_f, sigma, t_vol, option.option_type);
+        let gk_price = super::price_gk_core(
+            collected_spot,
+            option.strike,
+            r_d,
+            r_f,
+            sigma,
+            t_vol,
+            option.option_type,
+        );
         let expected_pv = gk_price * option.notional.amount();
         let relative_error = (pv.amount() - expected_pv).abs() / expected_pv;
         assert!(

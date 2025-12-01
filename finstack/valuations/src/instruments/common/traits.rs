@@ -60,7 +60,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -360,7 +360,7 @@ impl Attributes {
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::create_date;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use time::Month;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -393,7 +393,7 @@ impl Attributes {
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
 /// # use finstack_core::dates::create_date;
-/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::market_data::context::MarketContext;
 /// # use time::Month;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -566,7 +566,7 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
-    /// # use finstack_core::market_data::MarketContext;
+    /// # use finstack_core::market_data::context::MarketContext;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -765,7 +765,7 @@ pub trait Instrument: Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::{Bond, Instrument};
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -853,7 +853,7 @@ pub trait Instrument: Send + Sync {
     /// ```rust
     /// use finstack_valuations::instruments::{Bond, Instrument};
     /// use finstack_valuations::metrics::MetricId;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;

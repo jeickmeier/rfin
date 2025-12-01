@@ -35,7 +35,7 @@ fn test_currency_safety_mismatch() {
         .build()
         .unwrap();
 
-    let market = finstack_core::market_data::MarketContext::new()
+    let market = finstack_core::market_data::context::MarketContext::new()
         .insert_discount(discount_curve)
         .insert_price(
             "AAPL",
@@ -479,7 +479,7 @@ fn test_missing_volatility_data() {
         .unwrap();
 
     // Market without volatility
-    let market = finstack_core::market_data::MarketContext::new()
+    let market = finstack_core::market_data::context::MarketContext::new()
         .insert_discount(discount_curve)
         .insert_price("AAPL", MarketScalar::Unitless(150.0))
         // Missing volatility
@@ -500,7 +500,7 @@ fn test_missing_discount_curve() {
     let bond = create_standard_convertible();
 
     // Market without discount curve
-    let market = finstack_core::market_data::MarketContext::new()
+    let market = finstack_core::market_data::context::MarketContext::new()
         .insert_price("AAPL", MarketScalar::Unitless(150.0))
         .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));

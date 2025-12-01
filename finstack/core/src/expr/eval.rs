@@ -171,35 +171,34 @@ impl CompiledExpr {
         cols: &[&[f64]],
         opts: EvalOpts,
     ) -> EvaluationResult {
-        // Decide on execution plan preference: opts > self > none
-        let plan_to_use: Option<ExecutionPlan> = if let Some(p) = opts.plan {
-            Some(p)
-        } else {
-            self.plan.clone()
-        };
+        // Decide on execution plan preference: opts > self > auto-build
+        let plan_to_use: ExecutionPlan = opts
+            .plan
+            .or_else(|| self.plan.clone())
+            .unwrap_or_else(|| {
+                let mut builder = DagBuilder::new();
+                let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
+                builder.build_plan(vec![self.ast.clone()], meta)
+            });
 
         // Decide on cache to use for this evaluation
         let eval_cache: Option<CacheManager> = if let Some(budget) = opts.cache_budget_mb {
-            if let Some(ref p) = plan_to_use {
-                Some(CacheManager::for_plan(p, budget))
-            } else {
-                Some(CacheManager::new(budget))
-            }
+            Some(CacheManager::for_plan(&plan_to_use, budget))
         } else {
             self.cache.clone()
         };
 
         // Compute values using the chosen strategy
-        let values: Vec<f64> = if let Some(ref plan) = plan_to_use {
+        let values: Vec<f64> = {
             // Execute nodes in topological order using arena allocation
             let len = cols.first().map(|c| c.len()).unwrap_or(0);
 
             // Pre-allocate arena for all node results to avoid per-node Vec allocations
-            let mut arena = vec![0.0; len * plan.nodes.len()];
+            let mut arena = vec![0.0; len * plan_to_use.nodes.len()];
             let mut offsets: FxHashMap<u64, (usize, usize)> = FxHashMap::default();
             let mut cursor = 0;
 
-            for node in &plan.nodes {
+            for node in &plan_to_use.nodes {
                 // Cache lookup
                 if let Some(ref cache) = eval_cache {
                     if let Some(cached) = cache.get(node.id, len) {
@@ -228,7 +227,7 @@ impl CompiledExpr {
 
                 // Cache store
                 if let Some(ref cache) = eval_cache {
-                    if plan.cache_strategy.cache_nodes.contains(&node.id) {
+                    if plan_to_use.cache_strategy.cache_nodes.contains(&node.id) {
                         let arc: std::sync::Arc<[f64]> =
                             std::sync::Arc::from(arena[start..end].to_vec().into_boxed_slice());
                         cache.put(node.id, CachedResult::Scalar(arc));
@@ -240,7 +239,7 @@ impl CompiledExpr {
             }
 
             // Extract root result
-            if let Some(&root_id) = plan.roots.first() {
+            if let Some(&root_id) = plan_to_use.roots.first() {
                 if let Some(&(start, end)) = offsets.get(&root_id) {
                     arena[start..end].to_vec()
                 } else {
@@ -249,9 +248,6 @@ impl CompiledExpr {
             } else {
                 Vec::new()
             }
-        } else {
-            // No plan: use simple scalar evaluation
-            self.eval_simple(ctx, cols, &self.ast)
         };
 
         // Stamp minimal metadata only at IO boundaries; evaluator does not record timings/cache/parallel
@@ -337,50 +333,6 @@ impl CompiledExpr {
                 }
             }
         }
-    }
-
-    /// Simple evaluation without DAG planning (legacy path).
-    fn eval_simple<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], expr: &Expr) -> Vec<f64> {
-        let len = cols.first().map(|c| c.len()).unwrap_or(0);
-        let mut out = vec![0.0; len];
-        match &expr.node {
-            ExprNode::Column(name) => {
-                let idx = ctx.resolve_index(name).expect("unknown column");
-                // Preserve semantics: result length equals referenced column length
-                return cols[idx].to_vec();
-            }
-            ExprNode::Literal(v) => {
-                out.fill(*v);
-            }
-            ExprNode::Call(fun, args) => {
-                // Recursively evaluate arguments
-                let arg_results: Vec<Vec<f64>> = args
-                    .iter()
-                    .map(|arg| self.eval_simple(ctx, cols, arg))
-                    .collect();
-                return self.eval_function(*fun, &arg_results, ctx, cols);
-            }
-            ExprNode::BinOp { op, left, right } => {
-                let left_result = self.eval_simple(ctx, cols, left);
-                let right_result = self.eval_simple(ctx, cols, right);
-                return Self::eval_bin_op(*op, &left_result, &right_result);
-            }
-            ExprNode::UnaryOp { op, operand } => {
-                let operand_result = self.eval_simple(ctx, cols, operand);
-                return Self::eval_unary_op(*op, &operand_result);
-            }
-            ExprNode::IfThenElse {
-                condition,
-                then_expr,
-                else_expr,
-            } => {
-                let cond_result = self.eval_simple(ctx, cols, condition);
-                let then_result = self.eval_simple(ctx, cols, then_expr);
-                let else_result = self.eval_simple(ctx, cols, else_expr);
-                return Self::eval_if_then_else(&cond_result, &then_result, &else_result);
-            }
-        }
-        out
     }
 
     // --- Scalar evaluators ---
@@ -1154,6 +1106,7 @@ impl CompiledExpr {
     }
 
     /// Evaluate a binary operation element-wise.
+    #[allow(dead_code)]
     fn eval_bin_op(op: super::ast::BinOp, left: &[f64], right: &[f64]) -> Vec<f64> {
         let len = left.len().max(right.len());
         let mut out = vec![0.0; len];
@@ -1181,6 +1134,7 @@ impl CompiledExpr {
     }
 
     /// Evaluate a unary operation element-wise.
+    #[allow(dead_code)]
     fn eval_unary_op(op: super::ast::UnaryOp, operand: &[f64]) -> Vec<f64> {
         let mut out = vec![0.0; operand.len()];
         Self::eval_unary_op_into(op, operand, &mut out);
@@ -1205,6 +1159,7 @@ impl CompiledExpr {
     }
 
     /// Evaluate if-then-else element-wise.
+    #[allow(dead_code)]
     fn eval_if_then_else(condition: &[f64], then_vals: &[f64], else_vals: &[f64]) -> Vec<f64> {
         let len = condition.len().max(then_vals.len()).max(else_vals.len());
         let mut out = vec![0.0; len];
@@ -1275,6 +1230,7 @@ impl CompiledExpr {
     }
 
     /// Evaluate a function with given argument results.
+    #[allow(dead_code)]
     fn eval_function<C: ExpressionContext>(
         &self,
         fun: Function,
@@ -1298,7 +1254,7 @@ mod tests {
     }
 
     #[test]
-    fn eval_simple_handles_if_binop_and_unary_nodes() {
+    fn eval_auto_builds_plan_for_if_binop_and_unary_nodes() {
         let (ctx, data) = sample_context();
         let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 

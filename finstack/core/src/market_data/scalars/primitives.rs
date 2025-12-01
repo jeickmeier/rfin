@@ -6,7 +6,7 @@
 //! - `MarketScalar`: single numeric value (unitless or price in a currency)
 //! - `ScalarTimeSeries`: generic date → value series with step/linear interp
 //!
-//! Both are integrated into the [`crate::market_data::MarketContext`]
+//! Both are integrated into the [`crate::market_data::context::MarketContext`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
 use super::storage::TimeSeriesStorage;
@@ -58,7 +58,7 @@ impl Default for SeriesInterpolation {
 /// Single market observable that doesn't require a full curve.
 ///
 /// Represents point-in-time market data like spot prices, spreads, or unitless
-/// parameters. Stored in [`MarketContext`](crate::market_data::MarketContext)
+/// parameters. Stored in [`MarketContext`](crate::market_data::context::MarketContext)
 /// alongside curves for simple lookups.
 ///
 /// # Use Cases

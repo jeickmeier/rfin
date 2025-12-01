@@ -2,7 +2,7 @@
 
 use super::common::*;
 use finstack_core::{
-    currency::Currency, market_data::MarketContext, money::Money, types::InstrumentId,
+    currency::Currency, market_data::context::MarketContext, money::Money, types::InstrumentId,
 };
 use finstack_valuations::instruments::{common::traits::Instrument, fx_spot::FxSpot};
 

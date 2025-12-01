@@ -2,8 +2,8 @@
 
 use super::common::*;
 use finstack_core::{
-    currency::Currency, dates::BusinessDayConvention, market_data::MarketContext, money::Money,
-    types::InstrumentId,
+    currency::Currency, dates::BusinessDayConvention, market_data::context::MarketContext,
+    money::Money, types::InstrumentId,
 };
 use finstack_valuations::{
     cashflow::traits::CashflowProvider,

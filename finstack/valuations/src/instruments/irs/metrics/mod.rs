@@ -23,7 +23,7 @@
 //! use finstack_valuations::instruments::irs::InterestRateSwap;
 //! use finstack_valuations::instruments::common::traits::Instrument;
 //! use finstack_valuations::metrics::MetricId;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //! # use time::Month;
 //!

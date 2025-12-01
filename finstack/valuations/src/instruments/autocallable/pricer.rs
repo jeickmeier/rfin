@@ -21,7 +21,7 @@ use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
 #[cfg(feature = "mc")]
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
 use finstack_core::money::Money;
 #[cfg(feature = "mc")]

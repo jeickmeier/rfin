@@ -16,7 +16,7 @@
 //! touch zero. The QE discretization scheme handles boundary behavior gracefully.
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
 use crate::instruments::common::mc::process::ou::HullWhite1FParams;

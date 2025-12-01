@@ -10,9 +10,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 use finstack_valuations::instruments::revolving_credit::{
@@ -205,7 +205,7 @@ fn test_floating_vs_margin_only() {
     let pv_with_curves =
         RevolvingCreditPricer::price_deterministic(&facility, &market_with_curve, start).unwrap();
 
-    // Price without curves (margin-only, legacy behavior)
+    // Price without curves (margin-only)
     // This would use generate_deterministic_cashflows instead of _with_curves
     // But since we've switched to _with_curves, we can't easily test margin-only
     // Instead, verify that PV is reasonable and uses forward rates

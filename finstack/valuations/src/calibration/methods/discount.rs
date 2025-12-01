@@ -712,15 +712,15 @@ impl DiscountCurveCalibrator {
             // Positive rate environment - enforce strict monotonicity
             ValidationConfig::default()
         };
-        curve.validate(&validation_config).map_err(|e| {
-            finstack_core::Error::Calibration {
+        curve
+            .validate(&validation_config)
+            .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated discount curve {} failed validation: {}",
                     self.curve_id, e
                 ),
                 category: "yield_curve_validation".to_string(),
-            }
-        })?;
+            })?;
 
         // Create calibration report with comprehensive metadata
         let mut report = CalibrationReport::for_type_with_tolerance(
@@ -729,18 +729,18 @@ impl DiscountCurveCalibrator {
             total_iterations,
             self.config.tolerance,
         )
-            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
-            .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
-            .with_metadata("currency", self.currency.to_string())
-            .with_metadata(
-                "curve_day_count",
-                format!("{:?}", self.effective_curve_day_count()),
-            )
-            .with_metadata(
-                "settlement_days",
-                self.effective_settlement_days().to_string(),
-            )
-            .with_metadata("validation", "passed");
+        .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+        .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
+        .with_metadata("currency", self.currency.to_string())
+        .with_metadata(
+            "curve_day_count",
+            format!("{:?}", self.effective_curve_day_count()),
+        )
+        .with_metadata(
+            "settlement_days",
+            self.effective_settlement_days().to_string(),
+        )
+        .with_metadata("validation", "passed");
 
         // Attach explanation trace if present
         if let Some(explanation) = trace {
@@ -1915,7 +1915,9 @@ mod tests {
 
         // USD should use T+2 business days: Wed -> Fri (Jan 17)
         let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
+        let usd_settlement = usd_calibrator
+            .settlement_date()
+            .expect("Settlement should succeed");
         assert_eq!(
             usd_settlement,
             Date::from_calendar_date(2025, Month::January, 17).expect("Valid date"),
@@ -1924,7 +1926,9 @@ mod tests {
 
         // GBP should use T+0 (same business day)
         let gbp_calibrator = DiscountCurveCalibrator::new("GBP-SONIA", base_date, Currency::GBP);
-        let gbp_settlement = gbp_calibrator.settlement_date().expect("Settlement should succeed");
+        let gbp_settlement = gbp_calibrator
+            .settlement_date()
+            .expect("Settlement should succeed");
         assert_eq!(gbp_settlement, base_date, "GBP should settle T+0");
 
         // Explicit override: T+1
@@ -1949,7 +1953,9 @@ mod tests {
         // USD T+2 from Friday should skip weekend AND MLK Day (Jan 20):
         // Fri Jan 17 + 2 business days = Wed Jan 22 (skipping Sat 18, Sun 19, MLK Day Mon 20)
         let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
+        let usd_settlement = usd_calibrator
+            .settlement_date()
+            .expect("Settlement should succeed");
         assert_eq!(
             usd_settlement,
             Date::from_calendar_date(2025, Month::January, 22).expect("Valid date"),
@@ -1967,7 +1973,9 @@ mod tests {
         // Dec 23 (Mon) + 2 business days = Dec 24 (Tue), Dec 26 (Thu) [skip Dec 25 holiday]
         // Actually: Dec 23 + 1 = Dec 24 (business day), Dec 24 + 1 = Dec 26 (skip Dec 25)
         let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
+        let usd_settlement = usd_calibrator
+            .settlement_date()
+            .expect("Settlement should succeed");
 
         // Expected: Dec 23 + 2 business days = Dec 26 (skipping Dec 25 Christmas)
         assert_eq!(

@@ -367,19 +367,19 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 final_knots.len(),
                 self.config.tolerance,
             )
-                    .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
-                    .with_metadata("time_dc", format!("{:?}", self.time_dc))
-                    .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
-                    .with_metadata("inflation_lag", format!("{:?}", self.inflation_lag))
-                    .with_metadata(
-                        "inflation_interpolation",
-                        format!("{:?}", self.inflation_interpolation),
-                    )
-                    .with_metadata(
-                        "has_seasonality",
-                        format!("{}", self.seasonality_adjustments.is_some()),
-                    )
-                    .with_metadata("validation", "passed");
+            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+            .with_metadata("time_dc", format!("{:?}", self.time_dc))
+            .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
+            .with_metadata("inflation_lag", format!("{:?}", self.inflation_lag))
+            .with_metadata(
+                "inflation_interpolation",
+                format!("{:?}", self.inflation_interpolation),
+            )
+            .with_metadata(
+                "has_seasonality",
+                format!("{}", self.seasonality_adjustments.is_some()),
+            )
+            .with_metadata("validation", "passed");
 
             Ok((curve, report))
         }
@@ -498,7 +498,11 @@ mod tests {
         assert!(result.is_ok());
 
         let (curve, report) = result.expect("Calibration should succeed in test");
-        assert!(report.success, "Calibration failed: {}", report.convergence_reason);
+        assert!(
+            report.success,
+            "Calibration failed: {}",
+            report.convergence_reason
+        );
 
         // Check that metadata includes our new settings
         assert!(report.metadata.contains_key("inflation_lag"));

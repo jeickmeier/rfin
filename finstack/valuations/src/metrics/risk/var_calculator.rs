@@ -6,7 +6,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::risk::MarketHistory;
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
 /// VaR calculation method.
@@ -336,8 +336,8 @@ mod tests {
     use crate::instruments::Bond;
     use crate::metrics::risk::{MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType};
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::money::Money;
     use finstack_core::types::{Currency, CurveId};
     use std::sync::Arc;

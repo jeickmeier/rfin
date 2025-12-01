@@ -146,9 +146,6 @@ struct RawDiscountCurve {
     points: super::common::StateKnotPoints,
     #[serde(flatten)]
     interp: super::common::StateInterp,
-    /// Whether monotonic discount factors were required (deprecated, always true now)
-    #[serde(default = "default_true")]
-    pub require_monotonic: bool,
     /// Minimum forward rate floor (if set)
     #[serde(default)]
     pub min_forward_rate: Option<f64>,
@@ -178,7 +175,6 @@ impl From<DiscountCurve> for RawDiscountCurve {
                 interp_style: curve.style,
                 extrapolation: curve.extrapolation,
             },
-            require_monotonic: true,
             min_forward_rate: None, // Can't recover from existing curves easily without storing it
             allow_non_monotonic: false,
         }
@@ -197,8 +193,7 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
             .set_interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation);
 
-        // Handle legacy require_monotonic field (now always true by default)
-        if !state.require_monotonic || state.allow_non_monotonic {
+        if state.allow_non_monotonic {
             builder = builder.allow_non_monotonic();
         }
 
@@ -209,11 +204,6 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
 
         builder.build()
     }
-}
-
-#[cfg(feature = "serde")]
-fn default_true() -> bool {
-    true
 }
 
 #[cfg(feature = "serde")]
@@ -327,27 +317,6 @@ impl DiscountCurve {
             }
         };
         self.df(t)
-    }
-
-    /// Static convenience: discount factor on a specific date given any discount curve.
-    /// For backward compatibility with existing code.
-    #[inline]
-    #[allow(clippy::manual_unwrap_or)]
-    pub fn df_on(
-        disc: &dyn Discounting,
-        base: Date,
-        date: Date,
-        dc: crate::dates::DayCount,
-    ) -> f64 {
-        let t = if date == base {
-            0.0
-        } else {
-            match dc.year_fraction(base, date, DayCountCtx::default()) {
-                Ok(yf) => yf,
-                Err(_) => 0.0,
-            }
-        };
-        disc.df(t)
     }
 
     /// Create a new curve with a parallel rate bump applied in basis points (fallible).
@@ -573,8 +542,7 @@ impl DiscountCurve {
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,
             extrapolation: ExtrapolationPolicy::FlatForward,
-            require_monotonic: true, // Enforced by default for no-arbitrage
-            min_forward_rate: None,  // No floor by default
+            min_forward_rate: None,     // No floor by default
             allow_non_monotonic: false, // Strict validation by default
         }
     }
@@ -758,7 +726,6 @@ pub struct DiscountCurveBuilder {
     points: Vec<(f64, f64)>, // (t, df)
     style: InterpStyle,
     extrapolation: ExtrapolationPolicy,
-    require_monotonic: bool,       // Enforced by default for no-arbitrage
     min_forward_rate: Option<f64>, // Minimum allowed forward rate (e.g., -50bp = -0.005)
     allow_non_monotonic: bool,     // Override to disable monotonicity checks (use with caution)
 }
@@ -795,16 +762,6 @@ impl DiscountCurveBuilder {
         self
     }
 
-    /// Require monotonic (strictly decreasing) discount factors.
-    /// This is critical for credit curves to ensure arbitrage-free pricing.
-    ///
-    /// **Note:** Monotonicity is enforced by default. This method is kept for
-    /// backward compatibility but has no effect since validation is now automatic.
-    pub fn require_monotonic(mut self) -> Self {
-        self.require_monotonic = true;
-        self
-    }
-
     /// Enforce comprehensive no-arbitrage checks on the discount curve.
     ///
     /// This enables:
@@ -826,7 +783,6 @@ impl DiscountCurveBuilder {
     ///     .expect("DiscountCurve builder should succeed");
     /// ```
     pub fn enforce_no_arbitrage(mut self) -> Self {
-        self.require_monotonic = true;
         self.min_forward_rate = Some(-0.005); // -50bp floor
         self
     }
@@ -866,7 +822,6 @@ impl DiscountCurveBuilder {
     /// understand the implications.
     pub fn allow_non_monotonic(mut self) -> Self {
         self.allow_non_monotonic = true;
-        self.require_monotonic = false;
         self
     }
 
@@ -884,7 +839,7 @@ impl DiscountCurveBuilder {
             .map_err(|_| crate::error::InputError::NonMonotonicKnots)?;
 
         // Enforce monotonicity by default (can be disabled via allow_non_monotonic)
-        if self.require_monotonic && !self.allow_non_monotonic {
+        if !self.allow_non_monotonic {
             validate_monotonic_df(&knots_vec, &dfs_vec)?;
         }
 

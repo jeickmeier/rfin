@@ -107,7 +107,7 @@ impl QuantoOption {
     #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::quanto_option::pricer;
@@ -118,7 +118,7 @@ impl QuantoOption {
     /// Uses quanto-adjusted Black-Scholes with correlation and FX vol.
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer;
@@ -159,7 +159,7 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Default to analytical pricing
@@ -168,7 +168,7 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

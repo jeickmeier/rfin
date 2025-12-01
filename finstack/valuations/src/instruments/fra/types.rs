@@ -10,7 +10,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{
     adjust, calendar::registry::CalendarRegistry, BusinessDayConvention, Date, DayCount,
 };
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -101,7 +101,7 @@ impl ForwardRateAgreement {
     /// Calculate the net present value of this FRA
     pub fn npv(
         &self,
-        context: &finstack_core::market_data::MarketContext,
+        context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         // Settlement for a FRA occurs at the start of the accrual period; past
@@ -253,7 +253,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Call the instrument's own NPV method
@@ -262,7 +262,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

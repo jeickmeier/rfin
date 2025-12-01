@@ -12,7 +12,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_scenarios::{ScenarioSpec, OperationSpec, CurveKind, ScenarioEngine, ExecutionContext};
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_statements::FinancialModelSpec;
 //! use time::macros::date;
 //!

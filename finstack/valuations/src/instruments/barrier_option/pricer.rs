@@ -6,7 +6,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 // DayCountCtx is only used by MC pricer
@@ -77,9 +77,10 @@ impl BarrierOptionMcPricer {
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
 
         // Time to maturity for discounting (using discount curve's basis)
-        let t_disc = disc_curve
-            .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        let t_disc =
+            disc_curve
+                .day_count()
+                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
         // Time to maturity for vol surface (using instrument's day count, which should
         // match how the vol surface was calibrated)
@@ -235,9 +236,10 @@ impl BarrierOptionMcPricer {
         }
 
         // Time to maturity for discounting (using discount curve's basis)
-        let t_disc = disc_curve
-            .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        let t_disc =
+            disc_curve
+                .day_count()
+                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
         // Risk-free rate using discount curve's time basis
         let r = disc_curve.zero(t_disc);

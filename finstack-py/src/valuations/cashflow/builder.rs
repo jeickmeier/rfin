@@ -660,13 +660,14 @@ impl PyCashFlowSchedule {
 
             let pv_result = self
                 .inner
-                .pre_period_pv_with_market(
+                .pre_period_pv_with_market_and_ctx(
                     &periods_vec,
                     &market.inner,
                     &disc_curve_id,
                     hazard_curve_id_opt.as_ref(),
                     base,
                     dc,
+                    finstack_core::dates::DayCountCtx::default(),
                 )
                 .map_err(core_to_py)?;
             pv_result
@@ -684,9 +685,16 @@ impl PyCashFlowSchedule {
                 disc_curve.inner.base_date()
             };
 
-            let pv_map =
-                self.inner
-                    .pre_period_pv(&periods_vec, disc_curve.inner.as_ref(), base, dc);
+            let pv_map = self
+                .inner
+                .pre_period_pv_with_ctx(
+                    &periods_vec,
+                    disc_curve.inner.as_ref(),
+                    base,
+                    dc,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .map_err(core_to_py)?;
             pv_map
         } else {
             return Err(pyo3::exceptions::PyTypeError::new_err(

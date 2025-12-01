@@ -6,6 +6,7 @@
 //! - Scenario application and re-valuation
 //! - DataFrame exports
 
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
@@ -17,7 +18,6 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;

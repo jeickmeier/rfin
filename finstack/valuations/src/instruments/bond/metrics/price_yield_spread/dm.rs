@@ -125,7 +125,7 @@ impl Default for DiscountMarginSolverConfig {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -152,7 +152,7 @@ impl DiscountMarginCalculator {
 
     fn pv_given_dm(
         bond: &Bond,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
         dm: f64,
     ) -> finstack_core::Result<f64> {

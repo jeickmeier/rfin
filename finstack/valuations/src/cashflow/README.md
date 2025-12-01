@@ -416,17 +416,26 @@ impl CashflowProvider for MyInstrument {
 ### 5. Period PV from Schedule
 
 ```rust
-// Direct from schedule (convenience method)
-let pv_map = schedule.pre_period_pv(&periods, disc, base, DayCount::Act365F);
+use finstack_core::dates::DayCountCtx;
 
-// With market context (supports credit adjustment)
-let pv_map = schedule.pre_period_pv_with_market(
+// Direct from schedule (convenience method, explicit day-count context)
+let pv_map = schedule.pre_period_pv_with_ctx(
+    &periods,
+    disc,
+    base,
+    DayCount::Act365F,
+    DayCountCtx::default(),
+)?;
+
+// With market context (supports credit adjustment, explicit day-count context)
+let pv_map = schedule.pre_period_pv_with_market_and_ctx(
     &periods,
     &market,
     &CurveId::new("USD-OIS"),
     Some(&CurveId::new("AAPL-HAZARD")),
     base,
     DayCount::Act365F,
+    DayCountCtx::default(),
 )?;
 ```
 
@@ -575,8 +584,9 @@ println!("Q2 USD: {}", q2.get(&Currency::USD).unwrap());
 ### Example 4: Credit-Adjusted Periodized PV
 
 ```rust
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::dates::DayCountCtx;
 
 // Build market context
 let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -595,13 +605,14 @@ let market = MarketContext::new()
     .insert_hazard(hazard_curve);
 
 // Compute credit-adjusted period PVs
-let pv_map = schedule.pre_period_pv_with_market(
+let pv_map = schedule.pre_period_pv_with_market_and_ctx(
     &periods,
     &market,
     &CurveId::new("USD-OIS"),
     Some(&CurveId::new("CORP-HAZARD")),
     base,
     DayCount::Act365F,
+    DayCountCtx::default(),
 )?;
 
 // Analyze results
@@ -832,11 +843,15 @@ For large portfolios, parallelize over instruments, not cashflows:
 
 ```rust
 use rayon::prelude::*;
+use finstack_core::dates::DayCountCtx;
 
 let instrument_pvs: Vec<Money> = instruments.par_iter()
     .map(|inst| {
         let schedule = inst.build_full_schedule(&market, as_of)?;
-        schedule.pre_period_pv(&periods, disc, base, dc)
+        let pv_map = schedule
+            .pre_period_pv_with_ctx(&periods, disc, base, dc, DayCountCtx::default())
+            .expect("period PV calculation should succeed");
+        pv_map
             .values()
             .flat_map(|m| m.values())
             .fold(Money::new(0.0, Currency::USD), |acc, pv| acc.checked_add(*pv).unwrap())
@@ -932,9 +947,12 @@ fn test_periodized_pv_matches_npv() {
     let schedule = /* build schedule */;
     let disc = /* build discount curve */;
     let periods = /* define periods */;
+    use finstack_core::dates::DayCountCtx;
     
     // Periodized PV
-    let pv_map = schedule.pre_period_pv(&periods, &disc, base, DayCount::Act365F);
+    let pv_map = schedule
+        .pre_period_pv_with_ctx(&periods, &disc, base, DayCount::Act365F, DayCountCtx::default())
+        .unwrap();
     let period_sum: f64 = pv_map.values()
         .flat_map(|m| m.values())
         .map(|pv| pv.amount())
@@ -988,4 +1006,3 @@ The cashflow module is the foundation for all instrument valuation in Finstack. 
 - **Extensibility**: Clear patterns for adding new features
 
 For questions or contributions, see the main Finstack documentation or raise an issue on GitHub.
-

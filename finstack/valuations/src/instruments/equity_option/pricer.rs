@@ -13,7 +13,7 @@ use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity_option::types::EquityOption;
 use crate::instruments::ExerciseStyle;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -528,7 +528,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;

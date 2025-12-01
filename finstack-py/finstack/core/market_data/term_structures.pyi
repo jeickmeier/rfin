@@ -44,10 +44,10 @@ class DiscountCurve:
     extrapolation : ExtrapolationPolicy or str, optional
         How to handle dates beyond the curve's range. Options: "flat_zero",
         "flat_last", "linear", "none". Defaults to "flat_zero".
-    require_monotonic : bool, default False
+    require_monotonic : bool, default True
         If True, enforce that discount factors are monotonically decreasing
-        (i.e., longer times have smaller discount factors). Raises ValueError
-        if knots violate this constraint.
+        (i.e., longer times have smaller discount factors). Set False only when
+        you intentionally need to allow non-monotonic discount factors.
 
     Returns
     -------
@@ -93,7 +93,7 @@ class DiscountCurve:
         day_count: Optional[Union[str, DayCount]] = None,
         interp: Optional[Union[str, InterpStyle]] = None,
         extrapolation: Optional[Union[str, ExtrapolationPolicy]] = None,
-        require_monotonic: bool = False,
+        require_monotonic: bool = True,
     ) -> None: ...
     @property
     def id(self) -> str: ...

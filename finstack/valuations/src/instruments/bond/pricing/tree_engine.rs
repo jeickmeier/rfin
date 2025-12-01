@@ -20,7 +20,7 @@
 //! ```rust,no_run
 //! use finstack_valuations::instruments::bond::Bond;
 //! use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //!
 //! # let bond = Bond::example();
@@ -399,7 +399,7 @@ impl TreePricerConfig {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::tree_engine::BondValuator;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -459,7 +459,7 @@ impl BondValuator {
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::tree_engine::BondValuator;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
     /// # let bond = Bond::example();
@@ -567,15 +567,6 @@ impl BondValuator {
             if let Ok(hc) = market_context.get_hazard(credit_id.as_str()) {
                 recovery_rate = Some(hc.recovery_rate());
             }
-        } else {
-            // Fallback to discount_curve_id or discount_curve_id-CREDIT for legacy compatibility
-            if let Ok(hc) = market_context.get_hazard(bond.discount_curve_id.as_str()) {
-                recovery_rate = Some(hc.recovery_rate());
-            } else if let Ok(hc) =
-                market_context.get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
-            {
-                recovery_rate = Some(hc.recovery_rate());
-            }
         }
 
         Ok(Self {
@@ -639,7 +630,7 @@ impl TreeValuator for BondValuator {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -733,7 +724,7 @@ impl TreePricer {
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
     /// # let bond = Bond::example();
@@ -924,7 +915,7 @@ impl Default for TreePricer {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::tree_engine::calculate_oas;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();

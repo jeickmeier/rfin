@@ -273,7 +273,7 @@ impl FxOption {
     /// Compute present value using Garman–Kohlhagen model.
     pub fn npv(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<Money> {
         self.calculator().npv(self, market, as_of)
@@ -282,7 +282,7 @@ impl FxOption {
     /// Compute present value (alias for npv, used by instrument trait).
     pub fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<Money> {
         self.npv(market, as_of)
@@ -291,7 +291,7 @@ impl FxOption {
     /// Compute greeks using Garman–Kohlhagen model.
     pub fn compute_greeks(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<FxOptionGreeks> {
         self.calculator().compute_greeks(self, curves, as_of)
@@ -300,7 +300,7 @@ impl FxOption {
     /// Solve for implied volatility.
     pub fn implied_vol(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
         target_price: f64,
         initial_guess: Option<f64>,
@@ -337,7 +337,7 @@ impl crate::instruments::common::traits::Instrument for FxOption {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.value(market, as_of)
@@ -345,7 +345,7 @@ impl crate::instruments::common::traits::Instrument for FxOption {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

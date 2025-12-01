@@ -6,8 +6,8 @@ use finstack_core::{
     currency::Currency,
     dates::{Date, DayCount},
     market_data::{
-        scalars::MarketScalar, term_structures::DiscountCurve, term_structures::ForwardCurve,
-        MarketContext,
+        context::MarketContext, scalars::MarketScalar, term_structures::DiscountCurve,
+        term_structures::ForwardCurve,
     },
     math::interp::InterpStyle,
     money::Money,

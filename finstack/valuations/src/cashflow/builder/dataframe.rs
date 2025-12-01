@@ -16,7 +16,7 @@ use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 /// Options for period-aligned DataFrame exports.

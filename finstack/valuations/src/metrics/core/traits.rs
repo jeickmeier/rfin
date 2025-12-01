@@ -140,7 +140,7 @@ pub struct MetricContext {
     pub instrument: Arc<dyn Instrument>,
 
     /// Market curves for discounting and forwarding.
-    pub curves: Arc<finstack_core::market_data::MarketContext>,
+    pub curves: Arc<finstack_core::market_data::context::MarketContext>,
 
     /// Valuation date.
     pub as_of: Date,
@@ -206,7 +206,7 @@ impl MetricContext {
     /// See unit tests and `examples/` for usage.
     pub fn new(
         instrument: Arc<dyn Instrument>,
-        curves: Arc<finstack_core::market_data::MarketContext>,
+        curves: Arc<finstack_core::market_data::context::MarketContext>,
         as_of: Date,
         base_value: Money,
     ) -> Self {

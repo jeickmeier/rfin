@@ -32,7 +32,7 @@
 //! ```rust
 //! use finstack_valuations::instruments::term_loan::TermLoan;
 //! use finstack_valuations::metrics::{MetricId, MetricRegistry};
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!

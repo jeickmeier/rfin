@@ -277,7 +277,7 @@ impl CdsOption {
     /// Calculate the net present value of this CDS option
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
@@ -295,7 +295,7 @@ impl CdsOption {
     /// Returns `None` if the option has expired (t <= 0).
     fn pricing_inputs(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Option<CdsOptionPricingInputs>> {
         let ctx = DayCountCtx::default();
@@ -345,7 +345,7 @@ impl CdsOption {
     /// Returns the dollar value change per 100% change in spread.
     pub fn delta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
@@ -368,7 +368,7 @@ impl CdsOption {
     /// Gamma measures the rate of change of delta with respect to the forward spread.
     pub fn gamma(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
@@ -392,7 +392,7 @@ impl CdsOption {
     /// Returns the dollar value change per 1% change in volatility.
     pub fn vega(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
@@ -421,7 +421,7 @@ impl CdsOption {
     /// The dollar value change per day (negative for long positions).
     pub fn theta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
@@ -444,7 +444,7 @@ impl CdsOption {
     /// The implied lognormal volatility in decimal form (e.g., 0.30 for 30%).
     pub fn implied_vol(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         target_price: f64,
         initial_guess: Option<f64>,
@@ -497,7 +497,7 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -505,7 +505,7 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

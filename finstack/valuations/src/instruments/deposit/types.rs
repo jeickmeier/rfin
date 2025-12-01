@@ -16,7 +16,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DayCount, HolidayCalendar};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use time::Duration;
@@ -120,7 +120,7 @@ impl Deposit {
     /// a deposit priced at its par rate will have zero PV.
     pub fn npv(
         &self,
-        context: &finstack_core::market_data::MarketContext,
+        context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         crate::instruments::common::helpers::schedule_pv_using_curve_dc(
@@ -160,7 +160,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Call the instrument's own NPV method
@@ -169,7 +169,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

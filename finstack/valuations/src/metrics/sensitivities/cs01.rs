@@ -8,9 +8,9 @@ use crate::calibration::methods::hazard_curve::HazardCurveCalibrator;
 use crate::calibration::Calibrator;
 use crate::calibration::CreditQuote;
 use crate::metrics::{MetricContext, MetricId};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::Seniority;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
 use std::sync::Arc;
@@ -467,7 +467,7 @@ where
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
-        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+        let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             inst_arc.value(temp_ctx, as_of)
         };
 
@@ -499,7 +499,7 @@ where
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
-        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+        let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             inst_arc.value(temp_ctx, as_of)
         };
 

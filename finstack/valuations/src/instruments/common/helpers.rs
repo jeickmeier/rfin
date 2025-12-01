@@ -5,39 +5,10 @@
 
 use crate::metrics::{standard_registry, MetricContext};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::market_data::{scalars::MarketScalar, MarketContext};
+use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
 use finstack_core::money::Money;
 use indexmap::IndexMap;
 use std::sync::Arc;
-
-/// Monomorphized schedule → PV helper for instruments using a discount curve.
-///
-/// - Builds the schedule via `CashflowProvider`.
-/// - Retrieves the discount curve by borrowed ID using `get_discount_ref`.
-/// - For legacy callers, performs NPV using a caller-supplied `DayCount`
-///   passed through to the core discounting helper. Instruments that want
-///   DF-by-date semantics should prefer using `DiscountCurve::df_on_date_curve`
-///   directly or a dedicated helper instead of this function.
-///
-/// **Note**: For instruments where par rate should produce zero PV (e.g., deposits),
-/// use [`schedule_pv_using_curve_dc`] instead, which uses the curve's day count.
-pub fn schedule_pv_impl<S>(
-    instrument: &S,
-    curves: &MarketContext,
-    as_of: Date,
-    discount_curve_id: &finstack_core::types::CurveId,
-    day_count: finstack_core::dates::DayCount,
-) -> finstack_core::Result<Money>
-where
-    S: crate::cashflow::traits::CashflowProvider,
-{
-    use crate::instruments::common::discountable::npv_static;
-
-    let flows = S::build_schedule(instrument, curves, as_of)?;
-    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
-    // Use as_of for correct theta calculation, not curve base_date
-    npv_static(disc, as_of, day_count, &flows)
-}
 
 /// Schedule → PV helper that uses the curve's own day count convention.
 ///

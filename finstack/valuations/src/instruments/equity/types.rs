@@ -7,8 +7,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -348,7 +348,7 @@ impl crate::instruments::common::traits::Instrument for Equity {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(market, as_of)
@@ -356,7 +356,7 @@ impl crate::instruments::common::traits::Instrument for Equity {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

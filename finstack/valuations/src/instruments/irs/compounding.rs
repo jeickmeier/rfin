@@ -43,14 +43,14 @@
 /// Method for calculating floating leg coupon payments.
 ///
 /// Different reference rates require different compounding conventions:
-/// - **Term rates (SOFR 3M, EURIBOR, legacy LIBOR)**: Simple interest
+/// - **Term rates (SOFR 3M, EURIBOR, historical LIBOR)**: Simple interest
 /// - **Overnight rates (SOFR, SONIA, €STR, TONA)**: Compounded in arrears
 ///
 /// # Market Standards
 ///
 /// ## Simple (LIBOR-style)
 /// - **Formula**: `Coupon = Notional × (Forward_Rate + Spread) × DCF`
-/// - **Use for**: USD LIBOR, EUR EURIBOR, GBP LIBOR (legacy)
+/// - **Use for**: USD LIBOR, EUR EURIBOR, GBP LIBOR (historical)
 /// - **Standard**: ISDA 2006 Definitions
 ///
 /// ## Compounded In Arrears (RFR-style)

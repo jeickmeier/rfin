@@ -1,7 +1,7 @@
 use finstack_core::dates::Date;
 use finstack_core::dates::DateExt;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -35,7 +35,7 @@ use super::super::CashflowSpec;
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -74,7 +74,7 @@ impl BondEngine {
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
     /// # let bond = Bond::example();
@@ -120,7 +120,7 @@ impl BondEngine {
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
     /// use finstack_core::explain::ExplainOpts;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
     /// # let bond = Bond::example();

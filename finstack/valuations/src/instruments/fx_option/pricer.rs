@@ -2,7 +2,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_option::FxOption;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 // ========================= NEW SIMPLIFIED PRICER =========================
 

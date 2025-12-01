@@ -107,7 +107,7 @@ impl Autocallable {
     #[cfg(feature = "mc")]
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::autocallable::pricer;
@@ -142,7 +142,7 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         #[cfg(feature = "mc")]
@@ -160,7 +160,7 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

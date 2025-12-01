@@ -9,7 +9,7 @@
 use crate::error::{Error, Result};
 use crate::spec::{CurveKind, TenorMatchMode};
 use crate::utils::parse_tenor_to_years;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// Apply node-specific basis-point shocks to a curve.
 ///
@@ -43,7 +43,7 @@ use finstack_core::market_data::MarketContext;
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::curves::apply_curve_node_shock;
 /// use finstack_scenarios::{CurveKind, TenorMatchMode};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();

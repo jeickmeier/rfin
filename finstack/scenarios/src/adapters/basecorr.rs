@@ -10,7 +10,7 @@
 //! requested shock could not be fully applied.
 
 use crate::error::{Error, Result};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// Apply a parallel point shock to a base correlation surface.
 ///
@@ -35,7 +35,7 @@ use finstack_core::market_data::MarketContext;
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::basecorr::apply_basecorr_parallel_shock;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();
@@ -142,7 +142,7 @@ pub fn apply_basecorr_parallel_shock(
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::basecorr::apply_basecorr_bucket_shock;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();

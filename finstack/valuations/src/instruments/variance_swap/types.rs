@@ -550,7 +550,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -558,7 +558,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

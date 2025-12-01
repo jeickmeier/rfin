@@ -21,7 +21,7 @@
 //!
 //! ```rust
 //! use finstack_core::market_data::diff::{measure_discount_curve_shift, TenorSamplingMethod};
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::types::CurveId;
 //!
 //! # fn example(market_yesterday: MarketContext, market_today: MarketContext) -> finstack_core::Result<()> {
@@ -144,7 +144,7 @@ impl TenorSamplingMethod {
 ///
 /// ```rust
 /// # use finstack_core::market_data::diff::{measure_discount_curve_shift, TenorSamplingMethod};
-/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::market_data::context::MarketContext;
 /// # use finstack_core::types::CurveId;
 /// # fn example(market_t0: MarketContext, market_t1: MarketContext) -> finstack_core::Result<()> {
 /// let shift = measure_discount_curve_shift(
@@ -435,7 +435,7 @@ pub fn measure_correlation_shift(
 ///
 /// ```rust
 /// # use finstack_core::market_data::diff::measure_vol_surface_shift;
-/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::market_data::context::MarketContext;
 /// # use finstack_core::types::CurveId;
 /// # fn example(market_t0: MarketContext, market_t1: MarketContext) -> finstack_core::Result<()> {
 /// // Measure 1Y ATM vol shift
@@ -531,7 +531,7 @@ pub fn measure_vol_surface_shift(
 ///
 /// ```rust
 /// # use finstack_core::market_data::diff::measure_fx_shift;
-/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::market_data::context::MarketContext;
 /// # use finstack_core::currency::Currency;
 /// # fn example(market_t0: MarketContext, market_t1: MarketContext) -> finstack_core::Result<()> {
 /// let fx_shift = measure_fx_shift(

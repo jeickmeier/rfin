@@ -1,9 +1,9 @@
 //! Tests for bucket filtering on volatility and base correlation surfaces.
 
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_scenarios::{
     ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, VolSurfaceKind,
 };

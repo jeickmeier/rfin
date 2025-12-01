@@ -5,9 +5,9 @@ use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
@@ -492,7 +492,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(market, as_of)
@@ -500,7 +500,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

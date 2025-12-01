@@ -57,7 +57,7 @@ pub struct AssetSwapConfig {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -88,7 +88,7 @@ pub struct AssetSwapParCalculator {
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -191,7 +191,7 @@ fn pv_coupon_from_custom_schedule(
 /// day-count override.
 pub fn asw_par_with_forward(
     bond: &Bond,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
     float_spread_bp: f64,
@@ -208,7 +208,7 @@ pub fn asw_par_with_forward(
 /// - When `None`, this falls back to `bond.cashflow_spec.day_count()`.
 pub fn asw_par_with_forward_config(
     bond: &Bond,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
     float_spread_bp: f64,
@@ -275,7 +275,7 @@ pub fn asw_par_with_forward_config(
 /// fixed-leg day-count override.
 pub fn asw_market_with_forward(
     bond: &Bond,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
     float_spread_bp: f64,
@@ -302,7 +302,7 @@ pub fn asw_market_with_forward(
 ///   the fixed-leg annuity; otherwise the bond's coupon day-count is used.
 pub fn asw_market_with_forward_config(
     bond: &Bond,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
     float_spread_bp: f64,

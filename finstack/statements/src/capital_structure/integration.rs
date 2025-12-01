@@ -8,7 +8,7 @@ use crate::error::Result;
 use crate::types::DebtInstrumentSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;

@@ -2,7 +2,7 @@
 
 use crate::instruments::structured_credit::types::TrancheCashflows;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::Date;
 use finstack_core::Result;
 
 /// Calculate tranche-specific WAL from a `TrancheCashflows`.
@@ -66,51 +66,16 @@ pub struct WalCalculator;
 
 impl MetricCalculator for WalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Prefer the detailed tranche cashflow result if available for an exact WAL.
-        if let Some(ref details) = context.detailed_tranche_cashflows {
-            return calculate_tranche_wal(details, context.as_of);
-        }
+        let details = context
+            .detailed_tranche_cashflows
+            .as_ref()
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "detailed_tranche_cashflows".to_string(),
+                })
+            })?;
 
-        // Fallback to legacy logic if detailed flows are not available.
-        let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "context.cashflows".to_string(),
-            })
-        })?;
-
-        // Use Act/365F for year fraction calculation (common for WAL)
-        let day_count = finstack_core::dates::DayCount::Act365F;
-
-        let mut weighted_sum = 0.0;
-        let mut total_principal = 0.0;
-
-        // Identify principal payments and calculate weighted average
-        for (date, amount) in flows {
-            if *date <= context.as_of {
-                continue; // Skip past cashflows
-            }
-
-            let amt = amount.amount();
-
-            // For structured credit, we consider all positive cashflows as including principal
-            // A more sophisticated implementation would tag cashflows by type
-            // For now, we treat all flows as potentially containing principal
-            if amt > 0.0 {
-                let years = day_count
-                    .year_fraction(context.as_of, *date, DayCountCtx::default())
-                    .unwrap_or(0.0);
-
-                weighted_sum += amt * years;
-                total_principal += amt;
-            }
-        }
-
-        // Calculate WAL
-        if total_principal > 0.0 {
-            Ok(weighted_sum / total_principal)
-        } else {
-            Ok(0.0)
-        }
+        calculate_tranche_wal(details, context.as_of)
     }
 
     fn dependencies(&self) -> &[MetricId] {

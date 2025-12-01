@@ -19,7 +19,7 @@
 
 use crate::error::{Error, Result};
 use crate::utils::parse_tenor_to_years;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// Relative tolerance for expiry matching (2%)
 const EXPIRY_REL_TOL: f64 = 0.02;
@@ -164,7 +164,7 @@ fn check_arbitrage(
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::vol::apply_vol_parallel_shock;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();
@@ -254,7 +254,7 @@ pub fn apply_vol_parallel_shock(
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::vol::apply_vol_bucket_shock;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();

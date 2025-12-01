@@ -2,7 +2,7 @@
 //!
 //! This module provides the core market data types and containers used by
 //! pricing engines throughout Finstack. It includes yield curves, credit curves,
-//! volatility surfaces, and the [`MarketContext`] that aggregates them for
+//! volatility surfaces, and the [`context::MarketContext`] that aggregates them for
 //! valuation workflows.
 //!
 //! # Market Data Types
@@ -25,7 +25,7 @@
 //!
 //! # Market Context
 //!
-//! [`MarketContext`] aggregates all market data needed for a valuation run:
+//! [`context::MarketContext`] aggregates all market data needed for a valuation run:
 //! - Stores curves by ID with type-safe retrieval
 //! - Provides FX conversion via [`crate::money::fx::FxMatrix`]
 //! - Supports scenario bumps and stress testing
@@ -41,7 +41,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::{MarketContext, term_structures::DiscountCurve};
+//! use finstack_core::market_data::{context::MarketContext, term_structures::DiscountCurve};
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
@@ -86,7 +86,5 @@ pub mod term_structures;
 pub mod traits;
 // Re-export selected helpers for convenience at `market_data::*` level.
 pub use crate::math::interp::utils::validate_knots;
-// Re-export MarketContext at the top level for backward compatibility
-pub use context::MarketContext;
 // Re-export dividend schedule types for convenience
 pub use dividends::*;

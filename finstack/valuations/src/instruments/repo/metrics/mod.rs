@@ -90,9 +90,9 @@ mod tests {
     use crate::instruments::repo::{CollateralSpec, Repo};
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::prelude::*;
     use time::Month;
 

@@ -59,8 +59,11 @@ fn test_autocallable_mismatched_day_count_bases() {
     let div_yield = 0.02; // 2% div yield
 
     // Create autocallable with ACT/365F day count (standard vol surface basis)
-    let autocall =
-        create_quarterly_autocallable(observation_dates.clone(), DayCount::Act365F, Some("test_dc"));
+    let autocall = create_quarterly_autocallable(
+        observation_dates.clone(),
+        DayCount::Act365F,
+        Some("test_dc"),
+    );
 
     // Create market with ACT/360 discount curve (money market convention)
     // This tests the mismatched basis scenario that was previously buggy
@@ -152,7 +155,10 @@ fn test_autocallable_deterministic_seeding() {
 
     // Should be different (though statistically could be same, very unlikely)
     // We just verify both are valid positive numbers
-    assert!(pv3.amount() > 0.0, "Different seed should still produce valid PV");
+    assert!(
+        pv3.amount() > 0.0,
+        "Different seed should still produce valid PV"
+    );
 }
 
 /// Test that same-basis pricing produces consistent results.
@@ -177,8 +183,11 @@ fn test_autocallable_same_day_count_basis() {
     let div_yield = 0.02;
 
     // Create autocallable with ACT/365F day count
-    let autocall =
-        create_quarterly_autocallable(observation_dates.clone(), DayCount::Act365F, Some("same_dc"));
+    let autocall = create_quarterly_autocallable(
+        observation_dates.clone(),
+        DayCount::Act365F,
+        Some("same_dc"),
+    );
 
     // Create market with ACT/365F discount curve (same basis)
     let market_365 = build_market_with_dc(as_of, spot, vol, rate, div_yield, DayCount::Act365F);
@@ -198,8 +207,11 @@ fn test_autocallable_same_day_count_basis() {
 
     // Now compare with ACT/360 market
     let market_360 = build_market_with_dc(as_of, spot, vol, rate, div_yield, DayCount::Act360);
-    let autocall_360 =
-        create_quarterly_autocallable(observation_dates.clone(), DayCount::Act365F, Some("same_dc"));
+    let autocall_360 = create_quarterly_autocallable(
+        observation_dates.clone(),
+        DayCount::Act365F,
+        Some("same_dc"),
+    );
     let pv_360 = autocall_360.value(&market_360, as_of).unwrap();
 
     // The prices should differ slightly due to different discount factor calculation
@@ -267,4 +279,3 @@ fn test_observation_times_consistent_with_df_ratios() {
         relative_pv
     );
 }
-

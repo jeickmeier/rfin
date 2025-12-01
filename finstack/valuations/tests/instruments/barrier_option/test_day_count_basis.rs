@@ -195,9 +195,7 @@ fn test_vol_lookup_uses_correct_time_basis() {
         .insert_discount(disc_curve_365)
         .insert_surface(
             VolSurface::builder(VOL_ID)
-                .expiries(&[
-                    0.25, 0.5, 0.505, 0.51, 1.0,
-                ])
+                .expiries(&[0.25, 0.5, 0.505, 0.51, 1.0])
                 .strikes(&[50.0, 80.0, 100.0, 120.0, 150.0])
                 .row(&[0.15, 0.15, 0.15, 0.15, 0.15])
                 .row(&[0.20, 0.20, 0.20, 0.20, 0.20])
@@ -235,4 +233,3 @@ fn test_vol_lookup_uses_correct_time_basis() {
         rel_diff * 100.0
     );
 }
-

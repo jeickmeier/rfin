@@ -3,15 +3,12 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_with_ctx, pv_by_period_with_ctx};
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::{
-    traits::{Discounting, Survival},
-    MarketContext,
-};
+use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -302,37 +299,6 @@ impl CashFlowSchedule {
 
         Ok(result)
     }
-    /// Compute pre-period present values aggregated by period.
-    ///
-    /// Groups cashflows by period and computes the present value of each cashflow
-    /// discounted back to the base date. Returns a map from `PeriodId` to currency-indexed
-    /// PV sums for that period.
-    ///
-    /// Uses default `DayCountCtx`. For full control (Act/Act ISMA, Bus/252, etc.),
-    /// use [`Self::pre_period_pv_with_ctx`].
-    ///
-    /// # Arguments
-    /// * `periods` - Period definitions with start/end boundaries
-    /// * `disc` - Discount curve for present value calculation
-    /// * `base` - Base date for discounting (typically valuation date)
-    /// * `dc` - Day count convention for year fraction calculation
-    ///
-    /// # Returns
-    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-    /// are omitted from the result.
-    #[allow(deprecated)]
-    pub fn pre_period_pv(
-        &self,
-        periods: &[Period],
-        disc: &dyn Discounting,
-        base: Date,
-        dc: DayCount,
-    ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        pv_by_period_with_ctx(&flows, periods, disc, base, dc, DayCountCtx::default())
-            .unwrap_or_default()
-    }
-
     /// Compute pre-period present values with explicit day-count context.
     ///
     /// Like [`Self::pre_period_pv`], but accepts a `DayCountCtx` for conventions
@@ -361,67 +327,6 @@ impl CashFlowSchedule {
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         crate::cashflow::aggregation::pv_by_period_with_ctx(&flows, periods, disc, base, dc, dc_ctx)
-    }
-
-    /// Compute pre-period present values with market context support for credit adjustment.
-    ///
-    /// Similar to `pre_period_pv`, but uses `MarketContext` to look up curves by ID,
-    /// enabling credit-adjusted discounting via hazard curves.
-    ///
-    /// Uses default `DayCountCtx`. For full control, use [`Self::pre_period_pv_with_market_and_ctx`].
-    ///
-    /// # Arguments
-    /// * `periods` - Period definitions with start/end boundaries
-    /// * `market` - Market context containing discount and optional hazard curves
-    /// * `disc_curve_id` - Identifier for the discount curve in the market context
-    /// * `hazard_curve_id` - Optional identifier for hazard curve (credit adjustment)
-    /// * `base` - Base date for discounting (typically valuation date)
-    /// * `dc` - Day count convention for year fraction calculation
-    ///
-    /// # Returns
-    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-    /// are omitted from the result.
-    ///
-    /// # Errors
-    /// Returns an error if the discount curve is not found, or if hazard_curve_id
-    /// is provided but the curve is not found in the market context.
-    #[allow(deprecated)]
-    pub fn pre_period_pv_with_market(
-        &self,
-        periods: &[Period],
-        market: &MarketContext,
-        disc_curve_id: &CurveId,
-        hazard_curve_id: Option<&CurveId>,
-        base: Date,
-        dc: DayCount,
-    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-
-        // Get discount curve
-        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
-        let disc: &dyn Discounting = disc_arc.as_ref();
-
-        // Get hazard curve if provided
-        // Note: We need to store the Arc to keep the reference alive for the function scope
-        let hazard_arc_opt: Option<Arc<HazardCurve>> = if let Some(hazard_id) = hazard_curve_id {
-            Some(market.get_hazard(hazard_id.as_str())?)
-        } else {
-            None
-        };
-
-        let hazard: Option<&dyn Survival> = hazard_arc_opt
-            .as_ref()
-            .map(|arc| arc.as_ref() as &dyn Survival);
-
-        pv_by_period_credit_adjusted_with_ctx(
-            &flows,
-            periods,
-            disc,
-            hazard,
-            base,
-            dc,
-            DayCountCtx::default(),
-        )
     }
 
     /// Compute pre-period present values with market context and explicit day-count context.

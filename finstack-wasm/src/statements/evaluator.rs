@@ -1,7 +1,7 @@
 //! Evaluator for financial models.
 
 use crate::core::dates::FsDate;
-use crate::core::market_data::MarketContext;
+use crate::core::market_data::context::JsMarketContext;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
@@ -267,7 +267,7 @@ impl JsEvaluator {
     pub fn evaluate_with_market_context(
         &mut self,
         model: &JsFinancialModelSpec,
-        market_ctx: &MarketContext,
+        market_ctx: &JsMarketContext,
         as_of: &FsDate,
     ) -> Result<JsResults, JsValue> {
         let results = self

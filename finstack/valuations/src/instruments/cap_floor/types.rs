@@ -181,7 +181,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -189,7 +189,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -208,7 +208,7 @@ impl InterestRateOption {
     /// Calculate the net present value of this interest rate option
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::cashflow::builder::date_generation::build_dates;

@@ -199,7 +199,7 @@ pub enum ShortRateModel {
     /// - High vol/stress: 25-40% (0.25-0.40)
     ///
     /// ## Important
-    /// ⚠️ The default 1% volatility in legacy code is **far too low** for BDT.
+    /// ⚠️ The default 1% volatility in older code is **far too low** for BDT.
     /// Use [`DEFAULT_LOGNORMAL_VOL`] (20%) or calibrate to swaption market.
     BlackDermanToy,
 }

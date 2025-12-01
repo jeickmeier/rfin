@@ -79,7 +79,7 @@ pub struct RollForwardReport {
 /// ```rust,no_run
 /// use finstack_scenarios::ExecutionContext;
 /// use finstack_scenarios::adapters::time_roll::apply_time_roll_forward;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_statements::FinancialModelSpec;
 /// use time::macros::date;
 ///
@@ -162,7 +162,7 @@ pub fn apply_time_roll_forward(
 #[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
     instruments: &[Box<dyn Instrument>],
-    market: &finstack_core::market_data::MarketContext,
+    market: &finstack_core::market_data::context::MarketContext,
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
     _days: i64,
@@ -229,7 +229,7 @@ fn calculate_instrument_pnl(
 /// Collect cashflows for an instrument during a period, grouped by currency.
 fn collect_instrument_cashflows(
     instrument: &dyn Instrument,
-    market: &finstack_core::market_data::MarketContext,
+    market: &finstack_core::market_data::context::MarketContext,
     start_date: finstack_core::dates::Date,
     end_date: finstack_core::dates::Date,
 ) -> IndexMap<Currency, Money> {

@@ -494,7 +494,7 @@ fn default_true() -> bool {
 /// Identifies which family of curve an operation targets.
 ///
 /// These variants map to the market data collections exposed by
-/// `finstack_core::market_data::MarketContext`.
+/// `finstack_core::market_data::context::MarketContext`.
 ///
 /// # Examples
 /// ```rust

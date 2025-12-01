@@ -8,7 +8,7 @@ use crate::cashflow::builder::date_generation::{build_dates, PeriodSchedule};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::{
     dates::{Date, DayCountCtx, StubKind},
-    market_data::MarketContext,
+    market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
     Result,
@@ -352,7 +352,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -360,7 +360,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -405,10 +405,10 @@ mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,
     };
-    use finstack_core::market_data::MarketContext;
     use time::Month;
 
     // Helper function for tests

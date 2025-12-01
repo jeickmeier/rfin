@@ -8,8 +8,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
-use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
@@ -332,4 +332,3 @@ fn test_different_calendars_may_produce_different_dates() {
     // Log for visibility - different calendars may adjust dates differently
     // around holidays like July 4th (US) vs August 15th (EU Assumption Day)
 }
-

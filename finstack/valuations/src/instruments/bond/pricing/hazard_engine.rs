@@ -26,8 +26,8 @@
 
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::error::InputError;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -51,7 +51,7 @@ use super::discount_engine::BondEngine;
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();
@@ -182,7 +182,7 @@ impl HazardBondEngine {
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
     /// # let bond = Bond::example();

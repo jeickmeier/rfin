@@ -7,11 +7,11 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind,
 };
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
@@ -674,22 +674,21 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Route through helper for schedule-based PV calculation
-        crate::instruments::common::helpers::schedule_pv_impl(
+        // Route through helper for schedule-based PV calculation using curve basis
+        crate::instruments::common::helpers::schedule_pv_using_curve_dc(
             self,
             curves,
             as_of,
             &self.discount_curve_id,
-            self.dc,
         )
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

@@ -2,7 +2,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::private_markets_fund::PrivateMarketsFund;
 use crate::pricer::{expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// Simplified discounting pricer for private markets funds.
 pub struct PrivateMarketsFundDiscountingPricer;

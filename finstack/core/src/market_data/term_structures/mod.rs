@@ -62,7 +62,7 @@
 //!     forward_curve::ForwardCurve,
 //!     hazard_curve::HazardCurve,
 //! };
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::dates::Date;
 //! use time::Month;

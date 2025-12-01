@@ -28,7 +28,7 @@
 //! ```rust
 //! use finstack_valuations::instruments::term_loan::TermLoan;
 //! use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
@@ -51,7 +51,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 use super::cashflows::generate_cashflows;
@@ -82,7 +82,7 @@ use super::types::TermLoan;
 /// use finstack_valuations::instruments::term_loan::TermLoan;
 /// use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
 /// use finstack_valuations::pricer::Pricer;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
@@ -142,7 +142,7 @@ impl TermLoanDiscountingPricer {
     /// ```rust
     /// use finstack_valuations::instruments::term_loan::TermLoan;
     /// use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///

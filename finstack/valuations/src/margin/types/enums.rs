@@ -12,9 +12,9 @@ pub enum MarginFrequency {
     /// Daily margin calls (standard for OTC derivatives post-2016)
     #[default]
     Daily,
-    /// Weekly margin calls (legacy, pre-regulatory period)
+    /// Weekly margin calls (pre-regulatory period)
     Weekly,
-    /// Monthly margin calls (legacy, pre-regulatory period)
+    /// Monthly margin calls (pre-regulatory period)
     Monthly,
     /// On-demand margin calls (used for repos and some bilateral agreements)
     OnDemand,

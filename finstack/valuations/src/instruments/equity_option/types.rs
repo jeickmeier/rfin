@@ -213,7 +213,7 @@ impl EquityOption {
     /// Calculate the net present value of this equity option
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::equity_option::pricer;
@@ -223,7 +223,7 @@ impl EquityOption {
     /// Calculate Greeks for this equity option
     pub fn greeks(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::instruments::equity_option::pricer::EquityOptionGreeks> {
         use crate::instruments::equity_option::pricer;
@@ -233,7 +233,7 @@ impl EquityOption {
     /// Calculate delta of this equity option
     pub fn delta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
@@ -243,7 +243,7 @@ impl EquityOption {
     /// Calculate gamma of this equity option
     pub fn gamma(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
@@ -253,7 +253,7 @@ impl EquityOption {
     /// Calculate vega of this equity option
     pub fn vega(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
@@ -263,7 +263,7 @@ impl EquityOption {
     /// Calculate theta of this equity option
     pub fn theta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
@@ -273,7 +273,7 @@ impl EquityOption {
     /// Calculate rho of this equity option
     pub fn rho(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
@@ -283,7 +283,7 @@ impl EquityOption {
     /// Calculate implied volatility of this equity option
     pub fn implied_vol(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         market_price: f64,
     ) -> finstack_core::Result<f64> {
@@ -411,7 +411,7 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(market, as_of)
@@ -419,7 +419,7 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -445,8 +445,8 @@ mod tests {
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar, surfaces::vol_surface::VolSurface,
-            term_structures::discount_curve::DiscountCurve,
+            context::MarketContext, scalars::MarketScalar,
+            surfaces::vol_surface::VolSurface, term_structures::discount_curve::DiscountCurve,
         },
         money::Money,
         types::{CurveId, InstrumentId},

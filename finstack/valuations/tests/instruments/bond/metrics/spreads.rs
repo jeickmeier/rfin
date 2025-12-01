@@ -91,8 +91,8 @@ fn test_z_spread_missing_discount_curve_returns_error() {
 /// with realistic spreads up to ~3000 bp and maintain tight price residuals.
 #[test]
 fn test_z_spread_solver_convergence_across_spread_regimes() {
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 

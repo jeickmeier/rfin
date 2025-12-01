@@ -2,8 +2,8 @@
 
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::BusinessDayConvention;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
-use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -424,7 +424,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -432,7 +432,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

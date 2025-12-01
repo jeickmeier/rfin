@@ -29,7 +29,7 @@ use finstack_core::money::Money;
 /// holder-view flows plus redemption.
 pub(super) fn solve_irr_to_exercise(
     loan: &TermLoan,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: Date,
     target_price: Money,
     exercise_date: Date,
@@ -83,7 +83,7 @@ pub(super) fn solve_irr_to_exercise(
 /// holder-view flows plus outstanding principal at the horizon.
 pub(super) fn solve_irr_to_date(
     loan: &TermLoan,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     as_of: Date,
     target_price: Money,
     exercise_date: Date,

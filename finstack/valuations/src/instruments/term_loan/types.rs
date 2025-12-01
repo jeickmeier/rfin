@@ -332,7 +332,7 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         // Delegate to discounting pricer (deterministic v1)
@@ -343,7 +343,7 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -361,7 +361,7 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
 impl crate::cashflow::traits::CashflowProvider for TermLoan {
     fn build_schedule(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
         use finstack_core::cashflow::primitives::CFKind;
@@ -402,7 +402,7 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
 
     fn build_full_schedule(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)

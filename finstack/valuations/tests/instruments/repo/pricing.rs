@@ -389,7 +389,7 @@ fn test_overnight_repo_minimal_interest() {
         collateral,
         0.05,
         date(2025, 1, 15),
-        "usny", // Calendar ID for business day adjustment
+        "usny",    // Calendar ID for business day adjustment
         "USD-OIS", // Discount curve ID
     )
     .unwrap();

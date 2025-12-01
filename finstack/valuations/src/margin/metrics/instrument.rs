@@ -36,7 +36,7 @@ use crate::margin::traits::{InstrumentMarginResult, Marginable, SimmSensitivitie
 use crate::margin::types::{ClearingStatus, ImMethodology, OtcMarginSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 

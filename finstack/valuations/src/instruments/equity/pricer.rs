@@ -125,7 +125,7 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         // Type-safe downcasting
@@ -159,7 +159,7 @@ mod tests {
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::dates::create_date;
-    use finstack_core::market_data::{term_structures::DiscountCurve, MarketContext};
+    use finstack_core::market_data::{context::MarketContext, term_structures::DiscountCurve};
     use time::Month;
 
     fn create_test_equity() -> Equity {

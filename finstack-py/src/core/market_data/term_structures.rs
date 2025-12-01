@@ -67,8 +67,8 @@ fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
 ///     Interpolation style such as ``"linear"`` or ``"monotone_convex"``.
 /// extrapolation : str, optional
 ///     Extrapolation policy name (e.g. ``"flat_zero"``).
-/// require_monotonic : bool, default False
-///     Enforce monotonic discount factors across knots.
+/// require_monotonic : bool, default True
+///     Enforce monotonic discount factors across knots (set False to allow non-monotonic DFs).
 ///
 /// Returns
 /// -------
@@ -107,15 +107,15 @@ impl PyDiscountCurve {
     ///     Interpolation style (``"linear"``, ``"monotone_convex"``, etc.).
     /// extrapolation : str, optional
     ///     Extrapolation policy name (``"flat_zero"``, ``"flat_forward"`` ...).
-    /// require_monotonic : bool, default False
-    ///     Enforce monotonic discount factors across knots.
+    /// require_monotonic : bool, default True
+    ///     Enforce monotonic discount factors across knots (set False to allow non-monotonic DFs).
     ///
     /// Returns
     /// -------
     /// DiscountCurve
     ///     Discount curve with pre-computed interpolation.
     #[new]
-    #[pyo3(signature = (id, base_date, knots, day_count=None, interp=None, extrapolation=None, require_monotonic=false))]
+    #[pyo3(signature = (id, base_date, knots, day_count=None, interp=None, extrapolation=None, require_monotonic=true))]
     fn ctor(
         id: &str,
         base_date: Bound<'_, PyAny>,
@@ -172,8 +172,8 @@ impl PyDiscountCurve {
         if let Some(dc) = parse_day_count(day_count)? {
             builder = builder.day_count(dc);
         }
-        if require_monotonic {
-            builder = builder.require_monotonic();
+        if !require_monotonic {
+            builder = builder.allow_non_monotonic();
         }
         let curve =
             Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;

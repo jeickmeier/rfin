@@ -9,7 +9,7 @@
 //! serde and lookups.
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -416,7 +416,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         crate::instruments::irs::pricer::npv(self, curves, as_of)
@@ -424,7 +424,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

@@ -8,7 +8,7 @@
 
 use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -364,7 +364,7 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -372,7 +372,7 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

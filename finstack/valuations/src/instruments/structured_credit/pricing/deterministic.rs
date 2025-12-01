@@ -17,7 +17,7 @@ use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, ScheduleBuilder,
 };
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use std::collections::HashMap;
@@ -66,28 +66,27 @@ pub fn run_simulation(
     // Resolve payment calendar - required for structured credit deals.
     // Silent fallback to weekends-only would shift coupons around holidays,
     // breaking WAC/WAL and OC tests.
-    let calendar: &dyn HolidayCalendar =
-        match instrument.payment_calendar_id.as_deref() {
-            Some(cal_id) => CalendarRegistry::global()
-                .resolve_str(cal_id)
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: format!(
-                            "payment_calendar_id:{} (available: {})",
-                            cal_id,
-                            CalendarRegistry::global().available_ids().join(", ")
-                        ),
-                    })
-                })?,
-            None => {
-                return Err(finstack_core::Error::Validation(
-                    "Structured credit instruments require a payment_calendar_id for accurate \
+    let calendar: &dyn HolidayCalendar = match instrument.payment_calendar_id.as_deref() {
+        Some(cal_id) => CalendarRegistry::global()
+            .resolve_str(cal_id)
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: format!(
+                        "payment_calendar_id:{} (available: {})",
+                        cal_id,
+                        CalendarRegistry::global().available_ids().join(", ")
+                    ),
+                })
+            })?,
+        None => {
+            return Err(finstack_core::Error::Validation(
+                "Structured credit instruments require a payment_calendar_id for accurate \
                      schedule generation. Specify a valid calendar ID (e.g., 'nyse', 'target2') \
                      to ensure payment dates are adjusted correctly for business days."
-                        .to_string(),
-                ));
-            }
-        };
+                    .to_string(),
+            ));
+        }
+    };
 
     let convention = instrument
         .payment_bdc

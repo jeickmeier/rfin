@@ -98,7 +98,7 @@ impl BarrierOption {
     #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::barrier_option::pricer;
@@ -109,7 +109,7 @@ impl BarrierOption {
     /// Uses Reiner-Rubinstein continuous monitoring formulas.
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer;
@@ -150,7 +150,7 @@ impl crate::instruments::common::traits::Instrument for BarrierOption {
 
     fn value(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Default to analytical pricing
@@ -159,7 +159,7 @@ impl crate::instruments::common::traits::Instrument for BarrierOption {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

@@ -92,9 +92,9 @@ fn test_dm_missing_forward_curve_returns_error() {
 #[test]
 fn test_dm_solver_convergence_across_spread_regimes() {
     use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 
@@ -215,8 +215,8 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 #[test]
 fn test_dm_requires_accrued_when_clean_price_present() {
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 

@@ -9,7 +9,7 @@ use crate::error::{PortfolioError, Result};
 #[cfg(feature = "scenarios")]
 use crate::portfolio::Portfolio;
 #[cfg(feature = "scenarios")]
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "scenarios")]
 use finstack_scenarios::engine::{ApplicationReport, ExecutionContext, ScenarioEngine};
 #[cfg(feature = "scenarios")]

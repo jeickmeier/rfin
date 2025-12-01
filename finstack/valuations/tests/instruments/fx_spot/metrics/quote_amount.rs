@@ -4,7 +4,7 @@
 //! which is always available in `ValuationResult.value`.
 
 use super::super::common::*;
-use finstack_core::{currency::Currency, market_data::MarketContext, money::Money};
+use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
 use finstack_valuations::instruments::common::traits::Instrument;
 
 #[test]

@@ -53,7 +53,7 @@ pub mod bump_sizes {
 ///
 /// ```rust
 /// use finstack_valuations::metrics::bump_scalar_price;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::market_data::scalars::MarketScalar;
 /// use finstack_core::dates::create_date;
 /// use time::Month;
@@ -73,10 +73,10 @@ pub mod bump_sizes {
 /// # }
 /// ```
 pub fn bump_scalar_price(
-    context: &finstack_core::market_data::MarketContext,
+    context: &finstack_core::market_data::context::MarketContext,
     price_id: &str,
     bump_pct: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
+) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
     use finstack_core::types::CurveId;
 
     let mut bumped = context.clone();
@@ -123,7 +123,7 @@ pub fn bump_scalar_price(
 ///
 /// ```rust
 /// use finstack_valuations::metrics::bump_discount_curve_parallel;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::types::CurveId;
 /// use finstack_core::dates::create_date;
@@ -149,10 +149,10 @@ pub fn bump_scalar_price(
 /// # }
 /// ```
 pub fn bump_discount_curve_parallel(
-    context: &finstack_core::market_data::MarketContext,
+    context: &finstack_core::market_data::context::MarketContext,
     curve_id: &finstack_core::types::CurveId,
     bump_decimal: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
+) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
     use finstack_core::market_data::bumps::BumpSpec;
     use hashbrown::HashMap;
 
@@ -187,7 +187,7 @@ pub fn bump_discount_curve_parallel(
 ///
 /// ```rust
 /// use finstack_valuations::metrics::scale_surface;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::create_date;
 /// use time::Month;
 ///
@@ -202,10 +202,10 @@ pub fn bump_discount_curve_parallel(
 /// # }
 /// ```
 pub fn scale_surface(
-    context: &finstack_core::market_data::MarketContext,
+    context: &finstack_core::market_data::context::MarketContext,
     vol_surface_id: &str,
     scale: f64,
-) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
+) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
     let vol_surface = context.surface_ref(vol_surface_id)?;
     let bumped_surface = vol_surface.scaled(scale);
     Ok(context.clone().insert_surface(bumped_surface))

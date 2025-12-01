@@ -14,7 +14,7 @@ Lightweight, deterministic scenario capability for stress testing and what-if an
 
 ```rust
 use finstack_scenarios::{ScenarioSpec, OperationSpec, CurveKind, ScenarioEngine, ExecutionContext};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_statements::FinancialModelSpec;
 
 let mut market = MarketContext::new(); // with curves, prices, etc.

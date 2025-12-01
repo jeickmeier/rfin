@@ -784,8 +784,16 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
     );
 
     // 2. PV_Fixed and PV_Float should be positive (unsigned leg values)
-    assert!(pv_fixed > 0.0, "PV_Fixed should be positive: {:.2}", pv_fixed);
-    assert!(pv_float > 0.0, "PV_Float should be positive: {:.2}", pv_float);
+    assert!(
+        pv_fixed > 0.0,
+        "PV_Fixed should be positive: {:.2}",
+        pv_fixed
+    );
+    assert!(
+        pv_float > 0.0,
+        "PV_Float should be positive: {:.2}",
+        pv_float
+    );
 
     // 3. For PayFixed: NPV = PV_Float - PV_Fixed
     let calculated_npv = pv_float - pv_fixed;

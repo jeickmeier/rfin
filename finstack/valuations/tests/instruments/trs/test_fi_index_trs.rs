@@ -5,8 +5,8 @@
 
 use super::test_utils::*;
 use finstack_core::currency::Currency::*;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;

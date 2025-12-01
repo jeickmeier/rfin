@@ -2,11 +2,11 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, VolSurfaceKind,

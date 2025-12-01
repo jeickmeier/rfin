@@ -141,7 +141,7 @@ fn test_missing_discount_curve() {
     let as_of = d(2025, 1, 2);
 
     // Context without discount curve
-    let ctx = finstack_core::market_data::MarketContext::new();
+    let ctx = finstack_core::market_data::context::MarketContext::new();
 
     // Act & Assert
     let result = ilb.value(&ctx, as_of);
@@ -163,7 +163,7 @@ fn test_missing_inflation_data() {
     .build()
     .unwrap();
 
-    let ctx = finstack_core::market_data::MarketContext::new().insert_discount(disc);
+    let ctx = finstack_core::market_data::context::MarketContext::new().insert_discount(disc);
 
     // Act & Assert
     let result = ilb.value(&ctx, as_of);

@@ -110,7 +110,7 @@ impl JsDiscountCurve {
     /// @param {string} day_count - Day count convention (e.g., "act_365f", "30_360")
     /// @param {string} interp - Interpolation style ("linear", "monotone_convex", "log_linear", etc.)
     /// @param {string} extrapolation - Extrapolation policy ("flat_zero", "flat_forward")
-    /// @param {boolean} require_monotonic - Enforce monotonically decreasing discount factors
+    /// @param {boolean} require_monotonic - Enforce monotonically decreasing discount factors (set false to allow non-monotonic)
     /// @returns {DiscountCurve} Curve object exposing discount factor and zero rate helpers
     /// @throws {Error} If knots are invalid, times/factors length mismatch, or fewer than 2 points
     ///
@@ -167,8 +167,8 @@ impl JsDiscountCurve {
             .extrapolation(extrap)
             .day_count(picked_day_count);
 
-        if require_monotonic {
-            builder = builder.require_monotonic();
+        if !require_monotonic {
+            builder = builder.allow_non_monotonic();
         }
 
         let curve = builder.build().map_err(core_to_js)?;

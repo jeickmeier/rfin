@@ -5,7 +5,7 @@
 //! market curve data.
 
 use crate::error::{Error, Result};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 
@@ -145,7 +145,7 @@ pub fn apply_forecast_assign(
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::adapters::statements::update_rate_from_curve;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_statements::FinancialModelSpec;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {

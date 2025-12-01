@@ -7,7 +7,7 @@ use crate::{
     margin::types::OtcMarginSpec,
 };
 use finstack_core::{
-    dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result,
+    dates::Date, market_data::context::MarketContext, money::Money, types::InstrumentId, Result,
 };
 
 /// Fixed Income Index Total Return Swap instrument.
@@ -194,7 +194,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -202,7 +202,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

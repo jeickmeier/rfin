@@ -354,7 +354,7 @@ mod tests {
 
         let pe = PrivateMarketsFund::new("TEST", test_currency(), spec, events);
 
-        let curves = finstack_core::market_data::MarketContext::new();
+        let curves = finstack_core::market_data::context::MarketContext::new();
         let base_value = Money::new(2000000.0, test_currency());
         let mut context = MetricContext::new(
             std::sync::Arc::new(pe),

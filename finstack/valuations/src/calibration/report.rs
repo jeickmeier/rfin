@@ -220,27 +220,6 @@ impl CalibrationReport {
             .with_metadata("type", type_str)
             .with_metadata("tolerance", format!("{:.2e}", tolerance))
     }
-
-    /// Create a calibration report for a specific calibration type.
-    ///
-    /// **Deprecated**: Use [`for_type_with_tolerance`](Self::for_type_with_tolerance) instead
-    /// to properly detect calibration failures based on tolerance thresholds.
-    ///
-    /// This method unconditionally marks calibration as successful. For production
-    /// systems that need to gate on calibration quality, use `for_type_with_tolerance`.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use for_type_with_tolerance for proper failure detection"
-    )]
-    pub fn for_type(
-        calibration_type: impl Into<String>,
-        residuals: BTreeMap<String, f64>,
-        iterations: usize,
-    ) -> Self {
-        let type_str = calibration_type.into();
-        let reason = format!("{} calibration completed", type_str.replace('_', " "));
-        Self::new(residuals, iterations, true, reason).with_metadata("type", type_str)
-    }
 }
 
 impl Default for CalibrationReport {
@@ -276,16 +255,21 @@ mod tests {
         residuals.insert("quote_2Y".to_string(), 5e-11);
         residuals.insert("quote_5Y".to_string(), 2e-10);
 
-        let report =
-            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
 
-        assert!(report.success, "Should succeed when all residuals within tolerance");
+        assert!(
+            report.success,
+            "Should succeed when all residuals within tolerance"
+        );
         assert!(
             report.convergence_reason.contains("converged"),
             "Reason should indicate convergence: {}",
             report.convergence_reason
         );
-        assert!(report.max_residual < 1e-8, "Max residual should be computed correctly");
+        assert!(
+            report.max_residual < 1e-8,
+            "Max residual should be computed correctly"
+        );
     }
 
     #[test]
@@ -296,10 +280,12 @@ mod tests {
         residuals.insert("quote_2Y".to_string(), 1e-6); // Exceeds 1e-8 tolerance
         residuals.insert("quote_5Y".to_string(), 2e-10);
 
-        let report =
-            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
 
-        assert!(!report.success, "Should fail when residual exceeds tolerance");
+        assert!(
+            !report.success,
+            "Should fail when residual exceeds tolerance"
+        );
         assert!(
             report.convergence_reason.contains("failed"),
             "Reason should indicate failure: {}",
@@ -321,8 +307,7 @@ mod tests {
         residuals.insert("quote_2Y_failed".to_string(), penalty); // PENALTY value
         residuals.insert("quote_5Y".to_string(), 2e-10);
 
-        let report =
-            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
 
         assert!(!report.success, "Should fail when PENALTY value present");
         assert!(
@@ -350,8 +335,7 @@ mod tests {
         residuals.insert("quote_2Y_inf".to_string(), f64::INFINITY);
         residuals.insert("quote_5Y".to_string(), 2e-10);
 
-        let report =
-            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
 
         assert!(!report.success, "Should fail when infinity present");
         assert!(
@@ -366,8 +350,7 @@ mod tests {
         let mut residuals = BTreeMap::new();
         residuals.insert("quote_1Y".to_string(), 1e-10);
 
-        let report =
-            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+        let report = CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
 
         // Test JSON round-trip
         let json = serde_json::to_string(&report).expect("Serialization should succeed");

@@ -161,33 +161,6 @@ impl CsaSpec {
         }
     }
 
-    /// Create a legacy bilateral CSA with non-zero thresholds.
-    ///
-    /// This represents pre-regulatory bilateral agreements that may have
-    /// thresholds based on credit rating or relationship.
-    #[must_use]
-    pub fn bilateral_legacy(
-        id: impl Into<String>,
-        currency: Currency,
-        vm_threshold: f64,
-        vm_mta: f64,
-    ) -> Self {
-        use finstack_core::money::Money;
-
-        Self {
-            id: id.into(),
-            base_currency: currency,
-            vm_params: VmParameters::with_threshold(
-                Money::new(vm_threshold, currency),
-                Money::new(vm_mta, currency),
-            ),
-            im_params: None, // Legacy bilateral typically no IM
-            eligible_collateral: EligibleCollateralSchedule::default(),
-            call_timing: MarginCallTiming::default(),
-            collateral_curve_id: CurveId::new(format!("{}-OIS", currency)),
-        }
-    }
-
     /// Check if this CSA requires initial margin.
     #[must_use]
     pub fn requires_im(&self) -> bool {
@@ -231,13 +204,6 @@ mod tests {
         let csa = CsaSpec::eur_regulatory();
         assert_eq!(csa.base_currency, Currency::EUR);
         assert_eq!(csa.collateral_curve_id.as_str(), "EUR-ESTR");
-    }
-
-    #[test]
-    fn bilateral_legacy_csa() {
-        let csa = CsaSpec::bilateral_legacy("TEST-CSA", Currency::USD, 10_000_000.0, 500_000.0);
-        assert_eq!(csa.vm_params.threshold.amount(), 10_000_000.0);
-        assert!(!csa.requires_im());
     }
 
     #[test]

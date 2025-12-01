@@ -40,10 +40,9 @@ fn builder_rejects_non_positive_discount_factor() {
 }
 
 #[test]
-fn builder_require_monotonic_enforces_decreasing_dfs() {
+fn builder_enforces_decreasing_dfs() {
     let result = DiscountCurve::builder("BAD")
         .base_date(sample_base_date())
-        .require_monotonic()
         .knots([(0.0, 1.0), (1.0, 0.99), (2.0, 1.01)])
         .build();
     assert!(
@@ -654,7 +653,7 @@ fn forward_and_df_on_date() {
     let base = curve.base_date();
     let date = Date::from_calendar_date(base.year(), Month::December, 31).unwrap();
     let df_curve = curve.df_on_date_curve(date);
-    let df_static = DiscountCurve::df_on(&curve, base, date, curve.day_count());
+    let df_static = curve.df_on_date(date, curve.day_count());
     assert!((df_curve - df_static).abs() < 1e-12);
 }
 
@@ -679,8 +678,8 @@ fn df_on_date_day_count_sensitivity() {
         .build()
         .unwrap();
 
-    let df_360 = DiscountCurve::df_on(&curve_360, base, target, DayCount::Act360);
-    let df_365 = DiscountCurve::df_on(&curve_365, base, target, DayCount::Act365F);
+    let df_360 = curve_360.df_on_date(target, DayCount::Act360);
+    let df_365 = curve_365.df_on_date(target, DayCount::Act365F);
 
     // Different day counts = different time fractions = different DFs
     assert!(
@@ -748,7 +747,6 @@ fn credit_curve_construction() {
         .knots(knots)
         .set_interp(InterpStyle::MonotoneConvex)
         .extrapolation(ExtrapolationPolicy::FlatForward)
-        .require_monotonic()
         .build()
         .unwrap();
 
@@ -857,7 +855,6 @@ mod serde_tests {
                 (10.0, 0.75),
             ])
             .set_interp(InterpStyle::MonotoneConvex)
-            .require_monotonic()
             .build()
             .unwrap();
 
@@ -998,7 +995,6 @@ mod serde_tests {
             "knot_points": [[0.0, 1.0], [1.0, 1.01]],
             "interp_style": "Linear",
             "extrapolation": "FlatForward",
-            "require_monotonic": true,
             "allow_non_monotonic": false
         }"#;
 

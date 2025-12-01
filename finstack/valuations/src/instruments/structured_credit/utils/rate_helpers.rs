@@ -4,7 +4,7 @@
 //! calendar-aware tenor addition for accurate period end dates.
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 use crate::instruments::structured_credit::types::TrancheCoupon;
 

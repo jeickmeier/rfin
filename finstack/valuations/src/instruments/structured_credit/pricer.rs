@@ -17,7 +17,7 @@ use crate::instruments::common::discountable::Discountable;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 impl StructuredCredit {

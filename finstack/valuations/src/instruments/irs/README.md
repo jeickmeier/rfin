@@ -243,7 +243,7 @@ let swap = InterestRateSwap::create_usd_swap(
 ### Example 2: Price a Swap
 
 ```rust
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_valuations::instruments::common::traits::Instrument;
 
@@ -861,13 +861,19 @@ let csa = CsaSpec::usd_regulatory();
 // EUR regulatory CSA
 let csa = CsaSpec::eur_regulatory();
 
-// Legacy bilateral with thresholds
-let csa = CsaSpec::bilateral_legacy(
-    "COUNTERPARTY-CSA",
-    Currency::USD,
-    10_000_000.0,  // VM threshold
-    500_000.0,     // Minimum transfer amount
-);
+// Custom bilateral-style CSA with thresholds
+let csa = CsaSpec {
+    id: "COUNTERPARTY-CSA".to_string(),
+    base_currency: Currency::USD,
+    vm_params: VmParameters::with_threshold(
+        Money::new(10_000_000.0, Currency::USD),
+        Money::new(500_000.0, Currency::USD),
+    ),
+    im_params: None,
+    eligible_collateral: EligibleCollateralSchedule::default(),
+    call_timing: MarginCallTiming::default(),
+    collateral_curve_id: CurveId::new("USD-OIS"),
+};
 ```
 
 ### SIMM Risk Class

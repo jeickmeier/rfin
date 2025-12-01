@@ -619,12 +619,12 @@ impl ForwardCurveCalibrator {
             total_iterations,
             self.config.tolerance,
         )
-            .with_metadata("curve_id", self.fwd_curve_id.to_string())
-            .with_metadata("tenor_years", self.tenor_years.to_string())
-            .with_metadata("interp", format!("{:?}", self.solve_interp))
-            .with_metadata("discount_curve", self.discount_curve_id.to_string())
-            .with_metadata("time_dc", format!("{:?}", self.time_dc))
-            .with_metadata("validation", "passed");
+        .with_metadata("curve_id", self.fwd_curve_id.to_string())
+        .with_metadata("tenor_years", self.tenor_years.to_string())
+        .with_metadata("interp", format!("{:?}", self.solve_interp))
+        .with_metadata("discount_curve", self.discount_curve_id.to_string())
+        .with_metadata("time_dc", format!("{:?}", self.time_dc))
+        .with_metadata("validation", "passed");
 
         let report = if let Some(t) = trace {
             report.with_explanation(t)
@@ -2023,7 +2023,9 @@ mod tests {
             .build()
             .expect("FRA builder should succeed");
 
-        let pv = fra.value(&context, base_date).expect("FRA valuation should succeed");
+        let pv = fra
+            .value(&context, base_date)
+            .expect("FRA valuation should succeed");
         let pv_normalized = pv.amount() / 1_000_000.0;
 
         // At par, PV should be within tolerance
@@ -2042,11 +2044,7 @@ mod tests {
 
         let fwd_curve = ForwardCurve::builder("USD-SOFR-3M-FWD", 0.25)
             .base_date(base_date)
-            .knots(vec![
-                (0.0, 0.045),
-                (0.5, 0.0455),
-                (1.0, 0.046),
-            ])
+            .knots(vec![(0.0, 0.045), (0.5, 0.0455), (1.0, 0.046)])
             .set_interp(InterpStyle::Linear)
             .build()
             .expect("ForwardCurve builder should succeed");

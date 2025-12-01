@@ -548,11 +548,11 @@ impl HazardCurveCalibrator {
             total_iterations,
             self.config.tolerance,
         )
-            .with_metadata("entity", self.entity.clone())
-            .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
-            .with_metadata("convention", format!("{:?}", self.convention))
-            .with_metadata("par_interp", format!("{:?}", self.par_interp))
-            .with_metadata("validation", "passed");
+        .with_metadata("entity", self.entity.clone())
+        .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
+        .with_metadata("convention", format!("{:?}", self.convention))
+        .with_metadata("par_interp", format!("{:?}", self.par_interp))
+        .with_metadata("validation", "passed");
 
         Ok((curve, report))
     }
@@ -799,7 +799,11 @@ mod tests {
         // Should succeed and handle upfront quote properly
         assert!(result.is_ok());
         let (_curve, report) = result.expect("Hazard curve calibration should succeed in test");
-        assert!(report.success, "Calibration failed: {}", report.convergence_reason);
+        assert!(
+            report.success,
+            "Calibration failed: {}",
+            report.convergence_reason
+        );
 
         // Check that residual key indicates upfront quote
         let upfront_residual_key = format!("CDS-UPFRONT-{}", base_date + time::Duration::days(365));

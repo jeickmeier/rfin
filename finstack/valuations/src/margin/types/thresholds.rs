@@ -82,7 +82,7 @@ impl VmParameters {
         }
     }
 
-    /// Create VM parameters with a threshold (legacy bilateral).
+    /// Create VM parameters with a threshold (bilateral thresholds).
     #[must_use]
     pub fn with_threshold(threshold: Money, mta: Money) -> Self {
         let currency = threshold.currency();

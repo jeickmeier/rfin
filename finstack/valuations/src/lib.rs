@@ -49,7 +49,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -85,7 +85,7 @@
 //! ```rust
 //! use finstack_valuations::instruments::Bond;
 //! use finstack_valuations::metrics::{MetricId, standard_registry};
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! # use finstack_core::currency::Currency;
 //! # use finstack_core::money::Money;
 //! # use finstack_core::dates::create_date;

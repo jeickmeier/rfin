@@ -31,7 +31,6 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
-    // Custom metrics (legacy names for backward compatibility)
     registry
         .register_metric(
             MetricId::custom("upfront"),

@@ -99,7 +99,7 @@ fn test_npv_increases_with_inflation() {
             .build()
             .unwrap();
 
-        finstack_core::market_data::MarketContext::new()
+        finstack_core::market_data::context::MarketContext::new()
             .insert_discount(disc)
             .insert_inflation(curve)
     };
@@ -127,7 +127,7 @@ fn test_npv_increases_with_inflation() {
             .build()
             .unwrap();
 
-        finstack_core::market_data::MarketContext::new()
+        finstack_core::market_data::context::MarketContext::new()
             .insert_discount(disc)
             .insert_inflation(curve)
     };
@@ -174,7 +174,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
         .build()
         .unwrap();
 
-    let ctx_low = finstack_core::market_data::MarketContext::new()
+    let ctx_low = finstack_core::market_data::context::MarketContext::new()
         .insert_discount(disc_low)
         .insert_inflation(inflation_curve);
 
@@ -186,7 +186,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
             .build()
             .unwrap();
 
-    let ctx_high = finstack_core::market_data::MarketContext::new()
+    let ctx_high = finstack_core::market_data::context::MarketContext::new()
         .insert_discount(disc_high)
         .insert_inflation(inflation_curve2);
 
@@ -263,7 +263,7 @@ fn test_npv_with_deflation_protection() {
         finstack_core::market_data::scalars::inflation_index::InflationInterpolation::Linear,
     );
 
-    let ctx = finstack_core::market_data::MarketContext::new()
+    let ctx = finstack_core::market_data::context::MarketContext::new()
         .insert_discount(disc)
         .insert_inflation_index("US-CPI-U", index);
 

@@ -22,7 +22,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::{CurveId, Rate, Currency};
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::dates::day_count::DayCount;
 //!
@@ -89,7 +89,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::{CurveId, Rate, Currency};
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
@@ -141,7 +141,7 @@
 //!     .build()?;
 //!
 //! // Setup market (omitted for brevity)
-//! # use finstack_core::market_data::MarketContext;
+//! # use finstack_core::market_data::context::MarketContext;
 //! # let market = MarketContext::new(as_of);
 //!
 //! let registry = standard_registry();
@@ -181,7 +181,7 @@
 //!     .build()?;
 //!
 //! // Setup market
-//! # use finstack_core::market_data::MarketContext;
+//! # use finstack_core::market_data::context::MarketContext;
 //! # let market = MarketContext::new(as_of);
 //!
 //! let registry = standard_registry();

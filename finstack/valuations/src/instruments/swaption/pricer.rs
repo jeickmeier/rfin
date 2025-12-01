@@ -4,7 +4,7 @@ use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::swaption::{BermudanSwaption, Swaption};
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 // ========================= NEW SIMPLIFIED PRICER =========================

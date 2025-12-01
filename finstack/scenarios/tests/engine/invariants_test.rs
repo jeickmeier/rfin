@@ -7,10 +7,10 @@
 //! - Base correlation: all values in [0, 1]
 //! - Vol surfaces: all grid values ≥ 0
 
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
 };

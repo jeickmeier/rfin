@@ -12,7 +12,7 @@ use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::Error as CoreError;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use std::any::Any;
@@ -213,7 +213,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::{
-        term_structures::discount_curve::DiscountCurve, MarketContext,
+        context::MarketContext, term_structures::discount_curve::DiscountCurve,
     };
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;

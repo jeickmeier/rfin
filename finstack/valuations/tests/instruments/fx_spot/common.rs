@@ -3,7 +3,7 @@
 use finstack_core::{
     currency::Currency,
     dates::Date,
-    market_data::{term_structures::discount_curve::DiscountCurve, MarketContext},
+    market_data::{context::MarketContext, term_structures::discount_curve::DiscountCurve},
     math::interp::InterpStyle,
     money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
     money::Money,

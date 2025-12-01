@@ -12,7 +12,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::calibration::{Calibrator, MarketQuote, CalibrationReport};
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_core::Result;
 //!
@@ -81,7 +81,7 @@ use finstack_core::Result;
 ///
 /// ```rust
 /// use finstack_valuations::calibration::{Calibrator, CalibrationReport, MarketQuote};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::Result;
 ///
@@ -110,7 +110,7 @@ use finstack_core::Result;
 /// use finstack_valuations::calibration::{
 ///     Calibrator, MarketQuote, RatesQuote, CalibrationConfig
 /// };
-/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::market_data::context::MarketContext;
 /// # use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::dates::create_date;
@@ -179,7 +179,7 @@ pub trait Calibrator<Input, Output> {
     /// use finstack_valuations::calibration::{
     ///     Calibrator, MarketQuote, RatesQuote
     /// };
-    /// # use finstack_core::market_data::MarketContext;
+    /// # use finstack_core::market_data::context::MarketContext;
     /// # use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::dates::create_date;

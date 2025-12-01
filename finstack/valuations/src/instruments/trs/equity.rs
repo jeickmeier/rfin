@@ -9,7 +9,7 @@ use crate::{
 use finstack_core::{
     currency::Currency,
     dates::Date,
-    market_data::MarketContext,
+    market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
     Result,
@@ -202,7 +202,7 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -210,7 +210,7 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

@@ -31,8 +31,8 @@ use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
 use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
@@ -410,17 +410,17 @@ impl BaseCorrelationCalibrator {
             total_function_evaluations,
             self.config.tolerance,
         )
-                .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
-                .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
-                .with_metadata("index_id", self.index_id.clone())
-                .with_metadata("maturity_years", self.maturity_years.to_string())
-                .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
-                .with_metadata(
-                    "function_evaluations",
-                    total_function_evaluations.to_string(),
-                )
-                .with_metadata("validation", "passed")
-                .with_solver_config(solver_config);
+        .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
+        .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
+        .with_metadata("index_id", self.index_id.clone())
+        .with_metadata("maturity_years", self.maturity_years.to_string())
+        .with_metadata("use_imm_dates", self.use_imm_dates.to_string())
+        .with_metadata(
+            "function_evaluations",
+            total_function_evaluations.to_string(),
+        )
+        .with_metadata("validation", "passed")
+        .with_solver_config(solver_config);
 
         Ok((final_curve, report))
     }

@@ -4,7 +4,7 @@ use crate::constants::PERCENT_TO_DECIMAL;
 // Params-based constructor removed; build via builder instead.
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -299,7 +299,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves)
@@ -307,7 +307,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

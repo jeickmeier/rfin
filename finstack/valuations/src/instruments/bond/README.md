@@ -186,7 +186,7 @@ Standard present value calculation using discount curves.
 
 ```rust
 use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 let market = MarketContext::new()
     .insert_discount(discount_curve);
@@ -441,7 +441,7 @@ pub enum MetricId {
 ```rust
 // pricing/my_engine.rs
 use crate::instruments::bond::Bond;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 

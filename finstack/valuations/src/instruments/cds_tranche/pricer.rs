@@ -53,7 +53,7 @@ use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discounting;
-use finstack_core::market_data::{term_structures::CreditIndexData, MarketContext};
+use finstack_core::market_data::{context::MarketContext, term_structures::CreditIndexData};
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{
     norm_cdf as standard_normal_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
@@ -241,8 +241,6 @@ pub struct CDSTranchePricerConfig {
     pub cs01_bump_units: Cs01BumpUnits,
     /// Correlation bump for correlation delta calculation (absolute)
     pub corr_bump_abs: f64,
-    /// Whether to use central difference for risk metrics (more accurate hedges)
-    pub use_central_difference: bool,
 
     // ========================================================================
     // ISDA Convention Settings
@@ -321,7 +319,6 @@ impl Default for CDSTranchePricerConfig {
             cs01_bump_size: DEFAULT_CS01_BUMP_SIZE,
             cs01_bump_units: Cs01BumpUnits::HazardRateBp,
             corr_bump_abs: DEFAULT_CORR_BUMP_ABS,
-            use_central_difference: true, // O(h²) accuracy
 
             // ISDA conventions
             mid_period_protection: true, // ISDA standard
@@ -1760,15 +1757,7 @@ impl CDSTranchePricer {
         self.calculate_expected_tranche_loss(tranche, index_data_arc, tranche.maturity)
     }
 
-    /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads).
-    ///
-    /// # Central Difference Method
-    ///
-    /// When `use_central_difference` is enabled (default), uses symmetric bumping:
-    /// `CS01 = (PV_up - PV_down) / 2`
-    ///
-    /// This provides O(h²) accuracy vs O(h) for one-sided bumping, resulting in
-    /// more accurate hedge ratios for risk management.
+    /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads) using central difference.
     #[must_use = "CS01 result should be used for hedging"]
     pub fn calculate_cs01(
         &self,
@@ -1792,45 +1781,25 @@ impl CDSTranchePricer {
             }
         };
 
-        if self.params.use_central_difference {
-            // Central difference: (PV_up - PV_down) / 2 for O(h²) accuracy
-            let bumped_index_up = self.bump_index_hazard(original_index_arc, delta_lambda)?;
-            let bumped_index_down = self.bump_index_hazard(original_index_arc, -delta_lambda)?;
+        // Central difference: (PV_up - PV_down) / 2 for O(h²) accuracy
+        let bumped_index_up = self.bump_index_hazard(original_index_arc, delta_lambda)?;
+        let bumped_index_down = self.bump_index_hazard(original_index_arc, -delta_lambda)?;
 
-            let ctx_up = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
-            let ctx_down = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
+        let ctx_up = market_ctx
+            .clone()
+            .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
+        let ctx_down = market_ctx
+            .clone()
+            .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
 
-            let pv_up = self.price_tranche(tranche, &ctx_up, as_of)?.amount();
-            let pv_down = self.price_tranche(tranche, &ctx_down, as_of)?.amount();
+        let pv_up = self.price_tranche(tranche, &ctx_up, as_of)?.amount();
+        let pv_down = self.price_tranche(tranche, &ctx_down, as_of)?.amount();
 
-            // Return sensitivity per basis point (central difference divided by 2)
-            Ok((pv_up - pv_down) / 2.0)
-        } else {
-            // One-sided forward difference (legacy behavior)
-            let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
-            let bumped_index = self.bump_index_hazard(original_index_arc, delta_lambda)?;
-            let bumped_market_ctx = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index);
-            let bumped_pv = self
-                .price_tranche(tranche, &bumped_market_ctx, as_of)?
-                .amount();
-            Ok(bumped_pv - base_pv)
-        }
+        // Return sensitivity per basis point (central difference divided by 2)
+        Ok((pv_up - pv_down) / 2.0)
     }
 
-    /// Calculate correlation delta (sensitivity to correlation changes).
-    ///
-    /// # Central Difference Method
-    ///
-    /// When `use_central_difference` is enabled (default), uses symmetric bumping:
-    /// `Corr01 = (PV_up - PV_down) / (2 * bump)`
-    ///
-    /// This provides O(h²) accuracy vs O(h) for one-sided bumping.
+    /// Calculate correlation delta (sensitivity to correlation changes) using central difference.
     #[must_use = "Correlation01 result should be used for hedging"]
     pub fn calculate_correlation_delta(
         &self,
@@ -1841,66 +1810,42 @@ impl CDSTranchePricer {
         let bump_abs = self.params.corr_bump_abs;
         let original_index_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
-        if self.params.use_central_difference {
-            // Central difference: (PV_up - PV_down) / (2 * bump) for O(h²) accuracy
-            let bumped_corr_curve_up =
-                self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
-            let bumped_corr_curve_down =
-                self.bump_base_correlation(&original_index_arc.base_correlation_curve, -bump_abs)?;
+        // Central difference: (PV_up - PV_down) / (2 * bump) for O(h²) accuracy
+        let bumped_corr_curve_up =
+            self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
+        let bumped_corr_curve_down =
+            self.bump_base_correlation(&original_index_arc.base_correlation_curve, -bump_abs)?;
 
-            let bumped_index_up = CreditIndexData::builder()
-                .num_constituents(original_index_arc.num_constituents)
-                .recovery_rate(original_index_arc.recovery_rate)
-                .index_credit_curve(std::sync::Arc::clone(
-                    &original_index_arc.index_credit_curve,
-                ))
-                .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_up))
-                .build()?;
+        let bumped_index_up = CreditIndexData::builder()
+            .num_constituents(original_index_arc.num_constituents)
+            .recovery_rate(original_index_arc.recovery_rate)
+            .index_credit_curve(std::sync::Arc::clone(
+                &original_index_arc.index_credit_curve,
+            ))
+            .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_up))
+            .build()?;
 
-            let bumped_index_down = CreditIndexData::builder()
-                .num_constituents(original_index_arc.num_constituents)
-                .recovery_rate(original_index_arc.recovery_rate)
-                .index_credit_curve(std::sync::Arc::clone(
-                    &original_index_arc.index_credit_curve,
-                ))
-                .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_down))
-                .build()?;
+        let bumped_index_down = CreditIndexData::builder()
+            .num_constituents(original_index_arc.num_constituents)
+            .recovery_rate(original_index_arc.recovery_rate)
+            .index_credit_curve(std::sync::Arc::clone(
+                &original_index_arc.index_credit_curve,
+            ))
+            .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve_down))
+            .build()?;
 
-            let ctx_up = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
-            let ctx_down = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
+        let ctx_up = market_ctx
+            .clone()
+            .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
+        let ctx_down = market_ctx
+            .clone()
+            .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
 
-            let pv_up = self.price_tranche(tranche, &ctx_up, as_of)?.amount();
-            let pv_down = self.price_tranche(tranche, &ctx_down, as_of)?.amount();
+        let pv_up = self.price_tranche(tranche, &ctx_up, as_of)?.amount();
+        let pv_down = self.price_tranche(tranche, &ctx_down, as_of)?.amount();
 
-            // Return sensitivity per unit correlation change (central difference)
-            Ok((pv_up - pv_down) / (2.0 * bump_abs))
-        } else {
-            // One-sided forward difference (legacy behavior)
-            let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
-            let bumped_corr_curve =
-                self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
-
-            let bumped_index = CreditIndexData::builder()
-                .num_constituents(original_index_arc.num_constituents)
-                .recovery_rate(original_index_arc.recovery_rate)
-                .index_credit_curve(std::sync::Arc::clone(
-                    &original_index_arc.index_credit_curve,
-                ))
-                .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
-                .build()?;
-
-            let bumped_market_ctx = market_ctx
-                .clone()
-                .insert_credit_index(&tranche.credit_index_id, bumped_index);
-            let bumped_pv = self
-                .price_tranche(tranche, &bumped_market_ctx, as_of)?
-                .amount();
-            Ok((bumped_pv - base_pv) / bump_abs)
-        }
+        // Return sensitivity per unit correlation change (central difference)
+        Ok((pv_up - pv_down) / (2.0 * bump_abs))
     }
 
     /// Calculate jump-to-default (immediate loss from specific entity default).

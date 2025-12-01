@@ -2,7 +2,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_spot::FxSpot;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// FX Spot pricer.
 ///
@@ -61,7 +61,7 @@ mod tests {
     use crate::instruments::fx_spot::FxSpot;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::MarketContext;
+    use finstack_core::market_data::context::MarketContext;
 
     fn create_test_fx_spot() -> FxSpot {
         FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate(1.05)

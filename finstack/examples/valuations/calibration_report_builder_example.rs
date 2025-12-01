@@ -52,9 +52,13 @@ fn main() {
     println!("   Reason: {}\n", report4.convergence_reason);
 
     // Example 5: Complex report with metadata batch
-    let report5 =
-        CalibrationReport::for_type_with_tolerance("hazard_curve", residuals.clone(), 25, tolerance)
-            .with_metadata("entity", "AAPL");
+    let report5 = CalibrationReport::for_type_with_tolerance(
+        "hazard_curve",
+        residuals.clone(),
+        25,
+        tolerance,
+    )
+    .with_metadata("entity", "AAPL");
 
     println!("5. Complex Report with Metadata:");
     println!("   Success: {}", report5.success);

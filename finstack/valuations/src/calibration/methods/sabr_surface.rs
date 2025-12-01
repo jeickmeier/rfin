@@ -650,7 +650,11 @@ mod tests {
 
         assert!(result.is_ok());
         let (surface, report) = result.expect("Calibration should succeed in test");
-        assert!(report.success, "Calibration failed: {}", report.convergence_reason);
+        assert!(
+            report.success,
+            "Calibration failed: {}",
+            report.convergence_reason
+        );
         assert_eq!(surface.id().as_str(), "TEST-VOL");
         assert_eq!(surface.expiries().len(), 2);
         assert_eq!(surface.strikes().len(), 3);
@@ -956,10 +960,7 @@ mod tests {
         if let Ok((_surface, report)) = result {
             if let Some(calibrated_str) = report.metadata.get("calibrated_expiries") {
                 let calibrated: usize = calibrated_str.parse().unwrap_or(0);
-                assert!(
-                    calibrated >= 1,
-                    "Should calibrate at least 1 expiry (3M)"
-                );
+                assert!(calibrated >= 1, "Should calibrate at least 1 expiry (3M)");
                 // 1M should be skipped due to insufficient quotes
             }
         }

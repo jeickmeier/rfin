@@ -88,7 +88,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    _curves: Option<&finstack_core::market_data::MarketContext>,
+    _curves: Option<&finstack_core::market_data::context::MarketContext>,
     resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;

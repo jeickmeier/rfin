@@ -1,7 +1,7 @@
 //! Core TRS pricing engine and shared helpers.
 
 use finstack_core::dates::{Date, DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 

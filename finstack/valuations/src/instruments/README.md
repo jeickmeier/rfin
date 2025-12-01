@@ -521,7 +521,7 @@ impl MyInstrument {
 use crate::pricer::InstrumentType;
 use crate::results::ValuationResult;
 use crate::metrics::MetricId;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use std::any::Any;
 
 impl Instrument for MyInstrument {
@@ -580,7 +580,7 @@ impl Instrument for MyInstrument {
 use super::MyInstrument;
 use crate::pricer::Pricer;
 use finstack_core::prelude::*;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 pub struct MyInstrumentPricer;
 
@@ -617,7 +617,7 @@ pub use my_metric::MyMetric;
 use crate::metrics::{MetricCalculator, MetricId};
 use crate::instruments::my_instrument::MyInstrument;
 use finstack_core::prelude::*;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 /// Calculate a specific metric for MyInstrument.
 pub fn calculate_my_metric(

@@ -69,12 +69,12 @@ pub use crate::types::{
 // Expression engine - only re-export public items
 pub use crate::expr::CompiledExpr;
 pub use crate::market_data::{
+    context::MarketContext,
     scalars::inflation_index::{
         InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
     },
     scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
     traits::Discounting,
-    MarketContext,
 };
 pub use crate::math::interp::{InterpFn, InterpStyle};
 pub use crate::money::{

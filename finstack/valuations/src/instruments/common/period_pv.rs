@@ -22,7 +22,7 @@
 //! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use time::Month;
 //!
@@ -82,7 +82,7 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Period, PeriodId};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use indexmap::IndexMap;
@@ -137,7 +137,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         // Build simplified schedule (holder perspective, filtered flows)
-        // This matches the behavior of schedule_pv_impl used in instrument pricing
+        // This matches the behavior of schedule_pv_using_curve_dc used in instrument pricing
         let flows = self.build_schedule(market, base)?;
 
         // Use the instrument's discount curve
@@ -335,15 +335,10 @@ mod tests {
         }
 
         // Compute straight NPV for comparison
-        use crate::instruments::common::helpers::schedule_pv_impl;
-        let straight_npv = schedule_pv_impl(
-            &bond,
-            &market,
-            base,
-            bond.discount_curve_id(),
-            DayCount::Act365F,
-        )
-        .expect("Schedule PV calculation should succeed in test");
+        use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
+        let straight_npv =
+            schedule_pv_using_curve_dc(&bond, &market, base, bond.discount_curve_id())
+                .expect("Schedule PV calculation should succeed in test");
 
         // Sum of periodized PVs should match straight NPV (within rounding tolerance)
         let diff = (total_pv - straight_npv.amount()).abs();
@@ -419,15 +414,10 @@ mod tests {
             }
         }
 
-        use crate::instruments::common::helpers::schedule_pv_impl;
-        let straight_npv = schedule_pv_impl(
-            &frn,
-            &market,
-            issue,
-            frn.discount_curve_id(),
-            DayCount::Act365F,
-        )
-        .expect("Schedule PV calculation should succeed in test");
+        use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
+        let straight_npv =
+            schedule_pv_using_curve_dc(&frn, &market, issue, frn.discount_curve_id())
+                .expect("Schedule PV calculation should succeed in test");
 
         let diff = (total_pv - straight_npv.amount()).abs();
         assert!(

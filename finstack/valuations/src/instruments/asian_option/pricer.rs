@@ -6,7 +6,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 // MC-specific imports

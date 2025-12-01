@@ -1404,7 +1404,7 @@ mod tests {
         let engine = EquityWaterfallEngine::new(&spec);
         let ledger = engine.run(&events).expect("Operation succeeded");
 
-        // All rows should have None period_key (legacy behavior preserved)
+        // All rows should have None period_key
         for row in &ledger.rows {
             assert_eq!(row.period_key, None);
         }

@@ -13,7 +13,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
@@ -50,7 +50,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
@@ -94,7 +94,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::{Rate, Currency};
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
@@ -141,7 +141,7 @@
 //! use finstack_core::dates::{create_date, Month};
 //! use finstack_core::types::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::context::MarketContext;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::June, 25)?;
@@ -423,7 +423,7 @@ where
 /// Sum of cashflow amounts in the period (converted to base currency)
 fn collect_cashflows_in_period<I>(
     instrument: &I,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,
     end_date: Date,
 ) -> Result<f64>
@@ -440,7 +440,7 @@ where
 /// used by both `collect_cashflows_in_period` and `collect_cashflows_in_period_any`.
 fn collect_cashflows_impl(
     any_ref: &dyn Any,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,
     end_date: Date,
 ) -> Result<f64> {
@@ -687,7 +687,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 /// This is a thin wrapper that delegates to `collect_cashflows_impl`.
 fn collect_cashflows_in_period_any(
     instrument: &dyn crate::instruments::common::traits::Instrument,
-    curves: &finstack_core::market_data::MarketContext,
+    curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,
     end_date: Date,
 ) -> Result<f64> {

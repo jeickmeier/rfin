@@ -9,7 +9,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::accrual;
 use finstack_valuations::instruments::bond::{AccrualMethod, Bond};
@@ -204,8 +204,8 @@ fn test_accrued_interest_at_coupon_boundaries() {
 fn test_accrued_interest_amortizing_schedule_driven() {
     use finstack_core::dates::DayCount;
     use finstack_core::dates::DayCountCtx;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::cashflow::builder::AmortizationSpec;
     use finstack_valuations::instruments::bond::CashflowSpec;

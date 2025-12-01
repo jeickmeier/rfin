@@ -13,8 +13,8 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
-use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, Result};
@@ -722,7 +722,7 @@ impl crate::instruments::common::traits::Instrument for Swaption {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -730,7 +730,7 @@ impl crate::instruments::common::traits::Instrument for Swaption {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -1150,7 +1150,7 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
 
     fn value(
         &self,
-        _curves: &finstack_core::market_data::MarketContext,
+        _curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Bermudan swaptions require tree or MC pricing - delegate to pricer
@@ -1161,7 +1161,7 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
 
     fn price_with_metrics(
         &self,
-        _curves: &finstack_core::market_data::MarketContext,
+        _curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,
         _metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

@@ -1,7 +1,7 @@
 //! Scenario execution engine bindings for WASM.
 
 use crate::core::dates::FsDate;
-use crate::core::market_data::MarketContext;
+use crate::core::market_data::context::JsMarketContext;
 use crate::scenarios::reports::JsApplicationReport;
 use crate::scenarios::spec::JsScenarioSpec;
 use crate::statements::types::JsFinancialModelSpec;
@@ -105,7 +105,7 @@ impl JsScenarioEngine {
 /// statement models, and the current valuation date.
 #[wasm_bindgen]
 pub struct JsExecutionContext {
-    inner_market: finstack_core::market_data::MarketContext,
+    inner_market: finstack_core::market_data::context::MarketContext,
     inner_model: finstack_statements::FinancialModelSpec,
     as_of: finstack_core::dates::Date,
 }
@@ -123,7 +123,7 @@ impl JsExecutionContext {
     /// Execution context instance
     #[wasm_bindgen(constructor)]
     pub fn new(
-        market: &MarketContext,
+        market: &JsMarketContext,
         model: &JsFinancialModelSpec,
         as_of: &FsDate,
     ) -> Result<JsExecutionContext, JsValue> {
@@ -152,8 +152,8 @@ impl JsExecutionContext {
 
     /// Get the market context.
     #[wasm_bindgen(getter)]
-    pub fn market(&self) -> MarketContext {
-        MarketContext::from_owned(self.inner_market.clone())
+    pub fn market(&self) -> JsMarketContext {
+        JsMarketContext::from_owned(self.inner_market.clone())
     }
 
     /// Get the financial model.

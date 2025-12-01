@@ -139,7 +139,7 @@ impl TrancheCoupon {
     pub fn current_rate_with_index(
         &self,
         date: Date,
-        context: &finstack_core::market_data::MarketContext,
+        context: &finstack_core::market_data::context::MarketContext,
     ) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,

@@ -1,7 +1,9 @@
 //! Spot rate metric tests.
 
 use super::super::common::*;
-use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
+use finstack_core::{
+    currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
+};
 use finstack_valuations::{
     instruments::{
         common::traits::Instrument,

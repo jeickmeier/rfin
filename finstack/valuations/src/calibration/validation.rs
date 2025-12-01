@@ -654,7 +654,10 @@ impl SurfaceValidator for VolSurface {
                 .iter()
                 .take(5)
                 .map(|(k, t, actual, expected)| {
-                    format!("K={:.2}, T={:.4}y (var={:.6} < {:.6})", k, t, actual, expected)
+                    format!(
+                        "K={:.2}, T={:.4}y (var={:.6} < {:.6})",
+                        k, t, actual, expected
+                    )
                 })
                 .collect();
             let suffix = if violations.len() > 5 {
@@ -1092,7 +1095,11 @@ mod tests {
 
         // Verify this is indeed a positive-rate curve (short-end zero rate > 0)
         let short_rate = non_monotone_curve.zero(0.25);
-        assert!(short_rate > 0.0, "Expected positive short-end rate, got {}", short_rate);
+        assert!(
+            short_rate > 0.0,
+            "Expected positive short-end rate, got {}",
+            short_rate
+        );
 
         // With default config, this should be rejected
         let default_config = ValidationConfig::default();
@@ -1103,7 +1110,9 @@ mod tests {
         );
 
         // Error message should indicate the monotonicity violation
-        let err_msg = result.expect_err("Expected validation error for non-monotone curve").to_string();
+        let err_msg = result
+            .expect_err("Expected validation error for non-monotone curve")
+            .to_string();
         assert!(
             err_msg.contains("not monotonically decreasing"),
             "Error should mention monotonicity: {}",
@@ -1136,7 +1145,11 @@ mod tests {
 
         // Verify this is indeed a negative-rate curve (short-end zero rate < 0)
         let short_rate = negative_rate_curve.zero(0.25);
-        assert!(short_rate < 0.0, "Expected negative short-end rate, got {}", short_rate);
+        assert!(
+            short_rate < 0.0,
+            "Expected negative short-end rate, got {}",
+            short_rate
+        );
 
         // With default config (allow_negative_rates = false), should be rejected
         let default_config = ValidationConfig::default();
@@ -1162,21 +1175,48 @@ mod tests {
     #[test]
     fn test_validation_config_constructors() {
         let strict = ValidationConfig::strict();
-        assert!(!strict.allow_negative_rates, "strict() should set allow_negative_rates=false");
-        assert!(strict.check_monotonicity, "strict() should enable monotonicity checks");
-        assert!(!strict.lenient_arbitrage, "strict() should set lenient_arbitrage=false");
+        assert!(
+            !strict.allow_negative_rates,
+            "strict() should set allow_negative_rates=false"
+        );
+        assert!(
+            strict.check_monotonicity,
+            "strict() should enable monotonicity checks"
+        );
+        assert!(
+            !strict.lenient_arbitrage,
+            "strict() should set lenient_arbitrage=false"
+        );
 
         let negative = ValidationConfig::negative_rates();
-        assert!(negative.allow_negative_rates, "negative_rates() should set allow_negative_rates=true");
-        assert!(negative.check_monotonicity, "negative_rates() should enable monotonicity checks");
+        assert!(
+            negative.allow_negative_rates,
+            "negative_rates() should set allow_negative_rates=true"
+        );
+        assert!(
+            negative.check_monotonicity,
+            "negative_rates() should enable monotonicity checks"
+        );
 
         let lenient = ValidationConfig::lenient();
-        assert!(lenient.lenient_arbitrage, "lenient() should set lenient_arbitrage=true");
-        assert!(lenient.check_arbitrage, "lenient() should still enable arbitrage checks");
+        assert!(
+            lenient.lenient_arbitrage,
+            "lenient() should set lenient_arbitrage=true"
+        );
+        assert!(
+            lenient.check_arbitrage,
+            "lenient() should still enable arbitrage checks"
+        );
 
         let default = ValidationConfig::default();
-        assert!(!default.allow_negative_rates, "default should set allow_negative_rates=false (strict mode)");
-        assert!(!default.lenient_arbitrage, "default should set lenient_arbitrage=false (strict mode)");
+        assert!(
+            !default.allow_negative_rates,
+            "default should set allow_negative_rates=false (strict mode)"
+        );
+        assert!(
+            !default.lenient_arbitrage,
+            "default should set lenient_arbitrage=false (strict mode)"
+        );
     }
 
     /// Test that butterfly arbitrage in vol surfaces is detected and fails validation.
@@ -1212,7 +1252,9 @@ mod tests {
         );
 
         // Error should mention butterfly arbitrage
-        let err_msg = result.expect_err("Expected validation error for butterfly arbitrage").to_string();
+        let err_msg = result
+            .expect_err("Expected validation error for butterfly arbitrage")
+            .to_string();
         assert!(
             err_msg.contains("Butterfly") || err_msg.contains("butterfly"),
             "Error should mention butterfly arbitrage: {}",
@@ -1262,7 +1304,9 @@ mod tests {
         );
 
         // Error should mention calendar arbitrage
-        let err_msg = result.expect_err("Expected validation error for calendar arbitrage").to_string();
+        let err_msg = result
+            .expect_err("Expected validation error for calendar arbitrage")
+            .to_string();
         assert!(
             err_msg.contains("Calendar") || err_msg.contains("calendar"),
             "Error should mention calendar arbitrage: {}",

@@ -10,7 +10,7 @@ use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConv
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
-use finstack_core::dates::{add_months, DateExt};
+use finstack_core::dates::DateExt;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
@@ -70,8 +70,6 @@ pub enum AtmStrikeConvention {
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SabrInterpolationMethod {
-    /// Nearest-neighbor in (expiry, tenor) space (legacy behavior).
-    Nearest,
     /// Bilinear interpolation in (expiry, tenor) over SABR parameters.
     #[default]
     Bilinear,
@@ -631,76 +629,18 @@ impl SwaptionVolCalibrator {
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
     ) -> Result<f64> {
-        // Choose interpolation behavior based on configuration.
-        match self.sabr_interpolation {
-            SabrInterpolationMethod::Nearest => {
-                // Legacy behavior: nearest-neighbor in (expiry, tenor) space.
-                let closest = sabr_params
-                    .iter()
-                    .map(|((exp_bp, ten_bp), params)| {
-                        let exp = *exp_bp as f64 / 10000.0;
-                        let ten = *ten_bp as f64 / 10000.0;
-                        let distance =
-                            ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2)).sqrt();
-                        (distance, params)
-                    })
-                    .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        if let Some(params) =
+            self.interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
+        {
+            let model = SABRModel::new(params);
+            let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
+            let forward = self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
+            let strike = self.determine_atm_strike(forward, expiry, target_tenor, context)?;
 
-                match closest {
-                    Some((_, params)) => {
-                        let model = SABRModel::new(params.clone());
-                        let expiry = add_months(self.base_date, (target_expiry * 12.0) as i32);
-                        let forward =
-                            self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
-                        let strike =
-                            self.determine_atm_strike(forward, expiry, target_tenor, context)?;
-
-                        model.implied_volatility(forward, strike, target_expiry)
-                    }
-                    None => Ok(self.market_conventions.default_vol),
-                }
-            }
-            SabrInterpolationMethod::Bilinear => {
-                if let Some(params) =
-                    self.interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
-                {
-                    let model = SABRModel::new(params);
-                    let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
-                    let forward =
-                        self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
-                    let strike =
-                        self.determine_atm_strike(forward, expiry, target_tenor, context)?;
-
-                    model.implied_volatility(forward, strike, target_expiry)
-                } else {
-                    // Fallback: use nearest behavior if bilinear interpolation is not possible.
-                    let closest = sabr_params
-                        .iter()
-                        .map(|((exp_bp, ten_bp), params)| {
-                            let exp = *exp_bp as f64 / 10000.0;
-                            let ten = *ten_bp as f64 / 10000.0;
-                            let distance = ((exp - target_expiry).powi(2)
-                                + (ten - target_tenor).powi(2))
-                            .sqrt();
-                            (distance, params)
-                        })
-                        .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-                    match closest {
-                        Some((_, params)) => {
-                            let model = SABRModel::new(params.clone());
-                            let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
-                            let forward =
-                                self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
-                            let strike =
-                                self.determine_atm_strike(forward, expiry, target_tenor, context)?;
-
-                            model.implied_volatility(forward, strike, target_expiry)
-                        }
-                        None => Ok(self.market_conventions.default_vol),
-                    }
-                }
-            }
+            model.implied_volatility(forward, strike, target_expiry)
+        } else {
+            // Fallback: use default volatility when interpolation is not possible.
+            Ok(self.market_conventions.default_vol)
         }
     }
 }
@@ -1010,29 +950,6 @@ mod tests {
         assert_eq!(params.beta, base.beta);
     }
 
-    #[test]
-    fn test_sabr_interpolation_method_nearest_matches_legacy_behavior() {
-        let mut grid: SABRParamsByExpiryTenor = BTreeMap::new();
-        let params = SABRParameters {
-            alpha: 0.2,
-            beta: 0.5,
-            nu: 0.4,
-            rho: -0.1,
-            shift: None,
-        };
-        grid.insert((to_basis_points(1.0), to_basis_points(5.0)), params.clone());
-
-        let mut calib = dummy_calibrator();
-        calib.sabr_interpolation = SabrInterpolationMethod::Nearest;
-
-        // Build a tiny dummy market context; we only care that the call succeeds
-        let context = MarketContext::new();
-        // Nearest behavior should fall back to default_vol when pricing fails due to empty market.
-        let vol = calib
-            .interpolate_sabr_vol(1.0, 5.0, &grid, &context)
-            .unwrap_or(calib.market_conventions.default_vol);
-        assert!(vol.is_finite());
-    }
     use time::Month;
 
     #[test]

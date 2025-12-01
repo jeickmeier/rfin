@@ -475,7 +475,7 @@ let bucketed = bucketed_dv01_calc.compute(&loan, &market_context, as_of_date)?;
 ```rust
 use crate::instruments::term_loan::TermLoan;
 use crate::metrics::{MetricCalculator, MetricValue};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::dates::Date;
 
 pub struct YourMetricCalculator;
@@ -700,7 +700,7 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 
 - **Day count conventions**: Act/360, Act/365, 30/360 (ISDA standard)
 - **Business day adjustments**: Following, Modified Following, Preceding (ISDA)
-- **Floating rate conventions**: SOFR, LIBOR (legacy), custom indices
+- **Floating rate conventions**: SOFR, historical LIBOR, custom indices
 - **OID accounting**: GAAP/IFRS effective interest rate method (not yet implemented; use `DdtlSpec::oid_policy` for current support)
 - **PIK capitalization**: Industry-standard treatment (capitalized interest excluded from PV) TODO: Is this correct?
 

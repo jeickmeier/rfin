@@ -65,15 +65,7 @@ use finstack_core::money::Money;
 // Standard regulatory CSA (post-2016)
 let csa = CsaSpec::usd_regulatory();
 
-// Legacy bilateral CSA with thresholds
-let legacy_csa = CsaSpec::bilateral_legacy(
-    "COUNTERPARTY-XYZ-CSA",
-    Currency::USD,
-    10_000_000.0,  // VM threshold
-    500_000.0,     // MTA
-);
-
-// Custom CSA
+// Custom CSA (e.g., bilateral thresholds)
 let custom_csa = CsaSpec {
     id: "CUSTOM-CSA-2024".to_string(),
     base_currency: Currency::USD,
@@ -302,7 +294,7 @@ Instruments that support margin calculations must implement the `Marginable` tra
 
 ```rust
 use finstack_valuations::margin::{Marginable, NettingSetId, SimmSensitivities, OtcMarginSpec};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::dates::Date;
 
@@ -552,4 +544,3 @@ cargo test -p finstack-valuations --test margin_integration
 cargo test -p finstack-valuations margin::calculators::simm
 cargo test -p finstack-valuations margin::calculators::vm
 ```
-

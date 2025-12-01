@@ -15,7 +15,7 @@ use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use std::sync::Arc;
@@ -699,7 +699,7 @@ pub fn price_from_dm(
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::Bond;
 /// use finstack_valuations::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
 /// # let bond = Bond::example();

@@ -180,7 +180,7 @@ impl ConvertibleBond {
     /// Calculate the net present value of this convertible bond
     pub fn npv(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
@@ -189,7 +189,7 @@ impl ConvertibleBond {
     /// Calculate parity ratio of this convertible bond
     pub fn parity(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
     ) -> finstack_core::Result<f64> {
         let underlying_id = self
             .underlying_equity_id
@@ -208,7 +208,7 @@ impl ConvertibleBond {
     /// Calculate conversion premium of this convertible bond  
     pub fn conversion_premium(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         bond_price: f64,
     ) -> finstack_core::Result<f64> {
         let underlying_id = self
@@ -241,7 +241,7 @@ impl ConvertibleBond {
     /// Calculate Greeks for this convertible bond
     pub fn greeks(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         tree_type: Option<pricer::ConvertibleTreeType>,
         bump_size: Option<f64>,
         as_of: finstack_core::dates::Date,
@@ -258,7 +258,7 @@ impl ConvertibleBond {
     /// Calculate delta of this convertible bond
     pub fn delta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None, as_of)?;
@@ -268,7 +268,7 @@ impl ConvertibleBond {
     /// Calculate gamma of this convertible bond
     pub fn gamma(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None, as_of)?;
@@ -278,7 +278,7 @@ impl ConvertibleBond {
     /// Calculate vega of this convertible bond
     pub fn vega(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None, as_of)?;
@@ -288,7 +288,7 @@ impl ConvertibleBond {
     /// Calculate rho of this convertible bond
     pub fn rho(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None, as_of)?;
@@ -298,7 +298,7 @@ impl ConvertibleBond {
     /// Calculate theta of this convertible bond
     pub fn theta(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None, as_of)?;
@@ -333,7 +333,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves, as_of)
@@ -341,7 +341,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {

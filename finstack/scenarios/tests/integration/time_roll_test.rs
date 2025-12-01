@@ -2,8 +2,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_scenarios::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};

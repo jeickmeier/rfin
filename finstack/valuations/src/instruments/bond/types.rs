@@ -595,7 +595,7 @@ impl Bond {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     ///
     /// # let bond = Bond::example();
     /// # let curves = MarketContext::new();
@@ -604,7 +604,7 @@ impl Bond {
     /// ```
     pub fn get_full_schedule(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
     ) -> Result<CashFlowSchedule> {
         use crate::cashflow::builder::CashFlowSchedule;
 
@@ -659,7 +659,7 @@ impl Bond {
     /// Option-adjusted present value of the bond
     fn value_with_tree(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::bond::pricing::tree_engine::BondValuator;
@@ -744,7 +744,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Check if bond has embedded options requiring tree-based pricing
@@ -762,7 +762,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
 
     fn price_with_metrics(
         &self,
-        market: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -860,9 +860,9 @@ mod tests {
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 

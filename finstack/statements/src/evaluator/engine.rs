@@ -77,7 +77,7 @@ impl Evaluator {
     ///
     /// ```rust,ignore
     /// use finstack_statements::Evaluator;
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     ///
     /// let market_ctx = MarketContext::new()
     ///     .insert_discount(discount_curve);
@@ -86,7 +86,7 @@ impl Evaluator {
     /// let results = evaluator.evaluate(&model)?;  // Uses stored market context
     /// ```
     pub fn with_market_context(
-        market_ctx: &finstack_core::market_data::MarketContext,
+        market_ctx: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> EvaluatorWithContext {
         EvaluatorWithContext {
@@ -114,7 +114,7 @@ impl Evaluator {
     pub fn evaluate_with_market_context(
         &mut self,
         model: &FinancialModelSpec,
-        market_ctx: Option<&finstack_core::market_data::MarketContext>,
+        market_ctx: Option<&finstack_core::market_data::context::MarketContext>,
         as_of: Option<finstack_core::dates::Date>,
     ) -> Result<Results> {
         #[cfg(not(target_arch = "wasm32"))]
@@ -444,7 +444,7 @@ impl Evaluator {
         eval_order: &[String],
         node_to_column: &IndexMap<String, usize>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
-        market_ctx: &finstack_core::market_data::MarketContext,
+        market_ctx: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         instruments: &IndexMap<
             String,
@@ -711,7 +711,7 @@ impl Default for Evaluator {
 ///
 /// ```rust,ignore
 /// use finstack_statements::evaluator::Evaluator;
-/// use finstack_core::{dates::Date, market_data::MarketContext};
+/// use finstack_core::{dates::Date, market_data::context::MarketContext};
 ///
 /// let market_ctx = MarketContext::new();
 /// let as_of = Date::from_calendar_date(2025, time::Month::January, 31).expect("test should succeed");
@@ -721,7 +721,7 @@ impl Default for Evaluator {
 #[derive(Clone)]
 pub struct EvaluatorWithContext {
     evaluator: Evaluator,
-    market_ctx: finstack_core::market_data::MarketContext,
+    market_ctx: finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
 }
 

@@ -255,7 +255,7 @@ fn process_one_date(
     mut state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
-    curves: Option<&finstack_core::market_data::MarketContext>,
+    curves: Option<&finstack_core::market_data::context::MarketContext>,
     resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<BuildState> {
     // Coupons
@@ -966,7 +966,7 @@ impl CashflowBuilder {
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
     pub fn build_with_curves(
         &self,
-        curves: Option<&finstack_core::market_data::MarketContext>,
+        curves: Option<&finstack_core::market_data::context::MarketContext>,
     ) -> finstack_core::Result<CashFlowSchedule> {
         // 1) Validate core inputs
         let (notional, issue, maturity) = validate_core_inputs(self)?;

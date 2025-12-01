@@ -581,7 +581,7 @@ fn test_results_metadata() {
 #[test]
 fn test_evaluator_with_market_context() {
     use finstack_core::dates::Date;
-    use finstack_core::market_data::MarketContext;
+    use finstack_core::market_data::context::MarketContext;
     use time::Month;
 
     let model = ModelBuilder::new("test")
@@ -619,7 +619,7 @@ fn test_evaluator_with_market_context() {
 #[test]
 fn test_evaluate_with_market_context_no_capital_structure() {
     use finstack_core::dates::Date;
-    use finstack_core::market_data::MarketContext;
+    use finstack_core::market_data::context::MarketContext;
     use time::Month;
 
     let model = ModelBuilder::new("test")

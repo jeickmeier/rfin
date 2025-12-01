@@ -77,7 +77,7 @@ fn test_rate_shock_scenario() {
         dates.near_date,
         dates.far_date_1y,
         1_000_000.0,
-        1.10,  // Fix near rate
+        1.10,   // Fix near rate
         1.1055, // Fix far rate at original fair value
     );
 

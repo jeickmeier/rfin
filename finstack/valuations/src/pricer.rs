@@ -6,7 +6,7 @@
 //! comparisons.
 
 use crate::instruments::common::traits::Instrument as Priceable;
-use finstack_core::market_data::MarketContext as Market;
+use finstack_core::market_data::context::MarketContext as Market;
 
 // ========================= KEYS =========================
 
@@ -236,7 +236,6 @@ impl std::str::FromStr for InstrumentType {
             "equity" => Ok(InstrumentType::Equity),
             "repo" => Ok(InstrumentType::Repo),
             "fra" => Ok(InstrumentType::FRA),
-            // Unified structured credit type (accepts legacy names for backward compatibility)
             "structured_credit" | "clo" | "abs" | "rmbs" | "cmbs" => {
                 Ok(InstrumentType::StructuredCredit)
             }

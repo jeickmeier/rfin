@@ -4,7 +4,7 @@
 //! that have active reinvestment periods.
 
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 use super::pool::{AssetPool, PoolAsset};

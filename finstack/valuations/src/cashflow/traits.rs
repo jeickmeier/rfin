@@ -2,8 +2,8 @@
 
 pub use crate::cashflow::{DatedFlow, DatedFlows};
 use crate::instruments::common::discountable::Discountable;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
-use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
@@ -113,7 +113,7 @@ pub trait CashflowProvider: Send + Sync {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::MarketContext;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use time::Month;
 

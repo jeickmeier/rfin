@@ -56,7 +56,7 @@ use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use hashbrown::HashMap;
 use std::marker::PhantomData;

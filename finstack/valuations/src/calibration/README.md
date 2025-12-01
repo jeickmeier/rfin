@@ -315,7 +315,7 @@ use finstack_valuations::calibration::{
 };
 use finstack_core::prelude::*;
 use finstack_core::dates::{create_date, DayCount, Frequency};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::IndexId;
 use time::Month;
 
@@ -380,7 +380,7 @@ use finstack_valuations::calibration::{
 };
 use finstack_core::prelude::*;
 use finstack_core::dates::{create_date, DayCount, Frequency};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::IndexId;
 use time::Month;
 
@@ -458,7 +458,7 @@ use finstack_valuations::calibration::{
 };
 use finstack_core::prelude::*;
 use finstack_core::dates::create_date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::UnderlyingId;
 use time::Month;
 
@@ -617,7 +617,7 @@ use finstack_valuations::calibration::{
 };
 use finstack_core::prelude::*;
 use finstack_core::dates::create_date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::Seniority;
 use time::Month;
 
@@ -674,7 +674,7 @@ use finstack_valuations::calibration::{
     DiscountCurveCalibrator, CalibrationConfig, Calibrator,
     CurveValidator, ValidationConfig
 };
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 
 let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
     .with_config(CalibrationConfig::conservative());  // Strict settings
@@ -770,7 +770,7 @@ Create `methods/new_structure.rs`:
 
 ```rust
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, NewQuote};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

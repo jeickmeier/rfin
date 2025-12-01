@@ -13,7 +13,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::error::Error as CoreError;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use std::collections::HashMap;

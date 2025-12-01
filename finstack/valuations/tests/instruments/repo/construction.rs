@@ -16,7 +16,7 @@ fn test_overnight_repo_factory() {
         collateral,
         0.05,
         start_date,
-        "usny", // Calendar ID for business day adjustment
+        "usny",    // Calendar ID for business day adjustment
         "USD-OIS", // Discount curve ID
     )
     .unwrap();
@@ -254,7 +254,7 @@ fn test_overnight_repo_business_day_adjustment() {
         collateral,
         0.05,
         friday,
-        "usny", // Calendar ID for business day adjustment
+        "usny",    // Calendar ID for business day adjustment
         "USD-OIS", // Discount curve ID
     )
     .unwrap();

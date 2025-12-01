@@ -32,7 +32,7 @@ impl DiscountMarginCalculator {
     /// the full cashflow engine and pricer.
     fn pv_given_dm(
         loan: &TermLoan,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         dm_bp: f64,
     ) -> finstack_core::Result<f64> {

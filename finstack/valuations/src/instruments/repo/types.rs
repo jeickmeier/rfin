@@ -5,7 +5,7 @@ use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::repo::margin::RepoMarginSpec;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
@@ -619,7 +619,7 @@ impl crate::instruments::common::traits::CurveDependencies for Repo {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::MarketContext;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use time::Month;
 
@@ -761,10 +761,15 @@ mod tests {
 
         // Verify cashflows use adjusted dates
         let ctx = MarketContext::new();
-        let flows = repo.build_schedule(&ctx, date(2025, 1, 1)).expect("Schedule should build");
+        let flows = repo
+            .build_schedule(&ctx, date(2025, 1, 1))
+            .expect("Schedule should build");
 
         assert_eq!(flows.len(), 2, "Repo should have 2 cashflows");
-        assert_eq!(flows[0].0, adj_start, "First flow should be on adjusted start");
+        assert_eq!(
+            flows[0].0, adj_start,
+            "First flow should be on adjusted start"
+        );
         assert_eq!(
             flows[1].0, adj_maturity,
             "Second flow should be on adjusted maturity"
@@ -811,7 +816,9 @@ mod tests {
         let result = repo.adjusted_dates();
         assert!(result.is_err(), "Missing calendar_id should error");
 
-        let err = result.expect_err("Missing calendar_id should error").to_string();
+        let err = result
+            .expect_err("Missing calendar_id should error")
+            .to_string();
         assert!(
             err.contains("calendar_id") || err.contains("calendar"),
             "Error should mention calendar requirement: {}",
@@ -914,18 +921,35 @@ mod tests {
             .expect("Adjusted repo should build");
 
         // Verify adjusted dates match
-        let (adj_start_w, adj_mat_w) = repo_weekend.adjusted_dates().expect("Adjustment should succeed");
-        let (adj_start_a, adj_mat_a) = repo_adjusted.adjusted_dates().expect("Adjustment should succeed");
+        let (adj_start_w, adj_mat_w) = repo_weekend
+            .adjusted_dates()
+            .expect("Adjustment should succeed");
+        let (adj_start_a, adj_mat_a) = repo_adjusted
+            .adjusted_dates()
+            .expect("Adjustment should succeed");
 
-        assert_eq!(adj_start_w, adj_start_a, "Adjusted start dates should match");
+        assert_eq!(
+            adj_start_w, adj_start_a,
+            "Adjusted start dates should match"
+        );
         assert_eq!(adj_mat_w, adj_mat_a, "Adjusted maturity dates should match");
-        assert_eq!(adj_start_w, start_monday, "Weekend start should adjust to Monday");
-        assert_eq!(adj_mat_w, maturity_monday, "Weekend maturity should adjust to Monday");
+        assert_eq!(
+            adj_start_w, start_monday,
+            "Weekend start should adjust to Monday"
+        );
+        assert_eq!(
+            adj_mat_w, maturity_monday,
+            "Weekend maturity should adjust to Monday"
+        );
 
         // Verify interest amounts match (uses adjusted dates)
-        let interest_weekend = repo_weekend.interest_amount().expect("Interest should compute");
-        let interest_adjusted = repo_adjusted.interest_amount().expect("Interest should compute");
-        
+        let interest_weekend = repo_weekend
+            .interest_amount()
+            .expect("Interest should compute");
+        let interest_adjusted = repo_adjusted
+            .interest_amount()
+            .expect("Interest should compute");
+
         let interest_diff = (interest_weekend.amount() - interest_adjusted.amount()).abs();
         assert!(
             interest_diff < 1e-6,
@@ -938,11 +962,14 @@ mod tests {
         let flat_rate: f64 = 0.04;
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(as_of)
-            .knots([(0.0, 1.0), (1.0, (-flat_rate).exp()), (5.0, (-flat_rate * 5.0).exp())])
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-flat_rate).exp()),
+                (5.0, (-flat_rate * 5.0).exp()),
+            ])
             .build()
             .expect("DiscountCurve builder should succeed");
-        let ctx = MarketContext::new()
-            .insert_discount(disc_curve);
+        let ctx = MarketContext::new().insert_discount(disc_curve);
 
         // Verify PV stability within 1e-6 tolerance
         let pv_weekend = repo_weekend.pv(&ctx, as_of).expect("PV should compute");
@@ -1017,8 +1044,14 @@ mod tests {
 
         // Adjusted dates should match stored dates (since they're already adjusted)
         let (adj_start, adj_maturity) = repo.adjusted_dates().expect("Adjustment should succeed");
-        assert_eq!(adj_start, repo.start_date, "Adjusted start should match stored");
-        assert_eq!(adj_maturity, repo.maturity, "Adjusted maturity should match stored");
+        assert_eq!(
+            adj_start, repo.start_date,
+            "Adjusted start should match stored"
+        );
+        assert_eq!(
+            adj_maturity, repo.maturity,
+            "Adjusted maturity should match stored"
+        );
     }
 
     /// Test overnight repo with unknown calendar returns error.

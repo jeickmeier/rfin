@@ -604,7 +604,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Optional model override via attributes metadata (e.g., meta["pricing_model"] = "monte_carlo_gbm")
@@ -653,7 +653,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -694,7 +694,7 @@ impl crate::instruments::common::traits::CurveDependencies for RevolvingCredit {
 impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
     fn build_schedule(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
         // Only works for deterministic specs
@@ -716,7 +716,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
 
     fn build_full_schedule(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Only works for deterministic specs

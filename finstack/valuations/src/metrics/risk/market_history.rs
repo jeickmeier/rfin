@@ -7,7 +7,7 @@
 use crate::metrics::risk::RiskFactorType;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
 use hashbrown::HashMap;
@@ -169,8 +169,8 @@ impl MarketHistory {
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::MarketContext;
     use time::macros::date;
 
     #[test]

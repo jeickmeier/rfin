@@ -281,7 +281,7 @@ use finstack_valuations::pricer::create_standard_registry;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::dates::create_date;
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use time::Month;
 
 // Create pricing registry
@@ -364,6 +364,7 @@ use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, FixedCouponSpec, CouponType
 };
 use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+use finstack_core::dates::DayCountCtx;
 
 let schedule = CashFlowSchedule::builder()
     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
@@ -380,7 +381,13 @@ let schedule = CashFlowSchedule::builder()
 
 // Compute periodized PV
 let periods = vec![/* quarterly periods */];
-let pv_map = schedule.pre_period_pv(&periods, &discount_curve, as_of, DayCount::Act365F);
+let pv_map = schedule.pre_period_pv_with_ctx(
+    &periods,
+    &discount_curve,
+    as_of,
+    DayCount::Act365F,
+    DayCountCtx::default(),
+)?;
 ```
 
 ### P&L Attribution
@@ -652,4 +659,3 @@ For questions or feature requests, please open an issue or contact the Finstack 
 ## License
 
 Copyright © 2025 Finstack. All rights reserved.
-

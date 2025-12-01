@@ -19,8 +19,8 @@
 //! `rate = cap( max( all_in_floor, (gearing * max(index, floor)) + spread ) )`
 
 use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
-use finstack_core::market_data::MarketContext;
 use finstack_core::Result;
 
 /// Parameters for floating rate projection.
@@ -134,7 +134,7 @@ pub fn project_floating_rate(
     )
 }
 
-/// Project floating rate using a resolved forward curve (legacy/simplified).
+/// Project floating rate using a resolved forward curve.
 ///
 /// Uses default conventions:
 /// - Gearing includes spread
@@ -255,8 +255,8 @@ pub fn project_floating_rate_simple_with_curve(
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, DayCount};
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::ForwardCurve;
-    use finstack_core::market_data::MarketContext;
     use time::Month;
 
     fn create_test_market(base_date: Date) -> MarketContext {

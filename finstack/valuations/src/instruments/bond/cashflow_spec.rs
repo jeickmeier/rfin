@@ -137,7 +137,7 @@ impl CashflowSpec {
     /// Different indices use different reset lag conventions:
     /// - **SOFR**: T-2 (2 business days before period start)
     /// - **EURIBOR**: T-2
-    /// - **LIBOR (legacy)**: T-0 to T-2 depending on currency
+    /// - **LIBOR (historical)**: T-0 to T-2 depending on currency
     /// - **SONIA**: T-0 (same day)
     ///
     /// Use `floating_with_reset_lag()` to specify a non-default reset lag.
@@ -189,7 +189,7 @@ impl CashflowSpec {
     /// | EURIBOR | T-2 (2 days) |
     /// | SONIA | T-0 (same day) |
     /// | TONA | T-2 (2 days) |
-    /// | LIBOR (legacy) | T-0 to T-2 |
+    /// | LIBOR (historical) | T-0 to T-2 |
     ///
     /// # Returns
     ///

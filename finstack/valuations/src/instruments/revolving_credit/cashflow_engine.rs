@@ -18,7 +18,7 @@
 
 use finstack_core::config::{RoundingContext, ZeroKind};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 

@@ -34,7 +34,7 @@ use indexmap::IndexMap;
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::ExecutionContext;
-/// use finstack_core::market_data::MarketContext;
+/// use finstack_core::market_data::context::MarketContext;
 /// use finstack_statements::FinancialModelSpec;
 /// use time::macros::date;
 ///
@@ -54,7 +54,7 @@ use indexmap::IndexMap;
 /// ```
 pub struct ExecutionContext<'a> {
     /// Market data context (curves, surfaces, FX, etc.).
-    pub market: &'a mut finstack_core::market_data::MarketContext,
+    pub market: &'a mut finstack_core::market_data::context::MarketContext,
 
     /// Financial statements model.
     pub model: &'a mut finstack_statements::FinancialModelSpec,
@@ -221,7 +221,7 @@ impl ScenarioEngine {
     ///
     /// ```rust,no_run
     /// use finstack_scenarios::{ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind, ExecutionContext};
-    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_statements::FinancialModelSpec;
     /// use time::macros::date;
     ///

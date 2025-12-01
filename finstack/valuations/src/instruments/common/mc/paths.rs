@@ -128,7 +128,7 @@ impl PathPoint {
         self.state.get(state_indices::IDX_SHORT_RATE).copied()
     }
 
-    /// Add a cashflow to this point (legacy method, uses Other type).
+    /// Add a cashflow to this point (uses Other type).
     ///
     /// # Arguments
     /// * `time` - Time in years when the cashflow occurs

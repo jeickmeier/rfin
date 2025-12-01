@@ -123,4 +123,3 @@ pub fn build_market_with_dc(
         )
         .insert_price(DIV_ID, MarketScalar::Unitless(div_yield))
 }
-

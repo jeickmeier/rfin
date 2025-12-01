@@ -261,13 +261,30 @@ impl VmCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::margin::types::{EligibleCollateralSchedule, MarginCallTiming, VmParameters};
     use crate::margin::MarginCallType;
     use finstack_core::currency::Currency;
+    use finstack_core::types::CurveId;
     use time::Month;
 
     fn test_date(y: i32, m: u8, d: u8) -> Date {
         Date::from_calendar_date(y, Month::try_from(m).expect("valid month"), d)
             .expect("valid date")
+    }
+
+    fn threshold_csa() -> CsaSpec {
+        CsaSpec {
+            id: "TEST".to_string(),
+            base_currency: Currency::USD,
+            vm_params: VmParameters::with_threshold(
+                Money::new(1_000_000.0, Currency::USD),
+                Money::new(100_000.0, Currency::USD),
+            ),
+            im_params: None,
+            eligible_collateral: EligibleCollateralSchedule::default(),
+            call_timing: MarginCallTiming::default(),
+            collateral_curve_id: CurveId::new("USD-OIS"),
+        }
     }
 
     #[test]
@@ -288,7 +305,7 @@ mod tests {
 
     #[test]
     fn vm_calculator_with_threshold() {
-        let csa = CsaSpec::bilateral_legacy("TEST", Currency::USD, 1_000_000.0, 100_000.0);
+        let csa = threshold_csa();
         let calc = VmCalculator::new(csa);
 
         // Exposure below threshold: no margin call

@@ -144,7 +144,7 @@ impl PathState {
         self.get(state_keys::VARIANCE)
     }
 
-    /// Add a cashflow to this state (legacy method, uses Other type).
+    /// Add a cashflow to this state.
     ///
     /// Payoffs can use this method to record cashflows generated at this timestep.
     /// During path capture, these cashflows are transferred to the PathPoint.
