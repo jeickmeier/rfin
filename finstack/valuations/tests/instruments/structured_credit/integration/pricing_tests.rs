@@ -98,7 +98,8 @@ fn test_structured_credit_value_computation() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -122,7 +123,8 @@ fn test_structured_credit_dirty_price() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -153,7 +155,8 @@ fn test_structured_credit_clean_price() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -196,7 +199,8 @@ fn test_structured_credit_full_metric_suite() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -248,7 +252,8 @@ fn test_structured_credit_empty_metrics_request() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -272,7 +277,8 @@ fn test_structured_credit_metric_dependency_resolution() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
@@ -312,7 +318,8 @@ fn test_structured_credit_pool_balance_cleanup() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 

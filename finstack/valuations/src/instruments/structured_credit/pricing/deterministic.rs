@@ -12,7 +12,6 @@ use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::calendar::types::Calendar;
 use finstack_core::dates::months_between;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
@@ -64,7 +63,37 @@ pub fn run_simulation(
     // Create waterfall
     let waterfall = instrument.create_waterfall();
 
-    // Generate payment schedule
+    // Resolve payment calendar - required for structured credit deals.
+    // Silent fallback to weekends-only would shift coupons around holidays,
+    // breaking WAC/WAL and OC tests.
+    let calendar: &dyn HolidayCalendar =
+        match instrument.payment_calendar_id.as_deref() {
+            Some(cal_id) => CalendarRegistry::global()
+                .resolve_str(cal_id)
+                .ok_or_else(|| {
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: format!(
+                            "payment_calendar_id:{} (available: {})",
+                            cal_id,
+                            CalendarRegistry::global().available_ids().join(", ")
+                        ),
+                    })
+                })?,
+            None => {
+                return Err(finstack_core::Error::Validation(
+                    "Structured credit instruments require a payment_calendar_id for accurate \
+                     schedule generation. Specify a valid calendar ID (e.g., 'nyse', 'target2') \
+                     to ensure payment dates are adjusted correctly for business days."
+                        .to_string(),
+                ));
+            }
+        };
+
+    let convention = instrument
+        .payment_bdc
+        .unwrap_or(BusinessDayConvention::Following);
+
+    // Generate payment schedule with calendar-adjusted dates
     let schedule = ScheduleBuilder::try_new(
         instrument.first_payment_date.max(as_of),
         instrument.legal_maturity,
@@ -72,21 +101,6 @@ pub fn run_simulation(
     .frequency(instrument.payment_frequency)
     .build()?;
 
-    // Adjust payment dates for business days using instrument calendar/BDC when provided.
-    let fallback_calendar = Calendar::new("weekends_only", "Weekends Only", true, &[]);
-    let calendar: &dyn HolidayCalendar =
-        if let Some(cal_id) = instrument.payment_calendar_id.as_deref() {
-            if let Some(resolved) = CalendarRegistry::global().resolve_str(cal_id) {
-                resolved
-            } else {
-                &fallback_calendar
-            }
-        } else {
-            &fallback_calendar
-        };
-    let convention = instrument
-        .payment_bdc
-        .unwrap_or(BusinessDayConvention::Following);
     let mut adjusted_schedule = schedule;
     for date in &mut adjusted_schedule.dates {
         *date = adjust(*date, convention, calendar)?;

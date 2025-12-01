@@ -341,6 +341,34 @@ pub struct StructuredCredit {
 }
 
 impl StructuredCredit {
+    /// Set the payment calendar ID for business day adjustments.
+    ///
+    /// This is required for accurate schedule generation. Structured credit deals
+    /// are calendar-specific (e.g., NY, TARGET2), and using the wrong calendar
+    /// shifts payment dates around holidays, breaking WAC/WAL and OC tests.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let clo = StructuredCredit::new_clo(...)
+    ///     .with_payment_calendar("nyse")
+    ///     .with_payment_bdc(BusinessDayConvention::ModifiedFollowing);
+    /// ```
+    #[must_use]
+    pub fn with_payment_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+        self.payment_calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Set the business day convention for payment date adjustments.
+    ///
+    /// If not specified, defaults to `BusinessDayConvention::Following`.
+    #[must_use]
+    pub fn with_payment_bdc(mut self, convention: BusinessDayConvention) -> Self {
+        self.payment_bdc = Some(convention);
+        self
+    }
+
     /// Calculate current loss percentage of the pool.
     pub fn current_loss_percentage(&self) -> finstack_core::Result<f64> {
         let total_balance = self.pool.total_balance()?.amount();

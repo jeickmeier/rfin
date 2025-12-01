@@ -81,7 +81,8 @@ fn test_structured_credit_bucketed_dv01_computed() {
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity,
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, as_of));
 

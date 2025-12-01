@@ -49,7 +49,8 @@ fn benchmark_pool_flows(c: &mut Criterion) {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    )
+    .with_payment_calendar("nyse");
 
     let context = MarketContext::new();
 

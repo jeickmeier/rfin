@@ -164,6 +164,7 @@ impl StructuredCredit {
             legal,
             "USD-OIS",
         )
+        .with_payment_calendar("nyse")
     }
 
     /// Internal helper to create structured credit with common fields
