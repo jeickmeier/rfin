@@ -4,7 +4,7 @@
 //! regardless of the specific configuration or input values.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{add_months, Date};
+use finstack_core::dates::{Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
@@ -53,7 +53,7 @@ fn run_waterfall(
     pool: &Pool,
     market: &MarketContext,
 ) -> WaterfallDistribution {
-    let period_start = period_start_override.unwrap_or_else(|| add_months(payment_date, -3));
+    let period_start = period_start_override.unwrap_or_else(|| payment_date.add_months(-3));
     let context = WaterfallContext {
         available_cash,
         interest_collections,

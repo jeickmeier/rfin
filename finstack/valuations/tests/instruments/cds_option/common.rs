@@ -4,7 +4,7 @@
 //! to maintain DRY principles across the test suite.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::add_months;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
@@ -139,8 +139,8 @@ impl CdsOptionBuilder {
     }
 
     pub fn build(self, as_of: Date) -> CdsOption {
-        let expiry = add_months(as_of, self.expiry_months);
-        let cds_maturity = add_months(as_of, self.cds_maturity_months);
+        let expiry = as_of.add_months(self.expiry_months);
+        let cds_maturity = as_of.add_months(self.cds_maturity_months);
 
         let mut option_params = CdsOptionParams::new(
             self.strike_bp,

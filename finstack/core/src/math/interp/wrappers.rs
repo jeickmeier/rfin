@@ -42,23 +42,6 @@ pub type LinearDf = Interpolator<LinearStrategy>;
 /// ```
 pub type LogLinearDf = Interpolator<LogLinearStrategy>;
 
-/// Flat-forward discount factor interpolation.
-///
-/// Assumes constant instantaneous forward rates between knots. Mathematically
-/// equivalent to log-linear interpolation. Commonly used for OIS curves and
-/// ensures no-arbitrage by construction (positive forwards guaranteed).
-///
-/// # Example
-///
-/// ```ignore
-/// use finstack_core::math::interp::{FlatFwd, ExtrapolationPolicy};
-///
-/// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
-/// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
-/// ```
-pub type FlatFwd = Interpolator<LogLinearStrategy>;
-
 /// Monotone cubic Hermite interpolation (PCHIP).
 ///
 /// Implements the Piecewise Cubic Hermite Interpolating Polynomial with

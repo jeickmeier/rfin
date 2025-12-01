@@ -1,6 +1,6 @@
 use finstack_core::math::special_functions::{
     erf as core_erf, norm_cdf as core_norm_cdf, norm_pdf as core_norm_pdf,
-    standard_normal_cdf as core_std_norm_cdf, standard_normal_inv_cdf as core_std_norm_inv_cdf,
+    standard_normal_inv_cdf as core_std_norm_inv_cdf,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -34,12 +34,6 @@ pub fn norm_pdf_py(x: f64, mean: Option<f64>, std_dev: Option<f64>) -> PyResult<
     Ok(core_norm_pdf((x - m) / s) / s)
 }
 
-#[pyfunction(name = "standard_normal_cdf")]
-#[pyo3(text_signature = "(x)")]
-pub fn standard_normal_cdf_py(x: f64) -> PyResult<f64> {
-    Ok(core_std_norm_cdf(x))
-}
-
 #[pyfunction(name = "standard_normal_inv_cdf")]
 #[pyo3(text_signature = "(p)")]
 pub fn standard_normal_inv_cdf_py(p: f64) -> PyResult<f64> {
@@ -63,14 +57,12 @@ pub(crate) fn register<'py>(
     )?;
     module.add_function(wrap_pyfunction!(norm_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(norm_pdf_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(standard_normal_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(standard_normal_inv_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(erf_py, &module)?)?;
 
     let exports = [
         "norm_cdf",
         "norm_pdf",
-        "standard_normal_cdf",
         "standard_normal_inv_cdf",
         "erf",
     ];

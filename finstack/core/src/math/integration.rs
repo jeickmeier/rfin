@@ -297,11 +297,9 @@ where
 /// * `a` - Lower bound
 /// * `b` - Upper bound
 /// * `tol` - Error tolerance
-/// * `max_depth` - Maximum recursion depth to prevent infinite recursion
 ///
-/// # Returns
-/// Approximate integral value with estimated error control
-pub fn adaptive_quadrature<F2>(
+/// Convenience alias: Adaptive Simpson integration with error control.
+pub fn adaptive_simpson<F2>(
     f: F2,
     a: f64,
     b: f64,
@@ -312,7 +310,7 @@ where
     F2: Fn(f64) -> f64 + Copy,
 {
     #[allow(clippy::too_many_arguments)]
-    fn adaptive_simpson<F2>(
+    fn adaptive_simpson_inner<F2>(
         f: F2,
         a: f64,
         b: f64,
@@ -350,10 +348,12 @@ where
             Ok(total)
         } else {
             let mid_tol = tol / 2.0;
-            let left_result =
-                adaptive_simpson(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
-            let right_result =
-                adaptive_simpson(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
+            let left_result = adaptive_simpson_inner(
+                f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth,
+            )?;
+            let right_result = adaptive_simpson_inner(
+                f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth,
+            )?;
             Ok(left_result + right_result)
         }
     }
@@ -366,17 +366,7 @@ where
 
     let whole = h * (fa + 4.0 * fc + fb);
 
-    adaptive_simpson(f, a, b, tol, fa, fb, fc, whole, 0, max_depth)
-}
-
-/// Convenience alias: Adaptive Simpson integration with error control.
-///
-/// This forwards to `adaptive_quadrature`, clarifying the Simpson basis.
-pub fn adaptive_simpson<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
-where
-    F2: Fn(f64) -> f64 + Copy,
-{
-    adaptive_quadrature(f, a, b, tol, max_depth)
+    adaptive_simpson_inner(f, a, b, tol, fa, fb, fc, whole, 0, max_depth)
 }
 
 // -----------------------------------------------------------------------------
@@ -665,11 +655,11 @@ mod tests {
     }
 
     #[test]
-    fn test_adaptive_quadrature() {
+    fn test_adaptive_simpson() {
         // Test adaptive integration on oscillatory function
         let f = |x: f64| (10.0 * x).sin();
-        let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000)
-            .expect("Adaptive quadrature should succeed in test");
+        let result = adaptive_simpson(f, 0.0, std::f64::consts::PI, 1e-6, 1000)
+            .expect("Adaptive Simpson should succeed in test");
         // Exact integral = (1 - cos(10π))/10 = 0
         assert!(result.abs() < 1e-2);
     }

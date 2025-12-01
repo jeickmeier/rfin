@@ -14,7 +14,7 @@ use crate::instruments::common::models::{d1_black76, d2_black76};
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
-use finstack_core::dates::{add_months, BusinessDayConvention, Date, DayCountCtx, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -57,7 +57,7 @@ impl CmsOptionPricer {
             // 1. Calculate Forward Swap Rate
             let swap_start = fixing_date;
             let swap_tenor_months = (inst.cms_tenor * 12.0).round() as i32;
-            let swap_end = add_months(swap_start, swap_tenor_months);
+            let swap_end = swap_start.add_months(swap_tenor_months);
 
             // Calculate annuity and forward rate
             let (forward_swap_rate, _) =

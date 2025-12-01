@@ -99,7 +99,7 @@ Tests interpolation methods for curve construction:
 **Key Performance Indicators:**
 - Single interpolation: 10-50ns (varies by method)
 - Batch (100 points): 1-5μs
-- Complexity ranking: Linear < LogLinear < FlatFwd < CubicHermite < MonotoneConvex
+- Complexity ranking: Linear < LogLinear < CubicHermite < MonotoneConvex
 
 ### curve_operations.rs - Term Structure Curves
 
@@ -326,7 +326,6 @@ Potential future benchmarks:
 - Integration algorithms (Simpson, Gauss-Legendre)
 - Root finding (Newton-Raphson, Brent)
 - Statistical functions (CDF, quantiles)
-
 
 
 

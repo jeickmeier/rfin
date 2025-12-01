@@ -155,7 +155,7 @@ impl InflationSwap {
         let lag_policy = self.lag_override.unwrap_or(default_lag);
         match lag_policy {
             InflationLag::None => date,
-            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
             _ => date,
         }

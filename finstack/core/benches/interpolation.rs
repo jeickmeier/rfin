@@ -9,7 +9,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::math::interp::{
-    CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
+    CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 
 fn create_test_curve(num_points: usize) -> (Box<[f64]>, Box<[f64]>) {
@@ -119,18 +119,18 @@ fn bench_monotone_convex_interp(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_flat_fwd_interp(c: &mut Criterion) {
+fn bench_log_linear_batch(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
-    c.bench_function("interp_flat_fwd_single", |b| {
+    c.bench_function("interp_log_linear_single", |b| {
         b.iter(|| {
             let value = black_box(&interp).interp(black_box(2.5));
             black_box(value);
         })
     });
 
-    let mut group = c.benchmark_group("interp_flat_fwd_batch");
+    let mut group = c.benchmark_group("interp_log_linear_batch");
     for size in [10, 50, 100, 500] {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &size| {
             let times: Vec<f64> = (0..size).map(|i| (i as f64) * 0.1).collect();
@@ -154,7 +154,7 @@ fn bench_interp_comparison(c: &mut Criterion) {
         CubicHermite::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
     let monotone_convex =
         MonotoneConvex::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let flat_fwd = FlatFwd::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let flat_fwd = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
     let test_times: Vec<f64> = (0..100).map(|i| (i as f64) * 0.05).collect();
 
@@ -192,7 +192,7 @@ fn bench_interp_comparison(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("FlatFwd", |b| {
+    group.bench_function("LogLinear", |b| {
         b.iter(|| {
             let values: Vec<_> = test_times.iter().map(|&t| flat_fwd.interp(t)).collect();
             black_box(values);
@@ -243,7 +243,7 @@ criterion_group!(
     bench_log_linear_interp,
     bench_cubic_hermite_interp,
     bench_monotone_convex_interp,
-    bench_flat_fwd_interp,
+    bench_log_linear_batch,
     bench_interp_comparison,
     bench_interp_extrapolation,
 );

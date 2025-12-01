@@ -47,7 +47,7 @@ fn parse_interp_value(value: &JsValue) -> Result<InterpStyle, JsValue> {
             1 => Ok(InterpStyle::LogLinear),
             2 => Ok(InterpStyle::MonotoneConvex),
             3 => Ok(InterpStyle::CubicHermite),
-            4 => Ok(InterpStyle::FlatFwd),
+            4 => Ok(InterpStyle::LogLinear),
             other => Err(js_error(format!(
                 "Unknown interpolation style enum discriminant: {other}"
             ))),

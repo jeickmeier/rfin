@@ -194,9 +194,6 @@ impl PeriodId {
     }
 }
 
-/// Key usable for maps; currently identical to `PeriodId` but kept for future extension.
-pub type PeriodKey = PeriodId;
-
 /// Configuration for fiscal year periods.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

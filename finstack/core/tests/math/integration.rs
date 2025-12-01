@@ -1,5 +1,5 @@
 use finstack_core::math::{
-    adaptive_quadrature, erf, norm_cdf, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+    adaptive_simpson, erf, norm_cdf, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
 };
 use std::f64::consts::PI;
 
@@ -36,27 +36,27 @@ fn test_trapezoidal_rule_quadratic() {
 }
 
 #[test]
-fn test_adaptive_quadrature_smooth_function() {
-    // Test adaptive quadrature on e^(-x²) over [-2, 2]
+fn test_adaptive_simpson_smooth_function() {
+    // Test adaptive Simpson on e^(-x²) over [-2, 2]
     // For finite limits: ∫e^(-x²)dx from -a to a = √π · erf(a)
     // For a=2: √π · erf(2) ≈ 1.7641 (not √π ≈ 1.7725 which is for infinite limits)
     let f = |x: f64| (-x * x).exp();
-    let result = adaptive_quadrature(f, -2.0, 2.0, 1e-4, 20).unwrap();
+    let result = adaptive_simpson(f, -2.0, 2.0, 1e-4, 20).unwrap();
     let expected = PI.sqrt() * erf(2.0);
     assert!(
         (result - expected).abs() < 1e-3,
-        "Adaptive quadrature {} vs expected {}",
+        "Adaptive Simpson {} vs expected {}",
         result,
         expected
     );
 }
 
 #[test]
-fn test_adaptive_quadrature_oscillatory() {
+fn test_adaptive_simpson_oscillatory() {
     // Test on oscillatory function sin(10x) over [0, π]
     // Exact integral = (1 - cos(10π))/10 = 2/10 = 0.2
     let f = |x: f64| (10.0 * x).sin();
-    let result = adaptive_quadrature(f, 0.0, PI, 1e-4, 25).unwrap();
+    let result = adaptive_simpson(f, 0.0, PI, 1e-4, 25).unwrap();
     let expected = (1.0 - (10.0 * PI).cos()) / 10.0;
     assert!((result - expected).abs() < 1e-2);
 }
@@ -110,7 +110,7 @@ fn test_integration_methods_comparison() {
 
     let simpson = simpson_rule(f, 0.0, 2.0, 100).unwrap();
     let trapezoidal = trapezoidal_rule(f, 0.0, 2.0, 100).unwrap();
-    let adaptive = adaptive_quadrature(f, 0.0, 2.0, 1e-6, 20).unwrap();
+    let adaptive = adaptive_simpson(f, 0.0, 2.0, 1e-6, 20).unwrap();
 
     // Simpson should be most accurate for polynomials
     assert!((simpson - exact).abs() < 1e-8);

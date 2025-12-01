@@ -153,7 +153,7 @@ macro_rules! interp_basic_tests {
 
 interp_basic_tests!(linear_df_basic, LinearDf::new);
 interp_basic_tests!(log_linear_df_basic, LogLinearDf::new);
-interp_basic_tests!(flat_fwd_basic, FlatFwd::new);
+interp_basic_tests!(flat_fwd_basic, LogLinearDf::new);
 interp_basic_tests!(cubic_hermite_basic, CubicHermite::new);
 interp_basic_tests!(monotone_convex_basic, MonotoneConvex::new);
 
@@ -224,7 +224,7 @@ mod interp_style_build {
 
     #[test]
     fn build_flat_fwd() {
-        let interp = InterpStyle::FlatFwd
+        let interp = InterpStyle::LogLinear
             .build(
                 standard_knots(),
                 standard_dfs(),
@@ -243,7 +243,7 @@ mod interp_style_build {
             InterpStyle::LogLinear,
             InterpStyle::MonotoneConvex,
             InterpStyle::CubicHermite,
-            InterpStyle::FlatFwd,
+            InterpStyle::LogLinear,
         ] {
             let interp = style
                 .build(
@@ -369,7 +369,7 @@ macro_rules! extrapolation_tests {
 
 extrapolation_tests!(extrap_linear, LinearDf::new);
 extrapolation_tests!(extrap_log_linear, LogLinearDf::new);
-extrapolation_tests!(extrap_flat_fwd, FlatFwd::new);
+extrapolation_tests!(extrap_flat_fwd, LogLinearDf::new);
 extrapolation_tests!(extrap_cubic_hermite, CubicHermite::new);
 extrapolation_tests!(extrap_monotone_convex, MonotoneConvex::new);
 
@@ -520,7 +520,7 @@ macro_rules! derivative_tests {
 
 derivative_tests!(deriv_linear, LinearDf::new);
 derivative_tests!(deriv_log_linear, LogLinearDf::new);
-derivative_tests!(deriv_flat_fwd, FlatFwd::new);
+derivative_tests!(deriv_flat_fwd, LogLinearDf::new);
 derivative_tests!(deriv_cubic_hermite, CubicHermite::new);
 derivative_tests!(deriv_monotone_convex, MonotoneConvex::new);
 
@@ -626,7 +626,7 @@ mod flat_fwd_specific {
 
     #[test]
     fn matches_log_linear_exactly() {
-        let flat = FlatFwd::new(
+        let flat = LogLinearDf::new(
             standard_knots(),
             standard_dfs(),
             ExtrapolationPolicy::default(),
@@ -642,7 +642,7 @@ mod flat_fwd_specific {
         for t in [0.1, 0.25, 0.5, 1.5, 2.5] {
             assert!(
                 approx_eq(flat.interp(t), log.interp(t), 1e-15),
-                "FlatFwd != LogLinear at t={}",
+                "LogLinear != LogLinear at t={}",
                 t
             );
         }
@@ -650,7 +650,7 @@ mod flat_fwd_specific {
 
     #[test]
     fn constant_forward_rate_property() {
-        let interp = FlatFwd::new(
+        let interp = LogLinearDf::new(
             standard_knots(),
             standard_dfs(),
             ExtrapolationPolicy::default(),
@@ -1221,9 +1221,9 @@ mod serde_tests {
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
         let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let flat_fwd = FlatFwd::new(knots, dfs, extrapolation).unwrap();
+        let flat_fwd = LogLinearDf::new(knots, dfs, extrapolation).unwrap();
         let json = serde_json::to_string_pretty(&flat_fwd).unwrap();
-        let deserialized: FlatFwd = serde_json::from_str(&json).unwrap();
+        let deserialized: LogLinearDf = serde_json::from_str(&json).unwrap();
         assert!((flat_fwd.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
     }
 }

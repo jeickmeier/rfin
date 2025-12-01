@@ -2,7 +2,7 @@ use crate::instruments::cms_option::pricer::{convexity_adjustment, CmsOptionPric
 use crate::instruments::cms_option::types::CmsOption;
 use crate::instruments::common::models::{d1_black76, d2_black76};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{add_months, DayCountCtx};
+use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::math::norm_pdf;
 use finstack_core::Result;
 
@@ -44,7 +44,7 @@ impl MetricCalculator for VannaCalculator {
             // 1. Calculate Forward Swap Rate
             let swap_start = fixing_date;
             let swap_tenor_months = (inst.cms_tenor * 12.0).round() as i32;
-            let swap_end = add_months(swap_start, swap_tenor_months);
+            let swap_end = swap_start.add_months(swap_tenor_months);
 
             let (forward_swap_rate, _) =
                 pricer.calculate_forward_swap_rate(inst, curves, as_of, swap_start, swap_end)?;

@@ -103,7 +103,7 @@ impl<S: InterpolationStrategy> Interpolator<S> {
     ///
     /// # Arguments
     /// * `knots` – strictly ascending knot times.
-    /// * `values` – corresponding values (can be negative for Linear/FlatFwd).
+    /// * `values` – corresponding values (can be negative for Linear/LogLinear).
     /// * `extrapolation` – extrapolation policy.
     ///
     /// # Errors

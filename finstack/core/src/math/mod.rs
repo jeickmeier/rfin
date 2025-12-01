@@ -66,23 +66,22 @@ pub use distributions::{
     sample_beta,
 };
 pub use integration::{
-    adaptive_quadrature, adaptive_simpson, gauss_legendre_integrate,
-    gauss_legendre_integrate_adaptive, gauss_legendre_integrate_composite, simpson_rule,
-    trapezoidal_rule, GaussHermiteQuadrature,
+    adaptive_simpson, gauss_legendre_integrate, gauss_legendre_integrate_adaptive,
+    gauss_legendre_integrate_composite, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
 };
 pub use interp::{
-    CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
+    CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 pub use linalg::{
     apply_correlation, build_correlation_matrix, cholesky_decomposition,
     validate_correlation_matrix, CholeskyError,
 };
-pub use random::{box_muller_polar, box_muller_transform, RandomNumberGenerator, TestRng};
+pub use random::{box_muller_transform, RandomNumberGenerator, TestRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use solver::{BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{
-    erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,
+    erf, norm_cdf, norm_pdf, standard_normal_inv_cdf,
 };
 pub use stats::{correlation, covariance, mean, mean_var, variance};
 pub use summation::{kahan_sum, pairwise_sum, stable_sum};

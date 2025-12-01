@@ -38,7 +38,7 @@
 //!   Without Monte Carlo Simulation."
 
 use super::{select_quadrature, Copula};
-use finstack_core::math::norm_cdf as standard_normal_cdf;
+use finstack_core::math::norm_cdf;
 
 /// Multi-factor Gaussian copula with sector structure.
 ///
@@ -176,14 +176,14 @@ impl Copula for MultiFactorCopula {
         if gamma < 1e-10 {
             // Near-perfect correlation
             let systematic = global_loading * z_global + sector_loading * z_sector;
-            return standard_normal_cdf(default_threshold - systematic);
+            return norm_cdf(default_threshold - systematic);
         }
 
         // P(default | Z_G, Z_S) = Φ((threshold - β_G·Z_G - β_S·Z_S) / γ)
         let systematic = global_loading * z_global + sector_loading * z_sector;
         let conditional_threshold = (default_threshold - systematic) / gamma;
 
-        standard_normal_cdf(conditional_threshold.clamp(-10.0, 10.0))
+        norm_cdf(conditional_threshold.clamp(-10.0, 10.0))
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {

@@ -36,7 +36,7 @@
 //!   *Journal of Fixed Income*, 9(4), 43-54.
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
-use finstack_core::math::{norm_cdf as standard_normal_cdf, GaussHermiteQuadrature};
+use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
 
 /// One-factor Gaussian copula model.
 ///
@@ -133,12 +133,12 @@ impl Copula for GaussianCopula {
         // Handle extreme correlation cases
         if rho < 1e-10 {
             // Independent case: conditional = unconditional
-            return standard_normal_cdf(default_threshold);
+            return norm_cdf(default_threshold);
         }
         if rho > 1.0 - 1e-10 {
             // Perfect correlation: deterministic given Z
             let threshold_adj = default_threshold - z;
-            return standard_normal_cdf(threshold_adj);
+            return norm_cdf(threshold_adj);
         }
 
         let sqrt_rho = rho.sqrt();
@@ -149,7 +149,7 @@ impl Copula for GaussianCopula {
 
         // Clip to prevent CDF overflow
         let clipped = conditional_threshold.clamp(-self.cdf_clip, self.cdf_clip);
-        standard_normal_cdf(clipped)
+        norm_cdf(clipped)
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {

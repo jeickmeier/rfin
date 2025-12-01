@@ -28,7 +28,6 @@ pub use ratings::{moodys_warf_factor, CreditRating, RatingFactorTable};
 // Re-export commonly used types from other modules for convenience
 pub use crate::currency::Currency;
 pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
-pub use crate::money::Money as Amount;
 
 // Type aliases for common usage patterns
 /// Convenient type alias for timestamps

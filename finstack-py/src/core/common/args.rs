@@ -123,7 +123,7 @@ impl<'py> FromPyObject<'py> for InterpStyleArg {
                 "log_linear" => InterpStyle::LogLinear,
                 "monotone_convex" => InterpStyle::MonotoneConvex,
                 "cubic_hermite" => InterpStyle::CubicHermite,
-                "flat_fwd" => InterpStyle::FlatFwd,
+                "flat_fwd" => InterpStyle::LogLinear,
                 other => {
                     return Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Unknown interpolation style: {other}"

@@ -49,9 +49,9 @@ impl JsInterpStyle {
         Self::new(InterpStyle::CubicHermite)
     }
 
-    #[wasm_bindgen(js_name = FlatFwd)]
+    #[wasm_bindgen(js_name = LogLinear)]
     pub fn flat_fwd() -> JsInterpStyle {
-        Self::new(InterpStyle::FlatFwd)
+        Self::new(InterpStyle::LogLinear)
     }
 
     #[wasm_bindgen(js_name = fromName)]

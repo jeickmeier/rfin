@@ -49,7 +49,6 @@ export enum InterpStyle {
   LogLinear = 1,
   MonotoneConvex = 2,
   CubicHermite = 3,
-  FlatFwd = 4,
 }
 
 export enum ExtrapolationPolicy {

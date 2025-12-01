@@ -2,7 +2,7 @@
 //!
 //! This module consolidates all discount curve tests including:
 //! - Builder validation and construction
-//! - Interpolation styles (Linear, LogLinear, MonotoneConvex, CubicHermite, FlatFwd)
+//! - Interpolation styles (Linear, LogLinear, MonotoneConvex, CubicHermite, LogLinear)
 //! - Extrapolation policies (FlatZero, FlatForward)
 //! - Monotonicity validation and no-arbitrage checks
 //! - Parallel and key-rate bumps
@@ -201,7 +201,7 @@ fn interpolation_consistency_at_knot_points() {
         DiscountCurve::builder("FF")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::FlatFwd)
+            .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap(),
     ];
@@ -224,7 +224,7 @@ fn interpolation_styles_produce_valid_results() {
         InterpStyle::LogLinear,
         InterpStyle::MonotoneConvex,
         InterpStyle::CubicHermite,
-        InterpStyle::FlatFwd,
+        InterpStyle::LogLinear,
     ] {
         let curve = DiscountCurve::builder("TEST")
             .base_date(base_date)
@@ -900,7 +900,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("CHF-SARON")
             .base_date(Date::from_calendar_date(2025, Month::December, 31).unwrap())
             .knots([(0.0, 1.0), (0.5, 0.995), (1.0, 0.988), (2.0, 0.975)])
-            .set_interp(InterpStyle::FlatFwd)
+            .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 
@@ -910,7 +910,7 @@ mod serde_tests {
         for t in [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5] {
             assert!(
                 (original.df(t) - deserialized.df(t)).abs() < 1e-12,
-                "FlatFwd DF mismatch at t={}: {} vs {}",
+                "LogLinear DF mismatch at t={}: {} vs {}",
                 t,
                 original.df(t),
                 deserialized.df(t)

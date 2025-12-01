@@ -13,6 +13,7 @@ use finstack_core::market_data::scalars::inflation_index::{InflationInterpolatio
 use finstack_valuations::instruments::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
+use finstack_core::dates::DateExt;
 
 #[test]
 fn test_index_ratio_basic_linear_interpolation() {
@@ -390,8 +391,8 @@ fn test_index_ratio_time_series() {
     // Build a time series with steady 0.5% monthly inflation
     let mut observations = Vec::new();
     for i in 0..12 {
-        let date = d(2024, 12, 1);
-        let month_date = finstack_core::dates::add_months(date, i);
+        let _date = d(2024, 12, 1);
+        let month_date = d(2024, 1, 1).add_months(i);
         let value = 300.0 * (1.005_f64).powi(i);
         observations.push((month_date, value));
     }

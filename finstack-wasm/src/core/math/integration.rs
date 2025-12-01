@@ -334,25 +334,6 @@ pub fn adaptive_simpson(
     result.map_err(|err| js_error(err.to_string()))
 }
 
-/// Alias for adaptiveSimpson (same implementation).
-///
-/// @param {Function} func - Function to integrate
-/// @param {number} a - Lower bound of integration
-/// @param {number} b - Upper bound of integration
-/// @param {number} tol - Absolute tolerance for the result
-/// @param {number} max_depth - Maximum recursion depth
-/// @returns {number} Approximate integral with specified tolerance
-#[wasm_bindgen(js_name = adaptiveQuadrature)]
-pub fn adaptive_quadrature(
-    func: &JsValue,
-    a: f64,
-    b: f64,
-    tol: f64,
-    max_depth: usize,
-) -> Result<f64, JsValue> {
-    adaptive_simpson(func, a, b, tol, max_depth)
-}
-
 /// Gauss-Legendre quadrature for high-accuracy integration.
 ///
 /// Uses optimal quadrature points and weights for polynomial integration.

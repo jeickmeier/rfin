@@ -34,7 +34,7 @@
 //!   Random Recovery and Random Factor Loadings." *Journal of Credit Risk*.
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
-use finstack_core::math::{norm_cdf as standard_normal_cdf, GaussHermiteQuadrature};
+use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
 
 /// Random Factor Loading copula with stochastic correlation.
 ///
@@ -148,12 +148,12 @@ impl Copula for RandomFactorLoadingCopula {
         if gamma < 1e-10 {
             // Near-perfect correlation case
             let threshold_adj = default_threshold - beta * z;
-            return standard_normal_cdf(threshold_adj);
+            return norm_cdf(threshold_adj);
         }
 
         // P(default | Z, β) = Φ((threshold - β·Z) / γ)
         let conditional_threshold = (default_threshold - beta * z) / gamma;
-        standard_normal_cdf(conditional_threshold.clamp(-10.0, 10.0))
+        norm_cdf(conditional_threshold.clamp(-10.0, 10.0))
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
@@ -184,7 +184,7 @@ impl Copula for RandomFactorLoadingCopula {
 
         // Rough approximation: tail dependence proportional to
         // probability of high correlation × impact at that correlation
-        let prob_high_loading = 1.0 - standard_normal_cdf(2.0); // ~2.3%
+        let prob_high_loading = 1.0 - norm_cdf(2.0); // ~2.3%
 
         // Contribution is small but non-zero
         prob_high_loading * effective_high_corr.sqrt() * 0.5

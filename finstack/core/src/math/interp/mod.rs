@@ -8,7 +8,6 @@
 //!
 //! - [`LinearDf`]: Linear in discount factors (simple but may create arbitrage)
 //! - [`LogLinearDf`]: Linear in log(DF), constant zero rates
-//! - [`FlatFwd`]: Piecewise-constant forward rates (no-arbitrage)
 //! - [`MonotoneConvex`]: Hagan-West smooth, monotone, no-arbitrage
 //! - [`CubicHermite`]: PCHIP shape-preserving cubic
 //!
@@ -17,7 +16,6 @@
 //! Not all methods guarantee positive forward rates:
 //! - **Linear**: May produce negative forwards ❌
 //! - **LogLinear**: Guarantees positive forwards ✅
-//! - **FlatFwd**: Guarantees positive forwards ✅
 //! - **MonotoneConvex**: Guarantees positive forwards ✅
 //! - **CubicHermite**: Shape-preserving but requires monotone input ⚠️
 //!
@@ -45,4 +43,4 @@ pub mod wrappers;
 pub use generic::Interpolator;
 pub use traits::{InterpFn, InterpolationStrategy};
 pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
-pub use wrappers::{CubicHermite, FlatFwd, LinearDf, LogLinearDf, MonotoneConvex};
+pub use wrappers::{CubicHermite, LinearDf, LogLinearDf, MonotoneConvex};

@@ -30,7 +30,9 @@ use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
-use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{
+    next_cds_date, BusinessDayConvention, Date, DateExt, DayCount, Frequency,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -532,7 +534,7 @@ impl BaseCorrelationCalibrator {
         } else {
             // Simple month-based calculation as fallback
             let months_to_add = (self.maturity_years * 12.0).round() as i32;
-            finstack_core::dates::add_months(self.base_date, months_to_add)
+            self.base_date.add_months(months_to_add)
         };
 
         let id = finstack_core::types::InstrumentId::new(
@@ -568,15 +570,15 @@ impl BaseCorrelationCalibrator {
     fn calculate_imm_maturity(&self) -> Result<Date> {
         // Calculate approximate target date
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
-        let approximate_maturity = finstack_core::dates::add_months(self.base_date, months_to_add);
+        let approximate_maturity = self.base_date.add_months(months_to_add);
 
         // Snap to next CDS IMM date (20th of Mar/Jun/Sep/Dec)
         // If we're already past the approximate date, step back one day to catch current IMM
         let search_start = if approximate_maturity.day() >= 20 {
             // We might be past this quarter's IMM, so go back slightly
-            finstack_core::dates::add_months(approximate_maturity, -3)
+            approximate_maturity.add_months(-3)
         } else {
-            finstack_core::dates::add_months(approximate_maturity, -1)
+            approximate_maturity.add_months(-1)
         };
 
         // Find the next CDS date from search_start
@@ -586,7 +588,7 @@ impl BaseCorrelationCalibrator {
         let days_diff = (imm_date - approximate_maturity).whole_days();
         if days_diff > 45 {
             // We went too far forward, try going back one quarter
-            let earlier_search = finstack_core::dates::add_months(search_start, -3);
+            let earlier_search = search_start.add_months(-3);
             let earlier_imm = next_cds_date(earlier_search);
             if (earlier_imm - approximate_maturity).whole_days().abs()
                 < (imm_date - approximate_maturity).whole_days().abs()

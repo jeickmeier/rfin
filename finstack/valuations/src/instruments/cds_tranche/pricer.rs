@@ -55,9 +55,7 @@ use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::{context::MarketContext, term_structures::CreditIndexData};
 use finstack_core::math::binomial_probability;
-use finstack_core::math::{
-    norm_cdf as standard_normal_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
-};
+use finstack_core::math::{norm_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature};
 use finstack_core::prelude::*;
 
 // Calendar imports for business day settlement
@@ -1004,7 +1002,7 @@ impl CDSTranchePricer {
             for i in 0..probit_i.len() {
                 let th = probit_i[i];
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
+                let p = norm_cdf(cthr).clamp(0.0, 1.0);
 
                 // Use per-issuer weight and LGD
                 let w = weight_i[i] * lgd_i[i];
@@ -1020,7 +1018,7 @@ impl CDSTranchePricer {
             let s = var.sqrt();
             let a = (k - mean) / s;
             // E[min(L, K)] ≈ m Φ(a) + s φ(a) + K [1 − Φ(a)]
-            mean * standard_normal_cdf(a) + s * norm_pdf(a) + k * (1.0 - standard_normal_cdf(a))
+            mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
         // Prefer exact convolution for small pools to reduce SPA error
@@ -1099,7 +1097,7 @@ impl CDSTranchePricer {
                 let weight = weight_i[i];
 
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
+                let p = norm_cdf(cthr).clamp(0.0, 1.0);
 
                 // Per-issuer loss contribution
                 let loss_exact = weight * lgd / grid_step;
@@ -1172,7 +1170,7 @@ impl CDSTranchePricer {
             for i in 0..probit_i.len() {
                 let th = probit_i[i];
                 let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = standard_normal_cdf(cthr).clamp(0.0, 1.0);
+                let p = norm_cdf(cthr).clamp(0.0, 1.0);
                 let w = weight_i[i] * lgd_i[i];
                 mean += w * p;
                 var += w * w * p * (1.0 - p);
@@ -1183,7 +1181,7 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            mean * standard_normal_cdf(a) + s * norm_pdf(a) + k * (1.0 - standard_normal_cdf(a))
+            mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
         if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
@@ -1215,7 +1213,7 @@ impl CDSTranchePricer {
 
         let conditional_threshold =
             (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
-        standard_normal_cdf(conditional_threshold)
+        norm_cdf(conditional_threshold)
     }
 
     /// Enhanced conditional default probability with improved numerical stability.
@@ -1236,12 +1234,12 @@ impl CDSTranchePricer {
         // Handle extreme correlation cases with special care
         if correlation < self.params.numerical_tolerance {
             // Near-zero correlation: independent case
-            return standard_normal_cdf(default_threshold);
+            return norm_cdf(default_threshold);
         }
         if correlation > 1.0 - self.params.numerical_tolerance {
             // Near-perfect correlation: deterministic case
             let threshold_adj = default_threshold - market_factor;
-            return standard_normal_cdf(threshold_adj);
+            return norm_cdf(threshold_adj);
         }
 
         // Enhanced calculation with overflow protection
@@ -1264,7 +1262,7 @@ impl CDSTranchePricer {
         let conditional_threshold =
             conditional_threshold.clamp(-self.params.cdf_clip, self.params.cdf_clip);
 
-        standard_normal_cdf(conditional_threshold)
+        norm_cdf(conditional_threshold)
     }
 
     /// Apply smooth correlation boundary handling to avoid numerical discontinuities.

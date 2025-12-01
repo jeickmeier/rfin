@@ -1,6 +1,5 @@
 use finstack_core::math::random::{
-    box_muller_polar as core_box_muller_polar, box_muller_transform as core_box_muller_transform,
-    RandomNumberGenerator, TestRng,
+    box_muller_transform as core_box_muller_transform, RandomNumberGenerator, TestRng,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -123,25 +122,6 @@ pub fn box_muller_transform_py(u1: f64, u2: f64) -> (f64, f64) {
     core_box_muller_transform(u1, u2)
 }
 
-#[pyfunction(name = "box_muller_polar")]
-#[pyo3(text_signature = "(seed=None)")]
-/// Polar Box‑Muller transform using an internal ``SimpleRng``.
-///
-/// Parameters
-/// ----------
-/// seed : int, optional
-///     Optional RNG seed for deterministic sequences. If omitted, a
-///     fixed seed is used for reproducibility.
-///
-/// Returns
-/// -------
-/// tuple[float, float]
-///     Pair ``(z1, z2)`` of independent ``N(0, 1)`` samples.
-pub fn box_muller_polar_py(seed: Option<u64>) -> (f64, f64) {
-    let mut rng = TestRng::new(seed.unwrap_or(42));
-    core_box_muller_polar(|| rng.uniform())
-}
-
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -154,9 +134,8 @@ pub(crate) fn register<'py>(
 
     module.add_class::<PySimpleRng>()?;
     module.add_function(wrap_pyfunction!(box_muller_transform_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(box_muller_polar_py, &module)?)?;
 
-    let exports = ["SimpleRng", "box_muller_transform", "box_muller_polar"];
+    let exports = ["SimpleRng", "box_muller_transform"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

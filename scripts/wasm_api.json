@@ -1016,10 +1016,6 @@
               "js_name": "CubicHermite"
             },
             {
-              "name": "flat_fwd",
-              "js_name": "FlatFwd"
-            },
-            {
               "name": "from_name",
               "js_name": "fromName"
             },
@@ -2070,10 +2066,6 @@
               "js_name": "adaptiveSimpson"
             },
             {
-              "name": "adaptive_quadrature",
-              "js_name": "adaptiveQuadrature"
-            },
-            {
               "name": "gauss_legendre_integrate",
               "js_name": "gaussLegendreIntegrate"
             },
@@ -2328,7 +2320,6 @@
         "LogLinear",
         "MonotoneConvex",
         "CubicHermite",
-        "FlatFwd",
         "fromName",
         "flat_zero",
         "FlatZero",

@@ -38,7 +38,7 @@
         "curve_id": { "type": "string" },
         "base_date": { "type": "string", "format": "date" },
         "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
-        "solve_interp": { "type": "string", "enum": ["Linear", "LogLinear", "MonotoneConvex", "FlatFwd"], "default": "MonotoneConvex" },
+        "solve_interp": { "type": "string", "enum": ["Linear", "LogLinear", "MonotoneConvex"], "default": "MonotoneConvex" },
         "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
         "calendar_id": { "type": ["string", "null"] }
       }
@@ -74,4 +74,3 @@
     }
   }
 }
-

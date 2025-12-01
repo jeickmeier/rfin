@@ -2,7 +2,7 @@
 
 use crate::instruments::bond::Bond;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
@@ -504,7 +504,7 @@ impl AssetPool {
 
                 if let Some(acq_date) = asset.acquisition_date {
                     if as_of > acq_date {
-                        let months = finstack_core::dates::months_between(acq_date, as_of) as f64;
+                        let months = acq_date.months_until(as_of) as f64;
                         weighted_seasoning += months * weight;
                     }
                 }

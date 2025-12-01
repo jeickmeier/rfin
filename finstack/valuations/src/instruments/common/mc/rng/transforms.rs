@@ -7,7 +7,7 @@
 //! and re-exported here for backward compatibility.
 
 // Re-export Box-Muller transforms from core/math (pure math, belongs in core)
-pub use finstack_core::math::random::{box_muller_polar, box_muller_transform};
+pub use finstack_core::math::random::box_muller_transform;
 
 // Re-export inverse normal CDF from core/math (better tail handling)
 pub use finstack_core::math::special_functions::standard_normal_inv_cdf as inverse_normal_cdf;

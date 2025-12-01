@@ -27,7 +27,7 @@
 //! The curve supports multiple interpolation schemes via [`crate::math::interp::InterpStyle`]:
 //! - **Linear**: Simple, but may create arbitrage
 //! - **LogLinear**: Constant zero rates between knots
-//! - **FlatFwd**: Piecewise constant forward rates (no-arbitrage)
+//! - **LogLinear**: Piecewise constant forward rates (no-arbitrage)
 //! - **MonotoneConvex**: Smooth, no-arbitrage (Hagan-West algorithm)
 //!
 //! # Use Cases

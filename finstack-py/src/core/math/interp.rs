@@ -39,7 +39,6 @@ impl PyInterpStyle {
             InterpStyle::LogLinear => "log_linear",
             InterpStyle::MonotoneConvex => "monotone_convex",
             InterpStyle::CubicHermite => "cubic_hermite",
-            InterpStyle::FlatFwd => "flat_fwd",
             _ => "custom",
         }
     }
@@ -65,7 +64,7 @@ impl PyInterpStyle {
     };
     #[classattr]
     const FLAT_FWD: Self = Self {
-        inner: InterpStyle::FlatFwd,
+        inner: InterpStyle::LogLinear,
     };
 
     #[classmethod]
@@ -88,7 +87,7 @@ impl PyInterpStyle {
             "log_linear" => Ok(Self::new(InterpStyle::LogLinear)),
             "monotone_convex" => Ok(Self::new(InterpStyle::MonotoneConvex)),
             "cubic_hermite" => Ok(Self::new(InterpStyle::CubicHermite)),
-            "flat_fwd" => Ok(Self::new(InterpStyle::FlatFwd)),
+            "flat_fwd" => Ok(Self::new(InterpStyle::LogLinear)),
             other => Err(PyValueError::new_err(format!(
                 "Unknown interpolation style: {other}"
             ))),
@@ -219,7 +218,7 @@ pub(crate) fn parse_interp(style: Option<&str>, default: InterpStyle) -> PyResul
             "log_linear" => Ok(InterpStyle::LogLinear),
             "monotone_convex" => Ok(InterpStyle::MonotoneConvex),
             "cubic_hermite" => Ok(InterpStyle::CubicHermite),
-            "flat_fwd" => Ok(InterpStyle::FlatFwd),
+            "flat_fwd" => Ok(InterpStyle::LogLinear),
             other => Err(PyValueError::new_err(format!(
                 "Unknown interpolation style: {other}"
             ))),

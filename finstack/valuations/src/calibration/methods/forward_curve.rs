@@ -89,7 +89,7 @@ use crate::instruments::{
 };
 use finstack_core::{
     currency::Currency,
-    dates::{add_months, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
+    dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, StubKind},
     explain::{ExplanationTrace, TraceEntry},
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
@@ -758,7 +758,7 @@ impl ForwardCurveCalibrator {
             } => {
                 // Calculate period dates from expiry + delivery months
                 let period_start = *expiry;
-                let period_end = add_months(*expiry, specs.delivery_months as i32);
+                let period_end = expiry.add_months(specs.delivery_months as i32);
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
                 // Calculate convexity adjustment using priority:
@@ -960,7 +960,7 @@ impl ForwardCurveCalibrator {
         match quote {
             RatesQuote::FRA { end, .. } => *end,
             RatesQuote::Future { expiry, specs, .. } => {
-                add_months(*expiry, specs.delivery_months as i32)
+                expiry.add_months(specs.delivery_months as i32)
             }
             RatesQuote::Swap { maturity, .. } => *maturity,
             _ => quote.maturity_date(),

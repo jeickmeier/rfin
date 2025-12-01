@@ -7,7 +7,7 @@
 //!
 //! - [`RandomNumberGenerator`]: Trait for pluggable RNG implementations
 //! - [`TestRng`]: Linear congruential generator for **testing only** (NOT for production)
-//! - [`box_muller_transform`], [`box_muller_polar`]: Normal variate generation
+//! - [`box_muller_transform`]: Normal variate generation
 //!
 //! # Production Use
 //!
@@ -225,31 +225,6 @@ pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
     (z1, z2)
 }
 
-/// Polar form of Box-Muller (rejection-based, typically faster).
-///
-/// # Arguments
-///
-/// * `gen_u01` - Function that generates U(0,1) random variables
-///
-/// # Returns
-///
-/// Tuple of two independent N(0,1) random variables.
-pub fn box_muller_polar<F>(mut gen_u01: F) -> (f64, f64)
-where
-    F: FnMut() -> f64,
-{
-    loop {
-        let u1 = 2.0 * gen_u01() - 1.0;
-        let u2 = 2.0 * gen_u01() - 1.0;
-        let s = u1 * u1 + u2 * u2;
-
-        if s > 0.0 && s < 1.0 {
-            let factor = (-2.0 * s.ln() / s).sqrt();
-            return (u1 * factor, u2 * factor);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,13 +309,4 @@ mod tests {
         assert!((var - 1.0).abs() < 0.2);
     }
 
-    #[test]
-    fn test_box_muller_polar() {
-        let mut rng = TestRng::new(42);
-        let gen_u01 = || rng.uniform();
-
-        let (z1, z2) = box_muller_polar(gen_u01);
-        assert!(z1.is_finite());
-        assert!(z2.is_finite());
-    }
 }

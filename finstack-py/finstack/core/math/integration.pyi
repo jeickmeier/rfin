@@ -137,42 +137,6 @@ float
     Integral value.
 """
 
-def adaptive_quadrature(
-    func: Callable[[float], float],
-    a: float,
-    b: float,
-    tol: float,
-    max_depth: int,
-) -> float: ...
-
-"""Adaptive quadrature integration.
-
-Parameters
-----------
-func : Callable[[float], float]
-    Function to integrate.
-a : float
-    Lower bound.
-b : float
-    Upper bound.
-tol : float
-    Tolerance.
-max_depth : int
-    Maximum recursion depth.
-
-Returns
--------
-float
-    Integral value.
-"""
-
-def gauss_legendre_integrate(
-    func: Callable[[float], float],
-    a: float,
-    b: float,
-    order: int,
-) -> float: ...
-
 """Gauss-Legendre quadrature integration.
 
 Parameters

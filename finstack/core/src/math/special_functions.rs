@@ -14,7 +14,6 @@
 //! - [`norm_cdf`]: Standard normal cumulative distribution function (Φ)
 //! - [`norm_pdf`]: Standard normal probability density function (φ)
 //! - [`standard_normal_inv_cdf`]: Inverse standard normal CDF (Φ⁻¹)
-//! - [`standard_normal_cdf`]: Alias for [`norm_cdf`]
 //!
 //! # Numerical Accuracy
 //!
@@ -280,9 +279,6 @@ pub fn standard_normal_inv_cdf(p: f64) -> f64 {
     let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
     n.inverse_cdf(p)
 }
-
-/// Alias for norm_cdf for compatibility
-pub use norm_cdf as standard_normal_cdf;
 
 #[cfg(test)]
 mod tests {

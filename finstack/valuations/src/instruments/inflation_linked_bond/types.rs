@@ -5,7 +5,7 @@ use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind,
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, StubKind,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
@@ -309,7 +309,7 @@ impl InflationLinkedBond {
 
         // Apply lag to obtain the reference date in index space
         let reference_date = match self.lag {
-            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - Duration::days(d as i64),
             InflationLag::None => date,
             _ => date,
@@ -345,7 +345,7 @@ impl InflationLinkedBond {
         inflation_curve: &InflationCurve,
     ) -> Result<f64> {
         let reference_date = match self.lag {
-            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - Duration::days(d as i64),
             InflationLag::None => date,
             _ => date,

@@ -10,7 +10,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{add_months, Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DateExt, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
@@ -57,7 +57,7 @@ fn create_deposit_quotes(base_date: Date, num_deposits: usize) -> Vec<RatesQuote
     let base_rate = 0.045;
 
     for i in 1..=num_deposits {
-        let maturity = add_months(base_date, i as i32);
+        let maturity = base_date.add_months(i as i32);
         let rate = base_rate + (i as f64 * 0.0005); // Slight upward slope
 
         quotes.push(RatesQuote::Deposit {
@@ -76,7 +76,7 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
     let base_rate = 0.045;
 
     for &tenor_years in tenors {
-        let maturity = add_months(base_date, tenor_years * 12);
+        let maturity = base_date.add_months(tenor_years * 12);
         let rate = base_rate + (tenor_years as f64 * 0.002); // Upward sloping curve
 
         quotes.push(RatesQuote::Swap {
@@ -99,8 +99,8 @@ fn create_fra_quotes(base_date: Date, num_fras: usize) -> Vec<RatesQuote> {
     let base_rate = 0.047;
 
     for i in 1..=num_fras {
-        let start = add_months(base_date, (i * 3) as i32);
-        let end = add_months(start, 3);
+        let start = base_date.add_months((i * 3) as i32);
+        let end = start.add_months(3);
         let rate = base_rate + (i as f64 * 0.0003);
 
         quotes.push(RatesQuote::FRA {
@@ -120,7 +120,7 @@ fn create_cds_quotes(base_date: Date, tenors: &[i32]) -> Vec<CreditQuote> {
     let base_spread = 150.0; // 150 bps
 
     for &tenor_years in tenors {
-        let maturity = add_months(base_date, tenor_years * 12);
+        let maturity = base_date.add_months(tenor_years * 12);
         let spread_bp = base_spread + (tenor_years as f64 * 10.0); // Upward sloping
 
         quotes.push(CreditQuote::CDS {
@@ -142,7 +142,7 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
     let base_vol = 0.25;
 
     for i in 1..=num_expiries {
-        let expiry = add_months(base_date, (i * 3) as i32);
+        let expiry = base_date.add_months((i * 3) as i32);
 
         for &strike in &strikes {
             let vol = base_vol + ((strike - 100.0_f64).abs() * 0.001); // Smile effect
@@ -162,7 +162,7 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
 /// Create CDS tranche quotes for base correlation calibration
 fn create_tranche_quotes(base_date: Date, detachment_points: &[f64]) -> Vec<CreditQuote> {
     let mut quotes = Vec::with_capacity(detachment_points.len());
-    let maturity = add_months(base_date, 5 * 12); // 5Y maturity
+    let maturity = base_date.add_months(5 * 12); // 5Y maturity
     let base_upfront = 10.0; // 10% base upfront
 
     for (i, &detachment) in detachment_points.iter().enumerate() {
@@ -192,7 +192,7 @@ fn create_inflation_quotes(base_date: Date, num_tenors: usize) -> Vec<InflationQ
     let base_rate = 0.025; // 2.5% base inflation
 
     for i in 1..=num_tenors {
-        let maturity = add_months(base_date, (i * 12) as i32);
+        let maturity = base_date.add_months((i * 12) as i32);
         let rate = base_rate - (i as f64 * 0.0002); // Slightly declining inflation
 
         quotes.push(InflationQuote::InflationSwap {
@@ -216,7 +216,7 @@ fn create_sabr_vol_quotes(
     let atm_strike = 100.0;
 
     for i in 1..=num_expiries {
-        let expiry = add_months(base_date, (i * 3) as i32);
+        let expiry = base_date.add_months((i * 3) as i32);
 
         for j in 0..strikes_per_expiry {
             let strike_offset = (j as f64 - (strikes_per_expiry as f64 / 2.0)) * 5.0;
@@ -242,10 +242,10 @@ fn create_swaption_vol_quotes(base_date: Date, expiries: &[f64], tenors: &[f64])
     let base_vol = 0.50; // 50% normal vol (basis points)
 
     for &exp_years in expiries {
-        let expiry_date = add_months(base_date, (exp_years * 12.0) as i32);
+        let expiry_date = base_date.add_months((exp_years * 12.0) as i32);
 
         for &ten_years in tenors {
-            let tenor_date = add_months(expiry_date, (ten_years * 12.0) as i32);
+            let tenor_date = expiry_date.add_months((ten_years * 12.0) as i32);
 
             // ATM and wings
             for strike_offset in [-0.005_f64, 0.0, 0.005] {

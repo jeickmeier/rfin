@@ -12,10 +12,9 @@ use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::months_between;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, ScheduleBuilder,
+    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, ScheduleBuilder,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -326,7 +325,7 @@ fn simulate_period(
     context: &MarketContext,
     months_per_period: f64,
 ) -> Result<()> {
-    let seasoning_months = months_between(state.closing_date, pay_date);
+    let seasoning_months = state.closing_date.months_until(pay_date);
 
     // Capture period start before updating prev_date (for accrual calculations)
     let period_start = state.prev_date.unwrap_or(state.closing_date);

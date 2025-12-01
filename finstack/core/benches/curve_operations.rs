@@ -205,7 +205,7 @@ fn bench_curve_interp_styles(c: &mut Criterion) {
         ("LogLinear", InterpStyle::LogLinear),
         ("CubicHermite", InterpStyle::CubicHermite),
         ("MonotoneConvex", InterpStyle::MonotoneConvex),
-        ("FlatFwd", InterpStyle::FlatFwd),
+        ("LogLinear", InterpStyle::LogLinear),
     ];
 
     let test_times: Vec<f64> = (0..100).map(|i| (i as f64) * 0.05).collect();

@@ -86,7 +86,7 @@ impl ParseFromString for InterpStyle {
             "log_linear" => Ok(InterpStyle::LogLinear),
             "monotone_convex" => Ok(InterpStyle::MonotoneConvex),
             "cubic_hermite" => Ok(InterpStyle::CubicHermite),
-            "flat_fwd" => Ok(InterpStyle::FlatFwd),
+            "flat_fwd" => Ok(InterpStyle::LogLinear),
             _ => Err(js_error(format!("Unknown interpolation style: {}", label))),
         }
     }

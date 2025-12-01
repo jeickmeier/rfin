@@ -44,7 +44,7 @@ pub use core::market_data::{
     ScalarTimeSeries, SeriesInterpolation, VolSurface,
 };
 pub use core::math::{
-    adaptiveQuadrature, adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,
+    adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,
     gaussLegendreIntegrateAdaptive, gaussLegendreIntegrateComposite, logBinomialCoefficient,
     logFactorial, simpsonRule, trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
 };

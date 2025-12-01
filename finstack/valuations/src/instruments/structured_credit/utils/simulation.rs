@@ -4,8 +4,7 @@
 //! for period-by-period simulation.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::months_between;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DateExt};
 use finstack_core::money::Money;
 use std::collections::{HashMap, VecDeque};
 
@@ -47,7 +46,7 @@ impl RecoveryQueue {
         let mut released = Money::new(0.0, base_currency);
 
         while let Some((orig_date, _)) = self.pending.front() {
-            let months_elapsed = months_between(*orig_date, current_date);
+            let months_elapsed = orig_date.months_until(current_date);
             if months_elapsed >= recovery_lag_months {
                 if let Some((_, amount)) = self.pending.pop_front() {
                     released = released.checked_add(amount)?;

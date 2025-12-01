@@ -32,7 +32,7 @@ use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::irs::FloatingLegCompounding;
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{
-    add_months, adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount,
+    adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount,
 };
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
@@ -832,7 +832,7 @@ impl DiscountCurveCalibrator {
             } => {
                 // Create future instrument
                 let period_start = *expiry;
-                let period_end = add_months(*expiry, specs.delivery_months as i32);
+                let period_end = expiry.add_months(specs.delivery_months as i32);
 
                 // Calculate convexity adjustment if not provided
                 let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
@@ -1773,7 +1773,7 @@ mod tests {
 
     #[test]
     fn test_configured_interpolation_used() {
-        use finstack_core::dates::add_months;
+        use finstack_core::dates::DateExt;
 
         let base_date =
             Date::from_calendar_date(2025, Month::January, 31).expect("Valid test date");
@@ -1800,7 +1800,7 @@ mod tests {
         let crude_result = base_date + time::Duration::days((delivery_months as i64) * 30);
 
         // Proper way
-        let proper_result = add_months(base_date, delivery_months);
+        let proper_result = base_date.add_months(delivery_months);
 
         if cfg!(test) {
             tracing::debug!(

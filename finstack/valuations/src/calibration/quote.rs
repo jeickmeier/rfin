@@ -119,7 +119,7 @@ impl RatesQuote {
             RatesQuote::Deposit { maturity, .. } => *maturity,
             RatesQuote::FRA { end, .. } => *end,
             RatesQuote::Future { expiry, specs, .. } => {
-                finstack_core::dates::add_months(*expiry, specs.delivery_months as i32)
+                expiry.add_months(specs.delivery_months as i32)
             }
             RatesQuote::Swap { maturity, .. } => *maturity,
             RatesQuote::BasisSwap { maturity, .. } => *maturity,

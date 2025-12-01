@@ -193,31 +193,6 @@ pub fn adaptive_simpson_py(
 }
 
 #[pyfunction(
-    name = "adaptive_quadrature",
-    text_signature = "(func, a, b, tol, max_depth)"
-)]
-/// Adaptive Simpson quadrature (alias of `adaptive_simpson`).
-///
-/// Args:
-///     func (Callable[[float], float]): Callable evaluated at requested points.
-///     a (float): Lower bound of the integration interval.
-///     b (float): Upper bound of the integration interval.
-///     tol (float): Target absolute error tolerance.
-///     max_depth (int): Maximum recursion depth for refinement.
-///
-/// Returns:
-///     float: Integral estimate identical to `adaptive_simpson`.
-pub fn adaptive_quadrature_py(
-    func: Bound<'_, PyAny>,
-    a: f64,
-    b: f64,
-    tol: f64,
-    max_depth: usize,
-) -> PyResult<f64> {
-    adaptive_simpson_py(func, a, b, tol, max_depth)
-}
-
-#[pyfunction(
     name = "gauss_legendre_integrate",
     text_signature = "(func, a, b, order)"
 )]
@@ -354,7 +329,6 @@ pub(crate) fn register<'py>(
     module.add_class::<PyGaussHermiteQuadrature>()?;
     module.add_function(wrap_pyfunction!(simpson_rule_py, &module)?)?;
     module.add_function(wrap_pyfunction!(adaptive_simpson_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(adaptive_quadrature_py, &module)?)?;
     module.add_function(wrap_pyfunction!(gauss_legendre_integrate_py, &module)?)?;
     module.add_function(wrap_pyfunction!(
         gauss_legendre_integrate_composite_py,
@@ -370,7 +344,6 @@ pub(crate) fn register<'py>(
         "GaussHermiteQuadrature",
         "simpson_rule",
         "adaptive_simpson",
-        "adaptive_quadrature",
         "gauss_legendre_integrate",
         "gauss_legendre_integrate_composite",
         "gauss_legendre_integrate_adaptive",

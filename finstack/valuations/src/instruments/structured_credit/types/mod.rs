@@ -103,7 +103,7 @@ use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{
-    months_between, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency,
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency,
 };
 use finstack_core::error::Error as CoreError;
 use finstack_core::market_data::context::MarketContext;
@@ -482,7 +482,7 @@ impl StructuredCredit {
     }
 
     fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
-        let months_to_maturity = months_between(as_of, self.legal_maturity).max(1) as usize;
+        let months_to_maturity = as_of.months_until(self.legal_maturity).max(1) as usize;
         let horizon_years = DayCount::Act365F
             .year_fraction(as_of, self.legal_maturity, DayCountCtx::default())?
             .abs()
@@ -498,7 +498,7 @@ impl StructuredCredit {
         tree_config.pool_coupon = self.pool.weighted_avg_coupon();
         tree_config.initial_balance = self.pool.total_balance()?.amount().max(1.0);
         let seasoning = if as_of > self.closing_date {
-            months_between(self.closing_date, as_of)
+            self.closing_date.months_until(as_of)
         } else {
             0
         };

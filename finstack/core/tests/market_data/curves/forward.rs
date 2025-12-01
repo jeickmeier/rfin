@@ -73,7 +73,7 @@ mod serde_tests {
             InterpStyle::Linear,
             InterpStyle::LogLinear,
             InterpStyle::CubicHermite,
-            InterpStyle::FlatFwd,
+            InterpStyle::LogLinear,
         ];
 
         for style in interp_styles {
