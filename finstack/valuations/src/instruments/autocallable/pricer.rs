@@ -106,6 +106,10 @@ impl AutocallableMcPricer {
             0.0
         };
 
+        // NOTE: Vol surface expiries are assumed to be expressed in the same day count
+        // convention as the discount curve (both typically use ACT/365F for equity vol).
+        // If the surface was built with a different convention, this lookup may be
+        // slightly off. Consider adding explicit day_count to VolSurface in future.
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, initial_spot);
 
@@ -131,21 +135,22 @@ impl AutocallableMcPricer {
         // Calculate discount factor ratios for each observation date
         // Ratio = DF(T_obs) / DF(T_mat)
         // This corrects for the engine applying DF(T_mat) to early cashflows
-        let mut df_ratios = Vec::with_capacity(inst.observation_dates.len());
-        for &date in &inst.observation_dates {
-            let t_obs = inst
-                .day_count
-                .year_fraction(as_of, date, DayCountCtx::default())
-                .unwrap_or(0.0)
-                .max(0.0);
-            let df_obs = disc_curve.df(t_as_of + t_obs);
-            let ratio = if df_maturity > 0.0 {
-                df_obs / df_maturity
-            } else {
-                1.0
-            };
-            df_ratios.push(ratio);
-        }
+        //
+        // IMPORTANT: Use discount curve's day count (disc_dc) consistently for all
+        // time calculations. Mixing inst.day_count with disc_dc would distort timing
+        // and coupon PVs. The observation_times above already use disc_dc, so the
+        // discount factor lookups must match to ensure consistent discounting.
+        let df_ratios: Vec<f64> = observation_times
+            .iter()
+            .map(|&t_obs| {
+                let df_obs = disc_curve.df(t_as_of + t_obs.max(0.0));
+                if df_maturity > 0.0 {
+                    df_obs / df_maturity
+                } else {
+                    1.0
+                }
+            })
+            .collect();
 
         let payoff = AutocallablePayoff::new(
             observation_times.clone(),

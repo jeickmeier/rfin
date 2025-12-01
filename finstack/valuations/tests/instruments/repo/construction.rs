@@ -16,7 +16,8 @@ fn test_overnight_repo_factory() {
         collateral,
         0.05,
         start_date,
-        "USD-OIS",
+        "usny", // Calendar ID for business day adjustment
+        "USD-OIS", // Discount curve ID
     )
     .unwrap();
 
@@ -253,15 +254,17 @@ fn test_overnight_repo_business_day_adjustment() {
         collateral,
         0.05,
         friday,
-        "USD-OIS",
+        "usny", // Calendar ID for business day adjustment
+        "USD-OIS", // Discount curve ID
     )
     .unwrap();
 
-    // Should mature on Monday Jan 20 (skipping weekend)
-    let monday = date(2025, 1, 20);
+    // Should mature on Tuesday Jan 21 (skipping weekend AND MLK Day on Jan 20)
+    // Note: January 20, 2025 is Martin Luther King Jr. Day, a US federal holiday
+    let tuesday = date(2025, 1, 21);
     assert_eq!(
-        repo.maturity, monday,
-        "Overnight repo starting Friday should mature Monday"
+        repo.maturity, tuesday,
+        "Overnight repo starting Friday should mature Tuesday (MLK Day on Jan 20)"
     );
 }
 

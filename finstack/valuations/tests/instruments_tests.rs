@@ -95,6 +95,10 @@ mod cds_tranche;
 #[path = "instruments/equity/mod.rs"]
 mod equity;
 
+/// Barrier option tests - Knock-in/knock-out options
+#[path = "instruments/barrier_option/mod.rs"]
+mod barrier_option;
+
 /// Basket option tests - Multi-underlying options
 #[path = "instruments/basket/mod.rs"]
 mod basket;
@@ -134,6 +138,10 @@ mod fx_swap;
 // ============================================================================
 // Structured Products
 // ============================================================================
+
+/// Autocallable tests - Path-dependent structured notes with early redemption
+#[path = "instruments/autocallable/mod.rs"]
+mod autocallable;
 
 /// Convertible bond tests - Bonds with embedded conversion options
 #[path = "instruments/convertible/mod.rs"]

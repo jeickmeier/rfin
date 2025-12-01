@@ -166,6 +166,15 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 /// - Volatility (sigma) at strike/maturity
 /// - Time to expiry (t) in years
 ///
+/// # Day Count Convention Handling
+///
+/// This function correctly separates the day count bases:
+/// - **Discounting**: Uses the discount curve's own day count (`disc_curve.day_count()`)
+/// - **Volatility lookup**: Uses the instrument's day count (assumed to match vol surface calibration)
+///
+/// This ensures barrier pricing and other options don't mix bases, which would bias
+/// barrier crossing probabilities and rebate PVs.
+///
 /// # Arguments
 ///
 /// * `spot_id` - ID of the spot price scalar
@@ -174,7 +183,7 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 /// * `vol_surface_id` - ID of the volatility surface
 /// * `strike` - Strike price for volatility lookup
 /// * `expiry` - Expiry date
-/// * `day_count` - Day count convention for time calculation
+/// * `day_count` - Day count convention for vol surface time calculation (should match vol surface calibration basis)
 /// * `curves` - Market data context
 /// * `as_of` - Valuation date
 #[allow(clippy::too_many_arguments)]
@@ -189,12 +198,21 @@ pub fn collect_black_scholes_inputs(
     curves: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
-    // Time to expiry
-    let t = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
-
-    // Risk-free rate (r) from zero rate at expiry
+    // Get discount curve first to access its day count
     let disc_curve = curves.get_discount_ref(discount_curve_id.as_str())?;
-    let r = disc_curve.zero(t);
+
+    // Time to expiry for vol surface lookup (using instrument's day count, which should
+    // match how the vol surface was calibrated - typically ACT/365F for equity options)
+    let t_vol = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
+
+    // Time to expiry for discounting (using the discount curve's own day count basis)
+    // This ensures proper DF calculation regardless of instrument/vol conventions
+    let t_disc = disc_curve
+        .day_count()
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+
+    // Risk-free rate (r) using the discount curve's time basis
+    let r = disc_curve.zero(t_disc);
 
     // Spot price (S)
     let spot_scalar = curves.price(spot_id)?;
@@ -216,9 +234,12 @@ pub fn collect_black_scholes_inputs(
         0.0
     };
 
-    // Volatility (sigma)
+    // Volatility (sigma) using vol surface's time basis
     let vol_surface = curves.surface_ref(vol_surface_id)?;
-    let sigma = vol_surface.value_clamped(t, strike);
+    let sigma = vol_surface.value_clamped(t_vol, strike);
 
-    Ok((spot, r, q, sigma, t))
+    // Return the vol-surface time as 't' (for backward compatibility with callers
+    // expecting t to be used for things like Monte Carlo time stepping, which should
+    // align with the vol surface basis)
+    Ok((spot, r, q, sigma, t_vol))
 }

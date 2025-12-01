@@ -124,6 +124,7 @@ profile = "finstack-strict"
 "type_complexity" = "warn"
 "large_enum_variant" = "warn"
 "module_name_repetitions" = "allow"   # allow finstack_valuations::valuations
+"too_many_lines"="warn"
 
 # ---- PERFORMANCE ----
 "map_clone" = "warn"

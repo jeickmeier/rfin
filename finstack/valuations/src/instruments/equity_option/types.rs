@@ -685,4 +685,83 @@ mod tests {
             .expect("should succeed");
         assert_eq!(implied, 0.0);
     }
+
+    /// Tests that separate day count handling works correctly when the discount curve
+    /// uses ACT/360 (typical OIS convention) and volatility uses ACT/365F (equity standard).
+    ///
+    /// Market standard: Equity options use ACT/365F for vol time, but may discount on OIS
+    /// curves with ACT/360. Mixing bases without proper separation rescales vols/rates
+    /// and misstates greeks/theta.
+    #[test]
+    fn mixed_day_count_act365_vol_act360_discount() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2026, 1, 3); // 1 year expiry
+
+        // Create an ACT/360 discount curve (typical OIS convention)
+        let flat_rate: f64 = 0.05;
+        let df_5y: f64 = (-flat_rate * 5.0).exp();
+        let act360_curve = DiscountCurve::builder(DISC_ID)
+            .base_date(as_of)
+            .day_count(DayCount::Act360) // OIS convention
+            .knots([(0.0, 1.0), (5.0, df_5y)])
+            .build()
+            .expect("DiscountCurve with ACT/360 should build successfully");
+
+        let curves = MarketContext::new()
+            .insert_discount(act360_curve)
+            .insert_surface(build_surface(0.20)) // 20% vol using ACT/365F time
+            .insert_price(SPOT_ID, MarketScalar::Unitless(100.0))
+            .insert_price(DIV_ID, MarketScalar::Unitless(0.02));
+
+        let option = base_option(expiry);
+
+        // Verify inputs are correctly separated
+        let inputs = pricer::collect_inputs_extended(&option, &curves, as_of)
+            .expect("collect_inputs_extended should succeed");
+
+        // ACT/360: 365 days / 360 = 1.01389 years
+        // ACT/365F: 365 days / 365 = 1.0 years
+        let expected_t_rate = 365.0 / 360.0; // ACT/360 for rate
+        let expected_t_vol = 365.0 / 365.0; // ACT/365F for vol
+
+        approx_eq(inputs.t_rate, expected_t_rate, 1e-4);
+        approx_eq(inputs.t_vol, expected_t_vol, 1e-4);
+
+        // The difference between t_rate and t_vol should be non-trivial
+        let time_diff = (inputs.t_rate - inputs.t_vol).abs();
+        assert!(
+            time_diff > 0.01,
+            "t_rate and t_vol should differ significantly with ACT/360 vs ACT/365F: got {time_diff}"
+        );
+
+        // Verify pricing works and produces reasonable values
+        let pv = option
+            .npv(&curves, as_of)
+            .expect("NPV should succeed with mixed day counts");
+        assert!(pv.amount() > 0.0, "Call option should have positive value");
+
+        // Verify greeks are computed correctly
+        let greeks = option
+            .greeks(&curves, as_of)
+            .expect("Greeks should succeed with mixed day counts");
+        assert!(greeks.delta > 0.0 && greeks.delta < option.contract_size);
+        assert!(greeks.gamma > 0.0);
+        assert!(greeks.vega > 0.0);
+
+        // Verify price is within Black-Scholes tolerance
+        // Using the inputs directly in the BS formula
+        let bs_price = pricer::price_bs_unit(
+            inputs.spot,
+            option.strike.amount(),
+            inputs.r,
+            inputs.q,
+            inputs.sigma,
+            inputs.t_vol,
+            option.option_type,
+        ) * option.contract_size;
+
+        // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
+        // Same tolerance as other tests in this file
+        approx_eq(pv.amount(), bs_price, 5e-3);
+    }
 }

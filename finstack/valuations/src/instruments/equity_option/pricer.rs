@@ -81,17 +81,72 @@ pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<M
     ))
 }
 
+/// Collected market inputs for equity option pricing.
+///
+/// Separates time-to-expiry calculations by day count convention:
+/// - `t_rate`: Time using the discount curve's day count (for rate lookups)
+/// - `t_vol`: Time using ACT/365F (equity vol market standard)
+#[derive(Debug, Clone, Copy)]
+pub struct EquityOptionInputs {
+    /// Spot price of the underlying
+    pub spot: f64,
+    /// Risk-free rate (from discount curve)
+    pub r: f64,
+    /// Dividend yield
+    pub q: f64,
+    /// Implied volatility
+    pub sigma: f64,
+    /// Time to expiry for rate calculations (curve day count)
+    pub t_rate: f64,
+    /// Time to expiry for vol calculations (ACT/365F standard)
+    pub t_vol: f64,
+}
+
+impl EquityOptionInputs {
+    /// Returns the pricing time (t_vol for consistency with Black-Scholes)
+    #[inline]
+    pub fn t(&self) -> f64 {
+        self.t_vol
+    }
+}
+
 /// Collect standard inputs (spot, risk-free, dividend yield, vol, time to expiry).
+///
+/// **Day Count Convention Handling:**
+/// - Rate calculations use the discount curve's own day count
+/// - Vol surface lookups use ACT/365F (equity market standard)
+///
+/// This separation ensures consistent pricing when discount curves use different
+/// conventions (e.g., OIS curves with ACT/360) than the vol surface.
 pub fn collect_inputs(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<(f64, f64, f64, f64, f64)> {
-    let t = year_fraction(as_of, inst.expiry, inst.day_count)?;
+    let inputs = collect_inputs_extended(inst, curves, as_of)?;
+    // For backwards compatibility, return t_vol as the primary time
+    Ok((inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol))
+}
 
-    // Discount curve -> zero rate
+/// Collect inputs with separate rate and vol time fractions.
+///
+/// Returns `EquityOptionInputs` with properly separated day count handling:
+/// - `t_rate`: Uses the discount curve's day count for rate lookups
+/// - `t_vol`: Uses ACT/365F for volatility surface lookups (equity market standard)
+pub fn collect_inputs_extended(
+    inst: &EquityOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<EquityOptionInputs> {
+    // Discount curve lookup - use curve's own day count for rate time
     let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-    let r = disc_curve.zero(t);
+    let curve_dc = disc_curve.day_count();
+    let t_rate = year_fraction(as_of, inst.expiry, curve_dc)?;
+    let r = disc_curve.zero(t_rate);
+
+    // Vol time uses ACT/365F (equity market standard for vol surfaces)
+    // This is consistent with how equity volatility is quoted in the market
+    let t_vol = year_fraction(as_of, inst.expiry, DayCount::Act365F)?;
 
     // Spot from scalar id (unitless or price)
     let spot_scalar = curves.price(&inst.spot_id)?;
@@ -113,15 +168,22 @@ pub fn collect_inputs(
         0.0
     };
 
-    // Volatility from override or surface
+    // Volatility from override or surface (using t_vol for surface lookup)
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
         impl_vol
     } else {
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-        vol_surface.value_clamped(t, inst.strike.amount())
+        vol_surface.value_clamped(t_vol, inst.strike.amount())
     };
 
-    Ok((spot, r, q, sigma, t))
+    Ok(EquityOptionInputs {
+        spot,
+        r,
+        q,
+        sigma,
+        t_rate,
+        t_vol,
+    })
 }
 
 /// Year fraction helper using instrument day-count.
@@ -177,12 +239,17 @@ pub struct EquityOptionGreeks {
 }
 
 /// Compute greeks consistent with the pricing inputs.
+///
+/// Uses proper day count handling:
+/// - Rate lookups use the discount curve's day count
+/// - Vol time uses ACT/365F (equity market standard)
 pub fn compute_greeks(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<EquityOptionGreeks> {
-    let (spot, r, q, sigma, t) = collect_inputs(inst, curves, as_of)?;
+    let inputs = collect_inputs_extended(inst, curves, as_of)?;
+    let (spot, r, q, sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
 
     if t <= 0.0 {
         let spot_gt_strike = spot > inst.strike.amount();
@@ -544,8 +611,9 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
                 )
             })?;
 
-        let (spot, r, q, _sigma, t) = collect_inputs(equity_option, market, as_of)
+        let inputs = collect_inputs_extended(equity_option, market, as_of)
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
+        let (spot, r, q, _sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
 
         if t <= 0.0 {
             let intrinsic = match equity_option.option_type {

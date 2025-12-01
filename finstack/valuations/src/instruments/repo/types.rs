@@ -208,28 +208,57 @@ impl Repo {
 
     /// Create a new repo builder (provided by derive).
     /// Create a standard overnight repo.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique instrument identifier
+    /// * `cash_amount` - Cash amount being lent/borrowed
+    /// * `collateral` - Collateral specification
+    /// * `repo_rate` - Repo rate (annual, as decimal)
+    /// * `start_date` - Start date of the repo (will be adjusted if not a business day)
+    /// * `calendar_id` - Calendar identifier for business day adjustments (e.g., "target2", "nyse")
+    /// * `discount_curve_id` - Discount curve identifier for valuation
+    ///
+    /// # Market Standard
+    ///
+    /// The start date is business-day adjusted using the specified calendar, and
+    /// maturity is calculated as the next business day after the adjusted start.
     pub fn overnight(
         id: impl Into<String>,
         cash_amount: Money,
         collateral: CollateralSpec,
         repo_rate: f64,
         start_date: Date,
+        calendar_id: impl Into<String>,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
-        let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::TARGET2)?;
+        use finstack_core::dates::calendar::calendar_by_id;
+
+        let cal_id = calendar_id.into();
+        let calendar = calendar_by_id(&cal_id).ok_or_else(|| {
+            Error::Input(finstack_core::error::InputError::NotFound {
+                id: format!("calendar:{}", cal_id),
+            })
+        })?;
+
+        // Adjust start date to next business day if needed
+        let adj_start = adjust(start_date, BusinessDayConvention::Following, calendar)?;
+        // Maturity is next business day after adjusted start
+        let maturity = adj_start.add_business_days(1, calendar)?;
+
         RepoBuilder::new()
             .id(id.into().into())
             .cash_amount(cash_amount)
             .collateral(collateral)
             .repo_rate(repo_rate)
-            .start_date(start_date)
+            .start_date(adj_start)
             .maturity(maturity)
             .haircut(0.02)
             .repo_type(RepoType::Overnight)
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2".to_string()))
+            .calendar_id_opt(Some(cal_id))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -356,14 +385,22 @@ impl Repo {
     ///
     /// If `as_of >= maturity`:
     ///   PV = 0 (assumes settled)
+    ///
+    /// # Market Standard
+    ///
+    /// Uses business-day adjusted dates for all comparisons and discount factor
+    /// calculations to ensure correct accrual fractions and haircut coverage.
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc_curve = context.get_discount_ref(self.discount_curve_id.as_str())?;
 
-        if as_of >= self.maturity {
+        // Apply business day adjustments to start and maturity dates
+        let (adj_start, adj_maturity) = self.adjusted_dates()?;
+
+        if as_of >= adj_maturity {
             return Ok(Money::new(0.0, self.cash_amount.currency()));
         }
 
-        // Total repayment at maturity (principal + interest)
+        // Total repayment at maturity (principal + interest) - uses adjusted dates
         let total_repayment = self.total_repayment()?;
 
         // Discount from as_of for correct theta
@@ -380,7 +417,7 @@ impl Repo {
         let t_maturity = disc_dc
             .year_fraction(
                 disc_curve.base_date(),
-                self.maturity,
+                adj_maturity,
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
@@ -397,11 +434,11 @@ impl Repo {
         let pv_in = total_repayment * df_maturity;
 
         // If start date is in the future (or today), subtract initial outflow
-        if as_of <= self.start_date {
+        if as_of <= adj_start {
             let t_start = disc_dc
                 .year_fraction(
                     disc_curve.base_date(),
-                    self.start_date,
+                    adj_start,
                     finstack_core::dates::DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
@@ -419,10 +456,19 @@ impl Repo {
     }
 
     /// Calculate repo interest amount.
+    ///
+    /// # Market Standard
+    ///
+    /// Uses business-day adjusted dates for the accrual period to ensure
+    /// accurate interest calculations. Unadjusted weekends can misstate
+    /// accrual fractions.
     pub fn interest_amount(&self) -> Result<Money> {
+        // Apply business day adjustments to get correct accrual period
+        let (adj_start, adj_maturity) = self.adjusted_dates()?;
+
         let year_fraction = self.day_count.year_fraction(
-            self.start_date,
-            self.maturity,
+            adj_start,
+            adj_maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
@@ -440,34 +486,43 @@ impl Repo {
 
     /// Returns business-day adjusted start and maturity dates.
     ///
-    /// If a calendar is specified via `calendar_id`, dates are adjusted using
-    /// the instrument's business day convention. If no calendar is provided,
-    /// raw dates are returned unchanged.
-    ///
     /// # Market Standard
     ///
-    /// Repo start/end dates should be business-adjusted (often T+1/T+2).
-    /// Unadjusted weekends can misstate accrual fractions and haircut coverage.
+    /// Repo start/end dates must be business-adjusted (typically T+1/T+2).
+    /// Unadjusted weekends misstate accrual fractions and haircut coverage.
+    /// A calendar is required for accurate schedule generation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `calendar_id` is not specified (required for repos)
+    /// - `calendar_id` references an unknown calendar
     pub fn adjusted_dates(&self) -> Result<(Date, Date)> {
         use finstack_core::dates::calendar::calendar_by_id;
+        use finstack_core::dates::calendar::registry::CalendarRegistry;
 
-        match &self.calendar_id {
-            Some(cal_id) => {
-                let calendar = calendar_by_id(cal_id).ok_or_else(|| {
-                    Error::Input(finstack_core::error::InputError::NotFound {
-                        id: format!("calendar:{}", cal_id),
-                    })
-                })?;
-                let adj_start = adjust(self.start_date, self.bdc, calendar)?;
-                let adj_maturity = adjust(self.maturity, self.bdc, calendar)?;
-                Ok((adj_start, adj_maturity))
-            }
-            None => {
-                // No calendar specified - return raw dates
-                // Note: for production use, a calendar should typically be required
-                Ok((self.start_date, self.maturity))
-            }
-        }
+        let cal_id = self.calendar_id.as_ref().ok_or_else(|| {
+            Error::Validation(
+                "Repo instruments require a calendar_id for accurate schedule generation. \
+                 Specify a valid calendar ID (e.g., 'nyse', 'target2', 'usny') to ensure \
+                 start and maturity dates are adjusted correctly for business days."
+                    .to_string(),
+            )
+        })?;
+
+        let calendar = calendar_by_id(cal_id).ok_or_else(|| {
+            Error::Input(finstack_core::error::InputError::NotFound {
+                id: format!(
+                    "calendar_id:{} (available: {})",
+                    cal_id,
+                    CalendarRegistry::global().available_ids().join(", ")
+                ),
+            })
+        })?;
+
+        let adj_start = adjust(self.start_date, self.bdc, calendar)?;
+        let adj_maturity = adjust(self.maturity, self.bdc, calendar)?;
+        Ok((adj_start, adj_maturity))
     }
 }
 
@@ -595,20 +650,28 @@ mod tests {
     #[test]
     fn interest_amount_respects_daycount_and_rate() {
         let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+        // Use business days that don't need adjustment
+        // Jan 6, 2025 = Monday (business day)
+        // Apr 7, 2025 = Monday (business day)
+        // This gives ~91 days = 91/360 ≈ 0.2528 years
         let repo = Repo::term(
             "R",
             Money::new(1_000_000.0, Currency::USD),
             collateral,
             0.12, // 12%
-            date(2025, 1, 1),
-            date(2025, 4, 1), // ~0.25 years Act/360 ≈ 0.25
+            date(2025, 1, 6),
+            date(2025, 4, 7),
             "USD-OIS",
         );
         let interest = repo
             .interest_amount()
             .expect("Interest amount calculation should succeed in test");
-        // Rough check near 1_000_000 * 0.12 * 0.25 = 30_000
-        assert!((interest.amount() - 30_000.0).abs() < 100.0);
+        // 1_000_000 * 0.12 * (91/360) ≈ 30_333.33
+        assert!(
+            (interest.amount() - 30_333.33).abs() < 100.0,
+            "Interest was {}, expected ~30,333",
+            interest.amount()
+        );
     }
 
     #[test]
@@ -715,9 +778,13 @@ mod tests {
         }
     }
 
-    /// Test that repo without calendar_id returns raw dates unchanged.
+    /// Test that repo without calendar_id errors on adjusted_dates().
+    ///
+    /// Market standard: repos require a calendar for accurate business day adjustments.
+    /// Missing calendar should fail fast with a clear error rather than silently
+    /// returning raw dates that may fall on weekends/holidays.
     #[test]
-    fn repo_no_calendar_returns_raw_dates() {
+    fn repo_no_calendar_errors() {
         let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
 
         // Build repo without calendar
@@ -733,18 +800,23 @@ mod tests {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None) // No calendar
+            .calendar_id_opt(None) // No calendar - should cause error
             .discount_curve_id(CurveId::from("USD-OIS"))
             .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
             .expect("Builder should succeed");
 
-        let (adj_start, adj_maturity) = repo.adjusted_dates().expect("Should succeed");
+        // adjusted_dates() should error because calendar_id is required
+        let result = repo.adjusted_dates();
+        assert!(result.is_err(), "Missing calendar_id should error");
 
-        // Without calendar, raw dates are returned
-        assert_eq!(adj_start, date(2025, 1, 4), "Start should be unchanged");
-        assert_eq!(adj_maturity, date(2025, 1, 11), "Maturity should be unchanged");
+        let err = result.expect_err("Missing calendar_id should error").to_string();
+        assert!(
+            err.contains("calendar_id") || err.contains("calendar"),
+            "Error should mention calendar requirement: {}",
+            err
+        );
     }
 
     /// Test that unknown calendar_id returns an error.
@@ -772,6 +844,198 @@ mod tests {
             .expect("Builder should succeed");
 
         let result = repo.adjusted_dates();
+        assert!(result.is_err(), "Unknown calendar should error");
+    }
+
+    /// Test PV stability: weekend-dated repo vs pre-adjusted repo should produce identical PVs.
+    ///
+    /// Market standard: repo start/end dates must be business-adjusted (often T+1/T+2).
+    /// This test verifies:
+    /// - Weekend dates are shifted to the following business day
+    /// - PV difference vs manual (pre-adjusted) calculation is 0 within tolerance 1e-6
+    /// - Interest calculations are deterministic and correct
+    #[test]
+    fn term_repo_weekend_pv_stability_target2() {
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+
+        // Saturday Jan 4, 2025 -> Monday Jan 6
+        let start_saturday = date(2025, 1, 4);
+        // Saturday Jan 11, 2025 -> Monday Jan 13
+        let maturity_saturday = date(2025, 1, 11);
+
+        // Pre-adjusted (Monday) dates
+        let start_monday = date(2025, 1, 6);
+        let maturity_monday = date(2025, 1, 13);
+
+        let cash_amount = Money::new(1_000_000.0, Currency::USD);
+        let repo_rate = 0.05;
+
+        let collateral1 = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+        let collateral2 = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+
+        // Repo with weekend dates (will be adjusted internally)
+        let repo_weekend = RepoBuilder::new()
+            .id(InstrumentId::from("REPO-WEEKEND"))
+            .cash_amount(cash_amount)
+            .collateral(collateral1)
+            .repo_rate(repo_rate)
+            .start_date(start_saturday)
+            .maturity(maturity_saturday)
+            .haircut(0.02)
+            .repo_type(RepoType::Term)
+            .triparty(false)
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2".to_string()))
+            .discount_curve_id(CurveId::from("USD-OIS"))
+            .margin_spec_opt(None)
+            .attributes(Attributes::default())
+            .build()
+            .expect("Weekend repo should build");
+
+        // Repo with pre-adjusted dates (no adjustment needed)
+        let repo_adjusted = RepoBuilder::new()
+            .id(InstrumentId::from("REPO-ADJUSTED"))
+            .cash_amount(cash_amount)
+            .collateral(collateral2)
+            .repo_rate(repo_rate)
+            .start_date(start_monday)
+            .maturity(maturity_monday)
+            .haircut(0.02)
+            .repo_type(RepoType::Term)
+            .triparty(false)
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2".to_string()))
+            .discount_curve_id(CurveId::from("USD-OIS"))
+            .margin_spec_opt(None)
+            .attributes(Attributes::default())
+            .build()
+            .expect("Adjusted repo should build");
+
+        // Verify adjusted dates match
+        let (adj_start_w, adj_mat_w) = repo_weekend.adjusted_dates().expect("Adjustment should succeed");
+        let (adj_start_a, adj_mat_a) = repo_adjusted.adjusted_dates().expect("Adjustment should succeed");
+
+        assert_eq!(adj_start_w, adj_start_a, "Adjusted start dates should match");
+        assert_eq!(adj_mat_w, adj_mat_a, "Adjusted maturity dates should match");
+        assert_eq!(adj_start_w, start_monday, "Weekend start should adjust to Monday");
+        assert_eq!(adj_mat_w, maturity_monday, "Weekend maturity should adjust to Monday");
+
+        // Verify interest amounts match (uses adjusted dates)
+        let interest_weekend = repo_weekend.interest_amount().expect("Interest should compute");
+        let interest_adjusted = repo_adjusted.interest_amount().expect("Interest should compute");
+        
+        let interest_diff = (interest_weekend.amount() - interest_adjusted.amount()).abs();
+        assert!(
+            interest_diff < 1e-6,
+            "Interest amounts should match within 1e-6, got diff: {}",
+            interest_diff
+        );
+
+        // Create market context with a flat discount curve
+        let as_of = date(2025, 1, 2); // Thursday before the repo starts
+        let flat_rate: f64 = 0.04;
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (1.0, (-flat_rate).exp()), (5.0, (-flat_rate * 5.0).exp())])
+            .build()
+            .expect("DiscountCurve builder should succeed");
+        let ctx = MarketContext::new()
+            .insert_discount(disc_curve);
+
+        // Verify PV stability within 1e-6 tolerance
+        let pv_weekend = repo_weekend.pv(&ctx, as_of).expect("PV should compute");
+        let pv_adjusted = repo_adjusted.pv(&ctx, as_of).expect("PV should compute");
+
+        let pv_diff = (pv_weekend.amount() - pv_adjusted.amount()).abs();
+        assert!(
+            pv_diff < 1e-6,
+            "PV should match within 1e-6, got diff: {}",
+            pv_diff
+        );
+
+        // Verify determinism: multiple runs produce identical results
+        for _ in 0..3 {
+            let pv1 = repo_weekend.pv(&ctx, as_of).expect("PV should compute");
+            let pv2 = repo_adjusted.pv(&ctx, as_of).expect("PV should compute");
+            assert_eq!(
+                pv1.amount(),
+                pv_weekend.amount(),
+                "PV should be deterministic"
+            );
+            assert_eq!(
+                pv2.amount(),
+                pv_adjusted.amount(),
+                "PV should be deterministic"
+            );
+        }
+    }
+
+    /// Test overnight repo with calendar properly adjusts start date.
+    #[test]
+    fn overnight_repo_adjusts_start_date() {
+        use finstack_core::dates::calendar::TARGET2;
+        use finstack_core::dates::HolidayCalendar;
+
+        // Saturday Jan 4, 2025 -> should adjust to Monday Jan 6
+        let start_saturday = date(2025, 1, 4);
+        let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+
+        let repo = Repo::overnight(
+            "OVERNIGHT-TEST",
+            Money::new(1_000_000.0, Currency::USD),
+            collateral,
+            0.05,
+            start_saturday,
+            "target2",
+            "USD-OIS",
+        )
+        .expect("Overnight repo should build");
+
+        // Verify the stored start_date is already adjusted (Monday Jan 6)
+        assert_eq!(
+            repo.start_date,
+            date(2025, 1, 6),
+            "Start date should be pre-adjusted to Monday"
+        );
+        assert!(
+            TARGET2.is_business_day(repo.start_date),
+            "Start date should be a business day"
+        );
+
+        // Maturity should be Tuesday Jan 7 (next business day after Monday)
+        assert_eq!(
+            repo.maturity,
+            date(2025, 1, 7),
+            "Maturity should be next business day (Tuesday)"
+        );
+        assert!(
+            TARGET2.is_business_day(repo.maturity),
+            "Maturity should be a business day"
+        );
+
+        // Adjusted dates should match stored dates (since they're already adjusted)
+        let (adj_start, adj_maturity) = repo.adjusted_dates().expect("Adjustment should succeed");
+        assert_eq!(adj_start, repo.start_date, "Adjusted start should match stored");
+        assert_eq!(adj_maturity, repo.maturity, "Adjusted maturity should match stored");
+    }
+
+    /// Test overnight repo with unknown calendar returns error.
+    #[test]
+    fn overnight_repo_unknown_calendar_errors() {
+        let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+
+        let result = Repo::overnight(
+            "OVERNIGHT-BAD-CAL",
+            Money::new(1_000_000.0, Currency::USD),
+            collateral,
+            0.05,
+            date(2025, 1, 6),
+            "NONEXISTENT_CALENDAR",
+            "USD-OIS",
+        );
+
         assert!(result.is_err(), "Unknown calendar should error");
     }
 }

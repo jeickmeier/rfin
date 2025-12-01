@@ -60,6 +60,13 @@ impl BarrierOptionMcPricer {
     }
 
     /// Price a barrier option using Monte Carlo.
+    ///
+    /// # Day Count Convention Handling
+    ///
+    /// Uses separate day count bases for different purposes:
+    /// - **Discounting**: Uses the discount curve's own day count for DF and zero rate calculations
+    /// - **Volatility lookup**: Uses the instrument's day count (assumed to match vol surface calibration)
+    /// - **Monte Carlo time grid**: Uses the vol surface time basis for proper barrier monitoring
     fn price_internal(
         &self,
         inst: &BarrierOption,
@@ -69,11 +76,18 @@ impl BarrierOptionMcPricer {
         // Get discount curve
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
 
-        // Time to maturity using the discount curve's basis for consistency with DF/zero().
-        let t = disc_curve
+        // Time to maturity for discounting (using discount curve's basis)
+        let t_disc = disc_curve
             .day_count()
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-        if t <= 0.0 {
+
+        // Time to maturity for vol surface (using instrument's day count, which should
+        // match how the vol surface was calibrated)
+        let t_vol = inst
+            .day_count
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
+        if t_vol <= 0.0 {
             // Expired: return intrinsic value if barrier not hit (simplified)
             let spot_scalar = curves.price(&inst.spot_id)?;
             let spot = match spot_scalar {
@@ -90,14 +104,15 @@ impl BarrierOptionMcPricer {
             ));
         }
 
-        let r = disc_curve.zero(t);
+        // Risk-free rate using discount curve's time basis
+        let r = disc_curve.zero(t_disc);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
             as_of,
             DayCountCtx::default(),
         )?;
         let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
+        let df_maturity = disc_curve.df(t_as_of + t_disc);
         let discount_factor = if df_as_of > 0.0 {
             df_maturity / df_as_of
         } else {
@@ -124,20 +139,21 @@ impl BarrierOptionMcPricer {
             0.0
         };
 
-        // Get volatility
+        // Get volatility using vol surface time basis
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
 
         // Create GBM process
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        // Create time grid with minimum-capped steps
+        // Create time grid with minimum-capped steps (using vol surface time basis for proper
+        // barrier monitoring - this ensures time steps align with volatility assumptions)
         let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let num_steps = ((t_vol * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
 
-        // Create payoff
+        // Create payoff (using vol surface time for barrier adjustment calculations)
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = BarrierOptionPayoff::new(
             inst.strike.amount(),
@@ -148,7 +164,7 @@ impl BarrierOptionMcPricer {
             inst.notional.amount(),
             maturity_step,
             sigma,
-            t,
+            t_vol,
             inst.use_gobet_miri,
         );
 
@@ -176,12 +192,12 @@ impl BarrierOptionMcPricer {
         let mut config = self.config.clone();
         config.seed = seed;
 
-        // Price using path-dependent pricer
+        // Price using path-dependent pricer (using vol surface time basis for simulation)
         let pricer = PathDependentPricer::new(config);
         let result = pricer.price(
             &process,
             spot,
-            t,
+            t_vol,
             num_steps,
             &payoff,
             inst.strike.currency(),
@@ -192,33 +208,46 @@ impl BarrierOptionMcPricer {
     }
 
     /// Price with LRM Greeks (delta, vega) convenience for barrier options.
+    ///
+    /// # Day Count Convention Handling
+    ///
+    /// Uses separate day count bases for different purposes:
+    /// - **Discounting**: Uses the discount curve's own day count for DF and zero rate calculations
+    /// - **Volatility lookup and MC simulation**: Uses the instrument's day count (assumed to match vol surface calibration)
     pub fn price_with_lrm_greeks_internal(
         &self,
         inst: &BarrierOption,
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Time to maturity
-        let t = inst
+        // Get discount curve first to access its day count
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+
+        // Time to maturity for vol surface (using instrument's day count)
+        let t_vol = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-        if t <= 0.0 {
+        if t_vol <= 0.0 {
             return Ok(finstack_core::money::Money::new(
                 0.0,
                 inst.strike.currency(),
             ));
         }
 
-        // Discounting inputs
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-        let r = disc_curve.zero(t);
+        // Time to maturity for discounting (using discount curve's basis)
+        let t_disc = disc_curve
+            .day_count()
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
+        // Risk-free rate using discount curve's time basis
+        let r = disc_curve.zero(t_disc);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
             as_of,
             DayCountCtx::default(),
         )?;
         let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
+        let df_maturity = disc_curve.df(t_as_of + t_disc);
         let discount_factor = if df_as_of > 0.0 {
             df_maturity / df_as_of
         } else {
@@ -243,15 +272,15 @@ impl BarrierOptionMcPricer {
             0.0
         };
 
-        // Volatility and process
+        // Volatility and process (using vol surface time basis)
         let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        // Steps and payoff
+        // Steps and payoff (using vol surface time basis)
         let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let num_steps = ((t_vol * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = BarrierOptionPayoff::new(
@@ -263,7 +292,7 @@ impl BarrierOptionMcPricer {
             inst.notional.amount(),
             maturity_step,
             sigma,
-            t,
+            t_vol,
             inst.use_gobet_miri,
         );
 
@@ -292,7 +321,7 @@ impl BarrierOptionMcPricer {
         let (est, _greeks) = pricer.price_with_lrm_greeks(
             &process,
             spot,
-            t,
+            t_vol,
             num_steps,
             &payoff,
             inst.strike.currency(),
