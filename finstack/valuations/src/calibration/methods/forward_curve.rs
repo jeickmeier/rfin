@@ -739,7 +739,7 @@ impl ForwardCurveCalibrator {
                     .end_date(*end)
                     .fixed_rate(*rate)
                     .day_count(*day_count)
-                    .reset_lag(2)
+                    .reset_lag(self.reset_lag)
                     .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
@@ -869,7 +869,7 @@ impl ForwardCurveCalibrator {
                     calendar_id: self.calendar_id.clone(),
                     fixing_calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
-                    reset_lag_days: 2,
+                    reset_lag_days: self.reset_lag,
                     start: self.base_date,
                     end: *maturity,
                 };
@@ -1946,5 +1946,152 @@ mod tests {
         assert_eq!(calibrator.reset_lag, 2);
         assert!(calibrator.convexity_params.is_some());
         assert!(calibrator.config.rate_bounds.max_rate >= 1.0);
+    }
+
+    /// Test that GBP convention (reset_lag=0) is properly honored in FRA construction.
+    /// Per market standards, GBP FRAs fix on the period start date (T-0), not T-2.
+    #[test]
+    fn test_gbp_fra_reset_lag_zero_honored() {
+        use crate::instruments::fra::ForwardRateAgreement;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
+        let discount_curve = DiscountCurve::builder("GBP-OIS-DISC")
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.9888),
+                (0.5, 0.9775),
+                (1.0, 0.9550),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed");
+
+        // Create forward curve with rates that imply a specific forward rate
+        let fwd_curve = ForwardCurve::builder("GBP-SONIA-3M-FWD", 0.25)
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 0.045),
+                (0.25, 0.045),
+                (0.5, 0.045),
+                (1.0, 0.045),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("ForwardCurve builder should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(fwd_curve);
+
+        // GBP 1x4 FRA: starts in 1 month, ends in 4 months
+        let fra_start = base_date + time::Duration::days(30);
+        let fra_end = base_date + time::Duration::days(120);
+
+        // With reset_lag=0, fixing date should equal start date
+        let calibrator = ForwardCurveCalibrator::new(
+            "GBP-SONIA-3M-FWD",
+            0.25,
+            base_date,
+            Currency::GBP,
+            "GBP-OIS-DISC",
+        )
+        .with_reset_lag(0);
+
+        // Verify calculate_fixing_date returns start date when reset_lag=0
+        let fixing_date = calibrator.calculate_fixing_date(fra_start, &context);
+        assert_eq!(
+            fixing_date, fra_start,
+            "With reset_lag=0, fixing date should equal start date"
+        );
+
+        // Build FRA at par rate - PV should be near zero
+        let par_rate = 0.045; // Same as forward curve rate for flat curve
+        let fra = ForwardRateAgreement::builder()
+            .id("GBP-1x4-FRA".into())
+            .notional(Money::new(1_000_000.0, Currency::GBP))
+            .fixing_date(fixing_date)
+            .start_date(fra_start)
+            .end_date(fra_end)
+            .fixed_rate(par_rate)
+            .day_count(DayCount::Act365F)
+            .reset_lag(0) // GBP convention: T-0
+            .discount_curve_id("GBP-OIS-DISC".into())
+            .forward_id("GBP-SONIA-3M-FWD".into())
+            .pay_fixed(true)
+            .attributes(Default::default())
+            .build()
+            .expect("FRA builder should succeed");
+
+        let pv = fra.value(&context, base_date).expect("FRA valuation should succeed");
+        let pv_normalized = pv.amount() / 1_000_000.0;
+
+        // At par, PV should be within tolerance
+        assert!(
+            pv_normalized.abs() < 1e-6,
+            "FRA at par rate should have near-zero PV, got {}",
+            pv_normalized
+        );
+    }
+
+    /// Test that reset_lag is properly passed through to FRA instrument in price_instrument.
+    #[test]
+    fn test_reset_lag_passed_to_fra_instrument() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
+        let discount_curve = create_test_discount_curve();
+
+        let fwd_curve = ForwardCurve::builder("USD-SOFR-3M-FWD", 0.25)
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 0.045),
+                (0.5, 0.0455),
+                (1.0, 0.046),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("ForwardCurve builder should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(fwd_curve);
+
+        // Test with reset_lag=0 (GBP convention)
+        let calibrator_t0 = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_reset_lag(0);
+
+        // Test with reset_lag=2 (ISDA standard)
+        let calibrator_t2 = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_reset_lag(2);
+
+        let fra_start = base_date + time::Duration::days(90);
+
+        // With different reset lags, fixing dates should differ
+        let fixing_t0 = calibrator_t0.calculate_fixing_date(fra_start, &context);
+        let fixing_t2 = calibrator_t2.calculate_fixing_date(fra_start, &context);
+
+        assert_eq!(
+            fixing_t0, fra_start,
+            "reset_lag=0 should produce fixing_date == start_date"
+        );
+        assert!(
+            fixing_t2 < fra_start,
+            "reset_lag=2 should produce fixing_date < start_date"
+        );
+        assert!(
+            (fra_start - fixing_t2).whole_days() >= 2,
+            "reset_lag=2 should shift fixing date back by at least 2 days"
+        );
     }
 }

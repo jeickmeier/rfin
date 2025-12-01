@@ -144,16 +144,26 @@ impl CurveValidator for DiscountCurve {
             return Ok(());
         }
 
-        // For negative rate environments, DF can be > 1.0 at the short end
-        // and may not decrease monotonically if negative rates persist
-        if config.allow_negative_rates {
-            // For negative rate curves, we skip strict monotonicity
-            // but still check that forward rates are within reasonable bounds
-            // (handled by validate_no_arbitrage)
+        // Auto-detect rate regime by checking the shortest non-zero zero rate.
+        // In positive-rate regimes, DFs must be monotonically decreasing.
+        // In negative-rate regimes (e.g., EUR/JPY/CHF), DFs can exceed 1.0
+        // at the short end and may not decrease monotonically.
+        let short_end_rate = self.zero(0.25); // Check 3-month zero rate
+
+        // Determine if we're in a negative rate environment
+        let is_negative_rate_environment = short_end_rate < -config.tolerance;
+
+        // Only skip monotonicity check if:
+        // 1. We're actually in a negative rate environment (auto-detected), AND
+        // 2. The user has explicitly allowed negative rates
+        if is_negative_rate_environment && config.allow_negative_rates {
+            // For genuinely negative rate curves, skip strict monotonicity
+            // but forward rate bounds are still checked by validate_no_arbitrage
             return Ok(());
         }
 
-        // Strict monotonicity for positive rate environments
+        // In positive-rate environments (or when negative rates not allowed),
+        // enforce strict monotonicity - this is the market standard constraint
         let mut prev_df = 1.0;
 
         for &t in DF_MONO_POINTS {
@@ -162,7 +172,8 @@ impl CurveValidator for DiscountCurve {
             // Allow for numerical tolerance
             if df > prev_df + config.tolerance {
                 return Err(Error::Validation(format!(
-                    "Discount factor not monotonically decreasing: DF({})={:.6} > DF(prev)={:.6} in {}",
+                    "Discount factor not monotonically decreasing: DF({})={:.6} > DF(prev)={:.6} in {} \
+                    (positive-rate environment detected; set allow_negative_rates=true if this is intentional)",
                     t, df, prev_df, self.id().as_str()
                 )));
             }
@@ -609,9 +620,11 @@ impl SurfaceValidator for VolSurface {
         // as much total variance as shorter-dated options at the same strike.
         let strikes = self.strikes();
         let expiries = self.expiries();
+        let mut violations: Vec<(f64, f64, f64, f64)> = Vec::new(); // (strike, expiry, actual, expected)
 
         for strike in strikes {
             let mut prev_total_var = 0.0;
+            let mut prev_expiry = 0.0_f64;
 
             for &expiry in expiries {
                 let vol = self.value(expiry, *strike);
@@ -619,29 +632,45 @@ impl SurfaceValidator for VolSurface {
 
                 // Check monotonicity of total variance
                 if total_var < prev_total_var - config.tolerance {
-                    // In strict mode, escalate to hard error to enforce no-arbitrage
-                    #[cfg(feature = "strict_validation")]
-                    {
-                        return Err(Error::Validation(format!(
-                            "Calendar arbitrage: total variance {:.6} < {:.6} at K={} in {}",
-                            total_var,
-                            prev_total_var,
-                            strike,
-                            self.id().as_str()
-                        )));
-                    }
-                    #[cfg(not(feature = "strict_validation"))]
-                    {
+                    violations.push((*strike, expiry, total_var, prev_total_var));
+
+                    if config.lenient_arbitrage {
                         tracing::warn!(
-                            "Calendar spread arbitrage detected: total variance {:.6} < {:.6} at K={} in {}. \
+                            "Calendar spread arbitrage detected: total variance {:.6} < {:.6} at K={}, T={:.4} (prev T={:.4}) in {}. \
                             Consider using SVI or monotone convex fitting for arbitrage-free surfaces.",
-                            total_var, prev_total_var, strike, self.id().as_str()
+                            total_var, prev_total_var, strike, expiry, prev_expiry, self.id().as_str()
                         );
                     }
                 }
 
                 prev_total_var = total_var;
+                prev_expiry = expiry;
             }
+        }
+
+        // In strict mode (default), fail on any calendar arbitrage violations
+        if !violations.is_empty() && !config.lenient_arbitrage {
+            let details: Vec<String> = violations
+                .iter()
+                .take(5)
+                .map(|(k, t, actual, expected)| {
+                    format!("K={:.2}, T={:.4}y (var={:.6} < {:.6})", k, t, actual, expected)
+                })
+                .collect();
+            let suffix = if violations.len() > 5 {
+                format!(" (and {} more)", violations.len() - 5)
+            } else {
+                String::new()
+            };
+            return Err(Error::Validation(format!(
+                "Calendar spread arbitrage detected at {} point(s) in {}: [{}]{}. \
+                Total variance must be monotonically increasing in expiry. \
+                Consider using SVI or monotone convex fitting for arbitrage-free surfaces.",
+                violations.len(),
+                self.id().as_str(),
+                details.join("; "),
+                suffix
+            )));
         }
 
         Ok(())
@@ -667,6 +696,8 @@ impl SurfaceValidator for VolSurface {
             return Ok(()); // Need at least 3 strikes to check
         }
 
+        let mut violations: Vec<(f64, f64, f64, f64, f64)> = Vec::new(); // (expiry, strike, actual, interp, ratio)
+
         for &expiry in expiries {
             for i in 1..strikes.len() - 1 {
                 let k1 = strikes[i - 1];
@@ -689,21 +720,16 @@ impl SurfaceValidator for VolSurface {
                 // Total variance should be convex (actual ≤ interpolated for upper convexity)
                 // However, implied vol smiles typically show the opposite (actual > interpolated)
                 // so we check for extreme violations that would create arbitrage
+                let ratio = if w2_interpolated.abs() > 1e-12 {
+                    w2 / w2_interpolated
+                } else {
+                    1.0
+                };
+
                 if w2 > w2_interpolated * 1.5 || w2 < w2_interpolated * 0.5 {
-                    #[cfg(feature = "strict_validation")]
-                    {
-                        return Err(Error::Validation(format!(
-                            "Butterfly arbitrage at T={:.2}, K={:.2} in {}: total_var={:.6} vs interpolated={:.6} (ratio {:.2})",
-                            expiry,
-                            k2,
-                            self.id().as_str(),
-                            w2,
-                            w2_interpolated,
-                            w2 / w2_interpolated
-                        )));
-                    }
-                    #[cfg(not(feature = "strict_validation"))]
-                    {
+                    violations.push((expiry, k2, w2, w2_interpolated, ratio));
+
+                    if config.lenient_arbitrage {
                         tracing::warn!(
                             "Potential butterfly arbitrage at T={:.2}, K={:.2} in {}: \
                             total_var={:.6} vs interpolated={:.6} (ratio {:.2}). \
@@ -713,11 +739,39 @@ impl SurfaceValidator for VolSurface {
                             self.id().as_str(),
                             w2,
                             w2_interpolated,
-                            w2 / w2_interpolated
+                            ratio
                         );
                     }
                 }
             }
+        }
+
+        // In strict mode (default), fail on any butterfly arbitrage violations
+        if !violations.is_empty() && !config.lenient_arbitrage {
+            let details: Vec<String> = violations
+                .iter()
+                .take(5)
+                .map(|(t, k, actual, interp, ratio)| {
+                    format!(
+                        "T={:.2}y, K={:.2} (var={:.6} vs interp={:.6}, ratio={:.2})",
+                        t, k, actual, interp, ratio
+                    )
+                })
+                .collect();
+            let suffix = if violations.len() > 5 {
+                format!(" (and {} more)", violations.len() - 5)
+            } else {
+                String::new()
+            };
+            return Err(Error::Validation(format!(
+                "Butterfly spread arbitrage detected at {} point(s) in {}: [{}]{}. \
+                Total variance must be convex in strike. \
+                Consider using SVI or monotone convex fitting for arbitrage-free surfaces.",
+                violations.len(),
+                self.id().as_str(),
+                details.join("; "),
+                suffix
+            )));
         }
 
         Ok(())
@@ -790,6 +844,11 @@ pub struct ValidationConfig {
     /// Allow negative rate environments (DF > 1.0 at short end)
     #[serde(default)]
     pub allow_negative_rates: bool,
+    /// When true, arbitrage violations (calendar/butterfly) produce warnings instead of errors.
+    /// Default is false - arbitrage violations fail validation.
+    /// Set to true only for exploratory analysis or when arbitrage-free fitting is not required.
+    #[serde(default)]
+    pub lenient_arbitrage: bool,
 }
 
 impl Default for ValidationConfig {
@@ -807,8 +866,60 @@ impl Default for ValidationConfig {
             min_fwd_inflation: -0.20,
             max_fwd_inflation: 0.50,
             max_volatility: 5.0,
-            allow_negative_rates: true, // Support EUR/JPY/CHF negative rate environments
+            // Default to strict mode: enforce monotonicity in positive-rate regimes.
+            // Set to true for EUR/JPY/CHF negative-rate environments where DFs > 1.0 is valid.
+            allow_negative_rates: false,
+            // Default to strict mode: arbitrage violations fail validation.
+            // Set to true only for exploratory analysis.
+            lenient_arbitrage: false,
         }
+    }
+}
+
+impl ValidationConfig {
+    /// Create a strict validation config that enforces monotonicity
+    /// even in potentially negative rate environments.
+    #[must_use]
+    pub fn strict() -> Self {
+        Self {
+            allow_negative_rates: false,
+            lenient_arbitrage: false,
+            ..Default::default()
+        }
+    }
+
+    /// Create a permissive validation config for negative rate environments
+    /// (e.g., EUR/JPY/CHF) where discount factors > 1.0 at short tenors is valid.
+    #[must_use]
+    pub fn negative_rates() -> Self {
+        Self {
+            allow_negative_rates: true,
+            ..Default::default()
+        }
+    }
+
+    /// Create a lenient configuration that warns but does not fail on arbitrage.
+    ///
+    /// Use this only for exploratory analysis or when strict arbitrage-free
+    /// surfaces are not required. Calendar spread and butterfly arbitrage
+    /// violations will log warnings instead of returning errors.
+    #[must_use]
+    pub fn lenient() -> Self {
+        Self {
+            lenient_arbitrage: true,
+            ..Default::default()
+        }
+    }
+
+    /// Set whether arbitrage violations should warn (lenient) or error (strict).
+    ///
+    /// By default, arbitrage violations fail validation. Set `lenient = true`
+    /// only for exploratory analysis or when arbitrage-free constraints are
+    /// not required.
+    #[must_use]
+    pub fn with_lenient_arbitrage(mut self, lenient: bool) -> Self {
+        self.lenient_arbitrage = lenient;
+        self
     }
 }
 
@@ -847,8 +958,9 @@ mod tests {
             .base_date(base_date)
             .knots(vec![
                 (0.0, 1.0),
+                (0.25, 0.99), // Positive rates at short end
                 (1.0, 0.95),
-                (2.0, 0.96), // Increases!
+                (2.0, 0.96), // Increases! Violation.
                 (5.0, 0.90),
             ])
             .set_interp(InterpStyle::Linear)
@@ -856,12 +968,8 @@ mod tests {
             .build()
             .expect("should build invalid curve for testing");
 
-        // Use strict config (no negative rates allowed) to test monotonicity validation
-        let strict_config = ValidationConfig {
-            allow_negative_rates: false,
-            ..config.clone()
-        };
-        assert!(invalid_curve.validate_monotonicity(&strict_config).is_err());
+        // Default config now enforces monotonicity (allow_negative_rates = false)
+        assert!(invalid_curve.validate_monotonicity(&config).is_err());
     }
 
     #[test]
@@ -957,5 +1065,257 @@ mod tests {
             .expect("should build invalid curve for testing");
 
         assert!(invalid_curve.validate_no_arbitrage(&config).is_err());
+    }
+
+    /// Test that non-monotonic discount curves with positive rates are rejected by default.
+    /// This is the key market standard: DF(t2) < DF(t1) for t2 > t1 when rates are positive.
+    #[test]
+    fn test_non_monotone_positive_rate_curve_rejected() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+
+        // Create a curve with DF(2Y) > DF(1Y) - violates monotonicity in positive-rate regime
+        // This represents an arbitrage opportunity: borrow at 1Y, lend at 2Y for free money
+        let non_monotone_curve = DiscountCurve::builder("TEST-NON-MONOTONE")
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.99), // Positive rates (DF < 1)
+                (0.5, 0.98),
+                (1.0, 0.95),
+                (2.0, 0.96), // DF(2Y) > DF(1Y) - violation!
+                (5.0, 0.90),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic() // Allow construction for testing
+            .build()
+            .expect("should build non-monotone curve for testing");
+
+        // Verify this is indeed a positive-rate curve (short-end zero rate > 0)
+        let short_rate = non_monotone_curve.zero(0.25);
+        assert!(short_rate > 0.0, "Expected positive short-end rate, got {}", short_rate);
+
+        // With default config, this should be rejected
+        let default_config = ValidationConfig::default();
+        let result = non_monotone_curve.validate_monotonicity(&default_config);
+        assert!(
+            result.is_err(),
+            "Non-monotone positive-rate curve should be rejected by default config"
+        );
+
+        // Error message should indicate the monotonicity violation
+        let err_msg = result.expect_err("Expected validation error for non-monotone curve").to_string();
+        assert!(
+            err_msg.contains("not monotonically decreasing"),
+            "Error should mention monotonicity: {}",
+            err_msg
+        );
+    }
+
+    /// Test that negative rate environments are still supported when explicitly opted in.
+    /// In EUR/JPY/CHF markets, rates can be negative, causing DF > 1.0 at short tenors.
+    #[test]
+    fn test_negative_rate_environment_opt_in() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+
+        // Create a curve with negative rates (DF > 1.0 at short end)
+        // This is valid for EUR/JPY/CHF environments
+        let negative_rate_curve = DiscountCurve::builder("TEST-NEGATIVE-RATES")
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 1.005), // DF > 1.0 implies negative rates
+                (0.5, 1.008),
+                (1.0, 1.010),
+                (2.0, 1.005), // Can be non-monotone in negative rate environments
+                (5.0, 0.99),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic() // Allow construction
+            .build()
+            .expect("should build negative rate curve for testing");
+
+        // Verify this is indeed a negative-rate curve (short-end zero rate < 0)
+        let short_rate = negative_rate_curve.zero(0.25);
+        assert!(short_rate < 0.0, "Expected negative short-end rate, got {}", short_rate);
+
+        // With default config (allow_negative_rates = false), should be rejected
+        let default_config = ValidationConfig::default();
+        // Note: the curve is auto-detected as negative rate environment, but
+        // since allow_negative_rates is false, monotonicity is still enforced
+        let strict_result = negative_rate_curve.validate_monotonicity(&default_config);
+        assert!(
+            strict_result.is_err(),
+            "Negative rate curve should be rejected when allow_negative_rates=false"
+        );
+
+        // With explicit negative_rates config, should be accepted
+        let permissive_config = ValidationConfig::negative_rates();
+        let permissive_result = negative_rate_curve.validate_monotonicity(&permissive_config);
+        assert!(
+            permissive_result.is_ok(),
+            "Negative rate curve should pass when allow_negative_rates=true: {:?}",
+            permissive_result
+        );
+    }
+
+    /// Test that the validation config constructors work correctly.
+    #[test]
+    fn test_validation_config_constructors() {
+        let strict = ValidationConfig::strict();
+        assert!(!strict.allow_negative_rates, "strict() should set allow_negative_rates=false");
+        assert!(strict.check_monotonicity, "strict() should enable monotonicity checks");
+        assert!(!strict.lenient_arbitrage, "strict() should set lenient_arbitrage=false");
+
+        let negative = ValidationConfig::negative_rates();
+        assert!(negative.allow_negative_rates, "negative_rates() should set allow_negative_rates=true");
+        assert!(negative.check_monotonicity, "negative_rates() should enable monotonicity checks");
+
+        let lenient = ValidationConfig::lenient();
+        assert!(lenient.lenient_arbitrage, "lenient() should set lenient_arbitrage=true");
+        assert!(lenient.check_arbitrage, "lenient() should still enable arbitrage checks");
+
+        let default = ValidationConfig::default();
+        assert!(!default.allow_negative_rates, "default should set allow_negative_rates=false (strict mode)");
+        assert!(!default.lenient_arbitrage, "default should set lenient_arbitrage=false (strict mode)");
+    }
+
+    /// Test that butterfly arbitrage in vol surfaces is detected and fails validation.
+    ///
+    /// Butterfly arbitrage occurs when total variance is not convex in strike,
+    /// allowing risk-free profits via butterfly spreads.
+    #[test]
+    fn test_butterfly_arbitrage_detected_and_fails() {
+        // Create a surface with butterfly arbitrage: middle strike has extreme variance
+        // compared to the linear interpolation between adjacent strikes
+        let expiries = vec![0.25, 0.5, 1.0];
+        let strikes = vec![90.0, 100.0, 110.0];
+
+        // At T=0.5, the 100 strike has vol=0.50 while 90/110 have vol=0.20
+        // This creates a "smile" so extreme it violates convexity bounds
+        let vol_grid = vec![
+            // T=0.25
+            0.20, 0.18, 0.20, // T=0.5 - extreme butterfly violation
+            0.20, 0.50, 0.20, // vol at K=100 is 2.5x neighbors
+            // T=1.0
+            0.22, 0.20, 0.22,
+        ];
+
+        let surface = VolSurface::from_grid("TEST-BUTTERFLY-ARB", &expiries, &strikes, &vol_grid)
+            .expect("should build vol surface for testing");
+
+        // With default (strict) config, butterfly validation should fail
+        let strict_config = ValidationConfig::default();
+        let result = surface.validate_butterfly_spread(&strict_config);
+        assert!(
+            result.is_err(),
+            "Butterfly arbitrage should be detected and fail in strict mode"
+        );
+
+        // Error should mention butterfly arbitrage
+        let err_msg = result.expect_err("Expected validation error for butterfly arbitrage").to_string();
+        assert!(
+            err_msg.contains("Butterfly") || err_msg.contains("butterfly"),
+            "Error should mention butterfly arbitrage: {}",
+            err_msg
+        );
+
+        // With lenient config, should pass (warning only)
+        let lenient_config = ValidationConfig::lenient();
+        let lenient_result = surface.validate_butterfly_spread(&lenient_config);
+        assert!(
+            lenient_result.is_ok(),
+            "Butterfly arbitrage should only warn in lenient mode: {:?}",
+            lenient_result
+        );
+    }
+
+    /// Test that calendar spread arbitrage is detected and fails validation.
+    ///
+    /// Calendar arbitrage occurs when total variance (σ²T) decreases with maturity,
+    /// allowing risk-free profits via calendar spreads.
+    #[test]
+    fn test_calendar_arbitrage_detected_and_fails() {
+        // Create a surface with calendar arbitrage: shorter expiry has higher total variance
+        let expiries = vec![0.25, 0.5, 1.0];
+        let strikes = vec![95.0, 100.0, 105.0];
+
+        // Total variance = σ²T
+        // At K=100: T=0.25 → σ=0.40 → var=0.16*0.25=0.04
+        //           T=0.50 → σ=0.20 → var=0.04*0.50=0.02 < 0.04 (violation!)
+        //           T=1.00 → σ=0.22 → var=0.0484
+        let vol_grid = vec![
+            // T=0.25
+            0.35, 0.40, 0.35, // T=0.5 - lower vol causes calendar arbitrage
+            0.18, 0.20, 0.18, // T=1.0
+            0.20, 0.22, 0.20,
+        ];
+
+        let surface = VolSurface::from_grid("TEST-CALENDAR-ARB", &expiries, &strikes, &vol_grid)
+            .expect("should build vol surface for testing");
+
+        // With default (strict) config, calendar validation should fail
+        let strict_config = ValidationConfig::default();
+        let result = surface.validate_calendar_spread(&strict_config);
+        assert!(
+            result.is_err(),
+            "Calendar arbitrage should be detected and fail in strict mode"
+        );
+
+        // Error should mention calendar arbitrage
+        let err_msg = result.expect_err("Expected validation error for calendar arbitrage").to_string();
+        assert!(
+            err_msg.contains("Calendar") || err_msg.contains("calendar"),
+            "Error should mention calendar arbitrage: {}",
+            err_msg
+        );
+
+        // With lenient config, should pass (warning only)
+        let lenient_config = ValidationConfig::lenient();
+        let lenient_result = surface.validate_calendar_spread(&lenient_config);
+        assert!(
+            lenient_result.is_ok(),
+            "Calendar arbitrage should only warn in lenient mode: {:?}",
+            lenient_result
+        );
+    }
+
+    /// Test that valid arbitrage-free surfaces pass all validations.
+    #[test]
+    fn test_valid_surface_passes_arbitrage_checks() {
+        // Create a well-behaved surface with no arbitrage
+        let expiries = vec![0.25, 0.5, 1.0];
+        let strikes = vec![90.0, 100.0, 110.0];
+
+        // Reasonable smile with total variance increasing in T
+        // and convex (or nearly linear) in K
+        let vol_grid = vec![
+            // T=0.25: moderate smile
+            0.22, 0.20, 0.21, // T=0.5: similar smile, slightly higher overall
+            0.23, 0.21, 0.22, // T=1.0: term structure upward sloping
+            0.25, 0.23, 0.24,
+        ];
+
+        let surface = VolSurface::from_grid("TEST-VALID-SURFACE", &expiries, &strikes, &vol_grid)
+            .expect("should build valid vol surface");
+
+        let config = ValidationConfig::default();
+
+        // All validations should pass
+        assert!(
+            surface.validate_calendar_spread(&config).is_ok(),
+            "Valid surface should pass calendar arbitrage check"
+        );
+        assert!(
+            surface.validate_butterfly_spread(&config).is_ok(),
+            "Valid surface should pass butterfly arbitrage check"
+        );
+        assert!(
+            surface.validate_vol_bounds(&config).is_ok(),
+            "Valid surface should pass vol bounds check"
+        );
+        assert!(
+            surface.validate(&config).is_ok(),
+            "Valid surface should pass all validations"
+        );
     }
 }

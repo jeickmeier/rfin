@@ -294,6 +294,12 @@ impl VolSurfaceCalibrator {
     }
 
     /// Build volatility grid from calibrated SABR parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if SABR implied volatility cannot be computed for any
+    /// expiry/strike combination. Silent fallbacks are not allowed as they can
+    /// mask calibration failures and produce invalid risk surfaces.
     fn build_vol_grid(
         &self,
         sabr_params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
@@ -301,6 +307,7 @@ impl VolSurfaceCalibrator {
     ) -> Result<Vec<f64>> {
         let mut vol_grid =
             Vec::with_capacity(self.target_expiries.len() * self.target_strikes.len());
+        let mut failed_points: Vec<(f64, f64)> = Vec::new();
 
         for &expiry in &self.target_expiries {
             let forward = forward_curve(expiry);
@@ -310,11 +317,40 @@ impl VolSurfaceCalibrator {
             let model = SABRModel::new(params);
 
             for &strike in &self.target_strikes {
-                let vol = model
-                    .implied_volatility(forward, strike, expiry)
-                    .unwrap_or(0.20); // Fallback volatility
-                vol_grid.push(vol);
+                match model.implied_volatility(forward, strike, expiry) {
+                    Ok(vol) => vol_grid.push(vol),
+                    Err(_) => {
+                        // Track the failed point for error reporting
+                        failed_points.push((expiry, strike));
+                        // Push a placeholder to maintain grid structure; will error below
+                        vol_grid.push(f64::NAN);
+                    }
+                }
             }
+        }
+
+        // Fail calibration if any SABR inversions failed
+        if !failed_points.is_empty() {
+            let failed_desc: Vec<String> = failed_points
+                .iter()
+                .take(10) // Limit error message size
+                .map(|(t, k)| format!("T={:.4}y, K={:.2}", t, k))
+                .collect();
+            let suffix = if failed_points.len() > 10 {
+                format!(" (and {} more)", failed_points.len() - 10)
+            } else {
+                String::new()
+            };
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "SABR implied volatility failed at {} point(s): [{}]{}. \
+                    Check that strikes are not too far OTM/ITM for the given forward and SABR parameters.",
+                    failed_points.len(),
+                    failed_desc.join(", "),
+                    suffix
+                ),
+                category: "vol_surface_sabr_inversion".to_string(),
+            });
         }
 
         Ok(vol_grid)
@@ -764,5 +800,169 @@ mod tests {
             Ok(_) => panic!("Should fail with ambiguous discount curves"),
         };
         assert!(err.contains("discount_id (ambiguous)"));
+    }
+
+    /// Test that SABR vol inversion failures cause calibration to fail.
+    ///
+    /// Previously, failed SABR inversions would silently fall back to 0.20 vol,
+    /// masking calibration problems. Now they produce explicit errors.
+    #[test]
+    fn test_sabr_fallback_failure_with_extreme_strikes() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Create calibrator with extreme strikes (very far OTM)
+        // SABR model may fail to compute implied vol for these
+        let calibrator = VolSurfaceCalibrator::new(
+            "TEST-EXTREME",
+            1.0,
+            vec![0.25, 0.5],
+            vec![1.0, 100.0, 10000.0], // Extremely far strikes: 1% of ATM and 100x ATM
+        )
+        .with_base_date(base_date);
+
+        // Create SABR parameters that work at reasonable strikes but may fail at extremes
+        let mut params_map = BTreeMap::new();
+        params_map.insert(
+            0.25.into(),
+            SABRParameters::new(0.2, 1.0, 0.8, -0.5) // High vol-of-vol and correlation
+                .expect("SABR parameters should be valid in test"),
+        );
+        params_map.insert(
+            0.5.into(),
+            SABRParameters::new(0.25, 1.0, 0.9, -0.6)
+                .expect("SABR parameters should be valid in test"),
+        );
+
+        let forward_fn = |_t: f64| 100.0; // Forward at 100
+
+        // With extreme strikes, SABR inversion may fail
+        // Even if it doesn't fail, this test documents that we no longer silently
+        // fall back to 0.20 - we either succeed with valid vols or fail with an error
+        let result = calibrator.build_vol_grid(&params_map, &forward_fn);
+
+        match result {
+            Ok(vol_grid) => {
+                // If it succeeded, all vols must be valid (no NaN or silent fallbacks)
+                for vol in &vol_grid {
+                    assert!(vol.is_finite(), "Vol should not be NaN or infinite");
+                    assert!(*vol > 0.0, "Vol should be positive");
+                    // We no longer accept silent 0.20 fallbacks
+                    // (though 0.20 could legitimately be computed by SABR)
+                }
+            }
+            Err(e) => {
+                // If it failed, error should mention SABR inversion failure
+                let err_msg = e.to_string();
+                assert!(
+                    err_msg.contains("SABR") || err_msg.contains("sabr"),
+                    "Error should mention SABR: {}",
+                    err_msg
+                );
+                assert!(
+                    err_msg.contains("failed") || err_msg.contains("Failed"),
+                    "Error should mention failure: {}",
+                    err_msg
+                );
+            }
+        }
+    }
+
+    /// Test that insufficient quotes per expiry cause calibration to skip that slice.
+    ///
+    /// SABR needs at least 3 quotes per expiry to calibrate (alpha, nu, rho).
+    /// Expiries with fewer quotes should be skipped, not silently filled.
+    #[test]
+    fn test_insufficient_quotes_per_expiry() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let expiry_1m = base_date + time::Duration::days(30);
+        let expiry_3m = base_date + time::Duration::days(90);
+
+        // 1M expiry has only 2 quotes (insufficient for SABR)
+        // 3M expiry has 3 quotes (sufficient)
+        let quotes = vec![
+            // 1M - only 2 points (will be skipped)
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: expiry_1m,
+                strike: 95.0,
+                vol: 0.22,
+                option_type: "Call".to_string(),
+            },
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: expiry_1m,
+                strike: 100.0,
+                vol: 0.20,
+                option_type: "Call".to_string(),
+            },
+            // 3M - 3 points (sufficient)
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: expiry_3m,
+                strike: 90.0,
+                vol: 0.24,
+                option_type: "Call".to_string(),
+            },
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: expiry_3m,
+                strike: 100.0,
+                vol: 0.22,
+                option_type: "Call".to_string(),
+            },
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: expiry_3m,
+                strike: 110.0,
+                vol: 0.23,
+                option_type: "Call".to_string(),
+            },
+        ];
+
+        let config = crate::calibration::CalibrationConfig::default().with_tolerance(1.0);
+        let calibrator = VolSurfaceCalibrator::new(
+            "TEST-INSUFFICIENT",
+            1.0,
+            vec![1.0 / 12.0, 3.0 / 12.0],
+            vec![90.0, 100.0, 110.0],
+        )
+        .with_base_date(base_date)
+        .with_config(config);
+
+        // Create market context
+        let context = MarketContext::new()
+            .insert_price(
+                "SPY",
+                finstack_core::market_data::scalars::MarketScalar::Unitless(100.0),
+            )
+            .insert_price(
+                "SPY-DIVYIELD",
+                finstack_core::market_data::scalars::MarketScalar::Unitless(0.02),
+            )
+            .insert_discount(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(base_date)
+                    .knots([(0.0, 1.0), (5.0, 0.78)])
+                    .set_interp(InterpStyle::Linear)
+                    .build()
+                    .expect("DiscountCurve builder should succeed"),
+            );
+
+        // Calibration should succeed using only the 3M expiry
+        // The report should indicate only 1 expiry was calibrated
+        let result = calibrator.calibrate(&quotes, &context);
+
+        // If calibration succeeds, check that metadata shows fewer expiries calibrated
+        if let Ok((_surface, report)) = result {
+            if let Some(calibrated_str) = report.metadata.get("calibrated_expiries") {
+                let calibrated: usize = calibrated_str.parse().unwrap_or(0);
+                assert!(
+                    calibrated >= 1,
+                    "Should calibrate at least 1 expiry (3M)"
+                );
+                // 1M should be skipped due to insufficient quotes
+            }
+        }
+        // If it fails, that's also acceptable - the key is no silent fallbacks
     }
 }

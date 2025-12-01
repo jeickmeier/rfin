@@ -21,7 +21,9 @@
 //! - **GBP**: T+0
 //! - **AUD/CAD**: T+1
 
-use crate::calibration::quote::{settlement_days_for_currency, RatesQuote};
+use crate::calibration::quote::{
+    default_calendar_for_currency, settlement_days_for_currency, RatesQuote,
+};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
@@ -29,7 +31,9 @@ use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::irs::FloatingLegCompounding;
 use crate::instruments::InterestRateSwap;
-use finstack_core::dates::{add_months, Date, DayCount};
+use finstack_core::dates::{
+    add_months, adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount,
+};
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -172,17 +176,55 @@ impl DiscountCurveCalibrator {
         })
     }
 
-    /// Calculate settlement date from base date.
+    /// Calculate settlement date from base date using business-day calendar.
     ///
-    /// For simplicity, this adds calendar days. In production with holiday
-    /// calendars, use DateExt::add_business_days instead.
-    fn settlement_date(&self) -> Date {
+    /// Uses the configured calendar (or currency default) to properly compute
+    /// the spot/settlement date by adding business days and adjusting to the
+    /// next business day if needed.
+    ///
+    /// # Market Conventions
+    ///
+    /// - USD/EUR/JPY/CHF: T+2 business days
+    /// - GBP: T+0 (same-day settlement)
+    /// - AUD/CAD: T+1 business day
+    ///
+    /// The result is adjusted using Modified Following convention to ensure
+    /// the settlement date falls on a valid business day.
+    fn settlement_date(&self) -> finstack_core::Result<Date> {
         let days = self.effective_settlement_days();
-        if days == 0 {
-            self.base_date
+
+        // Resolve calendar: explicit calendar_id or currency default
+        let calendar_id = self
+            .calendar_id
+            .as_deref()
+            .unwrap_or_else(|| default_calendar_for_currency(self.currency));
+
+        let registry = CalendarRegistry::global();
+
+        // If we have a valid calendar, use business-day arithmetic
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            if days == 0 {
+                // T+0: just ensure base_date is a business day
+                adjust(self.base_date, BusinessDayConvention::Following, calendar)
+            } else {
+                // Add business days and adjust result
+                let spot = self.base_date.add_business_days(days, calendar)?;
+                // Final adjustment ensures we land on a business day
+                adjust(spot, BusinessDayConvention::ModifiedFollowing, calendar)
+            }
         } else {
-            // Add calendar days (in production, use holiday-aware business days)
-            self.base_date + time::Duration::days(days as i64)
+            // Fallback: calendar not found, use calendar-day addition with warning
+            // This maintains backward compatibility but should be avoided in production
+            tracing::warn!(
+                calendar_id = calendar_id,
+                currency = ?self.currency,
+                "Calendar not found, falling back to calendar-day settlement"
+            );
+            Ok(if days == 0 {
+                self.base_date
+            } else {
+                self.base_date + time::Duration::days(days as i64)
+            })
         }
     }
 
@@ -660,8 +702,17 @@ impl DiscountCurveCalibrator {
         }
 
         // Use the CurveValidator trait to validate the curve
+        // Auto-detect negative rate environment by checking if short-end zero rate is negative
         use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        curve.validate(&ValidationConfig::default()).map_err(|e| {
+        let short_rate = curve.zero(0.25);
+        let validation_config = if short_rate < 0.0 {
+            // Negative rate environment (EUR/CHF/JPY) - allow non-monotone DFs
+            ValidationConfig::negative_rates()
+        } else {
+            // Positive rate environment - enforce strict monotonicity
+            ValidationConfig::default()
+        };
+        curve.validate(&validation_config).map_err(|e| {
             finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated discount curve {} failed validation: {}",
@@ -718,8 +769,8 @@ impl DiscountCurveCalibrator {
                 rate,
                 day_count,
             } => {
-                // Use settlement date (currency-specific T+0/T+1/T+2)
-                let settlement = self.settlement_date();
+                // Use settlement date (currency-specific T+0/T+1/T+2) with business-day calendar
+                let settlement = self.settlement_date()?;
 
                 // Create Deposit instrument with proper settlement
                 let dep = Deposit {
@@ -1401,7 +1452,9 @@ mod tests {
 
     #[test]
     fn test_deposit_repricing_under_bootstrap() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        // Use a business day as base_date (Thursday, January 2, 2025)
+        // to avoid holiday adjustment complications
+        let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
 
         // Use explicit T+0 settlement to match pre-settlement-aware behavior
         // For production, use currency default (T+2 for USD)
@@ -1489,7 +1542,8 @@ mod tests {
 
     #[test]
     fn test_fra_repricing_under_bootstrap() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        // Use a business day as base_date (Thursday, January 2, 2025)
+        let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
         let config = CalibrationConfig::conservative();
         let calibrator =
             DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
@@ -1855,31 +1909,71 @@ mod tests {
 
     #[test]
     fn test_calibrator_settlement_date() {
+        // Wednesday, January 15, 2025 - a normal business day
         let base_date =
             Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
 
-        // USD should use T+2
+        // USD should use T+2 business days: Wed -> Fri (Jan 17)
         let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-        let usd_settlement = usd_calibrator.settlement_date();
+        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
         assert_eq!(
             usd_settlement,
-            base_date + time::Duration::days(2),
-            "USD should settle T+2"
+            Date::from_calendar_date(2025, Month::January, 17).expect("Valid date"),
+            "USD should settle T+2 business days (Wed -> Fri)"
         );
 
-        // GBP should use T+0
+        // GBP should use T+0 (same business day)
         let gbp_calibrator = DiscountCurveCalibrator::new("GBP-SONIA", base_date, Currency::GBP);
-        let gbp_settlement = gbp_calibrator.settlement_date();
+        let gbp_settlement = gbp_calibrator.settlement_date().expect("Settlement should succeed");
         assert_eq!(gbp_settlement, base_date, "GBP should settle T+0");
 
-        // Explicit override
+        // Explicit override: T+1
         let custom_calibrator = DiscountCurveCalibrator::new("CUSTOM", base_date, Currency::USD)
             .with_settlement_days(1);
-        let custom_settlement = custom_calibrator.settlement_date();
+        let custom_settlement = custom_calibrator
+            .settlement_date()
+            .expect("Settlement should succeed");
         assert_eq!(
             custom_settlement,
-            base_date + time::Duration::days(1),
-            "Custom settlement should override currency default"
+            Date::from_calendar_date(2025, Month::January, 16).expect("Valid date"),
+            "Custom settlement should override currency default (T+1)"
+        );
+    }
+
+    #[test]
+    fn test_calibrator_settlement_date_over_weekend() {
+        // Friday, January 17, 2025
+        let base_date =
+            Date::from_calendar_date(2025, Month::January, 17).expect("Valid test date");
+
+        // USD T+2 from Friday should skip weekend AND MLK Day (Jan 20):
+        // Fri Jan 17 + 2 business days = Wed Jan 22 (skipping Sat 18, Sun 19, MLK Day Mon 20)
+        let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
+        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
+        assert_eq!(
+            usd_settlement,
+            Date::from_calendar_date(2025, Month::January, 22).expect("Valid date"),
+            "USD T+2 from Friday should land on Wednesday (skipping weekend and MLK Day)"
+        );
+    }
+
+    #[test]
+    fn test_calibrator_settlement_date_over_holiday() {
+        // Monday, December 23, 2024 - before Christmas
+        let base_date =
+            Date::from_calendar_date(2024, Month::December, 23).expect("Valid test date");
+
+        // USD T+2 from Dec 23 should skip Christmas (Dec 25) and land on Dec 27 (Friday)
+        // Dec 23 (Mon) + 2 business days = Dec 24 (Tue), Dec 26 (Thu) [skip Dec 25 holiday]
+        // Actually: Dec 23 + 1 = Dec 24 (business day), Dec 24 + 1 = Dec 26 (skip Dec 25)
+        let usd_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
+        let usd_settlement = usd_calibrator.settlement_date().expect("Settlement should succeed");
+
+        // Expected: Dec 23 + 2 business days = Dec 26 (skipping Dec 25 Christmas)
+        assert_eq!(
+            usd_settlement,
+            Date::from_calendar_date(2024, Month::December, 26).expect("Valid date"),
+            "USD T+2 from Dec 23 should skip Christmas and land on Dec 26"
         );
     }
 

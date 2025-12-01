@@ -648,3 +648,32 @@ pub fn standard_day_count_for_currency(currency: Currency) -> DayCount {
         _ => DayCount::Act360,
     }
 }
+
+/// Get the default settlement calendar ID for a currency.
+///
+/// Market-standard settlement calendars used for spot/settlement date calculation:
+/// - USD: "usny" (US Federal Reserve / New York)
+/// - EUR: "target2" (TARGET2 / ECB / SEPA)
+/// - GBP: "gblo" (London Stock Exchange / UK Bank Holidays)
+/// - JPY: "jpto" (Tokyo Stock Exchange / Japan)
+/// - CHF: "chzu" (Zurich / Switzerland)
+/// - AUD: "ausy" (Sydney / Australia)
+/// - CAD: "cato" (Toronto / Canada)
+/// - Others: "usny" (default to US calendar)
+///
+/// These IDs correspond to calendars in the `CalendarRegistry`.
+pub fn default_calendar_for_currency(currency: Currency) -> &'static str {
+    match currency {
+        Currency::USD => "usny",
+        Currency::EUR => "target2",
+        Currency::GBP => "gblo",
+        Currency::JPY => "jpto",
+        Currency::CHF => "chzu",
+        Currency::AUD => "ausy",
+        Currency::CAD => "cato",
+        Currency::NZD => "nzau", // Auckland/Wellington
+        Currency::HKD => "hkex",
+        Currency::SGD => "sgex",
+        _ => "usny", // Default to US calendar for unlisted currencies
+    }
+}

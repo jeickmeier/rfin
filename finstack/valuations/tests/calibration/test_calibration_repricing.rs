@@ -179,7 +179,9 @@ fn test_discount_curve_swap_repricing() {
 
 #[test]
 fn test_discount_curve_deposit_repricing() {
-    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    // Use a business day as base_date (Thursday, January 2, 2025)
+    // to avoid holiday adjustment complications
+    let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
 
     let config = CalibrationConfig {
         tolerance: 1e-12,
