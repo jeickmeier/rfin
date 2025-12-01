@@ -542,7 +542,12 @@ impl HazardCurveCalibrator {
             }
         })?;
 
-        let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
+        let report = CalibrationReport::for_type_with_tolerance(
+            "hazard_curve",
+            residuals,
+            total_iterations,
+            self.config.tolerance,
+        )
             .with_metadata("entity", self.entity.clone())
             .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
             .with_metadata("convention", format!("{:?}", self.convention))
@@ -777,6 +782,8 @@ mod tests {
             currency: Currency::USD,
         }];
 
+        // Use relaxed tolerance for upfront CDS calibration (complex pricing model)
+        let config = crate::calibration::CalibrationConfig::default().with_tolerance(1e-4);
         let calibrator = HazardCurveCalibrator::new(
             "DISTRESSED",
             Seniority::Senior,
@@ -784,14 +791,15 @@ mod tests {
             base_date,
             Currency::USD,
             "USD-OIS",
-        );
+        )
+        .with_config(config);
         let market_context = MarketContext::new().insert_discount(disc);
         let result = calibrator.calibrate(&upfront_quote, &market_context);
 
         // Should succeed and handle upfront quote properly
         assert!(result.is_ok());
         let (_curve, report) = result.expect("Hazard curve calibration should succeed in test");
-        assert!(report.success);
+        assert!(report.success, "Calibration failed: {}", report.convergence_reason);
 
         // Check that residual key indicates upfront quote
         let upfront_residual_key = format!("CDS-UPFRONT-{}", base_date + time::Duration::days(365));

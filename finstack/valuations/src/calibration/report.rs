@@ -128,7 +128,110 @@ impl CalibrationReport {
         self.solver_config = config;
     }
 
+    /// Create a calibration report for a specific calibration type with tolerance checking.
+    ///
+    /// This method properly determines success/failure based on:
+    /// - Whether any residuals contain PENALTY values (indicating hard failures)
+    /// - Whether max_residual exceeds the configured tolerance
+    ///
+    /// # Arguments
+    /// * `calibration_type` - Type identifier for the calibration (e.g., "yield_curve")
+    /// * `residuals` - Map of instrument labels to their calibration residuals
+    /// * `iterations` - Number of solver iterations performed
+    /// * `tolerance` - Configured tolerance threshold for success determination
+    ///
+    /// # Example
+    /// ```ignore
+    /// let report = CalibrationReport::for_type_with_tolerance(
+    ///     "yield_curve",
+    ///     residuals,
+    ///     iterations,
+    ///     config.tolerance,
+    /// );
+    /// if !report.success {
+    ///     return Err(Error::Calibration { ... });
+    /// }
+    /// ```
+    pub fn for_type_with_tolerance(
+        calibration_type: impl Into<String>,
+        residuals: BTreeMap<String, f64>,
+        iterations: usize,
+        tolerance: f64,
+    ) -> Self {
+        let type_str = calibration_type.into();
+        let penalty = crate::calibration::PENALTY;
+
+        // Check for PENALTY values indicating hard failures
+        let has_penalty = residuals
+            .values()
+            .any(|r| !r.is_finite() || r.abs() >= penalty * 0.5);
+
+        // Filter out penalty values for max_residual calculation (same logic as Self::new)
+        let finite_vals: Vec<f64> = residuals
+            .values()
+            .copied()
+            .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
+            .collect();
+
+        let max_residual = if finite_vals.is_empty() {
+            residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
+        } else {
+            finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
+        };
+
+        // Determine success and convergence reason
+        let (success, convergence_reason) = if has_penalty {
+            let penalty_instruments: Vec<&String> = residuals
+                .iter()
+                .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty * 0.5)
+                .map(|(k, _)| k)
+                .collect();
+            (
+                false,
+                format!(
+                    "{} calibration failed: penalty values detected for instruments: {:?}",
+                    type_str.replace('_', " "),
+                    penalty_instruments
+                ),
+            )
+        } else if max_residual > tolerance {
+            (
+                false,
+                format!(
+                    "{} calibration failed: max_residual ({:.2e}) exceeds tolerance ({:.2e})",
+                    type_str.replace('_', " "),
+                    max_residual,
+                    tolerance
+                ),
+            )
+        } else {
+            (
+                true,
+                format!(
+                    "{} calibration converged: max_residual ({:.2e}) within tolerance ({:.2e})",
+                    type_str.replace('_', " "),
+                    max_residual,
+                    tolerance
+                ),
+            )
+        };
+
+        Self::new(residuals, iterations, success, convergence_reason)
+            .with_metadata("type", type_str)
+            .with_metadata("tolerance", format!("{:.2e}", tolerance))
+    }
+
     /// Create a calibration report for a specific calibration type.
+    ///
+    /// **Deprecated**: Use [`for_type_with_tolerance`](Self::for_type_with_tolerance) instead
+    /// to properly detect calibration failures based on tolerance thresholds.
+    ///
+    /// This method unconditionally marks calibration as successful. For production
+    /// systems that need to gate on calibration quality, use `for_type_with_tolerance`.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use for_type_with_tolerance for proper failure detection"
+    )]
     pub fn for_type(
         calibration_type: impl Into<String>,
         residuals: BTreeMap<String, f64>,
@@ -158,5 +261,146 @@ impl Default for CalibrationReport {
             results_meta,
             explanation: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_for_type_with_tolerance_success() {
+        // All residuals within tolerance
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+        residuals.insert("quote_2Y".to_string(), 5e-11);
+        residuals.insert("quote_5Y".to_string(), 2e-10);
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+
+        assert!(report.success, "Should succeed when all residuals within tolerance");
+        assert!(
+            report.convergence_reason.contains("converged"),
+            "Reason should indicate convergence: {}",
+            report.convergence_reason
+        );
+        assert!(report.max_residual < 1e-8, "Max residual should be computed correctly");
+    }
+
+    #[test]
+    fn test_for_type_with_tolerance_fails_exceeds_tolerance() {
+        // One residual exceeds tolerance
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+        residuals.insert("quote_2Y".to_string(), 1e-6); // Exceeds 1e-8 tolerance
+        residuals.insert("quote_5Y".to_string(), 2e-10);
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+
+        assert!(!report.success, "Should fail when residual exceeds tolerance");
+        assert!(
+            report.convergence_reason.contains("failed"),
+            "Reason should indicate failure: {}",
+            report.convergence_reason
+        );
+        assert!(
+            report.convergence_reason.contains("exceeds tolerance"),
+            "Reason should explain the tolerance breach: {}",
+            report.convergence_reason
+        );
+    }
+
+    #[test]
+    fn test_for_type_with_tolerance_fails_penalty_values() {
+        // One residual contains PENALTY value indicating solver failure
+        let penalty = crate::calibration::PENALTY;
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+        residuals.insert("quote_2Y_failed".to_string(), penalty); // PENALTY value
+        residuals.insert("quote_5Y".to_string(), 2e-10);
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+
+        assert!(!report.success, "Should fail when PENALTY value present");
+        assert!(
+            report.convergence_reason.contains("failed"),
+            "Reason should indicate failure: {}",
+            report.convergence_reason
+        );
+        assert!(
+            report.convergence_reason.contains("penalty"),
+            "Reason should mention penalty values: {}",
+            report.convergence_reason
+        );
+        assert!(
+            report.convergence_reason.contains("quote_2Y_failed"),
+            "Reason should identify the failing instrument: {}",
+            report.convergence_reason
+        );
+    }
+
+    #[test]
+    fn test_for_type_with_tolerance_fails_non_finite() {
+        // Non-finite residual (infinity)
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+        residuals.insert("quote_2Y_inf".to_string(), f64::INFINITY);
+        residuals.insert("quote_5Y".to_string(), 2e-10);
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+
+        assert!(!report.success, "Should fail when infinity present");
+        assert!(
+            report.convergence_reason.contains("penalty"),
+            "Non-finite values should be treated as penalty failures: {}",
+            report.convergence_reason
+        );
+    }
+
+    #[test]
+    fn test_for_type_with_tolerance_serialization() {
+        let mut residuals = BTreeMap::new();
+        residuals.insert("quote_1Y".to_string(), 1e-10);
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 10, 1e-8);
+
+        // Test JSON round-trip
+        let json = serde_json::to_string(&report).expect("Serialization should succeed");
+        let deserialized: CalibrationReport =
+            serde_json::from_str(&json).expect("Deserialization should succeed");
+
+        assert_eq!(report.success, deserialized.success);
+        assert_eq!(report.convergence_reason, deserialized.convergence_reason);
+        assert_eq!(
+            report.metadata.get("tolerance"),
+            deserialized.metadata.get("tolerance")
+        );
+    }
+
+    #[test]
+    fn test_for_type_with_tolerance_metadata_includes_tolerance() {
+        let residuals = BTreeMap::new();
+        let tolerance = 1e-8;
+
+        let report =
+            CalibrationReport::for_type_with_tolerance("yield_curve", residuals, 0, tolerance);
+
+        assert!(
+            report.metadata.contains_key("tolerance"),
+            "Metadata should include tolerance"
+        );
+        assert!(
+            report.metadata.contains_key("type"),
+            "Metadata should include type"
+        );
+        assert_eq!(
+            report.metadata.get("type"),
+            Some(&"yield_curve".to_string())
+        );
     }
 }

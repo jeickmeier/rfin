@@ -20,10 +20,12 @@ fn main() {
     println!("   RMSE: {:.6}", report1.rmse);
     println!("   Reason: {}\n", report1.convergence_reason);
 
-    // Example 2: Type-specific calibration report
-    let report2 = CalibrationReport::for_type("yield_curve", residuals.clone(), 20)
-        .with_metadata("currency", "USD")
-        .with_metadata("curve_id", "USD-OIS");
+    // Example 2: Type-specific calibration report with tolerance checking
+    let tolerance = 1e-8; // 1bp tolerance for yield curve calibration
+    let report2 =
+        CalibrationReport::for_type_with_tolerance("yield_curve", residuals.clone(), 20, tolerance)
+            .with_metadata("currency", "USD")
+            .with_metadata("curve_id", "USD-OIS");
 
     println!("2. Typed Calibration Report:");
     println!("   Success: {}", report2.success);
@@ -50,8 +52,9 @@ fn main() {
     println!("   Reason: {}\n", report4.convergence_reason);
 
     // Example 5: Complex report with metadata batch
-    let report5 = CalibrationReport::for_type("hazard_curve", residuals.clone(), 25)
-        .with_metadata("entity", "AAPL");
+    let report5 =
+        CalibrationReport::for_type_with_tolerance("hazard_curve", residuals.clone(), 25, tolerance)
+            .with_metadata("entity", "AAPL");
 
     println!("5. Complex Report with Metadata:");
     println!("   Success: {}", report5.success);

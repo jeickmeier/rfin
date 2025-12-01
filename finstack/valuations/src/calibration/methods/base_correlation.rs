@@ -404,8 +404,12 @@ impl BaseCorrelationCalibrator {
 
         // Build comprehensive calibration report
         let solver_config = self.build_solver_config();
-        let report =
-            CalibrationReport::for_type("base_correlation", residuals, total_function_evaluations)
+        let report = CalibrationReport::for_type_with_tolerance(
+            "base_correlation",
+            residuals,
+            total_function_evaluations,
+            self.config.tolerance,
+        )
                 .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
                 .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
                 .with_metadata("index_id", self.index_id.clone())
@@ -818,10 +822,11 @@ impl BaseCorrelationSurfaceCalibrator {
             },
         };
 
-        let report = CalibrationReport::for_type(
+        let report = CalibrationReport::for_type_with_tolerance(
             "base_correlation_surface",
             all_residuals,
             total_function_evaluations,
+            self.config.tolerance,
         )
         .with_metadata("calibrated_maturities", calibrated_maturities.join(", "))
         .with_metadata("calibrated_count", curves_by_maturity.len().to_string())

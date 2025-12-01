@@ -122,9 +122,13 @@ impl CalibrationSpec {
             step_reports.insert(step_key, report);
         }
 
-        // Create merged report
-        let merged_report =
-            CalibrationReport::for_type("pipeline", all_residuals, total_iterations);
+        // Create merged report with tolerance check
+        let merged_report = CalibrationReport::for_type_with_tolerance(
+            "pipeline",
+            all_residuals,
+            total_iterations,
+            self.config.tolerance,
+        );
 
         // Create results metadata
         let results_meta =

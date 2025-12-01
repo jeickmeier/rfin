@@ -164,7 +164,12 @@ impl XccyBasisCalibrator {
             .set_interp(InterpStyle::LogLinear)
             .build()?;
 
-        let report = CalibrationReport::for_type("xccy_basis", residuals, total_iterations);
+        let report = CalibrationReport::for_type_with_tolerance(
+            "xccy_basis",
+            residuals,
+            total_iterations,
+            self.config.tolerance,
+        );
 
         Ok((final_curve, report))
     }

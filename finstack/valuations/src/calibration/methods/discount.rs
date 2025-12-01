@@ -672,7 +672,12 @@ impl DiscountCurveCalibrator {
         })?;
 
         // Create calibration report with comprehensive metadata
-        let mut report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
+        let mut report = CalibrationReport::for_type_with_tolerance(
+            "yield_curve",
+            residuals,
+            total_iterations,
+            self.config.tolerance,
+        )
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
             .with_metadata("currency", self.currency.to_string())

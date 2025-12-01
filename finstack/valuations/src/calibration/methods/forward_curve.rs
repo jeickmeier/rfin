@@ -613,7 +613,12 @@ impl ForwardCurveCalibrator {
         }
 
         // Build calibration report
-        let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
+        let report = CalibrationReport::for_type_with_tolerance(
+            "forward_curve",
+            residuals,
+            total_iterations,
+            self.config.tolerance,
+        )
             .with_metadata("curve_id", self.fwd_curve_id.to_string())
             .with_metadata("tenor_years", self.tenor_years.to_string())
             .with_metadata("interp", format!("{:?}", self.solve_interp))
