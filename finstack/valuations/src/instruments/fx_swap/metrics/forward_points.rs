@@ -49,7 +49,9 @@ impl MetricCalculator for ForwardPoints {
         };
 
         // Resolve far forward rate from curves when not provided
-        // Covered interest parity: F = S × DF_for / DF_dom
+        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near)
+        // When r_dom > r_for, forward is at premium (F > S) as required by no-arbitrage.
+        // Derivation: F = S × (1 + r_dom × T) / (1 + r_for × T) = S × DF_for / DF_dom
         let far_rate = match fx_swap.far_rate {
             Some(rate) => rate,
             None => {

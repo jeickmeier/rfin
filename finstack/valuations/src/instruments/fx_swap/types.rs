@@ -279,7 +279,9 @@ impl FxSwap {
         };
 
         // Calculate model forward only if far leg is active or needed.
-        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near).
+        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near)
+        // When r_dom > r_for, forward is at premium (F > S) as required by no-arbitrage.
+        // Derivation: F = S × (1 + r_dom × T) / (1 + r_for × T) = S × DF_for / DF_dom
         let dom_ratio = if df_dom_near.abs() > 1e-12 {
             df_dom_far / df_dom_near
         } else {
