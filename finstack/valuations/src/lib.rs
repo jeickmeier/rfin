@@ -119,10 +119,6 @@
 //! ## Calibration
 //!
 //! ```rust,ignore
-//! // Note: SimpleCalibration API may have changed - see calibration module docs
-//! // use finstack_valuations::calibration::{
-//! //     SimpleCalibration, MarketQuote, RatesQuote, CalibrationConfig
-//! // };
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
 //! use time::Month;
@@ -130,13 +126,10 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let base_date = create_date(2025, Month::January, 15)?;
 //!
-//! // Create calibration builder
-//! let mut calibration = SimpleCalibration::new(base_date, Currency::USD);
-//!
-//! // Calibration would use market quotes with correct RatesQuote structure
-//! // (See calibration module documentation for full examples)
-//!
-//! // Example: let (market_context, report) = calibration.calibrate(...)?;
+//! // Build a CalibrationSpec pipeline (JSON-serializable) and execute it.
+//! // See calibration::spec for full examples.
+//! // let spec = CalibrationSpec { base_date, base_currency: Currency::USD, .. };
+//! // let (market_context, report) = spec.execute(None)?;
 //! # Ok(())
 //! # }
 //! ```

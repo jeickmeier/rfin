@@ -304,14 +304,20 @@ pub fn generate_cashflows(
                 // Use centralized projection with total margin (base + step-ups + overrides)
                 let total_spread = margin_bp_at(loan, d);
                 if let Some(fwd) = fwd_curve {
-                    crate::cashflow::builder::project_floating_rate_simple_with_curve(
+                    let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
+                        spread_bp: total_spread,
+                        gearing: spec.gearing,
+                        gearing_includes_spread: spec.gearing_includes_spread,
+                        index_floor_bp: spec.floor_bp,
+                        index_cap_bp: spec.index_cap_bp,
+                        all_in_floor_bp: spec.all_in_floor_bp,
+                        all_in_cap_bp: spec.cap_bp,
+                    };
+                    crate::cashflow::builder::rate_helpers::project_floating_rate_detailed(
                         prev,
-                        yf,
-                        total_spread,
-                        spec.gearing,
-                        spec.floor_bp,
-                        spec.cap_bp,
+                        d,
                         fwd,
+                        &params,
                     )?
                 } else {
                     unreachable!("Forward curve resolved before loop for floating rate");

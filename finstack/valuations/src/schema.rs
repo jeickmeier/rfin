@@ -1,94 +1,44 @@
-//! JSON-Schema generation for Finstack types.
+//! JSON-Schema helpers for Finstack types.
 //!
-//! Provides schema getters for validation in pipelines, UI forms, and API contracts.
-//!
-//! **Note**: This module currently provides stub implementations.
-//! Full schema generation with `schemars` derives will be added in a future release.
+//! Schemas are generated from the crate's serde-friendly types and checked in
+//! under `schemas/`. These helpers expose them as `serde_json::Value` for use
+//! in validation, UI forms, and contract generation.
 
 use serde_json::Value;
 
+macro_rules! include_schema {
+    ($path:literal) => {
+        serde_json::from_str(include_str!($path))
+            .expect(concat!("invalid schema JSON at ", $path))
+    };
+}
+
 /// Get JSON-Schema for Bond configuration.
 ///
-/// Returns a JSON-Schema Draft 7 schema that describes the Bond struct.
-/// Useful for validation in pipelines or schema-driven UI forms.
-///
-/// **Note**: Currently returns a stub. Full schema generation coming soon.
+/// Sourced from the generated instrument schemas under `schemas/instruments/1/`.
 pub fn bond_schema() -> Value {
-    serde_json::json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Bond",
-        "description": "Fixed-rate or floating-rate bond instrument",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "notional": { "type": "number" },
-            "currency": { "type": "string" }
-        },
-        "required": ["id", "notional", "currency"],
-        "note": "Full schema generation requires JsonSchema derives - coming in future release"
-    })
+    include_schema!("../schemas/instruments/1/bond.schema.json")
 }
 
 /// Get JSON-Schema for CalibrationConfig.
 ///
 /// Returns schema for calibration configuration options.
-///
-/// **Note**: Currently returns a stub. Full schema generation coming soon.
 pub fn calibration_config_schema() -> Value {
-    serde_json::json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "CalibrationConfig",
-        "description": "Configuration for calibration processes",
-        "type": "object",
-        "properties": {
-            "mode": { "type": "string" },
-            "tolerance": { "type": "number" }
-        },
-        "required": ["mode"],
-        "note": "Full schema generation requires JsonSchema derives - coming in future release"
-    })
+    include_schema!("../schemas/calibration/1/config.schema.json")
 }
 
 /// Get JSON-Schema for ValuationResult.
 ///
-/// Returns schema for valuation result envelope.
-///
-/// **Note**: Currently returns a stub. Full schema generation coming soon.
+/// Returns schema for valuation result envelope (PV + metrics).
 pub fn valuation_result_schema() -> Value {
-    serde_json::json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "ValuationResult",
-        "description": "Valuation result with PV and metrics",
-        "type": "object",
-        "properties": {
-            "pv": { "type": "number" },
-            "currency": { "type": "string" },
-            "measures": { "type": "object", "additionalProperties": { "type": "number" } }
-        },
-        "required": ["pv", "currency"],
-        "note": "Full schema generation requires JsonSchema derives - coming in future release"
-    })
+    include_schema!("../schemas/results/1/valuation_result.schema.json")
 }
 
 /// Get JSON-Schema for CalibrationReport.
 ///
 /// Returns schema for calibration diagnostic report.
-///
-/// **Note**: Currently returns a stub. Full schema generation coming soon.
 pub fn calibration_report_schema() -> Value {
-    serde_json::json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "CalibrationReport",
-        "description": "Calibration diagnostic report",
-        "type": "object",
-        "properties": {
-            "status": { "type": "string" },
-            "iterations": { "type": "integer" },
-            "messages": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["status"],
-        "note": "Full schema generation requires JsonSchema derives - coming in future release"
-    })
+    include_schema!("../schemas/calibration/1/calibration_result.schema.json")
 }
 
 #[cfg(test)]

@@ -141,7 +141,7 @@ use finstack_core::Result;
 ///
 /// - [`CalibrationReport`] for diagnostic output structure
 /// - [`CalibrationConfig`](super::CalibrationConfig) for solver settings
-/// - [`SimpleCalibration`](super::SimpleCalibration) for end-to-end calibration
+/// - [`CalibrationSpec`](super::spec::CalibrationSpec) for end-to-end calibration pipelines
 pub trait Calibrator<Input, Output> {
     /// Calibrate the target structure to match market quotes.
     ///

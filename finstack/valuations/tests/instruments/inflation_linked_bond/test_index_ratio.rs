@@ -389,9 +389,9 @@ fn test_index_ratio_time_series() {
     ilb.lag = InflationLag::Months(3);
 
     // Build a time series with steady 0.5% monthly inflation
+    // Extend to 18 months (Jan 2024 to June 2025) to cover lagged query dates
     let mut observations = Vec::new();
-    for i in 0..12 {
-        let _date = d(2024, 12, 1);
+    for i in 0..18 {
         let month_date = d(2024, 1, 1).add_months(i);
         let value = 300.0 * (1.005_f64).powi(i);
         observations.push((month_date, value));
@@ -405,6 +405,8 @@ fn test_index_ratio_time_series() {
     .with_interpolation(InflationInterpolation::Linear);
 
     // Act - calculate ratios over time
+    // April 2025 with 3mo lag → Jan 2025 (i=12)
+    // Sept 2025 with 3mo lag → June 2025 (i=17)
     let ratio_1m = ilb.index_ratio(d(2025, 4, 1), &index).unwrap();
     let ratio_6m = ilb.index_ratio(d(2025, 9, 1), &index).unwrap();
 

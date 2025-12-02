@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ValuationResult",
+  "description": "Valuation result envelope with PV, metrics, metadata, covenants, and optional explanation trace.",
+  "type": "object",
+  "properties": {
+    "instrument_id": { "type": "string" },
+    "as_of": { "type": "string", "format": "date" },
+    "value": {
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "currency": { "type": "string" }
+      },
+      "required": ["amount", "currency"],
+      "additionalProperties": false
+    },
+    "measures": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "meta": { "type": "object" },
+    "covenants": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "explanation": { "type": "object" }
+  },
+  "required": ["instrument_id", "as_of", "value"],
+  "additionalProperties": false
+}

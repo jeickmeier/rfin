@@ -327,117 +327,56 @@ impl InterestRateSwap {
         fwd: &finstack_core::market_data::term_structures::forward_curve::ForwardCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        // Build a simple schedule of reset/payment dates for the floating leg.
-        //
-        // We do not rely on the cashflow builder here because that path requires
-        // a `MarketContext` for projecting forwards up-front, which would double‐count
-        // forward application relative to this pricer. Instead we mirror the
-        // forward-based par rate logic: project period forwards from the
-        // forward curve and discount each coupon from `as_of`.
-        let sched = crate::cashflow::builder::build_dates(
-            self.float.start,
-            self.float.end,
-            self.float.freq,
-            self.float.stub,
-            self.float.bdc,
-            self.float.calendar_id.as_deref(),
-        );
-        let dates: Vec<Date> = sched.dates;
-        if dates.len() < 2 {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
+        // Build the floating-leg schedule via the shared cashflow builder so reset
+        // lags, calendars, and stub handling stay centralized.
+        let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
 
-        // Use forward curve's day count and base date for rate projection (ISDA standard)
-        let fwd_dc = fwd.day_count();
-        let fwd_base = fwd.base_date();
+        // IRS legs here do not expose caps/floors; keep parameters centralized.
+        let rate_params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
+            spread_bp: self.float.spread_bp,
+            gearing: 1.0,
+            gearing_includes_spread: true,
+            index_floor_bp: None,
+            index_cap_bp: None,
+            all_in_floor_bp: None,
+            all_in_cap_bp: None,
+        };
 
-        // Resolve the fixing calendar: use fixing_calendar_id if specified, else payment calendar
-        let fixing_calendar_id = self
-            .float
-            .fixing_calendar_id
-            .clone()
-            .or_else(|| self.float.calendar_id.clone());
+        let mut terms = Vec::with_capacity(schedule.flows.len());
+        let mut accrual_start = self.float.start;
 
-        // Collect discounted flows for Kahan summation
-        let mut terms = Vec::with_capacity(dates.len());
+        for cf in schedule.flows.iter().filter(|cf| {
+            cf.kind == crate::cashflow::primitives::CFKind::FloatReset
+        }) {
+            let accrual_end = cf.date;
 
-        // Iterate over accrual periods [prev, d], matching standard IRS conventions.
-        for (idx, &d) in dates.iter().enumerate().skip(1) {
-            // Only include future cashflows
-            if d <= as_of {
+            // Skip settled cashflows
+            if accrual_end <= as_of {
+                accrual_start = accrual_end;
                 continue;
             }
 
-            // Determine accrual period start: first coupon uses leg start, others use prior coupon date
-            let accrual_start = if idx == 1 {
-                self.float.start
-            } else {
-                dates[idx - 1]
-            };
-            let accrual_end = d;
+            let reset_date = cf.reset_date.unwrap_or(accrual_start);
 
-            // Compute reset (fixing) date: T - reset_lag_days, adjusted for fixing calendar
-            // Per ISDA 2006 Section 4.2, the fixing date is typically 2 business days
-            // before the accrual start date for most indices
-            let reset_date = compute_reset_date(
-                accrual_start,
-                self.float.reset_lag_days,
-                self.float.bdc,
-                &fixing_calendar_id,
-            )?;
-
-            // Validate: reset date must not be after accrual start (would be non-standard)
-            debug_assert!(
-                reset_date <= accrual_start,
-                "Reset date {} should not be after accrual start {}",
-                reset_date,
-                accrual_start
-            );
-
-            // Times to period boundaries measured from forward curve base date
-            // using the forward curve's day count convention.
-            // For dates before the base date, clamp to t = 0.0
-            let t1 = if reset_date <= fwd_base {
-                0.0
-            } else {
-                fwd_dc.year_fraction(
-                    fwd_base,
+            let forward_rate =
+                crate::cashflow::builder::rate_helpers::project_floating_rate_detailed(
                     reset_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?
-            };
-            let t2 = if accrual_end <= fwd_base {
-                0.0
-            } else {
-                fwd_dc.year_fraction(
-                    fwd_base,
                     accrual_end,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?
-            };
+                    fwd,
+                    &rate_params,
+                )?;
 
-            // Accrual factor for the coupon period uses floating leg day count
-            let yf = self.float.dc.year_fraction(
-                accrual_start,
-                accrual_end,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-
-            // Only call rate_period if t1 < t2 to avoid date ordering errors
-            let f = if t2 > t1 {
-                fwd.rate_period(t1, t2)
-            } else {
-                0.0
-            };
-            let rate = f + (self.float.spread_bp * BP_TO_DECIMAL);
-            let coupon_amount = self.notional.amount() * rate * yf;
+            // Use the builder's accrual factor (floating leg day count + stub rules).
+            let yf = cf.accrual_factor;
+            let coupon_amount = self.notional.amount() * forward_rate * yf;
 
             // Discount from as_of for correct theta
             let df = relative_df(disc, as_of, accrual_end)?;
             terms.push(coupon_amount * df);
+
+            accrual_start = accrual_end;
         }
 
-        // Use Kahan compensated summation for numerical stability
         let total = kahan_sum(terms);
         Ok(Money::new(total, self.notional.currency()))
     }
