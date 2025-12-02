@@ -37,27 +37,32 @@ impl MetricCalculator for YtwCalculator {
                 if c.date < as_of || c.date > loan.maturity {
                     continue;
                 }
-                let mut outstanding_at = Money::new(0.0, loan.currency);
+                // Get outstanding BEFORE the call date (use < not <= because
+                // outstanding_by_date_including_notional returns outstanding AFTER each date)
+                let mut outstanding_before = Money::new(0.0, loan.currency);
                 for (d, amt) in &out_path {
-                    if *d <= c.date {
-                        outstanding_at = *amt;
+                    if *d < c.date {
+                        outstanding_before = *amt;
                     } else {
                         break;
                     }
                 }
                 let redemption = Money::new(
-                    outstanding_at.amount() * (c.price_pct_of_par / 100.0),
+                    outstanding_before.amount() * (c.price_pct_of_par / 100.0),
                     loan.currency,
                 );
                 candidates.push((c.date, redemption));
             }
         }
 
-        // Always include maturity redemption of remaining outstanding
+        // Always include maturity: get outstanding BEFORE maturity
+        // (at maturity itself, outstanding is 0 after the final redemption)
         let mut final_out = Money::new(0.0, loan.currency);
         for (d, amt) in &out_path {
-            if *d <= loan.maturity {
+            if *d < loan.maturity {
                 final_out = *amt;
+            } else {
+                break;
             }
         }
         candidates.push((loan.maturity, final_out));

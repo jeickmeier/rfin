@@ -79,6 +79,24 @@ struct BuildState {
     outstanding: f64,
 }
 
+/// Principal event applied during schedule build (draws/repays).
+///
+/// `delta` adjusts outstanding (positive increases, negative decreases).
+/// `cash` represents the cash leg (e.g., net of OID/fees). If `delta` differs
+/// from `cash`, the difference is interpreted as non-cash adjustments.
+/// `kind` classifies the cashflow (Notional/Amortization/etc.).
+#[derive(Debug, Clone)]
+pub struct PrincipalEvent {
+    /// Event date
+    pub date: Date,
+    /// Outstanding delta (positive = increases balance, negative = repays)
+    pub delta: Money,
+    /// Cash leg paid/received (may differ from delta for OID/fees)
+    pub cash: Money,
+    /// Classification for emitted cashflow
+    pub kind: CFKind,
+}
+
 #[derive(Debug, Clone)]
 struct AmortizationSetup {
     amort_dates: hashbrown::HashSet<Date>,
@@ -96,6 +114,7 @@ struct BuildContext<'a> {
     float_schedules: &'a [FloatSchedule],
     periodic_fees: &'a [PeriodicFee],
     fixed_fees: &'a [(Date, Money)],
+    principal_events: &'a [PrincipalEvent],
 }
 
 fn validate_core_inputs(b: &CashflowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
@@ -199,28 +218,63 @@ fn derive_amortization_setup(
     })
 }
 
-fn initialize_build_state(issue: Date, notional: &Notional, estimated_dates: usize) -> BuildState {
+fn initialize_build_state(
+    issue: Date,
+    notional: &Notional,
+    estimated_dates: usize,
+    principal_events: &[PrincipalEvent],
+) -> BuildState {
     // Pre-allocate flows: estimate 2-3 flows per date (coupon + potential amort + fee)
     let estimated_flows = estimated_dates * 3;
     let mut flows: Vec<CashFlow> = Vec::with_capacity(estimated_flows);
-    flows.push(CashFlow {
-        date: issue,
-        reset_date: None,
-        amount: notional.initial * -1.0,
-        kind: CFKind::Notional,
-        accrual_factor: 0.0,
-        rate: None,
-    });
+
+    // Only emit initial notional flow if non-zero
+    if notional.initial.amount() != 0.0 {
+        flows.push(CashFlow {
+            date: issue,
+            reset_date: None,
+            amount: notional.initial * -1.0,
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        });
+    }
+
+    // Start with initial notional amount
+    let mut outstanding = notional.initial.amount();
+
+    // Process principal events at or before issue date to set up initial outstanding.
+    // This is critical when initial notional is 0 and principal events define the draws.
+    for ev in principal_events.iter().filter(|ev| ev.date <= issue) {
+        if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
+            // Sign convention depends on flow kind:
+            // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow from lender)
+            // - Amortization: cash is repayment, flow is positive (inflow to lender)
+            let flow_amount = match ev.kind {
+                CFKind::Amortization => ev.cash.amount(),
+                _ => -ev.cash.amount(),
+            };
+            flows.push(CashFlow {
+                date: ev.date,
+                reset_date: None,
+                amount: Money::new(flow_amount, ev.cash.currency()),
+                kind: ev.kind,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+            outstanding += ev.delta.amount();
+        }
+    }
 
     // Pre-allocate outstanding_after based on number of dates
     let mut outstanding_after: hashbrown::HashMap<Date, f64> =
         hashbrown::HashMap::with_capacity(estimated_dates);
-    outstanding_after.insert(issue, notional.initial.amount());
+    outstanding_after.insert(issue, outstanding);
 
     BuildState {
         flows,
         outstanding_after,
-        outstanding: notional.initial.amount(),
+        outstanding,
     }
 }
 
@@ -232,10 +286,11 @@ fn collect_all_dates(
     periodic_fees: &[PeriodicFee],
     fixed_fees: &[(Date, Money)],
     notional: &Notional,
+    principal_events: &[PrincipalEvent],
 ) -> finstack_core::Result<Vec<Date>> {
     let periodic_date_slices: Vec<&[Date]> =
         periodic_fees.iter().map(|pf| pf.dates.as_slice()).collect();
-    let dates: Vec<Date> = collect_dates(
+    let mut dates: Vec<Date> = collect_dates(
         issue,
         maturity,
         fixed_schedules,
@@ -244,6 +299,12 @@ fn collect_all_dates(
         fixed_fees,
         notional,
     );
+    for ev in principal_events {
+        dates.push(ev.date);
+    }
+    // Re-sort and deduplicate after adding principal event dates
+    dates.sort_unstable();
+    dates.dedup();
     if dates.len() < 2 {
         return Err(InputError::TooFewPoints.into());
     }
@@ -311,6 +372,30 @@ fn process_one_date(
     )?;
     state.flows.append(&mut fee_flows);
 
+    // Principal events (custom draws/repays)
+    // Note: Events at or before issue date are processed in initialize_build_state,
+    // and we skip(1) in the fold, so d is always > issue and no double-processing occurs.
+    for ev in ctx.principal_events.iter().filter(|ev| ev.date == d) {
+        if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
+            // Sign convention depends on flow kind:
+            // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow from lender)
+            // - Amortization: cash is repayment, flow is positive (inflow to lender)
+            let flow_amount = match ev.kind {
+                CFKind::Amortization => ev.cash.amount(),
+                _ => -ev.cash.amount(),
+            };
+            state.flows.push(CashFlow {
+                date: d,
+                reset_date: None,
+                amount: Money::new(flow_amount, ev.cash.currency()),
+                kind: ev.kind,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+            state.outstanding += ev.delta.amount();
+        }
+    }
+
     // Redemption at maturity
     if d == ctx.maturity && state.outstanding > 0.0 {
         state.flows.push(CashFlow {
@@ -344,6 +429,7 @@ pub struct CashflowBuilder {
     issue: Option<Date>,
     maturity: Option<Date>,
     fees: SmallVec<[FeeSpec; 4]>,
+    principal_events: Vec<PrincipalEvent>,
     // Segmented programs (optional): coupon program and payment/PIK program
     pub(super) coupon_program: Vec<CouponProgramPiece>,
     pub(super) payment_program: Vec<PaymentProgramPiece>,
@@ -522,6 +608,40 @@ impl CashflowBuilder {
     /// Adds a fee specification.
     pub fn fee(&mut self, spec: FeeSpec) -> &mut Self {
         self.fees.push(spec);
+        self
+    }
+
+    /// Adds custom principal events (draws/repays) that adjust outstanding balance.
+    ///
+    /// `delta` increases outstanding when positive and decreases when negative.
+    /// `cash` is the actual cash leg (e.g., net of OID); if omitted, cash = delta.
+    pub fn principal_events(&mut self, events: &[PrincipalEvent]) -> &mut Self {
+        self.principal_events
+            .extend(events.iter().cloned().map(|mut ev| {
+                if ev.cash.currency() != ev.delta.currency() {
+                    // Align currencies conservatively
+                    ev.cash = ev.delta;
+                }
+                ev
+            }));
+        self
+    }
+
+    /// Adds a single principal event.
+    pub fn add_principal_event(
+        &mut self,
+        date: Date,
+        delta: Money,
+        cash: Option<Money>,
+        kind: CFKind,
+    ) -> &mut Self {
+        let cash_leg = cash.unwrap_or(delta);
+        self.principal_events.push(PrincipalEvent {
+            date,
+            delta,
+            cash: cash_leg,
+            kind,
+        });
         self
     }
 
@@ -983,6 +1103,10 @@ impl CashflowBuilder {
             fixed_fees,
         ) = compile_schedules_and_fees(self, issue, maturity, self.schedule_strict)?;
 
+        // 2b) Normalize principal events (sorted)
+        let mut principal_events = self.principal_events.clone();
+        principal_events.sort_by_key(|ev| ev.date);
+
         // 3) Collect all relevant dates
         let dates = collect_all_dates(
             issue,
@@ -992,13 +1116,14 @@ impl CashflowBuilder {
             &periodic_fees,
             &fixed_fees,
             &notional,
+            &principal_events,
         )?;
 
         // 4) Derive amortization setup
         let amort_setup = derive_amortization_setup(&notional, &fixed_schedules, &float_schedules)?;
 
-        // 5) Initialize fold state and build context
-        let mut state = initialize_build_state(issue, &notional, dates.len());
+        // 5) Initialize fold state and build context (processing issue-date principal events)
+        let mut state = initialize_build_state(issue, &notional, dates.len(), &principal_events);
         let ccy = notional.initial.currency();
         let ctx = BuildContext {
             ccy,
@@ -1008,6 +1133,7 @@ impl CashflowBuilder {
             float_schedules: &float_schedules,
             periodic_fees: &periodic_fees,
             fixed_fees: &fixed_fees,
+            principal_events: &principal_events,
         };
 
         // Resolve curves upfront

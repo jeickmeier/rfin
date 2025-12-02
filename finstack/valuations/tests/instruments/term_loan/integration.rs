@@ -73,10 +73,12 @@ fn test_term_loan_yields_with_callability() {
     let ytc = *result.measures.get("ytc").unwrap();
     let ytw = *result.measures.get("ytw").unwrap();
 
+    eprintln!("ytm={ytm}, ytc={ytc}, ytw={ytw}");
+
     // Sanity: yields are finite and positive in this setup
     assert!(ytm.is_finite() && ytm > 0.0);
     assert!(ytc.is_finite() && ytc > 0.0);
-    assert!(ytw.is_finite() && ytw > 0.0);
+    assert!(ytw.is_finite() && ytw > 0.0, "ytw={ytw}");
 
     // YTW must be the min of YTM and YTC (maturity vs first call)
     assert!(ytw <= ytm + 1e-12);
