@@ -158,16 +158,14 @@ impl TrancheCoupon {
                         fwd.day_count(),
                     );
 
-                crate::cashflow::builder::project_floating_rate_with_curve(
-                    date,
-                    period_end,
+                let params = crate::cashflow::builder::FloatingRateParams::with_full(
                     spec.spread_bp,
                     spec.gearing,
                     spec.floor_bp,
                     spec.cap_bp,
-                    fwd,
-                )
-                .unwrap_or(spec.spread_bp / 10_000.0)
+                );
+                crate::cashflow::builder::project_floating_rate(date, period_end, fwd, &params)
+                    .unwrap_or(spec.spread_bp / 10_000.0)
             }
         }
     }

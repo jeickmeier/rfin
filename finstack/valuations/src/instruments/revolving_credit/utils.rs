@@ -118,7 +118,7 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
 
 /// Project floating rate for revolving credit facility using resolved curve.
 ///
-/// Optimized version of `project_floating_rate` that avoids curve lookup.
+/// Optimized version that takes a resolved curve to avoid repeated lookups.
 pub(super) fn project_floating_rate_with_curve(
     reset_date: finstack_core::dates::Date,
     reset_freq: &finstack_core::dates::Frequency,
@@ -130,12 +130,19 @@ pub(super) fn project_floating_rate_with_curve(
     // Compute reset period end using facility calendar
     let reset_end = compute_reset_period_end(reset_date, reset_freq, attrs)?;
 
-    // Delegate to centralized projection (revolving credit doesn't use caps or gearing)
-    crate::cashflow::builder::project_floating_rate_with_curve(
-        reset_date, reset_end, spread_bp, 1.0, // gearing = 1.0
-        floor_bp, None, // revolving credit doesn't use caps
-        fwd,
-    )
+    // Build params (revolving credit doesn't use caps or gearing)
+    let params = crate::cashflow::builder::FloatingRateParams {
+        spread_bp,
+        gearing: 1.0,
+        gearing_includes_spread: true,
+        index_floor_bp: floor_bp,
+        index_cap_bp: None,
+        all_in_floor_bp: None,
+        all_in_cap_bp: None,
+    };
+
+    // Delegate to centralized projection
+    crate::cashflow::builder::project_floating_rate(reset_date, reset_end, fwd, &params)
 }
 
 /// Apply a draw/repay event to current balance with commitment limit validation.

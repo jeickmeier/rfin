@@ -10,6 +10,11 @@
 //! - Support gearing/leverage on rates
 //! - Consistent floor/cap ordering
 //!
+//! ## API
+//!
+//! - [`project_floating_rate`]: Primary function taking a resolved forward curve and params
+//! - [`project_floating_rate_from_market`]: Convenience wrapper that looks up the curve
+//!
 //! ## Formulas
 //!
 //! ### Gearing Includes Spread (Default)
@@ -65,6 +70,61 @@ impl Default for FloatingRateParams {
 }
 
 impl FloatingRateParams {
+    /// Create params with just spread (most common case).
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_valuations::cashflow::builder::rate_helpers::FloatingRateParams;
+    ///
+    /// let params = FloatingRateParams::with_spread(200.0); // 200 bps spread
+    /// assert_eq!(params.spread_bp, 200.0);
+    /// assert_eq!(params.gearing, 1.0);
+    /// ```
+    pub fn with_spread(spread_bp: f64) -> Self {
+        Self {
+            spread_bp,
+            ..Default::default()
+        }
+    }
+
+    /// Create params with spread and index floor.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_valuations::cashflow::builder::rate_helpers::FloatingRateParams;
+    ///
+    /// let params = FloatingRateParams::with_spread_and_floor(200.0, 0.0); // 200 bps spread, 0% floor
+    /// assert_eq!(params.spread_bp, 200.0);
+    /// assert_eq!(params.index_floor_bp, Some(0.0));
+    /// ```
+    pub fn with_spread_and_floor(spread_bp: f64, floor_bp: f64) -> Self {
+        Self {
+            spread_bp,
+            index_floor_bp: Some(floor_bp),
+            ..Default::default()
+        }
+    }
+
+    /// Create params with spread, gearing, index floor, and all-in cap.
+    ///
+    /// This is the most common configuration for leveraged floaters.
+    pub fn with_full(
+        spread_bp: f64,
+        gearing: f64,
+        index_floor_bp: Option<f64>,
+        all_in_cap_bp: Option<f64>,
+    ) -> Self {
+        Self {
+            spread_bp,
+            gearing,
+            gearing_includes_spread: true,
+            index_floor_bp,
+            index_cap_bp: None,
+            all_in_floor_bp: None,
+            all_in_cap_bp,
+        }
+    }
+
     /// Validate the floating rate parameters.
     ///
     /// Checks that:
@@ -107,63 +167,45 @@ impl FloatingRateParams {
     }
 }
 
-/// Project floating rate with optional floor, cap, and gearing.
+/// Project floating rate using a resolved forward curve and full parameter set.
 ///
-/// Delegates to `project_floating_rate_with_curve` using standard defaults.
-#[allow(clippy::too_many_arguments)]
+/// This is the primary rate projection function. It computes the all-in floating
+/// rate by:
+/// 1. Looking up the forward rate from the curve for the accrual period
+/// 2. Applying index floor/cap to the forward rate
+/// 3. Adding spread and applying gearing
+/// 4. Applying all-in floor/cap to the final rate
+///
+/// # Arguments
+///
+/// * `reset_date` - The rate fixing/reset date
+/// * `reset_period_end` - End of the accrual period
+/// * `fwd` - Resolved forward curve
+/// * `params` - Floating rate parameters (spread, gearing, floors, caps)
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::market_data::term_structures::ForwardCurve;
+/// use finstack_valuations::cashflow::builder::rate_helpers::{project_floating_rate, FloatingRateParams};
+/// use time::Month;
+///
+/// let reset = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+/// let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+///
+/// let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+///     .base_date(reset)
+///     .day_count(DayCount::Act360)
+///     .knots([(0.0, 0.03), (1.0, 0.04)])
+///     .build()
+///     .expect("curve");
+///
+/// let params = FloatingRateParams::with_spread(200.0); // SOFR + 200 bps
+/// let rate = project_floating_rate(reset, period_end, &fwd, &params)?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn project_floating_rate(
-    reset_date: Date,
-    reset_period_end: Date,
-    index_id: &str,
-    spread_bp: f64,
-    gearing: f64,
-    floor_bp: Option<f64>,
-    cap_bp: Option<f64>,
-    market: &MarketContext,
-) -> Result<f64> {
-    // Get forward curve
-    let fwd = market.get_forward_ref(index_id)?;
-    project_floating_rate_with_curve(
-        reset_date,
-        reset_period_end,
-        spread_bp,
-        gearing,
-        floor_bp,
-        cap_bp,
-        fwd,
-    )
-}
-
-/// Project floating rate using a resolved forward curve.
-///
-/// Uses default conventions:
-/// - Gearing includes spread
-/// - floor_bp is index floor
-/// - cap_bp is all-in cap
-#[allow(clippy::too_many_arguments)]
-pub fn project_floating_rate_with_curve(
-    reset_date: Date,
-    reset_period_end: Date,
-    spread_bp: f64,
-    gearing: f64,
-    floor_bp: Option<f64>,
-    cap_bp: Option<f64>,
-    fwd: &ForwardCurve,
-) -> Result<f64> {
-    let params = FloatingRateParams {
-        spread_bp,
-        gearing,
-        gearing_includes_spread: true,
-        index_floor_bp: floor_bp,
-        index_cap_bp: None,
-        all_in_floor_bp: None,
-        all_in_cap_bp: cap_bp,
-    };
-    project_floating_rate_detailed(reset_date, reset_period_end, fwd, &params)
-}
-
-/// Project floating rate using full parameter set.
-pub fn project_floating_rate_detailed(
     reset_date: Date,
     reset_period_end: Date,
     fwd: &ForwardCurve,
@@ -210,45 +252,56 @@ pub fn project_floating_rate_detailed(
     Ok(rate)
 }
 
-/// Simplified floating rate projection using tenor approximation.
-#[allow(clippy::too_many_arguments)]
-pub fn project_floating_rate_simple(
+/// Project floating rate by looking up the forward curve from market context.
+///
+/// This is a convenience wrapper around [`project_floating_rate`] that handles
+/// the curve lookup from a `MarketContext`.
+///
+/// # Arguments
+///
+/// * `reset_date` - The rate fixing/reset date
+/// * `reset_period_end` - End of the accrual period
+/// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
+/// * `params` - Floating rate parameters
+/// * `market` - Market context containing forward curves
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::market_data::term_structures::ForwardCurve;
+/// use finstack_valuations::cashflow::builder::rate_helpers::{
+///     project_floating_rate_from_market, FloatingRateParams
+/// };
+/// use time::Month;
+///
+/// let reset = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+/// let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+///
+/// let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+///     .base_date(reset)
+///     .day_count(DayCount::Act360)
+///     .knots([(0.0, 0.03), (1.0, 0.04)])
+///     .build()
+///     .expect("curve");
+/// let market = MarketContext::new().insert_forward(fwd);
+///
+/// let params = FloatingRateParams::with_spread(200.0);
+/// let rate = project_floating_rate_from_market(
+///     reset, period_end, "USD-SOFR-3M", &params, &market
+/// )?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+pub fn project_floating_rate_from_market(
     reset_date: Date,
-    tenor_years: f64,
+    reset_period_end: Date,
     index_id: &str,
-    spread_bp: f64,
-    gearing: f64,
-    floor_bp: Option<f64>,
-    cap_bp: Option<f64>,
+    params: &FloatingRateParams,
     market: &MarketContext,
 ) -> Result<f64> {
-    // Approximate period end from tenor
-    let days = (tenor_years * 365.25) as i64;
-    let period_end = reset_date + time::Duration::days(days);
-
-    project_floating_rate(
-        reset_date, period_end, index_id, spread_bp, gearing, floor_bp, cap_bp, market,
-    )
-}
-
-/// Simplified floating rate projection using tenor approximation with resolved curve.
-#[allow(clippy::too_many_arguments)]
-pub fn project_floating_rate_simple_with_curve(
-    reset_date: Date,
-    tenor_years: f64,
-    spread_bp: f64,
-    gearing: f64,
-    floor_bp: Option<f64>,
-    cap_bp: Option<f64>,
-    fwd: &ForwardCurve,
-) -> Result<f64> {
-    // Approximate period end from tenor
-    let days = (tenor_years * 365.25) as i64;
-    let period_end = reset_date + time::Duration::days(days);
-
-    project_floating_rate_with_curve(
-        reset_date, period_end, spread_bp, gearing, floor_bp, cap_bp, fwd,
-    )
+    let fwd = market.get_forward_ref(index_id)?;
+    project_floating_rate(reset_date, reset_period_end, fwd, params)
 }
 
 #[cfg(test)]
@@ -275,14 +328,12 @@ mod tests {
         let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
         let market = create_test_market(reset);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_spread(200.0); // 200 bps
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "USD-SOFR-3M",
-            200.0, // 200 bps
-            1.0,
-            None,
-            None,
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -305,14 +356,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "USD-LIBOR-3M",
-            100.0, // 100 bps spread
-            1.0,
-            Some(100.0), // 1% floor on index
-            None,
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -339,14 +388,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_full(200.0, 1.0, None, Some(500.0)); // 200 bps spread, 5% cap
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "USD-LIBOR-3M",
-            200.0, // 200 bps spread
-            1.0,
-            None,
-            Some(500.0), // 5% cap on all-in
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -373,14 +420,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "TEST-INDEX",
-            100.0, // 100 bps spread
-            1.0,
-            Some(100.0), // 1% floor on index (100 bps)
-            None,
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -406,14 +451,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_full(100.0, 2.0, None, Some(600.0)); // 100 bps spread, 2x gearing, 6% cap
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "TEST-INDEX",
-            100.0, // 100 bps spread
-            2.0,   // 2x gearing
-            None,
-            Some(600.0), // 6% cap
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -439,14 +482,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_forward(fwd_curve);
 
-        let rate = project_floating_rate(
+        let params = FloatingRateParams::with_full(100.0, 1.5, None, None); // 100 bps spread, 1.5x gearing
+        let rate = project_floating_rate_from_market(
             reset,
             period_end,
             "TEST-INDEX",
-            100.0, // 100 bps spread
-            1.5,   // 1.5x gearing
-            None,
-            None,
+            &params,
             &market,
         )
         .expect("Rate projection should succeed in test");
@@ -460,21 +501,20 @@ mod tests {
     }
 
     #[test]
-    fn test_project_floating_rate_simple() {
+    fn test_direct_curve_projection() {
         let reset = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
-        let market = create_test_market(reset);
+        let period_end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
 
-        let rate = project_floating_rate_simple(
-            reset,
-            0.25, // 3 month tenor
-            "USD-SOFR-3M",
-            150.0, // 150 bps
-            1.0,
-            None,
-            None,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let fwd_curve = ForwardCurve::builder("TEST-INDEX", 0.25)
+            .base_date(reset)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.03), (1.0, 0.03)])
+            .build()
+            .expect("ForwardCurve builder should succeed with valid test data");
+
+        let params = FloatingRateParams::with_spread(150.0); // 150 bps
+        let rate = project_floating_rate(reset, period_end, &fwd_curve, &params)
+            .expect("Rate projection should succeed in test");
 
         // Should project forward rate + spread
         assert!(
@@ -570,7 +610,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = project_floating_rate_detailed(reset, period_end, &fwd_curve, &params);
+        let result = project_floating_rate(reset, period_end, &fwd_curve, &params);
         assert!(result.is_err(), "Should fail with contradictory floor/cap");
     }
 }

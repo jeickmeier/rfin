@@ -172,8 +172,8 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
 
             // Compute total rate using centralized projection with floor/cap support
             let total_rate = if let Some(fwd) = resolved_curve {
-                // Use detailed floating rate projection
-                match super::super::rate_helpers::project_floating_rate_detailed(
+                // Use floating rate projection
+                match super::super::rate_helpers::project_floating_rate(
                     reset_date, d, // Use payment date as period end approximation
                     fwd, &params,
                 ) {

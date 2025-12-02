@@ -27,8 +27,8 @@ impl MetricCalculator for YtwCalculator {
             as_of,
         )?;
 
-        // Use outstanding_by_date_including_notional for correct principal path
-        let out_path = schedule.outstanding_by_date_including_notional()?;
+        // Use outstanding_by_date for correct principal path
+        let out_path = schedule.outstanding_by_date()?;
 
         // Candidate exercises: each call and final maturity
         let mut candidates: Vec<(Date, Money)> = Vec::new();
@@ -38,7 +38,7 @@ impl MetricCalculator for YtwCalculator {
                     continue;
                 }
                 // Get outstanding BEFORE the call date (use < not <= because
-                // outstanding_by_date_including_notional returns outstanding AFTER each date)
+                // outstanding_by_date returns outstanding AFTER each date)
                 let mut outstanding_before = Money::new(0.0, loan.currency);
                 for (d, amt) in &out_path {
                     if *d < c.date {

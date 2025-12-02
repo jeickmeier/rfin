@@ -102,10 +102,10 @@ pub(super) fn solve_irr_to_date(
         crate::instruments::term_loan::cashflows::generate_cashflows(loan, curves, as_of)?;
 
     // Get outstanding BEFORE exercise date (use the entry just before exercise_date).
-    // outstanding_by_date_including_notional returns outstanding AFTER each date,
+    // outstanding_by_date returns outstanding AFTER each date,
     // so at maturity it would be 0 (after redemption). We want the outstanding
     // just before the exercise to determine redemption value.
-    let out_path = schedule.outstanding_by_date_including_notional()?;
+    let out_path = schedule.outstanding_by_date()?;
     
     let mut outstanding_before = Money::new(0.0, loan.currency);
     for (d, amt) in &out_path {

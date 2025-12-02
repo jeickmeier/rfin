@@ -205,16 +205,24 @@ impl CashFlowSchedule {
     }
 
     /// End-of-date outstanding path: one entry per unique date after applying
-    /// Amortization/PIK on that date. Redemption does not reduce outstanding here.
+    /// Amortization, PIK, and Notional flows on that date.
     ///
-    /// This is more compact than [`Self::outstanding_path()`] as it groups by date.
+    /// Applies Amortization (reduces), PIK (increases), and Notional
+    /// (draws negative, repays positive) to compute outstanding after
+    /// all flows on each date have been processed.
+    ///
+    /// This is more compact than [`Self::outstanding_path()`] as it groups by date,
+    /// and is the canonical method for tracking outstanding balance including
+    /// notional draws/repays for instruments like revolving credit facilities.
     ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values.
+    /// Note: The initial notional flow (funding at issue) is skipped as it's already
+    /// accounted for in `notional.initial`. Only subsequent draws/repays are tracked.
     ///
     /// # Errors
     ///
     /// Returns error if:
-    /// - Amortization exceeds current outstanding (would result in negative balance)
+    /// - Amortization or repayment exceeds current outstanding
     /// - Currency mismatch between flows and notional
     pub fn outstanding_by_date(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut result: Vec<(Date, Money)> = Vec::new();
@@ -224,53 +232,8 @@ impl CashFlowSchedule {
 
         let mut outstanding = self.notional.initial;
 
-        let mut i = 0usize;
-        while i < self.flows.len() {
-            let d = self.flows[i].date;
-            // Process all flows on this date in their deterministic order
-            let mut j = i;
-            while j < self.flows.len() && self.flows[j].date == d {
-                match self.flows[j].kind {
-                    CFKind::Amortization => {
-                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
-                    }
-                    CFKind::PIK => {
-                        outstanding = outstanding.checked_add(self.flows[j].amount)?;
-                    }
-                    _ => {}
-                }
-                j += 1;
-            }
-            result.push((d, outstanding));
-            i = j;
-        }
-
-        Ok(result)
-    }
-
-    /// End-of-date outstanding path including Notional draws/repays.
-    ///
-    /// Applies Amortization (reduces), PIK (increases), and Notional
-    /// (draws negative, repays positive) to compute outstanding after
-    /// all flows on each date have been processed.
-    ///
-    /// This is the most complete outstanding tracking method, suitable for
-    /// instruments with notional draws/repays like revolving credit facilities.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if:
-    /// - Amortization or repayment exceeds current outstanding
-    /// - Currency mismatch between flows and notional
-    pub fn outstanding_by_date_including_notional(
-        &self,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        let mut result: Vec<(Date, Money)> = Vec::new();
-        if self.flows.is_empty() {
-            return Ok(result);
-        }
-
-        let mut outstanding = self.notional.initial;
+        // Identify the first date in the schedule (issue date)
+        let first_date = self.flows.first().map(|cf| cf.date);
 
         let mut i = 0usize;
         while i < self.flows.len() {
@@ -286,8 +249,19 @@ impl CashFlowSchedule {
                         outstanding = outstanding.checked_add(self.flows[j].amount)?;
                     }
                     CFKind::Notional => {
-                        // Draws negative, repays positive -> subtract to apply sign
-                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
+                        // Skip the initial funding notional flow (negative, equal to -notional.initial)
+                        // This is already accounted for in notional.initial
+                        let is_initial_funding = first_date == Some(d)
+                            && self.flows[j].amount.amount() < 0.0
+                            && (self.flows[j].amount.amount().abs()
+                                - self.notional.initial.amount())
+                            .abs()
+                                < 1e-10;
+
+                        if !is_initial_funding {
+                            // Draws negative, repays positive -> subtract to apply sign
+                            outstanding = outstanding.checked_sub(self.flows[j].amount)?;
+                        }
                     }
                     _ => {}
                 }

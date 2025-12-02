@@ -111,24 +111,6 @@ impl Default for AccrualConfig {
     }
 }
 
-/// Accrued interest as `Money` in the schedule's currency.
-///
-/// The schedule is assumed to be in issuer view (as produced by the builder).
-/// Accrual is computed on the coupon leg only and returned in the notional
-/// currency.
-pub fn accrued_interest_money(
-    schedule: &CashFlowSchedule,
-    as_of: Date,
-    cfg: &AccrualConfig,
-) -> finstack_core::Result<Money> {
-    if schedule.flows.is_empty() {
-        return Ok(Money::new(0.0, schedule.notional.initial.currency()));
-    }
-
-    let amount = accrued_interest_amount(schedule, as_of, cfg)?;
-    Ok(Money::new(amount, schedule.notional.initial.currency()))
-}
-
 /// Convenience: accrued interest as scalar amount.
 ///
 /// Callers can recover the currency from `schedule.notional.initial.currency()`
@@ -144,7 +126,7 @@ pub fn accrued_interest_amount(
     }
 
     // Build outstanding path including notional draws/repays and PIK.
-    let outstanding_path = schedule.outstanding_by_date_including_notional()?;
+    let outstanding_path = schedule.outstanding_by_date()?;
     let period_inputs = build_period_inputs(schedule, &periods, &outstanding_path)?;
 
     // Locate active period and compute accrued in that period.

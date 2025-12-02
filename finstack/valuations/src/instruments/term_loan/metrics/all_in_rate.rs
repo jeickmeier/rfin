@@ -28,7 +28,7 @@ impl MetricCalculator for AllInRateCalculator {
             crate::instruments::term_loan::cashflows::generate_cashflows(loan, market, as_of)?;
 
         // Get outstanding path including notional draws/repays, amortization, and PIK
-        let out_path = schedule.outstanding_by_date_including_notional()?;
+        let out_path = schedule.outstanding_by_date()?;
 
         // Helper to look up outstanding at a given date (piecewise-constant: last value <= target)
         let outstanding_at = |target: finstack_core::dates::Date| -> finstack_core::Result<Money> {
@@ -82,14 +82,20 @@ impl MetricCalculator for AllInRateCalculator {
                     let total_spread =
                         crate::instruments::term_loan::cashflows::margin_bp_at(loan, d);
 
-                    crate::cashflow::builder::project_floating_rate_simple(
-                        prev,
-                        yf,
-                        spec.index_id.as_str(),
+                    // Compute period end from year fraction (approximate)
+                    let period_end = prev + time::Duration::days((yf * 365.25) as i64);
+
+                    let params = crate::cashflow::builder::FloatingRateParams::with_full(
                         total_spread,
                         spec.gearing,
                         spec.floor_bp,
                         spec.cap_bp,
+                    );
+                    crate::cashflow::builder::project_floating_rate_from_market(
+                        prev,
+                        period_end,
+                        spec.index_id.as_str(),
+                        &params,
                         market,
                     )?
                 }

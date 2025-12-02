@@ -49,14 +49,17 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
             let tenor = fwd.tenor();
             let period_end = tenor_to_period_end(date, tenor, fwd.day_count());
 
-            crate::cashflow::builder::project_floating_rate(
-                date,
-                period_end,
-                spec.index_id.as_str(),
+            let params = crate::cashflow::builder::FloatingRateParams::with_full(
                 spec.spread_bp,
                 spec.gearing,
                 spec.floor_bp,
                 spec.cap_bp,
+            );
+            crate::cashflow::builder::project_floating_rate_from_market(
+                date,
+                period_end,
+                spec.index_id.as_str(),
+                &params,
                 market,
             )
             .unwrap_or(spec.spread_bp / 10_000.0)

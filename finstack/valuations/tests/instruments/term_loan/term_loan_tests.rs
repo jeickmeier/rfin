@@ -248,7 +248,7 @@ fn term_loan_amortizing_outstanding_path() {
 
     // Build schedule and verify outstanding path is decreasing (amortization)
     let sched = loan.build_full_schedule(&market, issue).unwrap();
-    let out_path = sched.outstanding_by_date_including_notional().unwrap();
+    let out_path = sched.outstanding_by_date().unwrap();
 
     // Verify outstanding starts at notional and decreases over time
     assert!(!out_path.is_empty(), "Outstanding path should have entries");

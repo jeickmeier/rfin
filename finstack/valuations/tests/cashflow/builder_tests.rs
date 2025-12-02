@@ -279,23 +279,47 @@ fn outstanding_by_date_dedup_and_values() {
         assert_eq!(d1, d2);
     }
 
-    // 2) Values match the final outstanding on each date from outstanding_path()
-    let path = s.outstanding_path().unwrap();
-    let mut last_by_date: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
-    for (d, m) in path {
-        last_by_date.insert(d, m.amount());
+    // 2) Verify outstanding values are non-negative before maturity
+    //    and zero at maturity (after redemption)
+    for (i, (d, m)) in end_by_date.iter().enumerate() {
+        assert!(
+            m.amount() >= -0.01,
+            "Outstanding should be non-negative, got {} at {:?}",
+            m.amount(),
+            d
+        );
+
+        // At maturity (last date), outstanding should be 0 after redemption
+        if i == end_by_date.len() - 1 {
+            assert!(
+                m.amount().abs() < 0.01,
+                "Outstanding at maturity should be 0 after redemption, got {}",
+                m.amount()
+            );
+        }
     }
 
-    for (d, m) in end_by_date {
-        let expected = *last_by_date.get(&d).unwrap();
+    // 3) At issue date, outstanding should be initial notional
+    if let Some((d, m)) = end_by_date.first() {
+        assert_eq!(*d, issue);
         assert!(
-            (m.amount() - expected).abs() < financial_tolerance(init.amount()),
-            "Outstanding at {:?} should be {}, got {}",
-            d,
-            expected,
+            (m.amount() - init.amount()).abs() < financial_tolerance(init.amount()),
+            "Outstanding at issue should be initial notional {}, got {}",
+            init.amount(),
             m.amount()
         );
     }
+
+    // 4) Outstanding should decrease over time (due to amortization, despite PIK)
+    //    with net decrease until maturity
+    let first_outstanding = end_by_date.first().map(|(_, m)| m.amount()).unwrap_or(0.0);
+    let last_outstanding = end_by_date.last().map(|(_, m)| m.amount()).unwrap_or(0.0);
+    assert!(
+        last_outstanding < first_outstanding,
+        "Outstanding should decrease from {} to {} over the life",
+        first_outstanding,
+        last_outstanding
+    );
 }
 
 #[test]

@@ -55,8 +55,7 @@ pub use builder::{CashflowBuilder, PrincipalEvent};
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
 pub use date_generation::{build_dates, PeriodSchedule};
 pub use rate_helpers::{
-    project_floating_rate, project_floating_rate_simple, project_floating_rate_simple_with_curve,
-    project_floating_rate_with_curve,
+    project_floating_rate, project_floating_rate_from_market, FloatingRateParams,
 };
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use specs::{

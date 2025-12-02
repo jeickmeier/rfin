@@ -359,7 +359,7 @@ impl InterestRateSwap {
             let reset_date = cf.reset_date.unwrap_or(accrual_start);
 
             let forward_rate =
-                crate::cashflow::builder::rate_helpers::project_floating_rate_detailed(
+                crate::cashflow::builder::rate_helpers::project_floating_rate(
                     reset_date,
                     accrual_end,
                     fwd,

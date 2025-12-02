@@ -615,7 +615,7 @@ RateSpec::Floating(FloatingRateSpec {
 })
 ```
 
-No code changes to term_loan module required—the cashflow engine uses `project_floating_rate_simple()` which supports any curve ID.
+No code changes to term_loan module required—the cashflow engine uses `project_floating_rate_from_market()` which supports any curve ID.
 
 ---
 
