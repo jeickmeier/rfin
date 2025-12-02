@@ -446,10 +446,10 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(
         &self,
-        _curves: &MarketContext,
+        curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        crate::instruments::irs::cashflow::signed_dated_flows(self)
+        crate::instruments::irs::cashflow::signed_dated_flows_with_curves(self, Some(curves))
     }
 
     /// Build full cashflow schedule with CFKind metadata for precise classification.
@@ -458,10 +458,10 @@ impl CashflowProvider for InterestRateSwap {
     /// enabling precise classification of fixed vs floating rate payments.
     fn build_full_schedule(
         &self,
-        _curves: &MarketContext,
+        curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::irs::cashflow::full_signed_schedule(self)
+        crate::instruments::irs::cashflow::full_signed_schedule_with_curves(self, Some(curves))
     }
 }
 

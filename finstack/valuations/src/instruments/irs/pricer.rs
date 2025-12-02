@@ -382,48 +382,6 @@ impl InterestRateSwap {
     }
 }
 
-/// Compute reset (fixing) date with calendar adjustment.
-///
-/// Applies the reset lag (in business days) to compute the fixing date,
-/// then adjusts using the specified calendar and business day convention.
-///
-/// Per ISDA 2006 Section 4.2:
-/// - The fixing date is typically T-2 (2 business days before) for most indices
-/// - The business day convention and calendar depend on the index specification
-///
-/// # Arguments
-///
-/// * `accrual_start` - Start date of the accrual period
-/// * `reset_lag_days` - Number of business days before accrual start (typically 2)
-/// * `bdc` - Business day convention for date adjustment
-/// * `calendar_id` - Optional calendar ID for business day calculation
-///
-/// # Returns
-///
-/// The adjusted reset (fixing) date.
-fn compute_reset_date(
-    accrual_start: Date,
-    reset_lag_days: i32,
-    bdc: finstack_core::dates::BusinessDayConvention,
-    calendar_id: &Option<String>,
-) -> finstack_core::Result<Date> {
-    use finstack_core::dates::adjust;
-    use finstack_core::dates::calendar::calendar_by_id;
-    use time::Duration;
-
-    // Start by subtracting the reset lag from the accrual start
-    let mut reset_date = accrual_start - Duration::days(reset_lag_days as i64);
-
-    // Adjust for business days using the fixing calendar if available
-    if let Some(ref cal_id) = calendar_id {
-        if let Some(cal) = calendar_by_id(cal_id) {
-            reset_date = adjust(reset_date, bdc, cal)?;
-        }
-    }
-
-    Ok(reset_date)
-}
-
 /// Compute the net present value (NPV) of an interest rate swap.
 ///
 /// Calculates the swap's mark-to-market value by computing the present value

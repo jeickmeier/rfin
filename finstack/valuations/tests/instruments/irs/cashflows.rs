@@ -19,7 +19,8 @@ use time::macros::date;
 fn build_test_curves() -> MarketContext {
     let as_of = date!(2024 - 01 - 01);
 
-    let disc_curve = DiscountCurve::builder("USD_OIS")
+    // Curve IDs for create_usd_swap (USD-OIS and USD-SOFR-3M)
+    let disc_curve_usd_ois = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act360)
         .knots([
@@ -31,7 +32,27 @@ fn build_test_curves() -> MarketContext {
         .build()
         .unwrap();
 
-    let fwd_curve = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
+    let fwd_curve_sofr = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.05), (10.0, 0.05)])
+        .build()
+        .unwrap();
+
+    // Curve IDs for manual builder tests (USD_OIS and USD_LIBOR_3M)
+    let disc_curve_manual = DiscountCurve::builder("USD_OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-0.05_f64).exp()),
+            (5.0, (-0.05_f64 * 5.0).exp()),
+            (10.0, (-0.05_f64 * 10.0).exp()),
+        ])
+        .build()
+        .unwrap();
+
+    let fwd_curve_libor = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
         .base_date(as_of)
         .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (10.0, 0.05)])
@@ -39,8 +60,10 @@ fn build_test_curves() -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve)
+        .insert_discount(disc_curve_usd_ois)
+        .insert_discount(disc_curve_manual)
+        .insert_forward(fwd_curve_sofr)
+        .insert_forward(fwd_curve_libor)
 }
 
 #[test]

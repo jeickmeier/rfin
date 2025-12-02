@@ -102,6 +102,27 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 /// # }
 /// ```
 pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
+    float_leg_schedule_with_curves(irs, None)
+}
+
+/// Build an unsigned floating-leg cashflow schedule for an IRS with market curves.
+///
+/// When curves are provided, the schedule includes actual forward rate projections.
+/// Without curves, only the spread contribution is used (useful for structure-only schedules).
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build the schedule
+/// * `curves` - Optional market context containing forward curves
+///
+/// # Returns
+///
+/// A `CashFlowSchedule` containing all floating leg cashflows with `CFKind::FloatReset`
+/// classifications.
+pub fn float_leg_schedule_with_curves(
+    irs: &InterestRateSwap,
+    curves: Option<&finstack_core::market_data::context::MarketContext>,
+) -> Result<CashFlowSchedule> {
     let mut float_b = CashFlowSchedule::builder();
     float_b
         .principal(irs.notional, irs.float.start, irs.float.end)
@@ -126,7 +147,7 @@ pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             freq: irs.float.freq,
             stub: irs.float.stub,
         });
-    float_b.build()
+    float_b.build_with_curves(curves)
 }
 
 /// Build signed dated flows for an IRS, suitable for `CashflowProvider`.
@@ -163,8 +184,23 @@ pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 /// # }
 /// ```
 pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
+    signed_dated_flows_with_curves(irs, None)
+}
+
+/// Build signed dated flows for an IRS with market curves.
+///
+/// When curves are provided, floating leg amounts include forward rate projections.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build dated flows
+/// * `curves` - Optional market context containing forward curves
+pub fn signed_dated_flows_with_curves(
+    irs: &InterestRateSwap,
+    curves: Option<&finstack_core::market_data::context::MarketContext>,
+) -> Result<DatedFlows> {
     let fixed_sched = fixed_leg_schedule(irs)?;
-    let float_sched = float_leg_schedule(irs)?;
+    let float_sched = float_leg_schedule_with_curves(irs, curves)?;
 
     let mut flows: Vec<(Date, Money)> = Vec::new();
 
@@ -191,6 +227,9 @@ pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
             flows.push((cf.date, amt));
         }
     }
+
+    // Sort flows by date
+    flows.sort_by_key(|(date, _)| *date);
 
     Ok(flows)
 }
@@ -235,10 +274,25 @@ pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
 /// # }
 /// ```
 pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
+    full_signed_schedule_with_curves(irs, None)
+}
+
+/// Build a full, signed cashflow schedule with `CFKind` metadata for an IRS with market curves.
+///
+/// When curves are provided, floating leg amounts include forward rate projections.
+///
+/// # Arguments
+///
+/// * `irs` - The interest rate swap for which to build the full schedule
+/// * `curves` - Optional market context containing forward curves
+pub fn full_signed_schedule_with_curves(
+    irs: &InterestRateSwap,
+    curves: Option<&finstack_core::market_data::context::MarketContext>,
+) -> Result<CashFlowSchedule> {
     use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 
     let fixed_sched = fixed_leg_schedule(irs)?;
-    let float_sched = float_leg_schedule(irs)?;
+    let float_sched = float_leg_schedule_with_curves(irs, curves)?;
 
     // Combine flows from both legs with proper CFKind classification
     let mut all_flows: Vec<CashFlow> = Vec::new();

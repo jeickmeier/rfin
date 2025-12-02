@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://finstack.io/schemas/calibration/1/config.schema.json",
-  "title": "Calibration Configuration",
+  "title": "CalibrationConfig",
   "description": "Configuration for calibration solver and validation settings",
   "definitions": {
     "CalibrationConfig": {
