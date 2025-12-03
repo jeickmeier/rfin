@@ -102,8 +102,8 @@ impl VmParameters {
     ///
     /// ```text
     /// Credit Support Amount = max(0, Exposure - Threshold + IA) - Current_Collateral
-    /// Delivery Amount = max(0, CSA - MTA)
-    /// Return Amount = max(0, -CSA - MTA)
+    /// Delivery Amount = CSA if CSA ≥ MTA, else 0
+    /// Return Amount = -CSA if CSA ≤ -MTA, else 0
     /// ```
     ///
     /// # Arguments

@@ -136,15 +136,11 @@ impl ImCalculator for HaircutImCalculator {
         let pv = instrument.value(context, as_of)?;
         let collateral_value = Money::new(pv.amount().abs(), pv.currency());
 
-        // Use default asset class
-        let haircut = self.haircut_for(self.default_asset_class);
-        let total_haircut = if self.apply_fx_addon {
-            haircut + self.default_asset_class.fx_addon()
-        } else {
-            haircut
-        };
-
-        let im_amount = collateral_value * total_haircut;
+        let im_amount = self.calculate_for_collateral(
+            collateral_value,
+            self.default_asset_class,
+            self.apply_fx_addon,
+        )?;
 
         let mut breakdown = std::collections::HashMap::new();
         breakdown.insert(self.default_asset_class.to_string(), im_amount);

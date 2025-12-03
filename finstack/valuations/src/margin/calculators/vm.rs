@@ -61,6 +61,10 @@ impl VmResult {
 /// Return Amount = max(0, -CSA) if |CSA| ≥ MTA, else 0
 /// ```
 ///
+/// Implementation delegates CSA/MTA/rounding logic to
+/// [`VmParameters::calculate_margin_call`] to ensure consistent behavior
+/// across margin utilities.
+///
 /// # Example
 ///
 /// ```rust,ignore
@@ -116,30 +120,22 @@ impl VmCalculator {
 
         let vm_params = &self.csa.vm_params;
 
-        // Calculate credit support amount
-        // CSA = max(0, Exposure - Threshold + IA) - Posted
+        // Required margin before applying posted collateral and MTA
         let threshold = vm_params.threshold.amount();
         let ia = vm_params.independent_amount.amount();
-        let exp = exposure.amount();
+        let required = (exposure.amount() - threshold + ia).max(0.0);
 
-        let required = (exp - threshold + ia).max(0.0);
-        let credit_support_amount = required - posted_collateral.amount();
-
-        let mta = vm_params.mta.amount();
-        let rounding = vm_params.rounding.amount();
-
-        // Apply MTA and determine delivery/return
-        let (delivery, ret) = if credit_support_amount >= mta {
-            // Delivery required
-            let rounded = self.round_to_nearest(credit_support_amount, rounding);
-            (rounded, 0.0)
-        } else if credit_support_amount <= -mta {
-            // Return of excess collateral
-            let rounded = self.round_to_nearest(credit_support_amount.abs(), rounding);
-            (0.0, rounded)
+        // Delegate CSA/MTA/rounding logic to VmParameters for consistency
+        let net_call = vm_params.calculate_margin_call(exposure, posted_collateral);
+        let (delivery, ret) = if net_call.amount() > 0.0 {
+            (net_call, Money::new(0.0, currency))
+        } else if net_call.amount() < 0.0 {
+            (
+                Money::new(0.0, currency),
+                Money::new(net_call.amount().abs(), currency),
+            )
         } else {
-            // Amount below MTA, no action
-            (0.0, 0.0)
+            (Money::new(0.0, currency), Money::new(0.0, currency))
         };
 
         // Calculate settlement date
@@ -149,8 +145,8 @@ impl VmCalculator {
             date: as_of,
             gross_exposure: exposure,
             net_exposure: Money::new(required, currency),
-            delivery_amount: Money::new(delivery, currency),
-            return_amount: Money::new(ret, currency),
+            delivery_amount: delivery,
+            return_amount: ret,
             settlement_date,
         })
     }
@@ -239,15 +235,6 @@ impl VmCalculator {
         }
 
         dates
-    }
-
-    /// Round to nearest increment.
-    fn round_to_nearest(&self, amount: f64, rounding: f64) -> f64 {
-        if rounding <= 0.0 {
-            amount
-        } else {
-            (amount / rounding).round() * rounding
-        }
     }
 
     /// Calculate settlement date based on lag.
@@ -349,6 +336,36 @@ mod tests {
 
         // 300K < 500K MTA, no call
         assert!(!result.requires_call());
+    }
+
+    #[test]
+    fn vm_calculator_matches_vm_params() {
+        let csa = CsaSpec::usd_regulatory();
+        let calc = VmCalculator::new(csa.clone());
+        let as_of = test_date(2025, 1, 15);
+
+        let exposure = Money::new(2_000_000.0, Currency::USD);
+        let posted = Money::new(0.0, Currency::USD);
+
+        let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
+        let result = calc
+            .calculate(exposure, posted, as_of)
+            .expect("calc ok");
+
+        assert_eq!(result.delivery_amount, params_call);
+        assert_eq!(result.return_amount.amount(), 0.0);
+
+        // Now flip to a return scenario
+        let exposure = Money::new(500_000.0, Currency::USD);
+        let posted = Money::new(3_000_000.0, Currency::USD);
+
+        let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
+        let result = calc
+            .calculate(exposure, posted, as_of)
+            .expect("calc ok");
+
+        assert_eq!(result.delivery_amount.amount(), 0.0);
+        assert_eq!(result.return_amount, Money::new(params_call.amount().abs(), Currency::USD));
     }
 
     #[test]

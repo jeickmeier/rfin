@@ -209,6 +209,11 @@ sens.add_credit_delta("CDX.NA.IG", true, "5Y", 50_000.0);
 let (total_im, breakdown) = calc.calculate_from_sensitivities(&sens, Currency::USD);
 ```
 
+> **Implementation note:** The current `calculate_from_sensitivities` helper
+> sums the per-risk-class contributions (delta-only) and does not apply the
+> full SIMM correlation matrix. Use custom aggregation logic if you need the
+> official cross-bucket correlations.
+
 ##### SIMM Risk Classes
 
 | Risk Class | Components | Notes |

@@ -231,10 +231,11 @@ impl ImCalculator for ScheduleImCalculator {
         let currency = pv.currency();
         let notional = Money::new(pv.amount().abs(), currency);
 
-        let rate = self
-            .schedule
-            .rate(self.default_asset_class, self.default_maturity_years);
-        let im_amount = notional * rate;
+        let im_amount = self.calculate_for_notional(
+            notional,
+            self.default_asset_class,
+            self.default_maturity_years,
+        );
 
         let mut breakdown = HashMap::new();
         breakdown.insert(self.default_asset_class.to_string(), im_amount);

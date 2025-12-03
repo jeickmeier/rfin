@@ -200,47 +200,45 @@ impl SimmSensitivities {
     ///
     /// Sensitivities are added together, enabling risk offsetting within a netting set.
     pub fn merge(&mut self, other: &SimmSensitivities) {
-        // Helper macro to merge a hashmap efficiently (avoid cloning when key exists)
-        macro_rules! merge_map {
-            ($self_map:expr, $other_map:expr) => {
-                for (key, &value) in &$other_map {
-                    match $self_map.get_mut(key) {
-                        Some(existing) => *existing += value,
-                        None => {
-                            $self_map.insert(key.clone(), value);
-                        }
-                    }
-                }
-            };
+        for (key, &value) in &other.ir_delta {
+            *self.ir_delta.entry(key.clone()).or_insert(0.0) += value;
         }
-
-        // For Copy keys, no clone needed
-        macro_rules! merge_map_copy_key {
-            ($self_map:expr, $other_map:expr) => {
-                for (&key, &value) in &$other_map {
-                    match $self_map.get_mut(&key) {
-                        Some(existing) => *existing += value,
-                        None => {
-                            $self_map.insert(key, value);
-                        }
-                    }
-                }
-            };
+        for (key, &value) in &other.ir_vega {
+            *self.ir_vega.entry(key.clone()).or_insert(0.0) += value;
         }
-
-        merge_map!(self.ir_delta, other.ir_delta);
-        merge_map!(self.ir_vega, other.ir_vega);
-        merge_map!(self.credit_qualifying_delta, other.credit_qualifying_delta);
-        merge_map!(
-            self.credit_non_qualifying_delta,
-            other.credit_non_qualifying_delta
-        );
-        merge_map!(self.equity_delta, other.equity_delta);
-        merge_map!(self.equity_vega, other.equity_vega);
-        merge_map_copy_key!(self.fx_delta, other.fx_delta);
-        merge_map_copy_key!(self.fx_vega, other.fx_vega);
-        merge_map!(self.commodity_delta, other.commodity_delta);
-        merge_map_copy_key!(self.curvature, other.curvature);
+        for (key, &value) in &other.credit_qualifying_delta {
+            *self
+                .credit_qualifying_delta
+                .entry(key.clone())
+                .or_insert(0.0) += value;
+        }
+        for (key, &value) in &other.credit_non_qualifying_delta {
+            *self
+                .credit_non_qualifying_delta
+                .entry(key.clone())
+                .or_insert(0.0) += value;
+        }
+        for (key, &value) in &other.equity_delta {
+            *self.equity_delta.entry(key.clone()).or_insert(0.0) += value;
+        }
+        for (key, &value) in &other.equity_vega {
+            *self.equity_vega.entry(key.clone()).or_insert(0.0) += value;
+        }
+        for (&key, &value) in &other.fx_delta {
+            *self.fx_delta.entry(key).or_insert(0.0) += value;
+        }
+        for (&key, &value) in &other.fx_vega {
+            *self.fx_vega.entry(key).or_insert(0.0) += value;
+        }
+        for (key, &value) in &other.commodity_delta {
+            *self
+                .commodity_delta
+                .entry(key.clone())
+                .or_insert(0.0) += value;
+        }
+        for (&key, &value) in &other.curvature {
+            *self.curvature.entry(key).or_insert(0.0) += value;
+        }
     }
 
     /// Get total IR delta across all currencies and tenors.

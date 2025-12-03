@@ -20,10 +20,16 @@
 //! ```
 //!
 //! Where K_i is the risk-weighted sensitivity for bucket i.
+//!
+//! > **Implementation note:** `calculate_from_sensitivities` currently sums the
+//! > per-risk-class contributions (delta-only) without applying the full SIMM
+//! > correlation matrix. The `aggregate_risk_classes` helper provides a simple
+//! > sqrt-of-sum-of-squares approximation that is used only by the heuristic
+//! > [`ImCalculator`] implementation near the bottom of this file.
 
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
-use crate::margin::traits::SimmSensitivities;
+use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -48,37 +54,6 @@ impl std::fmt::Display for SimmVersion {
         match self {
             SimmVersion::V2_5 => write!(f, "SIMM v2.5"),
             SimmVersion::V2_6 => write!(f, "SIMM v2.6"),
-        }
-    }
-}
-
-/// SIMM risk class.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SimmRiskClass {
-    /// Interest Rate
-    InterestRate,
-    /// Credit Qualifying (Investment Grade)
-    CreditQualifying,
-    /// Credit Non-Qualifying (High Yield)
-    CreditNonQualifying,
-    /// Equity
-    Equity,
-    /// Commodity
-    Commodity,
-    /// Foreign Exchange
-    Fx,
-}
-
-impl std::fmt::Display for SimmRiskClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SimmRiskClass::InterestRate => write!(f, "interest_rate"),
-            SimmRiskClass::CreditQualifying => write!(f, "credit_qualifying"),
-            SimmRiskClass::CreditNonQualifying => write!(f, "credit_non_qualifying"),
-            SimmRiskClass::Equity => write!(f, "equity"),
-            SimmRiskClass::Commodity => write!(f, "commodity"),
-            SimmRiskClass::Fx => write!(f, "fx"),
         }
     }
 }
@@ -358,7 +333,10 @@ impl SimmCalculator {
     /// Aggregate risk class margins with correlation.
     ///
     /// SIMM uses a correlation matrix to aggregate across risk classes.
-    /// Simplified implementation uses sqrt of sum of squares.
+    /// This helper provides a sqrt-of-sum-of-squares approximation and is used
+    /// only by the heuristic [`ImCalculator`] implementation. The primary
+    /// `calculate_from_sensitivities` path keeps a simple sum to preserve
+    /// backwards-compatible behavior.
     pub fn aggregate_risk_classes(&self, risk_class_margins: &HashMap<SimmRiskClass, f64>) -> f64 {
         // Simplified aggregation (full SIMM uses correlation matrix)
         let sum_of_squares: f64 = risk_class_margins.values().map(|x| x.powi(2)).sum();
@@ -393,10 +371,9 @@ impl ImCalculator for SimmCalculator {
             self.calculate_ir_delta(&HashMap::from([("5y".to_string(), estimated_dv01)]));
         risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
         breakdown.insert(
-            SimmRiskClass::InterestRate.to_string(),
+            "interest_rate".to_string(),
             Money::new(ir_margin, currency),
         );
-
         // Aggregate across risk classes
         let total_im = self.aggregate_risk_classes(&risk_class_margins);
 
@@ -419,6 +396,10 @@ impl ImCalculator for SimmCalculator {
 /// This is a more detailed implementation that would be called
 /// when full sensitivity data is available.
 #[allow(dead_code)]
+#[deprecated(
+    since = "0.3.0",
+    note = "Use SimmCalculator::new(...).calculate_ir_delta instead"
+)]
 pub fn calculate_irs_simm(
     dv01_by_tenor: &HashMap<String, f64>,
     currency: finstack_core::currency::Currency,
@@ -431,6 +412,10 @@ pub fn calculate_irs_simm(
 
 /// Calculate SIMM for a CDS instrument with actual sensitivities.
 #[allow(dead_code)]
+#[deprecated(
+    since = "0.3.0",
+    note = "Use SimmCalculator::new(...).calculate_credit_delta instead"
+)]
 pub fn calculate_cds_simm(
     cs01: f64,
     qualifying: bool,
