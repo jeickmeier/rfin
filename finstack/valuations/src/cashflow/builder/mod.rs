@@ -48,8 +48,8 @@ pub mod rate_helpers;
 pub mod schedule;
 pub mod specs;
 
-// Export the builder as CashflowBuilder
-pub use builder::{CashflowBuilder, PrincipalEvent};
+// Export the builder as CashFlowBuilder
+pub use builder::{CashFlowBuilder, PrincipalEvent};
 
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
@@ -57,7 +57,7 @@ pub use date_generation::{build_dates, PeriodSchedule};
 pub use rate_helpers::{
     project_floating_rate, project_floating_rate_from_market, FloatingRateParams,
 };
-pub use schedule::{CashFlowSchedule, CashflowMeta};
+pub use schedule::{CashFlowMeta, CashFlowSchedule};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
     FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,

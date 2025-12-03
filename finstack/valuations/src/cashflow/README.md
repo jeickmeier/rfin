@@ -40,7 +40,7 @@ cashflow/
 ├── aggregation.rs          # Currency-preserving aggregation and PV functions
 ├── builder/
 │   ├── mod.rs             # Builder module exports
-│   ├── builder.rs         # CashflowBuilder implementation
+│   ├── builder.rs         # CashFlowBuilder implementation
 │   ├── compiler.rs        # Internal compilation logic
 │   ├── schedule.rs        # CashFlowSchedule type and methods
 │   ├── date_generation.rs # Date rolling and schedule generation
@@ -646,7 +646,7 @@ pub enum AmortizationSpec {
 
 ```rust
 pub(crate) fn emit_accelerating_amort(
-    builder: &mut CashflowBuilder,
+    builder: &mut CashFlowBuilder,
     acceleration_rate: f64,
 ) -> finstack_core::Result<()> {
     let dates = &builder.schedule_params.payment_dates;
@@ -736,7 +736,7 @@ pub enum FeeBase {
 
 ```rust
 pub(crate) fn emit_outstanding_fee(
-    builder: &CashflowBuilder,
+    builder: &CashFlowBuilder,
     bps: f64,
     dates: &[Date],
 ) -> finstack_core::Result<Vec<CashFlow>> {

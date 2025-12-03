@@ -167,6 +167,9 @@ pub mod accrual;
 // Canonical flow aliases (deduplicated across the cashflow module)
 // -----------------------------------------------------------------------------
 
+// Re-export primary builder type at the cashflow root for ergonomic access.
+pub use builder::CashFlowBuilder;
+
 pub use finstack_core::money::Money;
 pub use finstack_core::prelude::Date;
 

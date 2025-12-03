@@ -279,7 +279,7 @@ impl PyFloatingCouponSpec {
     unsendable
 )]
 pub struct PyCashflowBuilder {
-    inner: val_builder::CashflowBuilder,
+    inner: val_builder::CashFlowBuilder,
 }
 
 #[pymethods]
@@ -288,7 +288,7 @@ impl PyCashflowBuilder {
     #[pyo3(text_signature = "(cls)")]
     fn new(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: val_builder::CashflowBuilder::new(),
+            inner: val_builder::CashFlowBuilder::new(),
         }
     }
 

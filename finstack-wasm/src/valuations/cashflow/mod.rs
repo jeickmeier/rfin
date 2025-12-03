@@ -9,3 +9,8 @@ pub use builder::{
     JsFloatCouponParams as FloatCouponParams, JsFloatingCouponSpec as FloatingCouponSpec,
     JsScheduleParams as ScheduleParams,
 };
+
+/// Alias with Rust-style casing for symmetry with `CashFlowSchedule`.
+/// The JavaScript-facing class name remains `CashflowBuilder`.
+#[allow(dead_code)]
+pub type CashFlowBuilder = CashflowBuilder;

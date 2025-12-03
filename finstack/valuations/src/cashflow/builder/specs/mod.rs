@@ -1,7 +1,7 @@
 //! Specification types for the cashflow builder.
 //!
 //! This module contains type definitions for coupon, fee, and scheduling specifications
-//! that configure the `CashflowBuilder`. These are the primary input types that users
+//! that configure the `CashFlowBuilder`. These are the primary input types that users
 //! interact with when building cashflow schedules.
 //!
 //! ## Organization

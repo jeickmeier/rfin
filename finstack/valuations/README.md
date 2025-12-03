@@ -567,7 +567,7 @@ npm install finstack-wasm
 | `instruments` | 40+ instrument types | `Bond`, `InterestRateSwap`, `EquityOption`, `CreditDefaultSwap` | [instruments/README.md](src/instruments/README.md) |
 | `pricer` | Pricing dispatch | `PricerRegistry`, `InstrumentType`, `ModelKey` | See lib.rs docs |
 | `metrics` | Risk calculators | `MetricId`, `MetricCalculator`, `MetricRegistry` | [metrics/README.md](src/metrics/README.md) |
-| `cashflow` | Schedule generation | `CashFlowSchedule`, `CashflowBuilder`, `CFKind` | [cashflow/README.md](src/cashflow/README.md) |
+| `cashflow` | Schedule generation | `CashFlowSchedule`, `CashFlowBuilder`, `CFKind` | [cashflow/README.md](src/cashflow/README.md) |
 | `calibration` | Curve fitting | `SimpleCalibration`, `MarketQuote`, `CalibrationReport` | [calibration/README.md](src/calibration/README.md) |
 | `attribution` | P&L decomposition | `PnlAttribution`, `AttributionFactor`, `AttributionSpec` | [attribution/README.md](src/attribution/README.md) |
 | `covenants` | Covenant evaluation | `CovenantEngine`, `Covenant`, `CovenantForecast` | [covenants/README.md](src/covenants/README.md) |

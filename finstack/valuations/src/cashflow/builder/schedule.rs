@@ -32,7 +32,7 @@ pub(crate) fn finalize_flows(
     mut flows: Vec<CashFlow>,
     fixed: &[FixedCouponSpec],
     floating: &[FloatingCouponSpec],
-) -> (Vec<CashFlow>, CashflowMeta, DayCount) {
+) -> (Vec<CashFlow>, CashFlowMeta, DayCount) {
     flows.sort_by(|a, b| {
         use core::cmp::Ordering;
         match a.date.cmp(&b.date) {
@@ -53,7 +53,7 @@ pub(crate) fn finalize_flows(
         .collect();
     cals.sort_unstable();
     cals.dedup();
-    let meta = CashflowMeta {
+    let meta = CashFlowMeta {
         calendar_ids: cals,
         facility_limit: None,
     };
@@ -73,7 +73,7 @@ pub(crate) fn finalize_flows(
 /// Tracks referenced calendar IDs so callers can understand adjustment context.
 /// Metadata for cashflow schedules (calendar IDs, facility limits).
 #[derive(Debug, Clone, Default)]
-pub struct CashflowMeta {
+pub struct CashFlowMeta {
     /// Holiday calendar IDs used for schedule adjustments
     pub calendar_ids: Vec<String>,
     /// Optional facility limit/commitment for instruments like RCFs
@@ -93,14 +93,14 @@ pub struct CashFlowSchedule {
     /// Day count convention for interest calculations
     pub day_count: DayCount,
     /// Additional metadata (calendars, facility limits)
-    pub meta: CashflowMeta,
+    pub meta: CashFlowMeta,
 }
 
 impl CashFlowSchedule {
     /// Create a new cashflow builder (standard Rust pattern).
     ///
     /// This is the recommended entry point for building cashflow schedules.
-    /// Returns a `CashflowBuilder` that can be configured and built.
+    /// Returns a `CashFlowBuilder` that can be configured and built.
     ///
     /// # Example
     /// ```ignore
@@ -109,8 +109,8 @@ impl CashFlowSchedule {
     ///     .fixed_cf(spec)
     ///     .build()?;
     /// ```
-    pub fn builder() -> super::CashflowBuilder {
-        super::CashflowBuilder::default()
+    pub fn builder() -> super::CashFlowBuilder {
+        super::CashFlowBuilder::default()
     }
 
     /// Returns the list of dates for all flows in schedule order.
@@ -144,7 +144,7 @@ impl CashFlowSchedule {
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
+    /// use finstack_valuations::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
     /// use finstack_core::cashflow::primitives::{CashFlow, CFKind};
     /// use finstack_valuations::cashflow::builder::Notional;
     /// use time::Month;
@@ -155,7 +155,7 @@ impl CashFlowSchedule {
     ///   CashFlow { date: base, reset_date: None, amount: Money::new(10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0, rate: None },
     ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0, rate: None },
     /// ];
-    /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashflowMeta::default() };
+    /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashFlowMeta::default() };
     /// let path = s.outstanding_path().expect("valid schedule");
     /// assert_eq!(path.len(), 2);
     /// assert_eq!(path[0].1.amount(), 90.0);  // 100 - 10 = 90

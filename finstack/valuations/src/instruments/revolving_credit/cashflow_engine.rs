@@ -511,7 +511,7 @@ impl<'a> CashflowEngine<'a> {
             // Start outstanding at zero; principal flows (including initial draw) build the path
             notional: Notional::par(0.0, self.facility.commitment_amount.currency()),
             day_count: self.facility.day_count,
-            meta: crate::cashflow::builder::CashflowMeta {
+            meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
             },
@@ -693,7 +693,7 @@ impl<'a> CashflowEngine<'a> {
             // Start outstanding at zero; utilization-driven principal flows build the path
             notional: Notional::par(0.0, self.facility.commitment_amount.currency()),
             day_count: self.facility.day_count,
-            meta: crate::cashflow::builder::CashflowMeta {
+            meta: crate::cashflow::builder::CashFlowMeta {
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
             },

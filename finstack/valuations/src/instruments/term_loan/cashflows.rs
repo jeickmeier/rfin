@@ -1,13 +1,13 @@
 //! Cashflow generation for Term Loans using the shared cashflow builder.
 //!
 //! Builds deterministic schedules (including DDTL draws, OID handling, PIK toggles,
-//! amortization, and fees) via the unified `CashflowBuilder` so date logic and
+//! amortization, and fees) via the unified `CashFlowBuilder` so date logic and
 //! floating-rate conventions stay consistent across instruments.
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::builder::specs::{CouponType, FeeBase, FeeSpec, FixedCouponSpec};
 use crate::cashflow::builder::{
-    CashflowBuilder, FloatCouponParams, PrincipalEvent, ScheduleParams,
+    CashFlowBuilder, FloatCouponParams, PrincipalEvent, ScheduleParams,
 };
 use crate::cashflow::primitives::CFKind;
 use crate::instruments::term_loan::types::TermLoan;
@@ -224,7 +224,7 @@ pub fn generate_cashflows(
     principal_events.sort_by_key(|e| e.date);
 
     // Build coupon program via unified builder
-    let mut builder = CashflowBuilder::new();
+    let mut builder = CashFlowBuilder::new();
     builder
         .principal(Money::new(0.0, loan.currency), loan.issue, loan.maturity)
         .amortization(crate::cashflow::builder::AmortizationSpec::None)

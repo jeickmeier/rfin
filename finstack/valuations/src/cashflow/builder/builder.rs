@@ -1,12 +1,12 @@
-//! Cashflow builder API and build orchestration.
+//! Cash-flow builder API and build orchestration.
 //!
-//! This module contains the main `CashflowBuilder` API that accumulates principal,
+//! This module contains the main `CashFlowBuilder` API that accumulates principal,
 //! amortization, coupon windows, and fees, then orchestrates the compilation into
 //! a deterministic `CashFlowSchedule`.
 //!
 //! ## Responsibilities
 //!
-//! - `CashflowBuilder` struct and its public builder methods
+//! - `CashFlowBuilder` struct and its public builder methods
 //! - Build orchestration (validation, compilation, date collection, state management)
 //! - Pipeline stages: validate inputs, compile schedules, initialize state, process dates
 //! - Amortization setup and parameter derivation
@@ -117,7 +117,20 @@ struct BuildContext<'a> {
     principal_events: &'a [PrincipalEvent],
 }
 
-fn validate_core_inputs(b: &CashflowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
+/// Grouped inputs for collecting all relevant schedule dates.
+#[derive(Debug, Clone, Copy)]
+struct DateCollectionInputs<'a> {
+    issue: Date,
+    maturity: Date,
+    fixed_schedules: &'a [FixedSchedule],
+    float_schedules: &'a [FloatSchedule],
+    periodic_fees: &'a [PeriodicFee],
+    fixed_fees: &'a [(Date, Money)],
+    notional: &'a Notional,
+    principal_events: &'a [PrincipalEvent],
+}
+
+fn validate_core_inputs(b: &CashFlowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
     let notional = b
         .notional
         .clone()
@@ -134,7 +147,7 @@ fn validate_core_inputs(b: &CashflowBuilder) -> finstack_core::Result<(Notional,
 type CompiledAndFees = (CompiledSchedules, Vec<PeriodicFee>, Vec<(Date, Money)>);
 
 fn compile_schedules_and_fees(
-    b: &CashflowBuilder,
+    b: &CashFlowBuilder,
     issue: Date,
     maturity: Date,
     strict: bool,
@@ -278,28 +291,22 @@ fn initialize_build_state(
     }
 }
 
-fn collect_all_dates(
-    issue: Date,
-    maturity: Date,
-    fixed_schedules: &[FixedSchedule],
-    float_schedules: &[FloatSchedule],
-    periodic_fees: &[PeriodicFee],
-    fixed_fees: &[(Date, Money)],
-    notional: &Notional,
-    principal_events: &[PrincipalEvent],
-) -> finstack_core::Result<Vec<Date>> {
-    let periodic_date_slices: Vec<&[Date]> =
-        periodic_fees.iter().map(|pf| pf.dates.as_slice()).collect();
+fn collect_all_dates(inputs: &DateCollectionInputs<'_>) -> finstack_core::Result<Vec<Date>> {
+    let periodic_date_slices: Vec<&[Date]> = inputs
+        .periodic_fees
+        .iter()
+        .map(|pf| pf.dates.as_slice())
+        .collect();
     let mut dates: Vec<Date> = collect_dates(
-        issue,
-        maturity,
-        fixed_schedules,
-        float_schedules,
+        inputs.issue,
+        inputs.maturity,
+        inputs.fixed_schedules,
+        inputs.float_schedules,
         &periodic_date_slices,
-        fixed_fees,
-        notional,
+        inputs.fixed_fees,
+        inputs.notional,
     );
-    for ev in principal_events {
+    for ev in inputs.principal_events {
         dates.push(ev.date);
     }
     // Re-sort and deduplicate after adding principal event dates
@@ -424,7 +431,7 @@ fn process_one_date(
 /// Provides a fluent API for building complex cashflow schedules with
 /// proper validation and business day adjustments.
 #[derive(Debug, Default, Clone)]
-pub struct CashflowBuilder {
+pub struct CashFlowBuilder {
     notional: Option<Notional>,
     issue: Option<Date>,
     maturity: Option<Date>,
@@ -438,7 +445,7 @@ pub struct CashflowBuilder {
     schedule_strict: bool,
 }
 
-impl CashflowBuilder {
+impl CashFlowBuilder {
     /// Creates a new composable cashflow builder.
     pub fn new() -> Self {
         Self::default()
@@ -463,13 +470,13 @@ impl CashflowBuilder {
     fn get_issue_maturity(&self, method_name: &str) -> (Date, Date) {
         let issue = self.issue.unwrap_or_else(|| {
             panic!(
-                "CashflowBuilder::{}: issue date must be set via principal() before calling this method",
+                "CashFlowBuilder::{}: issue date must be set via principal() before calling this method",
                 method_name
             )
         });
         let maturity = self.maturity.unwrap_or_else(|| {
             panic!(
-                "CashflowBuilder::{}: maturity date must be set via principal() before calling this method",
+                "CashFlowBuilder::{}: maturity date must be set via principal() before calling this method",
                 method_name
             )
         });
@@ -1108,16 +1115,17 @@ impl CashflowBuilder {
         principal_events.sort_by_key(|ev| ev.date);
 
         // 3) Collect all relevant dates
-        let dates = collect_all_dates(
+        let date_inputs = DateCollectionInputs {
             issue,
             maturity,
-            &fixed_schedules,
-            &float_schedules,
-            &periodic_fees,
-            &fixed_fees,
-            &notional,
-            &principal_events,
-        )?;
+            fixed_schedules: &fixed_schedules,
+            float_schedules: &float_schedules,
+            periodic_fees: &periodic_fees,
+            fixed_fees: &fixed_fees,
+            notional: &notional,
+            principal_events: &principal_events,
+        };
+        let dates = collect_all_dates(&date_inputs)?;
 
         // 4) Derive amortization setup
         let amort_setup = derive_amortization_setup(&notional, &fixed_schedules, &float_schedules)?;

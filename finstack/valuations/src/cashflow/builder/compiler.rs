@@ -288,7 +288,7 @@ pub(super) fn collect_dates(
 }
 
 pub(super) fn compute_coupon_schedules(
-    builder: &crate::cashflow::builder::builder::CashflowBuilder,
+    builder: &crate::cashflow::builder::builder::CashFlowBuilder,
     issue: Date,
     maturity: Date,
     strict: bool,
@@ -300,7 +300,7 @@ pub(super) fn compute_coupon_schedules(
     //! missing windows default to `Cash`.
     //!
     //! Arguments:
-    //! - `builder` (`&CashflowBuilder`): Source of coupon/payment programs.
+    //! - `builder` (`&CashFlowBuilder`): Source of coupon/payment programs.
     //! - `issue` (`Date`): Start date (inclusive).
     //! - `maturity` (`Date`): End date (inclusive horizon endpoint).
     //!
@@ -322,7 +322,7 @@ pub(super) fn compute_coupon_schedules(
     //!
     //! let issue = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
     //! let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
-    //! // Note: CashflowBuilder would be created here
+    //! // Note: CashFlowBuilder would be created here
     //! let fixed_spec = FixedCouponSpec {
     //!     coupon_type: CouponType::Cash,
     //!     rate: 0.05,

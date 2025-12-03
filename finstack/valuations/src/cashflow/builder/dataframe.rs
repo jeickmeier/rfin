@@ -465,7 +465,7 @@ impl CashFlowSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
+    use crate::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
     use crate::cashflow::builder::Notional;
     use finstack_core::cashflow::primitives::CashFlow;
     use finstack_core::currency::Currency;
@@ -523,7 +523,7 @@ mod tests {
             flows,
             notional: Notional::par(1_000.0, Currency::USD),
             day_count: DayCount::Act365F,
-            meta: CashflowMeta::default(),
+            meta: CashFlowMeta::default(),
         };
 
         // Market context with flat discount curve (df = 1.0)

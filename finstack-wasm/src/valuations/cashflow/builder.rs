@@ -22,7 +22,7 @@ use finstack_valuations::cashflow::builder::specs::{
     ScheduleParams as CoreScheduleParams,
 };
 use finstack_valuations::cashflow::builder::{
-    CashFlowSchedule as CoreCashFlowSchedule, CashflowBuilder as CoreCashflowBuilder,
+    CashFlowBuilder as CoreCashFlowBuilder, CashFlowSchedule as CoreCashFlowSchedule,
 };
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -264,7 +264,7 @@ impl JsFloatingCouponSpec {
 /// - Payment split programs (cash-to-PIK transitions)
 #[wasm_bindgen(js_name = CashflowBuilder)]
 pub struct JsCashflowBuilder {
-    inner: CoreCashflowBuilder,
+    inner: CoreCashFlowBuilder,
 }
 
 impl Default for JsCashflowBuilder {
@@ -279,7 +279,7 @@ impl JsCashflowBuilder {
     #[wasm_bindgen(constructor)]
     pub fn new() -> JsCashflowBuilder {
         JsCashflowBuilder {
-            inner: CoreCashflowBuilder::new(),
+            inner: CoreCashFlowBuilder::new(),
         }
     }
 

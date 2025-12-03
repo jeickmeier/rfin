@@ -1,7 +1,7 @@
 //! Convertible bond pricing model using Tsiveriotis-Zhang tree.
 //!
 //! Implements a hybrid debt-equity pricing model that:
-//! 1. Uses CashflowBuilder to generate the bond's coupon schedule
+//! 1. Uses `CashFlowBuilder` to generate the bond's coupon schedule
 //! 2. Applies Tsiveriotis-Zhang tree decomposition to capture the equity conversion option
 //!    while accounting for credit risk on the cash-only component.
 //! 3. Handles call/put provisions and various conversion policies

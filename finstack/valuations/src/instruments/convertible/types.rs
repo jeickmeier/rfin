@@ -17,7 +17,7 @@ use super::pricer;
 /// Convertible bond instrument with embedded equity conversion option.
 ///
 /// This fixed income instrument combines debt characteristics (coupons, principal)
-/// with equity optionality (conversion rights). Uses the CashflowBuilder for
+/// with equity optionality (conversion rights). Uses the `CashFlowBuilder` for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
