@@ -442,7 +442,8 @@ mod tests {
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let coupon = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
         let schedule = CashFlowSchedule {
-            flows: vec![CashFlow {
+            flows: vec![
+                CashFlow {
                     date: issue,
                     reset_date: None,
                     amount: Money::new(0.0, Currency::USD),

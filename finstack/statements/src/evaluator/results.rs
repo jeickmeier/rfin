@@ -83,6 +83,10 @@ pub struct ResultsMeta {
     /// Whether parallel evaluation was used
     #[serde(default)]
     pub parallel: bool,
+
+    /// Warnings encountered during evaluation (division by zero, NaN propagation, etc.)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<EvalWarning>,
 }
 
 impl Default for ResultsMeta {
@@ -94,6 +98,7 @@ impl Default for ResultsMeta {
             numeric_mode: NumericMode::Float64,
             rounding_context: None,
             parallel: false,
+            warnings: Vec::new(),
         }
     }
 }
@@ -220,4 +225,23 @@ impl Results {
     pub fn to_polars_wide(&self) -> Result<polars::prelude::DataFrame> {
         super::export::to_polars_wide(self)
     }
+}
+
+/// Warning emitted during evaluation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EvalWarning {
+    /// Division by zero encountered
+    DivisionByZero {
+        /// Identifier of the node that triggered the warning.
+        node_id: String,
+        /// Period in which the warning occurred.
+        period: PeriodId,
+    },
+    /// NaN value bubbled up to a node result
+    NaNPropagated {
+        /// Identifier of the node that produced the NaN value.
+        node_id: String,
+        /// Period in which the warning occurred.
+        period: PeriodId,
+    },
 }

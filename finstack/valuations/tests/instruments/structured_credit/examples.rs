@@ -205,16 +205,16 @@ mod tests {
 
         // Expected WARF:
         // AAA: 50M × 1 = 50
-        // A:   100M × 40 = 4,000
+        // A:   100M × 120 = 12,000
         // BB:  150M × 1,350 = 202,500
         // B:   200M × 2,720 = 544,000
-        // Total: 750,500 / 500M = 1,501
+        // Total: 758,550 / 500M = 1,517.1
 
-        assert!((warf - 1501.0).abs() < 0.1);
+        assert!((warf - 1517.1).abs() < 0.1);
 
         // Verify individual rating factors
         assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
-        assert_eq!(moodys_warf_factor(CreditRating::A), 40.0);
+        assert_eq!(moodys_warf_factor(CreditRating::A), 120.0);
         assert_eq!(moodys_warf_factor(CreditRating::BB), 1350.0);
         assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);
     }

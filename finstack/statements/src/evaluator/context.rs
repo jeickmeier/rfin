@@ -6,6 +6,7 @@
 //! graph.
 
 use crate::error::{Error, Result};
+use crate::evaluator::results::EvalWarning;
 use crate::types::NodeValueType;
 use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
@@ -36,6 +37,9 @@ pub struct EvaluationContext {
 
     /// Capital structure cashflows (optional)
     pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
+
+    /// Warnings collected while evaluating this period
+    pub warnings: Vec<EvalWarning>,
 }
 
 impl EvaluationContext {
@@ -76,6 +80,7 @@ impl EvaluationContext {
             current_values: vec![None; num_nodes],
             node_value_types: IndexMap::new(),
             capital_structure_cashflows: None,
+            warnings: Vec::new(),
         }
     }
 
@@ -203,14 +208,19 @@ impl EvaluationContext {
     ///
     /// Only includes nodes that have been evaluated (Some value).
     /// Nodes with None are skipped (should not happen in valid evaluation).
-    pub fn into_results(self) -> IndexMap<String, f64> {
+    pub fn into_results(self) -> (IndexMap<String, f64>, Vec<EvalWarning>) {
         let mut results = IndexMap::new();
         for (node_id, idx) in &self.node_to_column {
             if let Some(value) = self.current_values[*idx] {
                 results.insert(node_id.clone(), value);
             }
         }
-        results
+        (results, self.warnings)
+    }
+
+    /// Record a warning for the current period.
+    pub fn push_warning(&mut self, warning: EvalWarning) {
+        self.warnings.push(warning);
     }
 }
 

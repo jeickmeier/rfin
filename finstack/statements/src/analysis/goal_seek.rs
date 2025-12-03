@@ -33,6 +33,7 @@
 //!     "revenue",
 //!     target_period,
 //!     true,  // Update model with solution
+//!     None,
 //! )?;
 //!
 //! println!("Revenue needed: ${:.2}", solved_revenue);
@@ -60,6 +61,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 /// * `driver_node` - Node identifier for the driver input to vary
 /// * `driver_period` - Period in which to vary the driver
 /// * `update_model` - If true, update the model with the solved driver value
+/// * `bounds` - Optional `(lower, upper)` bracket to constrain the search
 ///
 /// # Returns
 ///
@@ -96,12 +98,13 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 ///
 /// // Solve for revenue that achieves $18,000 net income (closer to initial value for better convergence)
 /// let period = PeriodId::quarter(2025, 1);
-/// let solved = goal_seek(&mut model, "net_income", period, 18_000.0, "revenue", period, false)?;
+/// let solved = goal_seek(&mut model, "net_income", period, 18_000.0, "revenue", period, false, None)?;
 /// // Expected: 18_000 / 0.15 = 120_000
 /// assert!((solved - 120_000.0).abs() < 10.0);
 /// # Ok(())
 /// # }
 /// ```
+#[allow(clippy::too_many_arguments)]
 pub fn goal_seek(
     model: &mut FinancialModelSpec,
     target_node: &str,
@@ -110,6 +113,7 @@ pub fn goal_seek(
     driver_node: &str,
     driver_period: PeriodId,
     update_model: bool,
+    bounds: Option<(f64, f64)>,
 ) -> Result<f64> {
     // Validate that nodes exist
     if !model.has_node(target_node) {
@@ -184,25 +188,120 @@ pub fn goal_seek(
         }
     };
 
-    // Use Brent's method to find the root
-    let solver = BrentSolver::new();
-    let solution = solver.solve(objective, initial_guess).map_err(|e| {
+    if let Some((lower, upper)) = bounds {
+        let solution = solve_with_bounds(&objective, lower, upper)?;
+        return apply_solution(model, driver_node, driver_period, update_model, solution);
+    }
+
+    // Derive adaptive bounds when none supplied
+    let (auto_lower, auto_upper) = {
+        let abs_guess = initial_guess.abs().max(1.0);
+        (
+            initial_guess - abs_guess * 10.0,
+            initial_guess + abs_guess * 10.0,
+        )
+    };
+    let mut solver = BrentSolver::new();
+    let bracket_size = ((auto_upper - auto_lower).abs() / 2.0).max(1e-6);
+    solver.initial_bracket_size = Some(bracket_size);
+    let clamped_guess = initial_guess.clamp(auto_lower, auto_upper);
+
+    let solution = solver.solve(objective, clamped_guess).map_err(|e| {
         Error::eval(format!(
             "Goal seek failed to find solution: target_node='{}', target_value={}, driver_node='{}'. {}",
             target_node, target_value, driver_node, e
         ))
     })?;
 
-    // Update the model if requested
+    apply_solution(model, driver_node, driver_period, update_model, solution)
+}
+
+fn apply_solution(
+    model: &mut FinancialModelSpec,
+    driver_node: &str,
+    driver_period: PeriodId,
+    update_model: bool,
+    value: f64,
+) -> Result<f64> {
     if update_model {
         if let Some(node) = model.nodes.get_mut(driver_node) {
             let mut values = node.values.clone().unwrap_or_default();
-            values.insert(driver_period, AmountOrScalar::scalar(solution));
+            values.insert(driver_period, AmountOrScalar::scalar(value));
             node.values = Some(values);
         }
     }
+    Ok(value)
+}
 
-    Ok(solution)
+fn solve_with_bounds<F>(f: &F, lower: f64, upper: f64) -> Result<f64>
+where
+    F: Fn(f64) -> f64,
+{
+    const MAX_ITER: usize = 128;
+    const TOLERANCE: f64 = 1e-9;
+
+    if !lower.is_finite() || !upper.is_finite() {
+        return Err(Error::invalid_input(
+            "Goal seek bounds must be finite values",
+        ));
+    }
+
+    if lower >= upper {
+        return Err(Error::invalid_input(
+            "Goal seek lower bound must be less than upper bound",
+        ));
+    }
+
+    let mut lo = lower;
+    let mut hi = upper;
+    let mut flo = f(lo);
+    let fhi = f(hi);
+
+    if !flo.is_finite() || !fhi.is_finite() {
+        return Err(Error::eval(
+            "Goal seek bounds produced non-finite objective values",
+        ));
+    }
+
+    if flo == 0.0 {
+        return Ok(lo);
+    }
+    if fhi == 0.0 {
+        return Ok(hi);
+    }
+
+    if flo * fhi > 0.0 {
+        return Err(Error::eval(format!(
+            "Goal seek bounds [{:.4}, {:.4}] do not bracket a root",
+            lower, upper
+        )));
+    }
+
+    for _ in 0..MAX_ITER {
+        let mid = 0.5 * (lo + hi);
+        let fmid = f(mid);
+
+        if !fmid.is_finite() {
+            return Err(Error::eval(
+                "Goal seek produced non-finite value within bounds",
+            ));
+        }
+
+        if fmid.abs() < TOLERANCE || (hi - lo).abs() < TOLERANCE {
+            return Ok(mid);
+        }
+
+        if flo * fmid < 0.0 {
+            hi = mid;
+        } else {
+            lo = mid;
+            flo = fmid;
+        }
+    }
+
+    Err(Error::eval(
+        "Goal seek failed to converge within provided bounds",
+    ))
 }
 
 #[cfg(test)]
@@ -237,6 +336,7 @@ mod tests {
             "revenue",
             period,
             false,
+            None,
         )
         .expect("goal seek should succeed");
 
@@ -267,6 +367,7 @@ mod tests {
             "revenue",
             period,
             true, // Update the model
+            None,
         )
         .expect("goal seek should succeed");
 
@@ -318,6 +419,7 @@ mod tests {
             "revenue",
             q4,
             true,
+            None,
         )
         .expect("goal seek should succeed");
 
@@ -354,6 +456,7 @@ mod tests {
             "revenue",
             period,
             false,
+            None,
         );
 
         assert!(result.is_err());
@@ -377,8 +480,36 @@ mod tests {
             "nonexistent",
             period,
             false,
+            None,
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_goal_seek_with_explicit_bounds() {
+        let period = PeriodId::quarter(2025, 1);
+        let mut model = ModelBuilder::new("bounds")
+            .periods("2025Q1..Q1", None)
+            .expect("valid period")
+            .value("driver", &[(period, AmountOrScalar::scalar(0.0))])
+            .compute("target", "driver")
+            .expect("valid formula")
+            .build()
+            .expect("valid model");
+
+        let solution = goal_seek(
+            &mut model,
+            "target",
+            period,
+            0.75,
+            "driver",
+            period,
+            false,
+            Some((0.5, 1.5)),
+        )
+        .expect("goal seek should succeed");
+
+        assert!((solution - 0.75).abs() < 1e-9);
     }
 }

@@ -14,7 +14,7 @@
 use crate::cashflow_tests::test_helpers::{
     financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
 };
-use finstack_core::cashflow::primitives::{CashFlow, CFKind};
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, Period, PeriodId};
 use finstack_core::market_data::traits::{Discounting, Survival};

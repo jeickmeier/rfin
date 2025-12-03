@@ -258,7 +258,11 @@ impl CreditScorecardExtension {
         }
 
         // Evaluate the formula
-        let value = crate::evaluator::formula::evaluate_formula(&expr, &eval_context)?;
+        let value = crate::evaluator::formula::evaluate_formula(
+            &expr,
+            &mut eval_context,
+            Some(metric.name.as_str()),
+        )?;
 
         // Calculate score based on thresholds
         let score = self.calculate_metric_score(value, &metric.thresholds);

@@ -21,7 +21,7 @@ pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::{Evaluator, EvaluatorWithContext};
 pub use precedence::{resolve_node_value, NodeValueSource};
-pub use results::{NumericMode, Results, ResultsMeta};
+pub use results::{EvalWarning, NumericMode, Results, ResultsMeta};
 
 // Re-export DataFrame functionality when polars feature is enabled
 #[cfg(feature = "dataframes")]

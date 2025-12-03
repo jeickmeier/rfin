@@ -4,7 +4,9 @@
 //! financial system, including:
 //!
 //! - [`CreditRating`]: An agency-agnostic credit rating scale
+//! - [`NotchedRating`]: A `CreditRating` plus notch metadata (`+`, flat, `-`)
 //! - [`RatingFactorTable`]: Rating-to-factor mappings (e.g., Moody's WARF)
+//! - [`RatingLabel`]: Stable, display-ready labels sourced from `NotchedRating`
 //!
 //! # Rating Factors
 //!
@@ -136,6 +138,24 @@ impl CreditRating {
     pub fn is_default(&self) -> bool {
         matches!(self, Self::D)
     }
+
+    /// Returns `true` if the rating supports notch adjustments.
+    pub fn supports_notches(&self) -> bool {
+        matches!(
+            self,
+            Self::AA | Self::A | Self::BBB | Self::BB | Self::B | Self::CCC
+        )
+    }
+
+    /// Create a [`NotchedRating`] from this base rating.
+    pub fn with_notch(self, notch: RatingNotch) -> NotchedRating {
+        let notch = if self.supports_notches() {
+            notch
+        } else {
+            RatingNotch::Flat
+        };
+        NotchedRating::new(self, notch)
+    }
 }
 
 impl core::fmt::Display for CreditRating {
@@ -156,28 +176,292 @@ impl core::fmt::Display for CreditRating {
     }
 }
 
+// ============================================================================
+// RATING NOTCHES
+// ============================================================================
+
+/// Notch adjustment for a [`CreditRating`].
+///
+/// Most agencies subdivide each letter rating into three notches. We normalize
+/// those subdivisions into `Plus`, `Flat`, and `Minus`, which map to:
+///
+/// - `Plus`: Best notch (e.g., `AA+`, `Aa1`, `B1`)
+/// - `Flat`: Middle notch (e.g., `AA`, `Aa2`, `B2`)
+/// - `Minus`: Lowest notch within the grade (e.g., `AA-`, `Aa3`, `B3`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum RatingNotch {
+    /// Best notch (AA+, Aa1, etc.)
+    Plus,
+    /// Mid-notch (AA, Aa2, etc.)
+    Flat,
+    /// Weakest notch within the letter grade (AA-, Aa3, etc.)
+    Minus,
+}
+
+impl RatingNotch {
+    /// Symbol representing the notch.
+    pub fn symbol(self) -> &'static str {
+        match self {
+            RatingNotch::Plus => "+",
+            RatingNotch::Flat => "",
+            RatingNotch::Minus => "-",
+        }
+    }
+}
+
+// ============================================================================
+// NOTCHED RATING
+// ============================================================================
+
+/// A credit rating plus notch metadata.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct NotchedRating {
+    base: CreditRating,
+    notch: RatingNotch,
+}
+
+impl NotchedRating {
+    /// Create a new notched rating.
+    pub const fn new(base: CreditRating, notch: RatingNotch) -> Self {
+        Self { base, notch }
+    }
+
+    /// Base letter rating without the notch.
+    pub const fn base(self) -> CreditRating {
+        self.base
+    }
+
+    /// Notch modifier.
+    pub const fn notch(self) -> RatingNotch {
+        self.notch
+    }
+
+    /// Returns a copy of this rating with the notch reset to flat.
+    pub const fn without_notch(self) -> Self {
+        Self::new(self.base, RatingNotch::Flat)
+    }
+
+    /// Whether the rating is investment grade.
+    pub fn is_investment_grade(&self) -> bool {
+        self.base.is_investment_grade()
+    }
+
+    /// Whether the rating is speculative grade.
+    pub fn is_speculative_grade(&self) -> bool {
+        self.base.is_speculative_grade()
+    }
+
+    /// Whether the rating indicates default.
+    pub fn is_default(&self) -> bool {
+        self.base.is_default()
+    }
+
+    /// Generic representation (S&P/Fitch style) used by [`core::fmt::Display`].
+    fn to_generic_string(self) -> String {
+        if matches!(self.base, CreditRating::NR) {
+            return "NR".to_string();
+        }
+        if matches!(self.base, CreditRating::D) {
+            return "D".to_string();
+        }
+
+        match self.notch {
+            RatingNotch::Plus => format!("{}+", self.base),
+            RatingNotch::Flat => format!("{}", self.base),
+            RatingNotch::Minus => format!("{}-", self.base),
+        }
+    }
+
+    /// Moody's-style representation (e.g., `Aa1`, `Ba2`, `B3`).
+    pub fn to_moodys_string(self) -> String {
+        match (self.base, self.notch) {
+            (CreditRating::AAA, _) => "Aaa".to_string(),
+            (CreditRating::AA, RatingNotch::Plus) => "Aa1".to_string(),
+            (CreditRating::AA, RatingNotch::Flat) => "Aa2".to_string(),
+            (CreditRating::AA, RatingNotch::Minus) => "Aa3".to_string(),
+            (CreditRating::A, RatingNotch::Plus) => "A1".to_string(),
+            (CreditRating::A, RatingNotch::Flat) => "A2".to_string(),
+            (CreditRating::A, RatingNotch::Minus) => "A3".to_string(),
+            (CreditRating::BBB, RatingNotch::Plus) => "Baa1".to_string(),
+            (CreditRating::BBB, RatingNotch::Flat) => "Baa2".to_string(),
+            (CreditRating::BBB, RatingNotch::Minus) => "Baa3".to_string(),
+            (CreditRating::BB, RatingNotch::Plus) => "Ba1".to_string(),
+            (CreditRating::BB, RatingNotch::Flat) => "Ba2".to_string(),
+            (CreditRating::BB, RatingNotch::Minus) => "Ba3".to_string(),
+            (CreditRating::B, RatingNotch::Plus) => "B1".to_string(),
+            (CreditRating::B, RatingNotch::Flat) => "B2".to_string(),
+            (CreditRating::B, RatingNotch::Minus) => "B3".to_string(),
+            (CreditRating::CCC, RatingNotch::Plus) => "Caa1".to_string(),
+            (CreditRating::CCC, RatingNotch::Flat) => "Caa2".to_string(),
+            (CreditRating::CCC, RatingNotch::Minus) => "Caa3".to_string(),
+            (CreditRating::CC, _) => "Ca".to_string(),
+            (CreditRating::C, _) => "C".to_string(),
+            (CreditRating::D, _) => "D".to_string(),
+            (CreditRating::NR, _) => "NR".to_string(),
+        }
+    }
+}
+
+impl From<CreditRating> for NotchedRating {
+    fn from(value: CreditRating) -> Self {
+        Self::new(value, RatingNotch::Flat)
+    }
+}
+
+impl core::fmt::Display for NotchedRating {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&(*self).to_generic_string())
+    }
+}
+
+// ============================================================================
+// RATING LABEL
+// ============================================================================
+
+/// Stable label for referring to ratings (curve names, exports, etc.).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct RatingLabel(String);
+
+impl RatingLabel {
+    /// Create a label using the generic (S&P/Fitch-style) string.
+    pub fn generic(rating: NotchedRating) -> Self {
+        Self(rating.to_generic_string())
+    }
+
+    /// Create a label using Moody's naming convention.
+    pub fn moodys(rating: NotchedRating) -> Self {
+        Self(rating.to_moodys_string())
+    }
+
+    /// Access the underlying string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume the label and return the owned string.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl From<NotchedRating> for RatingLabel {
+    fn from(value: NotchedRating) -> Self {
+        Self::generic(value)
+    }
+}
+
+impl core::fmt::Display for RatingLabel {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 impl core::str::FromStr for CreditRating {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "AAA" | "AAA+" | "AAA-" => Ok(CreditRating::AAA),
-            "AA" | "AA+" | "AA-" | "AA1" | "AA2" | "AA3" => Ok(CreditRating::AA),
-            "A" | "A+" | "A-" | "A1" | "A2" | "A3" => Ok(CreditRating::A),
-            "BBB" | "BBB+" | "BBB-" | "BAA1" | "BAA2" | "BAA3" => Ok(CreditRating::BBB),
-            "BB" | "BB+" | "BB-" | "BA1" | "BA2" | "BA3" => Ok(CreditRating::BB),
-            "B" | "B+" | "B-" | "B1" | "B2" | "B3" => Ok(CreditRating::B),
-            "CCC" | "CCC+" | "CCC-" | "CAA1" | "CAA2" | "CAA3" => Ok(CreditRating::CCC),
-            "CC" | "CA" => Ok(CreditRating::CC),
-            "C" => Ok(CreditRating::C),
-            "D" | "DEFAULT" => Ok(CreditRating::D),
-            "NR" | "NOT RATED" | "UNRATED" => Ok(CreditRating::NR),
-            _ => Err(crate::error::InputError::InvalidRating {
-                value: s.to_string(),
-            }
-            .into()),
+        s.parse::<NotchedRating>().map(|rating| rating.base())
+    }
+}
+
+impl core::str::FromStr for NotchedRating {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_notched_rating(s)
+    }
+}
+
+fn parse_notched_rating(value: &str) -> Result<NotchedRating, crate::Error> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(crate::error::InputError::InvalidRating {
+            value: value.to_string(),
+        }
+        .into());
+    }
+
+    let normalized = trimmed.replace(' ', "");
+    if normalized.is_empty() {
+        return Err(crate::error::InputError::InvalidRating {
+            value: value.to_string(),
+        }
+        .into());
+    }
+
+    let upper = normalized.to_uppercase();
+
+    if matches!(upper.as_str(), "NR" | "NOTRATED" | "UNRATED") {
+        return Ok(NotchedRating::new(CreditRating::NR, RatingNotch::Flat));
+    }
+
+    if matches!(upper.as_str(), "D" | "DEFAULT") {
+        return Ok(NotchedRating::new(CreditRating::D, RatingNotch::Flat));
+    }
+
+    let mut notch = RatingNotch::Flat;
+    let mut base_slice = upper.as_str();
+
+    if base_slice.ends_with('+') {
+        notch = RatingNotch::Plus;
+        base_slice = &base_slice[..base_slice.len() - 1];
+    } else if base_slice.ends_with('-') {
+        notch = RatingNotch::Minus;
+        base_slice = &base_slice[..base_slice.len() - 1];
+    } else if let Some(last) = base_slice.chars().last() {
+        if last.is_ascii_digit() {
+            notch = match last {
+                '1' => RatingNotch::Plus,
+                '2' => RatingNotch::Flat,
+                '3' => RatingNotch::Minus,
+                _ => {
+                    return Err(crate::error::InputError::InvalidRating {
+                        value: value.to_string(),
+                    }
+                    .into())
+                }
+            };
+            base_slice = &base_slice[..base_slice.len() - 1];
         }
     }
+
+    if base_slice.is_empty() {
+        return Err(crate::error::InputError::InvalidRating {
+            value: value.to_string(),
+        }
+        .into());
+    }
+
+    let base = match base_slice {
+        "AAA" => CreditRating::AAA,
+        "AA" => CreditRating::AA,
+        "A" => CreditRating::A,
+        "BBB" | "BAA" => CreditRating::BBB,
+        "BB" | "BA" => CreditRating::BB,
+        "B" => CreditRating::B,
+        "CCC" | "CAA" => CreditRating::CCC,
+        "CC" | "CA" => CreditRating::CC,
+        "C" => CreditRating::C,
+        "D" => CreditRating::D,
+        "NR" => CreditRating::NR,
+        _ => {
+            return Err(crate::error::InputError::InvalidRating {
+                value: value.to_string(),
+            }
+            .into())
+        }
+    };
+
+    let notch = if base.supports_notches() {
+        notch
+    } else {
+        RatingNotch::Flat
+    };
+
+    Ok(NotchedRating::new(base, notch))
 }
 
 // ============================================================================
@@ -202,20 +486,22 @@ impl core::str::FromStr for CreditRating {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RatingFactorTable {
-    /// Factors by rating
-    factors: HashMap<CreditRating, f64>,
+    /// Factors by notched rating
+    factors: HashMap<NotchedRating, f64>,
     /// Agency name
     agency: String,
     /// Methodology description
     methodology: String,
+    /// Default factor when a rating is missing
+    default_factor: f64,
 }
 
 impl RatingFactorTable {
     /// Create Moody's standard WARF table.
     ///
     /// Based on Moody's IDEALIZED DEFAULT RATES table used in CLO analysis.
-    /// These factors represent the expected cumulative default rate over the
-    /// life of the asset for each rating category.
+    /// The table includes every notch published by Moody's as of September
+    /// 2024.
     ///
     /// Source: Moody's "Approach to Rating Collateralized Loan Obligations"
     ///
@@ -229,31 +515,52 @@ impl RatingFactorTable {
     /// ```
     pub fn moodys_standard() -> Self {
         let mut factors = HashMap::new();
-        factors.insert(CreditRating::AAA, 1.0);
-        factors.insert(CreditRating::AA, 10.0);
-        factors.insert(CreditRating::A, 40.0);
-        factors.insert(CreditRating::BBB, 260.0);
-        factors.insert(CreditRating::BB, 1350.0);
-        factors.insert(CreditRating::B, 2720.0);
-        factors.insert(CreditRating::CCC, 6500.0);
-        factors.insert(CreditRating::CC, 8070.0);
-        factors.insert(CreditRating::C, 10000.0);
-        factors.insert(CreditRating::D, 10000.0);
-        factors.insert(CreditRating::NR, 3650.0); // B-/CCC+ equivalent
+        insert_factor(&mut factors, CreditRating::AAA, RatingNotch::Flat, 1.0);
+        insert_factor(&mut factors, CreditRating::AA, RatingNotch::Plus, 10.0);
+        insert_factor(&mut factors, CreditRating::AA, RatingNotch::Flat, 20.0);
+        insert_factor(&mut factors, CreditRating::AA, RatingNotch::Minus, 40.0);
+        insert_factor(&mut factors, CreditRating::A, RatingNotch::Plus, 70.0);
+        insert_factor(&mut factors, CreditRating::A, RatingNotch::Flat, 120.0);
+        insert_factor(&mut factors, CreditRating::A, RatingNotch::Minus, 180.0);
+        insert_factor(&mut factors, CreditRating::BBB, RatingNotch::Plus, 260.0);
+        insert_factor(&mut factors, CreditRating::BBB, RatingNotch::Flat, 360.0);
+        insert_factor(&mut factors, CreditRating::BBB, RatingNotch::Minus, 610.0);
+        insert_factor(&mut factors, CreditRating::BB, RatingNotch::Plus, 940.0);
+        insert_factor(&mut factors, CreditRating::BB, RatingNotch::Flat, 1350.0);
+        insert_factor(&mut factors, CreditRating::BB, RatingNotch::Minus, 1760.0);
+        insert_factor(&mut factors, CreditRating::B, RatingNotch::Plus, 2220.0);
+        insert_factor(&mut factors, CreditRating::B, RatingNotch::Flat, 2720.0);
+        insert_factor(&mut factors, CreditRating::B, RatingNotch::Minus, 3490.0);
+        insert_factor(&mut factors, CreditRating::CCC, RatingNotch::Plus, 4770.0);
+        insert_factor(&mut factors, CreditRating::CCC, RatingNotch::Flat, 6500.0);
+        insert_factor(&mut factors, CreditRating::CCC, RatingNotch::Minus, 8070.0);
+        insert_factor(&mut factors, CreditRating::CC, RatingNotch::Flat, 9550.0);
+        insert_factor(&mut factors, CreditRating::C, RatingNotch::Flat, 10000.0);
+        insert_factor(&mut factors, CreditRating::D, RatingNotch::Flat, 10000.0);
+        insert_factor(&mut factors, CreditRating::NR, RatingNotch::Flat, 3650.0); // B-/CCC+ equivalent
 
         Self {
             factors,
             agency: "Moody's".to_string(),
             methodology: "IDEALIZED DEFAULT RATES".to_string(),
+            default_factor: 3650.0,
         }
     }
 
-    /// Get factor for a specific rating.
+    /// Get factor for a specific rating (with optional notch precision).
     ///
-    /// Returns the factor for the given rating. If the rating is not found
-    /// in the table, returns a default value of 3650.0 (B-/CCC+ equivalent).
-    pub fn get_factor(&self, rating: CreditRating) -> f64 {
-        self.factors.get(&rating).copied().unwrap_or(3650.0)
+    /// If the exact notch is missing, falls back to the flat notch for the same
+    /// base rating before returning the table default (`3650.0`).
+    pub fn get_factor<R>(&self, rating: R) -> f64
+    where
+        R: Into<NotchedRating>,
+    {
+        let rating = rating.into();
+        self.factors
+            .get(&rating)
+            .copied()
+            .or_else(|| self.factors.get(&rating.without_notch()).copied())
+            .unwrap_or(self.default_factor)
     }
 
     /// Get agency name.
@@ -265,6 +572,20 @@ impl RatingFactorTable {
     pub fn methodology(&self) -> &str {
         &self.methodology
     }
+
+    /// Get the table default factor used for missing entries.
+    pub fn default_factor(&self) -> f64 {
+        self.default_factor
+    }
+}
+
+fn insert_factor(
+    map: &mut HashMap<NotchedRating, f64>,
+    base: CreditRating,
+    notch: RatingNotch,
+    value: f64,
+) {
+    map.insert(base.with_notch(notch), value);
 }
 
 // ============================================================================
@@ -286,9 +607,15 @@ static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
 ///
 /// assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
 /// assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);
-/// assert_eq!(moodys_warf_factor(CreditRating::CCC), 6500.0);
+/// assert_eq!(
+///     moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Plus)),
+///     260.0
+/// );
 /// ```
-pub fn moodys_warf_factor(rating: CreditRating) -> f64 {
+pub fn moodys_warf_factor<R>(rating: R) -> f64
+where
+    R: Into<NotchedRating>,
+{
     MOODYS_WARF_TABLE
         .get_or_init(RatingFactorTable::moodys_standard)
         .get_factor(rating)
@@ -301,6 +628,7 @@ pub fn moodys_warf_factor(rating: CreditRating) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_credit_rating_investment_grade() {
@@ -324,6 +652,18 @@ mod tests {
         assert!(CreditRating::CCC.is_speculative_grade());
         assert!(CreditRating::D.is_speculative_grade());
         assert!(!CreditRating::NR.is_speculative_grade()); // NR is neither
+    }
+
+    #[test]
+    fn test_notched_rating_investment_and_speculative() {
+        let bbb_minus = CreditRating::BBB.with_notch(RatingNotch::Minus);
+        let bb_plus = CreditRating::BB.with_notch(RatingNotch::Plus);
+
+        assert!(bbb_minus.is_investment_grade());
+        assert!(!bbb_minus.is_speculative_grade());
+
+        assert!(bb_plus.is_speculative_grade());
+        assert!(!bb_plus.is_investment_grade());
     }
 
     #[test]
@@ -374,14 +714,91 @@ mod tests {
     }
 
     #[test]
+    fn test_notched_rating_from_str() {
+        let bb_plus = "BB+".parse::<NotchedRating>().expect("BB+");
+        assert_eq!(bb_plus.base(), CreditRating::BB);
+        assert_eq!(bb_plus.notch(), RatingNotch::Plus);
+
+        let b_minus = "B-".parse::<NotchedRating>().expect("B-");
+        assert_eq!(b_minus.base(), CreditRating::B);
+        assert_eq!(b_minus.notch(), RatingNotch::Minus);
+
+        let b1 = "B1".parse::<NotchedRating>().expect("B1");
+        assert_eq!(b1.base(), CreditRating::B);
+        assert_eq!(b1.notch(), RatingNotch::Plus);
+
+        let ba2 = "Ba2".parse::<NotchedRating>().expect("Ba2");
+        assert_eq!(ba2.base(), CreditRating::BB);
+        assert_eq!(ba2.notch(), RatingNotch::Flat);
+
+        let nr = "Not Rated"
+            .parse::<NotchedRating>()
+            .expect("NR should parse");
+        assert_eq!(nr.base(), CreditRating::NR);
+        assert_eq!(nr.notch(), RatingNotch::Flat);
+    }
+
+    #[test]
+    fn test_notched_rating_ordering() {
+        let aa_plus = CreditRating::AA.with_notch(RatingNotch::Plus);
+        let aa_flat = CreditRating::AA.with_notch(RatingNotch::Flat);
+        let aa_minus = CreditRating::AA.with_notch(RatingNotch::Minus);
+
+        assert!(aa_plus < aa_flat);
+        assert!(aa_flat < aa_minus);
+        assert!(aa_minus < CreditRating::A.with_notch(RatingNotch::Plus));
+    }
+
+    #[test]
+    fn test_rating_labels() {
+        let rating = CreditRating::BBB.with_notch(RatingNotch::Minus);
+        let generic = RatingLabel::generic(rating);
+        let moodys = RatingLabel::moodys(rating);
+
+        assert_eq!(generic.as_str(), "BBB-");
+        assert_eq!(moodys.as_str(), "Baa3");
+        assert_eq!(generic.to_string(), "BBB-");
+        assert_eq!(moodys.into_inner(), "Baa3".to_string());
+    }
+
+    #[test]
     fn test_moodys_warf_factors() {
         let table = RatingFactorTable::moodys_standard();
 
         // Verify key rating factors
         assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
-        assert_eq!(table.get_factor(CreditRating::A), 40.0);
-        assert_eq!(table.get_factor(CreditRating::B), 2720.0);
-        assert_eq!(table.get_factor(CreditRating::CCC), 6500.0);
+        assert_eq!(
+            table.get_factor(CreditRating::AA.with_notch(RatingNotch::Plus)),
+            10.0
+        );
+        assert_eq!(table.get_factor(CreditRating::A), 120.0);
+        assert_eq!(
+            table.get_factor(CreditRating::B.with_notch(RatingNotch::Minus)),
+            3490.0
+        );
+        assert_eq!(
+            table.get_factor(CreditRating::CCC.with_notch(RatingNotch::Flat)),
+            6500.0
+        );
+    }
+
+    #[test]
+    fn test_rating_factor_table_notch_fallback() {
+        let table = RatingFactorTable::moodys_standard();
+        let synthetic = NotchedRating::new(CreditRating::NR, RatingNotch::Plus);
+        assert_eq!(table.get_factor(synthetic), 3650.0);
+    }
+
+    #[test]
+    fn test_rating_factor_table_default_when_missing() {
+        let table = RatingFactorTable {
+            factors: HashMap::new(),
+            agency: "Test".to_string(),
+            methodology: "Test".to_string(),
+            default_factor: 42.0,
+        };
+
+        assert_eq!(table.get_factor(CreditRating::AA), 42.0);
     }
 
     #[test]
@@ -394,16 +811,16 @@ mod tests {
             table.get_factor(CreditRating::AAA)
         );
         assert_eq!(
-            moodys_warf_factor(CreditRating::A),
-            table.get_factor(CreditRating::A)
+            moodys_warf_factor(CreditRating::AA.with_notch(RatingNotch::Minus)),
+            table.get_factor(CreditRating::AA.with_notch(RatingNotch::Minus))
         );
         assert_eq!(
             moodys_warf_factor(CreditRating::BBB),
             table.get_factor(CreditRating::BBB)
         );
         assert_eq!(
-            moodys_warf_factor(CreditRating::B),
-            table.get_factor(CreditRating::B)
+            moodys_warf_factor(CreditRating::B.with_notch(RatingNotch::Plus)),
+            table.get_factor(CreditRating::B.with_notch(RatingNotch::Plus))
         );
     }
 
@@ -412,5 +829,6 @@ mod tests {
         let table = RatingFactorTable::moodys_standard();
         assert_eq!(table.agency(), "Moody's");
         assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
+        assert_eq!(table.default_factor(), 3650.0);
     }
 }

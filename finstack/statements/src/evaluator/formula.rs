@@ -23,8 +23,10 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
+use crate::evaluator::results::EvalWarning;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
+use finstack_core::math::{kahan_sum, stable_sum};
 use std::collections::BTreeMap;
 
 /// Epsilon value for floating point comparisons.
@@ -99,8 +101,12 @@ fn require_min_args(func_name: &str, args: &[Expr], min: usize) -> Result<()> {
 ///
 /// Handles both basic arithmetic operations (evaluated directly) and
 /// advanced financial/statistical functions (delegated to specialized handlers).
-pub(crate) fn evaluate_formula(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
-    evaluate_expr(expr, context)
+pub(crate) fn evaluate_formula(
+    expr: &Expr,
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<f64> {
+    evaluate_expr(expr, context, node_id)
 }
 
 /// Collect historical values sorted chronologically.
@@ -165,7 +171,7 @@ fn calculate_mean(values: &[f64]) -> Result<f64> {
     if values.is_empty() {
         return Ok(f64::NAN);
     }
-    Ok(values.iter().sum::<f64>() / values.len() as f64)
+    Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
 }
 
 /// Calculate standard deviation of values.
@@ -192,7 +198,8 @@ fn calculate_variance(values: &[f64]) -> Result<f64> {
     }
     let mean = calculate_mean(values)?;
     // Use sample variance (n-1) per market standards (Bessel's correction)
-    Ok(values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64)
+    let squared_diffs = values.iter().map(|v| (v - mean).powi(2));
+    Ok(kahan_sum(squared_diffs) / (values.len() - 1) as f64)
 }
 
 /// Calculate median of values.
@@ -234,7 +241,11 @@ fn offset_period(period: PeriodId, offset: i32) -> Result<PeriodId> {
 }
 
 /// Recursively evaluate an expression.
-pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
+pub(crate) fn evaluate_expr(
+    expr: &Expr,
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<f64> {
     use finstack_core::expr::{BinOp, ExprNode, UnaryOp};
 
     match &expr.node {
@@ -251,12 +262,12 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
             }
             context.get_value(name)
         }
-        ExprNode::Call(func, args) => evaluate_function(func, args, context),
+        ExprNode::Call(func, args) => evaluate_function(func, args, context, node_id),
         ExprNode::BinOp { op, left, right } => {
             // Note: Binary operations are evaluated directly here rather than
             // through the Function enum. This is intentional - see module docs.
-            let left_val = evaluate_expr(left, context)?;
-            let right_val = evaluate_expr(right, context)?;
+            let left_val = evaluate_expr(left, context, node_id)?;
+            let right_val = evaluate_expr(right, context, node_id)?;
 
             let result = match op {
                 // Arithmetic operations - evaluated directly for performance
@@ -269,6 +280,12 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
                             "Division by zero in formula evaluation (period: {:?})",
                             context.period_id
                         );
+                        if let Some(id) = node_id {
+                            context.push_warning(EvalWarning::DivisionByZero {
+                                node_id: id.to_string(),
+                                period: context.period_id,
+                            });
+                        }
                         f64::NAN
                     } else {
                         left_val / right_val
@@ -291,7 +308,7 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
             Ok(result)
         }
         ExprNode::UnaryOp { op, operand } => {
-            let val = evaluate_expr(operand, context)?;
+            let val = evaluate_expr(operand, context, node_id)?;
             let result = match op {
                 UnaryOp::Neg => -val,
                 UnaryOp::Not => bool_to_f64(val == 0.0),
@@ -303,32 +320,37 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
             then_expr,
             else_expr,
         } => {
-            let cond_val = evaluate_expr(condition, context)?;
+            let cond_val = evaluate_expr(condition, context, node_id)?;
             if cond_val != 0.0 {
-                evaluate_expr(then_expr, context)
+                evaluate_expr(then_expr, context, node_id)
             } else {
-                evaluate_expr(else_expr, context)
+                evaluate_expr(else_expr, context, node_id)
             }
         }
     }
 }
 
 /// Evaluate a function call.
-fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext) -> Result<f64> {
+fn evaluate_function(
+    func: &Function,
+    args: &[Expr],
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<f64> {
     // Handle real functions from finstack-core
     match func {
         Function::Lag => {
             require_args("lag", args, 2)?;
 
             // Get the number of periods to lag
-            let lag_periods = evaluate_expr(&args[1], context)? as i32;
+            let lag_periods = evaluate_expr(&args[1], context, node_id)? as i32;
             if lag_periods < 0 {
                 return Err(Error::eval("lag() periods must be non-negative"));
             }
 
             if lag_periods == 0 {
                 // No lag, just evaluate the expression
-                return evaluate_expr(&args[0], context);
+                return evaluate_expr(&args[0], context, node_id);
             }
 
             // Calculate the target period
@@ -362,7 +384,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
-                evaluate_expr(&args[1], context)? as i32
+                evaluate_expr(&args[1], context, node_id)? as i32
             } else {
                 1
             };
@@ -391,7 +413,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 }
             } else {
                 // For complex expressions, evaluate current value
-                let _current_value = evaluate_expr(&args[0], context)?;
+                let _current_value = evaluate_expr(&args[0], context, node_id)?;
                 // Can't get historical value for complex expressions
                 Ok(f64::NAN)
             }
@@ -405,7 +427,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
-                evaluate_expr(&args[1], context)? as i32
+                evaluate_expr(&args[1], context, node_id)? as i32
             } else {
                 1
             };
@@ -433,6 +455,12 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                             "pct_change() division by near-zero lagged value in period {:?}",
                             context.period_id
                         );
+                        if let Some(id) = node_id {
+                            context.push_warning(EvalWarning::DivisionByZero {
+                                node_id: id.to_string(),
+                                period: context.period_id,
+                            });
+                        }
                         Ok(f64::NAN)
                     } else {
                         Ok((current_value - lagged_value) / lagged_value)
@@ -443,7 +471,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 }
             } else {
                 // For complex expressions, evaluate current value
-                let _current_value = evaluate_expr(&args[0], context)?;
+                let _current_value = evaluate_expr(&args[0], context, node_id)?;
                 // Can't get historical value for complex expressions
                 Ok(f64::NAN)
             }
@@ -459,7 +487,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         | Function::RollingCount => {
             require_args(&format!("{:?}", func), args, 2)?;
 
-            let window = evaluate_expr(&args[1], context)? as usize;
+            let window = evaluate_expr(&args[1], context, node_id)? as usize;
             if window == 0 {
                 return Err(Error::eval("Window size must be greater than 0"));
             }
@@ -469,7 +497,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 collect_rolling_window_values(node_name, context, window)?
             } else {
                 // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context)?]
+                vec![evaluate_expr(&args[0], context, node_id)?]
             };
 
             if values.is_empty() {
@@ -478,7 +506,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
             match func {
                 Function::RollingMean => calculate_mean(&values),
-                Function::RollingSum => Ok(values.iter().sum()),
+                Function::RollingSum => Ok(stable_sum(&values)),
                 Function::RollingStd => calculate_std(&values),
                 Function::RollingVar => calculate_variance(&values),
                 Function::RollingMedian => calculate_median(&values),
@@ -501,7 +529,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 collect_all_historical_values(node_name, context)?
             } else {
                 // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context)?]
+                vec![evaluate_expr(&args[0], context, node_id)?]
             };
 
             match func {
@@ -524,7 +552,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 collect_all_historical_values(node_name, context)?
             } else {
                 // For complex expressions, just use current value
-                vec![evaluate_expr(&args[0], context)?]
+                vec![evaluate_expr(&args[0], context, node_id)?]
             };
 
             if values.is_empty() {
@@ -532,7 +560,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             }
 
             match func {
-                Function::CumSum => Ok(values.iter().sum()),
+                Function::CumSum => Ok(stable_sum(&values)),
                 Function::CumProd => Ok(values.iter().product()),
                 Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
@@ -546,10 +574,10 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         // Other functions
         Function::Shift => {
             require_args("shift", args, 2)?;
-            let shift_periods = evaluate_expr(&args[1], context)? as i32;
+            let shift_periods = evaluate_expr(&args[1], context, node_id)? as i32;
 
             if shift_periods == 0 {
-                return evaluate_expr(&args[0], context);
+                return evaluate_expr(&args[0], context, node_id);
             }
 
             // Shift works like lag/lead: positive shift goes backward (like lag)
@@ -573,6 +601,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             } else {
                 // For complex expressions, we can't easily evaluate them in a different period context
                 // Return NaN to indicate the value is not available
+                let _ = evaluate_expr(&args[0], context, node_id)?;
                 Ok(f64::NAN)
             }
         }
@@ -581,7 +610,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             require_min_args("rank", args, 1)?;
 
             // Get the value to rank
-            let current_value = evaluate_expr(&args[0], context)?;
+            let current_value = evaluate_expr(&args[0], context, node_id)?;
 
             // Collect all values (historical + current)
             let node_name = if let ExprNode::Column(name) = &args[0].node {
@@ -610,7 +639,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             require_args("quantile", args, 2)?;
 
             // Get the quantile level (e.g., 0.25 for 25th percentile)
-            let quantile = evaluate_expr(&args[1], context)?;
+            let quantile = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&quantile) {
                 return Err(Error::eval("quantile must be between 0 and 1"));
             }
@@ -653,7 +682,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             require_args("ewm_mean", args, 2)?;
 
             // Get smoothing factor (alpha)
-            let alpha = evaluate_expr(&args[1], context)?;
+            let alpha = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&alpha) {
                 return Err(Error::eval("ewm_mean alpha must be between 0 and 1"));
             }
@@ -698,42 +727,37 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         Function::Sum => {
             require_min_args("sum", args, 1)?;
 
-            let mut sum = 0.0;
-            let mut has_valid = false;
+            let mut values = Vec::new();
 
             for arg in args {
-                let value = evaluate_expr(arg, context)?;
+                let value = evaluate_expr(arg, context, node_id)?;
                 if !value.is_nan() {
-                    sum += value;
-                    has_valid = true;
+                    values.push(value);
                 }
             }
 
-            if has_valid {
-                Ok(sum)
-            } else {
+            if values.is_empty() {
                 Ok(f64::NAN)
+            } else {
+                Ok(kahan_sum(values.iter().copied()))
             }
         }
 
         Function::Mean => {
             require_min_args("mean", args, 1)?;
 
-            let mut sum = 0.0;
-            let mut count = 0;
-
+            let mut values = Vec::new();
             for arg in args {
-                let value = evaluate_expr(arg, context)?;
+                let value = evaluate_expr(arg, context, node_id)?;
                 if !value.is_nan() {
-                    sum += value;
-                    count += 1;
+                    values.push(value);
                 }
             }
 
-            if count > 0 {
-                Ok(sum / count as f64)
-            } else {
+            if values.is_empty() {
                 Ok(f64::NAN)
+            } else {
+                Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
             }
         }
 
@@ -767,11 +791,11 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             // For column references, get rolling sum over appropriate window
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_rolling_window_values(node_name, context, window)?;
-                let sum: f64 = values.iter().filter(|v| !v.is_nan()).sum();
-                Ok(sum)
+                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                Ok(stable_sum(&filtered))
             } else {
                 // For complex expressions, annualize by multiplying by periods per year
-                let value = evaluate_expr(&args[0], context)?;
+                let value = evaluate_expr(&args[0], context, node_id)?;
                 if value.is_nan() {
                     Ok(f64::NAN)
                 } else {
@@ -788,8 +812,8 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             // by multiplying by periods per year.
             //
             // For periodic RATES, use annualize_rate() instead.
-            let value = evaluate_expr(&args[0], context)?;
-            let periods_per_year = evaluate_expr(&args[1], context)?;
+            let value = evaluate_expr(&args[0], context, node_id)?;
+            let periods_per_year = evaluate_expr(&args[1], context, node_id)?;
 
             if value.is_nan() || periods_per_year.is_nan() {
                 Ok(f64::NAN)
@@ -816,9 +840,9 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             // - Quarterly return of 2%:
             //   Simple:   annualize_rate(0.02, 4, 0) = 0.08 (8%)
             //   Compound: annualize_rate(0.02, 4, 1) = 0.0824 (8.24%)
-            let rate = evaluate_expr(&args[0], context)?;
-            let periods_per_year = evaluate_expr(&args[1], context)?;
-            let compounding = evaluate_expr(&args[2], context)?;
+            let rate = evaluate_expr(&args[0], context, node_id)?;
+            let periods_per_year = evaluate_expr(&args[1], context, node_id)?;
+            let compounding = evaluate_expr(&args[2], context, node_id)?;
 
             if rate.is_nan() || periods_per_year.is_nan() || compounding.is_nan() {
                 return Ok(f64::NAN);
@@ -844,14 +868,14 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             require_min_args("coalesce", args, 2)?;
 
             for arg in args {
-                let value = evaluate_expr(arg, context)?;
+                let value = evaluate_expr(arg, context, node_id)?;
                 if !value.is_nan() && value != 0.0 {
                     return Ok(value);
                 }
             }
 
             // If all values are NaN or zero, return the last one
-            evaluate_expr(&args[args.len() - 1], context)
+            evaluate_expr(&args[args.len() - 1], context, node_id)
         }
 
         Function::EwmStd | Function::EwmVar => {
@@ -866,16 +890,16 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             }
 
             // Get smoothing factor (alpha)
-            let alpha = evaluate_expr(&args[1], context)?;
+            let alpha = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&alpha) {
                 return Err(Error::eval("ewm alpha must be between 0 and 1"));
             }
 
-            // Get optional bias correction flag (default: false for backward compatibility)
+            // Bias correction now defaults to `true` to match pandas adjust=True (market standard)
             let adjust = if args.len() == 3 {
-                evaluate_expr(&args[2], context)? != 0.0
+                evaluate_expr(&args[2], context, node_id)? != 0.0
             } else {
-                false
+                true
             };
 
             // Get node name
@@ -932,5 +956,101 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 ))),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::expr::{Expr, Function};
+    use indexmap::IndexMap;
+
+    fn build_context_with_history(
+        current_period: PeriodId,
+        node_id: &str,
+        historical_values: Vec<(PeriodId, f64)>,
+        current_value: f64,
+    ) -> EvaluationContext {
+        let mut node_to_column = IndexMap::new();
+        node_to_column.insert(node_id.to_string(), 0);
+
+        let mut historical = IndexMap::new();
+        for (period, value) in historical_values {
+            let mut values = IndexMap::new();
+            values.insert(node_id.to_string(), value);
+            historical.insert(period, values);
+        }
+
+        let mut context = EvaluationContext::new(current_period, node_to_column, historical);
+        context
+            .set_value(node_id, current_value)
+            .expect("set node value");
+        context
+    }
+
+    #[test]
+    fn calculate_mean_matches_kahan_reference() {
+        let mut values = vec![1e16];
+        values.extend(std::iter::repeat_n(1.0, 256));
+
+        let precise = calculate_mean(&values).expect("mean should succeed");
+        let reference = kahan_sum(values.iter().copied()) / values.len() as f64;
+        let naive = values.iter().sum::<f64>() / values.len() as f64;
+
+        assert!((precise - reference).abs() < 1e-12);
+        assert!(
+            (naive - reference).abs() > 1e-6,
+            "Expected naive mean to deviate from reference"
+        );
+    }
+
+    #[test]
+    fn ewm_var_defaults_to_bias_correction() {
+        let p1 = PeriodId::quarter(2025, 1);
+        let p2 = PeriodId::quarter(2025, 2);
+
+        let mut context = build_context_with_history(p2, "series", vec![(p1, 1.0)], 2.0);
+        let value_default = evaluate_function(
+            &Function::EwmVar,
+            &[Expr::column("series"), Expr::literal(0.5)],
+            &mut context,
+            Some("ewm_var"),
+        )
+        .expect("default ewm_var");
+
+        let mut context_no_adjust = build_context_with_history(p2, "series", vec![(p1, 1.0)], 2.0);
+        let value_no_adjust = evaluate_function(
+            &Function::EwmVar,
+            &[
+                Expr::column("series"),
+                Expr::literal(0.5),
+                Expr::literal(0.0),
+            ],
+            &mut context_no_adjust,
+            Some("ewm_var"),
+        )
+        .expect("ewm_var without adjust");
+
+        assert!((value_default - 1.0 / 3.0).abs() < 1e-9);
+        assert!((value_no_adjust - 0.25).abs() < 1e-9);
+        assert!(value_default > value_no_adjust);
+    }
+
+    #[test]
+    fn sum_function_handles_large_cancellations() {
+        let period = PeriodId::quarter(2025, 1);
+        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+        let args = vec![
+            Expr::literal(1e16),
+            Expr::literal(1.0),
+            Expr::literal(-1e16),
+        ];
+        let sum_value = evaluate_function(&Function::Sum, &args, &mut context, Some("sum_test"))
+            .expect("sum evaluation should succeed");
+        let reference = kahan_sum([1e16, 1.0, -1e16]);
+        assert!(
+            (sum_value - reference).abs() < 1e-12,
+            "sum_value={sum_value}, reference={reference}"
+        );
     }
 }

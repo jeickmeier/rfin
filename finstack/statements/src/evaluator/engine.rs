@@ -7,7 +7,7 @@ use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
-use crate::evaluator::results::{Results, ResultsMeta};
+use crate::evaluator::results::{EvalWarning, Results, ResultsMeta};
 use crate::types::{FinancialModelSpec, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
@@ -216,11 +216,12 @@ impl Evaluator {
 
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+        let mut all_warnings = Vec::new();
         let mut results = Results::new();
 
         // Sequential evaluation for all models
         for period in &model.periods {
-            let period_results =
+            let (period_results, period_warnings) =
                 if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
                     (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
                 {
@@ -248,6 +249,8 @@ impl Evaluator {
                         None,
                     )?
                 };
+
+            all_warnings.extend(period_warnings.into_iter());
 
             // Store in results
             for (node_id, value) in &period_results {
@@ -340,6 +343,7 @@ impl Evaluator {
             numeric_mode: crate::evaluator::NumericMode::Float64,
             rounding_context: None, // Not implemented yet
             parallel: false,
+            warnings: all_warnings,
         };
 
         Ok(results)
@@ -454,7 +458,7 @@ impl Evaluator {
         >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
         cs_formula_nodes: &HashSet<String>,
-    ) -> Result<IndexMap<String, f64>> {
+    ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
         use crate::capital_structure::integration;
         use indexmap::IndexMap;
 
@@ -539,8 +543,7 @@ impl Evaluator {
             if node_spec.where_text.is_some() {
                 let where_key = format!("__where__{}", node_id);
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result =
-                        crate::evaluator::formula::evaluate_formula(where_expr, &context)?;
+                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
                     if where_result == 0.0 {
                         context.set_value(node_id, 0.0)?;
                         continue;
@@ -566,7 +569,7 @@ impl Evaluator {
                     let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
                         Error::eval(format!("No compiled formula for node '{}'", node_id))
                     })?;
-                    crate::evaluator::formula::evaluate_formula(expr, &context)?
+                    evaluate_formula(expr, &mut context, Some(node_id))?
                 }
             };
 
@@ -611,7 +614,7 @@ impl Evaluator {
 
                     if matches!(source, NodeValueSource::Formula(_)) {
                         if let Some(expr) = self.compiled_cache.get(node_id) {
-                            let value = evaluate_formula(expr, &context)?;
+                            let value = evaluate_formula(expr, &mut context, Some(node_id))?;
                             context.set_value(node_id, value)?;
                         }
                     }
@@ -619,7 +622,8 @@ impl Evaluator {
             }
         }
 
-        Ok(context.into_results())
+        let (values, warnings) = context.into_results();
+        Ok((values, warnings))
     }
 
     /// Evaluate a single period.
@@ -633,7 +637,7 @@ impl Evaluator {
         node_to_column: &IndexMap<String, usize>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
-    ) -> Result<IndexMap<String, f64>> {
+    ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
         // Create evaluation context
         let mut context =
             EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
@@ -653,7 +657,7 @@ impl Evaluator {
             if node_spec.where_text.is_some() {
                 let where_key = format!("__where__{}", node_id);
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = evaluate_formula(where_expr, &context)?;
+                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
                     // If where clause evaluates to false (0.0), skip this node
                     if where_result == 0.0 {
                         // Set value to 0.0 or NaN for masked nodes
@@ -683,7 +687,7 @@ impl Evaluator {
                     let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
                         Error::eval(format!("No compiled formula for node '{}'", node_id))
                     })?;
-                    evaluate_formula(expr, &context)?
+                    evaluate_formula(expr, &mut context, Some(node_id))?
                 }
             };
 
@@ -692,7 +696,8 @@ impl Evaluator {
         }
 
         // Return results for this period
-        Ok(context.into_results())
+        let (values, warnings) = context.into_results();
+        Ok((values, warnings))
     }
 }
 
@@ -745,6 +750,7 @@ impl EvaluatorWithContext {
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;
+    use crate::evaluator::results::EvalWarning;
     use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
     use indexmap::IndexMap;
 
@@ -876,5 +882,33 @@ mod tests {
 
         let second = evaluator.evaluate(&model).expect("second eval");
         assert_eq!(second.get("y", &PeriodId::quarter(2025, 1)), Some(30.0));
+    }
+
+    #[test]
+    fn test_results_include_warnings() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("warnings")
+            .periods("2025Q1..Q1", None)
+            .expect("valid period")
+            .value("denominator", &[(period, AmountOrScalar::scalar(0.0))])
+            .compute("ratio", "1.0 / denominator")
+            .expect("valid formula")
+            .build()
+            .expect("valid model");
+
+        let mut evaluator = Evaluator::new();
+        let results = evaluator.evaluate(&model).expect("evaluation succeeds");
+
+        assert!(
+            results
+                .meta
+                .warnings
+                .iter()
+                .any(|warning| matches!(
+                    warning,
+                    EvalWarning::DivisionByZero { node_id, period: p } if node_id == "ratio" && *p == period
+                )),
+            "expected division-by-zero warning for ratio node"
+        );
     }
 }

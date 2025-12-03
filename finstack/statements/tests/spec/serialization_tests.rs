@@ -30,6 +30,7 @@ fn test_results_serialization() {
         numeric_mode: finstack_statements::NumericMode::Float64,
         rounding_context: None,
         parallel: false,
+        warnings: Vec::new(),
     };
 
     // Serialize to JSON

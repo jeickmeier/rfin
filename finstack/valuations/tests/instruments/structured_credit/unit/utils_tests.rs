@@ -9,7 +9,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::ratings::{moodys_warf_factor, CreditRating, RatingFactorTable};
+use finstack_core::types::ratings::{
+    moodys_warf_factor, CreditRating, RatingFactorTable, RatingNotch,
+};
 use finstack_valuations::instruments::structured_credit::{
     AssetType, DealType, Pool, PoolAsset, ReinvestmentManager,
 };
@@ -33,8 +35,8 @@ fn test_moodys_warf_factor_a() {
     // Act
     let factor = moodys_warf_factor(CreditRating::A);
 
-    // Assert: A should be 40
-    assert_eq!(factor, 40.0);
+    // Assert: A (flat notch / A2) should be 120
+    assert_eq!(factor, 120.0);
 }
 
 #[test]
@@ -83,6 +85,10 @@ fn test_rating_factor_table_creation() {
     assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
     assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
     assert_eq!(table.get_factor(CreditRating::BB), 1350.0);
+    assert_eq!(
+        table.get_factor(CreditRating::AA.with_notch(RatingNotch::Plus)),
+        10.0
+    );
 }
 
 #[test]
@@ -90,9 +96,9 @@ fn test_rating_factor_monotonicity() {
     // Arrange: Better ratings should have lower factors
     let ratings = [
         (CreditRating::AAA, 1.0),
-        (CreditRating::AA, 10.0),
-        (CreditRating::A, 40.0),
-        (CreditRating::BBB, 260.0),
+        (CreditRating::AA, 20.0),
+        (CreditRating::A, 120.0),
+        (CreditRating::BBB, 360.0),
         (CreditRating::BB, 1350.0),
         (CreditRating::B, 2720.0),
         (CreditRating::CCC, 6500.0),
@@ -111,6 +117,22 @@ fn test_rating_factor_monotonicity() {
             curr_factor
         );
     }
+}
+
+#[test]
+fn test_moodys_warf_factor_notches() {
+    assert_eq!(
+        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Plus)),
+        940.0
+    );
+    assert_eq!(
+        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Minus)),
+        1760.0
+    );
+    assert_eq!(
+        moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Flat)),
+        360.0
+    );
 }
 
 // ============================================================================

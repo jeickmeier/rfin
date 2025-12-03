@@ -389,8 +389,5 @@ pub(crate) fn resolve_credit_curves(
     } else {
         None
     };
-    Ok(CreditCurveHandles {
-        discount,
-        hazard,
-    })
+    Ok(CreditCurveHandles { discount, hazard })
 }

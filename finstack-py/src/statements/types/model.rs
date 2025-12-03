@@ -538,6 +538,7 @@ impl PyFinancialModelSpec {
             driver_node,
             driver_period_id,
             update_model,
+            None,
         )
         .map_err(|e| PyValueError::new_err(format!("Goal seek failed: {}", e)))
     }
