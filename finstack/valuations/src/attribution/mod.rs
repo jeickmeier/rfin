@@ -130,6 +130,8 @@ pub mod parallel;
 pub mod spec;
 pub mod types;
 pub mod waterfall;
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 // Re-export core types
 pub use types::{
@@ -146,7 +148,7 @@ pub use model_params::{
 };
 pub use parallel::attribute_pnl_parallel;
 pub use spec::{
-    AttributionConfig, AttributionEnvelope, AttributionResult, AttributionResultEnvelope,
-    AttributionSpec, ATTRIBUTION_SCHEMA_V1,
+    default_attribution_metrics, AttributionConfig, AttributionEnvelope, AttributionResult,
+    AttributionResultEnvelope, AttributionSpec, ATTRIBUTION_SCHEMA_V1,
 };
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};

@@ -222,6 +222,21 @@ pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
     }
 }
 
+fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
+    for (id, price) in from.prices_iter() {
+        to.set_price_mut(id.clone(), price.clone());
+    }
+    for (_id, series) in from.series_iter() {
+        to.set_series_mut(series.clone());
+    }
+    for (id, index) in from.inflation_indices_iter() {
+        to.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in from.dividends_iter() {
+        to.set_dividends_mut(Arc::clone(schedule));
+    }
+}
+
 /// Replace rates curves in a market context with curves from a snapshot.
 ///
 /// # Arguments
@@ -269,19 +284,7 @@ pub fn restore_rates_curves(
     }
     temp_market.surfaces = market.surfaces.clone();
 
-    // Copy all scalar data (CRITICAL: this was missing before!)
-    for (id, price) in market.prices_iter() {
-        temp_market.set_price_mut(id.clone(), price.clone());
-    }
-    for (_id, series) in market.series_iter() {
-        temp_market.set_series_mut(series.clone());
-    }
-    for (id, index) in market.inflation_indices_iter() {
-        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
-    }
-    for (_id, schedule) in market.dividends_iter() {
-        temp_market.set_dividends_mut(Arc::clone(schedule));
-    }
+    copy_scalars(market, &mut temp_market);
 
     temp_market
 }
@@ -334,19 +337,7 @@ pub fn restore_credit_curves(
     }
     temp_market.surfaces = market.surfaces.clone();
 
-    // Copy all scalar data (CRITICAL: this was missing before!)
-    for (id, price) in market.prices_iter() {
-        temp_market.set_price_mut(id.clone(), price.clone());
-    }
-    for (_id, series) in market.series_iter() {
-        temp_market.set_series_mut(series.clone());
-    }
-    for (id, index) in market.inflation_indices_iter() {
-        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
-    }
-    for (_id, schedule) in market.dividends_iter() {
-        temp_market.set_dividends_mut(Arc::clone(schedule));
-    }
+    copy_scalars(market, &mut temp_market);
 
     temp_market
 }
@@ -392,19 +383,7 @@ pub fn restore_inflation_curves(
     }
     temp_market.surfaces = market.surfaces.clone();
 
-    // Copy all scalar data (CRITICAL: this was missing before!)
-    for (id, price) in market.prices_iter() {
-        temp_market.set_price_mut(id.clone(), price.clone());
-    }
-    for (_id, series) in market.series_iter() {
-        temp_market.set_series_mut(series.clone());
-    }
-    for (id, index) in market.inflation_indices_iter() {
-        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
-    }
-    for (_id, schedule) in market.dividends_iter() {
-        temp_market.set_dividends_mut(Arc::clone(schedule));
-    }
+    copy_scalars(market, &mut temp_market);
 
     temp_market
 }
@@ -450,19 +429,7 @@ pub fn restore_correlations(
     }
     temp_market.surfaces = market.surfaces.clone();
 
-    // Copy all scalar data (CRITICAL: this was missing before!)
-    for (id, price) in market.prices_iter() {
-        temp_market.set_price_mut(id.clone(), price.clone());
-    }
-    for (_id, series) in market.series_iter() {
-        temp_market.set_series_mut(series.clone());
-    }
-    for (id, index) in market.inflation_indices_iter() {
-        temp_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
-    }
-    for (_id, schedule) in market.dividends_iter() {
-        temp_market.set_dividends_mut(Arc::clone(schedule));
-    }
+    copy_scalars(market, &mut temp_market);
 
     temp_market
 }

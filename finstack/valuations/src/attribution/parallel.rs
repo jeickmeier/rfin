@@ -321,78 +321,12 @@ pub fn attribute_pnl_parallel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use time::macros::date;
-
-    // Simple test instrument that returns a fixed value
-    struct TestInstrument {
-        id: String,
-        value: Money,
-    }
-
-    impl TestInstrument {
-        fn new(id: &str, value: Money) -> Self {
-            Self {
-                id: id.to_string(),
-                value,
-            }
-        }
-    }
-
-    impl crate::instruments::common::traits::Instrument for TestInstrument {
-        fn id(&self) -> &str {
-            &self.id
-        }
-
-        fn key(&self) -> crate::pricer::InstrumentType {
-            crate::pricer::InstrumentType::Bond // arbitrary choice for test
-        }
-
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-
-        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-            // Return a static empty attributes for test purposes
-            use std::sync::OnceLock;
-            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> =
-                OnceLock::new();
-            ATTRS.get_or_init(crate::instruments::common::traits::Attributes::default)
-        }
-
-        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-            // Not used in tests, but required by trait
-            unreachable!("TestInstrument::attributes_mut should not be called in tests")
-        }
-
-        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
-            Box::new(Self {
-                id: self.id.clone(),
-                value: self.value,
-            })
-        }
-
-        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
-            Ok(self.value)
-        }
-
-        fn price_with_metrics(
-            &self,
-            market: &MarketContext,
-            as_of: Date,
-            _metrics: &[crate::metrics::MetricId],
-        ) -> Result<crate::results::ValuationResult> {
-            let value = self.value(market, as_of)?;
-            Ok(crate::results::ValuationResult::stamped(
-                self.id(),
-                as_of,
-                value,
-            ))
-        }
-    }
 
     #[test]
     fn test_parallel_attribution_simple() {

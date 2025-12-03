@@ -36,6 +36,7 @@ use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;
 use crate::instruments::common::traits::Instrument;
+use finstack_core::currency::Currency;
 use finstack_core::prelude::*;
 use std::sync::Arc;
 
@@ -125,8 +126,6 @@ pub fn attribute_pnl_waterfall(
         ));
     }
 
-    let mut num_repricings = 0;
-
     // Step 1: Price at T₀
     // Use T₀ model parameters for T₀ valuation if available
     let instrument_t0 = if let Some(params) = model_params_t0 {
@@ -135,11 +134,9 @@ pub fn attribute_pnl_waterfall(
         Arc::clone(instrument)
     };
     let val_t0 = reprice_instrument(&instrument_t0, market_t0, as_of_t0)?;
-    num_repricings += 1;
 
     // Also price at T₁ for total P&L calculation
     let val_t1 = reprice_instrument(instrument, market_t1, as_of_t1)?;
-    num_repricings += 1;
 
     let total_pnl = compute_pnl_with_fx(
         val_t0,
@@ -161,25 +158,21 @@ pub fn attribute_pnl_waterfall(
     );
 
     // Build hybrid market: start with all T₀, progressively apply T₁
-    let mut current_market = market_t0.clone();
-    let mut current_val = val_t0;
-    let mut current_instrument = instrument_t0;
+    let mut ctx = WaterfallContext {
+        target_instrument: instrument,
+        current_instrument: instrument_t0,
+        current_market: market_t0.clone(),
+        current_val: val_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        strict_validation,
+        num_repricings: 2, // T₀ and T₁ repricings already performed
+    };
 
     // Apply each factor in sequence
     for factor in factor_order {
-        let (new_market, factor_pnl, new_instrument) = apply_factor_to_t1(
-            instrument,
-            &current_instrument,
-            &current_market,
-            market_t0,
-            market_t1,
-            as_of_t0,
-            as_of_t1,
-            &factor,
-            current_val,
-            &mut num_repricings,
-            strict_validation,
-        )?;
+        let factor_pnl = ctx.apply_factor(&factor)?;
 
         // Record factor P&L
         match factor {
@@ -193,7 +186,7 @@ pub fn attribute_pnl_waterfall(
                 // Stamp FX policy when FX factor is applied
                 attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
                     strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                    target_ccy: Some(current_val.currency()),
+                    target_ccy: Some(attribution.fx_pnl.currency()),
                     notes: "Waterfall FX attribution with full translation".to_string(),
                 });
             }
@@ -210,13 +203,6 @@ pub fn attribute_pnl_waterfall(
             }
             AttributionFactor::MarketScalars => attribution.market_scalars_pnl = factor_pnl,
         }
-
-        // Update current market and value for next iteration
-        current_market = new_market;
-        current_instrument = new_instrument;
-        current_val = current_val
-            .checked_add(factor_pnl)
-            .map_err(|_| Error::Validation("Currency mismatch in waterfall".to_string()))?;
     }
 
     // Compute residual (should be minimal for waterfall)
@@ -224,7 +210,7 @@ pub fn attribute_pnl_waterfall(
     let _ = attribution.compute_residual();
 
     // Update metadata
-    attribution.meta.num_repricings = num_repricings;
+    attribution.meta.num_repricings = ctx.num_repricings();
     attribution.meta.tolerance_abs = 0.01;
     attribution.meta.tolerance_pct = 0.001; // Waterfall should have very small residual
     attribution.meta.rounding = finstack_core::config::rounding_context_from(_config);
@@ -232,234 +218,141 @@ pub fn attribute_pnl_waterfall(
     Ok(attribution)
 }
 
-/// Apply a single factor's T₁ state to the current market.
-///
-/// # Arguments
-///
-/// * `instrument` - Instrument to price
-/// * `current_market` - Current hybrid market (some factors at T₀, some at T₁)
-/// * `market_t0` - Full T₀ market (for reference)
-/// * `market_t1` - Full T₁ market (to extract T₁ factor state)
-/// * `as_of_t1` - Valuation date at T₁
-/// * `factor` - Factor to apply
-/// * `current_val` - Current valuation
-/// * `num_repricings` - Counter for total repricings
-/// * `strict_validation` - If true, propagate errors instead of soft failures
-///
-/// # Returns
-///
-/// Tuple of (new market, P&L from applying factor, new instrument)
-#[allow(clippy::too_many_arguments)]
-fn apply_factor_to_t1(
-    target_instrument: &Arc<dyn Instrument>,
-    current_instrument: &Arc<dyn Instrument>,
-    current_market: &MarketContext,
-    _market_t0: &MarketContext,
-    market_t1: &MarketContext,
+struct WaterfallContext<'a> {
+    target_instrument: &'a Arc<dyn Instrument>,
+    current_instrument: Arc<dyn Instrument>,
+    current_market: MarketContext,
+    current_val: Money,
+    market_t1: &'a MarketContext,
     as_of_t0: Date,
     as_of_t1: Date,
-    factor: &AttributionFactor,
-    current_val: Money,
-    num_repricings: &mut usize,
     strict_validation: bool,
-) -> Result<(MarketContext, Money, Arc<dyn Instrument>)> {
-    // For ModelParameters, we transition to T₁ parameters (which are on target_instrument)
-    if matches!(factor, AttributionFactor::ModelParameters) {
-        // The target_instrument already has T₁ parameters
-        // We just need to reprice it with the current market
-        match reprice_instrument(target_instrument, current_market, as_of_t1) {
+    num_repricings: usize,
+}
+
+impl<'a> WaterfallContext<'a> {
+    fn num_repricings(&self) -> usize {
+        self.num_repricings
+    }
+
+    fn apply_factor(&mut self, factor: &AttributionFactor) -> Result<Money> {
+        let prev_val = self.current_val;
+        let base_currency = prev_val.currency();
+
+        if matches!(factor, AttributionFactor::ModelParameters) {
+            return self.apply_model_params(prev_val, base_currency, factor);
+        }
+
+        let new_market = self.build_market_for_factor(factor)?;
+        let new_val = reprice_instrument(&self.current_instrument, &new_market, self.as_of_t1)?;
+        self.num_repricings += 1;
+
+        let factor_pnl = if matches!(factor, AttributionFactor::Fx) {
+            compute_pnl_with_fx(
+                prev_val,
+                new_val,
+                base_currency,
+                &self.current_market,
+                &new_market,
+                self.as_of_t0,
+                self.as_of_t1,
+            )?
+        } else {
+            compute_pnl(prev_val, new_val, base_currency, &new_market, self.as_of_t1)?
+        };
+
+        self.current_market = new_market;
+        self.update_current_value(prev_val, factor_pnl)?;
+        Ok(factor_pnl)
+    }
+
+    fn apply_model_params(
+        &mut self,
+        prev_val: Money,
+        base_currency: Currency,
+        factor: &AttributionFactor,
+    ) -> Result<Money> {
+        match reprice_instrument(self.target_instrument, &self.current_market, self.as_of_t1) {
             Ok(new_val) => {
-                *num_repricings += 1;
-                // For model params, we assume no FX change, so use standard compute_pnl
-                // (FX factor handles FX changes)
+                self.num_repricings += 1;
                 let factor_pnl = compute_pnl(
-                    current_val,
+                    prev_val,
                     new_val,
-                    current_val.currency(),
-                    current_market,
-                    as_of_t1,
+                    base_currency,
+                    &self.current_market,
+                    self.as_of_t1,
                 )?;
-                return Ok((
-                    current_market.clone(),
-                    factor_pnl,
-                    Arc::clone(target_instrument),
-                ));
+                self.current_instrument = Arc::clone(self.target_instrument);
+                self.update_current_value(prev_val, factor_pnl)?;
+                Ok(factor_pnl)
             }
             Err(e) => {
-                if strict_validation {
+                if self.strict_validation {
                     return Err(e);
                 }
                 tracing::warn!(
                     error = %e,
                     factor = ?factor,
-                    instrument_id = %target_instrument.id(),
+                    instrument_id = %self.target_instrument.id(),
                     "Waterfall attribution: repricing with T₁ model parameters failed, returning zero P&L"
                 );
-                return Ok((
-                    current_market.clone(),
-                    Money::new(0.0, current_val.currency()),
-                    Arc::clone(current_instrument),
-                ));
+                Ok(Money::new(0.0, base_currency))
             }
         }
     }
 
-    // For all other factors, modify the market
-    let new_market = match factor {
-        AttributionFactor::Carry => {
-            // Carry: just advances time (already priced at T₁ date)
-            // No market change needed as we're already at T₁ date
-            current_market.clone()
-        }
+    fn build_market_for_factor(&self, factor: &AttributionFactor) -> Result<MarketContext> {
+        let market = match factor {
+            AttributionFactor::Carry => self.current_market.clone(),
+            AttributionFactor::RatesCurves => {
+                let rates_t1 = extract_rates_curves(self.market_t1);
+                restore_rates_curves(&self.current_market, &rates_t1)
+            }
+            AttributionFactor::CreditCurves => {
+                let credit_t1 = extract_credit_curves(self.market_t1);
+                restore_credit_curves(&self.current_market, &credit_t1)
+            }
+            AttributionFactor::InflationCurves => {
+                let inflation_t1 = extract_inflation_curves(self.market_t1);
+                restore_inflation_curves(&self.current_market, &inflation_t1)
+            }
+            AttributionFactor::Correlations => {
+                let corr_t1 = extract_correlations(self.market_t1);
+                restore_correlations(&self.current_market, &corr_t1)
+            }
+            AttributionFactor::Fx => {
+                let fx_t1 = extract_fx(self.market_t1);
+                restore_fx(&self.current_market, fx_t1)
+            }
+            AttributionFactor::Volatility => {
+                let vol_t1 = extract_volatility(self.market_t1);
+                restore_volatility(&self.current_market, &vol_t1)
+            }
+            AttributionFactor::MarketScalars => {
+                let scalars_t1 = extract_scalars(self.market_t1);
+                restore_scalars(&self.current_market, &scalars_t1)
+            }
+            AttributionFactor::ModelParameters => unreachable!(),
+        };
 
-        AttributionFactor::RatesCurves => {
-            let rates_t1 = extract_rates_curves(market_t1);
-            restore_rates_curves(current_market, &rates_t1)
-        }
+        Ok(market)
+    }
 
-        AttributionFactor::CreditCurves => {
-            let credit_t1 = extract_credit_curves(market_t1);
-            restore_credit_curves(current_market, &credit_t1)
-        }
-
-        AttributionFactor::InflationCurves => {
-            let inflation_t1 = extract_inflation_curves(market_t1);
-            restore_inflation_curves(current_market, &inflation_t1)
-        }
-
-        AttributionFactor::Correlations => {
-            let corr_t1 = extract_correlations(market_t1);
-            restore_correlations(current_market, &corr_t1)
-        }
-
-        AttributionFactor::Fx => {
-            // Apply T1 FX matrix while keeping other factors at their current state
-            // This isolates the internal FX exposure effect
-            let fx_t1 = extract_fx(market_t1);
-            restore_fx(current_market, fx_t1)
-        }
-
-        AttributionFactor::Volatility => {
-            let vol_t1 = extract_volatility(market_t1);
-            restore_volatility(current_market, &vol_t1)
-        }
-
-        AttributionFactor::MarketScalars => {
-            let scalars_t1 = extract_scalars(market_t1);
-            restore_scalars(current_market, &scalars_t1)
-        }
-
-        AttributionFactor::ModelParameters => {
-            // Already handled above
-            unreachable!()
-        }
-    };
-
-    // Reprice with new market
-    let new_val = reprice_instrument(current_instrument, &new_market, as_of_t1)?;
-    *num_repricings += 1;
-
-    // Compute P&L from this factor
-    let factor_pnl = if matches!(factor, AttributionFactor::Fx) {
-        // For FX, use full translation logic: (new_val @ new_fx) - (current_val @ current_fx)
-        // current_market has T0 FX (or whatever state before this step)
-        // new_market has T1 FX
-        compute_pnl_with_fx(
-            current_val,
-            new_val,
-            current_val.currency(),
-            current_market, // use FX from before this step
-            &new_market,    // use FX from after this step
-            as_of_t0,       // Doesn't matter much for FX lookup as we pass explicit markets,
-            as_of_t1,       // but we use t1 date for conversion as we are at t1
-        )?
-    } else {
-        // Standard P&L in instrument currency (FX logic handles translation)
-        compute_pnl(
-            current_val,
-            new_val,
-            current_val.currency(),
-            &new_market,
-            as_of_t1,
-        )?
-    };
-
-    Ok((new_market, factor_pnl, Arc::clone(current_instrument)))
+    fn update_current_value(&mut self, prev_val: Money, delta: Money) -> Result<()> {
+        self.current_val = prev_val
+            .checked_add(delta)
+            .map_err(|_| Error::Validation("Currency mismatch in waterfall".to_string()))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
     use time::macros::date;
-
-    // Simple test instrument
-    struct TestInstrument {
-        id: String,
-        value: Money,
-    }
-
-    impl TestInstrument {
-        fn new(id: &str, value: Money) -> Self {
-            Self {
-                id: id.to_string(),
-                value,
-            }
-        }
-    }
-
-    impl crate::instruments::common::traits::Instrument for TestInstrument {
-        fn id(&self) -> &str {
-            &self.id
-        }
-
-        fn key(&self) -> crate::pricer::InstrumentType {
-            crate::pricer::InstrumentType::Bond // arbitrary choice for test
-        }
-
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-
-        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-            // Return a static empty attributes for test purposes
-            use std::sync::OnceLock;
-            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> =
-                OnceLock::new();
-            ATTRS.get_or_init(crate::instruments::common::traits::Attributes::default)
-        }
-
-        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-            // Not used in tests, but required by trait
-            unreachable!("TestInstrument::attributes_mut should not be called in tests")
-        }
-
-        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
-            Box::new(Self {
-                id: self.id.clone(),
-                value: self.value,
-            })
-        }
-
-        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
-            Ok(self.value)
-        }
-
-        fn price_with_metrics(
-            &self,
-            market: &MarketContext,
-            as_of: Date,
-            _metrics: &[crate::metrics::MetricId],
-        ) -> Result<crate::results::ValuationResult> {
-            let value = self.value(market, as_of)?;
-            Ok(crate::results::ValuationResult::stamped(
-                self.id(),
-                as_of,
-                value,
-            ))
-        }
-    }
 
     #[test]
     fn test_default_waterfall_order() {
@@ -498,3 +391,5 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+

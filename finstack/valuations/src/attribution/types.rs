@@ -585,58 +585,54 @@ impl PnlAttribution {
 
         // Sum all attributed factors (safe now that currencies are validated)
         let mut attributed_sum = self.carry;
-        attributed_sum = attributed_sum
-            .checked_add(self.rates_curves_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add rates curves P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.credit_curves_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add credit curves P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.inflation_curves_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add inflation curves P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.correlations_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add correlations P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum.checked_add(self.fx_pnl).map_err(|e| {
-            let note = format!("Failed to add FX P&L: {}", e);
-            self.meta.notes.push(note.clone());
-            e
-        })?;
-        attributed_sum = attributed_sum.checked_add(self.vol_pnl).map_err(|e| {
-            let note = format!("Failed to add vol P&L: {}", e);
-            self.meta.notes.push(note.clone());
-            e
-        })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.model_params_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add model params P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
-        attributed_sum = attributed_sum
-            .checked_add(self.market_scalars_pnl)
-            .map_err(|e| {
-                let note = format!("Failed to add market scalars P&L: {}", e);
-                self.meta.notes.push(note.clone());
-                e
-            })?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.rates_curves_pnl,
+            "rates curves P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.credit_curves_pnl,
+            "credit curves P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.inflation_curves_pnl,
+            "inflation curves P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.correlations_pnl,
+            "correlations P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.fx_pnl,
+            "FX P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.vol_pnl,
+            "vol P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.model_params_pnl,
+            "model params P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.market_scalars_pnl,
+            "market scalars P&L",
+            &mut self.meta.notes,
+        )?;
 
         self.residual = self.total_pnl.checked_sub(attributed_sum).map_err(|e| {
             let note = format!("Failed to compute residual: {}", e);
@@ -860,6 +856,19 @@ impl std::fmt::Display for AttributionFactor {
             AttributionFactor::MarketScalars => write!(f, "MarketScalars"),
         }
     }
+}
+
+fn add_factor(
+    sum: Money,
+    value: Money,
+    label: &str,
+    notes: &mut Vec<String>,
+) -> Result<Money> {
+    sum.checked_add(value).map_err(|e| {
+        let note = format!("Failed to add {}: {}", label, e);
+        notes.push(note.clone());
+        e
+    })
 }
 
 #[cfg(test)]

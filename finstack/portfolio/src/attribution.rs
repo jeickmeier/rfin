@@ -9,9 +9,10 @@ use crate::position::PositionUnit;
 use crate::types::PositionId;
 use finstack_core::prelude::*;
 use finstack_valuations::attribution::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, AttributionMethod,
-    CorrelationsAttribution, CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution,
-    PnlAttribution, RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, default_attribution_metrics,
+    AttributionMethod, CorrelationsAttribution, CreditCurvesAttribution, FxAttribution,
+    InflationCurvesAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    VolAttribution,
 };
 use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
@@ -90,25 +91,7 @@ pub struct PortfolioAttribution {
 /// metrics-based attribution and should stay in sync with
 /// `default_attribution_metrics` in `finstack-valuations`.
 fn default_metrics_for_metrics_based() -> Vec<MetricId> {
-    vec![
-        // First-order metrics
-        MetricId::Theta,       // Time decay (carry)
-        MetricId::Dv01,        // Interest rate sensitivity
-        MetricId::Cs01,        // Credit spread sensitivity
-        MetricId::Vega,        // Volatility sensitivity
-        MetricId::Delta,       // Delta for options/equity
-        MetricId::Fx01,        // FX sensitivity
-        MetricId::Inflation01, // Inflation sensitivity
-        MetricId::Dividend01,  // Dividend sensitivity
-        // Second-order metrics
-        MetricId::Gamma,              // Spot convexity
-        MetricId::Convexity,          // Rate convexity (bonds)
-        MetricId::IrConvexity,        // Rate convexity (swaps)
-        MetricId::Volga,              // Vol convexity
-        MetricId::Vanna,              // Cross-gamma (spot-vol)
-        MetricId::CsGamma,            // Credit spread convexity
-        MetricId::InflationConvexity, // Inflation convexity
-    ]
+    default_attribution_metrics()
 }
 
 /// Perform P&L attribution for an entire portfolio.
@@ -587,6 +570,7 @@ impl PortfolioAttribution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_valuations::attribution::default_attribution_metrics;
 
     #[test]
     fn test_portfolio_attribution_structure() {
@@ -619,5 +603,13 @@ mod tests {
         let csv = portfolio_attr.to_csv();
         assert!(csv.contains("total"));
         assert!(csv.contains("1000"));
+    }
+
+    #[test]
+    fn test_default_metrics_alignment() {
+        assert_eq!(
+            default_metrics_for_metrics_based(),
+            default_attribution_metrics()
+        );
     }
 }

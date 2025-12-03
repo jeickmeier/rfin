@@ -223,7 +223,7 @@ impl AttributionSpec {
 }
 
 /// Default set of metrics for metrics-based attribution.
-fn default_attribution_metrics() -> Vec<MetricId> {
+pub fn default_attribution_metrics() -> Vec<MetricId> {
     vec![
         // First-order metrics
         MetricId::Theta,       // Time decay (carry)

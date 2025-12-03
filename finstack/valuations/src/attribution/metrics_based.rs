@@ -51,7 +51,11 @@ use finstack_core::market_data::diff::{
     measure_discount_curve_shift, measure_fx_shift, measure_hazard_curve_shift,
     measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod,
 };
+#[cfg(test)]
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::*;
+#[cfg(test)]
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::CurveId;
 use hashbrown::HashMap;
 use std::sync::Arc;
@@ -487,144 +491,91 @@ pub fn attribute_pnl_metrics_based(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
     use time::macros::date;
+    use std::sync::Arc;
 
     #[test]
-    fn test_metrics_based_with_theta() {
+    fn test_metrics_based_carry_matches_theta() {
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
+        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
 
-        let val_t0_value = Money::new(1000.0, Currency::USD);
-        let val_t1_value = Money::new(1050.0, Currency::USD);
+        let instrument: Arc<dyn Instrument> = Arc::new(TestInstrument::new(
+            "TEST-THETA",
+            Money::new(1_000.0, Currency::USD),
+        ));
 
-        // Create valuation results with Theta
         let mut measures_t0 = IndexMap::new();
-        measures_t0.insert(MetricId::Theta.as_str().to_string(), -5.0); // -$5/day decay
+        measures_t0.insert(MetricId::Theta.as_str().to_string(), -5.0);
 
-        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-THETA",
+            as_of_t0,
+            Money::new(1_000.0, Currency::USD),
+            meta.clone(),
+        )
+            .with_measures(measures_t0);
+        let val_t1 =
+            ValuationResult::stamped_with_meta("TEST-THETA", as_of_t1, Money::new(995.0, Currency::USD), meta);
 
-        let _val_t0 =
-            ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone())
-                .with_measures(measures_t0);
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &MarketContext::new(),
+            &MarketContext::new(),
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
 
-        let _val_t1 = ValuationResult::stamped_with_meta("TEST-001", as_of_t1, val_t1_value, meta);
-
-        // Note: would normally pass actual instrument and markets, but for testing just use placeholders
-        // The function doesn't actually use instrument for metrics-based (just val results)
-
-        // For test purposes, we'll verify that the attribution structure is created correctly
-        // Actual attribution would require valid instrument and markets
+        assert!((attribution.carry.amount() + 5.0).abs() < 1e-9);
+        assert!((attribution.total_pnl.amount() + 5.0).abs() < 1e-9);
+        assert!(attribution.residual_within_tolerance(0.01, 0.01));
     }
 
     #[test]
-    fn test_metrics_based_requires_valuations() {
-        // Metrics-based attribution requires pre-computed ValuationResults
-        // This test verifies the signature and basic structure
-
+    fn test_metrics_based_rates_bucketed_dv01() {
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
-
-        let val_t0_value = Money::new(1000.0, Currency::USD);
-        let val_t1_value = Money::new(1100.0, Currency::USD);
-
         let meta = finstack_core::config::results_meta(&FinstackConfig::default());
 
-        let val_t0 =
-            ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone());
-        let val_t1 = ValuationResult::stamped_with_meta("TEST-001", as_of_t1, val_t1_value, meta);
-
-        // Verify that ValuationResult structure is correct
-        assert_eq!(val_t0.value.amount(), 1000.0);
-        assert_eq!(val_t1.value.amount(), 1100.0);
-    }
-
-    #[test]
-    fn test_second_order_metrics_structure() {
-        // Test that second-order metrics can be added to ValuationResults
-        let as_of = date!(2025 - 01 - 15);
-        let value = Money::new(1000.0, Currency::USD);
-
-        let mut measures = IndexMap::new();
-        // First-order metrics
-        measures.insert(MetricId::Theta.as_str().to_string(), -5.0);
-        measures.insert(MetricId::Dv01.as_str().to_string(), -400.0);
-        measures.insert(MetricId::Cs01.as_str().to_string(), -50.0);
-        measures.insert(MetricId::Vega.as_str().to_string(), 10.0);
-
-        // Second-order metrics
-        measures.insert(MetricId::Convexity.as_str().to_string(), 200.0);
-        measures.insert(MetricId::IrConvexity.as_str().to_string(), 180.0);
-        measures.insert(MetricId::CsGamma.as_str().to_string(), 5.0);
-        measures.insert(MetricId::Volga.as_str().to_string(), 0.5);
-        measures.insert(MetricId::Gamma.as_str().to_string(), 0.02);
-        measures.insert(MetricId::Vanna.as_str().to_string(), 0.1);
-        measures.insert(MetricId::InflationConvexity.as_str().to_string(), 15.0);
-
-        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
-        let val = ValuationResult::stamped_with_meta("TEST-CONV", as_of, value, meta)
-            .with_measures(measures);
-
-        // Verify second-order metrics are stored
-        assert!(val.measures.contains_key(MetricId::Convexity.as_str()));
-        assert!(val.measures.contains_key(MetricId::IrConvexity.as_str()));
-        assert!(val.measures.contains_key(MetricId::CsGamma.as_str()));
-        assert!(val.measures.contains_key(MetricId::Volga.as_str()));
-        assert!(val.measures.contains_key(MetricId::Gamma.as_str()));
-        assert!(val.measures.contains_key(MetricId::Vanna.as_str()));
-        assert!(val
-            .measures
-            .contains_key(MetricId::InflationConvexity.as_str()));
-
-        // Verify values
-        assert_eq!(
-            *val.measures
-                .get(MetricId::Convexity.as_str())
-                .expect("Convexity metric should exist"),
-            200.0
+        let instrument: Arc<dyn Instrument> = Arc::new(
+            TestInstrument::new("TEST-RATES", Money::new(100_000.0, Currency::USD))
+                .with_discount_curves(&["USD-OIS"]),
         );
-        assert_eq!(
-            *val.measures
-                .get(MetricId::IrConvexity.as_str())
-                .expect("IR Convexity metric should exist"),
-            180.0
-        );
-        assert_eq!(
-            *val.measures
-                .get(MetricId::CsGamma.as_str())
-                .expect("CS Gamma metric should exist"),
-            5.0
-        );
-    }
 
-    #[test]
-    fn test_graceful_degradation_without_second_order() {
-        // Test that attribution works when only first-order metrics are available
-        let as_of_t0 = date!(2025 - 01 - 15);
-        let as_of_t1 = date!(2025 - 01 - 16);
+        let market_t0 =
+            MarketContext::new().insert_discount(make_flat_curve("USD-OIS", as_of_t0, 0.02));
+        let market_t1 =
+            MarketContext::new().insert_discount(make_flat_curve("USD-OIS", as_of_t1, 0.0201));
 
-        let val_t0_value = Money::new(1000.0, Currency::USD);
-        let val_t1_value = Money::new(990.0, Currency::USD);
-
-        // Only first-order metrics (no convexity)
         let mut measures_t0 = IndexMap::new();
-        measures_t0.insert(MetricId::Theta.as_str().to_string(), -2.0);
-        measures_t0.insert(MetricId::Dv01.as_str().to_string(), -500.0);
+        measures_t0.insert("bucketed_dv01::USD-OIS".to_string(), -400.0);
 
-        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+        let val_t0 = ValuationResult::stamped_with_meta("TEST-RATES", as_of_t0, Money::new(100_000.0, Currency::USD), meta.clone())
+            .with_measures(measures_t0);
+        let val_t1 =
+            ValuationResult::stamped_with_meta("TEST-RATES", as_of_t1, Money::new(99_600.0, Currency::USD), meta);
 
-        let val_t0 =
-            ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t0, val_t0_value, meta.clone())
-                .with_measures(measures_t0);
-        let _val_t1 =
-            ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t1, val_t1_value, meta);
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
 
-        // Should work without second-order metrics (graceful degradation)
-        // In real use would need actual instrument and market - this just tests structure
-        assert!(val_t0.measures.contains_key(MetricId::Dv01.as_str()));
-        assert!(!val_t0.measures.contains_key(MetricId::Convexity.as_str()));
+        assert!((attribution.rates_curves_pnl.amount() + 400.0).abs() < 1e-6);
+        assert!(attribution.residual_within_tolerance(0.1, 1.0));
     }
 
     #[test]
@@ -708,5 +659,20 @@ mod tests {
         assert_eq!(bucketed.len(), 1);
         assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
         assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), None);
+    }
+    fn make_flat_curve(id: &str, base_date: Date, rate: f64) -> DiscountCurve {
+        let mut knots = Vec::new();
+        knots.push((0.0, 1.0));
+        for tenor in finstack_core::market_data::diff::STANDARD_TENORS {
+            let discount = (-rate * tenor).exp();
+            knots.push((*tenor, discount));
+        }
+
+        DiscountCurve::builder(id)
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("flat curve construction should succeed")
     }
 }
