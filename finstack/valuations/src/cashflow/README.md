@@ -1,6 +1,6 @@
 # Cashflow Module
 
-Comprehensive cashflow schedule generation, aggregation, and currency-safe operations for bonds, swaps, loans, and structured products.
+Comprehensive cashflow schedule generation, aggregation, accrual calculations, and currency-safe operations for bonds, swaps, loans, and structured products.
 
 ## Table of Contents
 
@@ -26,6 +26,7 @@ The cashflow module provides the foundation for modeling and analyzing cashflows
 - **Composability**: Builder pattern for flexible schedule construction
 - **Classification**: Rich `CFKind` taxonomy for cashflow categorization
 - **Period Aggregation**: Efficient grouping and present value calculations by reporting period
+- **Accrual Engine**: Generic schedule-driven interest accrual with Linear, Compounded, and Indexed methods
 
 All cashflows flow through this module, ensuring consistent handling across bonds, derivatives, loans, and structured products.
 
@@ -38,6 +39,7 @@ cashflow/
 ├── mod.rs                  # Module entry point and documentation
 ├── traits.rs               # CashflowProvider trait and extensions
 ├── aggregation.rs          # Currency-preserving aggregation and PV functions
+├── accrual.rs              # Generic schedule-driven interest accrual engine
 ├── builder/
 │   ├── mod.rs             # Builder module exports
 │   ├── builder.rs         # CashFlowBuilder implementation
@@ -45,24 +47,25 @@ cashflow/
 │   ├── schedule.rs        # CashFlowSchedule type and methods
 │   ├── date_generation.rs # Date rolling and schedule generation
 │   ├── rate_helpers.rs    # Floating rate projection
-│   ├── credit_rates.rs    # CDR/CPR conversions
+│   ├── credit_rates.rs    # CDR/CPR conversions (cpr_to_smm, smm_to_cpr)
 │   ├── dataframe.rs       # Polars DataFrame exports
 │   ├── specs/             # Specification types
 │   │   ├── mod.rs
-│   │   ├── coupon.rs      # Fixed/floating coupon specs
-│   │   ├── fees.rs        # Fee specifications
+│   │   ├── coupon.rs      # Fixed/floating coupon specs with caps/floors/gearing
+│   │   ├── fees.rs        # Fee specifications with tiered utilization support
 │   │   ├── schedule.rs    # Scheduling parameters
-│   │   ├── amortization.rs # Amortization specs
+│   │   ├── amortization.rs # Amortization specs (linear, step, custom)
 │   │   ├── prepayment.rs  # Prepayment models (CPR/PSA)
-│   │   ├── default.rs     # Default models (CDR/SDA)
-│   │   └── recovery.rs    # Recovery models
+│   │   ├── default.rs     # Default models (CDR/SDA) and events
+│   │   └── recovery.rs    # Recovery models with timing
 │   └── emission/          # Cashflow emission helpers
 │       ├── mod.rs
 │       ├── coupons.rs     # Coupon emission
-│       ├── fees.rs        # Fee emission
+│       ├── fees.rs        # Fee emission (commitment, usage, facility)
 │       ├── amortization.rs # Amortization emission
-│       ├── credit.rs      # Credit event emission
-│       └── helpers.rs     # Shared utilities
+│       ├── credit.rs      # Credit event emission (default, prepay, recovery)
+│       ├── helpers.rs     # Shared utilities
+│       └── tests.rs       # Emission test suite
 └── primitives (re-export from core)
     └── CashFlow, CFKind, etc.
 ```
@@ -70,8 +73,9 @@ cashflow/
 ### Module Responsibilities
 
 - **`primitives`**: Re-exported from `finstack_core::cashflow::primitives` for fundamental types
-- **`traits`**: `CashflowProvider` trait for instruments to expose schedules
-- **`aggregation`**: Currency-safe merging, period rollup, and present value calculations
+- **`traits`**: `CashflowProvider` trait for instruments to expose schedules (with `notional()` method)
+- **`aggregation`**: Currency-safe merging, period rollup, PV calculations with explicit `DayCountCtx` support
+- **`accrual`**: Generic accrued interest engine supporting Linear, Compounded, and Indexed methods
 - **`builder`**: Composable schedule construction with specs for coupons, fees, amortization, credit events
 
 ---
@@ -84,16 +88,29 @@ Each cashflow is tagged with `CFKind`:
 
 ```rust
 pub enum CFKind {
-    Principal,      // Principal repayments
-    Interest,       // Interest/coupon payments
-    Fee,            // Management, servicing, structuring fees
-    Fixed,          // Generic fixed payment
+    // Coupon/Interest types
+    Fixed,          // Fixed-rate coupon payment
     Floating,       // Floating-rate payment projected from index
     Stub,           // Stub period payment
     FloatReset,     // Floating rate reset event
-    Amortization,   // Principal amortization
+    Interest,       // Generic interest/coupon payments
     PIK,            // Payment-in-kind (capitalized interest)
+
+    // Principal types
+    Principal,      // Principal repayments
+    Amortization,   // Scheduled principal amortization
     Notional,       // Notional exchanges (draws/repays)
+    PrePayment,     // Unscheduled prepayments (behavioral)
+
+    // Fee types
+    Fee,            // Generic management, servicing, structuring fees
+    CommitmentFee,  // Fee on undrawn balance
+    UsageFee,       // Fee on drawn balance
+    FacilityFee,    // Fee on total commitment
+
+    // Credit event types
+    DefaultedNotional,  // Principal lost to default
+    Recovery,           // Recovery payment after default
 }
 ```
 
@@ -106,10 +123,10 @@ pub enum CFKind {
 ### 3. **Schedule Building**
 
 Builder pattern supports:
-- Fixed and floating coupons
-- Multiple amortization styles (linear, step, percent-per-period)
-- Tiered fee structures
-- Credit events (prepayment, default, recovery)
+- Fixed and floating coupons with caps, floors, and gearing
+- Multiple amortization styles (none, linear, step, percent-per-period, custom)
+- Tiered fee structures with utilization-based pricing
+- Credit events (prepayment, default, recovery) with calendar-aware date adjustment
 - PIK capitalization
 - Notional draws/repayments
 
@@ -118,15 +135,24 @@ Builder pattern supports:
 Efficient cashflow-to-period mapping:
 - O(n + m) complexity for sorted flows
 - Currency-preserving grouping
-- Present value aggregation with discount curves
-- Credit-adjusted PV with hazard curves
+- Present value aggregation with discount curves and explicit `DayCountCtx`
+- Credit-adjusted PV with hazard curves and recovery rate support
 
 ### 5. **Behavioral Models**
 
 Serializable specifications for:
-- **Prepayment**: CPR (Constant Prepayment Rate), PSA (Public Securities Association)
-- **Default**: CDR (Constant Default Rate), SDA (Standard Default Assumption)
+- **Prepayment**: CPR (Constant Prepayment Rate), PSA (Public Securities Association) with helper constructors
+- **Default**: CDR (Constant Default Rate), SDA (Standard Default Assumption) with business-day-aware recovery dates
 - **Recovery**: Constant recovery rates with timing conventions
+
+### 6. **Accrued Interest Engine**
+
+Generic schedule-driven accrual supporting:
+- **Linear**: Simple interest interpolation (`Accrued = Coupon × elapsed / period`)
+- **Compounded**: ICMA-style with Taylor expansion for small fractions
+- **Indexed**: Placeholder for inflation-linked conventions
+- **Ex-Coupon**: Calendar-aware ex-coupon date handling
+- **PIK Support**: Optional inclusion of PIK interest in accrued amount
 
 ---
 
@@ -225,25 +251,59 @@ for (date, balance) in outstanding {
 
 ```rust
 use finstack_valuations::cashflow::builder::{FloatingCouponSpec, FloatingRateSpec};
-use finstack_core::types::IndexId;
+use finstack_core::types::CurveId;
 
 let float_spec = FloatingCouponSpec {
     coupon_type: CouponType::Cash,
     rate_spec: FloatingRateSpec {
-        index_id: IndexId::new("USD-SOFR"),
-        spread_bps: 50,  // 50 bps spread
-        freq: Frequency::quarterly(),
+        index_id: CurveId::new("USD-SOFR-3M"),
+        spread_bp: 200.0,           // 200 bps spread
+        gearing: 1.0,               // Rate multiplier (default: 1.0)
+        gearing_includes_spread: true, // (index + spread) * gearing
+        floor_bp: Some(0.0),        // 0% index floor
+        all_in_floor_bp: None,      // No minimum coupon
+        cap_bp: None,               // No all-in cap
+        index_cap_bp: None,         // No index cap
+        reset_freq: Frequency::quarterly(),
+        reset_lag_days: 2,          // T-2 fixing convention
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
-        stub: StubKind::None,
+        fixing_calendar_id: None,   // Uses calendar_id if None
     },
+    freq: Frequency::quarterly(),
+    stub: StubKind::None,
 };
 
 let schedule = CashFlowSchedule::builder()
     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     .floating_cf(float_spec)
     .build()?;
+```
+
+### Accrued Interest Calculation
+
+```rust
+use finstack_valuations::cashflow::accrual::{
+    AccrualMethod, AccrualConfig, ExCouponRule, accrued_interest_amount
+};
+
+// Build schedule first (any instrument that provides CashFlowSchedule)
+let schedule = /* ... */;
+
+// Configure accrual method
+let config = AccrualConfig {
+    method: AccrualMethod::Linear,  // or Compounded
+    ex_coupon: Some(ExCouponRule {
+        days_before_coupon: 7,
+        calendar_id: Some("US".to_string()),  // Business days
+    }),
+    include_pik: true,  // Include PIK interest in accrued
+};
+
+// Calculate accrued interest as of a specific date
+let accrued = accrued_interest_amount(&schedule, as_of, &config)?;
+println!("Accrued interest: {:.2}", accrued);
 ```
 
 ---
@@ -283,12 +343,15 @@ let schedule: CashFlowSchedule = builder.build()?;
 #### Amortization Styles
 
 ```rust
+// No amortization (bullet repayment)
+AmortizationSpec::None
+
 // Linear amortization to final notional
 AmortizationSpec::LinearTo {
     final_notional: Money::new(0.0, Currency::USD),
 }
 
-// Custom step schedule
+// Custom step schedule (remaining principal after each date)
 AmortizationSpec::StepRemaining {
     schedule: vec![
         (date1, Money::new(750_000.0, Currency::USD)),
@@ -299,8 +362,61 @@ AmortizationSpec::StepRemaining {
 
 // Percentage per period
 AmortizationSpec::PercentPerPeriod {
-    pct: 0.05,  // 5% per period
+    pct: 0.05,  // 5% of original notional per period
 }
+
+// Custom principal exchanges (absolute amounts)
+AmortizationSpec::CustomPrincipal {
+    items: vec![
+        (date1, Money::new(100_000.0, Currency::USD)),
+        (date2, Money::new(150_000.0, Currency::USD)),
+    ],
+}
+```
+
+#### Fee Specifications
+
+```rust
+use finstack_valuations::cashflow::builder::{FeeSpec, FeeBase, FeeTier, evaluate_fee_tiers};
+
+// Fixed fee on specific date
+let fixed_fee = FeeSpec::Fixed {
+    date: fee_date,
+    amount: Money::new(50_000.0, Currency::USD),
+};
+
+// Periodic fee on drawn balance
+let drawn_fee = FeeSpec::PeriodicBps {
+    base: FeeBase::Drawn,
+    bps: 25.0,  // 25 bps annually
+    freq: Frequency::quarterly(),
+    dc: DayCount::Act360,
+    bdc: BusinessDayConvention::ModifiedFollowing,
+    calendar_id: None,
+    stub: StubKind::None,
+};
+
+// Periodic fee on undrawn balance (commitment fee)
+let undrawn_fee = FeeSpec::PeriodicBps {
+    base: FeeBase::Undrawn {
+        facility_limit: Money::new(10_000_000.0, Currency::USD),
+    },
+    bps: 50.0,
+    freq: Frequency::quarterly(),
+    dc: DayCount::Act360,
+    bdc: BusinessDayConvention::ModifiedFollowing,
+    calendar_id: None,
+    stub: StubKind::None,
+};
+
+// Tiered fee evaluation based on utilization
+let tiers = vec![
+    FeeTier { threshold: 0.0, bps: 25.0 },   // 0-33%: 25 bps
+    FeeTier { threshold: 0.33, bps: 37.5 },  // 33-66%: 37.5 bps
+    FeeTier { threshold: 0.66, bps: 50.0 },  // 66-100%: 50 bps
+];
+let utilization = 0.5;  // 50% drawn
+let fee_bps = evaluate_fee_tiers(&tiers, utilization);  // Returns 37.5
 ```
 
 ### 2. Using CashFlowSchedule
@@ -319,8 +435,15 @@ let coupons = schedule.flows_of_kind(CFKind::Fixed);
 let amorts = schedule.amortizations();
 let redemptions = schedule.redemptions();
 
+// Convenience iterators
+let all_coupons = schedule.coupons();  // Fixed + Stub kinds
+
 // Outstanding balance tracking
+// outstanding_path: One entry per flow (Amortization, PIK only)
 let path: Vec<(Date, Money)> = schedule.outstanding_path()?;
+
+// outstanding_by_date: One entry per date (includes Notional draws/repays)
+// This is the canonical method for instruments like revolving credit facilities
 let by_date: Vec<(Date, Money)> = schedule.outstanding_by_date()?;
 ```
 
@@ -349,32 +472,70 @@ if let Some(q1_map) = aggregated.get(&PeriodId::quarter(2025, 1)) {
 #### By Period (Present Value)
 
 ```rust
-use finstack_valuations::cashflow::aggregation::pv_by_period;
+use finstack_valuations::cashflow::aggregation::pv_by_period_with_ctx;
 use finstack_core::market_data::traits::Discounting;
+use finstack_core::dates::DayCountCtx;
 
 let disc: &dyn Discounting = /* discount curve */;
 let base = Date::from_calendar_date(2025, Month::January, 1)?;
 
-let pv_map = pv_by_period(&flows, &periods, disc, base, DayCount::Act365F);
+// Use explicit day-count context for conventions requiring frequency or calendar
+let pv_map = pv_by_period_with_ctx(
+    &flows,
+    &periods,
+    disc,
+    base,
+    DayCount::Act365F,
+    DayCountCtx::default(),
+)?;
 // Returns: IndexMap<PeriodId, IndexMap<Currency, Money>>
 ```
 
 #### Credit-Adjusted PV
 
 ```rust
-use finstack_valuations::cashflow::aggregation::pv_by_period_credit_adjusted;
+use finstack_valuations::cashflow::aggregation::pv_by_period_credit_adjusted_with_ctx;
 use finstack_core::market_data::traits::Survival;
+use finstack_core::dates::DayCountCtx;
 
 let hazard: Option<&dyn Survival> = /* hazard curve */;
 
-let pv_map = pv_by_period_credit_adjusted(
+let pv_map = pv_by_period_credit_adjusted_with_ctx(
     &flows,
     &periods,
     disc,
     hazard,
     base,
     DayCount::Act365F,
-);
+    DayCountCtx::default(),
+)?;
+```
+
+#### Credit-Adjusted PV with Recovery (Detailed)
+
+For full `CashFlow` objects with recovery rate support:
+
+```rust
+use finstack_valuations::cashflow::aggregation::{
+    pv_by_period_credit_adjusted_detailed, DateContext
+};
+use finstack_core::cashflow::primitives::CashFlow;
+
+let flows: &[CashFlow] = /* full cashflow objects with CFKind */;
+let recovery_rate = Some(0.40);  // 40% recovery on principal
+
+let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+let pv_map = pv_by_period_credit_adjusted_detailed(
+    flows,
+    &periods,
+    disc,
+    hazard,
+    recovery_rate,
+    date_ctx,
+)?;
+// Principal flows: PV = Amount * DF * (SP + R * (1 - SP))
+// Interest flows:  PV = Amount * DF * SP (zero recovery)
 ```
 
 ### 4. CashflowProvider Trait
@@ -398,6 +559,11 @@ impl CashflowProvider for MyInstrument {
         ])
     }
 
+    // Optional: Override to provide instrument's notional
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)  // Used by default build_full_schedule
+    }
+
     // Optional: Override for precise CFKind classification
     fn build_full_schedule(
         &self,
@@ -410,6 +576,15 @@ impl CashflowProvider for MyInstrument {
             .fixed_cf(/* ... */)
             .build()
     }
+
+    // Convenience: NPV against a discount curve
+    fn npv_with(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+        disc: &dyn Discounting,
+        dc: DayCount,
+    ) -> finstack_core::Result<Money>;
 }
 ```
 
@@ -437,6 +612,70 @@ let pv_map = schedule.pre_period_pv_with_market_and_ctx(
     DayCount::Act365F,
     DayCountCtx::default(),
 )?;
+```
+
+### 6. Credit Event Emission Functions
+
+Public functions for emitting credit-related cashflows:
+
+```rust
+use finstack_valuations::cashflow::builder::{
+    emit_default_on, emit_prepayment_on,
+    emit_commitment_fee_on, emit_usage_fee_on, emit_facility_fee_on,
+    DefaultEvent,
+};
+
+// Emit default and recovery cashflows
+let default_event = DefaultEvent {
+    default_date: d,
+    defaulted_amount: 100_000.0,
+    recovery_rate: 0.40,
+    recovery_lag: 12,  // months
+    recovery_bdc: Some(BusinessDayConvention::Following),
+    recovery_calendar_id: Some("US".to_string()),
+};
+let mut outstanding = 1_000_000.0;
+let flows = emit_default_on(d, &[default_event], &mut outstanding, Currency::USD)?;
+
+// Emit prepayment cashflow
+let prepay_flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
+
+// Emit facility fees
+let commitment_flows = emit_commitment_fee_on(d, undrawn, 50.0, year_frac, Currency::USD);
+let usage_flows = emit_usage_fee_on(d, drawn, 25.0, year_frac, Currency::USD);
+let facility_flows = emit_facility_fee_on(d, commitment, 10.0, year_frac, Currency::USD);
+```
+
+### 7. Behavioral Model Helpers
+
+```rust
+use finstack_valuations::cashflow::builder::{
+    PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
+    cpr_to_smm, smm_to_cpr,
+};
+
+// Prepayment models
+let cpr_model = PrepaymentModelSpec::constant_cpr(0.06);  // 6% CPR
+let psa_100 = PrepaymentModelSpec::psa_100();            // 100% PSA
+let psa_150 = PrepaymentModelSpec::psa_150();            // 150% PSA
+
+// Calculate SMM (monthly) from CPR (annual)
+let smm = cpr_model.smm(seasoning_months);
+
+// Default models
+let cdr_model = DefaultModelSpec::constant_cdr(0.02);    // 2% CDR
+let sda_100 = DefaultModelSpec::sda_100();               // 100% SDA
+
+// Calculate MDR (monthly) from CDR (annual)
+let mdr = cdr_model.mdr(seasoning_months);
+
+// Recovery models
+let recovery = RecoveryModelSpec::recovery_40pct();      // 40% recovery
+let recovery_lag = RecoveryModelSpec::with_lag(0.70, 6); // 70%, 6-month lag
+
+// Rate conversions
+let smm = cpr_to_smm(0.06);  // 6% CPR → SMM
+let cpr = smm_to_cpr(0.005); // SMM → CPR
 ```
 
 ---
@@ -585,7 +824,9 @@ println!("Q2 USD: {}", q2.get(&Currency::USD).unwrap());
 
 ```rust
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::dates::DayCountCtx;
 
 // Build market context
@@ -621,6 +862,52 @@ for (period_id, ccy_map) in pv_map {
         println!("{:?} {}: PV = {}", period_id, ccy, pv);
     }
 }
+```
+
+### Example 5: Accrued Interest with Ex-Coupon
+
+```rust
+use finstack_valuations::cashflow::accrual::{
+    AccrualMethod, AccrualConfig, ExCouponRule, accrued_interest_amount
+};
+use time::Month;
+
+let issue = Date::from_calendar_date(2025, Month::January, 15)?;
+let maturity = Date::from_calendar_date(2030, Month::January, 15)?;
+
+// Build a bond schedule
+let schedule = CashFlowSchedule::builder()
+    .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    .fixed_cf(FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: 0.05,
+        freq: Frequency::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: None,
+        stub: StubKind::None,
+    })
+    .build()?;
+
+// Configure accrual with ex-coupon rule
+let config = AccrualConfig {
+    method: AccrualMethod::Compounded,  // ICMA-style
+    ex_coupon: Some(ExCouponRule {
+        days_before_coupon: 5,
+        calendar_id: Some("US".to_string()),  // Business days
+    }),
+    include_pik: false,
+};
+
+// Calculate accrued interest
+let as_of = Date::from_calendar_date(2025, Month::April, 1)?;
+let accrued = accrued_interest_amount(&schedule, as_of, &config)?;
+println!("Accrued interest: ${:.2}", accrued);
+
+// If as_of falls in ex-coupon window, returns 0.0
+let ex_coupon_date = Date::from_calendar_date(2025, Month::July, 10)?;
+let accrued_ex = accrued_interest_amount(&schedule, ex_coupon_date, &config)?;
+assert_eq!(accrued_ex, 0.0);  // In ex-coupon window
 ```
 
 ---
@@ -778,10 +1065,13 @@ Follow similar pattern:
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Amortization | `specs/amortization.rs`, `emission/amortization.rs` | Principal repayment schedules |
-| Fees | `specs/fees.rs`, `emission/fees.rs` | Fee calculations and tiering |
-| Coupons | `specs/coupon.rs`, `emission/coupons.rs` | Interest payment patterns |
-| Credit Events | `specs/prepayment.rs`, `specs/default.rs`, `emission/credit.rs` | Behavioral models |
-| Aggregation | `aggregation.rs` | Period rollup algorithms |
+| Fees | `specs/fees.rs`, `emission/fees.rs` | Fee calculations, tiering, commitment/usage/facility |
+| Coupons | `specs/coupon.rs`, `emission/coupons.rs` | Interest payment patterns with caps/floors/gearing |
+| Prepayment | `specs/prepayment.rs`, `emission/credit.rs` | CPR/PSA behavioral models |
+| Default | `specs/default.rs`, `emission/credit.rs` | CDR/SDA models, recovery with calendar support |
+| Recovery | `specs/recovery.rs` | Recovery rate and timing specifications |
+| Aggregation | `aggregation.rs` | Period rollup algorithms with DayCountCtx |
+| Accrual | `accrual.rs` | Schedule-driven accrued interest engine |
 
 ---
 
@@ -949,7 +1239,7 @@ fn test_periodized_pv_matches_npv() {
     let periods = /* define periods */;
     use finstack_core::dates::DayCountCtx;
     
-    // Periodized PV
+    // Periodized PV with explicit context
     let pv_map = schedule
         .pre_period_pv_with_ctx(&periods, &disc, base, DayCount::Act365F, DayCountCtx::default())
         .unwrap();
@@ -971,6 +1261,35 @@ fn test_periodized_pv_matches_npv() {
 }
 ```
 
+#### Accrual Test: Linear vs Compounded
+
+```rust
+#[test]
+fn test_accrual_methods() {
+    use finstack_valuations::cashflow::accrual::*;
+    
+    let schedule = /* build schedule with known coupon */;
+    let mid_period = /* date halfway through coupon period */;
+    
+    let linear_cfg = AccrualConfig {
+        method: AccrualMethod::Linear,
+        ex_coupon: None,
+        include_pik: true,
+    };
+    let compounded_cfg = AccrualConfig {
+        method: AccrualMethod::Compounded,
+        ex_coupon: None,
+        include_pik: true,
+    };
+    
+    let linear_accrued = accrued_interest_amount(&schedule, mid_period, &linear_cfg).unwrap();
+    let compounded_accrued = accrued_interest_amount(&schedule, mid_period, &compounded_cfg).unwrap();
+    
+    // Compounded accrual is slightly less than linear at mid-period
+    assert!(compounded_accrued <= linear_accrued);
+}
+```
+
 ### Golden Tests
 
 Serialization roundtrips in `json_examples/`:
@@ -989,7 +1308,7 @@ cargo test -p finstack-valuations roundtrip_amortization_spec
 
 - **[`finstack_core::cashflow`]**: Primitive types (`CashFlow`, `CFKind`)
 - **[`finstack_core::money`]**: Currency-safe `Money` type
-- **[`finstack_core::dates`]**: Date generation, day counts, calendars
+- **[`finstack_core::dates`]**: Date generation, day counts, calendars, `DayCountCtx`
 - **[Valuations README](../README.md)**: Instrument pricing and risk
 - **[Portfolio README](../../../portfolio/README.md)**: Position aggregation
 
@@ -1000,9 +1319,26 @@ cargo test -p finstack-valuations roundtrip_amortization_spec
 The cashflow module is the foundation for all instrument valuation in Finstack. Its currency-safe, deterministic design ensures:
 
 - **Correctness**: No cross-currency arithmetic errors
-- **Transparency**: Rich classification and metadata
-- **Flexibility**: Composable builder for complex schedules
-- **Performance**: Efficient period aggregation and PV calculations
+- **Transparency**: Rich classification and metadata with expanded `CFKind` taxonomy
+- **Flexibility**: Composable builder for complex schedules with caps, floors, gearing
+- **Performance**: Efficient period aggregation and PV calculations with O(n+m) complexity
 - **Extensibility**: Clear patterns for adding new features
+- **Accrual Support**: Generic schedule-driven accrued interest with Linear, Compounded, and ex-coupon support
+- **Credit Events**: Full default, prepayment, and recovery modeling with calendar-aware date adjustment
+
+### Key API Changes (Recent)
+
+| Feature | Description |
+|---------|-------------|
+| `accrual` module | Generic accrued interest engine (Linear/Compounded/Indexed) with ex-coupon support |
+| `FloatingRateSpec` | Enhanced with caps, floors, gearing, fixing calendars |
+| `AmortizationSpec::CustomPrincipal` | Explicit principal exchanges on specific dates |
+| `FeeBase::Drawn/Undrawn` | Fee base specification with facility limit support |
+| `FeeTier` + `evaluate_fee_tiers` | Utilization-based tiered fee evaluation |
+| `DefaultEvent` | Added `recovery_bdc` and `recovery_calendar_id` for date adjustment |
+| `emit_*_on` functions | Public credit event emission (default, prepay, commitment/usage/facility fees) |
+| `pv_by_period_*_with_ctx` | Aggregation functions now accept explicit `DayCountCtx` |
+| `pv_by_period_credit_adjusted_detailed` | Recovery-aware PV with `CFKind` preservation |
+| `CashflowProvider::notional()` | Optional method for instruments to expose notional |
 
 For questions or contributions, see the main Finstack documentation or raise an issue on GitHub.
