@@ -1104,15 +1104,6 @@ impl CompiledExpr {
     }
 
     /// Evaluate a binary operation element-wise.
-    #[allow(dead_code)]
-    fn eval_bin_op(op: super::ast::BinOp, left: &[f64], right: &[f64]) -> Vec<f64> {
-        let len = left.len().max(right.len());
-        let mut out = vec![0.0; len];
-        Self::eval_bin_op_into(op, left, right, &mut out);
-        out
-    }
-
-    /// Evaluate a unary operation element-wise into a provided output slice.
     #[inline]
     fn eval_unary_op_into(op: super::ast::UnaryOp, operand: &[f64], out: &mut [f64]) {
         use super::ast::UnaryOp;
@@ -1131,14 +1122,6 @@ impl CompiledExpr {
         }
     }
 
-    /// Evaluate a unary operation element-wise.
-    #[allow(dead_code)]
-    fn eval_unary_op(op: super::ast::UnaryOp, operand: &[f64]) -> Vec<f64> {
-        let mut out = vec![0.0; operand.len()];
-        Self::eval_unary_op_into(op, operand, &mut out);
-        out
-    }
-
     /// Evaluate if-then-else element-wise into a provided output slice.
     #[inline]
     fn eval_if_then_else_into(
@@ -1154,15 +1137,6 @@ impl CompiledExpr {
             let else_val = *else_vals.get(i).unwrap_or(&0.0);
             *out_val = if cond != 0.0 { then_val } else { else_val };
         }
-    }
-
-    /// Evaluate if-then-else element-wise.
-    #[allow(dead_code)]
-    fn eval_if_then_else(condition: &[f64], then_vals: &[f64], else_vals: &[f64]) -> Vec<f64> {
-        let len = condition.len().max(then_vals.len()).max(else_vals.len());
-        let mut out = vec![0.0; len];
-        Self::eval_if_then_else_into(condition, then_vals, else_vals, &mut out);
-        out
     }
 
     fn eval_function_core<C: ExpressionContext>(
@@ -1225,18 +1199,6 @@ impl CompiledExpr {
         let result = self.eval_function_core(fun, &arg_results, _ctx, _cols);
         let copy_len = out.len().min(result.len());
         out[..copy_len].copy_from_slice(&result[..copy_len]);
-    }
-
-    /// Evaluate a function with given argument results.
-    #[allow(dead_code)]
-    fn eval_function<C: ExpressionContext>(
-        &self,
-        fun: Function,
-        arg_results: &[Vec<f64>],
-        _ctx: &C,
-        _cols: &[&[f64]],
-    ) -> Vec<f64> {
-        self.eval_function_core(fun, arg_results, _ctx, _cols)
     }
 }
 #[cfg(test)]
