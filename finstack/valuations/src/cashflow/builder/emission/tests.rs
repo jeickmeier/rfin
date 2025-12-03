@@ -9,6 +9,7 @@ mod accrual_context_tests {
     use super::super::coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::CurveId;
     use time::Month;
 
@@ -37,12 +38,14 @@ mod accrual_context_tests {
         let outstanding_after = hashbrown::HashMap::new();
         let outstanding_fallback = 1_000_000.0;
 
-        let (pik, flows) = emit_fixed_coupons_on(
+        let mut flows = Vec::new();
+        let pik = emit_fixed_coupons_on(
             end,
             &[schedule],
             &outstanding_after,
             outstanding_fallback,
             Currency::USD,
+            &mut flows,
         )
         .expect("should emit fixed coupons");
 
@@ -96,13 +99,16 @@ mod accrual_context_tests {
         let outstanding_after = hashbrown::HashMap::new();
         let outstanding_fallback = 1_000_000.0;
 
-        let (pik, flows) = emit_float_coupons_on(
+        let mut flows = Vec::new();
+        let resolved: [Option<&ForwardCurve>; 1] = [None];
+        let pik = emit_float_coupons_on(
             end,
             &[schedule],
             &outstanding_after,
             outstanding_fallback,
             Currency::USD,
-            &[None], // One resolved curve slot (None) to match the one float schedule
+            &resolved, // One resolved curve slot (None) to match the one float schedule
+            &mut flows,
         )
         .expect("should emit float coupons");
 
@@ -147,17 +153,19 @@ mod accrual_context_tests {
         let outstanding_after = hashbrown::HashMap::new();
         let outstanding_fallback = 1_000_000.0;
 
+        let mut flows = Vec::new();
         let result = emit_fixed_coupons_on(
             end,
             &[schedule],
             &outstanding_after,
             outstanding_fallback,
             Currency::USD,
+            &mut flows,
         );
 
         // Should succeed with calendar available
         assert!(result.is_ok());
-        let (pik, flows) = result.expect("should succeed with calendar");
+        let pik = result.expect("should succeed with calendar");
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
 
@@ -280,13 +288,14 @@ mod credit_emission_tests {
             period_schedule.prev.clone(),
             period_schedule.first_or_last.clone(),
         );
-
-        let (pik, coupons) = emit_fixed_coupons_on(
+        let mut coupons = Vec::new();
+        let pik = emit_fixed_coupons_on(
             coupon_date,
             &[schedule],
             &outstanding_after,
             1_000_000.0,
             Currency::USD,
+            &mut coupons,
         )
         .expect("should emit fixed coupons");
 

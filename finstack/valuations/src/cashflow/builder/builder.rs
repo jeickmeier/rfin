@@ -51,7 +51,6 @@ use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use std::sync::Arc;
 
 use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
@@ -166,23 +165,23 @@ fn derive_amortization_setup(
     fixed_schedules: &[FixedSchedule],
     float_schedules: &[FloatSchedule],
 ) -> finstack_core::Result<AmortizationSetup> {
-    // Determine base cadence schedule for linear/percent amortization
-    let amort_base_schedule: Option<Vec<Date>> = if matches!(
-        notional.amort,
-        AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }
-    ) {
-        if let Some((_, ds, _, _)) = fixed_schedules.first() {
-            Some(ds.clone())
-        } else if let Some((_, ds, _)) = float_schedules.first() {
-            Some(ds.clone())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    // Determine base cadence schedule for linear/percent amortization by
+    // borrowing the first available schedule instead of cloning dates.
+    let amort_base: Option<&[Date]> =
+        match notional.amort {
+            AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. } => {
+                if let Some((_, ds, _, _)) = fixed_schedules.first() {
+                    Some(ds.as_slice())
+                } else if let Some((_, ds, _)) = float_schedules.first() {
+                    Some(ds.as_slice())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
 
-    if amort_base_schedule.is_none()
+    if amort_base.is_none()
         && matches!(
             notional.amort,
             AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }
@@ -205,12 +204,12 @@ fn derive_amortization_setup(
 
     let (linear_delta, percent_per) = match &notional.amort {
         AmortizationSpec::LinearTo { final_notional } => {
-            let base = amort_base_schedule.as_ref().ok_or_else(|| {
+            let base = amort_base.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                     id: "amortization_base_schedule".to_string(),
                 })
             })?;
-            let steps = (base.len() - 1) as f64;
+            let steps = (base.len().saturating_sub(1)) as f64;
             (
                 Some(((notional.initial.amount() - final_notional.amount()) / steps).max(0.0)),
                 None,
@@ -222,8 +221,7 @@ fn derive_amortization_setup(
         _ => (None, None),
     };
 
-    let amort_dates: hashbrown::HashSet<Date> = amort_base_schedule
-        .as_ref()
+    let amort_dates: hashbrown::HashSet<Date> = amort_base
         .map(|v| v.iter().copied().skip(1).collect())
         .unwrap_or_default();
 
@@ -327,27 +325,27 @@ fn process_one_date(
     mut state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
-    resolved_curves: &[Option<Arc<ForwardCurve>>],
+    resolved_curves: &[Option<&ForwardCurve>],
 ) -> finstack_core::Result<BuildState> {
     // Coupons
-    let (pik_f, mut fixed_flows) = emit_fixed_coupons_on(
+    let pik_f = emit_fixed_coupons_on(
         d,
         ctx.fixed_schedules,
         &state.outstanding_after,
         state.outstanding,
         ctx.ccy,
+        &mut state.flows,
     )?;
-    let (pik_fl, mut float_flows) = emit_float_coupons_on(
+    let pik_fl = emit_float_coupons_on(
         d,
         ctx.float_schedules,
         &state.outstanding_after,
         state.outstanding,
         ctx.ccy,
         resolved_curves,
+        &mut state.flows,
     )?;
     let pik_to_add = pik_f + pik_fl;
-    state.flows.append(&mut fixed_flows);
-    state.flows.append(&mut float_flows);
 
     // Amortization
     let amort_params = AmortizationParams {
@@ -357,14 +355,14 @@ fn process_one_date(
         percent_per: amort_setup.percent_per,
         step_remaining_map: &amort_setup.step_remaining_map,
     };
-    let mut amort_flows = emit_amortization_on(
+    emit_amortization_on(
         d,
         ctx.notional,
         &mut state.outstanding,
         &amort_params,
         d == ctx.maturity,
+        &mut state.flows,
     )?;
-    state.flows.append(&mut amort_flows);
 
     // PIK capitalization
     if pik_to_add > 0.0 {
@@ -372,14 +370,14 @@ fn process_one_date(
     }
 
     // Fees
-    let mut fee_flows = emit_fees_on(
+    emit_fees_on(
         d,
         ctx.periodic_fees,
         ctx.fixed_fees,
         state.outstanding,
         ctx.ccy,
+        &mut state.flows,
     )?;
-    state.flows.append(&mut fee_flows);
 
     // Principal events (custom draws/repays)
     // Note: Events at or before issue date are processed in initialize_build_state,
@@ -1146,15 +1144,11 @@ impl CashFlowBuilder {
             principal_events: &principal_events,
         };
 
-        // Resolve curves upfront
-        let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
+        // Resolve curves upfront without cloning underlying ForwardCurve
+        let resolved_curves: Vec<Option<&ForwardCurve>> = if let Some(mkt) = curves {
             float_schedules
                 .iter()
-                .map(|(spec, _, _)| {
-                    mkt.get_forward_ref(spec.rate_spec.index_id.as_str())
-                        .ok()
-                        .map(|curve| Arc::new(curve.clone()))
-                })
+                .map(|(spec, _, _)| mkt.get_forward_ref(spec.rate_spec.index_id.as_str()).ok())
                 .collect()
         } else {
             vec![None; float_schedules.len()]

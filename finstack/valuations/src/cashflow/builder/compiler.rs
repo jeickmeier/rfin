@@ -333,7 +333,7 @@ pub(super) fn compute_coupon_schedules(
     //! ```
     use std::collections::BTreeSet;
 
-    let coupon_pieces: Vec<CouponProgramPiece> = builder.coupon_program.clone();
+    let coupon_pieces: &[CouponProgramPiece] = &builder.coupon_program;
 
     // If there are no coupon pieces at all and no payment windows, return empty schedules
     if coupon_pieces.is_empty() && builder.payment_program.is_empty() {
@@ -346,7 +346,7 @@ pub(super) fn compute_coupon_schedules(
     }
 
     // Payment pieces (PIK toggles) — may be sparse; missing windows default to Cash
-    let payment_pieces: Vec<PaymentProgramPiece> = builder.payment_program.clone();
+    let payment_pieces: &[PaymentProgramPiece] = &builder.payment_program;
 
     // Validate windows are within [issue, maturity] and build boundary grid
     let within =
@@ -354,14 +354,14 @@ pub(super) fn compute_coupon_schedules(
     let mut bounds: BTreeSet<Date> = BTreeSet::new();
     bounds.insert(issue);
     bounds.insert(maturity);
-    for p in &coupon_pieces {
+    for p in coupon_pieces {
         if !within(&p.window) {
             return Err(InputError::Invalid.into());
         }
         bounds.insert(p.window.start);
         bounds.insert(p.window.end);
     }
-    for p in &payment_pieces {
+    for p in payment_pieces {
         if !within(&p.window) {
             return Err(InputError::Invalid.into());
         }
@@ -387,7 +387,7 @@ pub(super) fn compute_coupon_schedules(
 
         // Select single covering coupon piece
         let mut chosen_coupon: Option<&CouponProgramPiece> = None;
-        for p in &coupon_pieces {
+        for p in coupon_pieces {
             if p.window.start <= s && e <= p.window.end {
                 if chosen_coupon.is_some() {
                     return Err(InputError::Invalid.into());
@@ -400,7 +400,7 @@ pub(super) fn compute_coupon_schedules(
         // Select payment split. Allow nested override windows: prefer most specific covering window.
         // If two covering windows are neither nested (i.e., overlapping without containment), it's invalid.
         let mut chosen: Option<(&DateWindow, CouponType)> = None;
-        for p in &payment_pieces {
+        for p in payment_pieces {
             if p.window.start <= s && e <= p.window.end {
                 match chosen {
                     None => chosen = Some((&p.window, p.split)),

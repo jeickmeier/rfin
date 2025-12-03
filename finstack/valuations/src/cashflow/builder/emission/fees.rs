@@ -148,8 +148,8 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
     fixed_fees: &[(Date, Money)],
     outstanding: f64,
     ccy: Currency,
-) -> finstack_core::Result<Vec<CashFlow>> {
-    let mut new_flows: Vec<CashFlow> = Vec::new();
+    new_flows: &mut Vec<CashFlow>,
+) -> finstack_core::Result<()> {
     for pf in periodic_fees {
         if let Some(&prev) = pf.prev.get(&d) {
             let yf = pf
@@ -190,5 +190,5 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
             });
         }
     }
-    Ok(new_flows)
+    Ok(())
 }

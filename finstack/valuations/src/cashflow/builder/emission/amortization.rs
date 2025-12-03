@@ -65,8 +65,8 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
     outstanding: &mut f64,
     params: &AmortizationParams,
     is_maturity: bool,
-) -> finstack_core::Result<Vec<CashFlow>> {
-    let mut new_flows: Vec<CashFlow> = Vec::new();
+    new_flows: &mut Vec<CashFlow>,
+) -> finstack_core::Result<()> {
     match &notional.amort {
         AmortizationSpec::None => {}
         AmortizationSpec::LinearTo { .. } => {
@@ -78,7 +78,7 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
                     } else {
                         delta.min(*outstanding)
                     };
-                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }
             }
         }
@@ -92,7 +92,7 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
                     } else {
                         (*outstanding - target).max(0.0).min(*outstanding)
                     };
-                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }
             }
         }
@@ -104,7 +104,7 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
                     } else {
                         per.min(*outstanding)
                     };
-                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }
             }
         }
@@ -116,10 +116,10 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
                     } else {
                         amt.amount().max(0.0).min(*outstanding)
                     };
-                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }
             }
         }
     }
-    Ok(new_flows)
+    Ok(())
 }
