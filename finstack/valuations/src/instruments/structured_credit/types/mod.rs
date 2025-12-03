@@ -681,6 +681,11 @@ impl StructuredCredit {
 // ============================================================================
 
 impl CashflowProvider for StructuredCredit {
+    fn notional(&self) -> Option<Money> {
+        // Return total pool balance as the notional
+        self.pool.total_balance().ok()
+    }
+
     fn build_schedule(
         &self,
         context: &MarketContext,

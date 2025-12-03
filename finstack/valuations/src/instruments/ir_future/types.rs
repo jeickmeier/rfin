@@ -327,6 +327,10 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
 }
 
 impl CashflowProvider for InterestRateFuture {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(
         &self,
         _curves: &MarketContext,

@@ -714,6 +714,10 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InflationLinkedBo
 }
 
 impl CashflowProvider for InflationLinkedBond {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> Result<DatedFlows> {
         self.build_schedule(curves, as_of)
     }

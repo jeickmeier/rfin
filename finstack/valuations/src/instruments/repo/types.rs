@@ -581,6 +581,10 @@ impl Instrument for Repo {
 // Attributable is provided via blanket impl for all Instrument types
 
 impl CashflowProvider for Repo {
+    fn notional(&self) -> Option<Money> {
+        Some(self.cash_amount)
+    }
+
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // Apply business day adjustments to start and maturity dates
         // Market standard: repo start/end dates must be business-adjusted (often T+1/T+2)

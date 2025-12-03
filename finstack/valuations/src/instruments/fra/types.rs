@@ -303,6 +303,10 @@ impl crate::instruments::common::pricing::HasForwardCurves for ForwardRateAgreem
 }
 
 impl CashflowProvider for ForwardRateAgreement {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(
         &self,
         curves: &MarketContext,

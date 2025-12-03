@@ -43,6 +43,10 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use super::types::Bond;
 
 impl CashflowProvider for Bond {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(&self, curves: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // Get the full schedule from either custom_cashflows or builder
         let schedule = if let Some(ref custom) = self.custom_cashflows {

@@ -444,6 +444,11 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
 }
 
 impl CashflowProvider for InterestRateSwap {
+    fn notional(&self) -> Option<Money> {
+        // Return the receive leg notional as the primary notional
+        Some(self.notional)
+    }
+
     fn build_schedule(
         &self,
         curves: &MarketContext,

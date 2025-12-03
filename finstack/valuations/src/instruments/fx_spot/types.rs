@@ -298,6 +298,10 @@ impl crate::instruments::common::traits::CurveDependencies for FxSpot {
 }
 
 impl CashflowProvider for FxSpot {
+    fn notional(&self) -> Option<Money> {
+        self.notional
+    }
+
     fn build_schedule(
         &self,
         _curves: &MarketContext,

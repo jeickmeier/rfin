@@ -692,6 +692,10 @@ impl crate::instruments::common::traits::CurveDependencies for RevolvingCredit {
 
 // Implement CashflowProvider for standard cashflow interface
 impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
+    fn notional(&self) -> Option<finstack_core::money::Money> {
+        Some(self.commitment_amount)
+    }
+
     fn build_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

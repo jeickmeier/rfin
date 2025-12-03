@@ -382,6 +382,12 @@ impl HasDiscountCurve for Equity {
 }
 
 impl CashflowProvider for Equity {
+    fn notional(&self) -> Option<Money> {
+        // Equity notional is shares * price (market value)
+        // If price not quoted, return None to avoid incorrect estimation
+        self.price_quote.map(|p| Money::new(self.effective_shares() * p, self.currency))
+    }
+
     fn build_schedule(
         &self,
         _curves: &MarketContext,

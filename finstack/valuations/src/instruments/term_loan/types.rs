@@ -359,6 +359,10 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {
+    fn notional(&self) -> Option<finstack_core::money::Money> {
+        Some(self.notional_limit)
+    }
+
     fn build_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

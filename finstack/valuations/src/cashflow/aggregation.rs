@@ -137,7 +137,7 @@ pub fn aggregate_by_period(
 }
 
 // =============================================================================
-// Precision-Preserving Aggregation (Market Standards Review - Priority 3)
+// Precision-Preserving Aggregation
 // =============================================================================
 
 // use finstack_core::dates::DayCountCtx;

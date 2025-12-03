@@ -328,6 +328,10 @@ fn add_business_days_impl(
 }
 
 impl CashflowProvider for Deposit {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(
         &self,
         _curves: &MarketContext,

@@ -230,6 +230,10 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
 }
 
 impl CashflowProvider for EquityTotalReturnSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns

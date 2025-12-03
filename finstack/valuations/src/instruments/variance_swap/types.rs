@@ -594,6 +594,10 @@ impl crate::instruments::common::traits::CurveDependencies for VarianceSwap {
 }
 
 impl CashflowProvider for VarianceSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // Variance swaps have a single payment at maturity
         // The amount is not known until maturity (path-dependent)

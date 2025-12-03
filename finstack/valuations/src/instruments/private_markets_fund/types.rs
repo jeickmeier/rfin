@@ -180,6 +180,9 @@ impl Instrument for PrivateMarketsFund {
 }
 
 impl CashflowProvider for PrivateMarketsFund {
+    // Private markets funds don't have a simple notional concept
+    // (commitment varies with capital calls/distributions)
+
     fn build_schedule(
         &self,
         _curves: &MarketContext,

@@ -531,6 +531,10 @@ impl crate::instruments::common::traits::CurveDependencies for CreditDefaultSwap
 }
 
 impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
+    fn notional(&self) -> Option<finstack_core::money::Money> {
+        Some(self.notional)
+    }
+
     fn build_schedule(
         &self,
         curves: &MarketContext,
