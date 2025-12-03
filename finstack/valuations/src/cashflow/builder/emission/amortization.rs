@@ -20,6 +20,34 @@ pub(in crate::cashflow::builder) struct AmortizationParams<'a> {
         &'a Option<hashbrown::HashMap<Date, Money>>,
 }
 
+fn emit_principal_repayment(
+    d: Date,
+    ccy: Currency,
+    outstanding: &mut f64,
+    pay: f64,
+    new_flows: &mut Vec<CashFlow>,
+) {
+    if pay <= 0.0 {
+        return;
+    }
+
+    // Clamp to outstanding to guard against any numerical drift
+    let pay = pay.min(*outstanding);
+    if pay <= 0.0 {
+        return;
+    }
+
+    new_flows.push(CashFlow {
+        date: d,
+        reset_date: None,
+        amount: Money::new(pay, ccy),
+        kind: CFKind::Amortization,
+        accrual_factor: 0.0,
+        rate: None,
+    });
+    *outstanding -= pay;
+}
+
 /// Emit amortization cashflows on a specific date.
 ///
 /// Processes the notional's amortization specification to generate principal
@@ -44,25 +72,13 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
         AmortizationSpec::LinearTo { .. } => {
             if params.amort_dates.contains(&d) {
                 if let Some(delta) = params.linear_delta {
-                    let mut pay = if is_maturity {
+                    let pay = if is_maturity {
                         // Final clean-up: pay whatever remains outstanding
                         *outstanding
                     } else {
                         delta.min(*outstanding)
                     };
-                    if pay > 0.0 {
-                        // Clamp to outstanding to guard against any numerical drift
-                        pay = pay.min(*outstanding);
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
                 }
             }
         }
@@ -70,70 +86,37 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
             if let Some(map) = params.step_remaining_map {
                 if let Some(rem_after) = map.get(&d) {
                     let target = rem_after.amount();
-                    let mut pay = if is_maturity {
+                    let pay = if is_maturity {
                         // On final date, ignore target and fully clean up balance
                         *outstanding
                     } else {
                         (*outstanding - target).max(0.0).min(*outstanding)
                     };
-                    if pay > 0.0 {
-                        pay = pay.min(*outstanding);
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
                 }
             }
         }
         AmortizationSpec::PercentPerPeriod { .. } => {
             if params.amort_dates.contains(&d) {
                 if let Some(per) = params.percent_per {
-                    let mut pay = if is_maturity {
+                    let pay = if is_maturity {
                         *outstanding
                     } else {
                         per.min(*outstanding)
                     };
-                    if pay > 0.0 {
-                        pay = pay.min(*outstanding);
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
                 }
             }
         }
         AmortizationSpec::CustomPrincipal { items } => {
             for (dd, amt) in items {
                 if *dd == d {
-                    let mut pay = if is_maturity {
+                    let pay = if is_maturity {
                         *outstanding
                     } else {
                         amt.amount().max(0.0).min(*outstanding)
                     };
-                    if pay > 0.0 {
-                        pay = pay.min(*outstanding);
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
+                    emit_principal_repayment(d, params.ccy, outstanding, pay, &mut new_flows);
                 }
             }
         }

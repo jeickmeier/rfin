@@ -2,11 +2,13 @@
 //!
 //! # Rounding Policy
 //!
-//! PV aggregation functions (`pv_by_period`, `pv_by_period_with_ctx`, etc.) apply
-//! per-flow rounding: each cashflow's PV is rounded at `Money::new` ingestion
-//! (using currency-specific ISO-4217 minor units and bankers rounding), then
-//! summed using exact currency-safe arithmetic. This ensures determinism and
-//! prevents cross-currency arithmetic errors.
+//! PV aggregation functions (`pv_by_period_with_ctx`,
+//! `pv_by_period_credit_adjusted_with_ctx`, and
+//! `pv_by_period_credit_adjusted_detailed`) apply per-flow rounding: each
+//! cashflow's PV is rounded at `Money::new` ingestion (using
+//! currency-specific ISO-4217 minor units and bankers rounding), then
+//! summed using exact currency-safe arithmetic. This ensures determinism
+//! and prevents cross-currency arithmetic errors.
 //!
 //! For reconciliation workflows requiring sum-then-round semantics, compute
 //! PVs in f64, sum, then construct `Money` from the final result.
@@ -170,9 +172,10 @@ pub fn aggregate_cashflows_precise_checked(
 
 /// Currency-preserving aggregation of cashflow present values by period with explicit day-count context.
 ///
-/// Like [`pv_by_period`], but accepts a `DayCountCtx` to support conventions
-/// requiring frequency (Act/Act ISMA) or calendar (Bus/252). Propagates
-/// day-count errors instead of swallowing them.
+/// This is the primary entry point for periodized PV aggregation. It accepts a
+/// `DayCountCtx` to support conventions requiring frequency (Act/Act ISMA) or
+/// calendar (Bus/252) and propagates day-count errors instead of swallowing
+/// them.
 ///
 /// # Arguments
 /// * `flows` - Dated cashflows to aggregate
@@ -214,6 +217,7 @@ fn pv_by_period_sorted_checked(
     dc_ctx: DayCountCtx<'_>,
     hazard: Option<&dyn Survival>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let date_ctx = DateContext::new(base, dc, dc_ctx);
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
 
     for (p, flows_in_period) in iter_by_period(sorted, periods) {
@@ -223,20 +227,7 @@ fn pv_by_period_sorted_checked(
 
         let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
         for &(d, m) in flows_in_period {
-            // Compute year fraction from base to cashflow date - propagate errors
-            let t = if d == base {
-                0.0
-            } else if d > base {
-                dc.year_fraction(base, d, dc_ctx)?
-            } else {
-                -dc.year_fraction(d, base, dc_ctx)?
-            };
-
-            // Get discount factor
-            let df = disc.df(t);
-
-            // Get survival probability if hazard curve provided
-            let sp = hazard.map(|h| h.sp(t)).unwrap_or(1.0);
+            let (_t, df, sp) = time_discount_survival(d, disc, hazard, &date_ctx)?;
 
             // Compute PV: amount * df * sp
             let pv_amount = m.amount() * df * sp;
@@ -254,7 +245,9 @@ fn pv_by_period_sorted_checked(
 
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and explicit context.
 ///
-/// Like [`pv_by_period_credit_adjusted`], but accepts `DayCountCtx` and propagates errors.
+/// This variant extends [`pv_by_period_with_ctx`] by applying survival
+/// probabilities from an optional hazard curve to each cashflow before
+/// aggregating by period.
 ///
 /// # Arguments
 /// * `flows` - Dated cashflows to aggregate
@@ -304,6 +297,32 @@ impl<'a> DateContext<'a> {
     }
 }
 
+/// Compute signed year fraction, discount factor, and survival probability
+/// for a given cashflow date.
+fn time_discount_survival(
+    d: Date,
+    disc: &dyn Discounting,
+    hazard: Option<&dyn Survival>,
+    ctx: &DateContext<'_>,
+) -> finstack_core::Result<(f64, f64, f64)> {
+    // Compute year fraction from base to cashflow date - propagate errors
+    let t = if d == ctx.base {
+        0.0
+    } else if d > ctx.base {
+        ctx.dc.year_fraction(ctx.base, d, ctx.dc_ctx)?
+    } else {
+        -ctx.dc.year_fraction(d, ctx.base, ctx.dc_ctx)?
+    };
+
+    // Get discount factor
+    let df = disc.df(t);
+
+    // Get survival probability if hazard curve provided
+    let sp = hazard.map(|h| h.sp(t)).unwrap_or(1.0);
+
+    Ok((t, df, sp))
+}
+
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and recovery support.
 ///
 /// Like [`pv_by_period_credit_adjusted_with_ctx`], but works on full `CashFlow` objects (preserving `CFKind`).
@@ -339,25 +358,7 @@ pub fn pv_by_period_credit_adjusted_detailed(
 
         let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
         for cf in flows_in_period {
-            let d = cf.date;
-            // Compute year fraction from base to cashflow date - propagate errors
-            let t = if d == date_ctx.base {
-                0.0
-            } else if d > date_ctx.base {
-                date_ctx
-                    .dc
-                    .year_fraction(date_ctx.base, d, date_ctx.dc_ctx)?
-            } else {
-                -date_ctx
-                    .dc
-                    .year_fraction(d, date_ctx.base, date_ctx.dc_ctx)?
-            };
-
-            // Get discount factor
-            let df = disc.df(t);
-
-            // Get survival probability if hazard curve provided
-            let sp = hazard.map(|h| h.sp(t)).unwrap_or(1.0);
+            let (_t, df, sp) = time_discount_survival(cf.date, disc, hazard, &date_ctx)?;
 
             // Calculate recovery term if applicable
             let recovery_term = if let Some(r) = recovery_rate {

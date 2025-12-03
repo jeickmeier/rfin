@@ -5,13 +5,12 @@
 
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
-use finstack_core::prelude::*;
-use finstack_core::types::CurveId;
+use finstack_core::types::{Currency, CurveId};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
@@ -165,17 +164,10 @@ impl CashFlowSchedule {
         let mut out = Vec::new();
         let mut outstanding = self.notional.initial;
         for cf in &self.flows {
-            match cf.kind {
-                CFKind::Amortization => {
-                    // Amortization amounts are stored as positive in the builder
-                    // but economically represent principal reductions
-                    outstanding = outstanding.checked_sub(cf.amount)?;
-                }
-                CFKind::PIK => {
-                    outstanding = outstanding.checked_add(cf.amount)?;
-                }
-                _ => {}
-            }
+            // `outstanding_path` historically ignored notional draws/repays and
+            // only tracked Amortization and PIK. Preserve that behavior by
+            // passing `include_notional = false`.
+            apply_flow_to_outstanding(&mut outstanding, cf, false, false)?;
             out.push((cf.date, outstanding));
         }
         Ok(out)
@@ -241,30 +233,22 @@ impl CashFlowSchedule {
             // Process all flows on this date in their deterministic order
             let mut j = i;
             while j < self.flows.len() && self.flows[j].date == d {
-                match self.flows[j].kind {
-                    CFKind::Amortization => {
-                        outstanding = outstanding.checked_sub(self.flows[j].amount)?;
-                    }
-                    CFKind::PIK => {
-                        outstanding = outstanding.checked_add(self.flows[j].amount)?;
-                    }
-                    CFKind::Notional => {
-                        // Skip the initial funding notional flow (negative, equal to -notional.initial)
-                        // This is already accounted for in notional.initial
-                        let is_initial_funding = first_date == Some(d)
-                            && self.flows[j].amount.amount() < 0.0
-                            && (self.flows[j].amount.amount().abs()
-                                - self.notional.initial.amount())
-                            .abs()
-                                < 1e-10;
+                // Skip the initial funding notional flow (negative, equal to -notional.initial)
+                // This is already accounted for in notional.initial
+                let is_initial_funding = first_date == Some(d)
+                    && self.flows[j].amount.amount() < 0.0
+                    && (self.flows[j].amount.amount().abs() - self.notional.initial.amount())
+                        .abs()
+                        < 1e-10;
 
-                        if !is_initial_funding {
-                            // Draws negative, repays positive -> subtract to apply sign
-                            outstanding = outstanding.checked_sub(self.flows[j].amount)?;
-                        }
-                    }
-                    _ => {}
-                }
+                // `outstanding_by_date` is the canonical balance tracker, including
+                // subsequent notional draws/repays as well as Amortization and PIK.
+                apply_flow_to_outstanding(
+                    &mut outstanding,
+                    &self.flows[j],
+                    is_initial_funding,
+                    true,
+                )?;
                 j += 1;
             }
             result.push((d, outstanding));
@@ -273,6 +257,33 @@ impl CashFlowSchedule {
 
         Ok(result)
     }
+}
+
+fn apply_flow_to_outstanding(
+    outstanding: &mut Money,
+    cf: &CashFlow,
+    is_initial_funding: bool,
+    include_notional: bool,
+) -> finstack_core::Result<()> {
+    match cf.kind {
+        CFKind::Amortization => {
+            // Amortization amounts are stored as positive in the builder
+            // but economically represent principal reductions
+            *outstanding = outstanding.checked_sub(cf.amount)?;
+        }
+        CFKind::PIK => {
+            *outstanding = outstanding.checked_add(cf.amount)?;
+        }
+        CFKind::Notional if include_notional && !is_initial_funding => {
+            // Draws negative, repays positive -> subtract to apply sign
+            *outstanding = outstanding.checked_sub(cf.amount)?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+impl CashFlowSchedule {
     /// Compute pre-period present values with explicit day-count context.
     ///
     /// Like [`Self::pre_period_pv`], but accepts a `DayCountCtx` for conventions

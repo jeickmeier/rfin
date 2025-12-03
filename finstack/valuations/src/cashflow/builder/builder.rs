@@ -152,6 +152,10 @@ fn compile_schedules_and_fees(
     maturity: Date,
     strict: bool,
 ) -> finstack_core::Result<CompiledAndFees> {
+    // Centralized wrapper so the main build pipeline remains focused on the
+    // high-level orchestration (validate → compile → collect dates → emit).
+    // Keeping this helper avoids repeating the tuple wiring in both
+    // documentation and any future build variants.
     let compiled = compute_coupon_schedules(b, issue, maturity, strict)?;
     let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees, strict)?;
     Ok((compiled, periodic_fees, fixed_fees))
@@ -323,7 +327,6 @@ fn process_one_date(
     mut state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
-    curves: Option<&finstack_core::market_data::context::MarketContext>,
     resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<BuildState> {
     // Coupons
@@ -340,7 +343,6 @@ fn process_one_date(
         &state.outstanding_after,
         state.outstanding,
         ctx.ccy,
-        curves,
         resolved_curves,
     )?;
     let pik_to_add = pik_f + pik_fl;
@@ -1160,7 +1162,7 @@ impl CashFlowBuilder {
 
         // 6) Fold over dates producing flows deterministically
         for &d in dates.iter().skip(1) {
-            state = process_one_date(d, state, &ctx, &amort_setup, curves, &resolved_curves)?;
+            state = process_one_date(d, state, &ctx, &amort_setup, &resolved_curves)?;
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)

@@ -10,6 +10,50 @@ use std::sync::Arc;
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
 
+fn compute_base_out_and_yf_fixed(
+    d: Date,
+    base_outstanding: f64,
+    prev: Date,
+    spec: &super::super::specs::FixedCouponSpec,
+) -> finstack_core::Result<(f64, f64)> {
+    // Resolve calendar if present for Bus/252 and similar conventions
+    let calendar = resolve_calendar(spec.calendar_id.as_deref());
+
+    let yf = spec.dc.year_fraction(
+        prev,
+        d,
+        finstack_core::dates::DayCountCtx {
+            calendar,
+            frequency: Some(spec.freq),
+            bus_basis: None,
+        },
+    )?;
+
+    Ok((base_outstanding, yf))
+}
+
+fn compute_base_out_and_yf_float(
+    d: Date,
+    base_outstanding: f64,
+    prev: Date,
+    spec: &super::super::specs::FloatingCouponSpec,
+) -> finstack_core::Result<(f64, f64)> {
+    // Resolve calendar if present for Bus/252 and similar conventions
+    let calendar = resolve_calendar(spec.rate_spec.calendar_id.as_deref());
+
+    let yf = spec.rate_spec.dc.year_fraction(
+        prev,
+        d,
+        finstack_core::dates::DayCountCtx {
+            calendar,
+            frequency: Some(spec.rate_spec.reset_freq),
+            bus_basis: None,
+        },
+    )?;
+
+    Ok((base_outstanding, yf))
+}
+
 /// Emit fixed coupon cashflows on a specific date.
 ///
 /// Processes all fixed coupon schedules for the given date, computing coupon
@@ -34,18 +78,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = resolve_calendar(spec.calendar_id.as_deref());
-
-            let yf = spec.dc.year_fraction(
-                prev,
-                d,
-                finstack_core::dates::DayCountCtx {
-                    calendar,
-                    frequency: Some(spec.freq),
-                    bus_basis: None,
-                },
-            )?;
+            let (base_out, yf) = compute_base_out_and_yf_fixed(d, base_out, prev, spec)?;
             let coupon_total = base_out * (spec.rate * yf);
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
 
@@ -88,7 +121,6 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    _curves: Option<&finstack_core::market_data::context::MarketContext>,
     resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;
@@ -102,18 +134,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = resolve_calendar(spec.rate_spec.calendar_id.as_deref());
-
-            let yf = spec.rate_spec.dc.year_fraction(
-                prev,
-                d,
-                finstack_core::dates::DayCountCtx {
-                    calendar,
-                    frequency: Some(spec.rate_spec.reset_freq),
-                    bus_basis: None,
-                },
-            )?;
+            let (base_out, yf) = compute_base_out_and_yf_float(d, base_out, prev, spec)?;
 
             // Resolve fixing calendar for reset date (default to accrual calendar if None)
             let fixing_cal_id = spec
