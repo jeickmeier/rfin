@@ -141,35 +141,6 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 all_in_cap_bp: spec.rate_spec.cap_bp,
             };
 
-            // Helper for fallback (no curve or error)
-            let compute_fallback_rate =
-                |params: &crate::cashflow::builder::rate_helpers::FloatingRateParams| -> f64 {
-                    // Assume index = 0
-                    let index: f64 = 0.0;
-                    let floored_index = match params.index_floor_bp {
-                        Some(f) => index.max(f * 1e-4),
-                        None => index,
-                    };
-                    let capped_index = match params.index_cap_bp {
-                        Some(c) => floored_index.min(c * 1e-4),
-                        None => floored_index,
-                    };
-
-                    let mut rate = if params.gearing_includes_spread {
-                        (capped_index + params.spread_bp * 1e-4) * params.gearing
-                    } else {
-                        (capped_index * params.gearing) + params.spread_bp * 1e-4
-                    };
-
-                    if let Some(f) = params.all_in_floor_bp {
-                        rate = rate.max(f * 1e-4);
-                    }
-                    if let Some(c) = params.all_in_cap_bp {
-                        rate = rate.min(c * 1e-4);
-                    }
-                    rate
-                };
-
             // Compute total rate using centralized projection with floor/cap support
             let total_rate = if let Some(fwd) = resolved_curve {
                 // Use floating rate projection
@@ -178,10 +149,10 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                     fwd, &params,
                 ) {
                     Ok(rate) => rate,
-                    Err(_) => compute_fallback_rate(&params),
+                    Err(_) => super::super::rate_helpers::project_fallback_rate(&params),
                 }
             } else {
-                compute_fallback_rate(&params)
+                super::super::rate_helpers::project_fallback_rate(&params)
             };
 
             let coupon_total = base_out * (total_rate * yf);

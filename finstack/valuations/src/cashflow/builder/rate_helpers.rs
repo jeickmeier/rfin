@@ -167,6 +167,87 @@ impl FloatingRateParams {
     }
 }
 
+/// Calculate the all-in floating rate from an index rate and parameters.
+///
+/// This is the core rate calculation logic that applies floors, caps, gearing,
+/// and spread to an index rate. Used by both market-based projection (with real
+/// forward rates) and fallback scenarios (with index=0).
+///
+/// # Arguments
+///
+/// * `index_rate` - The underlying index rate (decimal, e.g., 0.03 for 3%)
+/// * `params` - Floating rate parameters (spread, gearing, floors, caps)
+///
+/// # Returns
+///
+/// The all-in rate as a decimal (e.g., 0.05 for 5%).
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::cashflow::builder::rate_helpers::{calculate_floating_rate, FloatingRateParams};
+///
+/// let params = FloatingRateParams::with_spread(200.0); // 200 bps spread
+/// let rate = calculate_floating_rate(0.03, &params); // 3% index + 2% spread = 5%
+/// assert!((rate - 0.05).abs() < 0.0001);
+/// ```
+pub fn calculate_floating_rate(index_rate: f64, params: &FloatingRateParams) -> f64 {
+    // Apply index floor/cap
+    let mut eff_index = index_rate;
+    if let Some(floor) = params.index_floor_bp {
+        eff_index = eff_index.max(floor * 1e-4);
+    }
+    if let Some(cap) = params.index_cap_bp {
+        eff_index = eff_index.min(cap * 1e-4);
+    }
+
+    // Calculate rate based on gearing style
+    let mut rate = if params.gearing_includes_spread {
+        // (Index + Spread) * Gearing
+        (eff_index + params.spread_bp * 1e-4) * params.gearing
+    } else {
+        // (Index * Gearing) + Spread
+        (eff_index * params.gearing) + params.spread_bp * 1e-4
+    };
+
+    // Apply all-in floor/cap
+    if let Some(floor) = params.all_in_floor_bp {
+        rate = rate.max(floor * 1e-4);
+    }
+    if let Some(cap) = params.all_in_cap_bp {
+        rate = rate.min(cap * 1e-4);
+    }
+
+    rate
+}
+
+/// Calculate fallback rate assuming index is 0.0 (e.g., when curve is missing).
+///
+/// This is a convenience wrapper for scenarios where no forward curve is available.
+/// The result is typically just the spread (with floor/cap applied).
+///
+/// # Arguments
+///
+/// * `params` - Floating rate parameters
+///
+/// # Returns
+///
+/// The all-in rate assuming a zero index rate.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::cashflow::builder::rate_helpers::{project_fallback_rate, FloatingRateParams};
+///
+/// let params = FloatingRateParams::with_spread_and_floor(200.0, 100.0); // 200 bps spread, 1% floor
+/// let rate = project_fallback_rate(&params);
+/// // Index floored to 1%, plus 2% spread = 3%
+/// assert!((rate - 0.03).abs() < 0.0001);
+/// ```
+pub fn project_fallback_rate(params: &FloatingRateParams) -> f64 {
+    calculate_floating_rate(0.0, params)
+}
+
 /// Project floating rate using a resolved forward curve and full parameter set.
 ///
 /// This is the primary rate projection function. It computes the all-in floating
@@ -222,34 +303,10 @@ pub fn project_floating_rate(
     let t1 = fwd_dc.year_fraction(fwd_base, reset_period_end, DayCountCtx::default())?;
 
     // Get period forward rate
-    let mut index_rate = fwd.rate_period(t0, t1);
+    let index_rate = fwd.rate_period(t0, t1);
 
-    // Apply index floor/cap
-    if let Some(floor) = params.index_floor_bp {
-        index_rate = index_rate.max(floor * 1e-4);
-    }
-    if let Some(cap) = params.index_cap_bp {
-        index_rate = index_rate.min(cap * 1e-4);
-    }
-
-    // Calculate rate based on gearing style
-    let mut rate = if params.gearing_includes_spread {
-        // (Index + Spread) * Gearing
-        (index_rate + params.spread_bp * 1e-4) * params.gearing
-    } else {
-        // (Index * Gearing) + Spread
-        (index_rate * params.gearing) + params.spread_bp * 1e-4
-    };
-
-    // Apply all-in floor/cap
-    if let Some(floor) = params.all_in_floor_bp {
-        rate = rate.max(floor * 1e-4);
-    }
-    if let Some(cap) = params.all_in_cap_bp {
-        rate = rate.min(cap * 1e-4);
-    }
-
-    Ok(rate)
+    // Use shared calculation logic
+    Ok(calculate_floating_rate(index_rate, params))
 }
 
 /// Project floating rate by looking up the forward curve from market context.

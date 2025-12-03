@@ -21,14 +21,44 @@
 //! least two dates.
 
 use crate::cashflow::builder::{AmortizationSpec, Notional};
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
+use super::date_generation::{build_dates, build_dates_checked};
 use super::specs::{
     CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
     ScheduleParams,
 };
+
+/// Result type for schedule building with metadata.
+type ScheduleWithMeta = (
+    Vec<Date>,
+    hashbrown::HashMap<Date, Date>,
+    hashbrown::HashSet<Date>,
+);
+
+/// Build dates and metadata using the date_generation module.
+///
+/// This helper wraps `date_generation::build_dates` / `build_dates_checked` and
+/// extracts the `prev` map and `first_or_last` set required by the cashflow compiler.
+fn build_dates_with_meta(
+    start: Date,
+    end: Date,
+    freq: Frequency,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<&str>,
+    strict: bool,
+) -> finstack_core::Result<ScheduleWithMeta> {
+    let sched = if strict {
+        build_dates_checked(start, end, freq, stub, bdc, calendar_id)?
+    } else {
+        build_dates(start, end, freq, stub, bdc, calendar_id)
+    };
+
+    Ok((sched.dates, sched.prev, sched.first_or_last))
+}
 
 pub(super) type FixedSchedule = (
     FixedCouponSpec,
@@ -127,48 +157,15 @@ pub(super) fn build_fee_schedules(
                 calendar_id,
                 stub,
             } => {
-                let sched = if strict {
-                    // Strict mode: propagate errors from checked variant
-                    crate::cashflow::builder::date_generation::build_dates_checked(
-                        issue,
-                        maturity,
-                        *freq,
-                        *stub,
-                        *bdc,
-                        calendar_id.as_deref(),
-                    )?
-                } else if calendar_id.is_some() {
-                    // Graceful mode with calendar: try checked, fall back to unchecked
-                    match crate::cashflow::builder::date_generation::build_dates_checked(
-                        issue,
-                        maturity,
-                        *freq,
-                        *stub,
-                        *bdc,
-                        calendar_id.as_deref(),
-                    ) {
-                        Ok(s) => s,
-                        Err(_) => crate::cashflow::builder::date_generation::build_dates(
-                            issue,
-                            maturity,
-                            *freq,
-                            *stub,
-                            *bdc,
-                            calendar_id.as_deref(),
-                        ),
-                    }
-                } else {
-                    // No calendar: use unchecked
-                    crate::cashflow::builder::date_generation::build_dates(
-                        issue,
-                        maturity,
-                        *freq,
-                        *stub,
-                        *bdc,
-                        calendar_id.as_deref(),
-                    )
-                };
-                let dates = sched.dates.clone();
+                let (dates, prev, _) = build_dates_with_meta(
+                    issue,
+                    maturity,
+                    *freq,
+                    *stub,
+                    *bdc,
+                    calendar_id.as_deref(),
+                    strict,
+                )?;
                 if dates.len() < 2 {
                     return Err(InputError::TooFewPoints.into());
                 }
@@ -177,7 +174,7 @@ pub(super) fn build_fee_schedules(
                     bps: *bps,
                     dc: *dc,
                     dates,
-                    prev: sched.prev,
+                    prev,
                 });
             }
         }
@@ -425,48 +422,15 @@ pub(super) fn compute_coupon_schedules(
         }
         let split = chosen.map(|(_, sp)| sp).unwrap_or(CouponType::Cash);
 
-        let sched = if strict {
-            // Strict mode: propagate errors from checked variant
-            crate::cashflow::builder::date_generation::build_dates_checked(
-                s,
-                e,
-                chosen_coupon.schedule.freq,
-                chosen_coupon.schedule.stub,
-                chosen_coupon.schedule.bdc,
-                chosen_coupon.schedule.calendar_id.as_deref(),
-            )?
-        } else if chosen_coupon.schedule.calendar_id.is_some() {
-            // Graceful mode with calendar: try checked, fall back to unchecked
-            match crate::cashflow::builder::date_generation::build_dates_checked(
-                s,
-                e,
-                chosen_coupon.schedule.freq,
-                chosen_coupon.schedule.stub,
-                chosen_coupon.schedule.bdc,
-                chosen_coupon.schedule.calendar_id.as_deref(),
-            ) {
-                Ok(s) => s,
-                Err(_) => crate::cashflow::builder::date_generation::build_dates(
-                    s,
-                    e,
-                    chosen_coupon.schedule.freq,
-                    chosen_coupon.schedule.stub,
-                    chosen_coupon.schedule.bdc,
-                    chosen_coupon.schedule.calendar_id.as_deref(),
-                ),
-            }
-        } else {
-            // No calendar: use unchecked
-            crate::cashflow::builder::date_generation::build_dates(
-                s,
-                e,
-                chosen_coupon.schedule.freq,
-                chosen_coupon.schedule.stub,
-                chosen_coupon.schedule.bdc,
-                chosen_coupon.schedule.calendar_id.as_deref(),
-            )
-        };
-        let dates = sched.dates.clone();
+        let (dates, prev, first_or_last) = build_dates_with_meta(
+            s,
+            e,
+            chosen_coupon.schedule.freq,
+            chosen_coupon.schedule.stub,
+            chosen_coupon.schedule.bdc,
+            chosen_coupon.schedule.calendar_id.as_deref(),
+            strict,
+        )?;
         if dates.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
@@ -483,7 +447,7 @@ pub(super) fn compute_coupon_schedules(
                     stub: chosen_coupon.schedule.stub,
                 };
                 used_fixed_specs.push(spec.clone());
-                fixed_schedules.push((spec, dates, sched.prev, sched.first_or_last));
+                fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
             }
             CouponSpec::Float {
                 index_id,
@@ -513,7 +477,7 @@ pub(super) fn compute_coupon_schedules(
                     stub: chosen_coupon.schedule.stub,
                 };
                 used_float_specs.push(spec.clone());
-                float_schedules.push((spec, dates, sched.prev));
+                float_schedules.push((spec, dates, prev));
             }
         }
     }

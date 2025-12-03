@@ -3,11 +3,10 @@
 //! A basis swap exchanges two floating rate payments with different tenors,
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
-use crate::cashflow::builder::date_generation::{build_dates, PeriodSchedule};
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::{
-    dates::{Date, DayCountCtx, StubKind},
+    dates::{Date, DayCountCtx, Schedule, ScheduleBuilder, StubKind},
     market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -153,16 +152,20 @@ impl BasisSwap {
     /// * `leg` — The leg to build a schedule for
     ///
     /// # Returns
-    /// A `PeriodSchedule` containing the payment dates for the leg.
-    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> PeriodSchedule {
-        build_dates(
-            self.start_date,
-            self.maturity_date,
-            leg.frequency,
-            self.stub_kind,
-            leg.bdc,
-            self.calendar_id.as_deref(),
-        )
+    /// A `Schedule` containing the payment dates for the leg.
+    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Schedule {
+        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)
+            .frequency(leg.frequency)
+            .stub_rule(self.stub_kind);
+
+        if let Some(ref cal_id) = self.calendar_id {
+            builder = builder.adjust_with_id(leg.bdc, cal_id);
+        }
+
+        builder
+            .graceful_fallback(true)
+            .build()
+            .unwrap_or(Schedule { dates: vec![] })
     }
 
     /// Calculates the present value of a floating rate leg.
@@ -178,7 +181,7 @@ impl BasisSwap {
     pub fn pv_float_leg(
         &self,
         leg: &BasisSwapLeg,
-        schedule: &PeriodSchedule,
+        schedule: &Schedule,
         context: &MarketContext,
         valuation_date: Date,
     ) -> Result<Money> {
@@ -257,7 +260,7 @@ impl BasisSwap {
     pub fn annuity_for_leg(
         &self,
         leg: &BasisSwapLeg,
-        schedule: &PeriodSchedule,
+        schedule: &Schedule,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {

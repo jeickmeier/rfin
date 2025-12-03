@@ -192,9 +192,8 @@ impl XccyBasisCalibrator {
                 reference_dc,
                 currency: _,
             } => {
-                use crate::cashflow::builder::date_generation::build_dates;
                 use crate::instruments::basis_swap::BasisSwapLeg;
-                use finstack_core::dates::{BusinessDayConvention, StubKind};
+                use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind};
                 use finstack_core::money::Money;
 
                 // Assume Primary Leg is the Foreign Leg (with spread) and Reference Leg is Domestic (USD).
@@ -231,22 +230,18 @@ impl XccyBasisCalibrator {
                 // Build schedules
                 let start_date = as_of; // Should be spot date
 
-                let primary_schedule = build_dates(
-                    start_date,
-                    *maturity,
-                    primary_leg.frequency,
-                    StubKind::None,
-                    primary_leg.bdc,
-                    None,
-                );
-                let reference_schedule = build_dates(
-                    start_date,
-                    *maturity,
-                    reference_leg.frequency,
-                    StubKind::None,
-                    reference_leg.bdc,
-                    None,
-                );
+                let primary_schedule = ScheduleBuilder::new(start_date, *maturity)
+                    .frequency(primary_leg.frequency)
+                    .stub_rule(StubKind::None)
+                    .graceful_fallback(true)
+                    .build()
+                    .unwrap_or(finstack_core::dates::Schedule { dates: vec![] });
+                let reference_schedule = ScheduleBuilder::new(start_date, *maturity)
+                    .frequency(reference_leg.frequency)
+                    .stub_rule(StubKind::None)
+                    .graceful_fallback(true)
+                    .build()
+                    .unwrap_or(finstack_core::dates::Schedule { dates: vec![] });
 
                 // Value Primary Leg (Foreign)
                 // We use the `foreign_curve_id` passed in.

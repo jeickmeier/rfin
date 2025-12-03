@@ -19,7 +19,29 @@ use finstack_core::types::Currency;
 
 use indexmap::IndexMap;
 
-// Use fully-qualified alias to avoid namespace duplication
+// =============================================================================
+// Generic Flow Iterator
+// =============================================================================
+
+/// Trait for types that have an associated date.
+///
+/// This allows generic iteration over different flow types (DatedFlow, CashFlow)
+/// without code duplication.
+trait HasDate {
+    fn flow_date(&self) -> Date;
+}
+
+impl HasDate for crate::cashflow::DatedFlow {
+    fn flow_date(&self) -> Date {
+        self.0
+    }
+}
+
+impl HasDate for CashFlow {
+    fn flow_date(&self) -> Date {
+        self.date
+    }
+}
 
 /// Helper to iterate over periods and yield the slice of flows belonging to each period.
 ///
@@ -28,57 +50,30 @@ use indexmap::IndexMap;
 ///
 /// # Arguments
 ///
-/// * `flows` - Sorted cashflows by date
+/// * `flows` - Sorted flows by date (any type implementing `HasDate`)
 /// * `periods` - Period definitions with start/end boundaries
 ///
 /// # Returns
 ///
-/// Iterator yielding `(Period, &[DatedFlow])` pairs where the flow slice contains
+/// Iterator yielding `(Period, &[T])` pairs where the flow slice contains
 /// all flows with `period.start <= date < period.end`.
-fn iter_flows_by_period<'a>(
-    flows: &'a [crate::cashflow::DatedFlow],
+fn iter_by_period<'a, T: HasDate>(
+    flows: &'a [T],
     periods: &'a [Period],
-) -> impl Iterator<Item = (&'a Period, &'a [crate::cashflow::DatedFlow])> + 'a {
+) -> impl Iterator<Item = (&'a Period, &'a [T])> + 'a {
     let mut flow_idx = 0;
     let n = flows.len();
 
     periods.iter().map(move |p| {
         // Skip flows before this period
-        while flow_idx < n && flows[flow_idx].0 < p.start {
+        while flow_idx < n && flows[flow_idx].flow_date() < p.start {
             flow_idx += 1;
         }
 
         let start_idx = flow_idx;
 
         // Find end of flows for this period
-        while flow_idx < n && flows[flow_idx].0 < p.end {
-            flow_idx += 1;
-        }
-
-        (p, &flows[start_idx..flow_idx])
-    })
-}
-
-/// Helper to iterate over periods and yield the slice of CashFlow objects belonging to each period.
-///
-/// Assumes flows are sorted by date.
-fn iter_cashflows_by_period<'a>(
-    flows: &'a [CashFlow],
-    periods: &'a [Period],
-) -> impl Iterator<Item = (&'a Period, &'a [CashFlow])> + 'a {
-    let mut flow_idx = 0;
-    let n = flows.len();
-
-    periods.iter().map(move |p| {
-        // Skip flows before this period
-        while flow_idx < n && flows[flow_idx].date < p.start {
-            flow_idx += 1;
-        }
-
-        let start_idx = flow_idx;
-
-        // Find end of flows for this period
-        while flow_idx < n && flows[flow_idx].date < p.end {
+        while flow_idx < n && flows[flow_idx].flow_date() < p.end {
             flow_idx += 1;
         }
 
@@ -98,7 +93,7 @@ fn aggregate_by_period_sorted(
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
 
-    for (p, flows_in_period) in iter_flows_by_period(sorted, periods) {
+    for (p, flows_in_period) in iter_by_period(sorted, periods) {
         if flows_in_period.is_empty() {
             continue;
         }
@@ -221,7 +216,7 @@ fn pv_by_period_sorted_checked(
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
 
-    for (p, flows_in_period) in iter_flows_by_period(sorted, periods) {
+    for (p, flows_in_period) in iter_by_period(sorted, periods) {
         if flows_in_period.is_empty() {
             continue;
         }
@@ -337,7 +332,7 @@ pub fn pv_by_period_credit_adjusted_detailed(
 
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
 
-    for (p, flows_in_period) in iter_cashflows_by_period(&sorted, periods) {
+    for (p, flows_in_period) in iter_by_period(&sorted, periods) {
         if flows_in_period.is_empty() {
             continue;
         }
