@@ -7,6 +7,7 @@ use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
@@ -346,23 +347,50 @@ impl CashFlowSchedule {
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
 
-        // Get discount curve
-        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
-        let disc: &dyn Discounting = disc_arc.as_ref();
-
-        // Get hazard curve if provided
-        let hazard_arc_opt: Option<Arc<HazardCurve>> = if let Some(hazard_id) = hazard_curve_id {
-            Some(market.get_hazard(hazard_id.as_str())?)
-        } else {
-            None
-        };
-
-        let hazard: Option<&dyn Survival> = hazard_arc_opt
-            .as_ref()
-            .map(|arc| arc.as_ref() as &dyn Survival);
+        let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
+        let disc: &dyn Discounting = curves.discounting();
+        let hazard = curves.hazard_survival();
 
         crate::cashflow::aggregation::pv_by_period_credit_adjusted_with_ctx(
             &flows, periods, disc, hazard, base, dc, dc_ctx,
         )
     }
+}
+
+pub(crate) struct CreditCurveHandles {
+    discount: Arc<DiscountCurve>,
+    hazard: Option<Arc<HazardCurve>>,
+}
+
+impl CreditCurveHandles {
+    pub(crate) fn discounting(&self) -> &dyn Discounting {
+        self.discount.as_ref()
+    }
+
+    pub(crate) fn hazard_survival(&self) -> Option<&dyn Survival> {
+        self.hazard
+            .as_ref()
+            .map(|arc| arc.as_ref() as &dyn Survival)
+    }
+
+    pub(crate) fn recovery_rate(&self) -> Option<f64> {
+        self.hazard.as_ref().map(|h| h.recovery_rate())
+    }
+}
+
+pub(crate) fn resolve_credit_curves(
+    market: &MarketContext,
+    disc_curve_id: &CurveId,
+    hazard_curve_id: Option<&CurveId>,
+) -> finstack_core::Result<CreditCurveHandles> {
+    let discount = market.get_discount(disc_curve_id.as_str())?;
+    let hazard = if let Some(hazard_id) = hazard_curve_id {
+        Some(market.get_hazard(hazard_id.as_str())?)
+    } else {
+        None
+    };
+    Ok(CreditCurveHandles {
+        discount,
+        hazard,
+    })
 }

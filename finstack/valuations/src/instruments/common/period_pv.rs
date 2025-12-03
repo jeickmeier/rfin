@@ -78,6 +78,7 @@
 //! # }
 //! ```
 
+use crate::cashflow::builder::schedule::resolve_credit_curves;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use finstack_core::currency::Currency;
@@ -204,26 +205,12 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         // This allows applying recovery rates to principal flows only.
         let schedule = self.build_full_schedule(market, base)?;
 
-        // Use the instrument's discount curve
+        // Resolve discount and hazard curves once to avoid duplicated logic.
         let disc_curve_id = self.discount_curve_id();
-        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
-        let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
-
-        // Get hazard curve if provided
-        let hazard_arc_opt: Option<
-            std::sync::Arc<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>,
-        > = if let Some(hazard_id) = hazard_curve_id {
-            Some(market.get_hazard(hazard_id.as_str())?)
-        } else {
-            None
-        };
-
-        let hazard: Option<&dyn finstack_core::market_data::traits::Survival> = hazard_arc_opt
-            .as_ref()
-            .map(|arc| arc.as_ref() as &dyn finstack_core::market_data::traits::Survival);
-
-        // Extract recovery rate from HazardCurve
-        let recovery_rate = hazard_arc_opt.as_ref().map(|h| h.recovery_rate());
+        let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
+        let disc: &dyn finstack_core::market_data::traits::Discounting = curves.discounting();
+        let hazard = curves.hazard_survival();
+        let recovery_rate = curves.recovery_rate();
 
         // Use credit-adjusted aggregation detailed
         use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
@@ -246,8 +233,10 @@ impl<T> PeriodizedPvExt for T where T: CashflowProvider + HasDiscountCurve {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
     use crate::instruments::Bond;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -502,6 +491,80 @@ mod tests {
             "Credit adjustment ratio should be reasonable, got {}",
             ratio
         );
+    }
+
+    #[test]
+    fn test_periodized_pv_credit_adjusted_without_hazard_matches_plain() {
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let market = create_test_market(base);
+        let periods = create_quarters_2025();
+
+        let pv_plain = bond
+            .periodized_pv(&periods, &market, base, DayCount::Act365F)
+            .expect("Plain PV should succeed");
+
+        let pv_credit = bond
+            .periodized_pv_credit_adjusted(&periods, &market, None, base, DayCount::Act365F)
+            .expect("Credit-adjusted PV without hazard should succeed");
+
+        assert_eq!(pv_plain, pv_credit);
+    }
+
+    #[test]
+    fn test_periodized_pv_credit_adjusted_matches_detailed_engine() {
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+
+        let hazard_curve = HazardCurve::builder("CORP-HAZARD")
+            .base_date(base)
+            .recovery_rate(0.35)
+            .knots([(0.0, 0.0), (1.0, 0.02)])
+            .build()
+            .expect("HazardCurve builder should succeed with valid test data");
+
+        let market = MarketContext::new()
+            .insert_discount(disc_curve.clone())
+            .insert_hazard(hazard_curve.clone());
+
+        let periods = create_quarters_2025();
+        let hazard_id = CurveId::new("CORP-HAZARD");
+
+        let pv_credit = bond
+            .periodized_pv_credit_adjusted(
+                &periods,
+                &market,
+                Some(&hazard_id),
+                base,
+                DayCount::Act365F,
+            )
+            .expect("Credit-adjusted PV should succeed");
+
+        let schedule = bond
+            .build_full_schedule(&market, base)
+            .expect("Schedule should build");
+
+        let disc_ref: &dyn finstack_core::market_data::traits::Discounting = &disc_curve;
+        let hazard_ref: &dyn finstack_core::market_data::traits::Survival = &hazard_curve;
+
+        let detailed = pv_by_period_credit_adjusted_detailed(
+            &schedule.flows,
+            &periods,
+            disc_ref,
+            Some(hazard_ref),
+            Some(hazard_curve.recovery_rate()),
+            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+        )
+        .expect("Detailed aggregation should succeed");
+
+        assert_eq!(pv_credit, detailed);
     }
 
     #[test]

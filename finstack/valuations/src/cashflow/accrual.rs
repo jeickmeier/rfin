@@ -62,10 +62,10 @@ pub enum AccrualMethod {
 
     /// Indexed accrual for inflation-linked style conventions.
     ///
-    /// The generic engine does not implement index ratio interpolation
-    /// and will currently return `InputError::Invalid` when used. A
-    /// dedicated inflation-linked instrument surface should handle this
-    /// method explicitly.
+    /// The generic engine does **not** implement index-ratio interpolation
+    /// and will currently return `Error::Input(InputError::Invalid)` when used.
+    /// A dedicated inflation-linked instrument surface should handle this
+    /// method explicitly once index ratios are supported.
     Indexed {
         /// Inflation index curve identifier (e.g., "US-CPI").
         index_curve_id: CurveId,
@@ -422,6 +422,63 @@ fn accrue_in_period(
             // using Indexed accrual must route through a dedicated inflation-linked
             // instrument that sizes coupons appropriately in the schedule.
             Err(InputError::Invalid.into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cashflow::builder::{schedule::CashFlowMeta, schedule::CashFlowSchedule, Notional};
+    use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_core::error::Error;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    #[test]
+    fn indexed_accrual_returns_input_error() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let coupon = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
+        let schedule = CashFlowSchedule {
+            flows: vec![CashFlow {
+                    date: issue,
+                    reset_date: None,
+                    amount: Money::new(0.0, Currency::USD),
+                    kind: CFKind::Fixed,
+                    accrual_factor: 0.0,
+                    rate: None,
+                },
+                CashFlow {
+                    date: coupon,
+                    reset_date: None,
+                    amount: Money::new(10_000.0, Currency::USD),
+                    kind: CFKind::Fixed,
+                    accrual_factor: 0.5,
+                    rate: Some(0.05),
+                },
+            ],
+            notional: Notional::par(1_000_000.0, Currency::USD),
+            day_count: finstack_core::dates::DayCount::Act365F,
+            meta: CashFlowMeta::default(),
+        };
+
+        let cfg = AccrualConfig {
+            method: AccrualMethod::Indexed {
+                index_curve_id: CurveId::new("US-CPI"),
+            },
+            ex_coupon: None,
+            include_pik: true,
+        };
+
+        let as_of = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let err = accrued_interest_amount(&schedule, as_of, &cfg)
+            .expect_err("indexed accrual should not be supported");
+
+        match err {
+            Error::Input(InputError::Invalid) => {}
+            other => panic!("expected InputError::Invalid, got {other:?}"),
         }
     }
 }

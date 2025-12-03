@@ -170,6 +170,42 @@ pub fn aggregate_cashflows_precise_checked(
 // Pre-Period PV Aggregation
 // =============================================================================
 
+/// Shared implementation for PV aggregation across plain and credit-adjusted variants.
+fn pv_by_period_generic<T, F>(
+    sorted: &[T],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    hazard: Option<&dyn Survival>,
+    date_ctx: &DateContext<'_>,
+    mut value_fn: F,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>>
+where
+    T: HasDate,
+    F: FnMut(&T, f64, f64) -> Money,
+{
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
+
+    for (p, flows_in_period) in iter_by_period(sorted, periods) {
+        if flows_in_period.is_empty() {
+            continue;
+        }
+
+        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        for flow in flows_in_period {
+            let (_t, df, sp) = time_discount_survival(flow.flow_date(), disc, hazard, date_ctx)?;
+            let pv = value_fn(flow, df, sp);
+            let ccy = pv.currency();
+            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
+            *entry = entry
+                .checked_add(pv)
+                .expect("currency must match per key");
+        }
+        out.insert(p.id, per_ccy);
+    }
+
+    Ok(out)
+}
+
 /// Currency-preserving aggregation of cashflow present values by period with explicit day-count context.
 ///
 /// This is the primary entry point for periodized PV aggregation. It accepts a
@@ -199,12 +235,7 @@ pub fn pv_by_period_with_ctx(
     dc: DayCount,
     dc_ctx: DayCountCtx<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
-    if sorted.is_empty() || periods.is_empty() {
-        return Ok(IndexMap::new());
-    }
-    sorted.sort_unstable_by_key(|(d, _)| *d);
-    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, None)
+    pv_by_period_with_optional_hazard(flows, periods, disc, base, dc, dc_ctx, None)
 }
 
 /// Checked variant that propagates day-count errors and accepts explicit context.
@@ -218,29 +249,17 @@ fn pv_by_period_sorted_checked(
     hazard: Option<&dyn Survival>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let date_ctx = DateContext::new(base, dc, dc_ctx);
-    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
-
-    for (p, flows_in_period) in iter_by_period(sorted, periods) {
-        if flows_in_period.is_empty() {
-            continue;
-        }
-
-        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
-        for &(d, m) in flows_in_period {
-            let (_t, df, sp) = time_discount_survival(d, disc, hazard, &date_ctx)?;
-
-            // Compute PV: amount * df * sp
+    pv_by_period_generic(
+        sorted,
+        periods,
+        disc,
+        hazard,
+        &date_ctx,
+        |&(_d, m), df, sp| {
             let pv_amount = m.amount() * df * sp;
-            let pv = Money::new(pv_amount, m.currency());
-
-            // Accumulate by currency
-            let ccy = m.currency();
-            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            *entry = entry.checked_add(pv).expect("currency must match per key");
-        }
-        out.insert(p.id, per_ccy);
-    }
-    Ok(out)
+            Money::new(pv_amount, m.currency())
+        },
+    )
 }
 
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and explicit context.
@@ -272,12 +291,7 @@ pub fn pv_by_period_credit_adjusted_with_ctx(
     dc: DayCount,
     dc_ctx: DayCountCtx<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
-    if sorted.is_empty() || periods.is_empty() {
-        return Ok(IndexMap::new());
-    }
-    sorted.sort_unstable_by_key(|(d, _)| *d);
-    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, hazard)
+    pv_by_period_with_optional_hazard(flows, periods, disc, base, dc, dc_ctx, hazard)
 }
 
 /// Parameters for date and day-count calculations.
@@ -348,47 +362,43 @@ pub fn pv_by_period_credit_adjusted_detailed(
         return Ok(IndexMap::new());
     }
     sorted.sort_unstable_by_key(|cf| cf.date);
-
-    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
-
-    for (p, flows_in_period) in iter_by_period(&sorted, periods) {
-        if flows_in_period.is_empty() {
-            continue;
-        }
-
-        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
-        for cf in flows_in_period {
-            let (_t, df, sp) = time_discount_survival(cf.date, disc, hazard, &date_ctx)?;
-
-            // Calculate recovery term if applicable
+    pv_by_period_generic(
+        &sorted,
+        periods,
+        disc,
+        hazard,
+        &date_ctx,
+        |cf, df, sp| {
             let recovery_term = if let Some(r) = recovery_rate {
-                // Only apply recovery to principal-like flows
                 match cf.kind {
-                    CFKind::Amortization | CFKind::Notional => {
-                        // If default happens (prob = 1-SP), we recover R portion
-                        // This assumes recovery is paid at the same time as the scheduled flow (simplified)
-                        r * (1.0 - sp)
-                    }
+                    CFKind::Amortization | CFKind::Notional => r * (1.0 - sp),
                     _ => 0.0,
                 }
             } else {
                 0.0
             };
 
-            // PV = Amount * DF * (SP + RecoveryTerm)
-            // Note: If no hazard curve, SP=1, RecoveryTerm=0, so PV = Amount * DF * 1
             let pv_factor = df * (sp + recovery_term);
-
             let m = cf.amount;
             let pv_amount = m.amount() * pv_factor;
-            let pv = Money::new(pv_amount, m.currency());
+            Money::new(pv_amount, m.currency())
+        },
+    )
+}
 
-            // Accumulate by currency
-            let ccy = m.currency();
-            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            *entry = entry.checked_add(pv).expect("currency must match per key");
-        }
-        out.insert(p.id, per_ccy);
+fn pv_by_period_with_optional_hazard(
+    flows: &[crate::cashflow::DatedFlow],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    base: Date,
+    dc: DayCount,
+    dc_ctx: DayCountCtx<'_>,
+    hazard: Option<&dyn Survival>,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
+    if sorted.is_empty() || periods.is_empty() {
+        return Ok(IndexMap::new());
     }
-    Ok(out)
+    sorted.sort_unstable_by_key(|(d, _)| *d);
+    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, hazard)
 }

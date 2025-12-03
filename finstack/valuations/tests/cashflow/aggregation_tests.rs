@@ -14,13 +14,15 @@
 use crate::cashflow_tests::test_helpers::{
     financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
 };
+use finstack_core::cashflow::primitives::{CashFlow, CFKind};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, Period, PeriodId};
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::aggregation::{
     aggregate_by_period, aggregate_cashflows_precise_checked,
-    pv_by_period_credit_adjusted_with_ctx, pv_by_period_with_ctx,
+    pv_by_period_credit_adjusted_detailed, pv_by_period_credit_adjusted_with_ctx,
+    pv_by_period_with_ctx, DateContext,
 };
 use time::Month;
 
@@ -439,6 +441,41 @@ fn pv_by_period_multi_currency_separation() {
 }
 
 #[test]
+fn pv_plain_and_credit_variants_match_without_hazard() {
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+    let flows = vec![
+        (d(2025, 2, 15), Money::new(150.0, Currency::USD)),
+        (d(2025, 5, 15), Money::new(200.0, Currency::EUR)),
+    ];
+
+    let curve = FlatRateCurve::new("USD-OIS", base, 0.03);
+
+    let plain = pv_by_period_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("plain PV aggregation should succeed");
+
+    let credit = pv_by_period_credit_adjusted_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        None,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("credit PV aggregation without hazard should succeed");
+
+    assert_eq!(plain, credit);
+}
+
+#[test]
 fn test_pv_by_period_credit_adjusted() {
     // Test credit-adjusted PV with time-dependent discount and survival curves
     let base = d(2025, 1, 1);
@@ -482,6 +519,56 @@ fn test_pv_by_period_credit_adjusted() {
         expected_pv,
         q1_pv
     );
+}
+
+#[test]
+fn credit_detailed_matches_plain_when_no_recovery() {
+    let base = d(2025, 1, 1);
+    let periods = quarters_2025();
+    let cashflows = vec![
+        CashFlow {
+            date: d(2025, 2, 15),
+            reset_date: None,
+            amount: Money::new(100.0, Currency::USD),
+            kind: CFKind::Amortization,
+            accrual_factor: 0.25,
+            rate: Some(0.04),
+        },
+        CashFlow {
+            date: d(2025, 5, 15),
+            reset_date: None,
+            amount: Money::new(150.0, Currency::USD),
+            kind: CFKind::Notional,
+            accrual_factor: 0.25,
+            rate: None,
+        },
+    ];
+
+    let dated: Vec<_> = cashflows.iter().map(|cf| (cf.date, cf.amount)).collect();
+    let curve = FlatRateCurve::new("USD-OIS", base, 0.0);
+
+    let plain_credit = pv_by_period_credit_adjusted_with_ctx(
+        &dated,
+        &periods,
+        &curve,
+        None,
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("plain credit aggregation should succeed");
+
+    let detailed = pv_by_period_credit_adjusted_detailed(
+        &cashflows,
+        &periods,
+        &curve,
+        None,
+        None,
+        DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+    )
+    .expect("detailed aggregation should succeed");
+
+    assert_eq!(plain_credit, detailed);
 }
 
 // =============================================================================
