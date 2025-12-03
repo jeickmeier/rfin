@@ -93,7 +93,8 @@ impl RiskFactorType {
 /// Extract risk factors from an instrument's market data dependencies.
 ///
 /// This function inspects the instrument's curve dependencies and extracts
-/// risk factors at standard tenor buckets. The risk factors can then be used
+/// risk factors at standard tenor buckets (see `standard_ir_dv01_buckets()`).
+/// The risk factors can then be used
 /// to apply historical market shifts for VaR calculation.
 ///
 /// # Arguments
@@ -132,54 +133,44 @@ where
     // Standard tenors for IR/credit curve factors
     let standard_tenors = standard_ir_dv01_buckets();
 
-    // Extract discount curve factors
-    for curve_id in &deps.discount_curves {
-        // Verify curve exists in market
-        if market.get_discount_ref(curve_id.as_str()).is_ok() {
-            for &tenor_years in &standard_tenors {
-                push_factor(
-                    &mut factors,
-                    &mut seen,
-                    RiskFactorType::DiscountRate {
-                        curve_id: curve_id.clone(),
-                        tenor_years,
-                    },
-                );
-            }
-        }
-    }
+    extract_curve_factors(
+        &mut factors,
+        &mut seen,
+        &deps.discount_curves,
+        market,
+        &standard_tenors,
+        |m, id| m.get_discount_ref(id).is_ok(),
+        |curve_id, tenor_years| RiskFactorType::DiscountRate {
+            curve_id: curve_id.clone(),
+            tenor_years,
+        },
+    );
 
-    // Extract forward curve factors
-    for curve_id in &deps.forward_curves {
-        if market.get_forward_ref(curve_id.as_str()).is_ok() {
-            for &tenor_years in &standard_tenors {
-                push_factor(
-                    &mut factors,
-                    &mut seen,
-                    RiskFactorType::ForwardRate {
-                        curve_id: curve_id.clone(),
-                        tenor_years,
-                    },
-                );
-            }
-        }
-    }
+    extract_curve_factors(
+        &mut factors,
+        &mut seen,
+        &deps.forward_curves,
+        market,
+        &standard_tenors,
+        |m, id| m.get_forward_ref(id).is_ok(),
+        |curve_id, tenor_years| RiskFactorType::ForwardRate {
+            curve_id: curve_id.clone(),
+            tenor_years,
+        },
+    );
 
-    // Extract credit spread factors
-    for curve_id in &deps.credit_curves {
-        if market.get_hazard_ref(curve_id.as_str()).is_ok() {
-            for &tenor_years in &standard_tenors {
-                push_factor(
-                    &mut factors,
-                    &mut seen,
-                    RiskFactorType::CreditSpread {
-                        curve_id: curve_id.clone(),
-                        tenor_years,
-                    },
-                );
-            }
-        }
-    }
+    extract_curve_factors(
+        &mut factors,
+        &mut seen,
+        &deps.credit_curves,
+        market,
+        &standard_tenors,
+        |m, id| m.get_hazard_ref(id).is_ok(),
+        |curve_id, tenor_years| RiskFactorType::CreditSpread {
+            curve_id: curve_id.clone(),
+            tenor_years,
+        },
+    );
 
     extract_equity_like_risk_factors(instrument, market, &mut factors, &mut seen)?;
 
@@ -194,6 +185,27 @@ fn push_factor(
     let label = factor.label();
     if seen.insert(label) {
         factors.push(factor);
+    }
+}
+
+fn extract_curve_factors<FExists, FMk>(
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+    curve_ids: &[CurveId],
+    market: &MarketContext,
+    tenors: &[f64],
+    exists: FExists,
+    mk_factor: FMk,
+) where
+    FExists: Fn(&MarketContext, &str) -> bool,
+    FMk: Fn(&CurveId, f64) -> RiskFactorType,
+{
+    for curve_id in curve_ids {
+        if exists(market, curve_id.as_str()) {
+            for &tenor_years in tenors {
+                push_factor(factors, seen, mk_factor(curve_id, tenor_years));
+            }
+        }
     }
 }
 

@@ -24,10 +24,15 @@ pub enum VarMethod {
     /// Faster method - approximates P&L using pre-computed sensitivities.
     /// Good for linear instruments and large portfolios, but may be
     /// inaccurate for highly non-linear instruments (deep OTM options).
+    ///
+    /// **Note**: Not yet implemented. Selecting this method returns a validation error.
     TaylorApproximation,
 }
 
 /// Configuration for VaR calculation.
+///
+/// Controls statistical properties such as confidence level and pricing method.
+/// The historical window/observation count is derived from [`MarketHistory`].
 #[derive(Clone, Debug)]
 pub struct VarConfig {
     /// Confidence level (e.g., 0.95 for 95% VaR, 0.99 for 99% VaR)
@@ -35,9 +40,6 @@ pub struct VarConfig {
 
     /// VaR calculation method
     pub method: VarMethod,
-
-    /// Number of historical days to use (should match MarketHistory window)
-    pub window_days: u32,
 }
 
 impl VarConfig {
@@ -50,7 +52,6 @@ impl VarConfig {
         Self {
             confidence_level,
             method: VarMethod::FullRevaluation,
-            window_days: 500,
         }
     }
 
@@ -163,6 +164,9 @@ impl VarResult {
 ///
 /// VaR result including VaR, ES, and full P&L distribution
 ///
+/// This function revalues the instrument under every scenario contained in
+/// [`MarketHistory`]. If the history is empty, the returned VaR/ES will be zero.
+///
 /// # Examples
 ///
 /// ```ignore
@@ -200,6 +204,28 @@ where
     }
 }
 
+/// Utility helper to aggregate scenario P&Ls for both single-instrument and portfolio VaR.
+fn aggregate_scenario_pnls<F>(
+    history: &MarketHistory,
+    base_market: &MarketContext,
+    mut scenario_pnl: F,
+) -> Result<Vec<f64>>
+where
+    F: FnMut(&MarketContext) -> Result<f64>,
+{
+    let mut pnls = Vec::with_capacity(history.len());
+
+    for scenario in history.iter() {
+        // Apply historical shifts to create scenario market
+        let scenario_market = scenario.apply(base_market)?;
+
+        // Delegate P&L calculation to caller-provided closure
+        pnls.push(scenario_pnl(&scenario_market)?);
+    }
+
+    Ok(pnls)
+}
+
 /// Calculate VaR using full revaluation method.
 fn calculate_var_full_revaluation<I>(
     instrument: &I,
@@ -211,23 +237,12 @@ fn calculate_var_full_revaluation<I>(
 where
     I: Instrument + ?Sized,
 {
-    // Get base case valuation
-    let base_value = instrument.value(base_market, as_of)?;
+    let base_amount = instrument.value(base_market, as_of)?.amount();
 
-    // Revalue under each historical scenario
-    let mut pnls = Vec::with_capacity(history.len());
-
-    for scenario in history.iter() {
-        // Apply historical shifts to create scenario market
-        let scenario_market = scenario.apply(base_market)?;
-
-        // Revalue instrument under scenario
-        let scenario_value = instrument.value(&scenario_market, as_of)?;
-
-        // Calculate P&L (change from base)
-        let pnl = scenario_value.amount() - base_value.amount();
-        pnls.push(pnl);
-    }
+    let pnls = aggregate_scenario_pnls(history, base_market, |scenario_market| {
+        let scenario_amount = instrument.value(scenario_market, as_of)?.amount();
+        Ok(scenario_amount - base_amount)
+    })?;
 
     // Calculate VaR and ES from P&L distribution
     VarResult::from_distribution(pnls, config.confidence_level)
@@ -258,6 +273,10 @@ where
 /// # Returns
 ///
 /// `VarResult` with portfolio VaR and per-position P&L distributions
+///
+/// Each scenario P&L is aggregated across all instruments before VaR/ES is
+/// computed, preserving diversification benefits. An empty `MarketHistory`
+/// yields zero VaR/ES.
 ///
 /// # Examples
 ///
@@ -294,36 +313,21 @@ where
         });
     }
 
-    // Get base portfolio value (currently unused but kept for future enhancements)
-    let _base_portfolio_value: f64 = instruments
+    // Pre-compute base values once so we don't reprice per instrument per scenario
+    let base_values: Vec<f64> = instruments
         .iter()
         .map(|inst| inst.value(base_market, as_of).map(|m| m.amount()))
-        .collect::<Result<Vec<_>>>()?
-        .iter()
-        .sum();
+        .collect::<Result<_>>()?;
 
-    // Calculate portfolio P&L for each historical scenario
-    // Key: aggregate P&Ls date-by-date across all positions
-    let mut portfolio_pnls = Vec::with_capacity(history.len());
-
-    for scenario in history.iter() {
-        // Apply scenario to get shifted market
-        let shifted_market = scenario.apply(base_market)?;
-
-        // Calculate P&L for each instrument under this scenario
-        let scenario_pnls: Vec<f64> = instruments
-            .iter()
-            .map(|inst| {
-                let shifted_value = inst.value(&shifted_market, as_of)?.amount();
-                let base_value = inst.value(base_market, as_of)?.amount();
-                Ok(shifted_value - base_value)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        // Sum P&Ls across all positions for this date
-        let total_portfolio_pnl: f64 = scenario_pnls.iter().sum();
-        portfolio_pnls.push(total_portfolio_pnl);
-    }
+    // Calculate portfolio P&L for each historical scenario by summing instrument P&Ls
+    let portfolio_pnls = aggregate_scenario_pnls(history, base_market, |scenario_market| {
+        let mut total = 0.0;
+        for (inst, base_amount) in instruments.iter().zip(&base_values) {
+            let scenario_amount = inst.value(scenario_market, as_of)?.amount();
+            total += scenario_amount - base_amount;
+        }
+        Ok(total)
+    })?;
 
     // Calculate VaR from aggregated portfolio P&L distribution
     VarResult::from_distribution(portfolio_pnls, config.confidence_level)
@@ -333,13 +337,10 @@ where
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
-    use crate::instruments::Bond;
-    use crate::metrics::risk::{MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType};
-    use finstack_core::dates::DayCount;
-    use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::money::Money;
-    use finstack_core::types::{Currency, CurveId};
+    use crate::metrics::risk::test_utils::{
+        history_from_rate_shifts, history_from_scenarios, sample_as_of, standard_bond,
+        usd_ois_market,
+    };
     use std::sync::Arc;
     use time::macros::date;
 
@@ -352,6 +353,29 @@ mod tests {
         let config = VarConfig::var_99().with_method(VarMethod::TaylorApproximation);
         assert_eq!(config.confidence_level, 0.99);
         assert_eq!(config.method, VarMethod::TaylorApproximation);
+    }
+
+    #[test]
+    fn test_taylor_method_returns_error() -> Result<()> {
+        let as_of = sample_as_of();
+        let bond = standard_bond("TEST-BOND", as_of, date!(2029 - 01 - 01));
+        let base_market = usd_ois_market(as_of)?;
+        let history = history_from_scenarios(as_of, 0, vec![]);
+        let config = VarConfig::var_95().with_method(VarMethod::TaylorApproximation);
+
+        let err = calculate_var(&bond, &base_market, &history, as_of, &config)
+            .expect_err("Taylor approximation should not be implemented yet");
+        match err {
+            finstack_core::error::Error::Validation(msg) => {
+                assert!(
+                    msg.contains("not yet implemented"),
+                    "error message should mention lack of implementation"
+                );
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+
+        Ok(())
     }
 
     #[test]
@@ -397,65 +421,19 @@ mod tests {
 
     #[test]
     fn test_var_calculation_simple_bond() -> Result<()> {
-        let as_of = date!(2024 - 01 - 01);
+        let as_of = sample_as_of();
 
-        // Create a simple bond
-        let bond = Bond::fixed(
-            "TEST-BOND",
-            Money::new(100_000.0, Currency::USD),
-            0.05,
+        let bond = standard_bond("TEST-BOND", as_of, date!(2029 - 01 - 01));
+        let base_market = usd_ois_market(as_of)?;
+
+        let history = history_from_rate_shifts(
             as_of,
-            date!(2029 - 01 - 01),
-            "USD-OIS",
+            &[
+                (date!(2023 - 12 - 31), 0.0050),
+                (date!(2023 - 12 - 30), -0.0030),
+                (date!(2023 - 12 - 29), 0.0010),
+            ],
         );
-
-        // Create base market
-        let base_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(as_of)
-            .day_count(DayCount::Act365F)
-            .knots(vec![(0.0, 1.0), (5.0, 0.85), (10.0, 0.70)])
-            .build()?;
-
-        let base_market = MarketContext::new().insert_discount(base_curve);
-
-        // Create historical scenarios with rate shifts
-        let scenarios = vec![
-            // Rates up 50bp -> bond value down
-            MarketScenario::new(
-                date!(2023 - 12 - 31),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: 0.0050, // +50bp
-                }],
-            ),
-            // Rates down 30bp -> bond value up
-            MarketScenario::new(
-                date!(2023 - 12 - 30),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: -0.0030, // -30bp
-                }],
-            ),
-            // Small rates up 10bp
-            MarketScenario::new(
-                date!(2023 - 12 - 29),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: 0.0010, // +10bp
-                }],
-            ),
-        ];
-
-        let history = MarketHistory::new(as_of, 3, scenarios);
         let config = VarConfig::var_95();
 
         // Calculate VaR
@@ -485,27 +463,12 @@ mod tests {
 
     #[test]
     fn test_var_empty_history() -> Result<()> {
-        let as_of = date!(2024 - 01 - 01);
-
-        let bond = Bond::fixed(
-            "TEST-BOND",
-            Money::new(100_000.0, Currency::USD),
-            0.05,
-            as_of,
-            date!(2029 - 01 - 01),
-            "USD-OIS",
-        );
-
-        let base_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(as_of)
-            .day_count(DayCount::Act365F)
-            .knots(vec![(0.0, 1.0), (5.0, 0.85)])
-            .build()?;
-
-        let base_market = MarketContext::new().insert_discount(base_curve);
+        let as_of = sample_as_of();
+        let bond = standard_bond("TEST-BOND", as_of, date!(2029 - 01 - 01));
+        let base_market = usd_ois_market(as_of)?;
 
         // Empty history
-        let history = MarketHistory::new(as_of, 0, vec![]);
+        let history = history_from_scenarios(as_of, 0, vec![]);
         let config = VarConfig::var_95();
 
         let result = calculate_var(&bond, &base_market, &history, as_of, &config)?;
@@ -518,88 +481,22 @@ mod tests {
 
     #[test]
     fn test_portfolio_var_with_diversification() -> Result<()> {
-        let as_of = date!(2024 - 01 - 01);
+        let as_of = sample_as_of();
 
-        // Create two bonds with different maturities
-        // Bond 1: 5-year (more rate-sensitive)
-        let bond1 = Bond::fixed(
-            "BOND-5Y",
-            Money::new(100_000.0, Currency::USD),
-            0.05,
+        let bond1 = standard_bond("BOND-5Y", as_of, date!(2029 - 01 - 01));
+        let bond2 = standard_bond("BOND-2Y", as_of, date!(2026 - 01 - 01));
+
+        let market = Arc::new(usd_ois_market(as_of)?);
+
+        let history = history_from_rate_shifts(
             as_of,
-            date!(2029 - 01 - 01),
-            "USD-OIS",
+            &[
+                (date!(2023 - 12 - 31), 0.0100),
+                (date!(2023 - 12 - 30), -0.0075),
+                (date!(2023 - 12 - 29), 0.0025),
+                (date!(2023 - 12 - 28), -0.0050),
+            ],
         );
-
-        // Bond 2: 2-year (less rate-sensitive)
-        let bond2 = Bond::fixed(
-            "BOND-2Y",
-            Money::new(100_000.0, Currency::USD),
-            0.05,
-            as_of,
-            date!(2026 - 01 - 01),
-            "USD-OIS",
-        );
-
-        // Create market
-        let curve = DiscountCurve::builder("USD-OIS")
-            .base_date(as_of)
-            .day_count(DayCount::Act365F)
-            .knots(vec![(0.0, 1.0), (5.0, 0.85), (10.0, 0.70)])
-            .build()?;
-
-        let market = Arc::new(MarketContext::new().insert_discount(curve));
-
-        // Create historical scenarios with varying rate shifts
-        // Some scenarios will cause offsetting P&Ls between the two bonds
-        let scenarios = vec![
-            // Scenario 1: Rates up (both bonds lose value)
-            MarketScenario::new(
-                date!(2023 - 12 - 31),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: 0.0100, // +100bp
-                }],
-            ),
-            // Scenario 2: Rates down (both bonds gain value)
-            MarketScenario::new(
-                date!(2023 - 12 - 30),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: -0.0075, // -75bp
-                }],
-            ),
-            // Scenario 3: Small rate increase
-            MarketScenario::new(
-                date!(2023 - 12 - 29),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: 0.0025, // +25bp
-                }],
-            ),
-            // Scenario 4: Small rate decrease
-            MarketScenario::new(
-                date!(2023 - 12 - 28),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: -0.0050, // -50bp
-                }],
-            ),
-        ];
-
-        let history = MarketHistory::new(as_of, 4, scenarios);
         let config = VarConfig::var_95();
 
         // Calculate individual VaRs

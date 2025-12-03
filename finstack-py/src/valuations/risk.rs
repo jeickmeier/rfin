@@ -87,11 +87,7 @@ impl PyVarConfig {
             .unwrap_or(VarMethod::FullRevaluation);
 
         Ok(Self {
-            inner: VarConfig {
-                confidence_level,
-                method: var_method,
-                window_days: 500, // Default window size
-            },
+            inner: VarConfig::new(confidence_level).with_method(var_method),
         })
     }
 

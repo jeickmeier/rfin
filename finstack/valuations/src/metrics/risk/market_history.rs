@@ -68,25 +68,18 @@ impl MarketScenario {
                 } => {
                     // For historical VaR, apply parallel shift to the curve.
                     // The tenor is used for factor identification, not for localized bumping.
-                    Some((
-                        curve_id.clone(),
-                        BumpSpec::parallel_bp(shift.shift * 10_000.0),
-                    ))
+                    Some(parallel_bp_bump(curve_id, shift.shift))
                 }
                 RiskFactorType::ForwardRate {
                     curve_id,
                     tenor_years: _,
                 } => {
                     // For historical VaR, apply parallel shift to the curve.
-                    Some((
-                        curve_id.clone(),
-                        BumpSpec::parallel_bp(shift.shift * 10_000.0),
-                    ))
+                    Some(parallel_bp_bump(curve_id, shift.shift))
                 }
-                RiskFactorType::CreditSpread { curve_id, .. } => Some((
-                    curve_id.clone(),
-                    BumpSpec::parallel_bp(shift.shift * 10_000.0),
-                )),
+                RiskFactorType::CreditSpread { curve_id, .. } => {
+                    Some(parallel_bp_bump(curve_id, shift.shift))
+                }
                 RiskFactorType::EquitySpot { ticker } => Some((
                     CurveId::from(ticker.as_str()),
                     BumpSpec::multiplier(1.0 + shift.shift),
@@ -111,6 +104,13 @@ impl MarketScenario {
 
         Ok(bumped_market)
     }
+}
+
+fn parallel_bp_bump(curve_id: &CurveId, shift: f64) -> (CurveId, BumpSpec) {
+    (
+        curve_id.clone(),
+        BumpSpec::parallel_bp(shift * 10_000.0),
+    )
 }
 
 /// Historical market data for VaR calculation.

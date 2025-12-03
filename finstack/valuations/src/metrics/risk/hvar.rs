@@ -72,7 +72,7 @@ impl MetricCalculator for GenericHVar {
             .and_then(|h| h.downcast_ref::<crate::metrics::risk::MarketHistory>())
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
-                    "Market history required for VaR calculation but not provided in MarketContext"
+                    "Market history required for VaR calculation. Attach it via MarketContext::insert_market_history(...)"
                         .to_string(),
                 )
             })?;
@@ -109,13 +109,9 @@ impl MetricCalculator for GenericHVar {
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
-    use crate::instruments::Bond;
-    use crate::metrics::risk::{MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType};
-    use finstack_core::dates::DayCount;
-    use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::money::Money;
-    use finstack_core::types::{Currency, CurveId};
+    use crate::metrics::risk::test_utils::{
+        history_from_rate_shifts, sample_as_of, standard_bond, usd_ois_market,
+    };
     use std::sync::Arc;
     use time::macros::date;
 
@@ -133,57 +129,15 @@ mod tests {
 
     #[test]
     fn test_hvar_via_metrics_framework() -> Result<()> {
-        let as_of = date!(2024 - 01 - 01);
+        let as_of = sample_as_of();
+        let bond = standard_bond("TEST-BOND", as_of, date!(2029 - 01 - 01));
 
-        // Create bond
-        let bond = Bond::fixed(
-            "TEST-BOND",
-            Money::new(100_000.0, Currency::USD),
-            0.05,
+        let history = Arc::new(history_from_rate_shifts(
             as_of,
-            date!(2029 - 01 - 01),
-            "USD-OIS",
-        );
+            &[(date!(2023 - 12 - 31), 0.0050), (date!(2023 - 12 - 30), -0.0030)],
+        )) as Arc<dyn std::any::Any + Send + Sync>;
 
-        // Create market
-        let curve = DiscountCurve::builder("USD-OIS")
-            .base_date(as_of)
-            .day_count(DayCount::Act365F)
-            .knots(vec![(0.0, 1.0), (5.0, 0.85), (10.0, 0.70)])
-            .build()?;
-
-        // Create historical scenarios
-        let scenarios = vec![
-            MarketScenario::new(
-                date!(2023 - 12 - 31),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: 0.0050,
-                }],
-            ),
-            MarketScenario::new(
-                date!(2023 - 12 - 30),
-                vec![RiskFactorShift {
-                    factor: RiskFactorType::DiscountRate {
-                        curve_id: CurveId::from("USD-OIS"),
-                        tenor_years: 5.0,
-                    },
-                    shift: -0.0030,
-                }],
-            ),
-        ];
-
-        let history = Arc::new(MarketHistory::new(as_of, 2, scenarios))
-            as Arc<dyn std::any::Any + Send + Sync>;
-
-        let market = Arc::new(
-            MarketContext::new()
-                .insert_discount(curve)
-                .insert_market_history(history),
-        );
+        let market = Arc::new(usd_ois_market(as_of)?.insert_market_history(history));
 
         // Calculate VaR via metrics framework
         let result = bond.price_with_metrics(
