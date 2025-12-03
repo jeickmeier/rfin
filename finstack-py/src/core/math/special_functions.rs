@@ -60,12 +60,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(standard_normal_inv_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(erf_py, &module)?)?;
 
-    let exports = [
-        "norm_cdf",
-        "norm_pdf",
-        "standard_normal_inv_cdf",
-        "erf",
-    ];
+    let exports = ["norm_cdf", "norm_pdf", "standard_normal_inv_cdf", "erf"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

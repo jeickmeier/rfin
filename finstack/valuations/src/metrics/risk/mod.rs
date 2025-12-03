@@ -7,9 +7,9 @@
 pub mod hvar;
 pub mod market_history;
 pub mod risk_factors;
-pub mod var_calculator;
 #[cfg(test)]
 pub(crate) mod test_utils;
+pub mod var_calculator;
 
 pub use hvar::GenericHVar;
 pub use market_history::{MarketHistory, MarketScenario, RiskFactorShift};

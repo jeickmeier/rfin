@@ -8,8 +8,7 @@ use serde_json::Value;
 
 macro_rules! include_schema {
     ($path:literal) => {
-        serde_json::from_str(include_str!($path))
-            .expect(concat!("invalid schema JSON at ", $path))
+        serde_json::from_str(include_str!($path)).expect(concat!("invalid schema JSON at ", $path))
     };
 }
 

@@ -90,35 +90,37 @@ impl Covenant {
 
     /// Get human-readable description of the covenant
     pub fn description(&self) -> String {
-        match &self.covenant_type {
-            CovenantType::MaxDebtToEBITDA { threshold } => {
-                format!("Debt/EBITDA ≤ {:.2}x", threshold)
-            }
-            CovenantType::MinInterestCoverage { threshold } => {
-                format!("Interest Coverage ≥ {:.2}x", threshold)
-            }
-            CovenantType::MinFixedChargeCoverage { threshold } => {
-                format!("Fixed Charge Coverage ≥ {:.2}x", threshold)
-            }
-            CovenantType::MaxTotalLeverage { threshold } => {
-                format!("Total Leverage ≤ {:.2}x", threshold)
-            }
-            CovenantType::MaxSeniorLeverage { threshold } => {
-                format!("Senior Leverage ≤ {:.2}x", threshold)
-            }
-            CovenantType::MinAssetCoverage { threshold } => {
-                format!("Asset Coverage ≥ {:.2}x", threshold)
-            }
-            CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
-            CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
-            CovenantType::Custom { metric, test } => match test {
-                ThresholdTest::Maximum(v) => format!("{} ≤ {:.2}", metric, v),
-                ThresholdTest::Minimum(v) => format!("{} ≥ {:.2}", metric, v),
-            },
-            CovenantType::Basket { name, limit } => {
-                format!("{} Utilization ≤ {:.2}", name, limit)
-            }
+        describe_covenant_type(&self.covenant_type)
+    }
+}
+
+fn describe_covenant_type(covenant_type: &CovenantType) -> String {
+    match covenant_type {
+        CovenantType::MaxDebtToEBITDA { threshold } => {
+            format!("Debt/EBITDA <= {:.2}x", threshold)
         }
+        CovenantType::MinInterestCoverage { threshold } => {
+            format!("Interest Coverage >= {:.2}x", threshold)
+        }
+        CovenantType::MinFixedChargeCoverage { threshold } => {
+            format!("Fixed Charge Coverage >= {:.2}x", threshold)
+        }
+        CovenantType::MaxTotalLeverage { threshold } => {
+            format!("Total Leverage <= {:.2}x", threshold)
+        }
+        CovenantType::MaxSeniorLeverage { threshold } => {
+            format!("Senior Leverage <= {:.2}x", threshold)
+        }
+        CovenantType::MinAssetCoverage { threshold } => {
+            format!("Asset Coverage >= {:.2}x", threshold)
+        }
+        CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
+        CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
+        CovenantType::Custom { metric, test } => match test {
+            ThresholdTest::Maximum(v) => format!("{} <= {:.2}", metric, v),
+            ThresholdTest::Minimum(v) => format!("{} >= {:.2}", metric, v),
+        },
+        CovenantType::Basket { name, limit } => format!("{} Utilization <= {:.2}", name, limit),
     }
 }
 
@@ -188,6 +190,72 @@ pub enum ThresholdTest {
     Maximum(f64),
     /// Minimum required value
     Minimum(f64),
+}
+
+/// Direction of inequality for numeric covenants.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BoundKind {
+    /// Covenant passes when the metric is less than or equal to the threshold.
+    AtMost,
+    /// Covenant passes when the metric is greater than or equal to the threshold.
+    AtLeast,
+}
+
+impl CovenantType {
+    /// Returns the inequality direction required for numeric covenants.
+    pub(crate) fn bound_kind(&self) -> Option<BoundKind> {
+        match self {
+            CovenantType::MaxDebtToEBITDA { .. }
+            | CovenantType::MaxTotalLeverage { .. }
+            | CovenantType::MaxSeniorLeverage { .. }
+            | CovenantType::Basket { .. }
+            | CovenantType::Custom {
+                test: ThresholdTest::Maximum(_),
+                ..
+            } => Some(BoundKind::AtMost),
+            CovenantType::MinInterestCoverage { .. }
+            | CovenantType::MinFixedChargeCoverage { .. }
+            | CovenantType::MinAssetCoverage { .. }
+            | CovenantType::Custom {
+                test: ThresholdTest::Minimum(_),
+                ..
+            } => Some(BoundKind::AtLeast),
+            CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => None,
+        }
+    }
+
+    /// Returns the scalar threshold (if any) associated with the covenant type.
+    pub(crate) fn threshold_value(&self) -> Option<f64> {
+        match self {
+            CovenantType::MaxDebtToEBITDA { threshold }
+            | CovenantType::MinInterestCoverage { threshold }
+            | CovenantType::MinFixedChargeCoverage { threshold }
+            | CovenantType::MaxTotalLeverage { threshold }
+            | CovenantType::MaxSeniorLeverage { threshold }
+            | CovenantType::MinAssetCoverage { threshold } => Some(*threshold),
+            CovenantType::Custom { test, .. } => match test {
+                ThresholdTest::Maximum(t) | ThresholdTest::Minimum(t) => Some(*t),
+            },
+            CovenantType::Basket { limit, .. } => Some(*limit),
+            CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => None,
+        }
+    }
+
+    /// Returns the canonical metric identifier for the covenant type when one exists.
+    pub(crate) fn default_metric_name(&self) -> Option<&'static str> {
+        match self {
+            CovenantType::MaxDebtToEBITDA { .. } => Some("debt_to_ebitda"),
+            CovenantType::MinInterestCoverage { .. } => Some("interest_coverage"),
+            CovenantType::MinFixedChargeCoverage { .. } => Some("fixed_charge_coverage"),
+            CovenantType::MaxTotalLeverage { .. } => Some("total_leverage"),
+            CovenantType::MaxSeniorLeverage { .. } => Some("senior_leverage"),
+            CovenantType::MinAssetCoverage { .. } => Some("asset_coverage"),
+            CovenantType::Custom { .. }
+            | CovenantType::Basket { .. }
+            | CovenantType::Negative { .. }
+            | CovenantType::Affirmative { .. } => None,
+        }
+    }
 }
 
 /// Consequence of covenant breach
@@ -284,6 +352,10 @@ impl CovenantSpec {
 }
 
 /// Covenant test specification with timing windows.
+///
+/// This is a serialization-friendly envelope used by higher-level tooling.
+/// The `CovenantEngine` does not currently evaluate `CovenantTestSpec`
+/// instances directly.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CovenantTestSpec {
     /// Covenant specifications to test
@@ -303,7 +375,10 @@ pub struct CovenantWindow {
     pub end: Date,
     /// Covenants active during this window
     pub covenants: Vec<CovenantSpec>,
-    /// Whether this is a grace period window
+    /// Whether this is a grace period window.
+    ///
+    /// This flag is currently informational only; the engine relies on
+    /// `CovenantBreach::cure_deadline` to manage cure periods.
     pub is_grace_period: bool,
 }
 
@@ -521,35 +596,7 @@ impl CovenantEngine {
     }
 
     fn get_covenant_description(&self, covenant_type: &CovenantType) -> String {
-        match covenant_type {
-            CovenantType::MaxDebtToEBITDA { threshold } => {
-                format!("Debt/EBITDA <= {:.2}", threshold)
-            }
-            CovenantType::MinInterestCoverage { threshold } => {
-                format!("Interest Coverage >= {:.2}x", threshold)
-            }
-            CovenantType::MinFixedChargeCoverage { threshold } => {
-                format!("Fixed Charge Coverage >= {:.2}x", threshold)
-            }
-            CovenantType::MaxTotalLeverage { threshold } => {
-                format!("Total Leverage <= {:.2}x", threshold)
-            }
-            CovenantType::MaxSeniorLeverage { threshold } => {
-                format!("Senior Leverage <= {:.2}x", threshold)
-            }
-            CovenantType::MinAssetCoverage { threshold } => {
-                format!("Asset Coverage >= {:.2}x", threshold)
-            }
-            CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
-            CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
-            CovenantType::Custom { metric, test } => match test {
-                ThresholdTest::Maximum(t) => format!("{} <= {:.2}", metric, t),
-                ThresholdTest::Minimum(t) => format!("{} >= {:.2}", metric, t),
-            },
-            CovenantType::Basket { name, limit } => {
-                format!("{} Utilization ≤ {:.2}", name, limit)
-            }
-        }
+        describe_covenant_type(covenant_type)
     }
 
     fn evaluate_spec(
@@ -588,80 +635,43 @@ impl CovenantEngine {
             });
         }
 
+        let covenant_type = &spec.covenant.covenant_type;
+
+        // Non-numeric covenants auto-pass until they have explicit evaluators.
+        let Some(threshold) = covenant_type.threshold_value() else {
+            return Ok(SpecEvaluation {
+                passed: true,
+                actual_value: None,
+                threshold: None,
+                headroom: None,
+                detail: None,
+            });
+        };
+
         // Otherwise use metric-based evaluation
-        let (metric_value, threshold) = match &spec.covenant.covenant_type {
-            CovenantType::MaxDebtToEBITDA { threshold } => {
-                let debt_to_ebitda =
-                    self.get_metric_value(context, &MetricId::custom("debt_to_ebitda"))?;
-                (debt_to_ebitda, *threshold)
-            }
-            CovenantType::MinInterestCoverage { threshold } => {
-                let coverage =
-                    self.get_metric_value(context, &MetricId::custom("interest_coverage"))?;
-                (coverage, *threshold)
-            }
-            CovenantType::MinFixedChargeCoverage { threshold } => {
-                let coverage =
-                    self.get_metric_value(context, &MetricId::custom("fixed_charge_coverage"))?;
-                (coverage, *threshold)
-            }
-            CovenantType::MaxTotalLeverage { threshold } => {
-                let leverage =
-                    self.get_metric_value(context, &MetricId::custom("total_leverage"))?;
-                (leverage, *threshold)
-            }
-            CovenantType::MaxSeniorLeverage { threshold } => {
-                let leverage =
-                    self.get_metric_value(context, &MetricId::custom("senior_leverage"))?;
-                (leverage, *threshold)
-            }
-            CovenantType::MinAssetCoverage { threshold } => {
-                let coverage =
-                    self.get_metric_value(context, &MetricId::custom("asset_coverage"))?;
-                (coverage, *threshold)
-            }
-            CovenantType::Custom { metric, test } => {
-                let value = self.get_metric_value(context, &MetricId::custom(metric))?;
-                let threshold = match test {
-                    ThresholdTest::Maximum(t) | ThresholdTest::Minimum(t) => *t,
-                };
-                (value, threshold)
-            }
-            CovenantType::Basket { name, limit } => {
-                let value = self.get_metric_value(context, &MetricId::custom(name))?;
-                (value, *limit)
-            }
-            _ => {
-                return Ok(SpecEvaluation {
-                    passed: true,
-                    actual_value: None,
-                    threshold: None,
-                    headroom: None,
-                    detail: None,
-                })
+        let metric_value = if let Some(metric_id) = &spec.metric_id {
+            self.get_metric_value(context, metric_id)?
+        } else if let Some(name) = covenant_type.default_metric_name() {
+            self.get_metric_value(context, &MetricId::custom(name))?
+        } else {
+            match covenant_type {
+                CovenantType::Custom { metric, .. } => {
+                    self.get_metric_value(context, &MetricId::custom(metric))?
+                }
+                CovenantType::Basket { name, .. } => {
+                    self.get_metric_value(context, &MetricId::custom(name))?
+                }
+                _ => unreachable!("Non-numeric covenants return early above"),
             }
         };
 
-        let passed = match &spec.covenant.covenant_type {
-            CovenantType::MaxDebtToEBITDA { .. }
-            | CovenantType::MaxTotalLeverage { .. }
-            | CovenantType::MaxSeniorLeverage { .. }
-            | CovenantType::Basket { .. } => metric_value <= threshold,
-            CovenantType::MinInterestCoverage { .. }
-            | CovenantType::MinFixedChargeCoverage { .. }
-            | CovenantType::MinAssetCoverage { .. } => metric_value >= threshold,
-            CovenantType::Custom { test, .. } => match test {
-                ThresholdTest::Maximum(_) => metric_value <= threshold,
-                ThresholdTest::Minimum(_) => metric_value >= threshold,
-            },
-            _ => true,
+        let passed = match covenant_type.bound_kind() {
+            Some(BoundKind::AtMost) => metric_value <= threshold,
+            Some(BoundKind::AtLeast) => metric_value >= threshold,
+            None => true,
         };
 
-        let headroom = Some(headroom_for(
-            &spec.covenant.covenant_type,
-            metric_value,
-            threshold,
-        ));
+        let headroom = Some(headroom_for(covenant_type, metric_value, threshold));
 
         Ok(SpecEvaluation {
             passed,
@@ -773,30 +783,17 @@ struct SpecEvaluation {
     detail: Option<String>,
 }
 
-fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
+pub(crate) fn headroom_for(cov: &CovenantType, value: f64, threshold: f64) -> f64 {
     let denom = if threshold.abs() < f64::EPSILON {
         1.0
     } else {
         threshold
     };
 
-    match cov {
-        CovenantType::MaxDebtToEBITDA { .. }
-        | CovenantType::MaxTotalLeverage { .. }
-        | CovenantType::MaxSeniorLeverage { .. }
-        | CovenantType::Basket { .. }
-        | CovenantType::Custom {
-            test: ThresholdTest::Maximum(_),
-            ..
-        } => (threshold - value) / denom,
-        CovenantType::MinInterestCoverage { .. }
-        | CovenantType::MinFixedChargeCoverage { .. }
-        | CovenantType::MinAssetCoverage { .. }
-        | CovenantType::Custom {
-            test: ThresholdTest::Minimum(_),
-            ..
-        } => (value - threshold) / denom,
-        _ => 0.0,
+    match cov.bound_kind() {
+        Some(BoundKind::AtMost) => (threshold - value) / denom,
+        Some(BoundKind::AtLeast) => (value - threshold) / denom,
+        None => 0.0,
     }
 }
 
@@ -845,6 +842,52 @@ mod tests {
     };
     use std::sync::Arc;
     use time::{Duration, Month};
+
+    #[test]
+    fn covenant_type_helper_mappings_cover_variants() {
+        let leverage = CovenantType::MaxTotalLeverage { threshold: 5.0 };
+        assert_eq!(leverage.bound_kind(), Some(BoundKind::AtMost));
+        assert_eq!(leverage.threshold_value(), Some(5.0));
+        assert_eq!(leverage.default_metric_name(), Some("total_leverage"));
+        assert!((headroom_for(&leverage, 4.0, 5.0) - 0.2).abs() < 1e-12);
+
+        let coverage = CovenantType::MinInterestCoverage { threshold: 1.50 };
+        assert_eq!(coverage.bound_kind(), Some(BoundKind::AtLeast));
+        assert_eq!(coverage.threshold_value(), Some(1.50));
+        assert_eq!(coverage.default_metric_name(), Some("interest_coverage"));
+        assert!((headroom_for(&coverage, 2.0, 1.5) - (2.0 - 1.5) / 1.5).abs() < 1e-12);
+
+        let custom_max = CovenantType::Custom {
+            metric: "liquidity_ratio".to_string(),
+            test: ThresholdTest::Maximum(1.1),
+        };
+        assert_eq!(custom_max.bound_kind(), Some(BoundKind::AtMost));
+        assert_eq!(custom_max.threshold_value(), Some(1.1));
+        assert_eq!(custom_max.default_metric_name(), None);
+
+        let custom_min = CovenantType::Custom {
+            metric: "dscr".to_string(),
+            test: ThresholdTest::Minimum(1.2),
+        };
+        assert_eq!(custom_min.bound_kind(), Some(BoundKind::AtLeast));
+        assert_eq!(custom_min.threshold_value(), Some(1.2));
+
+        let basket = CovenantType::Basket {
+            name: "general_debt".to_string(),
+            limit: 100.0,
+        };
+        assert_eq!(basket.bound_kind(), Some(BoundKind::AtMost));
+        assert_eq!(basket.threshold_value(), Some(100.0));
+        assert_eq!(basket.default_metric_name(), None);
+
+        let negative = CovenantType::Negative {
+            restriction: "No additional debt".to_string(),
+        };
+        assert_eq!(negative.bound_kind(), None);
+        assert_eq!(negative.threshold_value(), None);
+        assert_eq!(negative.default_metric_name(), None);
+        assert_eq!(headroom_for(&negative, 1.0, 1.0), 0.0);
+    }
 
     #[derive(Clone)]
     struct TestInstrument {
@@ -1291,7 +1334,7 @@ mod tests {
             .evaluate(&mut ctx, test_date)
             .expect("evaluation succeeds");
         let report = reports
-            .get("general_debt Utilization ≤ 100.00")
+            .get("general_debt Utilization <= 100.00")
             .expect("basket covenant present");
         assert!(report.passed);
         assert_eq!(report.headroom, Some(0.20));
@@ -1301,7 +1344,7 @@ mod tests {
             .evaluate(&mut ctx, test_date)
             .expect("evaluation succeeds");
         let report = reports
-            .get("general_debt Utilization ≤ 100.00")
+            .get("general_debt Utilization <= 100.00")
             .expect("basket covenant present");
         assert!(!report.passed);
         assert!(report

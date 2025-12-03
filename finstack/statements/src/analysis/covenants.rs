@@ -237,7 +237,7 @@ mod tests {
 
         // 4. Verify
         assert_eq!(breaches.len(), 1);
-        assert_eq!(breaches[0].covenant_id, "Debt/EBITDA ≤ 4.00x");
+        assert_eq!(breaches[0].covenant_id, "Debt/EBITDA <= 4.00x");
         assert_eq!(breaches[0].projected_value, 4.5);
 
         // Verify date approximation (Q2 2025 -> June 30)

@@ -370,10 +370,7 @@ impl ImCalculator for SimmCalculator {
         let ir_margin =
             self.calculate_ir_delta(&HashMap::from([("5y".to_string(), estimated_dv01)]));
         risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
-        breakdown.insert(
-            "interest_rate".to_string(),
-            Money::new(ir_margin, currency),
-        );
+        breakdown.insert("interest_rate".to_string(), Money::new(ir_margin, currency));
         // Aggregate across risk classes
         let total_im = self.aggregate_risk_classes(&risk_class_margins);
 

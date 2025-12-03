@@ -5,7 +5,9 @@
 //! statements-specific adapter is provided behind the `statements_bridge` feature
 //! so this module remains usable without introducing a crate cycle.
 
-use crate::covenants::engine::{CovenantSpec, CovenantType, SpringingCondition, ThresholdTest};
+use crate::covenants::engine::{
+    headroom_for, BoundKind, CovenantSpec, CovenantType, SpringingCondition, ThresholdTest,
+};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::error::Error;
 use finstack_core::error::InputError;
@@ -25,10 +27,19 @@ pub enum Comparator {
     GreaterOrEqual,
 }
 
+impl From<BoundKind> for Comparator {
+    fn from(kind: BoundKind) -> Self {
+        match kind {
+            BoundKind::AtMost => Comparator::LessOrEqual,
+            BoundKind::AtLeast => Comparator::GreaterOrEqual,
+        }
+    }
+}
+
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McConfig {
-    /// Random number generator seed for reproducibility
+    /// **Deprecated**: Field is ignored. Use `CovenantForecastConfig::random_seed` instead.
     pub seed: u64,
     /// When true, uses antithetic variates (simple variance reduction).
     pub antithetic: bool,
@@ -147,7 +158,17 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     }
 
     let id = covenant.covenant.description();
-    let comparator = comparator_for(&covenant.covenant.covenant_type);
+    let bound_kind = covenant
+        .covenant
+        .covenant_type
+        .bound_kind()
+        .ok_or(Error::from(InputError::Invalid))?;
+    let comparator = Comparator::from(bound_kind);
+    let base_threshold = covenant
+        .covenant
+        .covenant_type
+        .threshold_value()
+        .ok_or(Error::from(InputError::Invalid))?;
 
     // Resolve thresholds and values
     let mut test_dates: Vec<Date> = Vec::with_capacity(periods.len());
@@ -158,9 +179,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     for pid in periods {
         let date = model.period_end_date(pid);
         test_dates.push(date);
-        let thr = base_threshold_from_spec(&covenant.covenant.covenant_type)
-            .ok_or(finstack_core::error::Error::Input(InputError::Invalid))?;
-        thresholds.push(thr);
+        thresholds.push(base_threshold);
 
         let is_active =
             springing_condition_active(covenant.covenant.springing_condition.as_ref(), model, pid)?;
@@ -178,15 +197,15 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     let mut headroom: Vec<f64> = values
         .iter()
         .zip(thresholds.iter())
-        .map(|(&v, &t)| compute_headroom(v, t, comparator))
+        .map(|(&v, &t)| headroom_for(&covenant.covenant.covenant_type, v, t))
         .collect();
 
     let mut deterministic_breach_prob: Vec<f64> = values
         .iter()
         .zip(thresholds.iter())
-        .map(|(&v, &t)| match comparator {
-            Comparator::LessOrEqual => (v > t) as u8 as f64,
-            Comparator::GreaterOrEqual => (v < t) as u8 as f64,
+        .map(|(&v, &t)| match bound_kind {
+            BoundKind::AtMost => (v > t) as u8 as f64,
+            BoundKind::AtLeast => (v < t) as u8 as f64,
         })
         .collect();
 
@@ -230,9 +249,9 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
                 for &z in &buf[..take] {
                     let shock = (sigma * z).exp(); // lognormal multiplicative shock
                     let v = base * shock;
-                    let breached = match comparator {
-                        Comparator::LessOrEqual => v > thr,
-                        Comparator::GreaterOrEqual => v < thr,
+                    let breached = match bound_kind {
+                        BoundKind::AtMost => v > thr,
+                        BoundKind::AtLeast => v < thr,
                     };
                     if breached {
                         breaches += 1;
@@ -240,9 +259,9 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
                     if antithetic {
                         let shock_a = (sigma * -z).exp();
                         let v_a = base * shock_a;
-                        let breached_a = match comparator {
-                            Comparator::LessOrEqual => v_a > thr,
-                            Comparator::GreaterOrEqual => v_a < thr,
+                        let breached_a = match bound_kind {
+                            BoundKind::AtMost => v_a > thr,
+                            BoundKind::AtLeast => v_a < thr,
                         };
                         if breached_a {
                             breaches += 1;
@@ -272,9 +291,9 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         if !activation_flags[i] {
             return None;
         }
-        match comparator {
-            Comparator::LessOrEqual => (v > t).then_some(test_dates[i]),
-            Comparator::GreaterOrEqual => (v < t).then_some(test_dates[i]),
+        match bound_kind {
+            BoundKind::AtMost => (v > t).then_some(test_dates[i]),
+            BoundKind::AtLeast => (v < t).then_some(test_dates[i]),
         }
     });
 
@@ -337,53 +356,6 @@ pub fn forecast_breaches_generic<MTS: ModelTimeSeries>(
     Ok(breaches)
 }
 
-fn comparator_for(cov: &CovenantType) -> Comparator {
-    match cov {
-        CovenantType::MaxDebtToEBITDA { .. }
-        | CovenantType::MaxTotalLeverage { .. }
-        | CovenantType::MaxSeniorLeverage { .. }
-        | CovenantType::Basket { .. } => Comparator::LessOrEqual,
-        CovenantType::MinInterestCoverage { .. }
-        | CovenantType::MinFixedChargeCoverage { .. }
-        | CovenantType::MinAssetCoverage { .. } => Comparator::GreaterOrEqual,
-        CovenantType::Custom { test, .. } => match test {
-            ThresholdTest::Maximum(_) => Comparator::LessOrEqual,
-            ThresholdTest::Minimum(_) => Comparator::GreaterOrEqual,
-        },
-        CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => {
-            Comparator::GreaterOrEqual
-        } // Non-financial: treated as pass
-    }
-}
-
-fn base_threshold_from_spec(cov: &CovenantType) -> Option<f64> {
-    match cov {
-        CovenantType::MaxDebtToEBITDA { threshold }
-        | CovenantType::MinInterestCoverage { threshold }
-        | CovenantType::MinFixedChargeCoverage { threshold }
-        | CovenantType::MaxTotalLeverage { threshold }
-        | CovenantType::MaxSeniorLeverage { threshold }
-        | CovenantType::MinAssetCoverage { threshold } => Some(*threshold),
-        CovenantType::Custom { test, .. } => match test {
-            ThresholdTest::Maximum(t) | ThresholdTest::Minimum(t) => Some(*t),
-        },
-        CovenantType::Basket { limit, .. } => Some(*limit),
-        _ => None,
-    }
-}
-
-fn compute_headroom(value: f64, threshold: f64, cmp: Comparator) -> f64 {
-    let denom = if threshold.abs() < f64::EPSILON {
-        1.0
-    } else {
-        threshold
-    };
-    match cmp {
-        Comparator::LessOrEqual => (threshold - value) / denom,
-        Comparator::GreaterOrEqual => (value - threshold) / denom,
-    }
-}
-
 fn metric_value_for_spec<MTS: ModelTimeSeries>(
     spec: &CovenantSpec,
     model: &MTS,
@@ -398,18 +370,17 @@ fn metric_value_for_spec<MTS: ModelTimeSeries>(
     }
 
     // Fallbacks by standard covenant types (expect nodes to exist with conventional names)
-    match &spec.covenant.covenant_type {
-        CovenantType::MaxDebtToEBITDA { .. } => model.get_scalar("debt_to_ebitda", period),
-        CovenantType::MinInterestCoverage { .. } => model.get_scalar("interest_coverage", period),
-        CovenantType::MinFixedChargeCoverage { .. } => {
-            model.get_scalar("fixed_charge_coverage", period)
+    if let Some(name) = spec.covenant.covenant_type.default_metric_name() {
+        if let Some(v) = model.get_scalar(name, period) {
+            return Some(v);
         }
-        CovenantType::MaxTotalLeverage { .. } => model.get_scalar("total_leverage", period),
-        CovenantType::MaxSeniorLeverage { .. } => model.get_scalar("senior_leverage", period),
-        CovenantType::MinAssetCoverage { .. } => model.get_scalar("asset_coverage", period),
+    }
+
+    match &spec.covenant.covenant_type {
         CovenantType::Custom { metric, .. } => model.get_scalar(metric, period),
         CovenantType::Basket { name, .. } => model.get_scalar(name, period),
         CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => Some(1.0),
+        _ => None,
     }
 }
 
@@ -533,7 +504,7 @@ mod tests {
             volatility: Some(0.25),
             random_seed: Some(42),
             mc: Some(McConfig {
-                seed: 42,
+                seed: 0,
                 antithetic: true,
             }),
         };
@@ -572,7 +543,7 @@ mod tests {
             .expect("Forecast should succeed");
 
         assert_eq!(breaches.len(), 1);
-        assert_eq!(breaches[0].covenant_id, "Debt/EBITDA ≤ 3.00x");
+        assert_eq!(breaches[0].covenant_id, "Debt/EBITDA <= 3.00x");
         assert_eq!(breaches[0].projected_value, 3.5);
     }
 }

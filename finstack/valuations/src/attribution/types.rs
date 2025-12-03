@@ -609,12 +609,7 @@ impl PnlAttribution {
             "correlations P&L",
             &mut self.meta.notes,
         )?;
-        attributed_sum = add_factor(
-            attributed_sum,
-            self.fx_pnl,
-            "FX P&L",
-            &mut self.meta.notes,
-        )?;
+        attributed_sum = add_factor(attributed_sum, self.fx_pnl, "FX P&L", &mut self.meta.notes)?;
         attributed_sum = add_factor(
             attributed_sum,
             self.vol_pnl,
@@ -858,12 +853,7 @@ impl std::fmt::Display for AttributionFactor {
     }
 }
 
-fn add_factor(
-    sum: Money,
-    value: Money,
-    label: &str,
-    notes: &mut Vec<String>,
-) -> Result<Money> {
+fn add_factor(sum: Money, value: Money, label: &str, notes: &mut Vec<String>) -> Result<Money> {
     sum.checked_add(value).map_err(|e| {
         let note = format!("Failed to add {}: {}", label, e);
         notes.push(note.clone());

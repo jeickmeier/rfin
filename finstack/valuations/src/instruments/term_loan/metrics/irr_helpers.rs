@@ -106,7 +106,7 @@ pub(super) fn solve_irr_to_date(
     // so at maturity it would be 0 (after redemption). We want the outstanding
     // just before the exercise to determine redemption value.
     let out_path = schedule.outstanding_by_date()?;
-    
+
     let mut outstanding_before = Money::new(0.0, loan.currency);
     for (d, amt) in &out_path {
         if *d < exercise_date {

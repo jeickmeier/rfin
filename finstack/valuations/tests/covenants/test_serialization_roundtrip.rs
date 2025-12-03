@@ -330,7 +330,7 @@ fn comparator_roundtrip() {
 #[test]
 fn mc_config_roundtrip() {
     let config = McConfig {
-        seed: 12345,
+        seed: 0,
         antithetic: true,
     };
 
@@ -346,7 +346,7 @@ fn covenant_forecast_config_roundtrip() {
         volatility: Some(0.25),
         random_seed: Some(42),
         mc: Some(McConfig {
-            seed: 42,
+            seed: 0,
             antithetic: true,
         }),
     };
@@ -365,7 +365,7 @@ fn covenant_forecast_config_default_roundtrip() {
 #[test]
 fn covenant_forecast_roundtrip() {
     let forecast = CovenantForecast {
-        covenant_id: "Debt/EBITDA ≤ 5.00x".to_string(),
+        covenant_id: "Debt/EBITDA <= 5.00x".to_string(),
         test_dates: vec![date(2025, 3, 31), date(2025, 6, 30), date(2025, 9, 30)],
         projected_values: vec![4.2, 4.5, 4.8],
         thresholds: vec![5.0, 5.0, 5.0],
@@ -435,6 +435,15 @@ fn threshold_schedule_empty_roundtrip() {
     let schedule = ThresholdSchedule(vec![]);
     let rt = roundtrip(&schedule);
     assert_eq!(schedule, rt);
+}
+
+#[test]
+fn threshold_schedule_is_empty_helper() {
+    let empty = ThresholdSchedule(vec![]);
+    assert!(empty.is_empty());
+
+    let populated = ThresholdSchedule(vec![(date(2025, 1, 1), 5.0)]);
+    assert!(!populated.is_empty());
 }
 
 // ============================================================================

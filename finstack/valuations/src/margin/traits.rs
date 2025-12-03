@@ -231,10 +231,7 @@ impl SimmSensitivities {
             *self.fx_vega.entry(key).or_insert(0.0) += value;
         }
         for (key, &value) in &other.commodity_delta {
-            *self
-                .commodity_delta
-                .entry(key.clone())
-                .or_insert(0.0) += value;
+            *self.commodity_delta.entry(key.clone()).or_insert(0.0) += value;
         }
         for (&key, &value) in &other.curvature {
             *self.curvature.entry(key).or_insert(0.0) += value;

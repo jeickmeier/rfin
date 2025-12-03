@@ -237,8 +237,7 @@ impl CashFlowSchedule {
                 // This is already accounted for in notional.initial
                 let is_initial_funding = first_date == Some(d)
                     && self.flows[j].amount.amount() < 0.0
-                    && (self.flows[j].amount.amount().abs() - self.notional.initial.amount())
-                        .abs()
+                    && (self.flows[j].amount.amount().abs() - self.notional.initial.amount()).abs()
                         < 1e-10;
 
                 // `outstanding_by_date` is the canonical balance tracker, including

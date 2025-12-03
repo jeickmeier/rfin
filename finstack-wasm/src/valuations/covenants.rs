@@ -119,14 +119,10 @@ impl JsCovenantForecastConfig {
         seed: Option<u64>,
         antithetic: bool,
     ) -> JsCovenantForecastConfig {
-        let mc = if antithetic {
-            Some(ValMcConfig {
-                seed: seed.unwrap_or(42),
-                antithetic: true,
-            })
-        } else {
-            None
-        };
+        let mc = antithetic.then_some(ValMcConfig {
+            seed: 0,
+            antithetic: true,
+        });
         let cfg = ValCovForecastConfig {
             stochastic,
             num_paths,
@@ -180,16 +176,9 @@ impl JsCovenantForecast {
     pub fn warning_indices(&self, warn_threshold: f64) -> js_sys::Uint32Array {
         let indices: Vec<u32> = self
             .inner
-            .headroom
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &h)| {
-                if h < warn_threshold {
-                    Some(i as u32)
-                } else {
-                    None
-                }
-            })
+            .warning_indices(warn_threshold)
+            .into_iter()
+            .map(|idx| idx as u32)
             .collect();
         js_sys::Uint32Array::from(indices.as_slice())
     }

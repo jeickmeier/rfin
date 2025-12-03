@@ -40,8 +40,8 @@ covenants/
 Central orchestrator for covenant evaluation and consequence application.
 
 - **CovenantSpec**: Links a `Covenant` to either a `MetricId` or custom evaluator
-- **CovenantTestSpec**: Groups specs with test dates and reference dates
-- **CovenantWindow**: Time-based covenant activation windows
+- **CovenantTestSpec**: Serialization helper used by higher-level planners (not consumed directly by `CovenantEngine`)
+- **CovenantWindow**: Time-based covenant activation windows (the `is_grace_period` flag is advisory; cure tracking uses `CovenantBreach`)
 - **CovenantBreach**: Breach tracking with cure deadlines and applied consequences
 - **InstrumentMutator**: Trait for instruments that can be mutated by consequences
 
@@ -72,11 +72,11 @@ Covenant evaluation results.
 #### Financial Covenants
 Built-in support for common credit covenants:
 
-- **MaxDebtToEBITDA**: Total debt / EBITDA ≤ threshold
+- **MaxDebtToEBITDA**: Total debt / EBITDA <= threshold
 - **MinInterestCoverage**: EBITDA / interest expense ≥ threshold
 - **MinFixedChargeCoverage**: (EBITDA - CapEx) / fixed charges ≥ threshold
-- **MaxTotalLeverage**: Total debt / equity ≤ threshold
-- **MaxSeniorLeverage**: Senior debt / equity ≤ threshold
+- **MaxTotalLeverage**: Total debt / equity <= threshold
+- **MaxSeniorLeverage**: Senior debt / equity <= threshold
 - **MinAssetCoverage**: Total assets / total debt ≥ threshold
 - **Custom**: User-defined metric with minimum or maximum test
 
@@ -371,7 +371,7 @@ let config = CovenantForecastConfig {
     volatility: Some(0.20), // 20% volatility
     random_seed: Some(42),
     mc: Some(McConfig {
-        seed: 42,
+        seed: 0, // deprecated; random_seed controls RNG seeding
         antithetic: true, // variance reduction
     }),
 };

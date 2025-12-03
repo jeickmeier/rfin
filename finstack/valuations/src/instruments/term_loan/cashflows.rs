@@ -10,8 +10,8 @@ use crate::cashflow::builder::{
     CashFlowBuilder, FloatCouponParams, PrincipalEvent, ScheduleParams,
 };
 use crate::cashflow::primitives::CFKind;
-use crate::instruments::term_loan::types::TermLoan;
 use crate::cashflow::traits::DatedFlows;
+use crate::instruments::term_loan::types::TermLoan;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -323,9 +323,11 @@ pub fn generate_cashflows(
                     super::spec::CommitmentFeeBase::Undrawn => FeeBase::Undrawn {
                         facility_limit: ddtl.commitment_limit,
                     },
-                    super::spec::CommitmentFeeBase::CommitmentMinusOutstanding => FeeBase::Undrawn {
-                        facility_limit: ddtl.commitment_limit,
-                    },
+                    super::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
+                        FeeBase::Undrawn {
+                            facility_limit: ddtl.commitment_limit,
+                        }
+                    }
                 },
                 bps: ddtl.commitment_fee_bp as f64,
                 freq: loan.pay_freq,

@@ -308,5 +308,4 @@ mod tests {
         assert!(mean.abs() < 0.1);
         assert!((var - 1.0).abs() < 0.2);
     }
-
 }

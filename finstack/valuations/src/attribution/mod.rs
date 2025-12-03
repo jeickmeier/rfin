@@ -128,10 +128,10 @@ pub mod metrics_based;
 pub mod model_params;
 pub mod parallel;
 pub mod spec;
-pub mod types;
-pub mod waterfall;
 #[cfg(test)]
 pub(crate) mod test_utils;
+pub mod types;
+pub mod waterfall;
 
 // Re-export core types
 pub use types::{

@@ -172,10 +172,8 @@ impl CompiledExpr {
         opts: EvalOpts,
     ) -> EvaluationResult {
         // Decide on execution plan preference: opts > self > auto-build
-        let plan_to_use: ExecutionPlan = opts
-            .plan
-            .or_else(|| self.plan.clone())
-            .unwrap_or_else(|| {
+        let plan_to_use: ExecutionPlan =
+            opts.plan.or_else(|| self.plan.clone()).unwrap_or_else(|| {
                 let mut builder = DagBuilder::new();
                 let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
                 builder.build_plan(vec![self.ast.clone()], meta)

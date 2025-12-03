@@ -71,4 +71,3 @@ pub fn history_from_scenarios(
 ) -> MarketHistory {
     MarketHistory::new(as_of, window_days, scenarios)
 }
-

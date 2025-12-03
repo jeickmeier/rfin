@@ -66,14 +66,11 @@ pub struct WalCalculator;
 
 impl MetricCalculator for WalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let details = context
-            .detailed_tranche_cashflows
-            .as_ref()
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "detailed_tranche_cashflows".to_string(),
-                })
-            })?;
+        let details = context.detailed_tranche_cashflows.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "detailed_tranche_cashflows".to_string(),
+            })
+        })?;
 
         calculate_tranche_wal(details, context.as_of)
     }

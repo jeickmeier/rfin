@@ -386,14 +386,9 @@ mod tests {
         let market = create_test_market(reset);
 
         let params = FloatingRateParams::with_spread(200.0); // 200 bps
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "USD-SOFR-3M",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "USD-SOFR-3M", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // Should be ~3% index + 2% spread = ~5%
         assert!(rate > 0.04 && rate < 0.06, "Rate should be ~5%: {}", rate);
@@ -414,14 +409,9 @@ mod tests {
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "USD-LIBOR-3M",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "USD-LIBOR-3M", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // Floor lifts index to 1%, plus 1% spread = 2%
         assert!(
@@ -446,14 +436,9 @@ mod tests {
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let params = FloatingRateParams::with_full(200.0, 1.0, None, Some(500.0)); // 200 bps spread, 5% cap
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "USD-LIBOR-3M",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "USD-LIBOR-3M", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // 8% index + 2% spread = 10%, capped at 5%
         assert!(
@@ -478,14 +463,9 @@ mod tests {
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "TEST-INDEX",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // Floor lifts index from 0.01% to 1%, then add 1% spread = 2%
         assert!(
@@ -509,14 +489,9 @@ mod tests {
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let params = FloatingRateParams::with_full(100.0, 2.0, None, Some(600.0)); // 100 bps spread, 2x gearing, 6% cap
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "TEST-INDEX",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // (3% index + 1% spread) * 2 = 8%, capped at 6%
         assert!(
@@ -540,14 +515,9 @@ mod tests {
         let market = MarketContext::new().insert_forward(fwd_curve);
 
         let params = FloatingRateParams::with_full(100.0, 1.5, None, None); // 100 bps spread, 1.5x gearing
-        let rate = project_floating_rate_from_market(
-            reset,
-            period_end,
-            "TEST-INDEX",
-            &params,
-            &market,
-        )
-        .expect("Rate projection should succeed in test");
+        let rate =
+            project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
+                .expect("Rate projection should succeed in test");
 
         // (2% + 1%) * 1.5 = 4.5%
         assert!(

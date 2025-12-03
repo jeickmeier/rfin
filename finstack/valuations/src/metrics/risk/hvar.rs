@@ -134,7 +134,10 @@ mod tests {
 
         let history = Arc::new(history_from_rate_shifts(
             as_of,
-            &[(date!(2023 - 12 - 31), 0.0050), (date!(2023 - 12 - 30), -0.0030)],
+            &[
+                (date!(2023 - 12 - 31), 0.0050),
+                (date!(2023 - 12 - 30), -0.0030),
+            ],
         )) as Arc<dyn std::any::Any + Send + Sync>;
 
         let market = Arc::new(usd_ois_market(as_of)?.insert_market_history(history));

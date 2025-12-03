@@ -38,15 +38,15 @@ pub use core::dates::{
     third_wednesday as thirdWednesday,
 };
 pub use core::market_data::{
-    BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, MarketContext,
-    DividendEvent, DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig,
-    FxConversionPolicy, FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketScalar,
+    BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
+    DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
+    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar,
     ScalarTimeSeries, SeriesInterpolation, VolSurface,
 };
 pub use core::math::{
-    adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,
-    gaussLegendreIntegrateAdaptive, gaussLegendreIntegrateComposite, logBinomialCoefficient,
-    logFactorial, simpsonRule, trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
+    adaptiveSimpson, binomialProbability, gaussLegendreIntegrate, gaussLegendreIntegrateAdaptive,
+    gaussLegendreIntegrateComposite, logBinomialCoefficient, logFactorial, simpsonRule,
+    trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
 pub use valuations::calibration::{

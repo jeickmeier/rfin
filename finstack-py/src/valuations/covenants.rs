@@ -273,7 +273,7 @@ impl PyCovenantForecastConfig {
         cfg.random_seed = seed;
         if antithetic.unwrap_or(false) {
             cfg.mc = Some(ValMcConfig {
-                seed: cfg.random_seed.unwrap_or(42),
+                seed: 0,
                 antithetic: true,
             });
         }

@@ -348,9 +348,7 @@ mod tests {
         let posted = Money::new(0.0, Currency::USD);
 
         let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
-        let result = calc
-            .calculate(exposure, posted, as_of)
-            .expect("calc ok");
+        let result = calc.calculate(exposure, posted, as_of).expect("calc ok");
 
         assert_eq!(result.delivery_amount, params_call);
         assert_eq!(result.return_amount.amount(), 0.0);
@@ -360,12 +358,13 @@ mod tests {
         let posted = Money::new(3_000_000.0, Currency::USD);
 
         let params_call = csa.vm_params.calculate_margin_call(exposure, posted);
-        let result = calc
-            .calculate(exposure, posted, as_of)
-            .expect("calc ok");
+        let result = calc.calculate(exposure, posted, as_of).expect("calc ok");
 
         assert_eq!(result.delivery_amount.amount(), 0.0);
-        assert_eq!(result.return_amount, Money::new(params_call.amount().abs(), Currency::USD));
+        assert_eq!(
+            result.return_amount,
+            Money::new(params_call.amount().abs(), Currency::USD)
+        );
     }
 
     #[test]

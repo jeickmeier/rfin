@@ -299,13 +299,7 @@ where
 /// * `tol` - Error tolerance
 ///
 /// Convenience alias: Adaptive Simpson integration with error control.
-pub fn adaptive_simpson<F2>(
-    f: F2,
-    a: f64,
-    b: f64,
-    tol: f64,
-    max_depth: usize,
-) -> Result<f64, Error>
+pub fn adaptive_simpson<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64 + Copy,
 {
@@ -348,12 +342,10 @@ where
             Ok(total)
         } else {
             let mid_tol = tol / 2.0;
-            let left_result = adaptive_simpson_inner(
-                f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth,
-            )?;
-            let right_result = adaptive_simpson_inner(
-                f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth,
-            )?;
+            let left_result =
+                adaptive_simpson_inner(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
+            let right_result =
+                adaptive_simpson_inner(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
             Ok(left_result + right_result)
         }
     }

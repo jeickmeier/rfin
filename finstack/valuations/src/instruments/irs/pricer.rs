@@ -345,9 +345,11 @@ impl InterestRateSwap {
         let mut terms = Vec::with_capacity(schedule.flows.len());
         let mut accrual_start = self.float.start;
 
-        for cf in schedule.flows.iter().filter(|cf| {
-            cf.kind == crate::cashflow::primitives::CFKind::FloatReset
-        }) {
+        for cf in schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
+        {
             let accrual_end = cf.date;
 
             // Skip settled cashflows
@@ -358,13 +360,12 @@ impl InterestRateSwap {
 
             let reset_date = cf.reset_date.unwrap_or(accrual_start);
 
-            let forward_rate =
-                crate::cashflow::builder::rate_helpers::project_floating_rate(
-                    reset_date,
-                    accrual_end,
-                    fwd,
-                    &rate_params,
-                )?;
+            let forward_rate = crate::cashflow::builder::rate_helpers::project_floating_rate(
+                reset_date,
+                accrual_end,
+                fwd,
+                &rate_params,
+            )?;
 
             // Use the builder's accrual factor (floating leg day count + stub rules).
             let yf = cf.accrual_factor;

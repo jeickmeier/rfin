@@ -72,4 +72,3 @@ impl Instrument for TestInstrument {
         Ok(ValuationResult::stamped(self.id(), as_of, value))
     }
 }
-

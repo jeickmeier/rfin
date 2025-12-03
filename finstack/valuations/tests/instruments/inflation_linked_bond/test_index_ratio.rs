@@ -9,11 +9,11 @@
 //! - Market context routing
 
 use super::common::*;
+use finstack_core::dates::DateExt;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
 use finstack_valuations::instruments::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
-use finstack_core::dates::DateExt;
 
 #[test]
 fn test_index_ratio_basic_linear_interpolation() {

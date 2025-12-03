@@ -53,9 +53,9 @@ use finstack_core::market_data::diff::{
 };
 #[cfg(test)]
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::*;
 #[cfg(test)]
 use finstack_core::math::interp::InterpStyle;
+use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 use hashbrown::HashMap;
 use std::sync::Arc;
@@ -496,8 +496,8 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
-    use time::macros::date;
     use std::sync::Arc;
+    use time::macros::date;
 
     #[test]
     fn test_metrics_based_carry_matches_theta() {
@@ -519,9 +519,13 @@ mod tests {
             Money::new(1_000.0, Currency::USD),
             meta.clone(),
         )
-            .with_measures(measures_t0);
-        let val_t1 =
-            ValuationResult::stamped_with_meta("TEST-THETA", as_of_t1, Money::new(995.0, Currency::USD), meta);
+        .with_measures(measures_t0);
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-THETA",
+            as_of_t1,
+            Money::new(995.0, Currency::USD),
+            meta,
+        );
 
         let attribution = attribute_pnl_metrics_based(
             &instrument,
@@ -558,10 +562,19 @@ mod tests {
         let mut measures_t0 = IndexMap::new();
         measures_t0.insert("bucketed_dv01::USD-OIS".to_string(), -400.0);
 
-        let val_t0 = ValuationResult::stamped_with_meta("TEST-RATES", as_of_t0, Money::new(100_000.0, Currency::USD), meta.clone())
-            .with_measures(measures_t0);
-        let val_t1 =
-            ValuationResult::stamped_with_meta("TEST-RATES", as_of_t1, Money::new(99_600.0, Currency::USD), meta);
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-RATES",
+            as_of_t0,
+            Money::new(100_000.0, Currency::USD),
+            meta.clone(),
+        )
+        .with_measures(measures_t0);
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-RATES",
+            as_of_t1,
+            Money::new(99_600.0, Currency::USD),
+            meta,
+        );
 
         let attribution = attribute_pnl_metrics_based(
             &instrument,

@@ -167,19 +167,18 @@ fn derive_amortization_setup(
 ) -> finstack_core::Result<AmortizationSetup> {
     // Determine base cadence schedule for linear/percent amortization by
     // borrowing the first available schedule instead of cloning dates.
-    let amort_base: Option<&[Date]> =
-        match notional.amort {
-            AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. } => {
-                if let Some((_, ds, _, _)) = fixed_schedules.first() {
-                    Some(ds.as_slice())
-                } else if let Some((_, ds, _)) = float_schedules.first() {
-                    Some(ds.as_slice())
-                } else {
-                    None
-                }
+    let amort_base: Option<&[Date]> = match notional.amort {
+        AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. } => {
+            if let Some((_, ds, _, _)) = fixed_schedules.first() {
+                Some(ds.as_slice())
+            } else if let Some((_, ds, _)) = float_schedules.first() {
+                Some(ds.as_slice())
+            } else {
+                None
             }
-            _ => None,
-        };
+        }
+        _ => None,
+    };
 
     if amort_base.is_none()
         && matches!(

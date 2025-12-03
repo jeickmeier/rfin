@@ -107,10 +107,7 @@ impl MarketScenario {
 }
 
 fn parallel_bp_bump(curve_id: &CurveId, shift: f64) -> (CurveId, BumpSpec) {
-    (
-        curve_id.clone(),
-        BumpSpec::parallel_bp(shift * 10_000.0),
-    )
+    (curve_id.clone(), BumpSpec::parallel_bp(shift * 10_000.0))
 }
 
 /// Historical market data for VaR calculation.
