@@ -24,7 +24,7 @@
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::results::EvalWarning;
-use finstack_core::dates::PeriodId;
+use finstack_core::dates::{PeriodId, PeriodKind};
 use finstack_core::expr::{Expr, ExprNode, Function};
 use finstack_core::math::{kahan_sum, stable_sum};
 use std::collections::BTreeMap;
@@ -164,6 +164,24 @@ fn collect_rolling_window_values(
 fn collect_all_historical_values(node_name: &str, context: &EvaluationContext) -> Result<Vec<f64>> {
     let sorted = collect_historical_values_sorted(node_name, context)?;
     Ok(sorted.into_values().collect())
+}
+
+/// Collect values for a node over a closed period range [start, end].
+///
+/// Periods are compared using their natural ordering. Values are returned in
+/// chronological order (oldest → newest).
+fn collect_period_range_values(
+    node_name: &str,
+    context: &EvaluationContext,
+    start: PeriodId,
+    end: PeriodId,
+) -> Result<Vec<f64>> {
+    let sorted = collect_historical_values_sorted(node_name, context)?;
+    Ok(sorted
+        .into_iter()
+        .filter(|(period, _)| *period >= start && *period <= end)
+        .map(|(_, value)| value)
+        .collect())
 }
 
 /// Calculate mean of values.
@@ -758,6 +776,109 @@ fn evaluate_function(
                 Ok(f64::NAN)
             } else {
                 Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
+            }
+        }
+
+        Function::Ytd => {
+            require_args("ytd", args, 1)?;
+
+            let current = context.period_id;
+
+            // Determine the first period of the calendar year for the current
+            // frequency. This keeps semantics consistent across quarterly,
+            // monthly, weekly, semi-annual, and annual models.
+            let start_of_year = match context.period_kind {
+                PeriodKind::Quarterly => PeriodId::quarter(current.year, 1),
+                PeriodKind::Monthly => PeriodId::month(current.year, 1),
+                PeriodKind::Weekly => PeriodId::week(current.year, 1),
+                PeriodKind::SemiAnnual => PeriodId::half(current.year, 1),
+                PeriodKind::Annual => PeriodId::annual(current.year),
+            };
+
+            if let ExprNode::Column(node_name) = &args[0].node {
+                let values =
+                    collect_period_range_values(node_name, context, start_of_year, current)?;
+                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                Ok(stable_sum(&filtered))
+            } else {
+                Err(Error::eval(
+                    "ytd() currently supports only simple column references; use an intermediate node for complex expressions",
+                ))
+            }
+        }
+
+        Function::Qtd => {
+            require_args("qtd", args, 1)?;
+
+            // QTD is defined only for monthly statement models.
+            if context.period_kind != PeriodKind::Monthly {
+                return Err(Error::eval(
+                    "qtd() is only supported for monthly period models",
+                ));
+            }
+
+            let current = context.period_id;
+            let month = current.index as u32;
+            let quarter_start_month = ((month - 1) / 3) * 3 + 1;
+            let start = PeriodId::month(current.year, quarter_start_month as u8);
+            let end = current;
+
+            if let ExprNode::Column(node_name) = &args[0].node {
+                let values = collect_period_range_values(node_name, context, start, end)?;
+                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                Ok(stable_sum(&filtered))
+            } else {
+                Err(Error::eval(
+                    "qtd() currently supports only simple column references; use an intermediate node for complex expressions",
+                ))
+            }
+        }
+
+        Function::FiscalYtd => {
+            require_args("fiscal_ytd", args, 2)?;
+
+            // Fiscal YTD is defined for monthly statement models, using a
+            // configurable fiscal start month (1-12).
+            if context.period_kind != PeriodKind::Monthly {
+                return Err(Error::eval(
+                    "fiscal_ytd() is only supported for monthly period models",
+                ));
+            }
+
+            let start_month_raw = evaluate_expr(&args[1], context, node_id)?;
+            if !start_month_raw.is_finite()
+                || start_month_raw.fract() != 0.0
+                || !(1.0..=12.0).contains(&start_month_raw)
+            {
+                return Err(Error::eval(
+                    "fiscal_ytd() fiscal_start_month must be an integer between 1 and 12",
+                ));
+            }
+            let start_month = start_month_raw as u8;
+
+            let current = context.period_id;
+            let current_month = current.index;
+
+            // If the current month is on/after the fiscal start month, the
+            // fiscal year starts in the current calendar year. Otherwise, it
+            // started in the prior calendar year.
+            let fiscal_start_year = if current_month >= start_month {
+                current.year
+            } else {
+                current.year - 1
+            };
+
+            let start = PeriodId::month(fiscal_start_year, start_month);
+            let end = current;
+
+            if let ExprNode::Column(node_name) = &args[0].node {
+                let values = collect_period_range_values(node_name, context, start, end)?;
+                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                Ok(stable_sum(&filtered))
+            } else {
+                Err(Error::eval(
+                    "fiscal_ytd() currently supports only simple column references; use an intermediate node for complex expressions",
+                ))
             }
         }
 

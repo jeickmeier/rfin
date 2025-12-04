@@ -1176,6 +1176,9 @@ impl CompiledExpr {
             Function::Sum
             | Function::Mean
             | Function::Ttm
+            | Function::Ytd
+            | Function::Qtd
+            | Function::FiscalYtd
             | Function::Annualize
             | Function::AnnualizeRate
             | Function::Coalesce => {

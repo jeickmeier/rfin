@@ -361,8 +361,25 @@ pub enum Function {
     /// Use this for interest rates, returns, and growth rates.
     /// For cash flows, use `Annualize` instead.
     AnnualizeRate,
-    /// Trailing twelve months (rolling sum with window of 4 for quarterly).
+    /// Trailing twelve months over a window of `periods_per_year` periods.
+    ///
+    /// Evaluated in the `statements` layer (not in `core::expr`), where the
+    /// period frequency (monthly, quarterly, etc.) is known.
     Ttm,
+    /// Calendar year-to-date sum.
+    ///
+    /// Evaluated in the `statements` layer, using the period's calendar year
+    /// and frequency (monthly, quarterly, weekly, semi-annual, annual).
+    Ytd,
+    /// Quarter-to-date sum for monthly statement models.
+    ///
+    /// Evaluated in the `statements` layer; only valid for monthly periods.
+    Qtd,
+    /// Fiscal year-to-date sum with configurable fiscal start month.
+    ///
+    /// Evaluated in the `statements` layer for monthly periods. The fiscal
+    /// start month is provided as a numeric argument (1-12).
+    FiscalYtd,
     /// Return first non-NaN/non-zero value (coalesce).
     Coalesce,
 }

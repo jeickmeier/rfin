@@ -84,6 +84,12 @@ impl PyFunction {
     #[classattr]
     const TTM: Self = Self::new(Function::Ttm);
     #[classattr]
+    const YTD: Self = Self::new(Function::Ytd);
+    #[classattr]
+    const QTD: Self = Self::new(Function::Qtd);
+    #[classattr]
+    const FISCAL_YTD: Self = Self::new(Function::FiscalYtd);
+    #[classattr]
     const COALESCE: Self = Self::new(Function::Coalesce);
 
     #[getter]
@@ -119,6 +125,9 @@ impl PyFunction {
             Function::Annualize => "annualize",
             Function::AnnualizeRate => "annualize_rate",
             Function::Ttm => "ttm",
+            Function::Ytd => "ytd",
+            Function::Qtd => "qtd",
+            Function::FiscalYtd => "fiscal_ytd",
             Function::Coalesce => "coalesce",
         }
     }

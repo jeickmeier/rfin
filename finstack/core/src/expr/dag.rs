@@ -289,7 +289,10 @@ impl DagBuilder {
                     Function::Sum | Function::Mean => 5,
                     Function::Annualize => 2,
                     Function::AnnualizeRate => 3, // Slightly more expensive due to powf
-                    Function::Ttm => 30,          // Similar cost to rolling functions
+                    Function::Ttm
+                    | Function::Ytd
+                    | Function::Qtd
+                    | Function::FiscalYtd => 30, // Similar cost to rolling functions
                     Function::Coalesce => 3,
                 };
                 base_cost + args.len() * 5

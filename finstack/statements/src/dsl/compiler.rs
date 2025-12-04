@@ -117,7 +117,10 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         "quantile" => Some(Function::Quantile),
         "sum" => Some(Function::Sum),
         "mean" => Some(Function::Mean),
-        "ttm" => Some(Function::Ttm),
+        "ttm" | "ltm" => Some(Function::Ttm),
+        "ytd" => Some(Function::Ytd),
+        "qtd" => Some(Function::Qtd),
+        "fiscal_ytd" => Some(Function::FiscalYtd),
         "annualize" => Some(Function::Annualize),
         "annualize_rate" => Some(Function::AnnualizeRate),
         "coalesce" => Some(Function::Coalesce),
@@ -138,7 +141,28 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
             Function::Ttm => {
                 if compiled_args.len() != 1 {
                     return Err(crate::error::Error::eval(
-                        "ttm() requires exactly 1 argument",
+                        "ttm()/ltm() require exactly 1 argument",
+                    ));
+                }
+            }
+            Function::Ytd => {
+                if compiled_args.len() != 1 {
+                    return Err(crate::error::Error::eval(
+                        "ytd() requires exactly 1 argument",
+                    ));
+                }
+            }
+            Function::Qtd => {
+                if compiled_args.len() != 1 {
+                    return Err(crate::error::Error::eval(
+                        "qtd() requires exactly 1 argument",
+                    ));
+                }
+            }
+            Function::FiscalYtd => {
+                if compiled_args.len() != 2 {
+                    return Err(crate::error::Error::eval(
+                        "fiscal_ytd() requires 2 arguments (expr, fiscal_start_month)",
                     ));
                 }
             }
@@ -170,7 +194,7 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         Err(crate::error::Error::eval(format!(
             "Function '{}' is not supported. \
              Supported functions include: lag, diff, pct_change, rolling_*, ewm_*, std, var, median, \
-             sum, mean, min, max, ttm, annualize, coalesce",
+             sum, mean, min, max, ttm/ltm, ytd, qtd, fiscal_ytd, annualize, coalesce",
             func_name
         )))
     }

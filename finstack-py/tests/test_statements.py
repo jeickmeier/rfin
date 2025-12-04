@@ -402,6 +402,103 @@ class TestIntegration:
         assert results.get("gross_profit", q1) == 400000.0
         assert results.get("gross_margin", q1) == 0.4
 
+
+class TestPeriodAggregations:
+    """Tests for YTD, QTD, and fiscal YTD DSL helpers."""
+
+    def test_ytd_quarterly(self) -> None:
+        """YTD should sum from the start of the calendar year for quarterly models."""
+        builder = ModelBuilder.new("ytd_quarterly")
+        builder.periods("2025Q1..2025Q4", None)
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100.0)),
+                (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(110.0)),
+                (PeriodId.quarter(2025, 3), AmountOrScalar.scalar(120.0)),
+                (PeriodId.quarter(2025, 4), AmountOrScalar.scalar(130.0)),
+            ],
+        )
+        builder.compute("revenue_ytd", "ytd(revenue)")
+
+        model = builder.build()
+        evaluator = Evaluator.new()
+        results = evaluator.evaluate(model)
+
+        q1 = PeriodId.quarter(2025, 1)
+        q2 = PeriodId.quarter(2025, 2)
+        q3 = PeriodId.quarter(2025, 3)
+
+        assert results.get("revenue_ytd", q1) == 100.0
+        assert results.get("revenue_ytd", q2) == 210.0  # 100 + 110
+        assert results.get("revenue_ytd", q3) == 330.0  # 100 + 110 + 120
+
+    def test_qtd_monthly(self) -> None:
+        """QTD should sum from quarter start for monthly models."""
+        builder = ModelBuilder.new("qtd_monthly")
+        builder.periods("2025M01..2025M06", None)
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.month(2025, 1), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 2), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 3), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 4), AmountOrScalar.scalar(100.0)),
+                (PeriodId.month(2025, 5), AmountOrScalar.scalar(110.0)),
+                (PeriodId.month(2025, 6), AmountOrScalar.scalar(120.0)),
+            ],
+        )
+        builder.compute("revenue_qtd", "qtd(revenue)")
+
+        model = builder.build()
+        evaluator = Evaluator.new()
+        results = evaluator.evaluate(model)
+
+        m4 = PeriodId.month(2025, 4)
+        m5 = PeriodId.month(2025, 5)
+        m6 = PeriodId.month(2025, 6)
+
+        assert results.get("revenue_qtd", m4) == 100.0
+        assert results.get("revenue_qtd", m5) == 210.0  # 100 + 110
+        assert results.get("revenue_qtd", m6) == 330.0  # 100 + 110 + 120
+
+    def test_fiscal_ytd_april_start(self) -> None:
+        """Fiscal YTD should respect a fiscal year starting in April for monthly models."""
+        builder = ModelBuilder.new("fiscal_ytd_april")
+        builder.periods("2024M04..2025M06", None)
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.month(2024, 4), AmountOrScalar.scalar(80.0)),
+                (PeriodId.month(2024, 5), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 6), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 7), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 8), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 9), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 10), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 11), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2024, 12), AmountOrScalar.scalar(90.0)),
+                (PeriodId.month(2025, 1), AmountOrScalar.scalar(100.0)),
+                (PeriodId.month(2025, 2), AmountOrScalar.scalar(110.0)),
+                (PeriodId.month(2025, 3), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 4), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 5), AmountOrScalar.scalar(0.0)),
+                (PeriodId.month(2025, 6), AmountOrScalar.scalar(0.0)),
+            ],
+        )
+        # April fiscal year
+        builder.compute("revenue_fiscal_ytd", "fiscal_ytd(revenue, 4)")
+
+        model = builder.build()
+        evaluator = Evaluator.new()
+        results = evaluator.evaluate(model)
+
+        feb_2025 = PeriodId.month(2025, 2)
+        value = results.get("revenue_fiscal_ytd", feb_2025)
+
+        # Window: from 2024M04 (inclusive) through 2025M02
+        assert value == pytest.approx(80.0 + 90.0 + 100.0 + 110.0, rel=1e-9)
+
     def test_json_serialization(self) -> None:
         """Test full model JSON serialization."""
         builder = ModelBuilder.new("json_test")

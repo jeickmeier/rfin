@@ -199,6 +199,127 @@ fn test_ttm_monthly_data() {
 }
 
 #[test]
+fn test_ytd_quarterly_data() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130.0)),
+            ],
+        )
+        .compute("revenue_ytd", "ytd(revenue)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let q1_ytd = results
+        .get("revenue_ytd", &PeriodId::quarter(2025, 1))
+        .unwrap();
+    let q2_ytd = results
+        .get("revenue_ytd", &PeriodId::quarter(2025, 2))
+        .unwrap();
+    let q3_ytd = results
+        .get("revenue_ytd", &PeriodId::quarter(2025, 3))
+        .unwrap();
+
+    assert_eq!(q1_ytd, 100.0, "YTD Q1 = 100");
+    assert_eq!(q2_ytd, 210.0, "YTD Q2 = 100 + 110");
+    assert_eq!(q3_ytd, 330.0, "YTD Q3 = 100 + 110 + 120");
+}
+
+#[test]
+fn test_qtd_monthly_data() {
+    let model = ModelBuilder::new("test")
+        .periods("2025M01..2025M06", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::month(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 2), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 3), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 4), AmountOrScalar::scalar(100.0)),
+                (PeriodId::month(2025, 5), AmountOrScalar::scalar(110.0)),
+                (PeriodId::month(2025, 6), AmountOrScalar::scalar(120.0)),
+            ],
+        )
+        .compute("revenue_qtd", "qtd(revenue)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let m4_qtd = results
+        .get("revenue_qtd", &PeriodId::month(2025, 4))
+        .unwrap();
+    let m5_qtd = results
+        .get("revenue_qtd", &PeriodId::month(2025, 5))
+        .unwrap();
+    let m6_qtd = results
+        .get("revenue_qtd", &PeriodId::month(2025, 6))
+        .unwrap();
+
+    assert_eq!(m4_qtd, 100.0, "QTD Apr = 100");
+    assert_eq!(m5_qtd, 210.0, "QTD May = 100 + 110");
+    assert_eq!(m6_qtd, 330.0, "QTD Jun = 100 + 110 + 120");
+}
+
+#[test]
+fn test_fiscal_ytd_monthly_data() {
+    let model = ModelBuilder::new("test")
+        .periods("2024M04..2025M06", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::month(2024, 4), AmountOrScalar::scalar(80.0)),
+                (PeriodId::month(2024, 5), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 6), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 7), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 8), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 9), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 10), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 11), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2024, 12), AmountOrScalar::scalar(90.0)),
+                (PeriodId::month(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::month(2025, 2), AmountOrScalar::scalar(110.0)),
+                (PeriodId::month(2025, 3), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 4), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 5), AmountOrScalar::scalar(0.0)),
+                (PeriodId::month(2025, 6), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        // April fiscal year
+        .compute("revenue_fiscal_ytd", "fiscal_ytd(revenue, 4)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let feb_2025_fytd = results
+        .get("revenue_fiscal_ytd", &PeriodId::month(2025, 2))
+        .unwrap();
+
+    assert_eq!(
+        feb_2025_fytd,
+        80.0 + 90.0 + 100.0 + 110.0,
+        "Fiscal YTD (Apr start) from 2024M04 through 2025M02"
+    );
+}
+
+#[test]
 fn test_ttm_semi_annual_data() {
     let model = ModelBuilder::new("test")
         .periods("2024H1..2025H2", None)

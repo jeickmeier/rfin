@@ -620,6 +620,54 @@ fn test_parse_custom_ttm() {
 }
 
 #[test]
+fn test_parse_custom_ltm() {
+    let result = parse_formula("ltm(revenue)").unwrap();
+    match result {
+        StmtExpr::Call { func, args } => {
+            assert_eq!(func, "ltm");
+            assert_eq!(args.len(), 1);
+        }
+        _ => panic!("Expected ltm call"),
+    }
+}
+
+#[test]
+fn test_parse_custom_ytd() {
+    let result = parse_formula("ytd(revenue)").unwrap();
+    match result {
+        StmtExpr::Call { func, args } => {
+            assert_eq!(func, "ytd");
+            assert_eq!(args.len(), 1);
+        }
+        _ => panic!("Expected ytd call"),
+    }
+}
+
+#[test]
+fn test_parse_custom_qtd() {
+    let result = parse_formula("qtd(revenue)").unwrap();
+    match result {
+        StmtExpr::Call { func, args } => {
+            assert_eq!(func, "qtd");
+            assert_eq!(args.len(), 1);
+        }
+        _ => panic!("Expected qtd call"),
+    }
+}
+
+#[test]
+fn test_parse_custom_fiscal_ytd() {
+    let result = parse_formula("fiscal_ytd(revenue, 4)").unwrap();
+    match result {
+        StmtExpr::Call { func, args } => {
+            assert_eq!(func, "fiscal_ytd");
+            assert_eq!(args.len(), 2);
+        }
+        _ => panic!("Expected fiscal_ytd call"),
+    }
+}
+
+#[test]
 fn test_parse_custom_coalesce() {
     let result = parse_formula("coalesce(bonus, 0)").unwrap();
     match result {
@@ -633,13 +681,17 @@ fn test_parse_custom_coalesce() {
 
 #[test]
 fn test_compile_custom_functions() {
-    // Custom functions are now transformed to equivalent core expressions
+    // Custom functions are compiled to core expression functions
     let tests = vec![
-        ("sum(revenue, cogs)", true),    // Transforms to revenue + cogs
-        ("mean(revenue, cogs)", true),   // Transforms to (revenue + cogs) / 2
-        ("annualize(revenue, 4)", true), // Transforms to revenue * 4
-        ("ttm(revenue)", true),          // Transforms to rolling_sum(revenue, 4)
-        ("coalesce(revenue, 0)", true),  // Transforms to if(revenue != 0, revenue, 0)
+        ("sum(revenue, cogs)", true),
+        ("mean(revenue, cogs)", true),
+        ("annualize(revenue, 4)", true),
+        ("ttm(revenue)", true),
+        ("ltm(revenue)", true),
+        ("ytd(revenue)", true),
+        ("qtd(revenue)", true),
+        ("fiscal_ytd(revenue, 4)", true),
+        ("coalesce(revenue, 0)", true),
     ];
 
     for (formula, should_succeed) in tests {

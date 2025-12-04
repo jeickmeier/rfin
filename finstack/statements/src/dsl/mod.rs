@@ -37,7 +37,10 @@
 //! - `sum(...)` - Sum multiple values
 //! - `mean(...)` - Average of values
 //! - `annualize(expr, periods)` - Annualize a value
-//! - `ttm(expr)` - Trailing twelve months
+//! - `ttm(expr)` / `ltm(expr)` - Trailing / last twelve months
+//! - `ytd(expr)` - Calendar year-to-date sum
+//! - `qtd(expr)` - Quarter-to-date sum (for monthly models)
+//! - `fiscal_ytd(expr, start_month)` - Fiscal year-to-date sum with configurable fiscal start month
 //! - `coalesce(expr, default)` - Null coalescing
 //!
 //! ### Conditional

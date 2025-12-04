@@ -117,10 +117,10 @@ The `Function` enum in `ast.rs` is the authoritative list. Broadly, functions fa
 - **Financial utilities** (statement‑layer only)
   - `Sum`, `Mean`
   - `Annualize`, `AnnualizeRate`
-  - `Ttm`
+  - `Ttm`, `Ytd`, `Qtd`, `FiscalYtd`
   - `Coalesce`
 
-> **Important**: financial utilities (`Sum`, `Mean`, `Annualize*`, `Ttm`, `Coalesce`) are meant to be evaluated at the
+> **Important**: financial utilities (`Sum`, `Mean`, `Annualize*`, `Ttm`, `Ytd`, `Qtd`, `FiscalYtd`, `Coalesce`) are meant to be evaluated at the
 > **statements** layer. The scalar evaluator in `eval.rs` will `panic!` if they are invoked from `core::expr`.
 
 ---
