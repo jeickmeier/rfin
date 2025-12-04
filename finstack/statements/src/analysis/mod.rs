@@ -20,6 +20,7 @@ pub mod reports;
 pub mod sensitivity;
 pub mod types;
 pub mod visualization;
+pub mod variance;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use corporate::{evaluate_dcf, CorporateValuationResult};
@@ -31,3 +32,6 @@ pub use reports::{Alignment, CreditAssessmentReport, PLSummaryReport, Report, Ta
 pub use sensitivity::SensitivityAnalyzer;
 pub use types::{ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult};
 pub use visualization::{render_tree_ascii, render_tree_detailed};
+pub use variance::{
+    BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
+};

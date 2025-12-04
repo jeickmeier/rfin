@@ -8,6 +8,7 @@
 
 mod explain;
 mod reports;
+mod variance;
 
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyResults;
@@ -477,6 +478,9 @@ pub(crate) fn register<'py>(
     // Register reports types (table builder, P&L summary, credit assessment)
     let reports_exports = reports::register(py, &module)?;
 
+    // Register variance analysis types
+    let variance_exports = variance::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
@@ -493,6 +497,7 @@ pub(crate) fn register<'py>(
     ];
     all_exports.extend(explain_exports);
     all_exports.extend(reports_exports);
+    all_exports.extend(variance_exports);
 
     Ok(all_exports)
 }

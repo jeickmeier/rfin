@@ -142,6 +142,9 @@ pub mod prelude {
     pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
     pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, Results};
+    pub use crate::analysis::{
+        BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
+    };
     pub use crate::extensions::{
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
         ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,

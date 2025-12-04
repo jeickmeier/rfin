@@ -67,6 +67,13 @@ from .analysis import (
     CreditAssessmentReport,
     DebtSummaryReport,
     print_debt_summary,
+    # Variance Analysis
+    VarianceConfig,
+    VarianceRow,
+    VarianceReport,
+    BridgeStep,
+    BridgeChart,
+    VarianceAnalyzer,
 )
 
 __all__ = [
@@ -125,4 +132,11 @@ __all__ = [
     "CreditAssessmentReport",
     "DebtSummaryReport",
     "print_debt_summary",
+    # Analysis (Variance)
+    "VarianceConfig",
+    "VarianceRow",
+    "VarianceReport",
+    "BridgeStep",
+    "BridgeChart",
+    "VarianceAnalyzer",
 ]

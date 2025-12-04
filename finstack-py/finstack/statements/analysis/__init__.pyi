@@ -142,6 +142,190 @@ class SensitivityAnalyzer:
 
     def __repr__(self) -> str: ...
 
+# =============================================================================
+# Variance Analysis
+# =============================================================================
+
+class VarianceConfig:
+    """Configuration for variance analysis."""
+
+    def __init__(
+        self,
+        baseline_label: str,
+        comparison_label: str,
+        periods: List[PeriodId],
+        metrics: List[str],
+    ) -> None:
+        """Create a new variance configuration.
+
+        Args:
+            baseline_label: Human-readable label for the baseline scenario.
+            comparison_label: Human-readable label for the comparison scenario.
+            periods: Periods to include in the variance report.
+            metrics: Node identifiers to compare.
+        """
+        ...
+
+    @property
+    def baseline_label(self) -> str: ...
+
+    @property
+    def comparison_label(self) -> str: ...
+
+    @property
+    def metrics(self) -> List[str]: ...
+
+    @property
+    def periods(self) -> List[PeriodId]: ...
+
+    def __repr__(self) -> str: ...
+
+
+class VarianceRow:
+    """One row of variance output."""
+
+    @property
+    def period(self) -> PeriodId: ...
+
+    @property
+    def metric(self) -> str: ...
+
+    @property
+    def baseline(self) -> float: ...
+
+    @property
+    def comparison(self) -> float: ...
+
+    @property
+    def abs_var(self) -> float: ...
+
+    @property
+    def pct_var(self) -> float: ...
+
+    @property
+    def driver_contribution(self) -> List[tuple[str, float]]: ...
+
+    def __repr__(self) -> str: ...
+
+
+class VarianceReport:
+    """Variance report between a baseline and comparison scenario."""
+
+    @property
+    def baseline_label(self) -> str: ...
+
+    @property
+    def comparison_label(self) -> str: ...
+
+    @property
+    def rows(self) -> List[VarianceRow]: ...
+
+    def to_polars(self) -> Any:
+        """Export variance rows to a Polars DataFrame.
+
+        Returns:
+            polars.DataFrame: DataFrame with period, metric, baseline, comparison, abs_var, pct_var, driver_contribution.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
+
+class BridgeStep:
+    """Single driver contribution in a bridge chart."""
+
+    @property
+    def driver(self) -> str: ...
+
+    @property
+    def contribution(self) -> float: ...
+
+    def __repr__(self) -> str: ...
+
+
+class BridgeChart:
+    """Bridge chart for a single metric and period."""
+
+    @property
+    def target_metric(self) -> str: ...
+
+    @property
+    def period(self) -> PeriodId: ...
+
+    @property
+    def baseline_label(self) -> str: ...
+
+    @property
+    def comparison_label(self) -> str: ...
+
+    @property
+    def baseline_value(self) -> float: ...
+
+    @property
+    def comparison_value(self) -> float: ...
+
+    @property
+    def steps(self) -> List[BridgeStep]: ...
+
+    def __repr__(self) -> str: ...
+
+
+class VarianceAnalyzer:
+    """Variance analyzer between two evaluated Results."""
+
+    def __init__(
+        self,
+        baseline: Results,
+        comparison: Results,
+        baseline_label: str = "baseline",
+        comparison_label: str = "comparison",
+    ) -> None:
+        """Create a new variance analyzer.
+
+        Args:
+            baseline: Baseline evaluation results.
+            comparison: Comparison evaluation results.
+            baseline_label: Label for the baseline scenario.
+            comparison_label: Label for the comparison scenario.
+        """
+        ...
+
+    def compute(
+        self,
+        metrics: List[str],
+        periods: Optional[List[PeriodId]] = None,
+    ) -> VarianceReport:
+        """Compute variance between baseline and comparison.
+
+        Args:
+            metrics: Node identifiers to compare.
+            periods: Periods to include (if None, infers from baseline results).
+
+        Returns:
+            VarianceReport: Structured variance report.
+        """
+        ...
+
+    def bridge(
+        self,
+        target_metric: str,
+        drivers: List[str],
+        period: Optional[PeriodId] = None,
+    ) -> BridgeChart:
+        """Compute a simple bridge decomposition for a target metric.
+
+        Args:
+            target_metric: Target metric identifier (e.g. "ebitda").
+            drivers: Driver node identifiers.
+            period: Period to analyze (if None, uses latest period).
+
+        Returns:
+            BridgeChart: Bridge chart with driver contributions.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
 class TornadoEntry:
     """Entry in a tornado chart."""
 
