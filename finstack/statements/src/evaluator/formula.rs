@@ -59,6 +59,30 @@ use std::collections::BTreeMap;
 /// For currency-safe comparisons with explicit rounding, use the `Money` type.
 const EPSILON: f64 = 1e-10;
 
+fn annotate_error(err: Error, node_id: Option<&str>) -> Error {
+    match (node_id, err) {
+        (Some(id), Error::Eval(msg)) => {
+            if msg.starts_with("[node ") {
+                Error::Eval(msg)
+            } else {
+                Error::Eval(format!("[node {}] {}", id, msg))
+            }
+        }
+        (_, other) => other,
+    }
+}
+
+fn eval_error(node_id: Option<&str>, msg: impl Into<String>) -> Error {
+    annotate_error(Error::eval(msg), node_id)
+}
+
+fn map_err_with_node<T, E>(res: std::result::Result<T, E>, node_id: Option<&str>) -> Result<T>
+where
+    E: Into<Error>,
+{
+    res.map_err(|err| annotate_error(err.into(), node_id))
+}
+
 /// Convert boolean to f64 (1.0 for true, 0.0 for false).
 #[inline]
 fn bool_to_f64(b: bool) -> f64 {
@@ -71,28 +95,44 @@ fn bool_to_f64(b: bool) -> f64 {
 
 /// Validate that a function has exactly the expected number of arguments.
 #[inline]
-fn require_args(func_name: &str, args: &[Expr], expected: usize) -> Result<()> {
+fn require_args(
+    func_name: &str,
+    args: &[Expr],
+    expected: usize,
+    node_id: Option<&str>,
+) -> Result<()> {
     if args.len() != expected {
-        return Err(Error::eval(format!(
-            "{}() requires exactly {} argument{}",
-            func_name,
-            expected,
-            if expected == 1 { "" } else { "s" }
-        )));
+        return Err(eval_error(
+            node_id,
+            format!(
+                "{}() requires exactly {} argument{}",
+                func_name,
+                expected,
+                if expected == 1 { "" } else { "s" }
+            ),
+        ));
     }
     Ok(())
 }
 
 /// Validate that a function has at least the minimum number of arguments.
 #[inline]
-fn require_min_args(func_name: &str, args: &[Expr], min: usize) -> Result<()> {
+fn require_min_args(
+    func_name: &str,
+    args: &[Expr],
+    min: usize,
+    node_id: Option<&str>,
+) -> Result<()> {
     if args.len() < min {
-        return Err(Error::eval(format!(
-            "{}() requires at least {} argument{}",
-            func_name,
-            min,
-            if min == 1 { "" } else { "s" }
-        )));
+        return Err(eval_error(
+            node_id,
+            format!(
+                "{}() requires at least {} argument{}",
+                func_name,
+                min,
+                if min == 1 { "" } else { "s" }
+            ),
+        ));
     }
     Ok(())
 }
@@ -239,7 +279,7 @@ fn calculate_median(values: &[f64]) -> Result<f64> {
 /// Positive offset goes forward, negative goes backward.
 ///
 /// Now uses core API methods (next/prev) to avoid code duplication.
-fn offset_period(period: PeriodId, offset: i32) -> Result<PeriodId> {
+fn offset_period(period: PeriodId, offset: i32, node_id: Option<&str>) -> Result<PeriodId> {
     if offset == 0 {
         return Ok(period);
     }
@@ -249,9 +289,9 @@ fn offset_period(period: PeriodId, offset: i32) -> Result<PeriodId> {
 
     for _ in 0..steps {
         result = if offset > 0 {
-            result.next()?
+            map_err_with_node(result.next(), node_id)?
         } else {
-            result.prev()?
+            map_err_with_node(result.prev(), node_id)?
         };
     }
 
@@ -275,10 +315,13 @@ pub(crate) fn evaluate_expr(
                 if parts.len() == 4 && parts[0].is_empty() && parts[1] == "cs" {
                     let component = parts[2];
                     let instrument_or_total = parts[3];
-                    return context.get_cs_value(component, instrument_or_total);
+                    return map_err_with_node(
+                        context.get_cs_value(component, instrument_or_total),
+                        node_id,
+                    );
                 }
             }
-            context.get_value(name)
+            map_err_with_node(context.get_value(name), node_id)
         }
         ExprNode::Call(func, args) => evaluate_function(func, args, context, node_id),
         ExprNode::BinOp { op, left, right } => {
@@ -358,12 +401,12 @@ fn evaluate_function(
     // Handle real functions from finstack-core
     match func {
         Function::Lag => {
-            require_args("lag", args, 2)?;
+            require_args("lag", args, 2, node_id)?;
 
             // Get the number of periods to lag
             let lag_periods = evaluate_expr(&args[1], context, node_id)? as i32;
             if lag_periods < 0 {
-                return Err(Error::eval("lag() periods must be non-negative"));
+                return Err(eval_error(node_id, "lag() periods must be non-negative"));
             }
 
             if lag_periods == 0 {
@@ -372,7 +415,7 @@ fn evaluate_function(
             }
 
             // Calculate the target period
-            let target_period = offset_period(context.period_id, -lag_periods)?;
+            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
             // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
@@ -391,11 +434,12 @@ fn evaluate_function(
         Function::Lead => {
             // Lead function is intentionally not supported in financial modeling
             // to prevent forward-looking bias in time series analysis
-            Err(Error::eval("lead() function is not available (forward-looking operations are not supported in financial modeling)"))
+            Err(eval_error(node_id, "lead() function is not available (forward-looking operations are not supported in financial modeling)"))
         }
         Function::Diff => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "diff() requires 1 or 2 arguments (expression, [periods])",
                 ));
             }
@@ -408,7 +452,7 @@ fn evaluate_function(
             };
 
             if lag_periods <= 0 {
-                return Err(Error::eval("diff() periods must be positive"));
+                return Err(eval_error(node_id, "diff() periods must be positive"));
             }
 
             // For column references, check if value exists in current period
@@ -421,7 +465,7 @@ fn evaluate_function(
                 }
 
                 // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods)?;
+                let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
                     Ok(current_value - lagged_value)
@@ -438,7 +482,8 @@ fn evaluate_function(
         }
         Function::PctChange => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "pct_change() requires 1 or 2 arguments (expression, [periods])",
                 ));
             }
@@ -451,7 +496,7 @@ fn evaluate_function(
             };
 
             if lag_periods <= 0 {
-                return Err(Error::eval("pct_change() periods must be positive"));
+                return Err(eval_error(node_id, "pct_change() periods must be positive"));
             }
 
             // For column references, check if value exists in current period
@@ -464,7 +509,7 @@ fn evaluate_function(
                 }
 
                 // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods)?;
+                let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
                     if lagged_value.abs() < EPSILON {
@@ -494,6 +539,82 @@ fn evaluate_function(
                 Ok(f64::NAN)
             }
         }
+        Function::GrowthRate => {
+            if args.is_empty() || args.len() > 2 {
+                return Err(eval_error(
+                    node_id,
+                    "growth_rate() requires 1 or 2 arguments (series, [periods])",
+                ));
+            }
+
+            let periods_raw = if args.len() == 2 {
+                evaluate_expr(&args[1], context, node_id)?
+            } else {
+                context.period_kind.periods_per_year() as f64
+            };
+
+            if !periods_raw.is_finite() || periods_raw <= 0.0 {
+                return Err(eval_error(
+                    node_id,
+                    "growth_rate() periods must be a positive integer",
+                ));
+            }
+            if periods_raw.fract() != 0.0 {
+                return Err(eval_error(
+                    node_id,
+                    "growth_rate() periods must be a positive integer",
+                ));
+            }
+            if periods_raw > i32::MAX as f64 {
+                return Err(eval_error(
+                    node_id,
+                    "growth_rate() periods value is too large",
+                ));
+            }
+            let periods = periods_raw as i32;
+
+            if let ExprNode::Column(node_name) = &args[0].node {
+                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
+                if current_value.is_nan() {
+                    return Ok(f64::NAN);
+                }
+
+                let target_period = offset_period(context.period_id, -periods, node_id)?;
+                if let Some(start_value) = context.get_historical_value(node_name, &target_period) {
+                    if start_value.abs() < EPSILON {
+                        log::warn!(
+                            "growth_rate() division by near-zero base value in period {:?}",
+                            context.period_id
+                        );
+                        if let Some(id) = node_id {
+                            context.push_warning(EvalWarning::DivisionByZero {
+                                node_id: id.to_string(),
+                                period: context.period_id,
+                            });
+                        }
+                        return Ok(f64::NAN);
+                    }
+                    let ratio = current_value / start_value;
+                    if !ratio.is_finite() {
+                        return Ok(f64::NAN);
+                    }
+                    let exponent = 1.0 / periods as f64;
+                    let growth = ratio.powf(exponent) - 1.0;
+                    if growth.is_finite() {
+                        Ok(growth)
+                    } else {
+                        Ok(f64::NAN)
+                    }
+                } else {
+                    Ok(f64::NAN)
+                }
+            } else {
+                Err(eval_error(
+                    node_id,
+                    "growth_rate() currently supports only simple column references; use an intermediate node for complex expressions",
+                ))
+            }
+        }
         // Rolling window functions
         Function::RollingMean
         | Function::RollingSum
@@ -503,11 +624,11 @@ fn evaluate_function(
         | Function::RollingMin
         | Function::RollingMax
         | Function::RollingCount => {
-            require_args(&format!("{:?}", func), args, 2)?;
+            require_args(&format!("{:?}", func), args, 2, node_id)?;
 
             let window = evaluate_expr(&args[1], context, node_id)? as usize;
             if window == 0 {
-                return Err(Error::eval("Window size must be greater than 0"));
+                return Err(eval_error(node_id, "Window size must be greater than 0"));
             }
 
             // Collect values in chronological order for the rolling window
@@ -531,16 +652,16 @@ fn evaluate_function(
                 Function::RollingMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::RollingMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
                 Function::RollingCount => Ok(values.len() as f64),
-                _ => Err(Error::eval(format!(
-                    "Function {:?} is not a rolling window function",
-                    func
-                ))),
+                _ => Err(eval_error(
+                    node_id,
+                    format!("Function {:?} is not a rolling window function", func),
+                )),
             }
         }
 
         // Statistical functions (operate on all historical values)
         Function::Std | Function::Var | Function::Median => {
-            require_min_args(&format!("{:?}", func), args, 1)?;
+            require_min_args(&format!("{:?}", func), args, 1, node_id)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -554,16 +675,16 @@ fn evaluate_function(
                 Function::Std => calculate_std(&values),
                 Function::Var => calculate_variance(&values),
                 Function::Median => calculate_median(&values),
-                _ => Err(Error::eval(format!(
-                    "Function {:?} is not a statistical function",
-                    func
-                ))),
+                _ => Err(eval_error(
+                    node_id,
+                    format!("Function {:?} is not a statistical function", func),
+                )),
             }
         }
 
         // Cumulative functions (operate on all historical values)
         Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-            require_min_args(&format!("{:?}", func), args, 1)?;
+            require_min_args(&format!("{:?}", func), args, 1, node_id)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -582,16 +703,16 @@ fn evaluate_function(
                 Function::CumProd => Ok(values.iter().product()),
                 Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
-                _ => Err(Error::eval(format!(
-                    "Function {:?} is not a cumulative function",
-                    func
-                ))),
+                _ => Err(eval_error(
+                    node_id,
+                    format!("Function {:?} is not a cumulative function", func),
+                )),
             }
         }
 
         // Other functions
         Function::Shift => {
-            require_args("shift", args, 2)?;
+            require_args("shift", args, 2, node_id)?;
             let shift_periods = evaluate_expr(&args[1], context, node_id)? as i32;
 
             if shift_periods == 0 {
@@ -606,7 +727,7 @@ fn evaluate_function(
             }
 
             // Calculate the target period (shift backward)
-            let target_period = offset_period(context.period_id, -shift_periods)?;
+            let target_period = offset_period(context.period_id, -shift_periods, node_id)?;
 
             // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
@@ -625,7 +746,7 @@ fn evaluate_function(
         }
 
         Function::Rank => {
-            require_min_args("rank", args, 1)?;
+            require_min_args("rank", args, 1, node_id)?;
 
             // Get the value to rank
             let current_value = evaluate_expr(&args[0], context, node_id)?;
@@ -654,19 +775,22 @@ fn evaluate_function(
         }
 
         Function::Quantile => {
-            require_args("quantile", args, 2)?;
+            require_args("quantile", args, 2, node_id)?;
 
             // Get the quantile level (e.g., 0.25 for 25th percentile)
             let quantile = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&quantile) {
-                return Err(Error::eval("quantile must be between 0 and 1"));
+                return Err(eval_error(node_id, "quantile must be between 0 and 1"));
             }
 
             // Get node name for historical data
             let node_name = if let ExprNode::Column(name) = &args[0].node {
                 name
             } else {
-                return Err(Error::eval("quantile() requires a column reference"));
+                return Err(eval_error(
+                    node_id,
+                    "quantile() requires a column reference",
+                ));
             };
 
             // Collect and sort all values
@@ -697,19 +821,25 @@ fn evaluate_function(
         }
 
         Function::EwmMean => {
-            require_args("ewm_mean", args, 2)?;
+            require_args("ewm_mean", args, 2, node_id)?;
 
             // Get smoothing factor (alpha)
             let alpha = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&alpha) {
-                return Err(Error::eval("ewm_mean alpha must be between 0 and 1"));
+                return Err(eval_error(
+                    node_id,
+                    "ewm_mean alpha must be between 0 and 1",
+                ));
             }
 
             // Get node name
             let node_name = if let ExprNode::Column(name) = &args[0].node {
                 name
             } else {
-                return Err(Error::eval("ewm_mean() requires a column reference"));
+                return Err(eval_error(
+                    node_id,
+                    "ewm_mean() requires a column reference",
+                ));
             };
 
             // Collect historical values in chronological order
@@ -741,9 +871,29 @@ fn evaluate_function(
             Ok(ewm)
         }
 
+        Function::Abs => {
+            require_args("abs", args, 1, node_id)?;
+            let value = evaluate_expr(&args[0], context, node_id)?;
+            Ok(value.abs())
+        }
+
+        Function::Sign => {
+            require_args("sign", args, 1, node_id)?;
+            let value = evaluate_expr(&args[0], context, node_id)?;
+            if value.is_nan() {
+                Ok(f64::NAN)
+            } else if value > 0.0 {
+                Ok(1.0)
+            } else if value < 0.0 {
+                Ok(-1.0)
+            } else {
+                Ok(0.0)
+            }
+        }
+
         // Custom financial functions with NaN handling
         Function::Sum => {
-            require_min_args("sum", args, 1)?;
+            require_min_args("sum", args, 1, node_id)?;
 
             let mut values = Vec::new();
 
@@ -762,7 +912,7 @@ fn evaluate_function(
         }
 
         Function::Mean => {
-            require_min_args("mean", args, 1)?;
+            require_min_args("mean", args, 1, node_id)?;
 
             let mut values = Vec::new();
             for arg in args {
@@ -780,7 +930,7 @@ fn evaluate_function(
         }
 
         Function::Ytd => {
-            require_args("ytd", args, 1)?;
+            require_args("ytd", args, 1, node_id)?;
 
             let current = context.period_id;
 
@@ -801,18 +951,20 @@ fn evaluate_function(
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
                 Ok(stable_sum(&filtered))
             } else {
-                Err(Error::eval(
+                Err(eval_error(
+                    node_id,
                     "ytd() currently supports only simple column references; use an intermediate node for complex expressions",
                 ))
             }
         }
 
         Function::Qtd => {
-            require_args("qtd", args, 1)?;
+            require_args("qtd", args, 1, node_id)?;
 
             // QTD is defined only for monthly statement models.
             if context.period_kind != PeriodKind::Monthly {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "qtd() is only supported for monthly period models",
                 ));
             }
@@ -828,19 +980,21 @@ fn evaluate_function(
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
                 Ok(stable_sum(&filtered))
             } else {
-                Err(Error::eval(
+                Err(eval_error(
+                    node_id,
                     "qtd() currently supports only simple column references; use an intermediate node for complex expressions",
                 ))
             }
         }
 
         Function::FiscalYtd => {
-            require_args("fiscal_ytd", args, 2)?;
+            require_args("fiscal_ytd", args, 2, node_id)?;
 
             // Fiscal YTD is defined for monthly statement models, using a
             // configurable fiscal start month (1-12).
             if context.period_kind != PeriodKind::Monthly {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "fiscal_ytd() is only supported for monthly period models",
                 ));
             }
@@ -850,7 +1004,8 @@ fn evaluate_function(
                 || start_month_raw.fract() != 0.0
                 || !(1.0..=12.0).contains(&start_month_raw)
             {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "fiscal_ytd() fiscal_start_month must be an integer between 1 and 12",
                 ));
             }
@@ -876,14 +1031,15 @@ fn evaluate_function(
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
                 Ok(stable_sum(&filtered))
             } else {
-                Err(Error::eval(
+                Err(eval_error(
+                    node_id,
                     "fiscal_ytd() currently supports only simple column references; use an intermediate node for complex expressions",
                 ))
             }
         }
 
         Function::Ttm => {
-            require_args("ttm", args, 1)?;
+            require_args("ttm", args, 1, node_id)?;
 
             // Trailing Twelve Months (TTM) - Financial Reporting Standard
             //
@@ -927,24 +1083,38 @@ fn evaluate_function(
         }
 
         Function::Annualize => {
-            require_args("annualize", args, 2)?;
+            if args.is_empty() || args.len() > 2 {
+                return Err(eval_error(
+                    node_id,
+                    "annualize() requires 1 or 2 arguments (value, [periods_per_year])",
+                ));
+            }
 
             // Annualize a FLOW value (cash flows, income, expenses)
             // by multiplying by periods per year.
             //
             // For periodic RATES, use annualize_rate() instead.
             let value = evaluate_expr(&args[0], context, node_id)?;
-            let periods_per_year = evaluate_expr(&args[1], context, node_id)?;
+            let periods_per_year = if args.len() == 2 {
+                evaluate_expr(&args[1], context, node_id)?
+            } else {
+                context.period_kind.periods_per_year() as f64
+            };
 
             if value.is_nan() || periods_per_year.is_nan() {
                 Ok(f64::NAN)
+            } else if periods_per_year <= 0.0 {
+                Err(eval_error(
+                    node_id,
+                    "annualize() periods_per_year must be positive",
+                ))
             } else {
                 Ok(value * periods_per_year)
             }
         }
 
         Function::AnnualizeRate => {
-            require_args("annualize_rate", args, 3)?;
+            require_args("annualize_rate", args, 3, node_id)?;
 
             // Annualize a PERIODIC RATE (interest rates, returns, growth rates)
             // using either simple or compound methodology.
@@ -970,7 +1140,8 @@ fn evaluate_function(
             }
 
             if periods_per_year <= 0.0 {
-                return Err(Error::eval(
+                return Err(eval_error(
+                    node_id,
                     "annualize_rate() periods_per_year must be positive",
                 ));
             }
@@ -986,7 +1157,7 @@ fn evaluate_function(
         }
 
         Function::Coalesce => {
-            require_min_args("coalesce", args, 2)?;
+            require_min_args("coalesce", args, 2, node_id)?;
 
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
@@ -1004,16 +1175,19 @@ fn evaluate_function(
             // - 2 args: ewm_var(series, alpha) — non-bias-corrected (pandas adjust=False)
             // - 3 args: ewm_var(series, alpha, adjust) — bias correction enabled if adjust=1.0
             if args.len() < 2 || args.len() > 3 {
-                return Err(Error::eval(format!(
-                    "{}() requires 2 or 3 arguments (series, alpha, [adjust])",
-                    format!("{:?}", func).to_lowercase()
-                )));
+                return Err(eval_error(
+                    node_id,
+                    format!(
+                        "{}() requires 2 or 3 arguments (series, alpha, [adjust])",
+                        format!("{:?}", func).to_lowercase()
+                    ),
+                ));
             }
 
             // Get smoothing factor (alpha)
             let alpha = evaluate_expr(&args[1], context, node_id)?;
             if !(0.0..=1.0).contains(&alpha) {
-                return Err(Error::eval("ewm alpha must be between 0 and 1"));
+                return Err(eval_error(node_id, "ewm alpha must be between 0 and 1"));
             }
 
             // Bias correction now defaults to `true` to match pandas adjust=True (market standard)
@@ -1027,7 +1201,10 @@ fn evaluate_function(
             let node_name = if let ExprNode::Column(name) = &args[0].node {
                 name
             } else {
-                return Err(Error::eval("ewm_std/var() requires a column reference"));
+                return Err(eval_error(
+                    node_id,
+                    "ewm_std/var() requires a column reference",
+                ));
             };
 
             // Collect historical values
@@ -1071,10 +1248,13 @@ fn evaluate_function(
                 Function::EwmVar => Ok(ewm_var),
                 Function::EwmStd => Ok(ewm_var.sqrt()),
                 Function::EwmMean => Ok(ewm_mean),
-                _ => Err(Error::eval(format!(
-                    "Function {:?} is not an exponentially weighted function",
-                    func
-                ))),
+                _ => Err(eval_error(
+                    node_id,
+                    format!(
+                        "Function {:?} is not an exponentially weighted function",
+                        func
+                    ),
+                )),
             }
         }
     }
@@ -1173,5 +1353,116 @@ mod tests {
             (sum_value - reference).abs() < 1e-12,
             "sum_value={sum_value}, reference={reference}"
         );
+    }
+
+    #[test]
+    fn growth_rate_defaults_to_period_frequency() {
+        let history = vec![
+            (PeriodId::quarter(2024, 1), 100.0),
+            (PeriodId::quarter(2024, 2), 110.0),
+            (PeriodId::quarter(2024, 3), 121.0),
+            (PeriodId::quarter(2024, 4), 133.1),
+        ];
+        let current_period = PeriodId::quarter(2025, 1);
+        let mut context = build_context_with_history(current_period, "series", history, 146.41);
+
+        let value = evaluate_function(
+            &Function::GrowthRate,
+            &[Expr::column("series")],
+            &mut context,
+            Some("series"),
+        )
+        .expect("growth_rate evaluation");
+
+        assert!((value - 0.10).abs() < 1e-6, "value={value}");
+
+        let explicit = evaluate_function(
+            &Function::GrowthRate,
+            &[Expr::column("series"), Expr::literal(2.0)],
+            &mut context,
+            Some("series"),
+        )
+        .expect("explicit periods");
+
+        // Between Q1 2025 and Q1 2025 minus 2 quarters (Q3 2024)
+        // Values: 146.41 vs 121 → CAGR over 2 periods ≈ 10%
+        assert!((explicit - 0.10).abs() < 1e-6, "explicit={explicit}");
+    }
+
+    #[test]
+    fn annualize_uses_period_kind_when_periods_missing() {
+        let period = PeriodId::month(2025, 3);
+        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+
+        let default_factor = evaluate_function(
+            &Function::Annualize,
+            &[Expr::literal(2.5)],
+            &mut context,
+            Some("annualize"),
+        )
+        .expect("annualize default");
+
+        assert!((default_factor - 30.0).abs() < 1e-9);
+
+        let override_factor = evaluate_function(
+            &Function::Annualize,
+            &[Expr::literal(2.5), Expr::literal(4.0)],
+            &mut context,
+            Some("annualize"),
+        )
+        .expect("annualize override");
+
+        assert!((override_factor - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn abs_and_sign_helpers_cover_edge_cases() {
+        let period = PeriodId::quarter(2025, 1);
+        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+
+        let abs_val = evaluate_function(
+            &Function::Abs,
+            &[Expr::literal(-42.0)],
+            &mut context,
+            Some("abs"),
+        )
+        .expect("abs eval");
+        assert_eq!(abs_val, 42.0);
+
+        let sign_pos = evaluate_function(
+            &Function::Sign,
+            &[Expr::literal(3.5)],
+            &mut context,
+            Some("sign"),
+        )
+        .expect("sign positive");
+        assert_eq!(sign_pos, 1.0);
+
+        let sign_neg = evaluate_function(
+            &Function::Sign,
+            &[Expr::literal(-3.5)],
+            &mut context,
+            Some("sign"),
+        )
+        .expect("sign negative");
+        assert_eq!(sign_neg, -1.0);
+
+        let sign_zero = evaluate_function(
+            &Function::Sign,
+            &[Expr::literal(0.0)],
+            &mut context,
+            Some("sign"),
+        )
+        .expect("sign zero");
+        assert_eq!(sign_zero, 0.0);
+
+        let sign_nan = evaluate_function(
+            &Function::Sign,
+            &[Expr::literal(f64::NAN)],
+            &mut context,
+            Some("sign"),
+        )
+        .expect("sign nan");
+        assert!(sign_nan.is_nan());
     }
 }

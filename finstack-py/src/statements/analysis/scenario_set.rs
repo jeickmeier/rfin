@@ -1,17 +1,17 @@
-use crate::statements::evaluator::PyResults;
 use crate::statements::error::stmt_to_py;
+use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::analysis::{
     ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet,
 };
 use indexmap::IndexMap;
+use polars::prelude::DataFrame;
 use pyo3::exceptions::{PyIOError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::{Bound, PyResult};
 use pyo3_polars::PyDataFrame;
-use polars::prelude::DataFrame;
 use pythonize::depythonize;
 
 use super::variance::PyVarianceReport;
@@ -51,10 +51,7 @@ impl PyScenarioDefinition {
         if let Some(obj) = overrides {
             if let Ok(dict) = obj.downcast::<PyDict>() {
                 for (k, v) in dict {
-                    rust_overrides.insert(
-                        k.extract::<String>()?,
-                        v.extract::<f64>()?,
-                    );
+                    rust_overrides.insert(k.extract::<String>()?, v.extract::<f64>()?);
                 }
             } else {
                 return Err(PyTypeError::new_err(
@@ -147,12 +144,9 @@ impl PyScenarioSet {
     #[staticmethod]
     #[pyo3(signature = (mapping))]
     fn from_mapping(mapping: Bound<'_, PyAny>) -> PyResult<Self> {
-        let value: serde_json::Value =
-            depythonize(&mapping).map_err(|err| {
-                PyValueError::new_err(format!(
-                    "Invalid mapping for ScenarioSet: {err}"
-                ))
-            })?;
+        let value: serde_json::Value = depythonize(&mapping).map_err(|err| {
+            PyValueError::new_err(format!("Invalid mapping for ScenarioSet: {err}"))
+        })?;
 
         let scenario_map_value = match &value {
             serde_json::Value::Object(obj)
@@ -165,10 +159,7 @@ impl PyScenarioSet {
 
         let scenarios: IndexMap<String, ScenarioDefinition> =
             serde_json::from_value(scenario_map_value).map_err(|err| {
-                PyValueError::new_err(format!(
-                    "Invalid scenario mapping: {}",
-                    err
-                ))
+                PyValueError::new_err(format!("Invalid scenario mapping: {}", err))
             })?;
 
         Ok(Self {
@@ -184,19 +175,12 @@ impl PyScenarioSet {
     #[pyo3(signature = (path))]
     fn from_json(path: &str) -> PyResult<Self> {
         let contents = std::fs::read_to_string(path).map_err(|err| {
-            PyIOError::new_err(format!(
-                "Failed to read scenario file '{}': {}",
-                path, err
-            ))
+            PyIOError::new_err(format!("Failed to read scenario file '{}': {}", path, err))
         })?;
 
-        let value: serde_json::Value =
-            serde_json::from_str(&contents).map_err(|err| {
-                PyValueError::new_err(format!(
-                    "Failed to parse JSON from '{}': {}",
-                    path, err
-                ))
-            })?;
+        let value: serde_json::Value = serde_json::from_str(&contents).map_err(|err| {
+            PyValueError::new_err(format!("Failed to parse JSON from '{}': {}", path, err))
+        })?;
 
         let scenario_map_value = match &value {
             serde_json::Value::Object(obj)
@@ -209,10 +193,7 @@ impl PyScenarioSet {
 
         let scenarios: IndexMap<String, ScenarioDefinition> =
             serde_json::from_value(scenario_map_value).map_err(|err| {
-                PyValueError::new_err(format!(
-                    "Invalid scenario mapping in '{}': {}",
-                    path, err
-                ))
+                PyValueError::new_err(format!("Invalid scenario mapping in '{}': {}", path, err))
             })?;
 
         Ok(Self {
@@ -230,9 +211,7 @@ impl PyScenarioSet {
     /// definition : ScenarioDefinition
     ///     Scenario definition instance.
     fn add_scenario(&mut self, name: String, definition: &PyScenarioDefinition) {
-        self.inner
-            .scenarios
-            .insert(name, definition.inner.clone());
+        self.inner.scenarios.insert(name, definition.inner.clone());
     }
 
     #[pyo3(signature = (name))]
@@ -264,8 +243,11 @@ impl PyScenarioSet {
         py: Python<'_>,
         base_model: &PyFinancialModelSpec,
     ) -> PyResult<PyScenarioResults> {
-        let inner = py
-            .allow_threads(|| self.inner.evaluate_all(&base_model.inner).map_err(stmt_to_py))?;
+        let inner = py.allow_threads(|| {
+            self.inner
+                .evaluate_all(&base_model.inner)
+                .map_err(stmt_to_py)
+        })?;
 
         Ok(PyScenarioResults { inner })
     }
@@ -313,16 +295,11 @@ impl PyScenarioSet {
     #[pyo3(signature = (scenario))]
     /// Return the lineage for a scenario (from root ancestor to the given name).
     fn trace(&self, scenario: &str) -> PyResult<Vec<String>> {
-        self.inner
-            .trace(scenario)
-            .map_err(stmt_to_py)
+        self.inner.trace(scenario).map_err(stmt_to_py)
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "ScenarioSet(scenarios={})",
-            self.inner.scenarios.len()
-        )
+        format!("ScenarioSet(scenarios={})", self.inner.scenarios.len())
     }
 }
 
@@ -353,10 +330,7 @@ impl PyScenarioResults {
     /// Get the `Results` object for a given scenario.
     fn get(&self, name: &str) -> PyResult<PyResults> {
         let results = self.inner.scenarios.get(name).ok_or_else(|| {
-            PyValueError::new_err(format!(
-                "Scenario '{}' not found in ScenarioResults",
-                name
-            ))
+            PyValueError::new_err(format!("Scenario '{}' not found in ScenarioResults", name))
         })?;
 
         Ok(PyResults::new(results.clone()))
@@ -375,14 +349,13 @@ impl PyScenarioResults {
     /// polars.DataFrame
     ///     Comparison table with one column per scenario and percentage
     ///     deltas vs the baseline scenario.
-    fn to_comparison_df(
-        &self,
-        py: Python<'_>,
-        metrics: Vec<String>,
-    ) -> PyResult<PyDataFrame> {
+    fn to_comparison_df(&self, py: Python<'_>, metrics: Vec<String>) -> PyResult<PyDataFrame> {
         let metric_refs: Vec<&str> = metrics.iter().map(|s| s.as_str()).collect();
-        let df: DataFrame = py
-            .allow_threads(|| self.inner.to_comparison_df(&metric_refs).map_err(stmt_to_py))?;
+        let df: DataFrame = py.allow_threads(|| {
+            self.inner
+                .to_comparison_df(&metric_refs)
+                .map_err(stmt_to_py)
+        })?;
 
         Ok(PyDataFrame(df))
     }
@@ -393,11 +366,7 @@ impl PyScenarioResults {
 }
 
 /// Python wrapper for [`ScenarioDiff`].
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "ScenarioDiff",
-    frozen
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "ScenarioDiff", frozen)]
 #[derive(Clone)]
 pub struct PyScenarioDiff {
     pub(crate) inner: ScenarioDiff,
@@ -450,5 +419,3 @@ pub(crate) fn register<'py>(
         "ScenarioDiff",
     ])
 }
-
-

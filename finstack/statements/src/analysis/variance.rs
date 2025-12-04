@@ -44,8 +44,8 @@
 //! # }
 //! ```
 
-use crate::evaluator::Results;
 use crate::error::{Error, Result};
+use crate::evaluator::Results;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -224,21 +224,19 @@ impl<'a> VarianceAnalyzer<'a> {
 
         for metric in &config.metrics {
             for period in &config.periods {
-                let baseline = self
-                    .baseline
-                    .get(metric, period)
-                    .ok_or_else(|| Error::missing_data(format!(
+                let baseline = self.baseline.get(metric, period).ok_or_else(|| {
+                    Error::missing_data(format!(
                         "Missing baseline value for '{}' @ {}",
                         metric, period
-                    )))?;
+                    ))
+                })?;
 
-                let comparison = self
-                    .comparison
-                    .get(metric, period)
-                    .ok_or_else(|| Error::missing_data(format!(
+                let comparison = self.comparison.get(metric, period).ok_or_else(|| {
+                    Error::missing_data(format!(
                         "Missing comparison value for '{}' @ {}",
                         metric, period
-                    )))?;
+                    ))
+                })?;
 
                 let abs_var = comparison - baseline;
                 let pct_var = if baseline.abs() < 1e-10 {
@@ -286,40 +284,33 @@ impl<'a> VarianceAnalyzer<'a> {
         baseline_label: &str,
         comparison_label: &str,
     ) -> Result<BridgeChart> {
-        let baseline_value = self
-            .baseline
-            .get(target_metric, &period)
-            .ok_or_else(|| Error::missing_data(format!(
+        let baseline_value = self.baseline.get(target_metric, &period).ok_or_else(|| {
+            Error::missing_data(format!(
                 "Missing baseline value for '{}' @ {}",
                 target_metric, period
-            )))?;
+            ))
+        })?;
 
-        let comparison_value = self
-            .comparison
-            .get(target_metric, &period)
-            .ok_or_else(|| Error::missing_data(format!(
+        let comparison_value = self.comparison.get(target_metric, &period).ok_or_else(|| {
+            Error::missing_data(format!(
                 "Missing comparison value for '{}' @ {}",
                 target_metric, period
-            )))?;
+            ))
+        })?;
 
         let mut steps = Vec::new();
 
         for driver in drivers {
-            let base_drv = self
-                .baseline
-                .get(driver, &period)
-                .ok_or_else(|| Error::missing_data(format!(
-                    "Missing baseline driver '{}' @ {}",
-                    driver, period
-                )))?;
+            let base_drv = self.baseline.get(driver, &period).ok_or_else(|| {
+                Error::missing_data(format!("Missing baseline driver '{}' @ {}", driver, period))
+            })?;
 
-            let cmp_drv = self
-                .comparison
-                .get(driver, &period)
-                .ok_or_else(|| Error::missing_data(format!(
+            let cmp_drv = self.comparison.get(driver, &period).ok_or_else(|| {
+                Error::missing_data(format!(
                     "Missing comparison driver '{}' @ {}",
                     driver, period
-                )))?;
+                ))
+            })?;
 
             steps.push(BridgeStep {
                 driver: (*driver).to_string(),
@@ -397,9 +388,7 @@ impl VarianceReport {
             Series::new("pct_var".into(), pct_vars).into(),
             Series::new("driver_contribution".into(), driver_contributions).into(),
         ])
-        .map_err(|e| {
-            Error::invalid_input(format!("Failed to create variance DataFrame: {}", e))
-        })?;
+        .map_err(|e| Error::invalid_input(format!("Failed to create variance DataFrame: {}", e)))?;
 
         Ok(df)
     }
@@ -428,10 +417,8 @@ mod tests {
     fn baseline_vs_baseline_yields_zero_variance() {
         let period = PeriodId::quarter(2025, 1);
 
-        let baseline = make_results(&[
-            ("revenue", period, 100_000.0),
-            ("ebitda", period, 60_000.0),
-        ]);
+        let baseline =
+            make_results(&[("revenue", period, 100_000.0), ("ebitda", period, 60_000.0)]);
         let comparison = baseline.clone();
 
         let analyzer = VarianceAnalyzer::new(&baseline, &comparison);
@@ -459,8 +446,7 @@ mod tests {
         let comparison = make_results(&[("revenue", period, 95.0)]);
 
         let analyzer = VarianceAnalyzer::new(&baseline, &comparison);
-        let config =
-            VarianceConfig::new("baseline", "comparison", vec!["revenue"], vec![period]);
+        let config = VarianceConfig::new("baseline", "comparison", vec!["revenue"], vec![period]);
 
         let report = analyzer.compute(&config).expect("variance should succeed");
         assert_eq!(report.rows.len(), 1);
@@ -478,8 +464,7 @@ mod tests {
         let comparison = make_results(&[("revenue", period, 10.0)]);
 
         let analyzer = VarianceAnalyzer::new(&baseline, &comparison);
-        let config =
-            VarianceConfig::new("baseline", "comparison", vec!["revenue"], vec![period]);
+        let config = VarianceConfig::new("baseline", "comparison", vec!["revenue"], vec![period]);
 
         let report = analyzer.compute(&config).expect("variance should succeed");
         let row = &report.rows[0];
@@ -527,5 +512,3 @@ mod tests {
         assert!((chart.steps[1].contribution - (-5.0)).abs() < 1e-12);
     }
 }
-
-

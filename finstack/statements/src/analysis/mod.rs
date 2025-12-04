@@ -16,27 +16,27 @@ pub mod corporate;
 pub mod covenants;
 pub mod dependency_trace;
 pub mod formula_explain;
-pub mod monte_carlo;
 pub mod goal_seek;
+pub mod monte_carlo;
 pub mod reports;
-pub mod sensitivity;
 pub mod scenario_set;
+pub mod sensitivity;
 pub mod types;
-pub mod visualization;
 pub mod variance;
+pub mod visualization;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use corporate::{evaluate_dcf, CorporateValuationResult};
 pub use covenants::forecast_breaches;
 pub use dependency_trace::{DependencyTracer, DependencyTree};
 pub use formula_explain::{Explanation, ExplanationStep, FormulaExplainer};
-pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
 pub use goal_seek::goal_seek;
+pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
 pub use reports::{Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder};
-pub use sensitivity::SensitivityAnalyzer;
 pub use scenario_set::{ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet};
+pub use sensitivity::SensitivityAnalyzer;
 pub use types::{ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult};
-pub use visualization::{render_tree_ascii, render_tree_detailed};
 pub use variance::{
     BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
 };
+pub use visualization::{render_tree_ascii, render_tree_detailed};

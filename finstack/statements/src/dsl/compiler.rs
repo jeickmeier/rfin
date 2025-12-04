@@ -124,6 +124,9 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         "annualize" => Some(Function::Annualize),
         "annualize_rate" => Some(Function::AnnualizeRate),
         "coalesce" => Some(Function::Coalesce),
+        "abs" => Some(Function::Abs),
+        "sign" => Some(Function::Sign),
+        "growth_rate" => Some(Function::GrowthRate),
         _ => None,
     };
 
@@ -134,6 +137,14 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
                 if compiled_args.is_empty() {
                     return Err(crate::error::Error::eval(format!(
                         "{:?} requires at least one argument",
+                        f
+                    )));
+                }
+            }
+            Function::Abs | Function::Sign => {
+                if compiled_args.len() != 1 {
+                    return Err(crate::error::Error::eval(format!(
+                        "{:?} requires exactly 1 argument",
                         f
                     )));
                 }
@@ -167,9 +178,9 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
                 }
             }
             Function::Annualize => {
-                if compiled_args.len() != 2 {
+                if compiled_args.is_empty() || compiled_args.len() > 2 {
                     return Err(crate::error::Error::eval(
-                        "annualize() requires 2 arguments (value, periods_per_year)",
+                        "annualize() requires 1 or 2 arguments (value, [periods_per_year])",
                     ));
                 }
             }
@@ -187,6 +198,13 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
                     ));
                 }
             }
+            Function::GrowthRate => {
+                if compiled_args.is_empty() || compiled_args.len() > 2 {
+                    return Err(crate::error::Error::eval(
+                        "growth_rate() requires 1 or 2 arguments (series, [periods])",
+                    ));
+                }
+            }
             _ => {}
         }
         Ok(Expr::call(f, compiled_args))
@@ -194,7 +212,7 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         Err(crate::error::Error::eval(format!(
             "Function '{}' is not supported. \
              Supported functions include: lag, diff, pct_change, rolling_*, ewm_*, std, var, median, \
-             sum, mean, min, max, ttm/ltm, ytd, qtd, fiscal_ytd, annualize, coalesce",
+             sum, mean, min, max, ttm/ltm, ytd, qtd, fiscal_ytd, annualize, growth_rate, abs, sign, coalesce",
             func_name
         )))
     }

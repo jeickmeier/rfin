@@ -126,4 +126,3 @@ pub(crate) fn apply_forecast_with_seed_offset(
         _ => apply_forecast(spec, base_value, forecast_periods),
     }
 }
-

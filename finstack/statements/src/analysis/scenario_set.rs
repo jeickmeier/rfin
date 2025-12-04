@@ -36,8 +36,8 @@
 //! in a deterministic way without introducing new forecast semantics.
 
 use crate::analysis::{VarianceAnalyzer, VarianceConfig, VarianceReport};
-use crate::evaluator::Results;
 use crate::error::{Error, Result};
+use crate::evaluator::Results;
 use crate::types::{AmountOrScalar, FinancialModelSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::{IndexMap, IndexSet};
@@ -179,8 +179,12 @@ impl ScenarioSet {
         })?;
 
         let analyzer = VarianceAnalyzer::new(baseline_results, comparison_results);
-        let config =
-            VarianceConfig::new(baseline.to_string(), comparison.to_string(), metrics.to_vec(), periods.to_vec());
+        let config = VarianceConfig::new(
+            baseline.to_string(),
+            comparison.to_string(),
+            metrics.to_vec(),
+            periods.to_vec(),
+        );
 
         let variance = analyzer.compute(&config)?;
 
@@ -305,9 +309,7 @@ impl ScenarioResults {
             scenario_iter
                 .next()
                 .map(|(name, _)| name.as_str())
-                .ok_or_else(|| {
-                    Error::invalid_input("ScenarioResults.scenarios cannot be empty")
-                })?
+                .ok_or_else(|| Error::invalid_input("ScenarioResults.scenarios cannot be empty"))?
         };
 
         let baseline_results = self.scenarios.get(baseline_name).ok_or_else(|| {
@@ -328,10 +330,8 @@ impl ScenarioResults {
         let mut periods_col: Vec<String> = Vec::new();
         let mut metrics_col: Vec<String> = Vec::new();
 
-        let mut scenario_values: Vec<Vec<Option<f64>>> =
-            vec![Vec::new(); scenario_names.len()];
-        let mut pct_values: Vec<Vec<Option<f64>>> =
-            vec![Vec::new(); non_baseline_names.len()];
+        let mut scenario_values: Vec<Vec<Option<f64>>> = vec![Vec::new(); scenario_names.len()];
+        let mut pct_values: Vec<Vec<Option<f64>>> = vec![Vec::new(); non_baseline_names.len()];
 
         for metric in metrics {
             let metric_nodes = baseline_results.nodes.get(*metric).ok_or_else(|| {
@@ -387,10 +387,7 @@ impl ScenarioResults {
         columns.push(Series::new("metric".into(), metrics_col).into());
 
         for (idx, scenario_name) in scenario_names.iter().enumerate() {
-            columns.push(
-                Series::new((*scenario_name).into(), scenario_values[idx].clone())
-                    .into(),
-            );
+            columns.push(Series::new((*scenario_name).into(), scenario_values[idx].clone()).into());
 
             if *scenario_name != baseline_name {
                 // Find index in pct_values for this scenario.
@@ -398,8 +395,7 @@ impl ScenarioResults {
                     .iter()
                     .position(|name| *name == *scenario_name)
                 {
-                    let pct_col_name =
-                        format!("{}_vs_{}_pct", scenario_name, baseline_name);
+                    let pct_col_name = format!("{}_vs_{}_pct", scenario_name, baseline_name);
                     columns.push(
                         Series::new(pct_col_name.as_str().into(), pct_values[pct_idx].clone())
                             .into(),
@@ -662,5 +658,3 @@ mod tests {
         assert_eq!(ebitda_row.abs_var, -6_000.0);
     }
 }
-
-

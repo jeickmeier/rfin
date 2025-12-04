@@ -805,6 +805,34 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
+    fn eval_abs(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        if let Some(base) = arg_results.first() {
+            base.iter().map(|v| v.abs()).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn eval_sign(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        if let Some(base) = arg_results.first() {
+            base.iter()
+                .map(|v| {
+                    if v.is_nan() {
+                        f64::NAN
+                    } else if *v > 0.0 {
+                        1.0
+                    } else if *v < 0.0 {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
     fn eval_rank(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if !arg_results.is_empty() {
@@ -1172,6 +1200,8 @@ impl CompiledExpr {
             Function::RollingCount => self.eval_rolling_count(arg_results),
             Function::EwmStd => self.eval_ewm_std(arg_results),
             Function::EwmVar => self.eval_ewm_var(arg_results),
+            Function::Abs => self.eval_abs(arg_results),
+            Function::Sign => self.eval_sign(arg_results),
             // Custom financial functions (should be evaluated at the statements layer)
             Function::Sum
             | Function::Mean
@@ -1181,7 +1211,8 @@ impl CompiledExpr {
             | Function::FiscalYtd
             | Function::Annualize
             | Function::AnnualizeRate
-            | Function::Coalesce => {
+            | Function::Coalesce
+            | Function::GrowthRate => {
                 panic!("Custom financial functions should be evaluated in the statements layer, not in core")
             }
         }

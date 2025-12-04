@@ -382,6 +382,14 @@ pub enum Function {
     FiscalYtd,
     /// Return first non-NaN/non-zero value (coalesce).
     Coalesce,
+    /// Absolute value helper (`abs(expr)`).
+    Abs,
+    /// Sign helper returning -1, 0, or 1 (`sign(expr)`).
+    Sign,
+    /// Compound annual growth rate between current and lagged periods.
+    ///
+    /// Evaluated in the statements layer where period spacing is known.
+    GrowthRate,
 }
 
 // WindowSpec removed with time-window API cleanup

@@ -374,12 +374,7 @@ impl PyMonteCarloResults {
     /// -------
     /// dict[PeriodId, float] | None
     ///     Map of period → percentile value or ``None`` if unavailable
-    fn get_percentile(
-        &self,
-        metric: &str,
-        percentile: f64,
-        py: Python<'_>,
-    ) -> Option<PyObject> {
+    fn get_percentile(&self, metric: &str, percentile: f64, py: Python<'_>) -> Option<PyObject> {
         if let Some(series) = self.inner.get_percentile_series(metric, percentile) {
             let dict = PyDict::new(py);
             for (period_id, value) in series {

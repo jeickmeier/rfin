@@ -9,6 +9,7 @@
 //!
 //! ### Arithmetic
 //! - `+`, `-`, `*`, `/`, `%`
+//! - `abs(expr)`, `sign(expr)` - Math helpers
 //!
 //! ### Comparison
 //! - `==`, `!=`, `<`, `<=`, `>`, `>=`
@@ -36,7 +37,8 @@
 //! ### Custom Functions (Phase 2.6)
 //! - `sum(...)` - Sum multiple values
 //! - `mean(...)` - Average of values
-//! - `annualize(expr, periods)` - Annualize a value
+//! - `annualize(expr, periods)` - Annualize a value (defaults to period frequency when periods omitted)
+//! - `growth_rate(expr, periods)` - Compound annual growth rate between current period and `periods` ago
 //! - `ttm(expr)` / `ltm(expr)` - Trailing / last twelve months
 //! - `ytd(expr)` - Calendar year-to-date sum
 //! - `qtd(expr)` - Quarter-to-date sum (for monthly models)

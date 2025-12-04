@@ -332,4 +332,3 @@ fn test_different_calendars_may_produce_different_dates() {
     // Log for visibility - different calendars may adjust dates differently
     // around holidays like July 4th (US) vs August 15th (EU Assumption Day)
 }
-

@@ -9,8 +9,8 @@
 
 mod explain;
 mod reports;
-mod variance;
 mod scenario_set;
+mod variance;
 
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyResults;

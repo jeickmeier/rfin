@@ -1,7 +1,9 @@
-use crate::statements::evaluator::PyResults;
 use crate::statements::error::stmt_to_py;
-use finstack_statements::analysis::{BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport};
+use crate::statements::evaluator::PyResults;
 use finstack_core::dates::PeriodId;
+use finstack_statements::analysis::{
+    BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::{Bound, PyResult};
@@ -118,16 +120,17 @@ impl PyVarianceRow {
     fn __repr__(&self) -> String {
         format!(
             "VarianceRow(metric='{}', period='{}', abs_var={}, pct_var={})",
-            self.inner.metric,
-            self.inner.period,
-            self.inner.abs_var,
-            self.inner.pct_var
+            self.inner.metric, self.inner.period, self.inner.abs_var, self.inner.pct_var
         )
     }
 }
 
 /// Variance report between two scenarios.
-#[pyclass(module = "finstack.statements.analysis", name = "VarianceReport", frozen)]
+#[pyclass(
+    module = "finstack.statements.analysis",
+    name = "VarianceReport",
+    frozen
+)]
 #[derive(Clone)]
 pub struct PyVarianceReport {
     pub(crate) inner: VarianceReport,
@@ -392,9 +395,9 @@ fn infer_periods_from_results(
     results: &finstack_statements::evaluator::Results,
     metrics: &[String],
 ) -> PyResult<Vec<PeriodId>> {
-        let first_metric = metrics.first().ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err("metrics cannot be empty")
-        })?;
+    let first_metric = metrics
+        .first()
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("metrics cannot be empty"))?;
 
     let periods = results
         .nodes
@@ -429,15 +432,9 @@ fn infer_latest_period_for_metric(
         .copied()
         .collect::<Vec<_>>();
 
-    periods
-        .into_iter()
-        .max()
-        .ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "No periods found for metric '{}'",
-                metric
-            ))
-        })
+    periods.into_iter().max().ok_or_else(|| {
+        pyo3::exceptions::PyValueError::new_err(format!("No periods found for metric '{}'", metric))
+    })
 }
 
 pub(crate) fn register<'py>(
@@ -462,5 +459,3 @@ pub(crate) fn register<'py>(
         "VarianceAnalyzer",
     ])
 }
-
-

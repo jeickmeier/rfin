@@ -268,23 +268,22 @@ impl Registry {
             dependencies.insert(metric_id.to_owned(), deps);
         }
 
-        let order =
-            crate::utils::graph::toposort_ids(&dependencies).map_err(|remaining| {
-                Error::registry(format!(
-                    "Circular dependency detected among metrics: {}",
-                    remaining.join(" -> ")
-                ))
-            })?;
+        let order = crate::utils::graph::toposort_ids(&dependencies).map_err(|remaining| {
+            Error::registry(format!(
+                "Circular dependency detected among metrics: {}",
+                remaining.join(" -> ")
+            ))
+        })?;
 
         let sorted = order
             .into_iter()
             .map(|metric_id| {
-                metric_map
-                    .get(&metric_id)
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        panic!("metric '{}' missing from map despite dependency entry", metric_id)
-                    })
+                metric_map.get(&metric_id).cloned().unwrap_or_else(|| {
+                    panic!(
+                        "metric '{}' missing from map despite dependency entry",
+                        metric_id
+                    )
+                })
             })
             .collect();
 

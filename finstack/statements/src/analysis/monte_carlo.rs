@@ -146,9 +146,7 @@ impl MonteCarloResults {
         let mut out = IndexMap::new();
 
         for (period, pairs) in &series.values {
-            if let Some((_, value)) =
-                pairs.iter().find(|(q, _)| (*q - percentile).abs() < 1e-12)
-            {
+            if let Some((_, value)) = pairs.iter().find(|(q, _)| (*q - percentile).abs() < 1e-12) {
                 out.insert(*period, *value);
             }
         }
@@ -178,8 +176,7 @@ impl MonteCarloResults {
         }
 
         // Only consider forecast periods
-        let forecast_set: HashSet<PeriodId> =
-            self.forecast_periods.iter().copied().collect();
+        let forecast_set: HashSet<PeriodId> = self.forecast_periods.iter().copied().collect();
 
         // Collect per-period vectors in a deterministic order
         let mut period_vectors: Vec<(&PeriodId, &Vec<f64>)> = metric_map
@@ -221,9 +218,7 @@ fn normalize_percentiles(raw: &[f64]) -> Vec<f64> {
     let mut v: Vec<f64> = if raw.is_empty() {
         vec![0.05, 0.5, 0.95]
     } else {
-        raw.iter()
-            .map(|q| q.clamp(0.0, 1.0))
-            .collect()
+        raw.iter().map(|q| q.clamp(0.0, 1.0)).collect()
     };
 
     v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
@@ -274,34 +269,26 @@ pub(crate) fn aggregate_monte_carlo_paths(
         ));
     }
 
-    let forecast_set: HashSet<PeriodId> =
-        forecast_periods.iter().copied().collect();
+    let forecast_set: HashSet<PeriodId> = forecast_periods.iter().copied().collect();
 
     // Build metric → period → Vec<path_values>
-    let mut path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>> =
-        IndexMap::new();
+    let mut path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>> = IndexMap::new();
 
     for path_results in all_paths {
         for (metric, period_map) in path_results {
-            let metric_entry = path_values
-                .entry(metric.clone())
-                .or_default();
+            let metric_entry = path_values.entry(metric.clone()).or_default();
 
             for (period_id, value) in period_map {
                 if !forecast_set.contains(period_id) {
                     continue;
                 }
-                metric_entry
-                    .entry(*period_id)
-                    .or_default()
-                    .push(*value);
+                metric_entry.entry(*period_id).or_default().push(*value);
             }
         }
     }
 
     // Aggregate percentiles.
-    let mut percentile_results: IndexMap<String, PercentileSeries> =
-        IndexMap::new();
+    let mut percentile_results: IndexMap<String, PercentileSeries> = IndexMap::new();
 
     for (metric, period_map) in &path_values {
         let mut series = PercentileSeries {
@@ -373,9 +360,7 @@ pub(crate) fn aggregate_monte_carlo_paths(
                 Series::new("value".into(), values).into(),
             ])
             .map_err(|e| {
-                Error::invalid_input(format!(
-                    "Failed to build Monte Carlo path DataFrame: {e}"
-                ))
+                Error::invalid_input(format!("Failed to build Monte Carlo path DataFrame: {e}"))
             })?;
             Some(df)
         }
@@ -480,6 +465,3 @@ mod tests {
         assert_eq!(p95_series_1, p95_series_2);
     }
 }
-
-
-

@@ -625,7 +625,9 @@ impl HazardCurveBuilder {
         }
 
         // Validate hazard rates: non-negative and finite
-        for &(_t, lambda) in &self.points {
+        for &(t, lambda) in &self.points {
+            #[cfg(not(debug_assertions))]
+            let _ = t;
             if lambda < 0.0 {
                 return Err(InputError::NegativeValue.into());
             }

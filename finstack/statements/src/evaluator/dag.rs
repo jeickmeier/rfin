@@ -258,10 +258,7 @@ fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> Index
     crate::utils::formula::extract_direct_dependencies(formula)
         .map(|direct_deps| direct_deps.intersection(all_node_ids).cloned().collect())
         .unwrap_or_else(|err| {
-            debug_assert!(
-                false,
-                "Formula should have been validated earlier: {err}"
-            );
+            debug_assert!(false, "Formula should have been validated earlier: {err}");
             IndexSet::new()
         })
 }

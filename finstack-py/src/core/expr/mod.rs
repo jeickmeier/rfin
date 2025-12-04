@@ -91,6 +91,12 @@ impl PyFunction {
     const FISCAL_YTD: Self = Self::new(Function::FiscalYtd);
     #[classattr]
     const COALESCE: Self = Self::new(Function::Coalesce);
+    #[classattr]
+    const ABS: Self = Self::new(Function::Abs);
+    #[classattr]
+    const SIGN: Self = Self::new(Function::Sign);
+    #[classattr]
+    const GROWTH_RATE: Self = Self::new(Function::GrowthRate);
 
     #[getter]
     fn name(&self) -> &'static str {
@@ -129,6 +135,9 @@ impl PyFunction {
             Function::Qtd => "qtd",
             Function::FiscalYtd => "fiscal_ytd",
             Function::Coalesce => "coalesce",
+            Function::Abs => "abs",
+            Function::Sign => "sign",
+            Function::GrowthRate => "growth_rate",
         }
     }
 

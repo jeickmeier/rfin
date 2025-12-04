@@ -20,8 +20,10 @@ pub fn toposort_ids(
         dependencies.keys().map(|id| (id.clone(), 0usize)).collect();
 
     // Track dependents so we can decrement in-degree when removing a node.
-    let mut dependents: IndexMap<String, IndexSet<String>> =
-        dependencies.keys().map(|id| (id.clone(), IndexSet::new())).collect();
+    let mut dependents: IndexMap<String, IndexSet<String>> = dependencies
+        .keys()
+        .map(|id| (id.clone(), IndexSet::new()))
+        .collect();
 
     for (node, deps) in dependencies {
         for dep in deps {
@@ -70,4 +72,3 @@ pub fn toposort_ids(
         Err(remaining)
     }
 }
-
