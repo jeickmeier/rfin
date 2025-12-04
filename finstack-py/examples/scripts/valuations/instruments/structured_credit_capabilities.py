@@ -127,6 +127,7 @@ def asset_entry(identifier: str, asset_type: dict, balance: float, rate: float, 
         "recovery_amount": None,
         "purchase_price": None,
         "acquisition_date": "2024-01-02",
+        "day_count": "Act360",
     }
 
 
@@ -137,14 +138,13 @@ def tranche_entry(identifier: str, attach: float, detach: float, seniority: str,
         "detachment_point": detach,
         # Valid enum values: Senior, Mezzanine, Subordinated, Equity
         "seniority": seniority,
-        "rating": "BBB" if seniority != "equity" else "NR",
+        "rating": "BBB" if seniority != "Equity" else "NR",
         "original_balance": money(balance),
         "current_balance": money(balance),
         "target_balance": None,
         "coupon": {"Fixed": {"rate": rate}},
         "oc_trigger": None,
         "ic_trigger": None,
-        "other_triggers": [],
         "credit_enhancement": {
             "subordination": money(0.0),
             "overcollateralization": money(0.0),
@@ -244,19 +244,18 @@ def build_tranches(total_notional: float) -> dict:
 def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> dict:
     total_notional = 10_000_000.0
     tranches = build_tranches(total_notional)
-    wf = waterfall_engine([t["id"] for t in tranches["tranches"]])
 
     payload = {
         "id": instrument_id,
         "deal_type": deal_type,
         "pool": build_pool(deal_type, asset_kind),
         "tranches": tranches,
-        "waterfall": wf,
         "closing_date": "2024-01-02",
         "first_payment_date": "2024-04-01",
         "reinvestment_end_date": None,
         "legal_maturity": "2035-01-01",
         "payment_frequency": {"Months": 3},
+        "payment_calendar_id": "nyse",
         "discount_curve_id": "USD-OIS",
         "attributes": base_attributes(),
         # Required defaults for behavioral models and market/credit context

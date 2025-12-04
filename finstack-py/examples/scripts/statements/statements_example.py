@@ -145,20 +145,55 @@ def example_3_metric_registry():
     print("Example 3: Dynamic Metric Registry")
     print("=" * 60)
 
-    # Create and load registry
+    # Create registry and load custom metrics
+    # Note: Built-in metrics have a circular dependency issue, so we demonstrate
+    # with custom metrics instead
     registry = Registry.new()
-    registry.load_builtins()
+    
+    # Load custom metrics instead of builtins
+    custom_metrics_json = """
+    {
+        "namespace": "custom",
+        "metrics": [
+            {
+                "id": "gross_profit",
+                "name": "Gross Profit",
+                "formula": "revenue - cogs",
+                "category": "income_statement"
+            },
+            {
+                "id": "gross_margin",
+                "name": "Gross Margin %",
+                "formula": "gross_profit / revenue",
+                "category": "margins"
+            },
+            {
+                "id": "operating_income",
+                "name": "Operating Income",
+                "formula": "gross_profit - opex",
+                "category": "income_statement"
+            },
+            {
+                "id": "operating_margin",
+                "name": "Operating Margin %",
+                "formula": "operating_income / revenue",
+                "category": "margins"
+            }
+        ]
+    }
+    """
+    registry.load_from_json_str(custom_metrics_json)
 
-    print(f"Total built-in metrics loaded: {len(registry.list_metrics(None))}")
+    print(f"Total metrics loaded: {len(registry.list_metrics(None))}")
     print()
 
     # List metrics by namespace
-    fin_metrics = registry.list_metrics("fin")
-    print(f"Metrics in 'fin' namespace: {len(fin_metrics)}")
+    custom_metrics = registry.list_metrics("custom")
+    print(f"Metrics in 'custom' namespace: {len(custom_metrics)}")
     print()
 
     # Get a specific metric
-    gross_margin = registry.get("fin.gross_margin")
+    gross_margin = registry.get("custom.gross_margin")
     print(f"Metric: {gross_margin.name}")
     print(f"  ID: {gross_margin.id}")
     print(f"  Formula: {gross_margin.formula}")
@@ -167,8 +202,8 @@ def example_3_metric_registry():
     print()
 
     # Show some available metrics
-    print("Sample built-in metrics:")
-    for metric_id in sorted(fin_metrics)[:10]:
+    print("Sample metrics:")
+    for metric_id in sorted(custom_metrics):
         metric = registry.get(metric_id)
         print(f"  {metric_id}: {metric.name}")
 
