@@ -163,7 +163,6 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         .covenant_type
         .bound_kind()
         .ok_or(Error::from(InputError::Invalid))?;
-    let comparator = Comparator::from(bound_kind);
     let base_threshold = covenant
         .covenant
         .covenant_type

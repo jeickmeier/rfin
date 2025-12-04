@@ -25,10 +25,10 @@ impl PyVarianceConfig {
     ///     Human-readable name for the baseline scenario (e.g. "management_case").
     /// comparison_label : str
     ///     Human-readable name for the comparison scenario (e.g. "bank_case").
-    /// metrics : list[str]
-    ///     Node identifiers to compare (e.g. ["revenue", "ebitda"]).
     /// periods : list[PeriodId]
     ///     Periods to include in the variance report.
+    /// metrics : list[str]
+    ///     Node identifiers to compare (e.g. ["revenue", "ebitda"]).
     fn new(
         baseline_label: String,
         comparison_label: String,

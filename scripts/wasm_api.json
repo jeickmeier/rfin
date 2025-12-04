@@ -1088,7 +1088,7 @@
             },
             {
               "name": "flat_fwd",
-              "js_name": "LogLinear"
+              "js_name": "FlatForward"
             },
             {
               "name": "from_name",

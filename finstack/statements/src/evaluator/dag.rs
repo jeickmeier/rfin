@@ -240,57 +240,12 @@ impl DependencyGraph {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
-    // Kahn's algorithm for topological sort
-    let mut in_degree = IndexMap::new();
-
-    // Initialize in-degrees
-    for node_id in graph.dependencies.keys() {
-        let degree = graph.dependencies[node_id].len();
-        in_degree.insert(node_id.clone(), degree);
-    }
-
-    // Queue nodes with no dependencies
-    let mut queue: Vec<String> = in_degree
-        .iter()
-        .filter(|(_, &degree)| degree == 0)
-        .map(|(node, _)| node.clone())
-        .collect();
-
-    let mut result = Vec::new();
-
-    while let Some(node) = queue.pop() {
-        result.push(node.clone());
-
-        // Reduce in-degree of dependents
-        if let Some(deps) = graph.dependents.get(&node) {
-            for dependent in deps {
-                // SAFETY: All nodes in graph.dependents were initialized in in_degree map
-                let degree = in_degree
-                    .get_mut(dependent)
-                    .expect("dependent node should exist in in_degree map");
-                *degree -= 1;
-                if *degree == 0 {
-                    queue.push(dependent.clone());
-                }
-            }
-        }
-    }
-
-    // If we haven't processed all nodes, there's a cycle
-    if result.len() != graph.dependencies.len() {
-        let unprocessed: Vec<_> = graph
-            .dependencies
-            .keys()
-            .filter(|k| !result.contains(k))
-            .cloned()
-            .collect();
-        return Err(Error::eval(format!(
+    crate::utils::graph::toposort_ids(&graph.dependencies).map_err(|unprocessed| {
+        Error::eval(format!(
             "Circular dependency detected in model. Affected nodes: {}",
             unprocessed.join(", ")
-        )));
-    }
-
-    Ok(result)
+        ))
+    })
 }
 
 /// Extract node dependencies from a formula string.
@@ -300,15 +255,15 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 /// and ignores references inside `lag()` and `shift()` calls, allowing for
 /// temporal cycles (like corkscrews) without blocking the DAG.
 fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> IndexSet<String> {
-    match crate::utils::formula::extract_direct_dependencies(formula) {
-        Ok(direct_deps) => direct_deps.intersection(all_node_ids).cloned().collect(),
-        Err(_) => {
-            // Fallback to string-based extraction if parsing fails
-            // This shouldn't happen given validate_formula_references ran first,
-            // but good for robustness.
-            crate::utils::formula::extract_identifiers(formula, all_node_ids)
-        }
-    }
+    crate::utils::formula::extract_direct_dependencies(formula)
+        .map(|direct_deps| direct_deps.intersection(all_node_ids).cloned().collect())
+        .unwrap_or_else(|err| {
+            debug_assert!(
+                false,
+                "Formula should have been validated earlier: {err}"
+            );
+            IndexSet::new()
+        })
 }
 
 /// Suggest similar identifiers for a typo using Levenshtein distance.

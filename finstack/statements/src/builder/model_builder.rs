@@ -1,6 +1,7 @@
 //! Type-state builder pattern for financial models.
 
 use crate::error::{Error, Result};
+use crate::registry::dynamic::StoredMetric;
 use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use finstack_core::dates::{build_periods, Period, PeriodId};
 use indexmap::{IndexMap, IndexSet};
@@ -141,6 +142,19 @@ impl ModelBuilder<NeedPeriods> {
 }
 
 impl ModelBuilder<Ready> {
+    fn insert_metric_node(
+        &mut self,
+        qualified_id: &str,
+        stored_metric: &StoredMetric,
+        formula: String,
+    ) {
+        let key = qualified_id.to_string();
+        let node = NodeSpec::new(key.clone(), NodeType::Calculated)
+            .with_name(stored_metric.definition.name.clone())
+            .with_formula(formula);
+        self.nodes.insert(key, node);
+    }
+
     /// Add a value node with explicit period values.
     ///
     /// Value nodes contain only explicit data (actuals or assumptions).
@@ -508,10 +522,11 @@ impl ModelBuilder<Ready> {
 
         // Add all metrics from the registry as calculated nodes
         for (qualified_id, stored_metric) in registry.all_metrics() {
-            let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
-                .with_name(stored_metric.definition.name.clone())
-                .with_formula(stored_metric.definition.formula.clone());
-            self.nodes.insert(qualified_id.to_string(), node);
+            self.insert_metric_node(
+                qualified_id,
+                stored_metric,
+                stored_metric.definition.formula.clone(),
+            );
         }
 
         Ok(self)
@@ -540,10 +555,11 @@ impl ModelBuilder<Ready> {
 
         // Add all metrics from the registry as calculated nodes
         for (qualified_id, stored_metric) in registry.all_metrics() {
-            let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
-                .with_name(stored_metric.definition.name.clone())
-                .with_formula(stored_metric.definition.formula.clone());
-            self.nodes.insert(qualified_id.to_string(), node);
+            self.insert_metric_node(
+                qualified_id,
+                stored_metric,
+                stored_metric.definition.formula.clone(),
+            );
         }
 
         Ok(self)
@@ -635,10 +651,7 @@ impl ModelBuilder<Ready> {
                     registry,
                 )?;
 
-                let dep_node = NodeSpec::new(dep_id.clone(), NodeType::Calculated)
-                    .with_name(dep_metric.definition.name.clone())
-                    .with_formula(formula);
-                self.nodes.insert(dep_id, dep_node);
+                self.insert_metric_node(&dep_id, dep_metric, formula);
             }
         }
 
@@ -653,10 +666,7 @@ impl ModelBuilder<Ready> {
                 registry,
             )?;
 
-            let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
-                .with_name(stored_metric.definition.name.clone())
-                .with_formula(formula);
-            self.nodes.insert(qualified_id.to_string(), node);
+            self.insert_metric_node(qualified_id, stored_metric, formula);
         }
 
         Ok(self)

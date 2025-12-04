@@ -377,3 +377,4 @@ When extending this module, keep in mind the core invariants from the `core` rul
 By following these patterns, new features in `core::money` will remain **deterministic, currency‑safe, and binding‑friendly** while fitting cleanly into the rest of the Finstack core.
 
 
+

@@ -25,12 +25,14 @@ class TenorUnit:
     YEARS: "TenorUnit"
 
     @classmethod
-    def from_symbol(cls, symbol: str) -> "TenorUnit": ...
-    """Parse a single-letter unit code (D/W/M/Y)."""
+    def from_symbol(cls, symbol: str) -> "TenorUnit":
+        """Parse a single-letter unit code (D/W/M/Y)."""
+        ...
 
     @property
-    def name(self) -> str: ...
-    """Lower-case unit label (``days``, ``weeks``, ``months``, ``years``)."""
+    def name(self) -> str:
+        """Lower-case unit label (``days``, ``weeks``, ``months``, ``years``)."""
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -50,19 +52,21 @@ class Tenor:
         Unit of the tenor (days/weeks/months/years).
     """
 
-    def __init__(self, count: int, unit: TenorUnit) -> None: ...
+    @classmethod
+    def parse(cls, text: str) -> "Tenor":
+        """Parse tenor strings like ``"1D"``, ``"3M"``, ``"1Y"``.
+
+        Raises
+        ------
+        ValueError
+            If the tenor string is empty or uses an unknown unit.
+        """
+        ...
 
     @classmethod
-    def parse(cls, text: str) -> "Tenor": ...
-    """Parse tenor strings like ``"1D"``, ``"3M"``, ``"1Y"``.
-
-    Raises
-    ------
-    ValueError
-        If the tenor string is empty or uses an unknown unit.
-    """
-
-    @classmethod
+    def from_years(cls, years: float, day_count: DayCount) -> "Tenor":
+        """Construct a tenor that approximates a given year fraction."""
+        ...
     def from_years(cls, years: float, day_count: DayCount) -> "Tenor": ...
     """Construct a tenor that approximates a given year fraction."""
 

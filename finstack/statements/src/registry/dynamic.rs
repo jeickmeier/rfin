@@ -268,59 +268,25 @@ impl Registry {
             dependencies.insert(metric_id.to_owned(), deps);
         }
 
-        // Topological sort using Kahn's algorithm
-        let mut sorted = Vec::new();
-        let mut in_degree: IndexMap<String, usize> = IndexMap::new();
+        let order =
+            crate::utils::graph::toposort_ids(&dependencies).map_err(|remaining| {
+                Error::registry(format!(
+                    "Circular dependency detected among metrics: {}",
+                    remaining.join(" -> ")
+                ))
+            })?;
 
-        // Calculate in-degrees
-        for metric_id in metric_map.keys() {
-            in_degree.insert(metric_id.clone(), 0);
-        }
-        for deps in dependencies.values() {
-            for dep in deps {
-                if metric_map.contains_key(dep) {
-                    *in_degree.entry(dep.to_owned()).or_insert(0) += 1;
-                }
-            }
-        }
-
-        // Queue of metrics with no dependencies
-        let mut queue: Vec<String> = in_degree
-            .iter()
-            .filter(|(_, &degree)| degree == 0)
-            .map(|(id, _)| id.clone())
+        let sorted = order
+            .into_iter()
+            .map(|metric_id| {
+                metric_map
+                    .get(&metric_id)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        panic!("metric '{}' missing from map despite dependency entry", metric_id)
+                    })
+            })
             .collect();
-
-        while let Some(metric_id) = queue.pop() {
-            sorted.push(metric_map[&metric_id].clone());
-
-            // Reduce in-degree for dependents
-            if let Some(deps) = dependencies.get(&metric_id) {
-                for dep in deps {
-                    if let Some(degree) = in_degree.get_mut(dep) {
-                        *degree -= 1;
-                        if *degree == 0 {
-                            queue.push(dep.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for circular dependencies
-        if sorted.len() != metric_map.len() {
-            // Find the cycle
-            let remaining: Vec<String> = metric_map
-                .keys()
-                .filter(|id| !sorted.iter().any(|m| &m.id == *id))
-                .cloned()
-                .collect();
-
-            return Err(Error::registry(format!(
-                "Circular dependency detected among metrics: {}",
-                remaining.join(" -> ")
-            )));
-        }
 
         Ok(sorted)
     }

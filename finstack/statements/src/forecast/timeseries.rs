@@ -235,11 +235,16 @@ fn double_exponential_smoothing(data: &[f64], alpha: f64, beta: f64) -> (f64, f6
 /// * `season_length` - Length of seasonal cycle (required)
 /// * `growth` - Growth rate to apply to trend (default: 0.0)
 /// * `mode` - SeasonalMode enum: "additive" or "multiplicative" (required)
+///
+/// Note: `base_value` is provided for API parity with other forecast methods but
+/// is not used in the seasonal calculation—the historical series establishes
+/// the level for projections.
 pub fn seasonal_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
+    // `base_value` is currently ignored for seasonal forecasts—historical data provides the level.
     seasonal_forecast_with_decomposition(base_value, forecast_periods, params)
 }
 
@@ -248,7 +253,7 @@ pub fn seasonal_forecast(
 /// This is the main implementation of seasonal forecasting, requiring historical
 /// data and explicit parameters for decomposition.
 fn seasonal_forecast_with_decomposition(
-    base_value: f64,
+    _base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
@@ -303,8 +308,10 @@ fn seasonal_forecast_with_decomposition(
 
     // Project forward
     let mut results = IndexMap::new();
-    let last_trend = trend.last().copied().unwrap_or(base_value);
-    let _last_level = hist_data.last().copied().unwrap_or(base_value);
+    let last_trend = trend
+        .last()
+        .copied()
+        .unwrap_or_else(|| hist_data.last().copied().unwrap_or(0.0));
 
     for (i, period_id) in forecast_periods.iter().enumerate() {
         // Calculate trend component with growth

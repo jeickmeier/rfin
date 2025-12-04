@@ -199,6 +199,23 @@ pub fn extract_identifiers(
     formula: &str,
     known_identifiers: &IndexSet<String>,
 ) -> IndexSet<String> {
+    if let Ok(ast) = parse_formula(formula) {
+        let mut identifiers = IndexSet::new();
+        collect_identifiers_from_ast(&ast, &mut identifiers, false);
+
+        return identifiers
+            .into_iter()
+            .filter(|id| known_identifiers.contains(id))
+            .collect();
+    }
+
+    extract_identifiers_by_scanning(formula, known_identifiers)
+}
+
+fn extract_identifiers_by_scanning(
+    formula: &str,
+    known_identifiers: &IndexSet<String>,
+) -> IndexSet<String> {
     let mut found = IndexSet::new();
 
     for identifier in known_identifiers {
@@ -307,10 +324,16 @@ mod tests {
 
     #[test]
     fn test_is_standalone_identifier_not_standalone() {
-        let _formula = "my_revenue - cogs";
+        let formula = "my_revenue - cogs";
+        let start = formula
+            .find("revenue")
+            .expect("substring should exist in test formula");
+        let end = start + "revenue".len();
 
-        // "revenue" inside "my_revenue" should NOT be standalone
-        // (we're not testing this exact scenario, but the function checks boundaries)
+        assert!(
+            !is_standalone_identifier(formula, start, end, false),
+            "embedded identifiers should not be treated as standalone"
+        );
     }
 
     #[test]

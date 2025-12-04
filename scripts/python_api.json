@@ -5396,7 +5396,7 @@
               "is_exported": true
             },
             {
-              "name": "NormalizationEngine;",
+              "name": "NormalizationEngine",
               "methods": [
                 {
                   "name": "normalize",
