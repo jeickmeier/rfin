@@ -84,3 +84,46 @@ pub fn apply_forecast(
         ForecastMethod::Seasonal => seasonal_forecast(base_value, forecast_periods, &spec.params),
     }
 }
+
+/// Apply a forecast method with an additional seed offset for statistical
+/// methods.
+///
+/// This is used by Monte Carlo evaluation to derive independent, but still
+/// deterministic, per-path seeds from the base seed configured in the
+/// [`ForecastSpec`].
+pub(crate) fn apply_forecast_with_seed_offset(
+    spec: &ForecastSpec,
+    base_value: f64,
+    forecast_periods: &[PeriodId],
+    seed_offset: u64,
+) -> Result<indexmap::IndexMap<PeriodId, f64>> {
+    use crate::types::ForecastMethod;
+
+    match spec.method {
+        ForecastMethod::Normal => {
+            // Clone params so we can override the seed without mutating the spec.
+            let mut params = spec.params.clone();
+            if let Some(seed_val) = params.get_mut("seed") {
+                if let Some(seed) = seed_val.as_u64() {
+                    let effective_seed = seed ^ seed_offset;
+                    *seed_val = serde_json::json!(effective_seed);
+                }
+            }
+            normal_forecast(base_value, forecast_periods, &params)
+        }
+        ForecastMethod::LogNormal => {
+            let mut params = spec.params.clone();
+            if let Some(seed_val) = params.get_mut("seed") {
+                if let Some(seed) = seed_val.as_u64() {
+                    let effective_seed = seed ^ seed_offset;
+                    *seed_val = serde_json::json!(effective_seed);
+                }
+            }
+            lognormal_forecast(base_value, forecast_periods, &params)
+        }
+        // Deterministic methods ignore the seed offset and reuse the
+        // standard apply_forecast implementation.
+        _ => apply_forecast(spec, base_value, forecast_periods),
+    }
+}
+

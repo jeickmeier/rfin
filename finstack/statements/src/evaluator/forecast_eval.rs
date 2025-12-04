@@ -24,6 +24,7 @@ pub(crate) fn evaluate_forecast(
     period_id: &PeriodId,
     context: &EvaluationContext,
     forecast_cache: &mut IndexMap<String, IndexMap<PeriodId, f64>>,
+    seed_offset: Option<u64>,
 ) -> Result<f64> {
     // Check cache first
     if let Some(cached) = forecast_cache.get(&node_spec.node_id) {
@@ -61,7 +62,16 @@ pub(crate) fn evaluate_forecast(
     let base_value = determine_base_value(node_spec, period_id, model, context)?;
 
     // Apply forecast method
-    let forecast_results = forecast::apply_forecast(forecast_spec, base_value, &forecast_periods)?;
+    let forecast_results = if let Some(offset) = seed_offset {
+        forecast::apply_forecast_with_seed_offset(
+            forecast_spec,
+            base_value,
+            &forecast_periods,
+            offset,
+        )?
+    } else {
+        forecast::apply_forecast(forecast_spec, base_value, &forecast_periods)?
+    };
 
     // Cache results
     forecast_cache.insert(node_spec.node_id.clone(), forecast_results.clone());

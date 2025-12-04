@@ -5,6 +5,7 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
+use finstack_statements::analysis::{MonteCarloConfig, MonteCarloResults as RsMonteCarloResults};
 use finstack_statements::evaluator::{Evaluator, Results, ResultsMeta};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -76,6 +77,23 @@ pub struct PyResults {
 
 impl PyResults {
     pub(crate) fn new(inner: Results) -> Self {
+        Self { inner }
+    }
+}
+
+/// Monte Carlo results for statement forecasts.
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "MonteCarloResults",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyMonteCarloResults {
+    pub(crate) inner: RsMonteCarloResults,
+}
+
+impl PyMonteCarloResults {
+    pub(crate) fn new(inner: RsMonteCarloResults) -> Self {
         Self { inner }
     }
 }
@@ -319,6 +337,88 @@ impl PyResults {
     }
 }
 
+#[pymethods]
+impl PyMonteCarloResults {
+    #[getter]
+    /// Number of Monte Carlo paths simulated.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Number of paths
+    fn n_paths(&self) -> usize {
+        self.inner.n_paths
+    }
+
+    #[getter]
+    /// Percentiles computed for each metric/period.
+    ///
+    /// Returns
+    /// -------
+    /// list[float]
+    ///     Percentile values in [0.0, 1.0]
+    fn percentiles(&self) -> Vec<f64> {
+        self.inner.percentiles.clone()
+    }
+
+    /// Get a percentile time series for a metric.
+    ///
+    /// Parameters
+    /// ----------
+    /// metric : str
+    ///     Metric / node identifier (e.g. ``\"ebitda\"``)
+    /// percentile : float
+    ///     Percentile in [0.0, 1.0] (e.g. 0.95 for P95)
+    ///
+    /// Returns
+    /// -------
+    /// dict[PeriodId, float] | None
+    ///     Map of period → percentile value or ``None`` if unavailable
+    fn get_percentile(
+        &self,
+        metric: &str,
+        percentile: f64,
+        py: Python<'_>,
+    ) -> Option<PyObject> {
+        if let Some(series) = self.inner.get_percentile_series(metric, percentile) {
+            let dict = PyDict::new(py);
+            for (period_id, value) in series {
+                dict.set_item(PyPeriodId::new(period_id), value).ok();
+            }
+            Some(dict.into())
+        } else {
+            None
+        }
+    }
+
+    /// Estimate breach probability for a metric crossing a threshold.
+    ///
+    /// The current implementation returns the probability that
+    /// ``metric > threshold`` in **any forecast period** across all paths.
+    ///
+    /// Parameters
+    /// ----------
+    /// metric : str
+    ///     Metric / node identifier (e.g. ``\"leverage\"``)
+    /// threshold : float
+    ///     Breach threshold (e.g. 4.5 for leverage)
+    ///
+    /// Returns
+    /// -------
+    /// float | None
+    ///     Breach probability in [0.0, 1.0] or ``None`` if metric not present
+    fn breach_probability(&self, metric: &str, threshold: f64) -> Option<f64> {
+        self.inner.breach_probability(metric, threshold)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MonteCarloResults(n_paths={}, percentiles={:?})",
+            self.inner.n_paths, self.inner.percentiles
+        )
+    }
+}
+
 /// Evaluator for financial models.
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
@@ -412,6 +512,50 @@ impl PyEvaluator {
         })?;
 
         Ok(PyResults::new(results))
+    }
+
+    #[pyo3(text_signature = "(self, model, n_paths, seed, percentiles=None)")]
+    /// Evaluate a financial model using Monte Carlo simulation of forecasts.
+    ///
+    /// This method replays the model ``n_paths`` times with independent, but
+    /// deterministic, seeds for stochastic forecast methods (Normal, LogNormal)
+    /// and aggregates paths into percentile bands.
+    ///
+    /// Parameters
+    /// ----------
+    /// model : FinancialModelSpec
+    ///     Financial model specification
+    /// n_paths : int
+    ///     Number of Monte Carlo paths to simulate
+    /// seed : int
+    ///     Base random seed (same inputs ⇒ same results)
+    /// percentiles : list[float] | None, optional
+    ///     Percentiles in [0.0, 1.0] (default: [0.05, 0.5, 0.95])
+    ///
+    /// Returns
+    /// -------
+    /// MonteCarloResults
+    ///     Monte Carlo percentile results
+    fn evaluate_monte_carlo(
+        &mut self,
+        py: Python<'_>,
+        model: &PyFinancialModelSpec,
+        n_paths: usize,
+        seed: u64,
+        percentiles: Option<Vec<f64>>,
+    ) -> PyResult<PyMonteCarloResults> {
+        let mut cfg = MonteCarloConfig::new(n_paths, seed);
+        if let Some(pcts) = percentiles {
+            cfg = cfg.with_percentiles(pcts);
+        }
+
+        let inner = py.allow_threads(|| {
+            self.inner
+                .evaluate_monte_carlo(&model.inner, &cfg)
+                .map_err(stmt_to_py)
+        })?;
+
+        Ok(PyMonteCarloResults::new(inner))
     }
 }
 
@@ -571,6 +715,7 @@ pub(crate) fn register<'py>(
 
     module.add_class::<PyResultsMeta>()?;
     module.add_class::<PyResults>()?;
+    module.add_class::<PyMonteCarloResults>()?;
     module.add_class::<PyEvaluator>()?;
     module.add_class::<PyEvaluatorWithContext>()?;
     module.add_class::<PyDependencyGraph>()?;
@@ -581,6 +726,7 @@ pub(crate) fn register<'py>(
     Ok(vec![
         "ResultsMeta",
         "Results",
+        "MonteCarloResults",
         "Evaluator",
         "EvaluatorWithContext",
         "DependencyGraph",

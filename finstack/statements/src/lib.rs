@@ -143,8 +143,9 @@ pub mod prelude {
     pub use crate::error::{Error, Result};
     pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, Results};
     pub use crate::analysis::{
-        BridgeChart, BridgeStep, ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet,
-        VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
+        BridgeChart, BridgeStep, MonteCarloConfig, MonteCarloResults, ScenarioDefinition,
+        ScenarioDiff, ScenarioResults, ScenarioSet, VarianceAnalyzer, VarianceConfig,
+        VarianceReport, VarianceRow,
     };
     pub use crate::extensions::{
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,

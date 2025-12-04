@@ -1,5 +1,6 @@
 //! Main evaluator implementation.
 
+use crate::analysis::{MonteCarloConfig, MonteCarloResults};
 use crate::dsl;
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
@@ -365,6 +366,94 @@ impl Evaluator {
         self.evaluate_with_market_context(model, None, None)
     }
 
+    /// Evaluate a financial model in Monte Carlo mode.
+    ///
+    /// This method replays the model `n_paths` times with independent, but
+    /// deterministic, seeds for stochastic forecast methods and aggregates
+    /// the resulting distribution into percentile bands.
+    ///
+    /// Monte Carlo evaluation currently focuses on statement forecasts and
+    /// does not support capital structure (`capital_structure`) integration.
+    pub fn evaluate_monte_carlo(
+        &mut self,
+        model: &FinancialModelSpec,
+        config: &MonteCarloConfig,
+    ) -> Result<MonteCarloResults> {
+        if config.n_paths == 0 {
+            return Err(Error::eval(
+                "Monte Carlo configuration requires n_paths > 0",
+            ));
+        }
+
+        if model.capital_structure.is_some() {
+            return Err(Error::eval(
+                "Monte Carlo evaluation for statements does not yet support capital_structure. \
+                 Run Monte Carlo on the underlying instruments using finstack-valuations \
+                 for capital structure analysis.",
+            ));
+        }
+
+        // Build dependency graph and evaluation order once.
+        let dag = DependencyGraph::from_model(model)?;
+        dag.detect_cycles()?;
+        let eval_order = evaluate_order(&dag)?;
+
+        // Compile formulas once and reset caches for this MC run.
+        self.compiled_cache.clear();
+        self.forecast_cache.clear();
+        self.compile_formulas(model)?;
+
+        // Build node-to-column index
+        let node_to_column: IndexMap<String, usize> = eval_order
+            .iter()
+            .enumerate()
+            .map(|(i, node_id)| (node_id.clone(), i))
+            .collect();
+
+        // Collect per-path node/period results.
+        let mut all_paths: Vec<IndexMap<String, IndexMap<PeriodId, f64>>> =
+            Vec::with_capacity(config.n_paths);
+
+        for path_idx in 0..config.n_paths {
+            // Clear forecast cache for each path to avoid sharing simulated
+            // values across paths.
+            self.forecast_cache.clear();
+
+            let seed_offset = config.seed.wrapping_add(path_idx as u64);
+            let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+
+            for period in &model.periods {
+                let (period_results, _warnings) = self.evaluate_period_mc(
+                    model,
+                    &period.id,
+                    period.is_actual,
+                    &eval_order,
+                    &node_to_column,
+                    &historical,
+                    seed_offset,
+                )?;
+
+                // Store in historical context for next period
+                historical.insert(period.id, period_results.clone());
+            }
+
+            // Transpose historical (period-centric) into node-centric layout.
+            let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
+            for (period_id, values) in &historical {
+                for (node_id, value) in values {
+                    node_map
+                        .entry(node_id.clone())
+                        .or_default()
+                        .insert(*period_id, *value);
+                }
+            }
+
+            all_paths.push(node_map);
+        }
+
+        crate::analysis::monte_carlo::aggregate_monte_carlo_paths(model, config, &all_paths)
+    }
+
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
         // Sequential compilation
@@ -563,6 +652,7 @@ impl Evaluator {
                         &period.id,
                         &context,
                         &mut self.forecast_cache,
+                        None,
                     )?
                 }
                 crate::evaluator::precedence::NodeValueSource::Formula(_) => {
@@ -680,6 +770,80 @@ impl Evaluator {
                         period_id,
                         &context,
                         &mut self.forecast_cache,
+                        None,
+                    )?
+                }
+                NodeValueSource::Formula(_) => {
+                    // Evaluate formula
+                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
+                        Error::eval(format!("No compiled formula for node '{}'", node_id))
+                    })?;
+                    evaluate_formula(expr, &mut context, Some(node_id))?
+                }
+            };
+
+            // Store in context for dependent nodes
+            context.set_value(node_id, value)?;
+        }
+
+        // Return results for this period
+        let (values, warnings) = context.into_results();
+        Ok((values, warnings))
+    }
+
+    /// Evaluate a single period for Monte Carlo paths.
+    ///
+    /// This is similar to [`evaluate_period`] but accepts a seed offset used to
+    /// perturb stochastic forecast methods while keeping all other behavior
+    /// identical.
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_period_mc(
+        &mut self,
+        model: &FinancialModelSpec,
+        period_id: &PeriodId,
+        is_actual: bool,
+        eval_order: &[String],
+        node_to_column: &IndexMap<String, usize>,
+        historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
+        seed_offset: u64,
+    ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
+        // Create evaluation context
+        let mut context =
+            EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
+
+        // Evaluate nodes in topological order
+        for node_id in eval_order {
+            let node_spec = model
+                .get_node(node_id)
+                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+
+            // Check where clause if present
+            if node_spec.where_text.is_some() {
+                let where_key = format!("__where__{}", node_id);
+                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
+                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
+                    // If where clause evaluates to false (0.0), skip this node
+                    if where_result == 0.0 {
+                        context.set_value(node_id, 0.0)?;
+                        continue;
+                    }
+                }
+            }
+
+            // Resolve value using precedence: Value > Forecast > Formula
+            let source = resolve_node_value(node_spec, period_id, is_actual)?;
+
+            let value = match source {
+                NodeValueSource::Value(v) => v,
+                NodeValueSource::Forecast => {
+                    // Evaluate forecast with per-path seed offset
+                    forecast_eval::evaluate_forecast(
+                        node_spec,
+                        model,
+                        period_id,
+                        &context,
+                        &mut self.forecast_cache,
+                        Some(seed_offset),
                     )?
                 }
                 NodeValueSource::Formula(_) => {

@@ -237,6 +237,53 @@ class DependencyGraph:
 
     def __repr__(self) -> str: ...
 
+
+class MonteCarloResults:
+    """Monte Carlo results for statement forecasts.
+
+    This structure stores percentile bands per metric and period for a Monte
+    Carlo evaluation of statement forecasts.
+    """
+
+    @property
+    def n_paths(self) -> int:
+        """Number of Monte Carlo paths simulated."""
+        ...
+
+    @property
+    def percentiles(self) -> List[float]:
+        """Percentiles computed for each metric/period."""
+        ...
+
+    def get_percentile(
+        self, metric: str, percentile: float
+    ) -> Optional[Dict[PeriodId, float]]:
+        """Get a percentile time series for a metric.
+
+        Args:
+            metric: Metric / node identifier (e.g. ``"ebitda"``)
+            percentile: Percentile in [0.0, 1.0] (e.g. 0.95 for P95)
+
+        Returns:
+            dict[PeriodId, float] | None: Map of period → percentile value.
+        """
+        ...
+
+    def breach_probability(self, metric: str, threshold: float) -> Optional[float]:
+        """Estimate breach probability for a metric crossing a threshold.
+
+        The current implementation returns the probability that
+        ``metric > threshold`` in any forecast period across all paths.
+
+        Args:
+            metric: Metric / node identifier (e.g. ``"leverage"``)
+            threshold: Breach threshold (e.g. 4.5 for leverage)
+
+        Returns:
+            float | None: Breach probability in [0.0, 1.0] or ``None``.
+        """
+        ...
+
 class Evaluator:
     """Evaluator for financial statement models.
 
@@ -335,6 +382,30 @@ class Evaluator:
 
         Returns:
             Results: Evaluation results
+        """
+        ...
+
+    def evaluate_monte_carlo(
+        self,
+        model: FinancialModelSpec,
+        n_paths: int,
+        seed: int,
+        percentiles: Optional[List[float]] = None,
+    ) -> MonteCarloResults:
+        """Evaluate a financial model using Monte Carlo simulation of forecasts.
+
+        This method replays the model ``n_paths`` times with independent, but
+        deterministic, seeds for stochastic forecast methods (Normal, LogNormal)
+        and aggregates paths into percentile bands.
+
+        Args:
+            model: Financial model specification
+            n_paths: Number of Monte Carlo paths to simulate
+            seed: Base random seed (same inputs ⇒ same results)
+            percentiles: Percentiles in [0.0, 1.0] (default: [0.05, 0.5, 0.95])
+
+        Returns:
+            MonteCarloResults: Monte Carlo percentile results.
         """
         ...
 
