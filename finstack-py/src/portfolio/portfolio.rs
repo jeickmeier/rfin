@@ -145,6 +145,12 @@ impl PyPortfolio {
         self.inner.validate().map_err(portfolio_to_py)
     }
 
+    #[pyo3(text_signature = "($self)")]
+    /// Check if the portfolio contains the dummy entity.
+    fn has_dummy_entity(&self) -> bool {
+        self.inner.has_dummy_entity()
+    }
+
     #[getter]
     /// Get the portfolio identifier.
     fn id(&self) -> String {

@@ -6,6 +6,7 @@ pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
 pub(crate) mod metrics;
+pub(crate) mod performance;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
@@ -43,6 +44,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let metrics_exports = metrics::register(py, &module)?;
     exports.extend(metrics_exports.iter().copied());
     promote_exports(&module, "metrics", &metrics_exports)?;
+
+    let performance_exports = performance::register(py, &module)?;
+    exports.extend(performance_exports.iter().copied());
+    promote_exports(&module, "performance", &performance_exports)?;
 
     let instrument_exports = instruments::register(py, &module)?;
     exports.extend(instrument_exports.iter().copied());

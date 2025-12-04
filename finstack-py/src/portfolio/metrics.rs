@@ -2,7 +2,9 @@
 
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::valuation::extract_portfolio_valuation;
-use finstack_portfolio::metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
+use finstack_portfolio::metrics::{
+    aggregate_metrics, is_summable, AggregatedMetric, PortfolioMetrics,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
@@ -219,6 +221,12 @@ fn py_aggregate_metrics(valuation: &Bound<'_, PyAny>) -> PyResult<PyPortfolioMet
     Ok(PyPortfolioMetrics::new(metrics))
 }
 
+/// Check if a metric can be summed across positions.
+#[pyfunction]
+fn py_is_summable(metric_id: &str) -> bool {
+    is_summable(metric_id)
+}
+
 /// Register metrics module exports.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
@@ -229,10 +237,13 @@ pub(crate) fn register<'py>(
 
     let wrapped_fn = wrap_pyfunction!(py_aggregate_metrics, parent)?;
     parent.add("aggregate_metrics", wrapped_fn)?;
+    let summable_fn = wrap_pyfunction!(py_is_summable, parent)?;
+    parent.add("is_summable", summable_fn)?;
 
     Ok(vec![
         "AggregatedMetric".to_string(),
         "PortfolioMetrics".to_string(),
         "aggregate_metrics".to_string(),
+        "is_summable".to_string(),
     ])
 }

@@ -16,10 +16,11 @@ Complete Python bindings for the `finstack-scenarios` crate with 100% parity bet
    - `PyTenorMatchMode`: Exact, Interpolate
 
 2. **Operation Specs** (`spec.rs`)
-   - `PyOperationSpec`: All 14 operation variants
+   - `PyOperationSpec`: All 18 operation variants
      - Market data: FX, equity, curves, vol surfaces, base correlation
      - Statements: forecast percent, forecast assign
      - Instruments: price/spread by type and attributes
+     - Structured credit: asset/prepay/recovery correlation, factor loading
      - Time: roll forward with carry/theta
    - Class methods for each operation type
    - Full JSON serialization support
@@ -27,11 +28,12 @@ Complete Python bindings for the `finstack-scenarios` crate with 100% parity bet
 3. **Scenario Specs** (`spec.rs`)
    - `PyScenarioSpec`: Complete scenario with operations and metadata
    - Properties: id, name, description, operations, priority
+   - Rate bindings: `RateBindingSpec` + `Compounding` exposed for statement curve links
    - JSON serialization: `to_json()`, `from_json()`, `to_dict()`, `from_dict()`
 
 4. **Execution Context** (`engine.rs`)
    - `PyExecutionContext`: Manages mutable state during scenario execution
-   - Fields: market, model, as_of, instruments, rate_bindings
+   - Fields: market, model, as_of, instruments (converted to `Box<dyn Instrument>`), rate_bindings, calendar
    - Property getters/setters for all fields
    - Handles complex reference management between Python and Rust
 
@@ -91,10 +93,7 @@ This approach ensures:
 
 ### Instrument Handling
 
-Currently implemented as placeholder (returns None) because:
-- Rust uses `Box<dyn Instrument>` trait objects
-- Full implementation would require dynamic downcasting from Python objects
-- Can be extended in future without breaking API
+Execution contexts now convert Python instrument wrappers into `Box<dyn Instrument>` using the existing valuation bindings. Structured credit shocks, price/spread shocks, and time-roll carry/theta all execute in Rust with no Python-side logic, and the mutable instrument state stays inside the context across applications.
 
 ## Test Results
 
@@ -227,4 +226,3 @@ The Python bindings provide complete parity with the Rust API while maintaining:
 - **Safety**: Type-safe operations with comprehensive error handling
 
 All code logic lives in Rust (`finstack/scenarios/`), with Python bindings serving as simple pass-throughs that manage the GIL and object lifetime correctly.
-

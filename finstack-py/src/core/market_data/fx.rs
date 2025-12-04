@@ -270,7 +270,10 @@ impl From<FxRateResult> for PyFxRateResult {
 ///
 /// Accepts `None` (defaults to cashflow date), an `FxConversionPolicy` instance,
 /// or a string label understood by `parse_policy_from_str`.
-fn parse_policy(_py: Python<'_>, policy: Option<Bound<'_, PyAny>>) -> PyResult<FxConversionPolicy> {
+pub(crate) fn parse_policy(
+    _py: Python<'_>,
+    policy: Option<Bound<'_, PyAny>>,
+) -> PyResult<FxConversionPolicy> {
     match policy {
         None => Ok(FxConversionPolicy::CashflowDate),
         Some(value) => {

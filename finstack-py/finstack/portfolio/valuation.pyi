@@ -6,6 +6,16 @@ from ...core.market_data.context import MarketContext
 from ...core.config import FinstackConfig
 from .portfolio import Portfolio
 
+class PortfolioValuationOptions:
+    """Options controlling portfolio valuation behaviour."""
+
+    def __init__(self, *, strict_risk: bool = False) -> None: ...
+
+    @property
+    def strict_risk(self) -> bool:
+        """When True, fail if requested risk metrics cannot be computed for a position."""
+        ...
+
 class PositionValue:
     """Result of valuing a single position.
 
@@ -284,3 +294,13 @@ See Also
 :class:`PositionValue`: Individual position valuation
 :class:`MarketContext`: Market data container
 """
+
+
+def value_portfolio_with_options(
+    portfolio: Portfolio,
+    market_context: MarketContext,
+    options: PortfolioValuationOptions,
+    config: Optional[FinstackConfig] = None,
+) -> PortfolioValuation:
+    """Value a portfolio using explicit valuation options (e.g., strict_risk)."""
+    ...

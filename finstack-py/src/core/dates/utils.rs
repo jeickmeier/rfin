@@ -174,6 +174,13 @@ fn quarter_py(date: Bound<'_, PyAny>) -> PyResult<u8> {
     Ok(d.quarter())
 }
 
+#[pyfunction(name = "months_until", text_signature = "(start, end)")]
+fn months_until_py(start: Bound<'_, PyAny>, end: Bound<'_, PyAny>) -> PyResult<u32> {
+    let start_date = py_to_date(&start)?;
+    let end_date = py_to_date(&end)?;
+    Ok(start_date.months_until(end_date))
+}
+
 /// Fiscal year corresponding to the date under a given fiscal configuration.
 ///
 /// Parameters
@@ -392,6 +399,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(last_day_of_month_py, &module)?)?;
     module.add_function(wrap_pyfunction!(is_weekend_py, &module)?)?;
     module.add_function(wrap_pyfunction!(quarter_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(months_until_py, &module)?)?;
     module.add_function(wrap_pyfunction!(fiscal_year_py, &module)?)?;
     module.add_function(wrap_pyfunction!(add_weekdays_py, &module)?)?;
     module.add_function(wrap_pyfunction!(add_business_days_py, &module)?)?;
@@ -414,6 +422,7 @@ pub(crate) fn register<'py>(
         "is_leap_year",
         "is_weekend",
         "last_day_of_month",
+        "months_until",
         "quarter",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;

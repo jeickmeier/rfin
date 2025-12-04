@@ -4,6 +4,7 @@ from typing import Union
 
 # Monte Carlo submodule
 from . import mc
+from . import parse
 
 class InstrumentType:
     """Enumerates instrument families supported by the valuation engines.
@@ -172,3 +173,12 @@ class PricerKey:
     def __repr__(self) -> str: ...
     def __hash__(self) -> int: ...
     def __richcmp__(self, other: object, op: int) -> object: ...
+
+# Exported symbols for IDEs
+__all__ = [
+    "InstrumentType",
+    "ModelKey",
+    "PricerKey",
+    "mc",
+    "parse",
+]

@@ -501,6 +501,7 @@ pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
 
 pub(crate) mod mc;
 pub(crate) mod parameters;
+pub(crate) mod parse;
 
 pub(crate) fn register<'py>(
     py: Python<'py>,
@@ -518,12 +519,16 @@ pub(crate) fn register<'py>(
     // Register parameter types submodule
     let _param_exports = parameters::register(py, &module)?;
 
+    // Register parsing helpers
+    let parse_exports = parse::register(py, &module)?;
+
     // Register Monte Carlo submodule
     let mc_exports = mc::register(py, &module)?;
 
     // Combine all exports
     let mut all_exports = vec!["InstrumentType", "ModelKey", "PricerKey"];
     all_exports.extend(mc_exports.iter().copied());
+    all_exports.extend(parse_exports.iter().copied());
 
     module.setattr("__all__", PyList::new(py, &all_exports)?)?;
     parent.add_submodule(&module)?;

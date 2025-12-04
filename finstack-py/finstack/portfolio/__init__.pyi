@@ -2,16 +2,44 @@
 
 This module provides portfolio-level operations including entity and position
 management, valuation aggregation, metrics calculation, attribute-based grouping,
-and DataFrame exports for analysis.
+P&L attribution, margin aggregation, and DataFrame exports for analysis.
 """
 
-from .types import Entity, PositionUnit, Position
+from .types import Entity, PositionUnit, Position, DUMMY_ENTITY_ID
 from .portfolio import Portfolio
 from .builder import PortfolioBuilder
-from .valuation import PositionValue, PortfolioValuation, value_portfolio
-from .metrics import AggregatedMetric, PortfolioMetrics, aggregate_metrics
+from .valuation import (
+    PositionValue,
+    PortfolioValuation,
+    PortfolioValuationOptions,
+    value_portfolio,
+    value_portfolio_with_options,
+)
+from .metrics import AggregatedMetric, PortfolioMetrics, aggregate_metrics, is_summable
 from .results import PortfolioResults
 from .grouping import group_by_attribute, aggregate_by_attribute
+from .attribution import PortfolioAttribution, attribute_portfolio_pnl
+from .cashflows import (
+    PortfolioCashflows,
+    PortfolioCashflowBuckets,
+    aggregate_cashflows,
+    collapse_cashflows_to_base_by_date,
+    cashflows_to_base_by_period,
+)
+from .dataframe import (
+    positions_to_polars,
+    entities_to_polars,
+    metrics_to_polars,
+    aggregated_metrics_to_polars,
+)
+from .margin import (
+    NettingSetId,
+    NettingSet,
+    NettingSetManager,
+    NettingSetMargin,
+    PortfolioMarginResult,
+    PortfolioMarginAggregator,
+)
 
 # Scenario integration (if available)
 try:
@@ -21,17 +49,38 @@ try:
         "Entity",
         "PositionUnit",
         "Position",
+        "DUMMY_ENTITY_ID",
         "Portfolio",
         "PortfolioBuilder",
         "PositionValue",
         "PortfolioValuation",
+        "PortfolioValuationOptions",
         "value_portfolio",
+        "value_portfolio_with_options",
         "AggregatedMetric",
         "PortfolioMetrics",
         "aggregate_metrics",
+        "is_summable",
         "PortfolioResults",
         "group_by_attribute",
         "aggregate_by_attribute",
+        "PortfolioAttribution",
+        "attribute_portfolio_pnl",
+        "PortfolioCashflows",
+        "PortfolioCashflowBuckets",
+        "aggregate_cashflows",
+        "collapse_cashflows_to_base_by_date",
+        "cashflows_to_base_by_period",
+        "positions_to_polars",
+        "entities_to_polars",
+        "metrics_to_polars",
+        "aggregated_metrics_to_polars",
+        "NettingSetId",
+        "NettingSet",
+        "NettingSetManager",
+        "NettingSetMargin",
+        "PortfolioMarginResult",
+        "PortfolioMarginAggregator",
         "apply_scenario",
         "apply_and_revalue",
     ]
@@ -40,15 +89,36 @@ except ImportError:
         "Entity",
         "PositionUnit",
         "Position",
+        "DUMMY_ENTITY_ID",
         "Portfolio",
         "PortfolioBuilder",
         "PositionValue",
         "PortfolioValuation",
+        "PortfolioValuationOptions",
         "value_portfolio",
+        "value_portfolio_with_options",
         "AggregatedMetric",
         "PortfolioMetrics",
         "aggregate_metrics",
+        "is_summable",
         "PortfolioResults",
         "group_by_attribute",
         "aggregate_by_attribute",
+        "PortfolioAttribution",
+        "attribute_portfolio_pnl",
+        "PortfolioCashflows",
+        "PortfolioCashflowBuckets",
+        "aggregate_cashflows",
+        "collapse_cashflows_to_base_by_date",
+        "cashflows_to_base_by_period",
+        "positions_to_polars",
+        "entities_to_polars",
+        "metrics_to_polars",
+        "aggregated_metrics_to_polars",
+        "NettingSetId",
+        "NettingSet",
+        "NettingSetManager",
+        "NettingSetMargin",
+        "PortfolioMarginResult",
+        "PortfolioMarginAggregator",
     ]

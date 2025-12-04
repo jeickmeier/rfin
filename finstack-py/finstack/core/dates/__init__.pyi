@@ -6,6 +6,7 @@ This module provides comprehensive date handling capabilities:
 - Periods: Fiscal periods, quarters, months, weeks
 - Schedules: Payment schedules and frequency handling
 - Utils: Date arithmetic and manipulation functions
+- Tenor: Market-standard tenor parsing and calendar-aware conversions
 """
 
 from . import calendar
@@ -14,6 +15,7 @@ from . import imm
 from . import periods
 from . import rate_conversions
 from . import schedule
+from . import tenor
 from . import utils
 
 __all__ = [
@@ -23,5 +25,6 @@ __all__ = [
     "periods",
     "rate_conversions",
     "schedule",
+    "tenor",
     "utils",
 ]

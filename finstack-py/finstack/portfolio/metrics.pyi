@@ -185,3 +185,8 @@ See Also
 :class:`AggregatedMetric`: Aggregated metric structure
 :func:`value_portfolio`: Portfolio valuation
 """
+
+
+def is_summable(metric_id: str) -> bool:
+    """Return True if a metric can be meaningfully summed across positions (e.g., dv01)."""
+    ...

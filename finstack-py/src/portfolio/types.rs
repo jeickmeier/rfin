@@ -1,13 +1,15 @@
 //! Python bindings for portfolio core types.
 
 use crate::core::currency::PyCurrency;
+use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
 use crate::valuations::instruments::extract_instrument;
 use finstack_portfolio::{Entity, Position, PositionUnit};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyModule};
+use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyTuple};
 use pyo3::Bound;
+use pythonize::{depythonize, pythonize};
 use std::sync::Arc;
 
 /// An entity that can hold positions.
@@ -86,6 +88,39 @@ impl PyEntity {
         Self::new(self.inner.clone().with_tag(key, value))
     }
 
+    #[pyo3(text_signature = "($self, tags)")]
+    /// Add multiple tags to the entity.
+    fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(dict) = tags.downcast::<PyDict>() {
+            let mut collected = Vec::with_capacity(dict.len());
+            for (k, v) in dict {
+                collected.push((k.extract::<String>()?, v.extract::<String>()?));
+            }
+            return Ok(Self::new(self.inner.clone().with_tags(collected)));
+        }
+
+        if let Ok(list) = tags.downcast::<PyList>() {
+            let mut collected = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                let tuple = item.downcast::<PyTuple>()?;
+                if tuple.len() != 2 {
+                    return Err(PyTypeError::new_err(
+                        "Expected sequence of (key, value) pairs",
+                    ));
+                }
+                collected.push((
+                    tuple.get_item(0)?.extract::<String>()?,
+                    tuple.get_item(1)?.extract::<String>()?,
+                ));
+            }
+            return Ok(Self::new(self.inner.clone().with_tags(collected)));
+        }
+
+        Err(PyTypeError::new_err(
+            "Expected mapping or list of (key, value) pairs",
+        ))
+    }
+
     #[staticmethod]
     #[pyo3(text_signature = "()")]
     /// Create the dummy entity for standalone instruments.
@@ -126,7 +161,7 @@ impl PyEntity {
     #[getter]
     /// Get entity metadata.
     fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let bound = pythonize::pythonize(py, &self.inner.meta)
+        let bound = pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())
     }
@@ -330,6 +365,60 @@ impl PyPosition {
         self.inner.is_short()
     }
 
+    #[pyo3(text_signature = "($self, key, value)")]
+    /// Add a tag to the position (builder pattern).
+    fn with_tag(&self, key: String, value: String) -> Self {
+        Self::new(self.inner.clone().with_tag(key, value))
+    }
+
+    #[pyo3(text_signature = "($self, tags)")]
+    /// Add multiple tags to the position.
+    fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(dict) = tags.downcast::<PyDict>() {
+            let mut collected = Vec::with_capacity(dict.len());
+            for (k, v) in dict {
+                collected.push((k.extract::<String>()?, v.extract::<String>()?));
+            }
+            return Ok(Self::new(self.inner.clone().with_tags(collected)));
+        }
+
+        if let Ok(list) = tags.downcast::<PyList>() {
+            let mut collected = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                let tuple = item.downcast::<PyTuple>()?;
+                if tuple.len() != 2 {
+                    return Err(PyTypeError::new_err(
+                        "Expected sequence of (key, value) pairs",
+                    ));
+                }
+                collected.push((
+                    tuple.get_item(0)?.extract::<String>()?,
+                    tuple.get_item(1)?.extract::<String>()?,
+                ));
+            }
+            return Ok(Self::new(self.inner.clone().with_tags(collected)));
+        }
+
+        Err(PyTypeError::new_err(
+            "Expected mapping or list of (key, value) pairs",
+        ))
+    }
+
+    #[pyo3(text_signature = "($self, key, value)")]
+    /// Add metadata to the position.
+    fn with_meta(&self, key: String, value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let json_value: serde_json::Value = depythonize(value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert meta value: {}", e)))?;
+        Ok(Self::new(self.inner.clone().with_meta(key, json_value)))
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    /// Scale a monetary value by the position quantity and unit.
+    fn scale_value(&self, money: &Bound<'_, PyAny>) -> PyResult<PyMoney> {
+        let cash = money.extract::<PyRef<PyMoney>>()?.inner;
+        Ok(PyMoney::new(self.inner.scale_value(cash)))
+    }
+
     #[getter]
     /// Get the position identifier.
     fn position_id(&self) -> String {
@@ -373,7 +462,7 @@ impl PyPosition {
     #[getter]
     /// Get position metadata.
     fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let bound = pythonize::pythonize(py, &self.inner.meta)
+        let bound = pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())
     }
@@ -427,10 +516,15 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyEntity>()?;
     parent.add_class::<PyPositionUnit>()?;
     parent.add_class::<PyPosition>()?;
+    parent.setattr(
+        "DUMMY_ENTITY_ID",
+        finstack_portfolio::types::DUMMY_ENTITY_ID,
+    )?;
 
     Ok(vec![
         "Entity".to_string(),
         "PositionUnit".to_string(),
         "Position".to_string(),
+        "DUMMY_ENTITY_ID".to_string(),
     ])
 }

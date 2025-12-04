@@ -184,6 +184,10 @@ class Portfolio:
         """
         ...
 
+    def has_dummy_entity(self) -> bool:
+        """Return True if the portfolio contains the dummy entity (_standalone)."""
+        ...
+
     @property
     def id(self) -> str:
         """Get the portfolio identifier."""

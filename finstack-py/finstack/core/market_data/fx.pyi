@@ -1,8 +1,4 @@
-"""Foreign exchange bindings.
-
-Provides FX rate management and conversion policies
-for multi-currency calculations.
-"""
+"""Foreign exchange bindings for FX policies, configuration, and matrices."""
 
 from typing import List, Tuple, Optional, Union
 from datetime import date
@@ -12,11 +8,16 @@ class FxConversionPolicy:
     """FX conversion policy for cross-currency calculations.
 
     Available policies:
-    - NoConversion: No conversion (error if currencies differ)
-    - ConvertToBase: Convert to base currency
-    - ConvertToQuote: Convert to quote currency
-    - ConvertToPivot: Convert to pivot currency
+    - CASHFLOW_DATE: Use cashflow date
+    - PERIOD_END: Use period end date
+    - PERIOD_AVERAGE: Average over the period
+    - CUSTOM: Application-defined
     """
+
+    CASHFLOW_DATE: "FxConversionPolicy"
+    PERIOD_END: "FxConversionPolicy"
+    PERIOD_AVERAGE: "FxConversionPolicy"
+    CUSTOM: "FxConversionPolicy"
 
     @classmethod
     def from_name(cls, name: str) -> FxConversionPolicy: ...
@@ -45,12 +46,6 @@ class FxConversionPolicy:
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
-
-# FX conversion policy constants
-NoConversion: FxConversionPolicy
-ConvertToBase: FxConversionPolicy
-ConvertToQuote: FxConversionPolicy
-ConvertToPivot: FxConversionPolicy
 
 class FxConfig:
     """Configuration for FX matrix behavior and triangulation.
@@ -272,8 +267,7 @@ class FxMatrix:
     Raises
     ------
     ValueError
-        If no direct quote exists and triangulation is disabled or fails,
-        or if the currencies are the same (returns 1.0 but logs warning).
+        If no direct quote exists and triangulation is disabled or fails.
 
     Notes
     -----
@@ -281,7 +275,7 @@ class FxMatrix:
     - The 'on' parameter is used for policy selection, not rate lookup
     - Inverse rates are automatically available (querying USD/EUR when EUR/USD exists)
     - Triangulation requires both currencies to have quotes against the pivot
-    - Use :meth:`cache_stats` to monitor cache hit rates
+    - Use :meth:`cache_stats` to monitor cache usage
         
     See Also
     --------
@@ -290,12 +284,6 @@ class FxMatrix:
     """
 
     def cache_stats(self) -> Tuple[int, int]: ...
-    """Get cache statistics.
-    
-    Returns
-    -------
-    Tuple[int, int]
-        (hits, misses) cache statistics.
-    """
+    """Get cache statistics as (stored_quotes, reserved_capacity)."""
 
     def __repr__(self) -> str: ...

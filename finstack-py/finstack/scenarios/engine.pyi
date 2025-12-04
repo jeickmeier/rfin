@@ -3,6 +3,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import date
 from ...core.market_data.context import MarketContext
+from ...core.dates import Calendar
 from ...statements.types.model import FinancialModelSpec
 from .spec import ScenarioSpec
 from .reports import ApplicationReport
@@ -13,6 +14,13 @@ class ExecutionContext:
     Holds all mutable state that a scenario can touch — market data,
     statement models, instruments, and rate bindings — together with
     the current valuation date.
+
+    Notes
+    -----
+    - Instruments should be constructed from ``finstack.valuations.instruments``;
+      they are converted to Rust trait objects and mutated in-place.
+    - ``calendar`` enables business-day aware tenor alignment for curve shocks.
+    - ``as_of`` may advance when ``time_roll_forward`` operations are applied.
 
     Args:
         market: Market data context (curves, surfaces, FX, etc.)
@@ -42,6 +50,7 @@ class ExecutionContext:
         as_of: date,
         instruments: Optional[List[Any]] = None,
         rate_bindings: Optional[Dict[str, str]] = None,
+        calendar: Optional[Calendar] = None,
     ) -> None:
         """Create a new execution context.
 
@@ -49,8 +58,9 @@ class ExecutionContext:
             market: Market data context
             model: Financial model
             as_of: Valuation date
-            instruments: Optional instruments
-            rate_bindings: Optional rate bindings
+            instruments: Optional instruments (mutated in-place during shocks)
+            rate_bindings: Optional rate bindings for statement rate updates
+            calendar: Optional holiday calendar for tenor alignment and date math
         """
         ...
 
@@ -124,6 +134,16 @@ class ExecutionContext:
         Args:
             value: New rate bindings
         """
+        ...
+
+    @property
+    def calendar(self) -> Optional[Calendar]:
+        """Get the holiday calendar used for business-day adjustments."""
+        ...
+
+    @calendar.setter
+    def calendar(self, value: Optional[Calendar]) -> None:
+        """Set the holiday calendar for tenor alignment."""
         ...
 
     def __repr__(self) -> str: ...
@@ -228,6 +248,10 @@ class ScenarioEngine:
         Raises:
             ValueError: If operation cannot be completed (e.g., missing market data,
                        unsupported operation, or invalid tenor strings)
+
+        Notes:
+            - Mutates ``context`` in-place (market, model, instruments, ``as_of``).
+            - Honors ``calendar`` on the context for tenor parsing and date math.
         """
         ...
 

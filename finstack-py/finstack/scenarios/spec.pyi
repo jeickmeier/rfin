@@ -1,4 +1,12 @@
-"""Scenario specification bindings."""
+"""Scenario specification bindings for the finstack.scenarios module.
+
+These types are thin, documented wrappers over the Rust structs. They are
+fully serializable (``to_dict``/``from_dict``/``to_json``) and contain no
+Python-side business logic — everything executes in Rust.
+
+Use :class:`OperationSpec` to declare shocks, :class:`ScenarioSpec` to group
+them, and :class:`RateBindingSpec` to link market curves into statement nodes.
+"""
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date
@@ -6,10 +14,85 @@ from ...core.currency import Currency
 from ...valuations.common import InstrumentType
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode
 
+class Compounding:
+    """Compounding convention for rate conversions.
+
+    Use the class attributes to select a convention:
+    ``Compounding.Simple``, ``Continuous`` (default), ``Annual``,
+    ``SemiAnnual``, ``Quarterly``, ``Monthly``.
+    """
+
+    Simple: Compounding
+    Continuous: Compounding
+    Annual: Compounding
+    SemiAnnual: Compounding
+    Quarterly: Compounding
+    Monthly: Compounding
+
+class RateBindingSpec:
+    """Configuration for rate binding between curves and statement nodes.
+
+    A rate binding tells the scenario engine how to pull a rate off a curve
+    and feed it into a statement forecast node. All computation happens in
+    Rust; this class only carries data.
+    """
+
+    def __init__(
+        self,
+        node_id: str,
+        curve_id: str,
+        tenor: str,
+        compounding: Optional[Compounding] = None,
+        day_count: Optional[str] = None,
+    ) -> None: ...
+
+    @property
+    def node_id(self) -> str:
+        """Statement node ID to receive the bound rate."""
+
+    @property
+    def curve_id(self) -> str:
+        """Curve identifier to extract the rate from."""
+
+    @property
+    def tenor(self) -> str:
+        """Tenor string (e.g., ``\"3M\"``) used for rate extraction."""
+
+    @property
+    def compounding(self) -> Compounding:
+        """Compounding convention used when converting the extracted rate."""
+
+    @property
+    def day_count(self) -> Optional[str]:
+        """Optional day-count override; defaults to the curve's convention."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serializable mapping."""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> RateBindingSpec:
+        """Create a binding spec from a JSON-style mapping."""
+
+    def __repr__(self) -> str: ...
+
 class OperationSpec:
     """Individual operation within a scenario.
 
-    Use class methods to construct specific operation types.
+    Use class methods to construct specific operation types. Operations are
+    data-only; they are passed straight to the Rust engine for execution.
+
+    Categories
+    ----------
+    - Market data: ``market_fx_pct``, ``curve_parallel_bp``, ``curve_node_bp``,
+      ``vol_surface_parallel_pct``, ``vol_surface_bucket_pct``,
+      ``basecorr_parallel_pts``, ``basecorr_bucket_pts``
+    - Instruments: ``instrument_price_pct_by_type``, ``instrument_spread_bp_by_type``,
+      ``instrument_price_pct_by_attr``, ``instrument_spread_bp_by_attr``
+    - Statements: ``stmt_forecast_percent``, ``stmt_forecast_assign``
+    - Structured credit: ``asset_correlation_pts``,
+      ``prepay_default_correlation_pts``, ``recovery_correlation_pts``,
+      ``prepay_factor_loading_pts``
+    - Time: ``time_roll_forward``
 
     Examples:
         >>> from finstack.scenarios import OperationSpec, CurveKind
@@ -221,6 +304,54 @@ class OperationSpec:
         Args:
             instrument_types: List of instrument types to shock
             bp: Basis points to add
+
+        Returns:
+            OperationSpec: Operation specification
+        """
+        ...
+
+    @classmethod
+    def asset_correlation_pts(cls, delta_pts: float) -> OperationSpec:
+        """Shock asset correlation for structured credit instruments.
+
+        Args:
+            delta_pts: Additive shock in correlation points (e.g., 0.05 for +5%)
+
+        Returns:
+            OperationSpec: Operation specification
+        """
+        ...
+
+    @classmethod
+    def prepay_default_correlation_pts(cls, delta_pts: float) -> OperationSpec:
+        """Shock prepay-default correlation for structured credit instruments.
+
+        Args:
+            delta_pts: Additive shock in correlation points
+
+        Returns:
+            OperationSpec: Operation specification
+        """
+        ...
+
+    @classmethod
+    def recovery_correlation_pts(cls, delta_pts: float) -> OperationSpec:
+        """Shock recovery-default correlation for structured credit instruments.
+
+        Args:
+            delta_pts: Additive shock in correlation points
+
+        Returns:
+            OperationSpec: Operation specification
+        """
+        ...
+
+    @classmethod
+    def prepay_factor_loading_pts(cls, delta_pts: float) -> OperationSpec:
+        """Shock prepayment factor loading (systematic factor sensitivity).
+
+        Args:
+            delta_pts: Additive shock to factor loading
 
         Returns:
             OperationSpec: Operation specification

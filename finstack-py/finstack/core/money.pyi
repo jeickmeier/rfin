@@ -1,13 +1,9 @@
-"""Money bindings: currency-tagged amounts with safe arithmetic.
+"""Money bindings: currency-tagged amounts with safe arithmetic and FX conversion."""
 
-This module exposes the Rust Money type to Python with currency safety:
-arithmetic requires matching currencies and raises ValueError otherwise.
-Formatting respects ISO minor units by default and can be customized via
-FinstackConfig ingest/output scales.
-"""
-
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
+from datetime import date
 from .currency import Currency
+from .market_data.fx import FxMatrix, FxConversionPolicy
 
 class Money:
     """Currency-tagged monetary amount with type-safe arithmetic.
@@ -172,6 +168,33 @@ class Money:
     -------
     str
         Formatted string respecting config rules.
+    """
+
+    def format_custom(self, decimals: int, show_currency: bool = True) -> str: ...
+    """Format with explicit decimal places and optional currency code."""
+
+    def format_with_separators(self, decimals: int) -> str: ...
+    """Format with thousands separators and explicit decimal places."""
+
+    def convert(
+        self,
+        to_currency: Union[str, Currency],
+        on: "date",
+        fx_matrix: FxMatrix,
+        policy: Optional[Union[str, FxConversionPolicy]] = None,
+    ) -> Money: ...
+    """Convert this amount into another currency using an FX matrix.
+
+    Parameters
+    ----------
+    to_currency : str or Currency
+        Target currency.
+    on : date
+        Valuation date for the conversion.
+    fx_matrix : FxMatrix
+        FX source used to obtain rates.
+    policy : FxConversionPolicy or str, optional
+        Conversion timing policy (defaults to cashflow_date).
     """
 
     def checked_add(self, other: Money) -> Money: ...

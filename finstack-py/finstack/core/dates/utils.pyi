@@ -47,6 +47,10 @@ def quarter(d: Union[str, date]) -> int: ...
 
 """Return the calendar quarter (1-4) for the given date."""
 
+def months_until(start: Union[str, date], end: Union[str, date]) -> int: ...
+
+"""Number of whole calendar months from ``start`` to ``end`` (0 if end precedes start)."""
+
 def fiscal_year(d: Union[str, date], config: "FiscalConfig") -> int: ...
 
 """Return the fiscal year for a date under the given FiscalConfig."""

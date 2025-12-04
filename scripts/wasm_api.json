@@ -223,11 +223,6 @@
             }
           ]
         },
-        "core.progress": {
-          "path": "core/progress.rs",
-          "classes": [],
-          "functions": []
-        },
         "core.currency": {
           "path": "core/currency.rs",
           "classes": [
@@ -286,6 +281,12 @@
             {
               "name": "DayCountContext",
               "js_name": "DayCountContext",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "DayCountContextState",
+              "js_name": "DayCountContextState",
               "methods": [],
               "properties": []
             },
@@ -404,6 +405,46 @@
             {
               "name": "frequency",
               "js_name": "frequency"
+            },
+            {
+              "name": "to_state",
+              "js_name": "toState"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_context",
+              "js_name": "fromContext"
+            },
+            {
+              "name": "to_context",
+              "js_name": "toContext"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "bus_basis",
+              "js_name": "busBasis"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
               "name": "new_from_name",
@@ -532,6 +573,12 @@
               "js_name": "Schedule",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "ScheduleSpec",
+              "js_name": "ScheduleSpec",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -618,6 +665,30 @@
             {
               "name": "to_array",
               "js_name": "toArray"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "build",
+              "js_name": "build"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
             }
           ]
         },
@@ -1014,6 +1085,10 @@
             {
               "name": "cubic_hermite",
               "js_name": "CubicHermite"
+            },
+            {
+              "name": "flat_fwd",
+              "js_name": "LogLinear"
             },
             {
               "name": "from_name",
@@ -1724,12 +1799,6 @@
               "js_name": "CashFlow",
               "methods": [],
               "properties": []
-            },
-            {
-              "name": "AmortizationSpec",
-              "js_name": "AmortizationSpec",
-              "methods": [],
-              "properties": []
             }
           ],
           "functions": [
@@ -1774,28 +1843,8 @@
               "js_name": "toString"
             },
             {
-              "name": "fixed",
-              "js_name": "fixed"
-            },
-            {
-              "name": "floating",
-              "js_name": "floating"
-            },
-            {
-              "name": "pik",
-              "js_name": "pik"
-            },
-            {
-              "name": "amortization",
-              "js_name": "amortization"
-            },
-            {
-              "name": "principal_exchange",
-              "js_name": "principalExchange"
-            },
-            {
-              "name": "fee",
-              "js_name": "fee"
+              "name": "validate",
+              "js_name": "validate"
             },
             {
               "name": "kind",
@@ -1824,34 +1873,6 @@
             {
               "name": "to_tuple",
               "js_name": "toTuple"
-            },
-            {
-              "name": "none",
-              "js_name": "none"
-            },
-            {
-              "name": "linear_to",
-              "js_name": "linearTo"
-            },
-            {
-              "name": "step_remaining",
-              "js_name": "stepRemaining"
-            },
-            {
-              "name": "percent_per_period",
-              "js_name": "percentPerPeriod"
-            },
-            {
-              "name": "custom_principal",
-              "js_name": "customPrincipal"
-            },
-            {
-              "name": "to_string",
-              "js_name": "toString"
-            },
-            {
-              "name": "to_schedule",
-              "js_name": "toSchedule"
             }
           ]
         },
@@ -1867,12 +1888,6 @@
             {
               "name": "BrentSolver",
               "js_name": "BrentSolver",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "HybridSolver",
-              "js_name": "HybridSolver",
               "methods": [],
               "properties": []
             }
@@ -1949,34 +1964,6 @@
             {
               "name": "set_initial_bracket_size",
               "js_name": "initialBracketSize"
-            },
-            {
-              "name": "solve",
-              "js_name": "solve"
-            },
-            {
-              "name": "to_string_js",
-              "js_name": "toString"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "tolerance",
-              "js_name": "tolerance"
-            },
-            {
-              "name": "set_tolerance",
-              "js_name": "set_tolerance"
-            },
-            {
-              "name": "max_iterations",
-              "js_name": "maxIterations"
-            },
-            {
-              "name": "set_max_iterations",
-              "js_name": "maxIterations"
             },
             {
               "name": "solve",
@@ -2101,11 +2088,13 @@
         "Currency",
         "Frequency",
         "DayCountContext",
+        "DayCountContextState",
         "DayCount",
         "FsDate",
         "StubKind",
         "ScheduleBuilder",
         "Schedule",
+        "ScheduleSpec",
         "FiscalConfig",
         "PeriodId",
         "Period",
@@ -2133,10 +2122,8 @@
         "CreditIndexData",
         "CFKind",
         "CashFlow",
-        "AmortizationSpec",
         "NewtonSolver",
         "BrentSolver",
-        "HybridSolver",
         "GaussHermiteQuadrature"
       ],
       "functions": [
@@ -2199,6 +2186,16 @@
         "clearBusBasis",
         "calendarCode",
         "frequency",
+        "toState",
+        "new",
+        "new",
+        "fromContext",
+        "toContext",
+        "calendarId",
+        "frequency",
+        "busBasis",
+        "toJson",
+        "fromJson",
         "new_from_name",
         "new_from_name",
         "act360",
@@ -2243,6 +2240,12 @@
         "length",
         "length",
         "toArray",
+        "new",
+        "new",
+        "build",
+        "calendarId",
+        "toJson",
+        "fromJson",
         "nextImm",
         "nextCdsDate",
         "nextImmOptionExpiry",
@@ -2320,6 +2323,7 @@
         "LogLinear",
         "MonotoneConvex",
         "CubicHermite",
+        "LogLinear",
         "fromName",
         "flat_zero",
         "FlatZero",
@@ -2469,12 +2473,7 @@
         "fromName",
         "name",
         "toString",
-        "fixed",
-        "floating",
-        "pik",
-        "amortization",
-        "principalExchange",
-        "fee",
+        "validate",
         "kind",
         "date",
         "resetDate",
@@ -2482,13 +2481,6 @@
         "accrualFactor",
         "accrualFactor",
         "toTuple",
-        "none",
-        "linearTo",
-        "stepRemaining",
-        "percentPerPeriod",
-        "customPrincipal",
-        "toString",
-        "toSchedule",
         "new",
         "tolerance",
         "set_tolerance",
@@ -2507,13 +2499,6 @@
         "bracketExpansion",
         "initialBracketSize",
         "initialBracketSize",
-        "solve",
-        "toString",
-        "new",
-        "tolerance",
-        "set_tolerance",
-        "maxIterations",
-        "maxIterations",
         "solve",
         "toString",
         "binomialProbability",
@@ -2531,7 +2516,6 @@
         "toString",
         "simpsonRule",
         "adaptiveSimpson",
-        "adaptiveQuadrature",
         "gaussLegendreIntegrate",
         "gaussLegendreIntegrateComposite",
         "gaussLegendreIntegrateAdaptive",
@@ -2540,6 +2524,598 @@
     },
     "valuations": {
       "modules": {
+        "valuations.covenants": {
+          "path": "valuations/covenants.rs",
+          "classes": [
+            {
+              "name": "CovenantType",
+              "js_name": "CovenantType",
+              "methods": [
+                {
+                  "name": "max_debt_to_ebitda",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxDebtToEBITDA"
+                },
+                {
+                  "name": "max_debt_to_ebitda",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_debt_to_ebitda"
+                },
+                {
+                  "name": "min_interest_coverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "minInterestCoverage"
+                },
+                {
+                  "name": "min_interest_coverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "min_interest_coverage"
+                },
+                {
+                  "name": "min_fixed_charge_coverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "minFixedChargeCoverage"
+                },
+                {
+                  "name": "min_fixed_charge_coverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "min_fixed_charge_coverage"
+                },
+                {
+                  "name": "max_total_leverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxTotalLeverage"
+                },
+                {
+                  "name": "max_total_leverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_total_leverage"
+                },
+                {
+                  "name": "max_senior_leverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxSeniorLeverage"
+                },
+                {
+                  "name": "max_senior_leverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_senior_leverage"
+                },
+                {
+                  "name": "custom",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "custom"
+                },
+                {
+                  "name": "custom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "custom"
+                }
+              ],
+              "properties": []
+            },
+            {
+              "name": "Covenant",
+              "js_name": "Covenant",
+              "methods": [
+                {
+                  "name": "max_debt_to_ebitda",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxDebtToEBITDA"
+                },
+                {
+                  "name": "max_debt_to_ebitda",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_debt_to_ebitda"
+                },
+                {
+                  "name": "min_interest_coverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "minInterestCoverage"
+                },
+                {
+                  "name": "min_interest_coverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "min_interest_coverage"
+                },
+                {
+                  "name": "min_fixed_charge_coverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "minFixedChargeCoverage"
+                },
+                {
+                  "name": "min_fixed_charge_coverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "min_fixed_charge_coverage"
+                },
+                {
+                  "name": "max_total_leverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxTotalLeverage"
+                },
+                {
+                  "name": "max_total_leverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_total_leverage"
+                },
+                {
+                  "name": "max_senior_leverage",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "maxSeniorLeverage"
+                },
+                {
+                  "name": "max_senior_leverage",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "max_senior_leverage"
+                },
+                {
+                  "name": "custom",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "custom"
+                },
+                {
+                  "name": "custom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "custom"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": true,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "with_metric",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "withMetric"
+                },
+                {
+                  "name": "with_metric",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "with_metric"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": true,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "covenant_id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "covenantId"
+                },
+                {
+                  "name": "covenant_id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "covenant_id"
+                },
+                {
+                  "name": "test_dates",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "testDates"
+                },
+                {
+                  "name": "test_dates",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "test_dates"
+                },
+                {
+                  "name": "projected_values",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "projectedValues"
+                },
+                {
+                  "name": "projected_values",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "projected_values"
+                },
+                {
+                  "name": "thresholds",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "thresholds"
+                },
+                {
+                  "name": "thresholds",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "thresholds"
+                },
+                {
+                  "name": "headroom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "headroom"
+                },
+                {
+                  "name": "headroom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "headroom"
+                },
+                {
+                  "name": "breach_probability",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "breachProbability"
+                },
+                {
+                  "name": "breach_probability",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "breach_probability"
+                },
+                {
+                  "name": "warning_indices",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "warningIndices"
+                },
+                {
+                  "name": "warning_indices",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "warning_indices"
+                }
+              ],
+              "properties": [
+                "covenant_id",
+                "test_dates",
+                "projected_values",
+                "thresholds",
+                "headroom",
+                "breach_probability"
+              ]
+            },
+            {
+              "name": "CovenantSpec",
+              "js_name": "CovenantSpec",
+              "methods": [
+                {
+                  "name": "with_metric",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "withMetric"
+                },
+                {
+                  "name": "with_metric",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "with_metric"
+                }
+              ],
+              "properties": []
+            },
+            {
+              "name": "CovenantForecastConfig",
+              "js_name": "CovenantForecastConfig",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": true,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "new"
+                }
+              ],
+              "properties": []
+            },
+            {
+              "name": "CovenantForecast",
+              "js_name": "CovenantForecast",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": true,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "new"
+                },
+                {
+                  "name": "covenant_id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "covenantId"
+                },
+                {
+                  "name": "covenant_id",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "covenant_id"
+                },
+                {
+                  "name": "test_dates",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "testDates"
+                },
+                {
+                  "name": "test_dates",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "test_dates"
+                },
+                {
+                  "name": "projected_values",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "projectedValues"
+                },
+                {
+                  "name": "projected_values",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "projected_values"
+                },
+                {
+                  "name": "thresholds",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "thresholds"
+                },
+                {
+                  "name": "thresholds",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "thresholds"
+                },
+                {
+                  "name": "headroom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "headroom"
+                },
+                {
+                  "name": "headroom",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "headroom"
+                },
+                {
+                  "name": "breach_probability",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "breachProbability"
+                },
+                {
+                  "name": "breach_probability",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "breach_probability"
+                },
+                {
+                  "name": "warning_indices",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "warningIndices"
+                },
+                {
+                  "name": "warning_indices",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "warning_indices"
+                }
+              ],
+              "properties": [
+                "covenant_id",
+                "test_dates",
+                "projected_values",
+                "thresholds",
+                "headroom",
+                "breach_probability"
+              ]
+            }
+          ],
+          "functions": [
+            {
+              "name": "max_debt_to_ebitda",
+              "js_name": "max_debt_to_ebitda"
+            },
+            {
+              "name": "max_debt_to_ebitda",
+              "js_name": "maxDebtToEBITDA"
+            },
+            {
+              "name": "min_interest_coverage",
+              "js_name": "minInterestCoverage"
+            },
+            {
+              "name": "min_fixed_charge_coverage",
+              "js_name": "minFixedChargeCoverage"
+            },
+            {
+              "name": "max_total_leverage",
+              "js_name": "maxTotalLeverage"
+            },
+            {
+              "name": "max_senior_leverage",
+              "js_name": "maxSeniorLeverage"
+            },
+            {
+              "name": "custom",
+              "js_name": "custom"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "with_metric",
+              "js_name": "with_metric"
+            },
+            {
+              "name": "with_metric",
+              "js_name": "withMetric"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "covenant_id",
+              "js_name": "covenant_id"
+            },
+            {
+              "name": "covenant_id",
+              "js_name": "covenantId"
+            },
+            {
+              "name": "test_dates",
+              "js_name": "testDates"
+            },
+            {
+              "name": "projected_values",
+              "js_name": "projectedValues"
+            },
+            {
+              "name": "thresholds",
+              "js_name": "thresholds"
+            },
+            {
+              "name": "headroom",
+              "js_name": "headroom"
+            },
+            {
+              "name": "breach_probability",
+              "js_name": "breachProbability"
+            },
+            {
+              "name": "warning_indices",
+              "js_name": "warningIndices"
+            },
+            {
+              "name": "forecast_covenant",
+              "js_name": "forecastCovenant"
+            }
+          ]
+        },
         "valuations.dataframe": {
           "path": "valuations/dataframe.rs",
           "classes": [],
@@ -2845,6 +3421,281 @@
             {
               "name": "cs01_ladder",
               "js_name": "cs01Ladder"
+            }
+          ]
+        },
+        "valuations.attribution": {
+          "path": "valuations/attribution.rs",
+          "classes": [
+            {
+              "name": "WasmAttributionMethod",
+              "js_name": "AttributionMethod",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WasmAttributionMeta",
+              "js_name": "AttributionMeta",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WasmRatesCurvesAttribution",
+              "js_name": "RatesCurvesAttribution",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WasmModelParamsAttribution",
+              "js_name": "ModelParamsAttribution",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WasmPnlAttribution",
+              "js_name": "PnlAttribution",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WasmPortfolioAttribution",
+              "js_name": "PortfolioAttribution",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "parallel",
+              "js_name": "parallel"
+            },
+            {
+              "name": "waterfall",
+              "js_name": "waterfall"
+            },
+            {
+              "name": "metrics_based",
+              "js_name": "metricsBased"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrument_id"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "num_repricings",
+              "js_name": "numRepricings"
+            },
+            {
+              "name": "residual_pct",
+              "js_name": "residualPct"
+            },
+            {
+              "name": "tolerance_abs",
+              "js_name": "toleranceAbs"
+            },
+            {
+              "name": "tolerance_pct",
+              "js_name": "tolerancePct"
+            },
+            {
+              "name": "method",
+              "js_name": "method"
+            },
+            {
+              "name": "t0",
+              "js_name": "t0"
+            },
+            {
+              "name": "t1",
+              "js_name": "t1"
+            },
+            {
+              "name": "discount_total",
+              "js_name": "discount_total"
+            },
+            {
+              "name": "discount_total",
+              "js_name": "discountTotal"
+            },
+            {
+              "name": "forward_total",
+              "js_name": "forwardTotal"
+            },
+            {
+              "name": "by_curve_to_json",
+              "js_name": "byCurveToJson"
+            },
+            {
+              "name": "prepayment",
+              "js_name": "prepayment"
+            },
+            {
+              "name": "prepayment",
+              "js_name": "prepayment"
+            },
+            {
+              "name": "default_rate",
+              "js_name": "defaultRate"
+            },
+            {
+              "name": "recovery_rate",
+              "js_name": "recoveryRate"
+            },
+            {
+              "name": "conversion_ratio",
+              "js_name": "conversionRatio"
+            },
+            {
+              "name": "total_pnl",
+              "js_name": "total_pnl"
+            },
+            {
+              "name": "total_pnl",
+              "js_name": "totalPnl"
+            },
+            {
+              "name": "carry",
+              "js_name": "carry"
+            },
+            {
+              "name": "rates_curves_pnl",
+              "js_name": "ratesCurvesPnl"
+            },
+            {
+              "name": "credit_curves_pnl",
+              "js_name": "creditCurvesPnl"
+            },
+            {
+              "name": "inflation_curves_pnl",
+              "js_name": "inflationCurvesPnl"
+            },
+            {
+              "name": "correlations_pnl",
+              "js_name": "correlationsPnl"
+            },
+            {
+              "name": "fx_pnl",
+              "js_name": "fxPnl"
+            },
+            {
+              "name": "vol_pnl",
+              "js_name": "volPnl"
+            },
+            {
+              "name": "model_params_pnl",
+              "js_name": "modelParamsPnl"
+            },
+            {
+              "name": "market_scalars_pnl",
+              "js_name": "marketScalarsPnl"
+            },
+            {
+              "name": "residual",
+              "js_name": "residual"
+            },
+            {
+              "name": "meta",
+              "js_name": "meta"
+            },
+            {
+              "name": "rates_detail",
+              "js_name": "ratesDetail"
+            },
+            {
+              "name": "model_params_detail",
+              "js_name": "modelParamsDetail"
+            },
+            {
+              "name": "to_csv",
+              "js_name": "toCsv"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "rates_detail_to_csv",
+              "js_name": "ratesDetailToCsv"
+            },
+            {
+              "name": "explain",
+              "js_name": "explain"
+            },
+            {
+              "name": "residual_within_tolerance",
+              "js_name": "residualWithinTolerance"
+            },
+            {
+              "name": "total_pnl",
+              "js_name": "total_pnl"
+            },
+            {
+              "name": "total_pnl",
+              "js_name": "totalPnl"
+            },
+            {
+              "name": "carry",
+              "js_name": "carry"
+            },
+            {
+              "name": "rates_curves_pnl",
+              "js_name": "ratesCurvesPnl"
+            },
+            {
+              "name": "credit_curves_pnl",
+              "js_name": "creditCurvesPnl"
+            },
+            {
+              "name": "inflation_curves_pnl",
+              "js_name": "inflationCurvesPnl"
+            },
+            {
+              "name": "correlations_pnl",
+              "js_name": "correlationsPnl"
+            },
+            {
+              "name": "fx_pnl",
+              "js_name": "fxPnl"
+            },
+            {
+              "name": "vol_pnl",
+              "js_name": "volPnl"
+            },
+            {
+              "name": "model_params_pnl",
+              "js_name": "modelParamsPnl"
+            },
+            {
+              "name": "market_scalars_pnl",
+              "js_name": "marketScalarsPnl"
+            },
+            {
+              "name": "residual",
+              "js_name": "residual"
+            },
+            {
+              "name": "by_position_to_json",
+              "js_name": "byPositionToJson"
+            },
+            {
+              "name": "to_csv",
+              "js_name": "toCsv"
+            },
+            {
+              "name": "position_detail_to_csv",
+              "js_name": "positionDetailToCsv"
+            },
+            {
+              "name": "explain",
+              "js_name": "explain"
             }
           ]
         },
@@ -3338,16 +4189,8 @@
               "js_name": "Brent"
             },
             {
-              "name": "hybrid",
-              "js_name": "Hybrid"
-            },
-            {
               "name": "levenberg_marquardt",
               "js_name": "LevenbergMarquardt"
-            },
-            {
-              "name": "differential_evolution",
-              "js_name": "DifferentialEvolution"
             },
             {
               "name": "from_name",
@@ -3782,28 +4625,44 @@
             }
           ]
         },
-        "valuations.calibration.simple": {
-          "path": "valuations/calibration/simple.rs",
+        "valuations.cashflow.specs": {
+          "path": "valuations/cashflow/specs.rs",
           "classes": [
             {
-              "name": "SimpleCalibration",
-              "js_name": "SimpleCalibration",
+              "name": "AmortizationSpec",
+              "js_name": "AmortizationSpec",
               "methods": [],
               "properties": []
             }
           ],
           "functions": [
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "none",
+              "js_name": "none"
             },
             {
-              "name": "new",
-              "js_name": "new"
+              "name": "linear_to",
+              "js_name": "linearTo"
             },
             {
-              "name": "calibrate",
-              "js_name": "calibrate"
+              "name": "step_remaining",
+              "js_name": "stepRemaining"
+            },
+            {
+              "name": "percent_per_period",
+              "js_name": "percentPerPeriod"
+            },
+            {
+              "name": "custom_principal",
+              "js_name": "customPrincipal"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "to_schedule",
+              "js_name": "toSchedule"
             }
           ]
         },
@@ -6451,35 +7310,26 @@
             {
               "name": "divertible",
               "js_name": "divertible"
-            },
-            {
-              "name": "clo_2_0_template",
-              "js_name": "clo20Template"
-            },
-            {
-              "name": "cmbs_standard_template",
-              "js_name": "cmbsStandardTemplate"
-            },
-            {
-              "name": "cre_operating_company_template",
-              "js_name": "creOperatingCompanyTemplate"
-            },
-            {
-              "name": "get_waterfall_template",
-              "js_name": "getWaterfallTemplate"
-            },
-            {
-              "name": "available_waterfall_templates",
-              "js_name": "availableWaterfallTemplates"
             }
           ]
         }
       },
       "classes": [
+        "CovenantType",
+        "Covenant",
+        "CovenantSpec",
+        "CovenantForecastConfig",
+        "CovenantForecast",
         "ResultsMeta",
         "ValuationResult",
         "PricingRequest",
         "PricerRegistry",
+        "AttributionMethod",
+        "AttributionMeta",
+        "RatesCurvesAttribution",
+        "ModelParamsAttribution",
+        "PnlAttribution",
+        "PortfolioAttribution",
         "MetricRegistry",
         "MetricId",
         "SABRModelParams",
@@ -6503,7 +7353,7 @@
         "CalibrationReport",
         "ValidationError",
         "ValidationConfig",
-        "SimpleCalibration",
+        "AmortizationSpec",
         "CouponType",
         "ScheduleParams",
         "FixedCouponSpec",
@@ -6569,6 +7419,28 @@
         "WaterfallTier"
       ],
       "functions": [
+        "max_debt_to_ebitda",
+        "maxDebtToEBITDA",
+        "minInterestCoverage",
+        "minFixedChargeCoverage",
+        "maxTotalLeverage",
+        "maxSeniorLeverage",
+        "custom",
+        "new",
+        "new",
+        "with_metric",
+        "withMetric",
+        "new",
+        "new",
+        "covenant_id",
+        "covenantId",
+        "testDates",
+        "projectedValues",
+        "thresholds",
+        "headroom",
+        "breachProbability",
+        "warningIndices",
+        "forecastCovenant",
         "resultsToRows",
         "resultsToJson",
         "numeric_mode",
@@ -6632,6 +7504,64 @@
         "irrPeriodic",
         "krdDv01Ladder",
         "cs01Ladder",
+        "parallel",
+        "waterfall",
+        "metricsBased",
+        "toString",
+        "instrument_id",
+        "instrumentId",
+        "numRepricings",
+        "residualPct",
+        "toleranceAbs",
+        "tolerancePct",
+        "method",
+        "t0",
+        "t1",
+        "discount_total",
+        "discountTotal",
+        "forwardTotal",
+        "byCurveToJson",
+        "prepayment",
+        "prepayment",
+        "defaultRate",
+        "recoveryRate",
+        "conversionRatio",
+        "total_pnl",
+        "totalPnl",
+        "carry",
+        "ratesCurvesPnl",
+        "creditCurvesPnl",
+        "inflationCurvesPnl",
+        "correlationsPnl",
+        "fxPnl",
+        "volPnl",
+        "modelParamsPnl",
+        "marketScalarsPnl",
+        "residual",
+        "meta",
+        "ratesDetail",
+        "modelParamsDetail",
+        "toCsv",
+        "toJson",
+        "ratesDetailToCsv",
+        "explain",
+        "residualWithinTolerance",
+        "total_pnl",
+        "totalPnl",
+        "carry",
+        "ratesCurvesPnl",
+        "creditCurvesPnl",
+        "inflationCurvesPnl",
+        "correlationsPnl",
+        "fxPnl",
+        "volPnl",
+        "modelParamsPnl",
+        "marketScalarsPnl",
+        "residual",
+        "byPositionToJson",
+        "toCsv",
+        "positionDetailToCsv",
+        "explain",
         "new",
         "standard",
         "hasMetric",
@@ -6725,9 +7655,7 @@
         "newton",
         "Newton",
         "Brent",
-        "Hybrid",
         "LevenbergMarquardt",
-        "DifferentialEvolution",
         "fromName",
         "name",
         "new",
@@ -6817,9 +7745,13 @@
         "validateInflationCurve",
         "validateVolSurface",
         "validateMarketContext",
-        "new",
-        "new",
-        "calibrate",
+        "none",
+        "linearTo",
+        "stepRemaining",
+        "percentPerPeriod",
+        "customPrincipal",
+        "toString",
+        "toSchedule",
         "cash",
         "Cash",
         "PIK",
@@ -7315,12 +8247,7 @@
         "recipientCount",
         "paymentType",
         "allocationMode",
-        "divertible",
-        "clo20Template",
-        "cmbsStandardTemplate",
-        "creOperatingCompanyTemplate",
-        "getWaterfallTemplate",
-        "availableWaterfallTemplates"
+        "divertible"
       ]
     },
     "statements": {
@@ -13241,6 +14168,8 @@
   },
   "exports": {
     "types": [
+      "CFKind",
+      "CashFlow",
       "FinstackConfig",
       "RoundingMode",
       "MetricId",

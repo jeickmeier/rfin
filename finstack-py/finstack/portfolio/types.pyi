@@ -1,7 +1,11 @@
 """Portfolio core types."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Mapping, Iterable, Tuple
 from ...core.currency import Currency
+from ...core.money import Money
+
+DUMMY_ENTITY_ID: str
+"""Constant for the dummy entity used for standalone instruments ('_standalone')."""
 
 class Entity:
     """An entity that can hold positions.
@@ -72,6 +76,10 @@ class Entity:
             >>> tagged.tags["sector"]
             'Technology'
         """
+        ...
+
+    def with_tags(self, tags: Mapping[str, str] | Iterable[Tuple[str, str]]) -> "Entity":
+        """Add multiple tags to the entity from a mapping or iterable of pairs."""
         ...
 
     @staticmethod
@@ -220,39 +228,55 @@ class Position:
         """
         ...
 
+    def with_tag(self, key: str, value: str) -> "Position":
+        """Add a tag to the position."""
+        ...
+
+    def with_tags(self, tags: Mapping[str, str] | Iterable[Tuple[str, str]]) -> "Position":
+        """Add multiple tags to the position."""
+        ...
+
+    def with_meta(self, key: str, value: Any) -> "Position":
+        """Attach JSON-serializable metadata to the position."""
+        ...
+
+    def scale_value(self, money: Money) -> Money:
+        """Scale a Money amount by position quantity and unit."""
+        ...
+
     @property
     def position_id(self) -> str:
-        """Get the position identifier."""
+        """Position identifier."""
         ...
 
     @property
     def entity_id(self) -> str:
-        """Get the entity identifier."""
+        """Owning entity identifier."""
         ...
 
     @property
     def instrument_id(self) -> str:
-        """Get the instrument identifier."""
+        """Instrument identifier."""
         ...
 
     @property
     def quantity(self) -> float:
-        """Get the quantity."""
+        """Signed quantity (positive=long, negative=short)."""
         ...
 
     @property
     def unit(self) -> PositionUnit:
-        """Get the position unit."""
+        """Unit describing how to interpret quantity."""
         ...
 
     @property
     def tags(self) -> Dict[str, str]:
-        """Get position tags."""
+        """Position tags used for grouping."""
         ...
 
     @property
     def meta(self) -> Dict[str, Any]:
-        """Get position metadata."""
+        """Position metadata."""
         ...
 
     def __repr__(self) -> str: ...

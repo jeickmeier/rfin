@@ -3,9 +3,13 @@
 //! This module provides Python bindings for portfolio management, aggregation,
 //! valuation, and metrics calculation.
 
+pub(crate) mod attribution;
 pub(crate) mod builder;
+pub(crate) mod cashflows;
+pub(crate) mod dataframe;
 pub(crate) mod error;
 pub(crate) mod grouping;
+pub(crate) mod margin;
 pub(crate) mod metrics;
 pub(crate) mod portfolio;
 pub(crate) mod results;
@@ -49,6 +53,16 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     // Register grouping functions
     let grouping_exports = grouping::register(py, &module)?;
 
+    // Register attribution and cashflows
+    let attribution_exports = attribution::register(py, &module)?;
+    let cashflow_exports = cashflows::register(py, &module)?;
+
+    // Register dataframe exports
+    let dataframe_exports = dataframe::register(py, &module)?;
+
+    // Register margin utilities
+    let margin_exports = margin::register(py, &module)?;
+
     // Register scenarios integration if feature enabled
     #[cfg(feature = "scenarios")]
     let scenarios_exports = scenarios::register(py, &module)?;
@@ -62,6 +76,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(metrics_exports);
     all_exports.extend(results_exports);
     all_exports.extend(grouping_exports);
+    all_exports.extend(attribution_exports);
+    all_exports.extend(cashflow_exports);
+    all_exports.extend(dataframe_exports);
+    all_exports.extend(margin_exports);
 
     #[cfg(feature = "scenarios")]
     all_exports.extend(scenarios_exports);

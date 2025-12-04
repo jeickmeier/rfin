@@ -1,13 +1,16 @@
 //! Scenario engine and execution context.
 
+use crate::core::dates::calendar::PyCalendar;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
 use crate::scenarios::error::scenario_to_py;
 use crate::scenarios::reports::PyApplicationReport;
 use crate::scenarios::spec::PyScenarioSpec;
 use crate::statements::types::model::PyFinancialModelSpec;
+use crate::valuations::instruments::extract_instrument;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
 use finstack_scenarios::ScenarioSpec;
+use finstack_valuations::instruments::common::traits::Instrument;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyModule};
 use std::collections::HashMap;
@@ -30,6 +33,8 @@ use std::collections::HashMap;
 ///     Optional vector of instruments for price/spread shocks and carry calculations.
 /// rate_bindings : dict[str, str], optional
 ///     Optional mapping from statement node IDs to curve IDs for automatic rate updates.
+/// calendar : Calendar, optional
+///     Optional holiday calendar for calendar-aware tenor calculations.
 ///
 /// Examples
 /// --------
@@ -45,14 +50,35 @@ pub struct PyExecutionContext {
     market: Py<PyMarketContext>,
     model: Py<PyFinancialModelSpec>,
     instruments: Option<Vec<PyObject>>,
+    rust_instruments: Option<Vec<Box<dyn Instrument>>>,
     rate_bindings: Option<HashMap<String, String>>,
+    calendar: Option<Py<PyCalendar>>,
     as_of: finstack_core::dates::Date,
+}
+
+impl PyExecutionContext {
+    fn convert_instruments(
+        py: Python<'_>,
+        instruments: &Option<Vec<PyObject>>,
+    ) -> PyResult<Option<Vec<Box<dyn Instrument>>>> {
+        if let Some(list) = instruments {
+            let mut rust_instruments = Vec::with_capacity(list.len());
+            for obj in list {
+                let bound = obj.bind(py);
+                let handle = extract_instrument(&bound)?;
+                rust_instruments.push(handle.instrument);
+            }
+            Ok(Some(rust_instruments))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[pymethods]
 impl PyExecutionContext {
     #[new]
-    #[pyo3(signature = (market, model, as_of, instruments=None, rate_bindings=None))]
+    #[pyo3(signature = (market, model, as_of, instruments=None, rate_bindings=None, calendar=None))]
     /// Create a new execution context.
     ///
     /// Parameters
@@ -79,16 +105,24 @@ impl PyExecutionContext {
         as_of: &Bound<'_, PyAny>,
         instruments: Option<Vec<PyObject>>,
         rate_bindings: Option<HashMap<String, String>>,
+        calendar: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let market_ref = market.extract::<Py<PyMarketContext>>()?;
         let model_ref = model.extract::<Py<PyFinancialModelSpec>>()?;
         let date = py_to_date(as_of)?;
+        let calendar_ref = match calendar {
+            Some(cal) => Some(cal.extract::<Py<PyCalendar>>()?),
+            None => None,
+        };
+        let rust_instruments = Self::convert_instruments(_py, &instruments)?;
 
         Ok(Self {
             market: market_ref,
             model: model_ref,
             instruments,
+            rust_instruments,
             rate_bindings,
+            calendar: calendar_ref,
             as_of: date,
         })
     }
@@ -158,8 +192,10 @@ impl PyExecutionContext {
     /// ----------
     /// value : list | None
     ///     New instruments list.
-    fn set_instruments(&mut self, value: Option<Vec<PyObject>>) {
+    fn set_instruments(&mut self, py: Python<'_>, value: Option<Vec<PyObject>>) -> PyResult<()> {
         self.instruments = value;
+        self.rust_instruments = Self::convert_instruments(py, &self.instruments)?;
+        Ok(())
     }
 
     #[getter]
@@ -184,12 +220,39 @@ impl PyExecutionContext {
         self.rate_bindings = value;
     }
 
+    #[getter]
+    /// Get the holiday calendar.
+    ///
+    /// Returns
+    /// -------
+    /// Calendar | None
+    ///     Calendar if set.
+    fn calendar(&self, py: Python<'_>) -> Option<Py<PyCalendar>> {
+        self.calendar.as_ref().map(|cal| cal.clone_ref(py))
+    }
+
+    #[setter]
+    /// Set the holiday calendar.
+    ///
+    /// Parameters
+    /// ----------
+    /// value : Calendar | None
+    ///     New calendar reference.
+    fn set_calendar(&mut self, value: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
+        self.calendar = match value {
+            Some(cal) => Some(cal.extract::<Py<PyCalendar>>()?),
+            None => None,
+        };
+        Ok(())
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "ExecutionContext(as_of={:?}, has_instruments={}, has_rate_bindings={})",
+            "ExecutionContext(as_of={:?}, has_instruments={}, has_rate_bindings={}, has_calendar={})",
             self.as_of,
             self.instruments.is_some(),
-            self.rate_bindings.is_some()
+            self.rate_bindings.is_some(),
+            self.calendar.is_some()
         )
     }
 }
@@ -289,10 +352,11 @@ impl PyScenarioEngine {
                 .collect::<indexmap::IndexMap<String, String>>()
         });
 
-        // Note: Instruments handling is complex due to trait objects
-        // For now, we skip instrument operations if instruments are not provided
-        // Full implementation would require converting Python objects to Box<dyn Instrument>
-        let instruments_option = None; // Placeholder for instrument handling
+        let instruments_option = context.rust_instruments.as_mut().map(|vec| vec.as_mut());
+        let calendar = context
+            .calendar
+            .as_ref()
+            .map(|cal| cal.borrow(py).inner as &dyn finstack_core::dates::HolidayCalendar);
 
         // Build temporary ExecutionContext with references
         let mut exec_ctx = ExecutionContext {
@@ -300,7 +364,7 @@ impl PyScenarioEngine {
             model: &mut model_borrow.inner,
             instruments: instruments_option,
             rate_bindings,
-            calendar: None, // Calendar-aware operations not yet exposed to Python
+            calendar,
             as_of: context.as_of,
         };
 

@@ -7,13 +7,16 @@ from . import pricer
 from . import metrics
 from . import instruments
 from . import calibration
+from . import performance
 
 # Import common types that are re-exported at the valuations level
 from .common import InstrumentType, ModelKey, PricerKey
 from .common.mc import PathPoint, SimulatedPath, PathDataset, ProcessParams, MonteCarloResult, MonteCarloPathGenerator
+from .common import parse
 from .pricer import PricerRegistry, create_standard_registry
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
+from .performance import xirr, npv, irr_periodic
 from .instruments.structured_credit import (
     AllocationMode,
     PaymentType,
@@ -25,6 +28,7 @@ __all__ = [
     "InstrumentType",
     "ModelKey",
     "PricerKey",
+    "parse",
     # Pricer
     "PricerRegistry",
     "create_standard_registry",
@@ -42,6 +46,10 @@ __all__ = [
     "ProcessParams",
     "MonteCarloResult",
     "MonteCarloPathGenerator",
+    # Performance
+    "xirr",
+    "npv",
+    "irr_periodic",
     # Waterfall Engine
     "AllocationMode",
     "PaymentType",

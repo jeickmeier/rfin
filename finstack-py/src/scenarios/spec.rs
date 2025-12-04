@@ -3,12 +3,222 @@
 use crate::core::currency::PyCurrency;
 use crate::scenarios::enums::{PyCurveKind, PyTenorMatchMode, PyVolSurfaceKind};
 use crate::valuations::common::PyInstrumentType;
-use finstack_scenarios::{OperationSpec, ScenarioSpec};
+use finstack_scenarios::{Compounding, OperationSpec, RateBindingSpec, ScenarioSpec};
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::basic::CompareOp;
 use std::collections::HashMap;
+
+/// Compounding convention for rate conversions.
+#[pyclass(module = "finstack.scenarios", name = "Compounding", frozen)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PyCompounding {
+    pub(crate) inner: Compounding,
+}
+
+impl PyCompounding {
+    pub(crate) fn new(inner: Compounding) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCompounding {
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Simple() -> Self {
+        Self::new(Compounding::Simple)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Continuous() -> Self {
+        Self::new(Compounding::Continuous)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Annual() -> Self {
+        Self::new(Compounding::Annual)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SemiAnnual() -> Self {
+        Self::new(Compounding::SemiAnnual)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Quarterly() -> Self {
+        Self::new(Compounding::Quarterly)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Monthly() -> Self {
+        Self::new(Compounding::Monthly)
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            Compounding::Simple => "Compounding.Simple".to_string(),
+            Compounding::Continuous => "Compounding.Continuous".to_string(),
+            Compounding::Annual => "Compounding.Annual".to_string(),
+            Compounding::SemiAnnual => "Compounding.SemiAnnual".to_string(),
+            Compounding::Quarterly => "Compounding.Quarterly".to_string(),
+            Compounding::Monthly => "Compounding.Monthly".to_string(),
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        match self.inner {
+            Compounding::Simple => "Simple",
+            Compounding::Continuous => "Continuous",
+            Compounding::Annual => "Annual",
+            Compounding::SemiAnnual => "SemiAnnual",
+            Compounding::Quarterly => "Quarterly",
+            Compounding::Monthly => "Monthly",
+        }
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => self.inner == other.inner,
+            CompareOp::Ne => self.inner != other.inner,
+            _ => false,
+        }
+    }
+
+    fn __hash__(&self) -> u64 {
+        self.inner as u64
+    }
+}
+
+/// Configuration for rate binding between curves and statement nodes.
+#[pyclass(module = "finstack.scenarios", name = "RateBindingSpec")]
+#[derive(Clone, Debug)]
+pub struct PyRateBindingSpec {
+    pub(crate) inner: RateBindingSpec,
+}
+
+impl PyRateBindingSpec {
+    pub(crate) fn from_inner(inner: RateBindingSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRateBindingSpec {
+    #[new]
+    #[pyo3(signature = (node_id, curve_id, tenor, compounding=None, day_count=None))]
+    /// Create a new rate binding specification.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Statement node ID to receive the rate.
+    /// curve_id : str
+    ///     Curve ID to extract rate from.
+    /// tenor : str
+    ///     Tenor for rate extraction (e.g., "3M", "1Y").
+    /// compounding : Compounding, optional
+    ///     Compounding convention (default: Continuous).
+    /// day_count : str, optional
+    ///     Optional day count override.
+    fn new(
+        node_id: String,
+        curve_id: String,
+        tenor: String,
+        compounding: Option<&PyCompounding>,
+        day_count: Option<String>,
+    ) -> Self {
+        Self::from_inner(RateBindingSpec {
+            node_id,
+            curve_id,
+            tenor,
+            compounding: compounding.map(|c| c.inner).unwrap_or_default(),
+            day_count,
+        })
+    }
+
+    #[getter]
+    /// Statement node ID to receive the rate.
+    fn node_id(&self) -> String {
+        self.inner.node_id.clone()
+    }
+
+    #[getter]
+    /// Curve ID to extract rate from.
+    fn curve_id(&self) -> String {
+        self.inner.curve_id.clone()
+    }
+
+    #[getter]
+    /// Tenor string for rate extraction.
+    fn tenor(&self) -> String {
+        self.inner.tenor.clone()
+    }
+
+    #[getter]
+    /// Compounding convention for rate conversion.
+    fn compounding(&self) -> PyCompounding {
+        PyCompounding::new(self.inner.compounding)
+    }
+
+    #[getter]
+    /// Optional day count convention override.
+    fn day_count(&self) -> Option<String> {
+        self.inner.day_count.clone()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Convert to JSON-compatible dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     JSON-serializable dictionary.
+    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let json_str = serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
+        pythonize::pythonize(py, &json_value)
+            .map(|bound| bound.into())
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, data)")]
+    /// Create from JSON-compatible dictionary.
+    ///
+    /// Parameters
+    /// ----------
+    /// data : dict
+    ///     JSON-serializable dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// RateBindingSpec
+    ///     Rate binding specification.
+    fn from_dict(_cls: &Bound<'_, PyType>, data: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let json_value: serde_json::Value = pythonize::depythonize(data)
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert from Python: {}", e)))?;
+        let inner: RateBindingSpec = serde_json::from_value(json_value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        Ok(Self::from_inner(inner))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RateBindingSpec(node_id='{}', curve_id='{}', tenor='{}')",
+            self.inner.node_id, self.inner.curve_id, self.inner.tenor
+        )
+    }
+}
 
 /// Individual operation within a scenario.
 ///
@@ -415,6 +625,54 @@ impl PyOperationSpec {
     }
 
     #[classmethod]
+    #[pyo3(text_signature = "(cls, delta_pts)")]
+    /// Shock asset correlation for structured credit instruments.
+    ///
+    /// Parameters
+    /// ----------
+    /// delta_pts : float
+    ///     Additive shock in correlation points (e.g., 0.05 for +5%).
+    fn asset_correlation_pts(_cls: &Bound<'_, PyType>, delta_pts: f64) -> Self {
+        Self::new(OperationSpec::AssetCorrelationPts { delta_pts })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, delta_pts)")]
+    /// Shock prepay-default correlation for structured credit instruments.
+    ///
+    /// Parameters
+    /// ----------
+    /// delta_pts : float
+    ///     Additive shock in correlation points.
+    fn prepay_default_correlation_pts(_cls: &Bound<'_, PyType>, delta_pts: f64) -> Self {
+        Self::new(OperationSpec::PrepayDefaultCorrelationPts { delta_pts })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, delta_pts)")]
+    /// Shock recovery-default correlation for structured credit instruments.
+    ///
+    /// Parameters
+    /// ----------
+    /// delta_pts : float
+    ///     Additive shock in correlation points.
+    fn recovery_correlation_pts(_cls: &Bound<'_, PyType>, delta_pts: f64) -> Self {
+        Self::new(OperationSpec::RecoveryCorrelationPts { delta_pts })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, delta_pts)")]
+    /// Shock prepayment factor loading (systematic factor sensitivity).
+    ///
+    /// Parameters
+    /// ----------
+    /// delta_pts : float
+    ///     Additive shock to factor loading.
+    fn prepay_factor_loading_pts(_cls: &Bound<'_, PyType>, delta_pts: f64) -> Self {
+        Self::new(OperationSpec::PrepayFactorLoadingPts { delta_pts })
+    }
+
+    #[classmethod]
     #[pyo3(text_signature = "(cls, period, apply_shocks=True)")]
     /// Roll forward horizon by a period with carry/theta.
     ///
@@ -700,8 +958,15 @@ pub(crate) fn register(
     _py: Python<'_>,
     module: &Bound<'_, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyCompounding>()?;
+    module.add_class::<PyRateBindingSpec>()?;
     module.add_class::<PyOperationSpec>()?;
     module.add_class::<PyScenarioSpec>()?;
 
-    Ok(vec!["OperationSpec", "ScenarioSpec"])
+    Ok(vec![
+        "Compounding",
+        "RateBindingSpec",
+        "OperationSpec",
+        "ScenarioSpec",
+    ])
 }

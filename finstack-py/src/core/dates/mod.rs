@@ -4,6 +4,7 @@ pub mod imm;
 pub mod periods;
 pub mod rate_conversions;
 pub mod schedule;
+pub mod tenor;
 pub mod utils;
 
 #[allow(unused_imports)]
@@ -46,6 +47,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let imm_exports = imm::register(py, &module)?;
     exports.extend(imm_exports.iter().copied());
     promote_exports(&module, "imm", &imm_exports)?;
+
+    let tenor_exports = tenor::register(py, &module)?;
+    exports.extend(tenor_exports.iter().copied());
+    promote_exports(&module, "tenor", &tenor_exports)?;
 
     let utils_exports = utils::register(py, &module)?;
     exports.extend(utils_exports.iter().copied());

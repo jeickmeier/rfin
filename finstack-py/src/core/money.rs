@@ -7,6 +7,8 @@
 //! supported for ergonomics and interoperability with Python code.
 use crate::core::config::PyFinstackConfig;
 use crate::core::currency::{extract_currency, PyCurrency};
+use crate::core::dates::utils::py_to_date;
+use crate::core::market_data::fx::{parse_policy, PyFxMatrix};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::money::Money;
 use pyo3::basic::CompareOp;
@@ -198,6 +200,75 @@ impl PyMoney {
     ///     Formatted money string respecting ``config`` overrides.
     fn format_with_config(&self, config: &PyFinstackConfig) -> String {
         self.inner.format_with_config(&config.inner)
+    }
+
+    #[pyo3(text_signature = "(self, decimals, show_currency=True)")]
+    /// Format with explicit decimal precision and optional currency display.
+    ///
+    /// Parameters
+    /// ----------
+    /// decimals : int
+    ///     Number of decimal places to render.
+    /// show_currency : bool, optional
+    ///     Include the currency code when ``True`` (default).
+    fn format_custom(&self, decimals: usize, show_currency: bool) -> String {
+        self.inner.format(decimals, show_currency)
+    }
+
+    #[pyo3(text_signature = "(self, decimals)")]
+    /// Format with thousands separators and explicit decimal places.
+    ///
+    /// Parameters
+    /// ----------
+    /// decimals : int
+    ///     Number of decimal places to render.
+    fn format_with_separators(&self, decimals: usize) -> String {
+        self.inner.format_with_separators(decimals)
+    }
+
+    #[pyo3(
+        signature = (to_currency, on, fx_matrix, policy=None),
+        text_signature = "(self, to_currency, on, fx_matrix, policy=None)"
+    )]
+    /// Convert this amount into another currency using the provided FX matrix.
+    ///
+    /// Parameters
+    /// ----------
+    /// to_currency : Currency or str
+    ///     Target currency.
+    /// on : datetime.date
+    ///     Valuation date for the conversion.
+    /// fx_matrix : FxMatrix
+    ///     FX source used for rate discovery.
+    /// policy : FxConversionPolicy or str, optional
+    ///     Conversion policy hint (defaults to cashflow date).
+    fn convert(
+        &self,
+        py: Python<'_>,
+        to_currency: Bound<'_, PyAny>,
+        on: Bound<'_, PyAny>,
+        fx_matrix: &PyFxMatrix,
+        policy: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let target = extract_currency(&to_currency).context("to_currency")?;
+        let date = py_to_date(&on).context("on")?;
+        let fx_policy = parse_policy(py, policy)?;
+        // Manual conversion since Arc<dyn FxProvider> can't be passed to convert directly
+        if self.inner.currency() == target {
+            return Ok(self.clone());
+        }
+        let provider = fx_matrix.inner.provider();
+        let rate = provider
+            .rate(self.inner.currency(), target, date, fx_policy)
+            .map_err(core_to_py)?;
+        if !rate.is_finite() {
+            return Err(core_to_py(finstack_core::error::InputError::Invalid.into()));
+        }
+        let converted = finstack_core::money::Money::new(
+            (self.inner.amount() * rate).into(),
+            target,
+        );
+        Ok(Self::new(converted))
     }
 
     #[pyo3(text_signature = "(self, other)")]

@@ -3,6 +3,8 @@
 This module provides:
 - ID newtypes: CurveId, InstrumentId, IndexId, PriceId, UnderlyingId
 - Rate helpers: Rate, Bps, Percentage
+- Credit ratings: CreditRating, RatingNotch, NotchedRating, RatingLabel,
+  RatingFactorTable, moodys_warf_factor
 
 These types prevent accidental mismatches and provide clear conversion semantics.
 """
@@ -234,6 +236,110 @@ class Percentage:
     def __truediv__(self, scalar: float) -> Percentage: ...
     def __neg__(self) -> Percentage: ...
 
+# Credit ratings
+
+class RatingNotch:
+    """Notch adjustment for credit ratings (plus/flat/minus)."""
+
+    PLUS: "RatingNotch"
+    FLAT: "RatingNotch"
+    MINUS: "RatingNotch"
+
+    @property
+    def name(self) -> str: ...
+    """Lower-case label (``plus``, ``flat``, ``minus``)."""
+
+    @property
+    def symbol(self) -> str: ...
+    """Symbol representation (``+``, ``'', ``-``)."""
+
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class CreditRating:
+    """Agency-agnostic credit rating scale (AAA … NR)."""
+
+    AAA: "CreditRating"
+    AA: "CreditRating"
+    A: "CreditRating"
+    BBB: "CreditRating"
+    BB: "CreditRating"
+    B: "CreditRating"
+    CCC: "CreditRating"
+    CC: "CreditRating"
+    C: "CreditRating"
+    D: "CreditRating"
+    NR: "CreditRating"
+
+    def __init__(self, value: str) -> None: ...
+    def with_notch(self, notch: RatingNotch) -> "NotchedRating": ...
+    def is_investment_grade(self) -> bool: ...
+    def is_speculative_grade(self) -> bool: ...
+    def is_default(self) -> bool: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class NotchedRating:
+    """Credit rating with notch information."""
+
+    def __init__(self, rating: CreditRating, notch: RatingNotch | None = ...) -> None: ...
+
+    @classmethod
+    def parse(cls, value: str) -> "NotchedRating": ...
+    """Parse a rating string (e.g., ``\"AA-\"``, ``\"B3\"``, ``\"NR\"``)."""
+
+    @property
+    def base(self) -> CreditRating: ...
+    """Base credit rating without notch."""
+
+    @property
+    def notch(self) -> RatingNotch: ...
+    """Notch component."""
+
+    def is_investment_grade(self) -> bool: ...
+    def is_speculative_grade(self) -> bool: ...
+    def is_default(self) -> bool: ...
+    def without_notch(self) -> "NotchedRating": ...
+    def moodys(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class RatingLabel:
+    """Stable display label for ratings."""
+
+    @classmethod
+    def generic(cls, rating: NotchedRating) -> "RatingLabel": ...
+    @classmethod
+    def moodys(cls, rating: NotchedRating) -> "RatingLabel": ...
+
+    @property
+    def value(self) -> str: ...
+    """String representation of the label."""
+
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class RatingFactorTable:
+    """Rating-to-factor mapping (e.g., Moody's WARF table)."""
+
+    @classmethod
+    def moodys_standard(cls) -> "RatingFactorTable": ...
+    """Standard Moody's WARF factor table."""
+
+    def get_factor(self, rating: NotchedRating | CreditRating | str) -> float: ...
+    """Lookup factor for a rating (falls back to default when missing)."""
+
+    @property
+    def agency(self) -> str: ...
+    @property
+    def methodology(self) -> str: ...
+    @property
+    def default_factor(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+def moodys_warf_factor(rating: NotchedRating | CreditRating | str) -> float: ...
+"""Convenience wrapper returning Moody's WARF factor for a rating."""
+
 __all__ = [
     "CurveId",
     "InstrumentId",
@@ -243,4 +349,10 @@ __all__ = [
     "Rate",
     "Bps",
     "Percentage",
+    "RatingNotch",
+    "CreditRating",
+    "NotchedRating",
+    "RatingLabel",
+    "RatingFactorTable",
+    "moodys_warf_factor",
 ]

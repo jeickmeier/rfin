@@ -5,11 +5,52 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::portfolio::extract_portfolio;
-use finstack_portfolio::valuation::{value_portfolio, PortfolioValuation, PositionValue};
+use finstack_portfolio::valuation::{
+    value_portfolio, value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions,
+    PositionValue,
+};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
+
+/// Options controlling portfolio valuation behaviour.
+#[pyclass(module = "finstack.portfolio", name = "PortfolioValuationOptions")]
+#[derive(Clone)]
+pub struct PyPortfolioValuationOptions {
+    pub(crate) inner: PortfolioValuationOptions,
+}
+
+impl PyPortfolioValuationOptions {
+    pub(crate) fn new(inner: PortfolioValuationOptions) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPortfolioValuationOptions {
+    #[new]
+    #[pyo3(signature = (*, strict_risk=false))]
+    /// Create valuation options.
+    ///
+    /// Args:
+    ///     strict_risk: When true, fail if risk metrics cannot be computed.
+    fn new_py(strict_risk: bool) -> Self {
+        Self::new(PortfolioValuationOptions { strict_risk })
+    }
+
+    #[getter]
+    fn strict_risk(&self) -> bool {
+        self.inner.strict_risk
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PortfolioValuationOptions(strict_risk={})",
+            self.inner.strict_risk
+        )
+    }
+}
 
 /// Result of valuing a single position.
 ///
@@ -214,6 +255,37 @@ fn py_value_portfolio(
     Ok(PyPortfolioValuation::new(valuation))
 }
 
+/// Value a portfolio with explicit valuation options.
+#[pyfunction]
+#[pyo3(signature = (portfolio, market_context, options, config=None))]
+fn py_value_portfolio_with_options(
+    portfolio: &Bound<'_, PyAny>,
+    market_context: &Bound<'_, PyAny>,
+    options: &Bound<'_, PyAny>,
+    config: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyPortfolioValuation> {
+    let portfolio_inner = extract_portfolio(portfolio)?;
+    let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
+    let opts = options
+        .extract::<PyRef<PyPortfolioValuationOptions>>()?
+        .inner
+        .clone();
+
+    let cfg = if let Some(config_obj) = config {
+        config_obj
+            .extract::<PyRef<PyFinstackConfig>>()?
+            .inner
+            .clone()
+    } else {
+        finstack_core::config::FinstackConfig::default()
+    };
+
+    let valuation = value_portfolio_with_options(&portfolio_inner, &market_ctx.inner, &cfg, &opts)
+        .map_err(portfolio_to_py)?;
+
+    Ok(PyPortfolioValuation::new(valuation))
+}
+
 /// Extract a PortfolioValuation from Python object.
 pub(crate) fn extract_portfolio_valuation(
     value: &Bound<'_, PyAny>,
@@ -230,15 +302,21 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
+    parent.add_class::<PyPortfolioValuationOptions>()?;
     parent.add_class::<PyPositionValue>()?;
     parent.add_class::<PyPortfolioValuation>()?;
 
     let wrapped_fn = wrap_pyfunction!(py_value_portfolio, parent)?;
     parent.add("value_portfolio", wrapped_fn)?;
 
+    let wrapped_with_opts = wrap_pyfunction!(py_value_portfolio_with_options, parent)?;
+    parent.add("value_portfolio_with_options", wrapped_with_opts)?;
+
     Ok(vec![
+        "PortfolioValuationOptions".to_string(),
         "PositionValue".to_string(),
         "PortfolioValuation".to_string(),
         "value_portfolio".to_string(),
+        "value_portfolio_with_options".to_string(),
     ])
 }
