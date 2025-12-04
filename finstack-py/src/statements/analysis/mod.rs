@@ -5,10 +5,12 @@
 //! - **Dependency tracing** - Identify direct and transitive dependencies
 //! - **Formula explanation** - Break down calculations step-by-step
 //! - **Reports** - Formatted output for P&L summaries and credit assessment
+//! - **Scenario management** - Named scenario sets with diff/comparison helpers
 
 mod explain;
 mod reports;
 mod variance;
+mod scenario_set;
 
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyResults;
@@ -481,6 +483,9 @@ pub(crate) fn register<'py>(
     // Register variance analysis types
     let variance_exports = variance::register(py, &module)?;
 
+    // Register scenario management types
+    let scenario_exports = scenario_set::register(py, &module)?;
+
     parent.add_submodule(&module)?;
     parent.setattr("analysis", &module)?;
 
@@ -498,6 +503,7 @@ pub(crate) fn register<'py>(
     all_exports.extend(explain_exports);
     all_exports.extend(reports_exports);
     all_exports.extend(variance_exports);
+    all_exports.extend(scenario_exports);
 
     Ok(all_exports)
 }

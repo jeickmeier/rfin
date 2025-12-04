@@ -326,6 +326,124 @@ class VarianceAnalyzer:
 
     def __repr__(self) -> str: ...
 
+
+# =============================================================================
+# Scenario Management
+# =============================================================================
+
+class ScenarioDefinition:
+    """Definition for a single named scenario."""
+
+    def __init__(
+        self,
+        parent: Optional[str] = None,
+        overrides: Optional[Dict[str, float]] = None,
+        model_id: Optional[str] = None,
+    ) -> None:
+        """Create a new scenario definition.
+
+        Args:
+            parent: Optional parent scenario to inherit overrides from.
+            overrides: Map of node_id → scalar overrides applied to all periods.
+            model_id: Optional identifier of the underlying financial model.
+        """
+        ...
+
+    @property
+    def parent(self) -> Optional[str]: ...
+
+    @property
+    def model_id(self) -> Optional[str]: ...
+
+    @property
+    def overrides(self) -> Dict[str, float]: ...
+
+    def __repr__(self) -> str: ...
+
+
+class ScenarioSet:
+    """Named scenario registry for financial models."""
+
+    def __init__(self) -> None: ...
+
+    @staticmethod
+    def from_mapping(mapping: Dict[str, Dict[str, Any]]) -> ScenarioSet:
+        """Create a scenario set from a mapping of name → definition dict."""
+        ...
+
+    @staticmethod
+    def from_json(path: str) -> ScenarioSet:
+        """Load a scenario set from a JSON file."""
+        ...
+
+    def add_scenario(self, name: str, definition: ScenarioDefinition) -> None:
+        """Add or replace a scenario by name."""
+        ...
+
+    def remove_scenario(self, name: str) -> bool:
+        """Remove a scenario by name, returning True if it existed."""
+        ...
+
+    @property
+    def scenario_names(self) -> List[str]:
+        """Scenario names in insertion order."""
+        ...
+
+    def evaluate_all(self, base_model: FinancialModelSpec) -> "ScenarioResults":
+        """Evaluate all scenarios using a base model."""
+        ...
+
+    def diff(
+        self,
+        results: "ScenarioResults",
+        baseline: str,
+        comparison: str,
+        metrics: List[str],
+        periods: List[PeriodId],
+    ) -> "ScenarioDiff":
+        """Compute a variance-style diff between two scenarios."""
+        ...
+
+    def trace(self, scenario: str) -> List[str]:
+        """Return the lineage for a scenario (from root ancestor to the given name)."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+
+class ScenarioResults:
+    """Evaluated results for all scenarios in a ScenarioSet."""
+
+    @property
+    def scenario_names(self) -> List[str]: ...
+
+    def __len__(self) -> int: ...
+
+    def get(self, name: str) -> Results:
+        """Get the Results for a given scenario."""
+        ...
+
+    def to_comparison_df(self, metrics: List[str]) -> Any:
+        """Export a wide comparison table as a Polars DataFrame."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+
+class ScenarioDiff:
+    """Variance-style diff between two evaluated scenarios."""
+
+    @property
+    def baseline(self) -> str: ...
+
+    @property
+    def comparison(self) -> str: ...
+
+    @property
+    def variance(self) -> VarianceReport: ...
+
+    def __repr__(self) -> str: ...
+
 class TornadoEntry:
     """Entry in a tornado chart."""
 
@@ -765,4 +883,16 @@ __all__ = [
     "CreditAssessmentReport",
     "DebtSummaryReport",
     "print_debt_summary",
+    # Variance
+    "VarianceConfig",
+    "VarianceRow",
+    "VarianceReport",
+    "BridgeStep",
+    "BridgeChart",
+    "VarianceAnalyzer",
+    # Scenario Management
+    "ScenarioDefinition",
+    "ScenarioSet",
+    "ScenarioResults",
+    "ScenarioDiff",
 ]

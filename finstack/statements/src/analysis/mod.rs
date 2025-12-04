@@ -9,6 +9,7 @@
 //! - **Formula explanation** - Break down calculations step-by-step
 //! - **Forecast backtesting** - Evaluate forecast accuracy
 //! - **Covenant analysis** - Detect covenant breaches
+//! - **Scenario management** - Named scenario sets with diff/comparison helpers
 
 pub mod backtesting;
 pub mod corporate;
@@ -18,6 +19,7 @@ pub mod formula_explain;
 pub mod goal_seek;
 pub mod reports;
 pub mod sensitivity;
+pub mod scenario_set;
 pub mod types;
 pub mod visualization;
 pub mod variance;
@@ -30,6 +32,7 @@ pub use formula_explain::{Explanation, ExplanationStep, FormulaExplainer};
 pub use goal_seek::goal_seek;
 pub use reports::{Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder};
 pub use sensitivity::SensitivityAnalyzer;
+pub use scenario_set::{ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet};
 pub use types::{ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult};
 pub use visualization::{render_tree_ascii, render_tree_detailed};
 pub use variance::{

@@ -74,6 +74,11 @@ from .analysis import (
     BridgeStep,
     BridgeChart,
     VarianceAnalyzer,
+    # Scenario Management
+    ScenarioDefinition,
+    ScenarioSet,
+    ScenarioResults,
+    ScenarioDiff,
 )
 
 __all__ = [
@@ -139,4 +144,9 @@ __all__ = [
     "BridgeStep",
     "BridgeChart",
     "VarianceAnalyzer",
+    # Analysis (Scenario Management)
+    "ScenarioDefinition",
+    "ScenarioSet",
+    "ScenarioResults",
+    "ScenarioDiff",
 ]
