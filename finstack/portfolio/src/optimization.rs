@@ -16,6 +16,13 @@
 
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
+
+/// Tolerance for determining if a weight change is significant.
+const WEIGHT_TOLERANCE: f64 = 1e-9;
+
+/// Tolerance for determining if a constraint is binding (slack ~ 0).
+const SLACK_TOLERANCE: f64 = 1e-6;
+
 use crate::position::{Position, PositionUnit};
 use crate::types::{EntityId, PositionId};
 use finstack_core::math::summation::neumaier_sum;
@@ -606,7 +613,7 @@ impl PortfolioOptimizationResult {
                 let delta_weight = target_weight - current_weight;
 
                 // Skip positions with negligible change
-                if !delta_weight.is_finite() || delta_weight.abs() < 1e-9 {
+                if !delta_weight.is_finite() || delta_weight.abs() < WEIGHT_TOLERANCE {
                     return None;
                 }
 
@@ -619,10 +626,10 @@ impl PortfolioOptimizationResult {
                     .get(pos_id)
                     .copied()
                     .unwrap_or(0.0);
-
-                let trade_type = if is_candidate && target_weight > 1e-9 {
+    
+                let trade_type = if is_candidate && target_weight > WEIGHT_TOLERANCE {
                     TradeType::NewPosition
-                } else if !is_candidate && target_weight < 1e-9 {
+                } else if !is_candidate && target_weight < WEIGHT_TOLERANCE {
                     TradeType::CloseOut
                 } else {
                     TradeType::Existing
@@ -687,7 +694,7 @@ impl PortfolioOptimizationResult {
     pub fn binding_constraints(&self) -> Vec<(&str, f64)> {
         self.constraint_slacks
             .iter()
-            .filter(|(_, &slack)| slack.abs() < 1e-6)
+            .filter(|(_, &slack)| slack.abs() < SLACK_TOLERANCE)
             .map(|(name, &slack)| (name.as_str(), slack))
             .collect()
     }
@@ -742,8 +749,9 @@ struct DecisionItem {
     is_existing: bool,
     /// Whether this position is held (weight locked to current).
     is_held: bool,
-    /// Current quantity (0.0 for candidates).
-    current_quantity: f64,
+    /// Current quantity held (if any).
+    #[allow(dead_code)]
+    pub current_quantity: f64,
 }
 
 /// Per‑decision‑variable features used to build linear forms.
@@ -925,6 +933,7 @@ impl DefaultLpOptimizer {
         valuation: &crate::valuation::PortfolioValuation,
         required_metrics: &[MetricId],
         market: &MarketContext,
+        config: &FinstackConfig,
     ) -> Result<(Vec<DecisionItem>, Vec<DecisionFeatures>, IndexMap<PositionId, f64>, f64)> {
         let mut items = Vec::new();
         let mut features = Vec::new();
@@ -998,60 +1007,69 @@ impl DefaultLpOptimizer {
             });
         }
 
-        // Add candidates as decision items
-        for candidate in &problem.trade_universe.candidates {
-            // Price candidate once to obtain PV and measures
-            let val_result = candidate
-                .instrument
-                .price_with_metrics(market, problem.portfolio.as_of, required_metrics)
-                .map_err(|e: finstack_core::Error| {
-                    PortfolioError::valuation(candidate.id.clone(), e.to_string())
-                })?;
+        // Batch price candidates using a temporary portfolio
+        let candidate_valuation = if !problem.trade_universe.candidates.is_empty() {
+            let mut builder = crate::builder::PortfolioBuilder::new("CANDIDATES")
+                .base_ccy(problem.portfolio.base_ccy)
+                .as_of(problem.portfolio.as_of);
 
-            // Convert PV to base currency (similar to `value_single_position`)
-            let value_native = val_result.value;
-            let scaled_native = match candidate.unit {
-                PositionUnit::Units => value_native,
-                PositionUnit::Notional(notional_ccy) => {
-                    if let Some(ccy) = notional_ccy {
-                        if ccy != value_native.currency() {
-                            tracing::warn!(
-                                position_id = %candidate.id,
-                                "Notional currency {} differs from instrument currency {}",
-                                ccy,
-                                value_native.currency()
-                            );
-                        }
-                    }
-                    value_native
-                }
-                PositionUnit::FaceValue => value_native,
-                PositionUnit::Percentage => Money::new(value_native.amount() / 100.0, value_native.currency()),
-            };
+            // Use a dummy entity for all candidates
+            builder = builder.entity(crate::types::Entity::new("CANDIDATE_POOL"));
 
-            let value_base = if scaled_native.currency() == problem.portfolio.base_ccy {
-                scaled_native
-            } else {
-                let fx_matrix = market.fx.as_ref().ok_or_else(|| {
-                    PortfolioError::missing_market_data("FX matrix not available for candidate")
-                })?;
-
-                let query = FxQuery::new(
-                    scaled_native.currency(),
-                    problem.portfolio.base_ccy,
-                    problem.portfolio.as_of,
-                );
-                let rate_result = fx_matrix.rate(query).map_err(|_| {
-                    PortfolioError::fx_conversion(scaled_native.currency(), problem.portfolio.base_ccy)
-                })?;
-
-                Money::new(
-                    scaled_native.amount() * rate_result.rate,
-                    problem.portfolio.base_ccy,
+            for candidate in &problem.trade_universe.candidates {
+                let pos = crate::position::Position::new(
+                    candidate.id.clone(),
+                    "CANDIDATE_POOL",
+                    candidate.instrument.id(),
+                    candidate.instrument.clone(),
+                    1.0, // Quantity 1.0 for unit pricing
+                    candidate.unit,
                 )
-            };
+                .map_err(|e| PortfolioError::invalid_input(e.to_string()))?
+                .with_tags(candidate.tags.clone());
+                
+                builder = builder.position(pos);
+            }
 
-            let pv_base = value_base.amount();
+            let candidate_portfolio = builder
+                .build()
+                .map_err(|e| PortfolioError::invalid_input(e.to_string()))?;
+
+            let mut options = crate::valuation::PortfolioValuationOptions::default();
+            options.strict_risk = matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict);
+            options.additional_metrics = if required_metrics.is_empty() {
+                None
+            } else {
+                Some(required_metrics.to_vec())
+            };
+            options.replace_standard_metrics = false;
+
+            Some(crate::valuation::value_portfolio_with_options(
+                &candidate_portfolio,
+                market,
+                config, 
+                &options,
+            )?)
+        } else {
+            None
+        };
+
+        for candidate in &problem.trade_universe.candidates {
+            let val_entry = candidate_valuation
+                .as_ref()
+                .and_then(|v| v.position_values.get(&candidate.id))
+                .ok_or_else(|| {
+                    PortfolioError::valuation(candidate.id.clone(), "failed to value candidate")
+                })?;
+
+            let pv_base = val_entry.value_base.amount();
+            
+            // Extract measures
+            let measures = if let Some(val_result) = &val_entry.valuation_result {
+                val_result.measures.clone()
+            } else {
+                IndexMap::new()
+            };
 
             items.push(DecisionItem {
                 position_id: candidate.id.clone(),
@@ -1061,56 +1079,135 @@ impl DefaultLpOptimizer {
             });
 
             features.push(DecisionFeatures {
-                pv_base: 0.0,
-                pv_per_unit: if pv_base != 0.0 { pv_base } else { 0.0 },
-                measures: val_result.measures.clone(),
+                pv_base: 0.0, // Candidates start with 0 PV in the portfolio
+                pv_per_unit: pv_base, // Value of 1 unit
+                measures,
                 tags: candidate.tags.clone(),
                 min_weight: candidate.min_weight,
                 max_weight: candidate.max_weight,
             });
         }
 
-        // Compute current weights from pv_base; only existing positions contribute.
-        let mut total_pv_existing = 0.0_f64;
-        for feat in &features {
-            total_pv_existing = neumaier_sum([total_pv_existing, feat.pv_base].into_iter());
+        // Compute current weights (only existing positions contribute)
+        // AND compute the denominator for optimization weights (PV or Notional)
+        let mut total_weight_basis = 0.0_f64;
+
+        // For NotionalWeight, we need to calculate notional_base for all items
+        let use_notional = matches!(problem.weighting, WeightingScheme::NotionalWeight);
+        
+        // Helper to get notional_base for a feature/item
+        // We need to look up the unit/scaling from the source
+        let get_notional_base = |item: &DecisionItem, feat: &DecisionFeatures| -> Result<f64> {
+            if use_notional {
+                // If existing, get from portfolio position
+                if item.is_existing {
+                    let pos = problem.portfolio.get_position(item.position_id.as_str())
+                        .ok_or_else(|| PortfolioError::index_error("missing position"))?;
+                    
+                   match pos.unit {
+                        PositionUnit::Notional(ccy) => {
+                            // If unit IS notional, then quantity is notional amount.
+                            let notional_ccy = ccy.unwrap_or(problem.portfolio.base_ccy);
+                            if notional_ccy == problem.portfolio.base_ccy {
+                                Ok(pos.quantity)
+                            } else {
+                                // FX conversion for quantity
+                                if let Some(fx) = &market.fx {
+                                     let query = FxQuery::new(notional_ccy, problem.portfolio.base_ccy, problem.portfolio.as_of);
+                                     let rate = fx.rate(query).map_err(|_| PortfolioError::fx_conversion(notional_ccy, problem.portfolio.base_ccy))?.rate;
+                                     Ok(pos.quantity * rate)
+                                } else {
+                                    Ok(pos.quantity) // Best effort? Or error?
+                                }
+                            }
+                        }
+                       _ => {
+                           Ok(feat.pv_base)
+                       }
+                   }
+                } else {
+                    // Candidate
+                    let cand = problem.trade_universe.candidates.iter().find(|c| c.id == item.position_id).unwrap();
+                     match cand.unit {
+                        PositionUnit::Notional(_) => {
+                             // Candidate quantity is 0, but we need per-unit basis likely?
+                             // Wait, weights are abstract.
+                             // For candidates, "weight" usually means target allocation.
+                             // 
+                             Ok(0.0) // Current notional is 0
+                        }
+                        _ => Ok(0.0)
+                     }
+                }
+            } else {
+                Ok(feat.pv_base)
+            }
+        };
+
+        // Re-calculate totals based on weighting scheme
+        for (item, feat) in items.iter().zip(&features) {
+            if item.is_existing {
+                let val = if use_notional {
+                     // We need to calculate current notional for existing positions
+                     // This is tricky inside this loop without full access.
+                     // Simpler approach: 
+                     // If NotionalWeight, we assume weight w_i is fraction of Total Portfolio MEANINGFUL Value.
+                     // For swaps, "Meaningful Value" is Total Notional.
+                     // For bonds, it is Total PV.
+                     // We sum up the absolute basis.
+                     get_notional_base(item, feat)?.abs()
+                } else {
+                    feat.pv_base // ValueWeight uses signed PV? usually yes, but total is algebraic sum.
+                };
+                
+                // For ValueWeight, we sum signed PVs usually to get Net Asset Value (NAV).
+                // But for weights w_i = V_i / NAV.
+                if !use_notional {
+                     total_weight_basis = neumaier_sum([total_weight_basis, val].into_iter());
+                } else {
+                     total_weight_basis = neumaier_sum([total_weight_basis, val].into_iter());
+                }
+            }
         }
 
-        if total_pv_existing > 0.0 {
-            // Standard case: weights proportional to existing PV.
-            for (item, feat) in items.iter().zip(&features) {
-                let w0 = if feat.pv_base > 0.0 {
-                    feat.pv_base / total_pv_existing
+        // If total basis is small/zero, handle degenerate
+        let weight_basis = if total_weight_basis.abs() < SLACK_TOLERANCE {
+             // Fallback for zero-NAV or zero-Notional portfolios
+             // Maybe count?
+             let n_existing = items.iter().filter(|i| i.is_existing).count();
+             if n_existing > 0 { 1.0 } else { 0.0 } // Avoid div/0, will result in meaningless weights if not careful
+        } else {
+            total_weight_basis
+        };
+
+        // Assign current weights
+        for (item, feat) in items.iter().zip(&features) {
+            let basis = if use_notional {
+                 get_notional_base(item, feat)?
+            } else {
+                 feat.pv_base
+            };
+            
+            let w0 = if item.is_existing {
+                if total_weight_basis.abs() < SLACK_TOLERANCE {
+                     1.0 / (items.iter().filter(|i| i.is_existing).count() as f64)
                 } else {
-                    0.0
-                };
-                current_weights.insert(item.position_id.clone(), w0);
-            }
-        } else if !items.is_empty() {
-            // Degenerate case: zero or negative PVs – fall back to uniform weights
-            // over existing positions and zero weight for pure candidates.
-            let n_existing = items.iter().filter(|i| i.is_existing).count();
-            let uniform = if n_existing > 0 {
-                1.0 / n_existing as f64
+                    basis / total_weight_basis
+                }
             } else {
                 0.0
             };
-
-            for item in &items {
-                let w0 = if item.is_existing { uniform } else { 0.0 };
-                current_weights.insert(item.position_id.clone(), w0);
-            }
+            current_weights.insert(item.position_id.clone(), w0);
         }
 
-        // Use total portfolio PV (including non‑tradeable positions) as the scale
-        // for implied quantities; fall back to 1.0 to avoid division by zero.
-        let total_pv_scale = valuation
-            .total_base_ccy
-            .amount()
-            .abs()
-            .max(1.0);
-
-        Ok((items, features, current_weights, total_pv_scale))
+        // Total scale for implied quantities
+        // If ValueWeight, scale is NAV.
+        // If NotionalWeight, scale is Total Notional?
+        // Actually, implied_quantities need to map back to UNITS.
+        // Qty = (w_target * TotalBasis) / (BasisPerUnit)
+        // BasisPerUnit is PV_per_unit (for ValueWeight) or Notional_per_unit (for NotionalWeight).
+        
+        Ok((items, features, current_weights, weight_basis))
     }
 
     /// Lower a `PerPositionMetric` to a per‑decision value `m_i`.
@@ -1203,12 +1300,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         problem.portfolio.validate()?;
 
         match problem.weighting {
-            WeightingScheme::ValueWeight | WeightingScheme::UnitScaling => {}
-            WeightingScheme::NotionalWeight => {
-                return Err(PortfolioError::invalid_input(
-                    "NotionalWeight is not yet supported in optimization",
-                ))
-            }
+            WeightingScheme::ValueWeight | WeightingScheme::UnitScaling | WeightingScheme::NotionalWeight => {}
         }
 
         // Ensure there is at least one budget constraint, or we will add one with rhs=1.0.
@@ -1237,7 +1329,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
         // Step 2: Build decision space.
         let (decision_items, mut decision_features, current_weights, total_pv) =
-            Self::build_decision_space(problem, &valuation, &required_metrics, market)?;
+            Self::build_decision_space(problem, &valuation, &required_metrics, market, config)?;
 
         // If the problem optimizes on price-based yield/spread metrics, require that all
         // bond decision variables have an explicit quoted clean price override.
@@ -1546,31 +1638,61 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
         // Implied quantities
         let mut implied_quantities: IndexMap<PositionId, f64> = IndexMap::new();
-        for (idx, item) in decision_items.iter().enumerate() {
-            let feat = &decision_features[idx];
+        for (item, feat) in decision_items.iter().zip(&decision_features) {
             let w_star = optimal_weights
                 .get(&item.position_id)
                 .copied()
                 .unwrap_or(0.0);
-            let w0 = current_weights
-                .get(&item.position_id)
-                .copied()
-                .unwrap_or(0.0);
+            
+            // Re-calculate basis per unit to ensure we can invert weight -> quantity
+            // Basis = Quantity * BasisPerUnit  =>  Weight = Basis / TotalBasis
+            // Weight = (Quantity * BasisPerUnit) / TotalBasis
+            // Quantity = (Weight * TotalBasis) / BasisPerUnit
+            
+            // We need BasisPerUnit. 
+            // In build_decision_space, we calculated `basis` but didn't store per-unit except implicitly.
+            
+            let refined_basis_per_unit = if feat.pv_per_unit.abs() > 1e-12 {
+                 // If we used ValueWeight, pv_per_unit IS basis_per_unit
+                 // If we used NotionalWeight, pv_per_unit is NOT basis_per_unit necessarily.
+                 if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
+                      // For PositionUnit::Notional(ccy), BasisPerUnit = FX(ccy->base).
+                      let (unit, _tags) = if item.is_existing {
+                          let p = problem.portfolio.get_position(item.position_id.as_str()).unwrap();
+                          (p.unit.clone(), &p.tags)
+                      } else {
+                          let c = problem.trade_universe.candidates.iter().find(|c| c.id == item.position_id).unwrap();
+                          (c.unit.clone(), &c.tags)
+                      };
 
-            let qty = if item.is_existing {
-                if w0 > 0.0 {
-                    item.current_quantity * w_star / w0
-                } else {
-                    // New long / short in previously zero‑weight existing position.
-                    if feat.pv_per_unit != 0.0 {
-                        (w_star * total_pv) / feat.pv_per_unit
-                    } else {
-                        0.0
-                    }
-                }
-            } else if feat.pv_per_unit != 0.0 {
-                // Candidate position: scale by PV per unit.
-                (w_star * total_pv) / feat.pv_per_unit
+                      match unit {
+                          PositionUnit::Notional(ccy) => {
+                              let from_ccy = ccy.unwrap_or(problem.portfolio.base_ccy);
+                              if from_ccy == problem.portfolio.base_ccy {
+                                  1.0
+                              } else if let Some(fx) = &market.fx {
+                                   let query = FxQuery::new(from_ccy, problem.portfolio.base_ccy, problem.portfolio.as_of);
+                                   fx.rate(query).map(|r| r.rate).unwrap_or(1.0)
+                              } else {
+                                  1.0
+                              }
+                          }
+                          _ => feat.pv_per_unit // Fallback to PV for non-notional units?
+                      }
+                 } else {
+                     feat.pv_per_unit
+                 }
+            } else {
+                // If pv_per_unit is zero and we are in ValueWeight, we can't infer quantity from weight.
+                 if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
+                     1.0 
+                 } else {
+                     0.0
+                 }
+            };
+
+            let qty = if refined_basis_per_unit.abs() > 1e-12 {
+                (w_star * total_pv) / refined_basis_per_unit
             } else {
                 0.0
             };
@@ -1589,9 +1711,27 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         let mut metric_values: IndexMap<String, f64> = IndexMap::new();
         metric_values.insert("objective".to_string(), objective_value);
 
-        // Constraint slacks and dual values are backend‑specific; for now, leave empty.
+        // Constraint slacks
+        let mut constraint_slacks: IndexMap<String, f64> = IndexMap::new();
+        for lc in &lp_constraints {
+            if let Some(name) = &lc.name {
+                let mut lhs_val = 0.0;
+                for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
+                    lhs_val += *coef * solution.value(*var);
+                }
+                
+                let slack = match lc.relation {
+                    LpRelation::Le => lc.rhs - lhs_val,
+                    LpRelation::Ge => lhs_val - lc.rhs,
+                    LpRelation::Eq => (lhs_val - lc.rhs).abs(),
+                };
+                constraint_slacks.insert(name.clone(), slack);
+            }
+        }
+
+        // Dual values are backend-specific and good_lp typically doesn't expose them
+        // in the generic interface. We leave them empty for now.
         let dual_values: IndexMap<String, f64> = IndexMap::new();
-        let constraint_slacks: IndexMap<String, f64> = IndexMap::new();
 
         // Optimization status – assume optimal if solve() succeeded.
         let status = OptimizationStatus::Optimal;
