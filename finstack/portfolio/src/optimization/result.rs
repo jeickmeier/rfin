@@ -1,0 +1,267 @@
+use crate::error::{PortfolioError, Result};
+use crate::portfolio::Portfolio;
+use crate::types::PositionId;
+use super::problem::PortfolioOptimizationProblem;
+use finstack_core::prelude::*;
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+
+/// Status of an optimization run.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OptimizationStatus {
+    /// Found optimal solution.
+    Optimal,
+
+    /// Found feasible solution but solver stopped early.
+    FeasibleButSuboptimal,
+
+    /// No feasible solution exists.
+    Infeasible {
+        /// Constraints that appear to conflict (if determinable).
+        conflicting_constraints: Vec<String>,
+    },
+
+    /// Objective is unbounded.
+    Unbounded,
+
+    /// Solver error.
+    Error {
+        /// Error message describing what went wrong.
+        message: String,
+    },
+}
+
+impl OptimizationStatus {
+    /// Check if the status represents a usable solution.
+    #[must_use]
+    pub fn is_feasible(&self) -> bool {
+        matches!(self, Self::Optimal | Self::FeasibleButSuboptimal)
+    }
+}
+
+/// Direction of a trade.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TradeDirection {
+    /// Buy more of the instrument (increase exposure).
+    Buy,
+    /// Sell the instrument (decrease exposure).
+    Sell,
+    /// No change in exposure.
+    Hold,
+}
+
+/// Whether a trade is for an existing position or a new candidate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TradeType {
+    /// Adjusting an existing portfolio position.
+    Existing,
+    /// Adding a new position from the candidate universe.
+    NewPosition,
+    /// Closing out an existing position entirely.
+    CloseOut,
+}
+
+/// Trade specification for a single position.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TradeSpec {
+    /// Position identifier in the optimized portfolio.
+    pub position_id: PositionId,
+    /// Underlying instrument identifier (or candidate id).
+    pub instrument_id: String,
+    /// Trade type (existing, new position, close‑out).
+    pub trade_type: TradeType,
+    /// Pre‑trade quantity.
+    pub current_quantity: f64,
+    /// Post‑trade quantity.
+    pub target_quantity: f64,
+    /// Quantity change (`target - current`).
+    pub delta_quantity: f64,
+    /// Buy / Sell / Hold classification.
+    pub direction: TradeDirection,
+    /// Pre‑trade weight.
+    pub current_weight: f64,
+    /// Post‑trade weight.
+    pub target_weight: f64,
+}
+
+/// Solution of an optimization problem.
+#[derive(Clone, Debug)]
+pub struct PortfolioOptimizationResult {
+    /// Echo of the original problem for traceability.
+    pub problem: PortfolioOptimizationProblem,
+
+    /// Pre‑trade weights (current portfolio state).
+    pub current_weights: IndexMap<PositionId, f64>,
+
+    /// Optimal weights per position (for positions in the universe).
+    /// Non‑universe positions implicitly keep weight = current_weight.
+    pub optimal_weights: IndexMap<PositionId, f64>,
+
+    /// Weight changes (`optimal - current`).
+    pub weight_deltas: IndexMap<PositionId, f64>,
+
+    /// Implied target quantities for each position (units / face / notional).
+    pub implied_quantities: IndexMap<PositionId, f64>,
+
+    /// Objective value at the solution.
+    pub objective_value: f64,
+
+    /// Evaluated portfolio‑level metrics at the solution (for key `MetricExpr`s).
+    pub metric_values: IndexMap<String, f64>,
+
+    /// Optimization status.
+    pub status: OptimizationStatus,
+
+    /// Shadow prices / dual values for constraints (how much objective improves
+    /// per unit relaxation). Key is constraint label or auto‑generated identifier.
+    pub dual_values: IndexMap<String, f64>,
+
+    /// Constraint slack values (positive = slack, zero ≈ binding).
+    pub constraint_slacks: IndexMap<String, f64>,
+
+    /// Calculation metadata (numeric mode, rounding context, timing).
+    pub meta: ResultsMeta,
+}
+
+impl PortfolioOptimizationResult {
+    /// Generate a new portfolio with quantities adjusted to target weights.
+    ///
+    /// This is a convenience helper that:
+    /// - Clones the original portfolio
+    /// - Updates position quantities according to `implied_quantities`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PortfolioError::InvalidInput`] if the optimization did not
+    /// find a feasible solution.
+    pub fn to_rebalanced_portfolio(&self) -> Result<Portfolio> {
+        if !self.status.is_feasible() {
+            return Err(PortfolioError::invalid_input(
+                "cannot generate rebalanced portfolio from infeasible solution",
+            ));
+        }
+
+        let mut portfolio = self.problem.portfolio.clone();
+
+        for position in &mut portfolio.positions {
+            if let Some(qty) = self.implied_quantities.get(&position.position_id) {
+                position.quantity = *qty;
+            }
+        }
+
+        portfolio.validate()?;
+        Ok(portfolio)
+    }
+
+    /// Generate trade list (delta from current to target).
+    ///
+    /// Returns trades sorted by absolute quantity delta (largest first).
+    /// Includes both adjustments to existing positions and new positions from
+    /// candidates.
+    #[must_use]
+    pub fn to_trade_list(&self) -> Vec<TradeSpec> {
+        // Tolerance for determining if a weight change is significant.
+        const WEIGHT_TOLERANCE: f64 = 1e-9;
+
+        let mut trades: Vec<TradeSpec> = self
+            .optimal_weights
+            .iter()
+            .filter_map(|(pos_id, &target_weight)| {
+                let current_weight = self.current_weights.get(pos_id).copied().unwrap_or(0.0);
+                let delta_weight = target_weight - current_weight;
+
+                // Skip positions with negligible change
+                if !delta_weight.is_finite() || delta_weight.abs() < WEIGHT_TOLERANCE {
+                    return None;
+                }
+
+                let existing_position = self.problem.portfolio.get_position(pos_id.as_str());
+                let is_candidate = existing_position.is_none();
+
+                let current_qty = existing_position.map(|p| p.quantity).unwrap_or(0.0);
+                let target_qty = self
+                    .implied_quantities
+                    .get(pos_id)
+                    .copied()
+                    .unwrap_or(0.0);
+    
+                let trade_type = if is_candidate && target_weight > WEIGHT_TOLERANCE {
+                    TradeType::NewPosition
+                } else if !is_candidate && target_weight < WEIGHT_TOLERANCE {
+                    TradeType::CloseOut
+                } else {
+                    TradeType::Existing
+                };
+
+                // Get instrument_id (from existing position or candidate)
+                let instrument_id = existing_position
+                    .map(|p| p.instrument_id.clone())
+                    .or_else(|| {
+                        self.problem
+                            .trade_universe
+                            .candidates
+                            .iter()
+                            .find(|c| c.id == *pos_id)
+                            .map(|c| c.instrument.id().to_string())
+                    })
+                    .unwrap_or_default();
+
+                let direction = if delta_weight > 0.0 {
+                    TradeDirection::Buy
+                } else if delta_weight < 0.0 {
+                    TradeDirection::Sell
+                } else {
+                    TradeDirection::Hold
+                };
+
+                Some(TradeSpec {
+                    position_id: pos_id.clone(),
+                    instrument_id,
+                    trade_type,
+                    current_quantity: current_qty,
+                    target_quantity: target_qty,
+                    delta_quantity: target_qty - current_qty,
+                    direction,
+                    current_weight,
+                    target_weight,
+                })
+            })
+            .collect();
+
+        trades.sort_by(|a, b| {
+            b.delta_quantity
+                .abs()
+                .partial_cmp(&a.delta_quantity.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        trades
+    }
+
+    /// Get only trades for new positions (from candidates).
+    #[must_use]
+    pub fn new_position_trades(&self) -> Vec<TradeSpec> {
+        self.to_trade_list()
+            .into_iter()
+            .filter(|t| t.trade_type == TradeType::NewPosition)
+            .collect()
+    }
+
+    /// Get binding constraints at the optimal solution (slack ≈ 0).
+    #[must_use]
+    pub fn binding_constraints(&self) -> Vec<(&str, f64)> {
+        const SLACK_TOLERANCE: f64 = 1e-6; // Defined locally as it was a const in optim.rs
+
+        self.constraint_slacks
+            .iter()
+            .filter(|(_, &slack)| slack.abs() < SLACK_TOLERANCE)
+            .map(|(name, &slack)| (name.as_str(), slack))
+            .collect()
+    }
+
+    /// Calculate total turnover (sum of absolute weight changes).
+    #[must_use]
+    pub fn turnover(&self) -> f64 {
+        self.weight_deltas.values().map(|d| d.abs()).sum()
+    }
+}

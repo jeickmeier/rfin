@@ -1,0 +1,191 @@
+use crate::position::PositionUnit;
+use crate::types::{EntityId, PositionId};
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+/// Filters for selecting which positions are included in a rule.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PositionFilter {
+    /// All positions in the portfolio.
+    All,
+
+    /// Filter by entity ID.
+    ByEntityId(EntityId),
+
+    /// Filter by tag key/value (e.g. rating = "HY").
+    ByTag {
+        /// Tag key to match.
+        key: String,
+        /// Tag value to match.
+        value: String,
+    },
+
+    /// Filter by multiple position IDs.
+    ByPositionIds(Vec<PositionId>),
+
+    /// Exclude positions matching the inner filter.
+    Not(Box<PositionFilter>),
+}
+
+/// A candidate instrument that could be added to the portfolio.
+///
+/// This represents an instrument not currently held but available for trading.
+/// The optimizer can allocate weight to candidates (up to `max_weight`).
+#[derive(Clone)]
+pub struct CandidatePosition {
+    /// Unique identifier for this candidate (becomes `PositionId` if traded).
+    pub id: PositionId,
+
+    /// Entity that would own this position.
+    pub entity_id: EntityId,
+
+    /// The instrument that could be traded.
+    pub instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
+
+    /// Unit type for quantity interpretation.
+    pub unit: PositionUnit,
+
+    /// Tags for the candidate (used in constraints like `TagExposureLimit`).
+    pub tags: IndexMap<String, String>,
+
+    /// Maximum weight this candidate can receive (default: 1.0 = no limit).
+    /// Useful for limiting exposure to any single new position.
+    pub max_weight: f64,
+
+    /// Minimum weight if included (for minimum position size constraints).
+    /// Set to 0.0 to allow the optimizer to skip this candidate entirely.
+    pub min_weight: f64,
+}
+
+impl CandidatePosition {
+    /// Create a new candidate position.
+    pub fn new(
+        id: impl Into<PositionId>,
+        entity_id: impl Into<EntityId>,
+        instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
+        unit: PositionUnit,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            entity_id: entity_id.into(),
+            instrument,
+            unit,
+            tags: IndexMap::new(),
+            max_weight: 1.0,
+            min_weight: 0.0,
+        }
+    }
+
+    /// Add a tag to the candidate.
+    pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.tags.insert(key.into(), value.into());
+        self
+    }
+
+    /// Set maximum weight for this candidate.
+    pub fn with_max_weight(mut self, max: f64) -> Self {
+        self.max_weight = max;
+        self
+    }
+
+    /// Set minimum weight (if included) for this candidate.
+    pub fn with_min_weight(mut self, min: f64) -> Self {
+        self.min_weight = min;
+        self
+    }
+}
+
+/// Defines which instruments the optimizer can trade.
+///
+/// The trade universe consists of:
+///
+/// 1. **Tradeable positions**: existing portfolio positions that can be adjusted
+/// 2. **Held positions**: existing positions locked at current weight
+/// 3. **Candidate positions**: new instruments that could be added
+#[derive(Clone, Debug)]
+pub struct TradeUniverse {
+    /// Filter for existing positions that can be traded.
+    /// Positions matching this filter have their weights optimized.
+    /// Default: all positions are tradeable.
+    pub tradeable_filter: PositionFilter,
+
+    /// Filter for existing positions that are held constant.
+    /// Positions matching this filter keep their current weight.
+    /// Takes precedence over `tradeable_filter` if both match.
+    pub held_filter: Option<PositionFilter>,
+
+    /// Candidate instruments not currently in the portfolio.
+    /// These start with weight 0 and can be added by the optimizer.
+    pub candidates: Vec<CandidatePosition>,
+
+    /// Whether candidates can receive negative weights (short selling).
+    /// Default: false (long‑only for new positions).
+    pub allow_short_candidates: bool,
+}
+
+impl TradeUniverse {
+    /// Create a universe where all existing positions are tradeable.
+    pub fn all_positions() -> Self {
+        Self::default()
+    }
+
+    /// Create a universe with only specific positions tradeable.
+    pub fn filtered(filter: PositionFilter) -> Self {
+        Self {
+            tradeable_filter: filter,
+            ..Self::default()
+        }
+    }
+
+    /// Add a candidate position to the universe.
+    pub fn with_candidate(mut self, candidate: CandidatePosition) -> Self {
+        self.candidates.push(candidate);
+        self
+    }
+
+    /// Add multiple candidate positions.
+    pub fn with_candidates(
+        mut self,
+        candidates: impl IntoIterator<Item = CandidatePosition>,
+    ) -> Self {
+        self.candidates.extend(candidates);
+        self
+    }
+
+    /// Set positions to hold constant (not trade).
+    pub fn with_held_positions(mut self, filter: PositionFilter) -> Self {
+        self.held_filter = Some(filter);
+        self
+    }
+
+    /// Allow short selling of candidate positions.
+    pub fn allow_shorting_candidates(mut self) -> Self {
+        self.allow_short_candidates = true;
+        self
+    }
+}
+
+impl Default for TradeUniverse {
+    fn default() -> Self {
+        Self {
+            tradeable_filter: PositionFilter::All,
+            held_filter: None,
+            candidates: Vec::new(),
+            allow_short_candidates: false,
+        }
+    }
+}
+
+impl std::fmt::Debug for CandidatePosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CandidatePosition")
+            .field("id", &self.id)
+            .field("entity_id", &self.entity_id)
+            .field("unit", &self.unit)
+            .field("tags", &self.tags)
+            .field("max_weight", &self.max_weight)
+            .field("min_weight", &self.min_weight)
+            .finish()
+    }
+}
