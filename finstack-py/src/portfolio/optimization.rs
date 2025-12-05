@@ -11,8 +11,8 @@ use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::portfolio::extract_portfolio;
 use finstack_core::prelude::*;
 use finstack_portfolio::{
-    Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizer, WeightingScheme,
+    Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
+    PortfolioOptimizationProblem, PortfolioOptimizer, WeightingScheme,
 };
 use finstack_valuations::metrics::MetricId;
 use pyo3::prelude::*;
@@ -85,12 +85,7 @@ fn optimize_max_yield_with_ccc_limit(
     let portfolio_ref = &result.problem.portfolio;
     for (pos_id, &w) in &result.optimal_weights {
         if let Some(position) = portfolio_ref.get_position(pos_id.as_str()) {
-            if position
-                .tags
-                .get("rating")
-                .map(String::as_str)
-                == Some("CCC")
-            {
+            if position.tags.get("rating").map(String::as_str) == Some("CCC") {
                 ccc_weight += w;
             }
         }
@@ -137,5 +132,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["optimize_max_yield_with_ccc_limit".to_string()])
 }
-
-

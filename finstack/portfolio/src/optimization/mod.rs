@@ -19,7 +19,5 @@ pub use problem::PortfolioOptimizationProblem;
 pub use result::{
     OptimizationStatus, PortfolioOptimizationResult, TradeDirection, TradeSpec, TradeType,
 };
-pub use types::{
-    MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric, WeightingScheme,
-};
+pub use types::{MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric, WeightingScheme};
 pub use universe::{CandidatePosition, PositionFilter, TradeUniverse};

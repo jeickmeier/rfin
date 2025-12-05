@@ -1,15 +1,15 @@
-use crate::error::{PortfolioError, Result};
-use crate::portfolio::Portfolio;
-use crate::types::PositionId;
-use finstack_core::prelude::{MarketContext, FinstackConfig};
+use super::constraints::{Constraint, Inequality};
+use super::decision::{build_decision_space, DecisionFeatures, DecisionItem};
 use super::problem::PortfolioOptimizationProblem;
 use super::result::{OptimizationStatus, PortfolioOptimizationResult};
 use super::types::{MetricExpr, MissingMetricPolicy, PerPositionMetric, WeightingScheme};
-use super::constraints::{Constraint, Inequality};
-use super::decision::{DecisionItem, DecisionFeatures, build_decision_space};
-use super::universe::{TradeUniverse, PositionFilter}; 
+use super::universe::{PositionFilter, TradeUniverse};
+use crate::error::{PortfolioError, Result};
+use crate::portfolio::Portfolio;
+use crate::types::PositionId;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_core::prelude::*;
+use finstack_core::prelude::{FinstackConfig, MarketContext};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::InstrumentType;
 use good_lp::{constraint, default_solver, variable, Expression, Solution, SolverModel};
@@ -86,19 +86,23 @@ impl DefaultLpOptimizer {
 
         // Scan objective
         match &problem.objective {
-            super::types::Objective::Maximize(expr) | super::types::Objective::Minimize(expr) => match expr {
-                MetricExpr::WeightedSum { metric } | MetricExpr::ValueWeightedAverage { metric } => {
-                    add_metric(metric);
+            super::types::Objective::Maximize(expr) | super::types::Objective::Minimize(expr) => {
+                match expr {
+                    MetricExpr::WeightedSum { metric }
+                    | MetricExpr::ValueWeightedAverage { metric } => {
+                        add_metric(metric);
+                    }
+                    MetricExpr::TagExposureShare { .. } => {}
                 }
-                MetricExpr::TagExposureShare { .. } => {}
-            },
+            }
         }
 
         // Scan constraints
         for constraint in &problem.constraints {
             match constraint {
                 Constraint::MetricBound { metric, .. } => match metric {
-                    MetricExpr::WeightedSum { metric } | MetricExpr::ValueWeightedAverage { metric } => {
+                    MetricExpr::WeightedSum { metric }
+                    | MetricExpr::ValueWeightedAverage { metric } => {
                         add_metric(metric);
                     }
                     MetricExpr::TagExposureShare { .. } => {}
@@ -117,7 +121,11 @@ impl DefaultLpOptimizer {
 
     /// Whether the optimization problem relies on price-based yield/spread metrics for bonds.
     fn uses_price_based_yield_metrics(required: &[MetricId]) -> bool {
-        required.iter().any(|m| m.as_str().contains("Ytm") || m.as_str().contains("Spread") || m.as_str().contains("Oas"))
+        required.iter().any(|m| {
+            m.as_str().contains("Ytm")
+                || m.as_str().contains("Spread")
+                || m.as_str().contains("Oas")
+        })
     }
 
     /// Validate that all bond decision variables have an explicit quoted price when
@@ -150,9 +158,7 @@ impl DefaultLpOptimizer {
         match filter {
             PositionFilter::All => true,
             PositionFilter::ByEntityId(id) => position.entity_id == *id,
-            PositionFilter::ByTag { key, value } => position
-                .tags
-                .get(key) == Some(value),
+            PositionFilter::ByTag { key, value } => position.tags.get(key) == Some(value),
             PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
             PositionFilter::Not(inner) => !Self::matches_filter(position, inner),
         }
@@ -209,15 +215,11 @@ impl DefaultLpOptimizer {
             }
             MetricExpr::TagExposureShare { tag_key, tag_value } => {
                 for (item, feat) in items.iter().zip(feats) {
-                    let mut matches = feat
-                        .tags
-                        .get(tag_key) == Some(tag_value);
+                    let mut matches = feat.tags.get(tag_key) == Some(tag_value);
                     // Also consider portfolio‑level tags if any
                     if !matches {
                         if let Some(position) = portfolio.get_position(item.position_id.as_str()) {
-                            matches = position
-                                .tags
-                                .get(tag_key) == Some(tag_value);
+                            matches = position.tags.get(tag_key) == Some(tag_value);
                         }
                     }
                     // Candidates already have tags in `feat.tags`
@@ -228,7 +230,7 @@ impl DefaultLpOptimizer {
         }
 
         // For `MissingMetricPolicy::Exclude`, zero out coefficients for limits (not implemented explicitly yet)
-        let _ = trade_universe; 
+        let _ = trade_universe;
 
         Ok(coeffs)
     }
@@ -245,7 +247,9 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         problem.portfolio.validate()?;
 
         match problem.weighting {
-            WeightingScheme::ValueWeight | WeightingScheme::UnitScaling | WeightingScheme::NotionalWeight => {}
+            WeightingScheme::ValueWeight
+            | WeightingScheme::UnitScaling
+            | WeightingScheme::NotionalWeight => {}
         }
 
         // Ensure there is at least one budget constraint, or we will add one with rhs=1.0.
@@ -423,7 +427,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                 Constraint::WeightBounds { .. } => {
                     // Already applied to `DecisionFeatures::min_weight/max_weight`.
                 }
-                Constraint::MaxTurnover { label, max_turnover } => {
+                Constraint::MaxTurnover {
+                    label,
+                    max_turnover,
+                } => {
                     // Turnover handled later via auxiliary variables.
                     // We record a synthetic constraint row: coefficients of 1 for t_i.
                     lp_constraints.push(LpConstraint {
@@ -466,7 +473,10 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Decision variables w_i
         let mut w_vars = Vec::with_capacity(n_vars);
         for (item, feat) in decision_items.iter().zip(&decision_features) {
-            let current_weight = current_weights.get(&item.position_id).copied().unwrap_or(0.0);
+            let current_weight = current_weights
+                .get(&item.position_id)
+                .copied()
+                .unwrap_or(0.0);
             // Held positions: lock weight at current value by min = max = current_weight.
             let (min_w, max_w) = if item.is_held {
                 (current_weight, current_weight)
@@ -474,9 +484,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                 (feat.min_weight, feat.max_weight)
             };
 
-            w_vars.push(
-                vars.add(variable().min(min_w).max(max_w)),
-            );
+            w_vars.push(vars.add(variable().min(min_w).max(max_w)));
         }
 
         // Auxiliary variables for turnover t_i (|w_i - w0_i|) if needed.
@@ -556,8 +564,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
             for tv in t_vars.iter().flatten() {
                 lhs_turnover += *tv;
             }
-            problem_model =
-                problem_model.with(constraint!(lhs_turnover <= *max_turnover));
+            problem_model = problem_model.with(constraint!(lhs_turnover <= *max_turnover));
         }
 
         // Solve LP
@@ -586,23 +593,23 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                 .get(&item.position_id)
                 .copied()
                 .unwrap_or(0.0);
-            
+
             let refined_basis_per_unit = if feat.pv_per_unit.abs() > 1e-12 {
-                 if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
-                      // Logic for FX conversion if needed
-                      // For simplicity here we assume pv_per_unit unless notional logic needed and available
-                      // Copied simple logic from original
-                      feat.pv_per_unit
-                 } else {
-                     feat.pv_per_unit
-                 }
+                if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
+                    // Logic for FX conversion if needed
+                    // For simplicity here we assume pv_per_unit unless notional logic needed and available
+                    // Copied simple logic from original
+                    feat.pv_per_unit
+                } else {
+                    feat.pv_per_unit
+                }
             } else {
                 // If pv_per_unit is zero and we are in ValueWeight, we can't infer quantity from weight.
-                 if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
-                     1.0 
-                 } else {
-                     0.0
-                 }
+                if matches!(problem.weighting, WeightingScheme::NotionalWeight) {
+                    1.0
+                } else {
+                    0.0
+                }
             };
 
             let qty = if refined_basis_per_unit.abs() > 1e-12 {
@@ -633,7 +640,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                 for (var, coef) in w_vars.iter().zip(&lc.coefficients) {
                     lhs_val += *coef * solution.value(*var);
                 }
-                
+
                 let slack = match lc.relation {
                     LpRelation::Le => lc.rhs - lhs_val,
                     LpRelation::Ge => lhs_val - lc.rhs,

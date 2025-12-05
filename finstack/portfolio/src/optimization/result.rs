@@ -1,7 +1,7 @@
+use super::problem::PortfolioOptimizationProblem;
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
-use super::problem::PortfolioOptimizationProblem;
 use finstack_core::prelude::*;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -179,12 +179,8 @@ impl PortfolioOptimizationResult {
                 let is_candidate = existing_position.is_none();
 
                 let current_qty = existing_position.map(|p| p.quantity).unwrap_or(0.0);
-                let target_qty = self
-                    .implied_quantities
-                    .get(pos_id)
-                    .copied()
-                    .unwrap_or(0.0);
-    
+                let target_qty = self.implied_quantities.get(pos_id).copied().unwrap_or(0.0);
+
                 let trade_type = if is_candidate && target_weight > WEIGHT_TOLERANCE {
                     TradeType::NewPosition
                 } else if !is_candidate && target_weight < WEIGHT_TOLERANCE {

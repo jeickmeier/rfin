@@ -206,7 +206,10 @@ fn value_portfolio_serial(
     let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
 
     // Determine which metrics to compute for this valuation
-    let metrics = match (&options.additional_metrics, options.replace_standard_metrics) {
+    let metrics = match (
+        &options.additional_metrics,
+        options.replace_standard_metrics,
+    ) {
         (Some(additional), true) => additional.clone(),
         (Some(additional), false) => {
             let mut merged = standard_portfolio_metrics();
@@ -258,7 +261,10 @@ fn value_portfolio_parallel(
 ) -> Result<PortfolioValuation> {
     use rayon::prelude::*;
 
-    let metrics = match (&options.additional_metrics, options.replace_standard_metrics) {
+    let metrics = match (
+        &options.additional_metrics,
+        options.replace_standard_metrics,
+    ) {
         (Some(additional), true) => additional.clone(),
         (Some(additional), false) => {
             let mut merged = standard_portfolio_metrics();

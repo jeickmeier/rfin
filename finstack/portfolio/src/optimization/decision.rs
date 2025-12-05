@@ -1,16 +1,21 @@
-use crate::error::{PortfolioError, Result};
-use crate::types::PositionId;
-use crate::position::Position;
-use finstack_core::prelude::{MarketContext, FinstackConfig};
-use super::universe::PositionFilter;
 use super::problem::PortfolioOptimizationProblem;
 use super::types::{MissingMetricPolicy, WeightingScheme};
+use super::universe::PositionFilter;
+use crate::error::{PortfolioError, Result};
+use crate::position::Position;
+use crate::types::PositionId;
+use finstack_core::math::summation::neumaier_sum;
+use finstack_core::prelude::{FinstackConfig, MarketContext};
 use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
-use finstack_core::math::summation::neumaier_sum;
 
 /// Result of building the decision space: items, features, current weights, and total PV.
-type DecisionSpaceResult = (Vec<DecisionItem>, Vec<DecisionFeatures>, IndexMap<PositionId, f64>, f64);
+type DecisionSpaceResult = (
+    Vec<DecisionItem>,
+    Vec<DecisionFeatures>,
+    IndexMap<PositionId, f64>,
+    f64,
+);
 
 /// Internal representation of a decision variable.
 #[derive(Clone, Debug)]
@@ -47,9 +52,7 @@ fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
     match filter {
         PositionFilter::All => true,
         PositionFilter::ByEntityId(id) => position.entity_id == *id,
-        PositionFilter::ByTag { key, value } => position
-            .tags
-            .get(key) == Some(value),
+        PositionFilter::ByTag { key, value } => position.tags.get(key) == Some(value),
         PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
         PositionFilter::Not(inner) => !matches_filter(position, inner),
     }
@@ -165,7 +168,7 @@ pub(crate) fn build_decision_space(
             )
             .map_err(|e| PortfolioError::invalid_input(e.to_string()))?
             .with_tags(candidate.tags.clone());
-            
+
             builder = builder.position(pos);
         }
 
@@ -186,7 +189,7 @@ pub(crate) fn build_decision_space(
         Some(crate::valuation::value_portfolio_with_options(
             &candidate_portfolio,
             market,
-            config, 
+            config,
             &options,
         )?)
     } else {
@@ -203,7 +206,7 @@ pub(crate) fn build_decision_space(
 
         let pv_unit = val_entry.value_base.amount();
         // Candidates don't contribute to initial PV base but may have value
-        
+
         let measures = val_entry
             .valuation_result
             .as_ref()
@@ -235,7 +238,10 @@ pub(crate) fn build_decision_space(
             if gross_notional.abs() > 1e-6 {
                 for item in &items {
                     if item.is_existing {
-                        let notional = position_notionals.get(&item.position_id).copied().unwrap_or(0.0);
+                        let notional = position_notionals
+                            .get(&item.position_id)
+                            .copied()
+                            .unwrap_or(0.0);
                         current_weights.insert(item.position_id.clone(), notional / gross_notional);
                     } else {
                         current_weights.insert(item.position_id.clone(), 0.0);
@@ -253,7 +259,8 @@ pub(crate) fn build_decision_space(
             if gross_pv_base.abs() > 1e-6 {
                 for (item, feat) in items.iter().zip(&features) {
                     if item.is_existing {
-                        current_weights.insert(item.position_id.clone(), feat.pv_base / gross_pv_base);
+                        current_weights
+                            .insert(item.position_id.clone(), feat.pv_base / gross_pv_base);
                     } else {
                         current_weights.insert(item.position_id.clone(), 0.0);
                     }

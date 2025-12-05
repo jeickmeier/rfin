@@ -1,7 +1,7 @@
-use crate::portfolio::Portfolio;
 use super::constraints::Constraint;
 use super::types::{MissingMetricPolicy, Objective, WeightingScheme};
 use super::universe::TradeUniverse;
+use crate::portfolio::Portfolio;
 use indexmap::IndexMap;
 
 /// Complete optimization problem specification.

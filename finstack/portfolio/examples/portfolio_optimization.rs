@@ -13,11 +13,11 @@
 
 use finstack_core::prelude::*;
 use finstack_portfolio::{
-    aggregate_metrics, Entity, PortfolioBuilder, Position, PositionUnit, PortfolioOptimizer,
+    aggregate_metrics, Entity, PortfolioBuilder, PortfolioOptimizer, Position, PositionUnit,
 };
 use finstack_portfolio::{
-    Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, WeightingScheme,
+    Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
+    PortfolioOptimizationProblem, WeightingScheme,
 };
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
@@ -30,12 +30,7 @@ fn build_market(as_of: Date) -> MarketContext {
 
     let curve = DiscountCurve::builder("USD")
         .base_date(as_of)
-        .knots(vec![
-            (0.0, 1.0),
-            (1.0, 0.99),
-            (3.0, 0.96),
-            (5.0, 0.93),
-        ])
+        .knots(vec![(0.0, 1.0), (1.0, 0.99), (3.0, 0.96), (5.0, 0.93)])
         .set_interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
@@ -46,8 +41,8 @@ fn build_market(as_of: Date) -> MarketContext {
 
 fn build_bond_portfolio(as_of: Date) -> finstack_portfolio::Portfolio {
     let issue = as_of;
-    let maturity = Date::from_calendar_date(as_of.year() + 5, Month::January, 1)
-        .expect("valid maturity date");
+    let maturity =
+        Date::from_calendar_date(as_of.year() + 5, Month::January, 1).expect("valid maturity date");
 
     // All bonds use the same discount curve "USD" so that YTM is well-defined.
     let mut bond_aaa = Bond::fixed(
@@ -128,8 +123,7 @@ fn build_bond_portfolio(as_of: Date) -> finstack_portfolio::Portfolio {
 }
 
 fn main() -> finstack_portfolio::Result<()> {
-    let as_of = Date::from_calendar_date(2025, Month::January, 1)
-        .expect("valid example date");
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid example date");
     let market = build_market(as_of);
     let config = FinstackConfig::default();
 
@@ -176,12 +170,7 @@ fn main() -> finstack_portfolio::Result<()> {
     let portfolio_ref = &result.problem.portfolio;
     for (pos_id, &w) in &result.optimal_weights {
         if let Some(position) = portfolio_ref.get_position(pos_id.as_str()) {
-            if position
-                .tags
-                .get("rating")
-                .map(String::as_str)
-                == Some("CCC")
-            {
+            if position.tags.get("rating").map(String::as_str) == Some("CCC") {
                 ccc_weight += w;
             }
         }
@@ -193,18 +182,16 @@ fn main() -> finstack_portfolio::Result<()> {
     for trade in result.to_trade_list().iter().take(10) {
         println!(
             "  {}: {:?}, Δw = {:+.4}",
-            trade.position_id, trade.direction, trade.target_weight - trade.current_weight
+            trade.position_id,
+            trade.direction,
+            trade.target_weight - trade.current_weight
         );
     }
 
     // Optionally, compute aggregated metrics at the optimal allocation by
     // revaluing the portfolio with implied quantities.
     let rebalanced = result.to_rebalanced_portfolio()?;
-    let valuation = finstack_portfolio::valuation::value_portfolio(
-        &rebalanced,
-        &market,
-        &config,
-    )?;
+    let valuation = finstack_portfolio::valuation::value_portfolio(&rebalanced, &market, &config)?;
     let metrics: finstack_portfolio::PortfolioMetrics = aggregate_metrics(&valuation)?;
 
     println!("\nAggregated metrics at optimum (first few):");
@@ -214,5 +201,3 @@ fn main() -> finstack_portfolio::Result<()> {
 
     Ok(())
 }
-
-

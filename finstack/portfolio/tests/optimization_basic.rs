@@ -4,14 +4,14 @@ mod common;
 
 use common::{base_date, market_with_usd};
 use finstack_core::prelude::*;
+use finstack_portfolio::PortfolioOptimizer;
 use finstack_portfolio::{
     optimization::{
-        Constraint, MetricExpr, Objective, PerPositionMetric, PortfolioOptimizationProblem,
-        WeightingScheme, DefaultLpOptimizer,
+        Constraint, DefaultLpOptimizer, MetricExpr, Objective, PerPositionMetric,
+        PortfolioOptimizationProblem, WeightingScheme,
     },
     PortfolioBuilder, Position, PositionUnit,
 };
-use finstack_portfolio::PortfolioOptimizer;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::instruments::PricingOverrides;
@@ -97,16 +97,8 @@ fn optimize_simple_value_weighted_portfolio() {
 
     assert!(result.status.is_feasible(), "solution should be feasible");
 
-    let w1 = result
-        .optimal_weights
-        .get("POS_1")
-        .copied()
-        .unwrap_or(0.0);
-    let w2 = result
-        .optimal_weights
-        .get("POS_2")
-        .copied()
-        .unwrap_or(0.0);
+    let w1 = result.optimal_weights.get("POS_1").copied().unwrap_or(0.0);
+    let w2 = result.optimal_weights.get("POS_2").copied().unwrap_or(0.0);
 
     let sum_w = w1 + w2;
     assert!(
@@ -121,8 +113,8 @@ fn optimize_simple_value_weighted_portfolio() {
 fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
     let as_of = base_date();
     let issue = as_of;
-    let maturity = Date::from_calendar_date(as_of.year() + 5, Month::January, 1)
-        .expect("valid maturity date");
+    let maturity =
+        Date::from_calendar_date(as_of.year() + 5, Month::January, 1).expect("valid maturity date");
 
     // All bonds use the same discount curve "USD" so that YTM is well-defined.
     let mut bond_aaa = Bond::fixed(
@@ -264,6 +256,3 @@ fn optimize_max_yield_with_ccc_limit() {
         ccc_weight
     );
 }
-
-
-

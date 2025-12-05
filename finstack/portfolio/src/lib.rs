@@ -91,10 +91,10 @@ pub use margin::{
 };
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use optimization::{
-    CandidatePosition, Constraint, DefaultLpOptimizer, Inequality, MetricExpr,
-    MissingMetricPolicy, Objective, PerPositionMetric, PortfolioOptimizationProblem,
-    PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter, TradeDirection,
-    TradeSpec, TradeType, TradeUniverse, WeightingScheme,
+    CandidatePosition, Constraint, DefaultLpOptimizer, Inequality, MetricExpr, MissingMetricPolicy,
+    Objective, PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
+    PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec, TradeType, TradeUniverse,
+    WeightingScheme,
 };
 pub use portfolio::Portfolio;
 pub use position::{Position, PositionUnit};
