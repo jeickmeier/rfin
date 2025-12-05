@@ -56,6 +56,10 @@ pub enum PortfolioError {
     #[error("Missing market data: {0}")]
     MissingMarketData(String),
 
+    /// Optimization error
+    #[error("Optimization error: {0}")]
+    OptimizationError(String),
+
     /// Core error
     #[error(transparent)]
     Core(#[from] finstack_core::Error),
@@ -95,6 +99,11 @@ impl PortfolioError {
     /// Create a missing market data error
     pub fn missing_market_data(msg: impl Into<String>) -> Self {
         Self::MissingMarketData(msg.into())
+    }
+
+    /// Create an optimization error with context
+    pub fn optimization_error(msg: impl Into<String>) -> Self {
+        Self::OptimizationError(msg.into())
     }
 
     /// Create an invalid input error

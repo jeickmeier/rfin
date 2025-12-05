@@ -36,7 +36,11 @@ impl PyPortfolioValuationOptions {
     /// Args:
     ///     strict_risk: When true, fail if risk metrics cannot be computed.
     fn new_py(strict_risk: bool) -> Self {
-        Self::new(PortfolioValuationOptions { strict_risk })
+        Self::new(PortfolioValuationOptions {
+            strict_risk,
+            additional_metrics: None,
+            replace_standard_metrics: false,
+        })
     }
 
     #[getter]

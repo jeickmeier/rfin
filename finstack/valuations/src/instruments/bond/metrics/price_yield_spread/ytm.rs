@@ -53,14 +53,10 @@ impl MetricCalculator for YtmCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Extract fields we need from the bond
-        let (clean_px, notional, dc, discount_curve_id, coupon, freq) = {
+        let (maybe_clean_px, notional, dc, discount_curve_id, coupon, freq) = {
             let bond: &Bond = context.instrument_as()?;
             (
-                bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: "bond.pricing_overrides.quoted_clean_price".to_string(),
-                    })
-                })?,
+                bond.pricing_overrides.quoted_clean_price,
                 bond.notional,
                 bond.cashflow_spec.day_count(),
                 bond.discount_curve_id.to_owned(),
@@ -72,20 +68,34 @@ impl MetricCalculator for YtmCalculator {
             )
         };
 
-        // Get accrued from computed metrics
-        let ai = context
-            .computed
-            .get(&MetricId::Accrued)
-            .copied()
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "metric:Accrued".to_string(),
-                })
-            })?;
+        // Determine dirty price in currency.
+        //
+        // Preferred path: use quoted clean price (market quote) plus accrued
+        // interest to build the dirty market price. When no quoted clean price
+        // is available, fall back to the model PV from `context.base_value`,
+        // which provides a well-defined cashflow-implied yield consistent with
+        // the discount curve.
+        let dirty: Money = if let Some(clean_px) = maybe_clean_px {
+            // Get accrued from computed metrics
+            let ai = context
+                .computed
+                .get(&MetricId::Accrued)
+                .copied()
+                .ok_or_else(|| {
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "metric:Accrued".to_string(),
+                    })
+                })?;
 
-        // Compute dirty price in currency: clean is quoted % of par
-        let dirty_amt = (clean_px * notional.amount() / 100.0) + ai;
-        let dirty = Money::new(dirty_amt, notional.currency());
+            // Compute dirty price in currency: clean is quoted % of par
+            let dirty_amt = (clean_px * notional.amount() / 100.0) + ai;
+            Money::new(dirty_amt, notional.currency())
+        } else {
+            // Fallback: use model PV as dirty price. This preserves the semantic
+            // that YTM is the IRR of the full projected cashflows, and avoids
+            // hard failures when no explicit market quote is present.
+            context.base_value
+        };
 
         // Build and cache flows and hints if not already present
         if context.cashflows.is_none() {

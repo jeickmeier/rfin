@@ -97,9 +97,11 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 /// Options controlling portfolio valuation behaviour.
 ///
 /// This structure allows callers to configure how strictly risk metric
-/// errors are handled. By default, risk metrics are treated as
-/// best-effort: if metrics fail for a position, the engine falls back
-/// to PV-only valuation for that position.
+/// errors are handled and which additional metrics to request.
+///
+/// By default, risk metrics are treated as best-effort: if metrics fail
+/// for a position, the engine falls back to PV-only valuation for that
+/// position.
 #[derive(Clone, Debug, Default)]
 pub struct PortfolioValuationOptions {
     /// When `true`, any failure to compute requested risk metrics for a
@@ -109,6 +111,19 @@ pub struct PortfolioValuationOptions {
     /// valuation for that position if metrics fail, preserving
     /// aggregate PV but potentially leaving some risk metrics missing.
     pub strict_risk: bool,
+
+    /// Optional list of additional metrics to request from instruments.
+    ///
+    /// When `None`, only the standard portfolio metrics (see
+    /// [`standard_portfolio_metrics`]) are requested.
+    /// When `Some`, the metrics are merged with the standard set unless
+    /// [`PortfolioValuationOptions::replace_standard_metrics`] is `true`.
+    pub additional_metrics: Option<Vec<MetricId>>,
+
+    /// When `true`, [`PortfolioValuationOptions::additional_metrics`]
+    /// replaces the standard metric set entirely rather than being
+    /// merged with it.
+    pub replace_standard_metrics: bool,
 }
 
 /// Value all positions in a portfolio with full metrics using default options.
@@ -190,8 +205,20 @@ fn value_portfolio_serial(
     let mut position_values = IndexMap::new();
     let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
 
-    // Get standard metrics to compute
-    let metrics = standard_portfolio_metrics();
+    // Determine which metrics to compute for this valuation
+    let metrics = match (&options.additional_metrics, options.replace_standard_metrics) {
+        (Some(additional), true) => additional.clone(),
+        (Some(additional), false) => {
+            let mut merged = standard_portfolio_metrics();
+            for m in additional {
+                if !merged.contains(m) {
+                    merged.push(m.clone());
+                }
+            }
+            merged
+        }
+        (None, _) => standard_portfolio_metrics(),
+    };
 
     for position in &portfolio.positions {
         let position_value =
@@ -231,7 +258,19 @@ fn value_portfolio_parallel(
 ) -> Result<PortfolioValuation> {
     use rayon::prelude::*;
 
-    let metrics = standard_portfolio_metrics();
+    let metrics = match (&options.additional_metrics, options.replace_standard_metrics) {
+        (Some(additional), true) => additional.clone(),
+        (Some(additional), false) => {
+            let mut merged = standard_portfolio_metrics();
+            for m in additional {
+                if !merged.contains(m) {
+                    merged.push(m.clone());
+                }
+            }
+            merged
+        }
+        (None, _) => standard_portfolio_metrics(),
+    };
 
     // Value all positions in parallel and aggregate using fold/reduce
     let position_values_vec: Vec<PositionValue> = portfolio

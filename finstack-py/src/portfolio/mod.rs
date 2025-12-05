@@ -11,6 +11,7 @@ pub(crate) mod error;
 pub(crate) mod grouping;
 pub(crate) mod margin;
 pub(crate) mod metrics;
+pub(crate) mod optimization;
 pub(crate) mod portfolio;
 pub(crate) mod results;
 pub(crate) mod types;
@@ -47,6 +48,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let valuation_exports = valuation::register(py, &module)?;
     let metrics_exports = metrics::register(py, &module)?;
 
+    // Register optimization helpers
+    let optimization_exports = optimization::register(py, &module)?;
+
     // Register results
     let results_exports = results::register(py, &module)?;
 
@@ -74,6 +78,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(builder_exports);
     all_exports.extend(valuation_exports);
     all_exports.extend(metrics_exports);
+    all_exports.extend(optimization_exports);
     all_exports.extend(results_exports);
     all_exports.extend(grouping_exports);
     all_exports.extend(attribution_exports);

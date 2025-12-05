@@ -63,6 +63,7 @@ pub mod error;
 pub mod grouping;
 pub mod margin;
 pub mod metrics;
+pub mod optimization;
 pub mod portfolio;
 pub mod position;
 pub mod results;
@@ -89,6 +90,12 @@ pub use margin::{
     PortfolioMarginResult,
 };
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
+pub use optimization::{
+    CandidatePosition, Constraint, DefaultLpOptimizer, Inequality, MetricExpr,
+    MissingMetricPolicy, Objective, PerPositionMetric, PortfolioOptimizationProblem,
+    PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter, TradeDirection,
+    TradeSpec, TradeType, TradeUniverse, WeightingScheme,
+};
 pub use portfolio::Portfolio;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResults;
