@@ -12,10 +12,11 @@ use finstack_core::types::CurveId;
 use std::any::Any;
 
 /// Type of repurchase agreement.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RepoType {
     /// Term repo with fixed maturity date
+    #[default]
     Term,
     /// Open repo that can be terminated with notice
     Open,
@@ -23,11 +24,6 @@ pub enum RepoType {
     Overnight,
 }
 
-impl Default for RepoType {
-    fn default() -> Self {
-        Self::Term
-    }
-}
 
 impl std::fmt::Display for RepoType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,10 +49,11 @@ impl std::str::FromStr for RepoType {
 }
 
 /// Classification of collateral for repos.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CollateralType {
     /// General collateral (standard market rates)
+    #[default]
     General,
     /// Special collateral (specific securities in high demand, may trade at lower rates)
     Special {
@@ -67,11 +64,6 @@ pub enum CollateralType {
     },
 }
 
-impl Default for CollateralType {
-    fn default() -> Self {
-        Self::General
-    }
-}
 
 /// Specification of collateral backing a repo.
 #[derive(Debug, Clone)]

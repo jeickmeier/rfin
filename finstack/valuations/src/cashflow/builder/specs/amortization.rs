@@ -11,10 +11,11 @@ use finstack_core::money::Money;
 ///
 /// Describes how principal amortizes or is exchanged during the life of the contract.
 /// Used by instruments (e.g., bonds) and cashflow legs for consistent behavior.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AmortizationSpec {
     /// No amortization – principal remains constant until final redemption.
+    #[default]
     None,
     /// Linear principal paydown towards a target final notional amount over all periods.
     LinearTo {
@@ -40,11 +41,6 @@ pub enum AmortizationSpec {
     },
 }
 
-impl Default for AmortizationSpec {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 /// Notional amount with an optional amortisation rule.
 ///

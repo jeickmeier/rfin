@@ -49,9 +49,10 @@ pub trait Report {
 // ============================================================================
 
 /// Alignment options for table columns.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Alignment {
     /// Left-aligned
+    #[default]
     Left,
     /// Right-aligned
     Right,
@@ -59,11 +60,6 @@ pub enum Alignment {
     Center,
 }
 
-impl Default for Alignment {
-    fn default() -> Self {
-        Self::Left
-    }
-}
 
 /// Builder for ASCII and Markdown tables.
 ///

@@ -91,9 +91,10 @@ pub struct BarrierState {
 }
 
 /// Types of barrier conditions
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BarrierType {
     /// Up-and-out (option knocks out when spot > barrier)
+    #[default]
     UpAndOut,
     /// Up-and-in (option knocks in when spot > barrier)
     UpAndIn,
@@ -103,11 +104,6 @@ pub enum BarrierType {
     DownAndIn,
 }
 
-impl Default for BarrierType {
-    fn default() -> Self {
-        Self::UpAndOut
-    }
-}
 
 impl<'a> NodeState<'a> {
     /// Create a new node state
@@ -766,7 +762,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             let mut node_vars = inputs.initial_vars.clone(); // Clone once
 
             // Terminal values
-            for j in 0..max_nodes {
+            for (j, terminal_value) in values[inputs.steps].iter_mut().enumerate().take(max_nodes) {
                 if j <= 2 * inputs.steps {
                     let spot_t = get_state(inputs.steps, j, spot0);
                     let time_t = inputs.time_to_maturity;
@@ -792,7 +788,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     } else {
                         inputs.valuator.value_at_maturity(&terminal_state)?
                     };
-                    values[inputs.steps][j] = payoff;
+                    *terminal_value = payoff;
                 }
             }
 

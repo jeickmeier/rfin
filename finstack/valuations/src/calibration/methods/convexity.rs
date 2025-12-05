@@ -111,9 +111,10 @@ pub fn ho_lee_convexity(
 }
 
 /// Source of volatility for convexity adjustment calculation.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum VolatilitySource {
     /// Use hardcoded currency-specific defaults
+    #[default]
     Default,
     /// Use explicit volatility value (decimal, e.g., 0.0075 for 75bp)
     Explicit(f64),
@@ -126,11 +127,6 @@ pub enum VolatilitySource {
     },
 }
 
-impl Default for VolatilitySource {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 /// Convexity adjustment parameters for interest rate futures.
 ///

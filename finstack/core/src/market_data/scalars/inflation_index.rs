@@ -89,7 +89,7 @@ use serde::{Deserialize, Serialize};
 /// let linear = InflationInterpolation::Linear; // TIPS standard
 /// let step = InflationInterpolation::Step;     // Conservative approach
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
@@ -97,6 +97,7 @@ pub enum InflationInterpolation {
     /// Last observation carried forward until next publication.
     ///
     /// Conservative approach: assumes no intra-month inflation.
+    #[default]
     Step,
 
     /// Linear interpolation between monthly observations.
@@ -106,11 +107,6 @@ pub enum InflationInterpolation {
     Linear,
 }
 
-impl Default for InflationInterpolation {
-    fn default() -> Self {
-        Self::Step
-    }
-}
 
 impl core::fmt::Display for InflationInterpolation {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -162,7 +158,7 @@ impl core::str::FromStr for InflationInterpolation {
 /// let gilt_lag = InflationLag::Months(3);  // UK modern gilts
 /// let no_lag = InflationLag::None;         // Inflation swaps (forecast-based)
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
@@ -180,14 +176,10 @@ pub enum InflationLag {
     /// No lag applied.
     ///
     /// Used for inflation swaps where forecast indices are used.
+    #[default]
     None,
 }
 
-impl Default for InflationLag {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 /// Inflation index time series with lagging and seasonality.
 ///

@@ -19,38 +19,30 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 /// Waterfall allocation style.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum WaterfallStyle {
     /// European style: aggregate all events at fund level
+    #[default]
     European,
     /// American style: allocate per deal, then aggregate
     American,
 }
 
-impl Default for WaterfallStyle {
-    fn default() -> Self {
-        Self::European
-    }
-}
 
 /// Catch-up mode for GP profit sharing.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum CatchUpMode {
     /// Full catch-up: GP gets 100% until target split is reached
+    #[default]
     Full,
     /// Partial catch-up: GP gets configured percentage
     Partial,
 }
 
-impl Default for CatchUpMode {
-    fn default() -> Self {
-        Self::Full
-    }
-}
 
 /// Hurdle types for waterfall tiers.
 #[derive(Clone, Copy, Debug, PartialEq)]

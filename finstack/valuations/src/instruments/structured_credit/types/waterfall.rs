@@ -49,10 +49,11 @@ pub enum ManagementFeeType {
 }
 
 /// Rounding convention for payments
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum RoundingConvention {
     /// Round to nearest precision
+    #[default]
     Nearest,
     /// Round down (floor)
     Floor,
@@ -60,11 +61,6 @@ pub enum RoundingConvention {
     Ceiling,
 }
 
-impl Default for RoundingConvention {
-    fn default() -> Self {
-        Self::Nearest
-    }
-}
 
 /// How to calculate payment amount
 #[derive(Debug, Clone)]

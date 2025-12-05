@@ -14,12 +14,13 @@ pub const VOL_BUMP_PCT: f64 = 0.01;
 /// Bucket selector for key-rate shocks.
 ///
 /// Determines which time points to use when applying key-rate shocks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BucketSelector {
     /// Use standard buckets defined for the asset class.
     /// - IR: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30] years
     /// - Credit: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30] years
     /// - Equity vol: [1m, 3m, 6m, 1y, 2y, 3y, 5y]
+    #[default]
     Standard,
 
     /// Derive buckets from the curve's knot points.
@@ -31,11 +32,6 @@ pub enum BucketSelector {
     SurfaceGrid,
 }
 
-impl Default for BucketSelector {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 /// Standard expiry buckets in years for equity options.
 pub fn standard_equity_expiry_buckets() -> Vec<f64> {

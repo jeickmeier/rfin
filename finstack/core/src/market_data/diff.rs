@@ -70,7 +70,7 @@ pub const DEFAULT_VOL_EXPIRY: f64 = 1.0;
 ///
 /// Different sampling strategies trade off accuracy, performance, and
 /// robustness to curve structure.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TenorSamplingMethod {
@@ -78,6 +78,7 @@ pub enum TenorSamplingMethod {
     ///
     /// Most robust for typical interest rate curves. Matches market liquidity
     /// points and works well for parallel shift detection.
+    #[default]
     Standard,
 
     /// Use curve's own knot points dynamically.
@@ -93,11 +94,6 @@ pub enum TenorSamplingMethod {
     Custom(Vec<f64>),
 }
 
-impl Default for TenorSamplingMethod {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 impl TenorSamplingMethod {
     /// Get the tenor points to sample based on the method.

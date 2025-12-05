@@ -39,21 +39,17 @@ use time::Duration as TimeDuration;
 /// let mid_date = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
 /// assert_eq!(stepped.value_on(mid_date).expect("Value lookup should succeed"), 100.0);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum SeriesInterpolation {
     /// Last observation carried forward
+    #[default]
     Step,
     /// Linear interpolation between observed points
     Linear,
 }
 
-impl Default for SeriesInterpolation {
-    fn default() -> Self {
-        Self::Step
-    }
-}
 
 /// Single market observable that doesn't require a full curve.
 ///

@@ -315,11 +315,12 @@ impl Frequency {
 /// # See Also
 ///
 /// - [`ScheduleBuilder::stub_rule`] to configure stub behavior
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum StubKind {
     /// No special stub handling.
+    #[default]
     None,
     /// Short stub period at the beginning of the schedule.
     ShortFront,
@@ -331,11 +332,6 @@ pub enum StubKind {
     LongBack,
 }
 
-impl Default for StubKind {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl std::fmt::Display for StubKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
