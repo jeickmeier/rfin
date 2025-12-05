@@ -24,7 +24,6 @@ pub enum RepoType {
     Overnight,
 }
 
-
 impl std::fmt::Display for RepoType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -63,7 +62,6 @@ pub enum CollateralType {
         rate_adjustment_bp: Option<f64>,
     },
 }
-
 
 /// Specification of collateral backing a repo.
 #[derive(Debug, Clone)]

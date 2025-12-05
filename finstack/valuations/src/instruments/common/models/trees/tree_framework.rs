@@ -104,7 +104,6 @@ pub enum BarrierType {
     DownAndIn,
 }
 
-
 impl<'a> NodeState<'a> {
     /// Create a new node state
     pub fn new(

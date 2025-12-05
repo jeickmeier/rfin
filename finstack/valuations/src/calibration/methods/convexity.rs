@@ -127,7 +127,6 @@ pub enum VolatilitySource {
     },
 }
 
-
 /// Convexity adjustment parameters for interest rate futures.
 ///
 /// Provides market-standard convexity corrections with configurable

@@ -94,7 +94,6 @@ pub enum TenorSamplingMethod {
     Custom(Vec<f64>),
 }
 
-
 impl TenorSamplingMethod {
     /// Get the tenor points to sample based on the method.
     ///

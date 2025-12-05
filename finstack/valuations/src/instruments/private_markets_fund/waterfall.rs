@@ -30,7 +30,6 @@ pub enum WaterfallStyle {
     American,
 }
 
-
 /// Catch-up mode for GP profit sharing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -42,7 +41,6 @@ pub enum CatchUpMode {
     /// Partial catch-up: GP gets configured percentage
     Partial,
 }
-
 
 /// Hurdle types for waterfall tiers.
 #[derive(Clone, Copy, Debug, PartialEq)]

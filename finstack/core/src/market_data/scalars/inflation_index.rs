@@ -107,7 +107,6 @@ pub enum InflationInterpolation {
     Linear,
 }
 
-
 impl core::fmt::Display for InflationInterpolation {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -179,7 +178,6 @@ pub enum InflationLag {
     #[default]
     None,
 }
-
 
 /// Inflation index time series with lagging and seasonality.
 ///

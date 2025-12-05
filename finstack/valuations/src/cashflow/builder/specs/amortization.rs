@@ -41,7 +41,6 @@ pub enum AmortizationSpec {
     },
 }
 
-
 /// Notional amount with an optional amortisation rule.
 ///
 /// Combines initial principal with amortization behavior for complete

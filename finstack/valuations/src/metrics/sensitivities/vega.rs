@@ -32,7 +32,6 @@ pub enum BucketSelector {
     SurfaceGrid,
 }
 
-
 /// Standard expiry buckets in years for equity options.
 pub fn standard_equity_expiry_buckets() -> Vec<f64> {
     vec![

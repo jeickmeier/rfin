@@ -73,7 +73,6 @@ pub enum AccrualMethod {
     },
 }
 
-
 /// Ex-coupon convention applied to coupon flows.
 #[derive(Clone, Debug)]
 pub struct ExCouponRule {

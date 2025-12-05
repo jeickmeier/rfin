@@ -60,7 +60,6 @@ pub enum Alignment {
     Center,
 }
 
-
 /// Builder for ASCII and Markdown tables.
 ///
 /// # Examples

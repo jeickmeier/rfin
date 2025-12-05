@@ -61,7 +61,6 @@ pub enum RoundingConvention {
     Ceiling,
 }
 
-
 /// How to calculate payment amount
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -50,7 +50,6 @@ pub enum SeriesInterpolation {
     Linear,
 }
 
-
 /// Single market observable that doesn't require a full curve.
 ///
 /// Represents point-in-time market data like spot prices, spreads, or unitless
