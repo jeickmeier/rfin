@@ -28,11 +28,11 @@ class BumpType:
     PARALLEL: BumpType
 
     @staticmethod
-    def key_rate(time_years: float) -> BumpType: ...
+    def triangular_key_rate(prev_bucket: float, target_bucket: float, next_bucket: float) -> BumpType: ...
     @property
-    def is_key_rate(self) -> bool: ...
+    def is_triangular_key_rate(self) -> bool: ...
     @property
-    def time_years(self) -> float | None: ...
+    def target_bucket(self) -> float | None: ...
 
 class BumpSpec:
     """Unified specification for market data shifts used in scenario analysis.
@@ -70,7 +70,7 @@ class BumpSpec:
     --------
         >>> from finstack.core.market_data.bumps import BumpSpec
         >>> spec = BumpSpec.parallel_bp(10.0)
-        >>> print((spec.units, spec.value, spec.bump_type.is_key_rate))
+        >>> print((spec.units, spec.value, spec.bump_type.is_triangular_key_rate))
         (BumpUnits.RATE_BP, 10.0, False)
 
     Notes
@@ -115,24 +115,29 @@ class BumpSpec:
 
     """
     @staticmethod
-    def key_rate_bp(time_years: float, bump_bp: float) -> BumpSpec: ...
-    """Create a key-rate bump in basis points at a specific tenor.
+    def triangular_key_rate_bp(prev_bucket: float, target_bucket: float, next_bucket: float, bump_bp: float) -> BumpSpec: ...
+    """Create a triangular key-rate bump in basis points at a specific tenor.
 
-    Key-rate bumps affect only the specified tenor point on the curve,
-    with the impact tapering off for adjacent tenors. Used for DV01
-    calculations and partial duration analysis.
+    Triangular key-rate bumps affect only the specified tenor point on the curve,
+    with the impact tapering off to zero at the neighboring buckets. Used for DV01
+    calculations and partial duration analysis. This is the market-standard implementation
+    (per Tuckman/Fabozzi) where the triangular weight is defined by the bucket grid.
 
     Parameters
     ----------
-    time_years : float
-        Tenor point in years where the bump is applied (e.g., 5.0 for 5-year).
+    prev_bucket : float
+        Previous bucket time in years (use 0.0 for first bucket).
+    target_bucket : float
+        Target bucket time in years (peak of the triangle, e.g., 5.0 for 5-year).
+    next_bucket : float
+        Next bucket time in years (use float('inf') for last bucket).
     bump_bp : float
         Bump magnitude in basis points at the key rate point.
 
     Returns
     -------
     BumpSpec
-        Specification for a key-rate bump.
+        Specification for a triangular key-rate bump.
 
     """
     @staticmethod

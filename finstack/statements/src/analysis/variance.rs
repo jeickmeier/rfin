@@ -18,12 +18,12 @@
 //! use finstack_statements::analysis::{VarianceAnalyzer, VarianceConfig};
 //! use finstack_statements::prelude::*;
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> finstack_statements::Result<()> {
 //! // Build and evaluate a simple model twice (e.g., management vs bank case)
 //! let model = ModelBuilder::new("demo")
 //!     .periods("2025Q1..Q2", None)?
-//!     .compute("revenue", "100_000")?
-//!     .compute("ebitda", "60_000")?
+//!     .compute("revenue", "100000")?
+//!     .compute("ebitda", "60000")?
 //!     .build()?;
 //!
 //! let mut evaluator = Evaluator::new();

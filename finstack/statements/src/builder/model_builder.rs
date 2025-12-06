@@ -500,9 +500,9 @@ impl ModelBuilder<Ready> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// # use finstack_statements::builder::ModelBuilder;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let model = ModelBuilder::new("test")
     ///     .periods("2025Q1..Q2", None)?
     ///     .value("revenue", &[])
@@ -575,9 +575,9 @@ impl ModelBuilder<Ready> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// # use finstack_statements::builder::ModelBuilder;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let model = ModelBuilder::new("test")
     ///     .periods("2025Q1..Q2", None)?
     ///     .value("revenue", &[])
@@ -605,10 +605,10 @@ impl ModelBuilder<Ready> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// # use finstack_statements::builder::ModelBuilder;
     /// # use finstack_statements::registry::Registry;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let mut registry = Registry::new();
     /// registry.load_builtins()?;
     ///

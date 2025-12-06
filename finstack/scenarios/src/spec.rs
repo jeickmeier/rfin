@@ -483,7 +483,7 @@ pub enum OperationSpec {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_scenarios::OperationSpec;
+    /// use finstack_scenarios::{OperationSpec, TimeRollMode};
     ///
     /// let op = OperationSpec::TimeRollForward {
     ///     period: "1M".into(),

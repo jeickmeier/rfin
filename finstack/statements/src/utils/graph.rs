@@ -27,9 +27,17 @@ pub fn toposort_ids(
 
     for (node, deps) in dependencies {
         for dep in deps {
+            // Only process dependencies that are in the graph (being sorted)
+            // Dependencies that are not in the graph are external and don't affect ordering
+            if !dependencies.contains_key(dep) {
+                continue;
+            }
+            // Increment in-degree of the node that has the dependency
+            // (node depends on dep, so node has an incoming edge from dep)
             if let Some(degree) = in_degree.get_mut(node) {
                 *degree += 1;
             }
+            // Track that dep has node as a dependent
             if let Some(children) = dependents.get_mut(dep) {
                 children.insert(node.clone());
             }

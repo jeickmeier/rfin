@@ -82,6 +82,7 @@ pub struct RollForwardReport {
 /// ```rust,no_run
 /// use finstack_scenarios::ExecutionContext;
 /// use finstack_scenarios::adapters::time_roll::apply_time_roll_forward;
+/// use finstack_scenarios::TimeRollMode;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_statements::FinancialModelSpec;
 /// use time::macros::date;

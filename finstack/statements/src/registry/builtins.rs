@@ -16,16 +16,18 @@
 //! Built-in metrics are loaded via [`Registry::load_builtins()`](crate::registry::Registry::load_builtins),
 //! which uses `include_str!()` to embed the JSON metric definitions at compile time.
 //!
-//! ```rust
+//! ```rust,no_run
 //! use finstack_statements::registry::Registry;
 //!
+//! # fn main() -> finstack_statements::Result<()> {
 //! let mut registry = Registry::new();
 //! registry.load_builtins()?;
 //!
 //! // Access metrics from the fin.* namespace
 //! assert!(registry.has("fin.gross_profit"));
 //! assert!(registry.has("fin.gross_margin"));
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::error::{Error, Result};

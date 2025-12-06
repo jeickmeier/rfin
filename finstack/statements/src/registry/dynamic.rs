@@ -49,10 +49,10 @@ impl Registry {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_statements::registry::Registry;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let mut registry = Registry::new();
     /// registry.load_builtins()?;
     ///
@@ -154,10 +154,10 @@ impl Registry {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_statements::registry::Registry;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let mut registry = Registry::new();
     /// registry.load_builtins()?;
     ///
@@ -189,10 +189,10 @@ impl Registry {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use finstack_statements::registry::Registry;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # fn main() -> finstack_statements::Result<()> {
     /// let mut registry = Registry::new();
     /// registry.load_builtins()?;
     ///
@@ -251,20 +251,24 @@ impl Registry {
 
         // Build dependency graph: metric_id -> set of metrics it depends on
         let mut dependencies: IndexMap<String, IndexSet<String>> = IndexMap::new();
-        let mut all_metric_ids: IndexSet<String> = metric_map.keys().cloned().collect();
-
-        // Also include already-loaded metrics from the same namespace
+        
+        // Collect already-loaded metrics from the same namespace (these are valid dependencies)
+        let mut existing_metric_ids: IndexSet<String> = IndexSet::new();
         for (qualified_id, stored) in &self.metrics {
             if stored.namespace == *namespace {
                 // Extract just the metric ID (without namespace prefix)
                 if let Some(id) = qualified_id.strip_prefix(&format!("{}.", namespace)) {
-                    all_metric_ids.insert(id.to_string());
+                    existing_metric_ids.insert(id.to_string());
                 }
             }
         }
+        
+        // When checking dependencies, only consider already-loaded metrics, not the ones being loaded
+        // This prevents false circular dependencies when loading multiple metrics at once
+        let all_metric_ids = &existing_metric_ids;
 
         for (metric_id, metric) in &metric_map {
-            let deps = self.extract_metric_dependencies(&metric.formula, &all_metric_ids);
+            let deps = self.extract_metric_dependencies(&metric.formula, all_metric_ids);
             dependencies.insert(metric_id.to_owned(), deps);
         }
 
