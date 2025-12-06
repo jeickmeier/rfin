@@ -8,7 +8,7 @@
 
 mod bench_utils;
 
-use bench_utils::{bench_iter, bench_with_criterion};
+use bench_utils::bench_iter;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::rate_conversions::{
     continuous_to_periodic, continuous_to_simple, periodic_to_continuous, periodic_to_simple,
@@ -164,25 +164,25 @@ fn bench_market_scenarios(c: &mut Criterion) {
     let mut group = c.benchmark_group("market_scenarios");
 
     // US Treasury: semi-annual to continuous (zero curve construction)
-    bench_with_criterion(c, "treasury_to_continuous", || {
+    bench_iter(&mut group, "treasury_to_continuous", || {
         let continuous = periodic_to_continuous(black_box(0.025), black_box(2)).unwrap();
         black_box(continuous);
     });
 
     // LIBOR: simple to periodic (swap pricing)
-    bench_with_criterion(c, "libor_to_swap_rate", || {
+    bench_iter(&mut group, "libor_to_swap_rate", || {
         let swap = simple_to_periodic(black_box(0.035), black_box(0.25), black_box(2)).unwrap();
         black_box(swap);
     });
 
     // Corporate bond: annual to continuous (option pricing)
-    bench_with_criterion(c, "corporate_to_continuous", || {
+    bench_iter(&mut group, "corporate_to_continuous", || {
         let continuous = periodic_to_continuous(black_box(0.05), black_box(1)).unwrap();
         black_box(continuous);
     });
 
     // Derivatives: continuous to quarterly (futures pricing)
-    bench_with_criterion(c, "continuous_to_futures", || {
+    bench_iter(&mut group, "continuous_to_futures", || {
         let futures = continuous_to_periodic(black_box(0.04), black_box(4)).unwrap();
         black_box(futures);
     });
@@ -194,12 +194,12 @@ fn bench_negative_rates(c: &mut Criterion) {
     let mut group = c.benchmark_group("negative_rates");
 
     // Modern markets sometimes have negative rates
-    bench_with_criterion(c, "negative_periodic_to_continuous", || {
+    bench_iter(&mut group, "negative_periodic_to_continuous", || {
         let continuous = periodic_to_continuous(black_box(-0.005), black_box(2)).unwrap();
         black_box(continuous);
     });
 
-    bench_with_criterion(c, "negative_round_trip", || {
+    bench_iter(&mut group, "negative_round_trip", || {
         let continuous = periodic_to_continuous(black_box(-0.005), black_box(2)).unwrap();
         let back = continuous_to_periodic(black_box(continuous), black_box(2)).unwrap();
         black_box(back);

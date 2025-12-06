@@ -22,19 +22,12 @@
 //! to expiration. Vega is the same for calls and puts with the same
 //! strike and expiration.
 
+use crate::define_metric_calculator;
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::Result;
 
-pub struct VegaCalculator;
-
-impl MetricCalculator for VegaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &EquityOption = context.instrument_as()?;
-        option.vega(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-}
+define_metric_calculator!(
+    /// Vega calculator for equity options.
+    VegaCalculator,
+    instrument = EquityOption,
+    calc = |option, ctx| option.vega(&ctx.curves, ctx.as_of)
+);

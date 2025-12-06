@@ -14,6 +14,7 @@
 
 pub mod closed_form;
 pub mod correlation;
+pub mod bs;
 #[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub mod trees;
@@ -30,6 +31,7 @@ pub use closed_form::{
     quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call, up_out_call, AsianGreeks,
     AsianPriceResult, BarrierType, CallGreeks, HestonParams, PutGreeks,
 };
+pub use bs::{bs_greeks, bs_price, BsGreeks, ONE_PERCENT};
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,
     CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,

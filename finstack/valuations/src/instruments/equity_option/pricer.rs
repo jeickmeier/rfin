@@ -6,8 +6,7 @@
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
 
-use crate::instruments::common::models::d1;
-use crate::instruments::common::models::d2;
+use crate::instruments::common::models::bs::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity_option::types::EquityOption;
@@ -19,7 +18,6 @@ use finstack_core::Result;
 
 /// Trading days per year for equity options (market standard for theta calculations)
 const TRADING_DAYS_PER_YEAR: f64 = 252.0;
-const ONE_PERCENT: f64 = 100.0;
 
 /// Present value using Black–Scholes; result currency is the strike currency.
 pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
@@ -203,24 +201,7 @@ pub fn price_bs_unit(
     t: f64,
     option_type: OptionType,
 ) -> f64 {
-    if t <= 0.0 {
-        return match option_type {
-            OptionType::Call => (spot - strike).max(0.0),
-            OptionType::Put => (strike - spot).max(0.0),
-        };
-    }
-    let d1 = d1(spot, strike, r, sigma, t, q);
-    let d2 = d2(spot, strike, r, sigma, t, q);
-    match option_type {
-        OptionType::Call => {
-            spot * (-q * t).exp() * finstack_core::math::norm_cdf(d1)
-                - strike * (-r * t).exp() * finstack_core::math::norm_cdf(d2)
-        }
-        OptionType::Put => {
-            strike * (-r * t).exp() * finstack_core::math::norm_cdf(-d2)
-                - spot * (-q * t).exp() * finstack_core::math::norm_cdf(-d1)
-        }
-    }
+    bs_price(spot, strike, r, q, sigma, t, option_type)
 }
 
 /// Cash greeks for an equity option (scaled by contract size; vega per 1% vol).
@@ -278,54 +259,23 @@ pub fn compute_greeks(
 
     match inst.exercise_style {
         ExerciseStyle::European => {
-            // Analytical Black-Scholes Greeks
-            let d1 = d1(spot, inst.strike.amount(), r, sigma, t, q);
-            let d2 = d2(spot, inst.strike.amount(), r, sigma, t, q);
-            let exp_q_t = (-q * t).exp();
-            let exp_r_t = (-r * t).exp();
-            let sqrt_t = t.sqrt();
-            let pdf_d1 = finstack_core::math::norm_pdf(d1);
-            let cdf_d1 = finstack_core::math::norm_cdf(d1);
-            let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
-            let cdf_d2 = finstack_core::math::norm_cdf(d2);
-            let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
-
-            let delta_unit = match inst.option_type {
-                OptionType::Call => exp_q_t * cdf_d1,
-                OptionType::Put => -exp_q_t * cdf_m_d1,
-            };
-            let gamma_unit = if sigma <= 0.0 {
-                0.0
-            } else {
-                exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
-            };
-            let vega_unit = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
-            let theta_unit = match inst.option_type {
-                OptionType::Call => {
-                    let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-                    let term2 = q * spot * cdf_d1 * exp_q_t;
-                    let term3 = -r * inst.strike.amount() * exp_r_t * cdf_d2;
-                    (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-                }
-                OptionType::Put => {
-                    let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-                    let term2 = -q * spot * cdf_m_d1 * exp_q_t;
-                    let term3 = r * inst.strike.amount() * exp_r_t * cdf_m_d2;
-                    (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-                }
-            };
-            let rho_unit = match inst.option_type {
-                OptionType::Call => inst.strike.amount() * t * exp_r_t * cdf_d2 / ONE_PERCENT,
-                OptionType::Put => -inst.strike.amount() * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
-            };
-
+            let greeks_unit = bs_greeks(
+                spot,
+                inst.strike.amount(),
+                r,
+                q,
+                sigma,
+                t,
+                inst.option_type,
+                TRADING_DAYS_PER_YEAR,
+            );
             let scale = inst.contract_size;
             Ok(EquityOptionGreeks {
-                delta: delta_unit * scale,
-                gamma: gamma_unit * scale,
-                vega: vega_unit * scale,
-                theta: theta_unit * scale,
-                rho: rho_unit * scale,
+                delta: greeks_unit.delta * scale,
+                gamma: greeks_unit.gamma * scale,
+                vega: greeks_unit.vega * scale,
+                theta: greeks_unit.theta * scale,
+                rho: greeks_unit.rho_r * scale,
             })
         }
         _ => {
@@ -396,19 +346,7 @@ pub fn compute_greeks(
 }
 
 /// Unit greeks (per share, not scaled by contract size).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct UnitGreeks {
-    /// Delta per share (rate of change of option value with respect to underlying)
-    pub delta: f64,
-    /// Gamma per share (rate of change of delta with respect to underlying)
-    pub gamma: f64,
-    /// Vega per share per 1% volatility change
-    pub vega: f64, // per 1% vol
-    /// Theta per share per day (time decay)
-    pub theta: f64, // per day
-    /// Rho per share per 1% interest rate change
-    pub rho: f64, // per 1% rate
-}
+pub type UnitGreeks = BsGreeks;
 
 /// Compute unit greeks from explicit inputs (no market lookups).
 #[inline]
@@ -438,59 +376,19 @@ pub fn greeks_unit(
                 }
             }
         };
-        return UnitGreeks {
-            delta,
-            ..Default::default()
-        };
+        return UnitGreeks { delta, ..Default::default() };
     }
 
-    let d1 = d1(spot, strike, r, sigma, t, q);
-    let d2 = d2(spot, strike, r, sigma, t, q);
-    let exp_q_t = (-q * t).exp();
-    let exp_r_t = (-r * t).exp();
-    let sqrt_t = t.sqrt();
-    let pdf_d1 = finstack_core::math::norm_pdf(d1);
-    let cdf_d1 = finstack_core::math::norm_cdf(d1);
-    let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
-    let cdf_d2 = finstack_core::math::norm_cdf(d2);
-    let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
-
-    let delta = match option_type {
-        OptionType::Call => exp_q_t * cdf_d1,
-        OptionType::Put => -exp_q_t * cdf_m_d1,
-    };
-    let gamma = if sigma <= 0.0 {
-        0.0
-    } else {
-        exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
-    };
-    let vega = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
-    let theta = match option_type {
-        OptionType::Call => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-            let term2 = q * spot * cdf_d1 * exp_q_t;
-            let term3 = -r * strike * exp_r_t * cdf_d2;
-            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-        }
-        OptionType::Put => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
-            let term2 = -q * spot * cdf_m_d1 * exp_q_t;
-            let term3 = r * strike * exp_r_t * cdf_m_d2;
-            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
-        }
-    };
-    let rho = match option_type {
-        OptionType::Call => strike * t * exp_r_t * cdf_d2 / ONE_PERCENT,
-        OptionType::Put => -strike * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
-    };
-
-    UnitGreeks {
-        delta,
-        gamma,
-        vega,
-        theta,
-        rho,
-    }
+    bs_greeks(
+        spot,
+        strike,
+        r,
+        q,
+        sigma,
+        t,
+        option_type,
+        TRADING_DAYS_PER_YEAR,
+    )
 }
 
 // ========================= REGISTRY PRICER =========================

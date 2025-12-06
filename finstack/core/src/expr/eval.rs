@@ -367,6 +367,7 @@ impl CompiledExpr {
     }
 
     #[inline]
+    #[allow(dead_code)]
     fn rolling_apply(base: &[f64], win: usize, mut op: impl FnMut(&[f64]) -> f64) -> Vec<f64> {
         let len = base.len();
         if win == 0 {

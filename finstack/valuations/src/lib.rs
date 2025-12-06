@@ -252,6 +252,9 @@ pub mod pricer;
 pub mod results;
 pub mod schema;
 
+#[cfg(test)]
+pub mod test_utils;
+
 // Export macros before instruments module
 #[macro_use]
 pub mod instruments;

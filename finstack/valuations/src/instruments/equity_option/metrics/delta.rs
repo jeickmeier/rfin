@@ -22,19 +22,12 @@
 //! the underlying price. It approximates the hedge ratio and probability
 //! of finishing in-the-money under the risk-neutral measure.
 
+use crate::define_metric_calculator;
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::Result;
 
-pub struct DeltaCalculator;
-
-impl MetricCalculator for DeltaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &EquityOption = context.instrument_as()?;
-        option.delta(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-}
+define_metric_calculator!(
+    /// Delta calculator for equity options.
+    DeltaCalculator,
+    instrument = EquityOption,
+    calc = |option, ctx| option.delta(&ctx.curves, ctx.as_of)
+);

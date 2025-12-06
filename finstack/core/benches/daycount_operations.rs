@@ -9,7 +9,7 @@
 mod bench_utils;
 
 use bench_utils::bench_iter;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
@@ -58,7 +58,7 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
     for (name, freq) in frequencies {
         bench_utils::bench_with_criterion(
             c,
-            &format!("daycount_actact_isma_{}", name),
+            format!("daycount_actact_isma_{}", name),
             || {
                 let yf = DayCount::ActActIsma
                     .year_fraction(
@@ -86,7 +86,7 @@ fn bench_daycount_bus252(c: &mut Criterion) {
         let start = Date::from_calendar_date(2025, Month::January, start_month).unwrap();
         let end = Date::from_calendar_date(2025, Month::January, end_month).unwrap();
 
-        bench_utils::bench_with_criterion(c, &format!("daycount_bus252_{}", name), || {
+        bench_utils::bench_with_criterion(c, format!("daycount_bus252_{}", name), || {
             let yf = DayCount::Bus252
                 .year_fraction(
                     black_box(start),

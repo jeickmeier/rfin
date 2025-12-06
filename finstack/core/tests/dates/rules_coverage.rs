@@ -36,7 +36,7 @@ fn materialize(rule: &Rule, year: i32) -> SmallVec<[Date; 32]> {
 fn span_rule_cases() {
     struct SpanCase {
         start: (Month, u8),
-        len: usize,
+        len: u8,
         hits: &'static [(i32, u8, u8)],
         misses: &'static [(i32, u8, u8)],
         materialize_year: Option<i32>,
@@ -253,7 +253,7 @@ fn nth_weekday_rules() {
         month: Month::December,
     };
     let fifth_out = materialize(&fifth_monday, 2025);
-    assert_eq!(fifth_out, SmallVec::from_slice(&[make_date(2025, 12, 29)]));
+    assert_eq!(fifth_out.as_slice(), &[make_date(2025, 12, 29)]);
 
     let second_last_friday = Rule::NthWeekday {
         n: -2,
@@ -261,7 +261,7 @@ fn nth_weekday_rules() {
         month: Month::November,
     };
     let sl_out = materialize(&second_last_friday, 2025);
-    assert_eq!(sl_out, SmallVec::from_slice(&[make_date(2025, 11, 21)]));
+    assert_eq!(sl_out.as_slice(), &[make_date(2025, 11, 21)]);
 }
 
 #[test]
@@ -309,7 +309,12 @@ fn direction_same_day() {
         day: 1,
         dir: Direction::After,
     };
-    let before = Rule::WeekdayShift { dir: Direction::Before, ..after };
+    let before = Rule::WeekdayShift {
+        weekday: Weekday::Wednesday,
+        month: Month::January,
+        day: 1,
+        dir: Direction::Before,
+    };
 
     assert!(after.applies(make_date(2025, 1, 1)));
     assert!(before.applies(make_date(2025, 1, 1)));

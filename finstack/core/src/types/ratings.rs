@@ -603,7 +603,7 @@ static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
 ///
 /// # Example
 /// ```rust
-/// use finstack_core::types::ratings::{CreditRating, moodys_warf_factor};
+/// use finstack_core::types::ratings::{CreditRating, RatingNotch, moodys_warf_factor};
 ///
 /// assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
 /// assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);

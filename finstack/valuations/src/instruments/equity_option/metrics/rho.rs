@@ -29,20 +29,12 @@
 //! compared to delta and vega, but becomes more significant for longer-dated
 //! options and higher strike prices.
 
+use crate::define_metric_calculator;
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::Result;
 
-pub struct RhoCalculator;
-
-impl MetricCalculator for RhoCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &EquityOption = context.instrument_as()?;
-        // Convert analytical per‑percent rho to per‑bp
-        Ok(option.rho(&context.curves, context.as_of)? / 100.0)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-}
+define_metric_calculator!(
+    /// Rho calculator for equity options (per bp).
+    RhoCalculator,
+    instrument = EquityOption,
+    calc = |option, ctx| option.rho(&ctx.curves, ctx.as_of).map(|v| v / 100.0)
+);

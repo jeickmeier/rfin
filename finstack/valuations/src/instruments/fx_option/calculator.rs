@@ -3,8 +3,7 @@
 //! Contains the complex pricing logic separated from the instrument type,
 //! following the separation of concerns pattern.
 
-use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::common::models::{d1, d2};
+use crate::instruments::common::models::bs::{bs_greeks, bs_price};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
@@ -326,60 +325,25 @@ impl FxOptionCalculator {
             });
         }
 
-        // Continuous-carried d1/d2
-        let d1 = d1(spot, inst.strike, r_d, sigma, t, r_f);
-        let d2 = d2(spot, inst.strike, r_d, sigma, t, r_f);
-        let exp_rf_t = (-r_f * t).exp();
-        let exp_rd_t = (-r_d * t).exp();
-        let sqrt_t = t.sqrt();
-        let pdf_d1 = finstack_core::math::norm_pdf(d1);
-        let cdf_d1 = finstack_core::math::norm_cdf(d1);
-        let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
-        let cdf_d2 = finstack_core::math::norm_cdf(d2);
-        let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
-
-        // Unit greeks
-        let delta_unit = match inst.option_type {
-            OptionType::Call => exp_rf_t * cdf_d1,
-            OptionType::Put => -exp_rf_t * cdf_m_d1,
-        };
-        let gamma_unit = if sigma <= 0.0 {
-            0.0
-        } else {
-            exp_rf_t * pdf_d1 / (spot * sigma * sqrt_t)
-        };
-        let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / DECIMAL_TO_PERCENT; // per 1% vol
-        let theta_unit = match inst.option_type {
-            OptionType::Call => {
-                let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
-                let term2 = r_f * spot * cdf_d1 * exp_rf_t;
-                let term3 = -r_d * inst.strike * exp_rd_t * cdf_d2;
-                (term1 + term2 + term3) / self.config.theta_days_per_year
-            }
-            OptionType::Put => {
-                let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
-                let term2 = -r_f * spot * cdf_m_d1 * exp_rf_t;
-                let term3 = r_d * inst.strike * exp_rd_t * cdf_m_d2;
-                (term1 + term2 + term3) / self.config.theta_days_per_year
-            }
-        };
-        let rho_domestic_unit = match inst.option_type {
-            OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / DECIMAL_TO_PERCENT,
-            OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / DECIMAL_TO_PERCENT,
-        };
-        let rho_foreign_unit = match inst.option_type {
-            OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / DECIMAL_TO_PERCENT,
-            OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / DECIMAL_TO_PERCENT,
-        };
+        let greeks_unit = bs_greeks(
+            spot,
+            inst.strike,
+            r_d,
+            r_f,
+            sigma,
+            t,
+            inst.option_type,
+            self.config.theta_days_per_year,
+        );
 
         let scale = inst.notional.amount();
         Ok(FxOptionGreeks {
-            delta: delta_unit * scale,
-            gamma: gamma_unit * scale,
-            vega: vega_unit * scale,
-            theta: theta_unit * scale,
-            rho_domestic: rho_domestic_unit * scale,
-            rho_foreign: rho_foreign_unit * scale,
+            delta: greeks_unit.delta * scale,
+            gamma: greeks_unit.gamma * scale,
+            vega: greeks_unit.vega * scale,
+            theta: greeks_unit.theta * scale,
+            rho_domestic: greeks_unit.rho_r * scale,
+            rho_foreign: greeks_unit.rho_q * scale,
         })
     }
 
@@ -421,32 +385,23 @@ fn price_gk_core(
     t: f64,
     option_type: OptionType,
 ) -> f64 {
-    let d1 = d1(spot, strike, r_d, sigma, t, r_f);
-    let d2 = d2(spot, strike, r_d, sigma, t, r_f);
-    match option_type {
-        OptionType::Call => {
-            spot * (-r_f * t).exp() * finstack_core::math::norm_cdf(d1)
-                - strike * (-r_d * t).exp() * finstack_core::math::norm_cdf(d2)
-        }
-        OptionType::Put => {
-            strike * (-r_d * t).exp() * finstack_core::math::norm_cdf(-d2)
-                - spot * (-r_f * t).exp() * finstack_core::math::norm_cdf(-d1)
-        }
-    }
+    bs_price(spot, strike, r_d, r_f, sigma, t, option_type)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::DECIMAL_TO_PERCENT;
     use crate::instruments::{
         common::traits::Attributes, OptionType, PricingOverrides, SettlementType,
     };
     use crate::instruments::{ExerciseStyle, FxOption};
+    use crate::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
     use finstack_core::{
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar, surfaces::vol_surface::VolSurface,
+            context::MarketContext, scalars::MarketScalar,
             term_structures::discount_curve::DiscountCurve,
         },
         money::{
@@ -456,7 +411,6 @@ mod tests {
         types::{CurveId, InstrumentId},
     };
     use std::sync::Arc;
-    use time::Month;
 
     const BASE: Currency = Currency::EUR;
     const QUOTE: Currency = Currency::USD;
@@ -489,31 +443,6 @@ mod tests {
         }
     }
 
-    fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
-            .expect("valid date")
-    }
-
-    fn flat_discount(id: &str, as_of: Date, rate: f64) -> DiscountCurve {
-        DiscountCurve::builder(id)
-            .base_date(as_of)
-            .knots([(0.0, 1.0), (1.0, (-rate).exp())])
-            .build()
-            .expect("should succeed")
-    }
-
-    fn vol_surface(vol: f64) -> VolSurface {
-        VolSurface::builder(VOL_ID)
-            .expiries(&[0.25, 0.5, 1.0, 2.0])
-            .strikes(&[0.8, 0.9, 1.0, 1.1, 1.2])
-            .row(&[vol; 5])
-            .row(&[vol; 5])
-            .row(&[vol; 5])
-            .row(&[vol; 5])
-            .build()
-            .expect("should succeed")
-    }
-
     fn market_context(
         as_of: Date,
         spot: f64,
@@ -523,10 +452,12 @@ mod tests {
     ) -> MarketContext {
         let fx = FxMatrix::new(Arc::new(StaticFxProvider { rate: spot }));
         fx.set_quote(BASE, QUOTE, spot);
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [0.8, 0.9, 1.0, 1.1, 1.2];
         MarketContext::new()
-            .insert_discount(flat_discount(DOMESTIC_ID, as_of, r_domestic))
-            .insert_discount(flat_discount(FOREIGN_ID, as_of, r_foreign))
-            .insert_surface(vol_surface(vol))
+            .insert_discount(flat_discount_with_tenor(DOMESTIC_ID, as_of, r_domestic, 1.0))
+            .insert_discount(flat_discount_with_tenor(FOREIGN_ID, as_of, r_foreign, 1.0))
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_price("FX_VOL_OVERRIDE", MarketScalar::Unitless(vol))
             .insert_fx(fx)
     }
@@ -764,6 +695,8 @@ mod tests {
         // Market data
         let spot = 1.08;
         let vol = 0.10; // 10% flat vol
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [0.8, 0.9, 1.0, 1.1, 1.2];
 
         let fx = FxMatrix::new(Arc::new(StaticFxProvider { rate: spot }));
         fx.set_quote(BASE, QUOTE, spot);
@@ -771,7 +704,7 @@ mod tests {
         let ctx = MarketContext::new()
             .insert_discount(domestic_disc)
             .insert_discount(foreign_disc)
-            .insert_surface(vol_surface(vol))
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_fx(fx);
 
         // Option with Act/365F (standard for FX vol surfaces)

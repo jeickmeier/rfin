@@ -23,19 +23,12 @@
 //! the convexity of the option's value and is highest for at-the-money
 //! options near expiration.
 
+use crate::define_metric_calculator;
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::Result;
 
-pub struct GammaCalculator;
-
-impl MetricCalculator for GammaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &EquityOption = context.instrument_as()?;
-        option.gamma(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-}
+define_metric_calculator!(
+    /// Gamma calculator for equity options.
+    GammaCalculator,
+    instrument = EquityOption,
+    calc = |option, ctx| option.gamma(&ctx.curves, ctx.as_of)
+);

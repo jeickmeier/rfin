@@ -259,6 +259,41 @@ pub use risk::{
 };
 
 // -----------------------------------------------------------------------------
+// Macros
+// -----------------------------------------------------------------------------
+
+/// Define a trivial metric calculator that delegates to an instrument method or closure.
+#[macro_export]
+macro_rules! define_metric_calculator {
+    (
+        $(#[$meta:meta])*
+        $name:ident,
+        instrument = $instrument:ty,
+        calc = |$inst:ident, $ctx:ident| $body:expr
+        $(, deps = [$($dep:expr),* $(,)?])?
+    ) => {
+        $(#[$meta])*
+        pub struct $name;
+
+        impl $crate::metrics::MetricCalculator for $name {
+            fn calculate(
+                &self,
+                $ctx: &mut $crate::metrics::MetricContext,
+            ) -> finstack_core::Result<f64> {
+                let $inst: &$instrument = $ctx.instrument_as()?;
+                let value: finstack_core::Result<f64> = { $body };
+                value
+            }
+
+            fn dependencies(&self) -> &[$crate::metrics::MetricId] {
+                static DEPS: &[$crate::metrics::MetricId] = &[$($($dep),*)?];
+                DEPS
+            }
+        }
+    };
+}
+
+// -----------------------------------------------------------------------------
 // Error helper functions
 // -----------------------------------------------------------------------------
 

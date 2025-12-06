@@ -22,7 +22,13 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
 }
 
 /// FX option instrument (Garman-Kohlhagen model)
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[derive(
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    finstack_valuations_macros::Instrument
+)]
+#[instrument(key = "FxOption", price_fn = "npv")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxOption {
@@ -307,55 +313,5 @@ impl FxOption {
     ) -> Result<f64> {
         self.calculator()
             .implied_vol(self, curves, as_of, target_price, initial_guess)
-    }
-}
-
-impl crate::instruments::common::traits::Instrument for FxOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::FxOption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
-        Box::new(self.clone())
-    }
-
-    fn value(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.value(market, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-        )
     }
 }

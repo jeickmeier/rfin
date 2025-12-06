@@ -14,7 +14,13 @@ use finstack_core::types::{CurveId, InstrumentId};
 use super::parameters::EquityOptionParams;
 
 /// Equity option instrument
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[derive(
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    finstack_valuations_macros::Instrument
+)]
+#[instrument(key = "EquityOption", price_fn = "npv")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityOption {
@@ -384,56 +390,6 @@ impl EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for EquityOption {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::EquityOption
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        &mut self.attributes
-    }
-
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
-        Box::new(self.clone())
-    }
-
-    fn value(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -441,55 +397,22 @@ mod tests {
     use crate::instruments::{
         common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
     };
+    use crate::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
     use finstack_core::{
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar, surfaces::vol_surface::VolSurface,
+            context::MarketContext, scalars::MarketScalar,
             term_structures::discount_curve::DiscountCurve,
         },
         money::Money,
         types::{CurveId, InstrumentId},
     };
-    use time::Month;
 
     const DISC_ID: &str = "USD-OIS";
     const SPOT_ID: &str = "SPX-SPOT";
     const VOL_ID: &str = "SPX-VOL";
     const DIV_ID: &str = "SPX-DIV";
-
-    fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(
-            year,
-            Month::try_from(month).expect("Valid month (1-12)"),
-            day,
-        )
-        .expect("Valid test date")
-    }
-
-    fn build_discount_curve(as_of: Date, flat_rate: f64) -> DiscountCurve {
-        let df_5y = (-flat_rate * 5.0).exp();
-        DiscountCurve::builder(DISC_ID)
-            .base_date(as_of)
-            .knots([(0.0, 1.0), (5.0, df_5y)])
-            .build()
-            .expect("DiscountCurve builder should succeed with valid test data")
-    }
-
-    fn build_surface(base_vol: f64) -> VolSurface {
-        let expiries = [0.25, 0.5, 1.0, 2.0];
-        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
-        let row = [base_vol; 5];
-        let mut builder = VolSurface::builder(VOL_ID)
-            .expiries(&expiries)
-            .strikes(&strikes);
-        for _ in expiries {
-            builder = builder.row(&row);
-        }
-        builder
-            .build()
-            .expect("VolSurface builder should succeed with valid test data")
-    }
 
     fn build_market_context(
         as_of: Date,
@@ -498,9 +421,11 @@ mod tests {
         rate: f64,
         div_yield: f64,
     ) -> MarketContext {
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         MarketContext::new()
-            .insert_discount(build_discount_curve(as_of, rate))
-            .insert_surface(build_surface(vol))
+            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, rate, 5.0))
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, vol))
             .insert_price(SPOT_ID, MarketScalar::Unitless(spot))
             .insert_price(DIV_ID, MarketScalar::Unitless(div_yield))
     }
@@ -707,9 +632,11 @@ mod tests {
             .build()
             .expect("DiscountCurve with ACT/360 should build successfully");
 
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
         let curves = MarketContext::new()
             .insert_discount(act360_curve)
-            .insert_surface(build_surface(0.20)) // 20% vol using ACT/365F time
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.20))
             .insert_price(SPOT_ID, MarketScalar::Unitless(100.0))
             .insert_price(DIV_ID, MarketScalar::Unitless(0.02));
 
