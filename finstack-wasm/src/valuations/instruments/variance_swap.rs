@@ -70,7 +70,6 @@ impl InstrumentWrapper for JsVarianceSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = VarianceSwap)]
 impl JsVarianceSwap {
     #[wasm_bindgen(constructor)]

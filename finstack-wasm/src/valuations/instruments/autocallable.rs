@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsAutocallable {
     }
 }
 
-
 #[wasm_bindgen(js_class = Autocallable)]
 impl JsAutocallable {
     #[wasm_bindgen(js_name = fromJson)]

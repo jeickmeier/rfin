@@ -28,7 +28,6 @@ impl InstrumentWrapper for JsBarrierOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = BarrierOption)]
 impl JsBarrierOption {
     #[wasm_bindgen(constructor)]

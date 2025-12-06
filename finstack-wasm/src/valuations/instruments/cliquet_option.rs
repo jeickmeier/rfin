@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsCliquetOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = CliquetOption)]
 impl JsCliquetOption {
     #[wasm_bindgen(js_name = fromJson)]

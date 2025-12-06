@@ -50,7 +50,6 @@ impl InstrumentWrapper for JsAsianOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = AsianOption)]
 impl JsAsianOption {
     #[wasm_bindgen(constructor)]

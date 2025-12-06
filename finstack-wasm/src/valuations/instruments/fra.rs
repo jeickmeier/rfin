@@ -24,7 +24,6 @@ impl InstrumentWrapper for JsForwardRateAgreement {
     }
 }
 
-
 #[wasm_bindgen(js_class = ForwardRateAgreement)]
 impl JsForwardRateAgreement {
     #[wasm_bindgen(constructor)]

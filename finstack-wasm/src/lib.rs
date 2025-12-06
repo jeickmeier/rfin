@@ -77,13 +77,13 @@ pub use valuations::cashflow::{
 pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
 // Instruments and their helper types
 pub use valuations::instruments::{
-    AsianOption, Autocallable, AveragingMethod, BarrierOption, BasisSwap, Basket, Bond, CDSIndex,
-    CdsOption, CdsTranche, CliquetOption, CmsOption, ConvertibleBond, CreditDefaultSwap, Deposit,
-    Equity, EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
-    FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
-    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, LookbackType,
-    PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod, Repo, RevolvingCredit,
-    StructuredCredit, Swaption, TermLoan, VarianceSwap,
+    evaluate_dcf_wasm as evaluateDcf, AsianOption, Autocallable, AveragingMethod, BarrierOption,
+    BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, CliquetOption, CmsOption,
+    ConvertibleBond, CreditDefaultSwap, Deposit, Equity, EquityOption, EquityTotalReturnSwap,
+    FiIndexTotalReturnSwap, ForwardRateAgreement, FxBarrierOption, FxOption, FxSpot, FxSwap,
+    InflationLinkedBond, InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap,
+    LookbackOption, LookbackType, PrivateMarketsFund, QuantoOption, RangeAccrual,
+    RealizedVarMethod, Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan, VarianceSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
@@ -122,7 +122,13 @@ pub use valuations::common::parameters::{
 };
 
 // Risk analysis functions
-pub use valuations::risk::{cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder};
+pub use valuations::risk::{
+    calculate_portfolio_var_js as calculatePortfolioVar, calculate_var_js as calculateVar,
+    cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder, JsMarketHistory as MarketHistory,
+    JsMarketScenario as MarketScenario, JsRiskFactorShift as RiskFactorShift,
+    JsRiskFactorType as RiskFactorType, JsVarConfig as VarConfig, JsVarMethod as VarMethod,
+    JsVarResult as VarResult,
+};
 
 // Statements exports
 pub use statements::{

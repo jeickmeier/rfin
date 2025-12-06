@@ -21,7 +21,6 @@ impl InstrumentWrapper for JsEquityOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = EquityOption)]
 impl JsEquityOption {
     #[wasm_bindgen(js_name = europeanCall)]

@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsFxBarrierOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = FxBarrierOption)]
 impl JsFxBarrierOption {
     #[wasm_bindgen(js_name = fromJson)]

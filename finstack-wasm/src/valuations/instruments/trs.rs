@@ -130,7 +130,6 @@ impl InstrumentWrapper for JsEquityTotalReturnSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = EquityTotalReturnSwap)]
 impl JsEquityTotalReturnSwap {
     #[wasm_bindgen(constructor)]
@@ -210,7 +209,6 @@ impl InstrumentWrapper for JsFiIndexTotalReturnSwap {
         self.inner.clone()
     }
 }
-
 
 #[wasm_bindgen(js_class = FiIndexTotalReturnSwap)]
 impl JsFiIndexTotalReturnSwap {

@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsCmsOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = CmsOption)]
 impl JsCmsOption {
     #[wasm_bindgen(js_name = fromJson)]

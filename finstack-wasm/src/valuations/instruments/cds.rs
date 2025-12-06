@@ -22,7 +22,6 @@ impl InstrumentWrapper for JsCreditDefaultSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = CreditDefaultSwap)]
 impl JsCreditDefaultSwap {
     #[wasm_bindgen(js_name = buyProtection)]

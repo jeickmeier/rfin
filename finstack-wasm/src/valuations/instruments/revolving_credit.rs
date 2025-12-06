@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsRevolvingCredit {
     }
 }
 
-
 #[wasm_bindgen(js_class = RevolvingCredit)]
 impl JsRevolvingCredit {
     #[wasm_bindgen(js_name = fromJson)]

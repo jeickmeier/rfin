@@ -25,7 +25,6 @@ impl InstrumentWrapper for JsInterestRateSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = InterestRateSwap)]
 impl JsInterestRateSwap {
     #[wasm_bindgen(constructor)]

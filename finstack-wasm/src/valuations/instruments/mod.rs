@@ -13,6 +13,7 @@ mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
 mod convertible;
+mod dcf;
 mod deposit;
 mod equity;
 mod equity_option;
@@ -57,6 +58,7 @@ pub use cds_tranche::JsCdsTranche as CdsTranche;
 pub use cliquet_option::JsCliquetOption as CliquetOption;
 pub use cms_option::JsCmsOption as CmsOption;
 pub use convertible::JsConvertibleBond as ConvertibleBond;
+pub use dcf::evaluate_dcf_wasm;
 pub use deposit::JsDeposit as Deposit;
 pub use equity::JsEquity as Equity;
 pub use equity_option::JsEquityOption as EquityOption;
@@ -93,24 +95,22 @@ pub use variance_swap::{JsRealizedVarMethod as RealizedVarMethod, JsVarianceSwap
 #[allow(unsafe_code)]
 pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>, JsValue> {
     macro_rules! try_extract {
-        ($js_type:ty, $js_name:expr) => {
-            {
-                // Check if the value is an instance of the expected type by checking constructor name
-                let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
-                    .ok()
-                    .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
-                    .and_then(|n| n.as_string())
-                    .map(|n| n == $js_name)
-                    .unwrap_or(false);
-                
-                if is_instance {
-                    // Safe because we've verified the type via constructor name check
-                    // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
-                    let inst: &$js_type = unsafe { &*(value as *const JsValue as *const $js_type) };
-                    return Ok(Box::new(inst.inner()));
-                }
+        ($js_type:ty, $js_name:expr) => {{
+            // Check if the value is an instance of the expected type by checking constructor name
+            let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
+                .ok()
+                .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
+                .and_then(|n| n.as_string())
+                .map(|n| n == $js_name)
+                .unwrap_or(false);
+
+            if is_instance {
+                // Safe because we've verified the type via constructor name check
+                // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
+                let inst: &$js_type = unsafe { &*(value as *const JsValue as *const $js_type) };
+                return Ok(Box::new(inst.inner()));
             }
-        };
+        }};
     }
 
     try_extract!(bond::JsBond, "Bond");
@@ -135,10 +135,16 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(cds_option::JsCdsOption, "CdsOption");
     try_extract!(cds_tranche::JsCdsTranche, "CdsTranche");
     try_extract!(repo::JsRepo, "Repo");
-    try_extract!(inflation_linked_bond::JsInflationLinkedBond, "InflationLinkedBond");
+    try_extract!(
+        inflation_linked_bond::JsInflationLinkedBond,
+        "InflationLinkedBond"
+    );
     try_extract!(inflation_swap::JsInflationSwap, "InflationSwap");
     try_extract!(structured_credit::JsStructuredCredit, "StructuredCredit");
-    try_extract!(private_markets_fund::JsPrivateMarketsFund, "PrivateMarketsFund");
+    try_extract!(
+        private_markets_fund::JsPrivateMarketsFund,
+        "PrivateMarketsFund"
+    );
     try_extract!(structured_credit::JsBasket, "Basket");
     try_extract!(asian_option::JsAsianOption, "AsianOption");
     try_extract!(autocallable::JsAutocallable, "Autocallable");

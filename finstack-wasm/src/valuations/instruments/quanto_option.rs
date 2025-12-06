@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsQuantoOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = QuantoOption)]
 impl JsQuantoOption {
     #[wasm_bindgen(js_name = fromJson)]

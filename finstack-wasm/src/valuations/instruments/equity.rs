@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsEquity {
     }
 }
 
-
 #[wasm_bindgen(js_class = Equity)]
 impl JsEquity {
     #[wasm_bindgen(constructor)]

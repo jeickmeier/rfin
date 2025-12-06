@@ -30,7 +30,6 @@ impl InstrumentWrapper for JsCDSIndex {
     }
 }
 
-
 #[wasm_bindgen(js_class = CDSIndex)]
 impl JsCDSIndex {
     #[wasm_bindgen(constructor)]

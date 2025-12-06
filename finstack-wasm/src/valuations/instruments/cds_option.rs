@@ -26,7 +26,6 @@ impl InstrumentWrapper for JsCdsOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = CdsOption)]
 impl JsCdsOption {
     #[wasm_bindgen(constructor)]

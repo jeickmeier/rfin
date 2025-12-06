@@ -22,7 +22,6 @@ impl InstrumentWrapper for JsPrivateMarketsFund {
     }
 }
 
-
 #[wasm_bindgen(js_class = PrivateMarketsFund)]
 impl JsPrivateMarketsFund {
     #[wasm_bindgen(js_name = fromJson)]

@@ -27,7 +27,6 @@ impl InstrumentWrapper for JsTermLoan {
     }
 }
 
-
 #[wasm_bindgen(js_class = TermLoan)]
 impl JsTermLoan {
     /// Create a term loan from a JSON string specification.

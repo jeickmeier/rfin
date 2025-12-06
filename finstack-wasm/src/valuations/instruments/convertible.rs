@@ -91,7 +91,6 @@ impl InstrumentWrapper for JsConvertibleBond {
     }
 }
 
-
 #[wasm_bindgen(js_class = ConvertibleBond)]
 impl JsConvertibleBond {
     #[wasm_bindgen(constructor)]

@@ -48,7 +48,6 @@ impl InstrumentWrapper for JsRepo {
     }
 }
 
-
 #[wasm_bindgen(js_class = Repo)]
 impl JsRepo {
     #[wasm_bindgen(constructor)]
@@ -124,7 +123,10 @@ impl JsRepo {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Repo(id='{}', rate={:.4})", self.inner.id, self.inner.repo_rate)
+        format!(
+            "Repo(id='{}', rate={:.4})",
+            self.inner.id, self.inner.repo_rate
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]

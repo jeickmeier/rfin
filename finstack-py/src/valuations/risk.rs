@@ -3,17 +3,20 @@
 //! Thin wrappers around Rust VaR types with type conversion only.
 //! All calculation logic remains in Rust.
 
+use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::PyMarketContext;
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use finstack_core::dates::Date;
+use finstack_valuations::instruments::common::helpers::instrument_to_arc;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::risk::{
     calculate_portfolio_var, calculate_var, MarketHistory, MarketScenario, RiskFactorShift,
     RiskFactorType, VarConfig, VarMethod, VarResult,
 };
+use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
 use std::sync::Arc;
 
@@ -450,6 +453,99 @@ fn py_calculate_portfolio_var(
 }
 
 // =============================================================================
+// Ladder Helpers (KRD DV01 / CS01)
+// =============================================================================
+
+fn bucketed_metric(
+    py: Python<'_>,
+    instrument: Bound<'_, PyAny>,
+    market: &PyMarketContext,
+    as_of: Bound<'_, PyAny>,
+    metric_id: MetricId,
+    value_key: &str,
+) -> PyResult<PyObject> {
+    let InstrumentHandle {
+        instrument: inst, ..
+    } = extract_instrument(&instrument)?;
+    let as_of_date = py_to_date(&as_of)?;
+
+    let base_value = inst
+        .value(&market.inner, as_of_date)
+        .map_err(|e| PyValueError::new_err(format!("Pricing failed: {}", e)))?;
+
+    let mut context = MetricContext::new(
+        instrument_to_arc(inst.as_ref()),
+        Arc::new(market.inner.clone()),
+        as_of_date,
+        base_value,
+    );
+
+    let registry = standard_registry();
+    registry
+        .compute(&[metric_id.clone()], &mut context)
+        .map_err(|e| PyValueError::new_err(format!("Metric computation failed: {}", e)))?;
+
+    let series = context
+        .computed_series
+        .get(&metric_id)
+        .ok_or_else(|| PyValueError::new_err(format!("{} series not available", value_key)))?;
+
+    let bucket_labels: Vec<String> = series.iter().map(|(b, _)| b.clone()).collect();
+    let values: Vec<f64> = series.iter().map(|(_, v)| *v).collect();
+
+    let result = PyDict::new(py);
+    let bucket_list = PyList::new(py, &bucket_labels)?;
+    let value_list = PyList::new(py, &values)?;
+    result.set_item("bucket", bucket_list)?;
+    result.set_item(value_key, value_list)?;
+    Ok(result.into())
+}
+
+/// Compute key-rate DV01 ladder using core metric calculators.
+#[pyfunction(name = "krd_dv01_ladder")]
+#[pyo3(
+    signature = (instrument, market, as_of),
+    text_signature = "(instrument, market, as_of)"
+)]
+fn py_krd_dv01_ladder(
+    py: Python<'_>,
+    instrument: Bound<'_, PyAny>,
+    market: &PyMarketContext,
+    as_of: Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    bucketed_metric(
+        py,
+        instrument,
+        market,
+        as_of,
+        MetricId::BucketedDv01,
+        "dv01",
+    )
+}
+
+/// Compute key-rate CS01 ladder using core metric calculators.
+#[pyfunction(name = "cs01_ladder")]
+#[pyo3(
+    signature = (instrument, market, as_of),
+    text_signature = "(instrument, market, as_of)"
+)]
+fn py_cs01_ladder(
+    py: Python<'_>,
+    instrument: Bound<'_, PyAny>,
+    market: &PyMarketContext,
+    as_of: Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    bucketed_metric(
+        py,
+        instrument,
+        market,
+        as_of,
+        MetricId::BucketedCs01,
+        "cs01",
+    )
+}
+
+// =============================================================================
 // Module Registration
 // =============================================================================
 
@@ -475,6 +571,8 @@ pub(crate) fn register<'py>(
     // Add functions
     module.add_function(wrap_pyfunction!(py_calculate_var, &module)?)?;
     module.add_function(wrap_pyfunction!(py_calculate_portfolio_var, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_krd_dv01_ladder, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_cs01_ladder, &module)?)?;
 
     let exports = vec![
         "VarMethod",
@@ -486,6 +584,8 @@ pub(crate) fn register<'py>(
         "MarketHistory",
         "calculate_var",
         "calculate_portfolio_var",
+        "krd_dv01_ladder",
+        "cs01_ladder",
     ];
 
     module.setattr("__all__", PyList::new(py, &exports)?)?;

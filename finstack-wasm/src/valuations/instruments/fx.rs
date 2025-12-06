@@ -30,7 +30,6 @@ impl InstrumentWrapper for JsFxSpot {
     }
 }
 
-
 #[wasm_bindgen(js_class = FxSpot)]
 impl JsFxSpot {
     #[wasm_bindgen(constructor)]
@@ -91,7 +90,11 @@ impl JsFxSpot {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FxSpot(id='{}', pair='{}')", self.inner.id, self.inner.pair_name())
+        format!(
+            "FxSpot(id='{}', pair='{}')",
+            self.inner.id,
+            self.inner.pair_name()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
@@ -119,7 +122,6 @@ impl InstrumentWrapper for JsFxOption {
         self.inner.clone()
     }
 }
-
 
 #[wasm_bindgen(js_class = FxOption)]
 impl JsFxOption {
@@ -220,7 +222,10 @@ impl JsFxOption {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FxOption(id='{}', strike={:.4})", self.inner.id, self.inner.strike)
+        format!(
+            "FxOption(id='{}', strike={:.4})",
+            self.inner.id, self.inner.strike
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
@@ -248,7 +253,6 @@ impl InstrumentWrapper for JsFxSwap {
         self.inner.clone()
     }
 }
-
 
 #[wasm_bindgen(js_class = FxSwap)]
 impl JsFxSwap {

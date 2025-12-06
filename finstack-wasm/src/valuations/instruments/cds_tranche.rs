@@ -26,7 +26,6 @@ impl InstrumentWrapper for JsCdsTranche {
     }
 }
 
-
 #[wasm_bindgen(js_class = CdsTranche)]
 impl JsCdsTranche {
     #[wasm_bindgen(constructor)]

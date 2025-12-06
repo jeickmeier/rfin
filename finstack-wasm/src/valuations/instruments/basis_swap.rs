@@ -72,7 +72,6 @@ impl InstrumentWrapper for JsBasisSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = BasisSwap)]
 impl JsBasisSwap {
     #[wasm_bindgen(constructor)]

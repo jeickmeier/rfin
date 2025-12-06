@@ -24,7 +24,6 @@ impl InstrumentWrapper for JsDeposit {
     }
 }
 
-
 #[wasm_bindgen(js_class = Deposit)]
 impl JsDeposit {
     #[wasm_bindgen(constructor)]

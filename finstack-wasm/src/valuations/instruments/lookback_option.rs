@@ -45,7 +45,6 @@ impl InstrumentWrapper for JsLookbackOption {
     }
 }
 
-
 #[wasm_bindgen(js_class = LookbackOption)]
 impl JsLookbackOption {
     #[wasm_bindgen(js_name = fromJson)]

@@ -20,7 +20,6 @@ impl InstrumentWrapper for JsRangeAccrual {
     }
 }
 
-
 #[wasm_bindgen(js_class = RangeAccrual)]
 impl JsRangeAccrual {
     #[wasm_bindgen(js_name = fromJson)]

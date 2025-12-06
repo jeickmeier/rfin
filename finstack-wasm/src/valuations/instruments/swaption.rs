@@ -24,7 +24,6 @@ impl InstrumentWrapper for JsSwaption {
     }
 }
 
-
 #[wasm_bindgen(js_class = Swaption)]
 impl JsSwaption {
     #[wasm_bindgen(js_name = payer)]

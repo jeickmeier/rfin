@@ -25,7 +25,6 @@ impl InstrumentWrapper for JsInflationSwap {
     }
 }
 
-
 #[wasm_bindgen(js_class = InflationSwap)]
 impl JsInflationSwap {
     #[wasm_bindgen(constructor)]
