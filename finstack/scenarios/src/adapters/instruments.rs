@@ -128,6 +128,52 @@ pub fn apply_instrument_type_spread_shock(
     Ok(count)
 }
 
+/// Apply a percentage price shock to instruments matching the provided attributes.
+///
+/// **Note**: Partial implementation (Phase A). Currently returns a warning indicating
+/// not implemented, without modifying instruments.
+///
+/// # Arguments
+/// - `_instruments`: Slice of instrument trait objects (unused in Phase A).
+/// - `attrs`: Attribute key-value pairs to match.
+/// - `_pct`: Percentage change (unused in Phase A).
+///
+/// # Returns
+/// `Ok(warnings)` containing the not-implemented warning.
+pub fn apply_instrument_attr_price_shock(
+    _instruments: &mut [Box<dyn Instrument>],
+    attrs: &indexmap::IndexMap<String, String>,
+    _pct: f64,
+) -> Result<Vec<String>> {
+    Ok(vec![format!(
+        "InstrumentPricePctByAttr with {} attrs: not implemented in Phase A",
+        attrs.len()
+    )])
+}
+
+/// Apply a spread shock to instruments matching the provided attributes.
+///
+/// **Note**: Partial implementation (Phase A). Currently returns a warning indicating
+/// not implemented, without modifying instruments.
+///
+/// # Arguments
+/// - `_instruments`: Slice of instrument trait objects (unused in Phase A).
+/// - `attrs`: Attribute key-value pairs to match.
+/// - `_bp`: Basis-point change (unused in Phase A).
+///
+/// # Returns
+/// `Ok(warnings)` containing the not-implemented warning.
+pub fn apply_instrument_attr_spread_shock(
+    _instruments: &mut [Box<dyn Instrument>],
+    attrs: &indexmap::IndexMap<String, String>,
+    _bp: f64,
+) -> Result<Vec<String>> {
+    Ok(vec![format!(
+        "InstrumentSpreadBpByAttr with {} attrs: not implemented in Phase A",
+        attrs.len()
+    )])
+}
+
 #[cfg(test)]
 mod tests {
     // Note: Full testing requires concrete instrument implementations

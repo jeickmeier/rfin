@@ -8,8 +8,41 @@
 
 use crate::error::{Error, Result};
 use crate::spec::{CurveKind, TenorMatchMode};
-use crate::utils::parse_tenor_to_years;
+use crate::utils::{calculate_interpolation_weights, parse_tenor_to_years};
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::context::MarketContext;
+
+/// Schedule a parallel basis-point shock to a curve.
+///
+/// Handles `CurveKind::Inflation` specially by creating an `inflation_shift_pct` bump;
+/// others receive a standard `parallel_bp` bump.
+///
+/// # Arguments
+/// - `curve_kind`: Family of the curve (affects bump type).
+/// - `curve_id`: Identifier of the curve.
+/// - `bp`: Shock size in basis points.
+/// - `market_bumps`: Output vector to append scheduled bumps to.
+///
+/// # Returns
+/// `Ok(())` on success.
+pub fn apply_curve_parallel_shock(
+    curve_kind: CurveKind,
+    curve_id: &str,
+    bp: f64,
+    market_bumps: &mut Vec<MarketBump>,
+) -> Result<()> {
+    let spec = if curve_kind == CurveKind::Inflation {
+        BumpSpec::inflation_shift_pct(bp / 100.0)
+    } else {
+        BumpSpec::parallel_bp(bp)
+    };
+
+    market_bumps.push(MarketBump::Curve {
+        id: finstack_core::types::CurveId::from(curve_id),
+        spec,
+    });
+    Ok(())
+}
 
 /// Apply node-specific basis-point shocks to a curve.
 ///
@@ -152,24 +185,9 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Distribute bump to bracket pillars via linear weights
-                        let pos = knots
-                            .iter()
-                            .position(|&t| t >= tenor_years)
-                            .unwrap_or(knots.len() - 1);
-                        if pos == 0 {
-                            forwards[0] += add;
-                        } else {
-                            let i0 = pos - 1;
-                            let i1 = pos.min(knots.len() - 1);
-                            let (t0, t1) = (knots[i0], knots[i1]);
-                            let w1 = if (t1 - t0).abs() < 1e-12 {
-                                0.5
-                            } else {
-                                (tenor_years - t0) / (t1 - t0)
-                            };
-                            let w0 = 1.0 - w1;
-                            forwards[i0] += add * w0;
-                            forwards[i1] += add * w1;
+                        let weights = calculate_interpolation_weights(tenor_years, &knots);
+                        for (idx, weight) in weights {
+                            forwards[idx] += add * weight;
                         }
                     }
                 }
@@ -232,28 +250,10 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Distribute bump to bracket pillars
-                        let pos = points
-                            .iter()
-                            .position(|(t, _)| *t >= tenor_years)
-                            .unwrap_or(points.len() - 1);
-
-                        if pos == 0 {
-                            points[0].1 = (points[0].1 + lambda_bump).max(0.0);
-                        } else {
-                            let i0 = pos - 1;
-                            let i1 = pos.min(points.len() - 1);
-                            let t0 = points[i0].0;
-                            let t1 = points[i1].0;
-
-                            let w1 = if (t1 - t0).abs() < 1e-12 {
-                                0.5
-                            } else {
-                                (tenor_years - t0) / (t1 - t0)
-                            };
-                            let w0 = 1.0 - w1;
-
-                            points[i0].1 = (points[i0].1 + lambda_bump * w0).max(0.0);
-                            points[i1].1 = (points[i1].1 + lambda_bump * w1).max(0.0);
+                        let times: Vec<f64> = points.iter().map(|(t, _)| *t).collect();
+                        let weights = calculate_interpolation_weights(tenor_years, &times);
+                        for (idx, weight) in weights {
+                            points[idx].1 = (points[idx].1 + lambda_bump * weight).max(0.0);
                         }
                     }
                 }
@@ -328,24 +328,14 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Distribute multiplicative factor to bracket pillars via linear weights
-                        let pos = knots
-                            .iter()
-                            .position(|&t| t >= tenor_years)
-                            .unwrap_or(knots.len() - 1);
-                        if pos == 0 {
-                            cpi_levels[0] *= factor;
-                        } else {
-                            let i0 = pos - 1;
-                            let i1 = pos.min(knots.len() - 1);
-                            let (t0, t1) = (knots[i0], knots[i1]);
-                            let w1 = if (t1 - t0).abs() < 1e-12 {
-                                0.5
-                            } else {
-                                (tenor_years - t0) / (t1 - t0)
-                            };
-                            let w0 = 1.0 - w1;
-                            cpi_levels[i0] *= 1.0 + (factor - 1.0) * w0;
-                            cpi_levels[i1] *= 1.0 + (factor - 1.0) * w1;
+                        // factor = 1 + shock. We apply 1 + shock*weight to each?
+                        // No, linear interpolation of the multiplicative *impact*?
+                        // Original logic: cpi *= 1 + (factor - 1) * w
+                        // factor - 1 is the shock pct.
+                        let weights = calculate_interpolation_weights(tenor_years, &knots);
+                        let shock_pct = factor - 1.0;
+                        for (idx, weight) in weights {
+                            cpi_levels[idx] *= 1.0 + shock_pct * weight;
                         }
                     }
                 }

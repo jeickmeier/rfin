@@ -10,8 +10,7 @@
 
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
-use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
-use finstack_core::types::CurveId;
+use finstack_core::market_data::bumps::MarketBump;
 use indexmap::IndexMap;
 
 /// Execution context for scenario application.
@@ -293,37 +292,38 @@ impl ScenarioEngine {
         for op in &spec.operations {
             match op {
                 OperationSpec::MarketFxPct { base, quote, pct } => {
-                    market_bumps.push(MarketBump::FxPct {
-                        base: *base,
-                        quote: *quote,
-                        pct: *pct,
-                        as_of: ctx.as_of,
-                    });
-                    applied += 1;
+                    applied += crate::adapters::fx::apply_fx_shock(
+                        *base,
+                        *quote,
+                        *pct,
+                        ctx.as_of,
+                        &mut market_bumps,
+                    )?;
                 }
                 OperationSpec::EquityPricePct { ids, pct } => {
-                    for id in ids {
-                        if ctx.market.price(id).is_ok() {
-                            market_bumps.push(MarketBump::Curve {
-                                id: CurveId::from(id.as_str()),
-                                spec: BumpSpec {
-                                    mode: BumpMode::Additive,
-                                    units: BumpUnits::Percent,
-                                    value: *pct,
-                                    bump_type: BumpType::Parallel,
-                                },
-                            });
-                            applied += 1;
-                        } else {
-                            warnings.push(format!("Equity {}: not found in market data", id));
-                        }
-                    }
+                    applied += crate::adapters::equity::apply_equity_price_shock(
+                        ctx.market,
+                        ids,
+                        *pct,
+                        &mut market_bumps,
+                        &mut warnings,
+                    )?;
                 }
-                OperationSpec::InstrumentPricePctByAttr { attrs, pct: _ } => {
-                    warnings.push(format!(
-                        "InstrumentPricePctByAttr with {} attrs: not implemented in Phase A",
-                        attrs.len()
-                    ));
+                OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
+                    let mut empty_instruments: Vec<
+                        Box<dyn finstack_valuations::instruments::common::traits::Instrument>,
+                    > = Vec::new();
+                    let instruments_slice = ctx
+                        .instruments
+                        .as_deref_mut()
+                        .unwrap_or(&mut empty_instruments);
+
+                    let w = crate::adapters::instruments::apply_instrument_attr_price_shock(
+                        instruments_slice,
+                        attrs,
+                        *pct,
+                    )?;
+                    warnings.extend(w);
                 }
                 OperationSpec::InstrumentPricePctByType {
                     instrument_types,
@@ -350,15 +350,11 @@ impl ScenarioEngine {
                     surface_id,
                     pct,
                 } => {
-                    market_bumps.push(MarketBump::Curve {
-                        id: CurveId::from(surface_id.as_str()),
-                        spec: BumpSpec {
-                            mode: BumpMode::Multiplicative,
-                            units: BumpUnits::Factor,
-                            value: 1.0 + (*pct / 100.0),
-                            bump_type: BumpType::Parallel,
-                        },
-                    });
+                    crate::adapters::vol::apply_vol_parallel_shock(
+                        surface_id,
+                        *pct,
+                        &mut market_bumps,
+                    )?;
                     applied += 1;
                 }
                 OperationSpec::VolSurfaceBucketPct {
@@ -368,28 +364,14 @@ impl ScenarioEngine {
                     strikes,
                     pct,
                 } => {
-                    let exp_years = if let Some(t) = tenors {
-                        let parsed: std::result::Result<Vec<f64>, _> = t
-                            .iter()
-                            .map(|s| crate::utils::parse_tenor_to_years(s))
-                            .collect();
-                        match parsed {
-                            Ok(v) => Some(v),
-                            Err(e) => {
-                                warnings.push(format!("Vol bucket tenor parse failed: {}", e));
-                                None
-                            }
-                        }
-                    } else {
-                        None
-                    };
-
-                    market_bumps.push(MarketBump::VolBucketPct {
-                        surface_id: CurveId::from(surface_id.as_str()),
-                        expiries: exp_years,
-                        strikes: strikes.clone(),
-                        pct: *pct,
-                    });
+                    crate::adapters::vol::apply_vol_bucket_shock(
+                        surface_id,
+                        tenors.as_deref(),
+                        strikes.as_deref(),
+                        *pct,
+                        &mut market_bumps,
+                        &mut warnings,
+                    )?;
                     applied += 1;
                 }
                 OperationSpec::CurveParallelBp {
@@ -397,15 +379,12 @@ impl ScenarioEngine {
                     curve_id,
                     bp,
                 } => {
-                    let spec = if *curve_kind == crate::spec::CurveKind::Inflation {
-                        BumpSpec::inflation_shift_pct(*bp / 100.0)
-                    } else {
-                        BumpSpec::parallel_bp(*bp)
-                    };
-                    market_bumps.push(MarketBump::Curve {
-                        id: CurveId::from(curve_id.as_str()),
-                        spec,
-                    });
+                    crate::adapters::curves::apply_curve_parallel_shock(
+                        *curve_kind,
+                        curve_id,
+                        *bp,
+                        &mut market_bumps,
+                    )?;
                     applied += 1;
                 }
                 OperationSpec::CurveNodeBp {
@@ -443,15 +422,11 @@ impl ScenarioEngine {
                     }
                 }
                 OperationSpec::BaseCorrParallelPts { surface_id, points } => {
-                    market_bumps.push(MarketBump::Curve {
-                        id: CurveId::from(surface_id.as_str()),
-                        spec: BumpSpec {
-                            mode: BumpMode::Additive,
-                            units: BumpUnits::Fraction,
-                            value: *points,
-                            bump_type: BumpType::Parallel,
-                        },
-                    });
+                    crate::adapters::basecorr::apply_basecorr_parallel_shock(
+                        surface_id,
+                        *points,
+                        &mut market_bumps,
+                    )?;
                     applied += 1;
                 }
                 OperationSpec::BaseCorrBucketPts {
@@ -460,28 +435,31 @@ impl ScenarioEngine {
                     maturities,
                     points,
                 } => {
-                    let dets = detachment_bps
-                        .as_ref()
-                        .map(|v| v.iter().map(|bp| *bp as f64 / 100.0).collect());
-
-                    if let Some(mats) = maturities {
-                        if !mats.is_empty() {
-                            warnings.push("BaseCorrBucketPts maturities filter not yet supported; applying detachment-only bump".to_string());
-                        }
-                    }
-
-                    market_bumps.push(MarketBump::BaseCorrBucketPts {
-                        surface_id: CurveId::from(surface_id.as_str()),
-                        detachments: dets,
-                        points: *points,
-                    });
+                    crate::adapters::basecorr::apply_basecorr_bucket_shock(
+                        surface_id,
+                        detachment_bps.as_deref(),
+                        maturities.as_deref(),
+                        *points,
+                        &mut market_bumps,
+                        &mut warnings,
+                    )?;
                     applied += 1;
                 }
-                OperationSpec::InstrumentSpreadBpByAttr { attrs, bp: _ } => {
-                    warnings.push(format!(
-                        "InstrumentSpreadBpByAttr with {} attrs: not implemented in Phase A",
-                        attrs.len()
-                    ));
+                OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => {
+                    let mut empty_instruments: Vec<
+                        Box<dyn finstack_valuations::instruments::common::traits::Instrument>,
+                    > = Vec::new();
+                    let instruments_slice = ctx
+                        .instruments
+                        .as_deref_mut()
+                        .unwrap_or(&mut empty_instruments);
+
+                    let w = crate::adapters::instruments::apply_instrument_attr_spread_shock(
+                        instruments_slice,
+                        attrs,
+                        *bp,
+                    )?;
+                    warnings.extend(w);
                 }
                 OperationSpec::InstrumentSpreadBpByType {
                     instrument_types,
@@ -530,7 +508,7 @@ impl ScenarioEngine {
         // Phase 2: Rate bindings update (if configured)
         if let Some(bindings) = &ctx.rate_bindings {
             for (node_id, curve_id) in bindings {
-                match crate::adapters::statements::update_rate_from_curve(
+                match crate::adapters::statements::update_1y_rate_from_curve(
                     ctx.model, node_id, ctx.market, curve_id,
                 ) {
                     Ok(_) => {}

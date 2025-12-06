@@ -140,6 +140,49 @@ pub fn parse_period_to_days(period: &str) -> Result<i64> {
     Ok(days)
 }
 
+/// Calculate weights for distributing a bump at `target` year to adjacent curve pillars.
+///
+/// This provides standard linear interpolation weights to distribute a shock at `target`
+/// onto the nearest knot points `t0` and `t1` such that the weighted average time matches
+/// `target`.
+///
+/// # Arguments
+/// - `target`: The time (in years) where the shock is applied.
+/// - `knots`: Sorted slice of knot times (in years).
+///
+/// # Returns
+/// A vector of `(index, weight)` tuples. Usually contains 1 (exact match or extrapolation)
+/// or 2 (interpolation) elements.
+pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Vec<(usize, f64)> {
+    if knots.is_empty() {
+        return vec![];
+    }
+
+    let pos = knots
+        .iter()
+        .position(|&t| t >= target)
+        .unwrap_or(knots.len() - 1);
+
+    if pos == 0 {
+        return vec![(0, 1.0)];
+    }
+
+    let i0 = pos - 1;
+    let i1 = pos.min(knots.len() - 1);
+    let t0 = knots[i0];
+    let t1 = knots[i1];
+
+    if (t1 - t0).abs() < 1e-12 {
+        // Coincident points, distribute evenly to avoiding div/0
+        // (Should not happen in valid curves)
+        vec![(i0, 0.5), (i1, 0.5)]
+    } else {
+        let w1 = (target - t0) / (t1 - t0);
+        let w0 = 1.0 - w1;
+        vec![(i0, w0), (i1, w1)]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

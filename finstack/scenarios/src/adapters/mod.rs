@@ -16,7 +16,7 @@ pub mod vol;
 
 pub use asset_corr::{
     apply_asset_correlation_shock, apply_prepay_default_correlation_shock,
-    apply_selective_correlation_shock, AssetCorrelationShockResult,
+    apply_selective_correlation_shock,
 };
 pub use time_roll::RollForwardReport;
 pub use vol::ArbitrageViolation;

@@ -13,10 +13,10 @@
 //! use finstack_scenarios::adapters::asset_corr::*;
 //!
 //! // Shock all asset correlations by +5%
-//! let result = apply_asset_correlation_shock(&mut instruments, 0.05)?;
+//! let (count, warnings) = apply_asset_correlation_shock(&mut instruments, 0.05)?;
 //!
 //! // Shock prepay-default correlation by -10%
-//! let result = apply_prepay_default_correlation_shock(&mut instruments, -0.10)?;
+//! let (count, warnings) = apply_prepay_default_correlation_shock(&mut instruments, -0.10)?;
 //! ```
 //!
 //! # Clamping
@@ -29,19 +29,6 @@
 use crate::error::Result;
 use finstack_valuations::instruments::structured_credit::pricing::stochastic::CorrelationStructure;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
-
-/// Result of an asset correlation shock operation.
-#[derive(Debug, Clone, Default)]
-pub struct AssetCorrelationShockResult {
-    /// Number of instruments modified
-    pub instruments_modified: usize,
-    /// Warnings about clamping
-    pub warnings: Vec<String>,
-    /// Original correlation values (for reporting)
-    pub original_correlations: Vec<(String, f64)>,
-    /// New correlation values (for reporting)
-    pub new_correlations: Vec<(String, f64)>,
-}
 
 /// Apply a parallel shock to asset correlation across structured credit instruments.
 ///
@@ -57,26 +44,20 @@ pub struct AssetCorrelationShockResult {
 pub fn apply_asset_correlation_shock(
     instruments: &mut [StructuredCredit],
     shock_points: f64,
-) -> Result<AssetCorrelationShockResult> {
-    let mut result = AssetCorrelationShockResult::default();
+) -> Result<(usize, Vec<String>)> {
+    let mut modified = 0;
+    let mut warnings = Vec::new();
 
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
             let original = corr_structure.asset_correlation();
-            result
-                .original_correlations
-                .push((inst.id.as_str().to_string(), original));
-
             let new_corr_structure = corr_structure.bump_asset(shock_points);
             let new = new_corr_structure.asset_correlation();
-            result
-                .new_correlations
-                .push((inst.id.as_str().to_string(), new));
 
             // Check for clamping
             let expected = original + shock_points;
             if (new - expected).abs() > 0.001 {
-                result.warnings.push(format!(
+                warnings.push(format!(
                     "Asset correlation clamped for '{}': requested {:.2}%, got {:.2}%",
                     inst.id.as_str(),
                     expected * 100.0,
@@ -85,11 +66,11 @@ pub fn apply_asset_correlation_shock(
             }
 
             inst.correlation_structure = Some(new_corr_structure);
-            result.instruments_modified += 1;
+            modified += 1;
         }
     }
 
-    Ok(result)
+    Ok((modified, warnings))
 }
 
 /// Apply a parallel shock to prepay-default correlation.
@@ -106,26 +87,20 @@ pub fn apply_asset_correlation_shock(
 pub fn apply_prepay_default_correlation_shock(
     instruments: &mut [StructuredCredit],
     shock_points: f64,
-) -> Result<AssetCorrelationShockResult> {
-    let mut result = AssetCorrelationShockResult::default();
+) -> Result<(usize, Vec<String>)> {
+    let mut modified = 0;
+    let mut warnings = Vec::new();
 
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
             let original = corr_structure.prepay_default_correlation();
-            result
-                .original_correlations
-                .push((inst.id.as_str().to_string(), original));
-
             let new_corr_structure = corr_structure.bump_prepay_default(shock_points);
             let new = new_corr_structure.prepay_default_correlation();
-            result
-                .new_correlations
-                .push((inst.id.as_str().to_string(), new));
 
             // Check for clamping
             let expected = original + shock_points;
             if (new - expected).abs() > 0.001 {
-                result.warnings.push(format!(
+                warnings.push(format!(
                     "Prepay-default correlation clamped for '{}': requested {:.2}%, got {:.2}%",
                     inst.id.as_str(),
                     expected * 100.0,
@@ -134,11 +109,11 @@ pub fn apply_prepay_default_correlation_shock(
             }
 
             inst.correlation_structure = Some(new_corr_structure);
-            result.instruments_modified += 1;
+            modified += 1;
         }
     }
 
-    Ok(result)
+    Ok((modified, warnings))
 }
 
 /// Apply correlation shock by instrument selector (attribute-based).
@@ -156,11 +131,12 @@ pub fn apply_selective_correlation_shock<F>(
     selector: F,
     asset_corr_shock: Option<f64>,
     prepay_default_shock: Option<f64>,
-) -> Result<AssetCorrelationShockResult>
+) -> Result<(usize, Vec<String>)>
 where
     F: Fn(&StructuredCredit) -> bool,
 {
-    let mut result = AssetCorrelationShockResult::default();
+    let mut modified = 0;
+    let mut warnings = Vec::new();
 
     for inst in instruments.iter_mut() {
         if !selector(inst) {
@@ -178,7 +154,7 @@ where
 
                 let expected = original + shock;
                 if (new - expected).abs() > 0.001 {
-                    result.warnings.push(format!(
+                    warnings.push(format!(
                         "Asset correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
                         inst.id.as_str(),
                         original * 100.0,
@@ -196,7 +172,7 @@ where
 
                 let expected = original + shock;
                 if (new - expected).abs() > 0.001 {
-                    result.warnings.push(format!(
+                    warnings.push(format!(
                         "Prepay-default correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
                         inst.id.as_str(),
                         original * 100.0,
@@ -207,11 +183,11 @@ where
             }
 
             inst.correlation_structure = Some(new_structure);
-            result.instruments_modified += 1;
+            modified += 1;
         }
     }
 
-    Ok(result)
+    Ok((modified, warnings))
 }
 
 // === Internal helpers ===
@@ -260,9 +236,10 @@ mod tests {
     fn test_asset_correlation_shock() {
         let mut instruments = vec![sample_instrument()];
 
-        let result = apply_asset_correlation_shock(&mut instruments, 0.05).expect("should succeed");
+        let (modified, _) =
+            apply_asset_correlation_shock(&mut instruments, 0.05).expect("should succeed");
 
-        assert_eq!(result.instruments_modified, 1);
+        assert_eq!(modified, 1);
 
         // New correlation should be ~25%
         let new_corr = instruments[0]
@@ -279,9 +256,10 @@ mod tests {
         let mut instruments = vec![sample_instrument()];
 
         // Large shock that would push past 99%
-        let result = apply_asset_correlation_shock(&mut instruments, 0.90).expect("should succeed");
+        let (_, warnings) =
+            apply_asset_correlation_shock(&mut instruments, 0.90).expect("should succeed");
 
-        assert!(!result.warnings.is_empty(), "Should have clamping warning");
+        assert!(!warnings.is_empty(), "Should have clamping warning");
 
         let new_corr = instruments[0]
             .correlation_structure
@@ -297,10 +275,10 @@ mod tests {
         let mut instruments = vec![sample_instrument()];
 
         // Shock prepay-default correlation by +0.10 (from -30% to -20%)
-        let result =
+        let (modified, _) =
             apply_prepay_default_correlation_shock(&mut instruments, 0.10).expect("should succeed");
 
-        assert_eq!(result.instruments_modified, 1);
+        assert_eq!(modified, 1);
 
         let new_corr = instruments[0]
             .correlation_structure
@@ -317,7 +295,7 @@ mod tests {
 
         // Only shock first instrument
         let count = std::cell::Cell::new(0);
-        let result = apply_selective_correlation_shock(
+        let (modified, _) = apply_selective_correlation_shock(
             &mut instruments,
             |_| {
                 let c = count.get();
@@ -329,7 +307,7 @@ mod tests {
         )
         .expect("should succeed");
 
-        assert_eq!(result.instruments_modified, 1);
+        assert_eq!(modified, 1);
     }
 
     #[test]

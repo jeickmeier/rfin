@@ -111,7 +111,7 @@ pub fn apply_forecast_assign(
     Ok(())
 }
 
-/// Update a statement rate node with a representative rate from a market curve.
+/// Update a statement rate node with a representative 1-year rate from a market curve.
 ///
 /// This function uses a heuristic to extract a scalar rate from market curves:
 /// - **Discount curves**: Continuously compounded 1Y zero rate, computed as `-ln(DF(1Y))`.
@@ -144,18 +144,18 @@ pub fn apply_forecast_assign(
 ///
 /// # Examples
 /// ```rust,no_run
-/// use finstack_scenarios::adapters::statements::update_rate_from_curve;
+/// use finstack_scenarios::adapters::statements::update_1y_rate_from_curve;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_statements::FinancialModelSpec;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut model = FinancialModelSpec::new("demo", vec![]);
 /// let market = MarketContext::new();
-/// update_rate_from_curve(&mut model, "FloatingRate", &market, "USD_SOFR")?;
+/// update_1y_rate_from_curve(&mut model, "FloatingRate", &market, "USD_SOFR")?;
 /// # Ok(())
 /// # }
 /// ```
-pub fn update_rate_from_curve(
+pub fn update_1y_rate_from_curve(
     model: &mut FinancialModelSpec,
     node_id: &str,
     market: &MarketContext,

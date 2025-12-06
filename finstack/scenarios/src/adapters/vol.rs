@@ -17,18 +17,21 @@
 //! - Calendar spread: Total variance must be non-decreasing in expiry
 //! - Positive vol: All volatilities must be positive
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::utils::parse_tenor_to_years;
-use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 
 /// Relative tolerance for expiry matching (2%)
+#[allow(dead_code)]
 const EXPIRY_REL_TOL: f64 = 0.02;
 
 /// Relative tolerance for strike matching (0.5%)
+#[allow(dead_code)]
 const STRIKE_REL_TOL: f64 = 0.005;
 
 /// Check if two expiries match within relative tolerance.
 #[inline]
+#[allow(dead_code)]
 fn matches_expiry(target: f64, actual: f64) -> bool {
     let base = target.abs().max(0.01); // Avoid division by zero for very short expiries
     (target - actual).abs() < base * EXPIRY_REL_TOL
@@ -36,6 +39,7 @@ fn matches_expiry(target: f64, actual: f64) -> bool {
 
 /// Check if two strikes match within relative tolerance.
 #[inline]
+#[allow(dead_code)]
 fn matches_strike(target: f64, actual: f64) -> bool {
     let base = actual.abs().max(1e-6); // Avoid division by zero
     (target - actual).abs() / base < STRIKE_REL_TOL
@@ -102,6 +106,7 @@ impl std::fmt::Display for ArbitrageViolation {
 ///
 /// # Returns
 /// Vector of detected arbitrage violations (empty if none).
+#[allow(dead_code)]
 fn check_arbitrage(
     expiries: &[f64],
     strikes: &[f64],
@@ -147,204 +152,78 @@ fn check_arbitrage(
     violations
 }
 
-/// Apply a parallel percentage shock to a volatility surface.
+/// Schedule a parallel percentage shock to a volatility surface.
+///
+/// This schedules a `MarketBump::Curve` with `BumpMode::Multiplicative` and `BumpUnits::Factor`.
 ///
 /// # Arguments
-/// - `market`: Market context where the target surface is stored.
 /// - `surface_id`: Identifier of the volatility surface.
 /// - `pct`: Percentage change to apply.
+/// - `market_bumps`: Output vector to append scheduled bumps to.
 ///
 /// # Returns
-/// `Ok(warnings)` containing any arbitrage warnings, or an error.
-///
-/// # Errors
-/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
-///   the surface cannot be found.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::adapters::vol::apply_vol_parallel_shock;
-/// use finstack_core::market_data::context::MarketContext;
-///
-/// # fn main() -> finstack_scenarios::Result<()> {
-/// let mut market = MarketContext::new();
-/// // ... insert a surface ...
-/// let warnings = apply_vol_parallel_shock(&mut market, "SPX_VOL", 12.5)?;
-/// for w in warnings {
-///     eprintln!("Warning: {}", w);
-/// }
-/// # Ok(())
-/// # }
-/// ```
+/// `Ok(())` (always succeeds immediately, validation happens at application time).
 pub fn apply_vol_parallel_shock(
-    market: &mut MarketContext,
     surface_id: &str,
     pct: f64,
-) -> Result<Vec<String>> {
-    let surface = market
-        .surface_ref(surface_id)
-        .map_err(|_| Error::MarketDataNotFound {
-            id: surface_id.to_string(),
-        })?;
-
-    // Apply multiplicative shock to all vols and rebuild surface
-    let factor = 1.0 + (pct / 100.0);
-    let expiries = surface.expiries().to_vec();
-    let strikes = surface.strikes().to_vec();
-    let (n_expiries, n_strikes) = surface.grid_shape();
-
-    let mut vols: Vec<Vec<f64>> = Vec::with_capacity(n_expiries);
-    let mut builder = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
-        surface.id().as_str(),
-    )
-    .expiries(&expiries)
-    .strikes(&strikes);
-
-    for &expiry in expiries.iter().take(n_expiries) {
-        let mut row = Vec::with_capacity(n_strikes);
-        for &strike in strikes.iter().take(n_strikes) {
-            let val = surface.value(expiry, strike);
-            let shocked = (val * factor).max(1e-6); // Ensure positive
-            row.push(shocked);
-        }
-        vols.push(row.clone());
-        builder = builder.row(&row);
-    }
-
-    // Check for arbitrage violations
-    let violations = check_arbitrage(&expiries, &strikes, &vols);
-    let warnings: Vec<String> = violations.iter().map(|v| v.to_string()).collect();
-
-    let bumped = builder
-        .build()
-        .map_err(|e| Error::Internal(format!("Failed to rebuild vol surface: {}", e)))?;
-
-    market.insert_surface_mut(std::sync::Arc::new(bumped));
-    Ok(warnings)
+    market_bumps: &mut Vec<MarketBump>,
+) -> Result<()> {
+    market_bumps.push(MarketBump::Curve {
+        id: finstack_core::types::CurveId::from(surface_id),
+        spec: BumpSpec {
+            mode: BumpMode::Multiplicative,
+            units: BumpUnits::Factor,
+            value: 1.0 + (pct / 100.0),
+            bump_type: BumpType::Parallel,
+        },
+    });
+    Ok(())
 }
 
-/// Apply a bucketed percentage shock to a volatility surface.
+/// Schedule a bucketed percentage shock to a volatility surface.
 ///
-/// Only buckets matching the provided tenor and strike filters are shocked; all
-/// others remain unchanged. Filters are optional, allowing callers to target
-/// just the tenor dimension, just the strike dimension, or both together.
-///
-/// Uses relative tolerances for matching:
-/// - Expiry: 2% relative tolerance
-/// - Strike: 0.5% relative tolerance
+/// Matches buckets by optional tenors and strikes.
 ///
 /// # Arguments
-/// - `market`: Market context being mutated.
 /// - `surface_id`: Identifier of the volatility surface.
 /// - `tenors`: Optional slice of tenor strings to match (e.g., `["1M", "3M"]`).
-/// - `strikes`: Optional slice of strikes to match (absolute, not relative).
+/// - `strikes`: Optional slice of strikes to match.
 /// - `pct`: Percentage change to apply to matching buckets.
+/// - `market_bumps`: Output vector to append scheduled bumps to.
+/// - `warnings`: Output vector for warnings (e.g. parsing failures).
 ///
 /// # Returns
-/// `Ok(warnings)` containing any arbitrage warnings, or an error.
-///
-/// # Errors
-/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound)
-///   when the surface cannot be located.
-/// - [`Error::InvalidTenor`](crate::error::Error::InvalidTenor) if tenor
-///   strings cannot be parsed.
-/// - [`Error::Internal`](crate::error::Error::Internal) if rebuilding the
-///   updated surface fails validation.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::adapters::vol::apply_vol_bucket_shock;
-/// use finstack_core::market_data::context::MarketContext;
-///
-/// # fn main() -> finstack_scenarios::Result<()> {
-/// let mut market = MarketContext::new();
-/// // ... insert a surface ...
-/// let warnings = apply_vol_bucket_shock(
-///     &mut market,
-///     "SPX_VOL",
-///     Some(&["1M".into(), "3M".into()]),
-///     Some(&[90.0, 100.0]),
-///     15.0,
-/// )?;
-/// # Ok(())
-/// # }
-/// ```
+/// `Ok(())` on success.
 pub fn apply_vol_bucket_shock(
-    market: &mut MarketContext,
     surface_id: &str,
     tenors: Option<&[String]>,
     strikes: Option<&[f64]>,
     pct: f64,
-) -> Result<Vec<String>> {
-    let surface = market
-        .surface_ref(surface_id)
-        .map_err(|_| Error::MarketDataNotFound {
-            id: surface_id.to_string(),
-        })?;
-
-    // If no filters specified, apply parallel shock
-    if tenors.is_none() && strikes.is_none() {
-        return apply_vol_parallel_shock(market, surface_id, pct);
-    }
-
-    // Parse tenor filters to years
-    let tenor_years: Option<Vec<f64>> = if let Some(tenor_strs) = tenors {
-        let years: Result<Vec<f64>> = tenor_strs.iter().map(|s| parse_tenor_to_years(s)).collect();
-        Some(years?)
+    market_bumps: &mut Vec<MarketBump>,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
+    // Parse tenor strings to years if present
+    let exp_years = if let Some(t) = tenors {
+        let parsed: std::result::Result<Vec<f64>, _> =
+            t.iter().map(|s| parse_tenor_to_years(s)).collect();
+        match parsed {
+            Ok(v) => Some(v),
+            Err(e) => {
+                warnings.push(format!("Vol bucket tenor parse failed: {}", e));
+                None
+            }
+        }
     } else {
         None
     };
 
-    // Get surface data
-    let expiries = surface.expiries().to_vec();
-    let strikes_vec = surface.strikes().to_vec();
-    let (n_expiries, n_strikes) = surface.grid_shape();
-
-    // Apply shock selectively
-    let factor = 1.0 + (pct / 100.0);
-    let mut vols: Vec<Vec<f64>> = Vec::with_capacity(n_expiries);
-    let mut builder = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
-        surface.id().as_str(),
-    )
-    .expiries(&expiries)
-    .strikes(&strikes_vec);
-
-    for &expiry in expiries.iter().take(n_expiries) {
-        let mut row = Vec::with_capacity(n_strikes);
-        for &strike in strikes_vec.iter().take(n_strikes) {
-            let val = surface.value(expiry, strike);
-
-            // Check if this bucket matches filters using relative tolerances
-            let tenor_match = tenor_years
-                .as_ref()
-                .is_none_or(|tenors| tenors.iter().any(|&t| matches_expiry(t, expiry)));
-
-            let strike_match = strikes.is_none_or(|strike_filters| {
-                strike_filters.iter().any(|&s| matches_strike(s, strike))
-            });
-
-            // Apply shock only if both filters match
-            let shocked = if tenor_match && strike_match {
-                (val * factor).max(1e-6) // Ensure positive
-            } else {
-                val
-            };
-            row.push(shocked);
-        }
-        vols.push(row.clone());
-        builder = builder.row(&row);
-    }
-
-    // Check for arbitrage violations
-    let violations = check_arbitrage(&expiries, &strikes_vec, &vols);
-    let warnings: Vec<String> = violations.iter().map(|v| v.to_string()).collect();
-
-    let bumped = builder
-        .build()
-        .map_err(|e| Error::Internal(format!("Failed to rebuild vol surface: {}", e)))?;
-
-    market.insert_surface_mut(std::sync::Arc::new(bumped));
-    Ok(warnings)
+    market_bumps.push(MarketBump::VolBucketPct {
+        surface_id: finstack_core::types::CurveId::from(surface_id),
+        expiries: exp_years,
+        strikes: strikes.map(|s| s.to_vec()),
+        pct,
+    });
+    Ok(())
 }
 
 #[cfg(test)]
