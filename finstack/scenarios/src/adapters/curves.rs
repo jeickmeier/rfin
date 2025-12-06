@@ -189,14 +189,108 @@ pub fn apply_curve_node_shock(
 
             market.insert_forward_mut(std::sync::Arc::new(rebuilt));
         }
-        CurveKind::Hazard => {
-            // Hazard curves don't expose knots publicly, so node-specific bumps cannot be implemented
-            // without extending the core API. Return UnsupportedOperation until core provides
-            // either knots() access or a with_key_rate_bump API.
-            return Err(Error::UnsupportedOperation {
-                operation: "node bump (hazard curves don't expose knots)".to_string(),
-                target: format!("hazard curve {}", curve_id),
-            });
+        CurveKind::ParCDS => {
+            let base_curve =
+                market
+                    .get_hazard_ref(curve_id)
+                    .map_err(|_| Error::MarketDataNotFound {
+                        id: curve_id.to_string(),
+                    })?;
+
+            let recovery = base_curve.recovery_rate();
+            // Protect against R ~= 1.0
+            let div = if (1.0 - recovery).abs() < 1e-4 {
+                1e-4
+            } else {
+                1.0 - recovery
+            };
+
+            // Extract knots and lambdas
+            let mut points: Vec<(f64, f64)> = base_curve.knot_points().collect();
+            // points is sorted by time
+
+            // Apply each node shock sequentially
+            for (tenor_str, bp) in nodes {
+                let tenor_years = parse_tenor_to_years(tenor_str)?;
+                // Approximate hazard bump: dLambda = dSpread / (1 - R)
+                let lambda_bump = (*bp / 10_000.0) / div;
+
+                match match_mode {
+                    TenorMatchMode::Exact => {
+                        // Find exact pillar match
+                        if let Some((_, lambda)) = points
+                            .iter_mut()
+                            .find(|(t, _)| (*t - tenor_years).abs() < 1e-6)
+                        {
+                            *lambda = (*lambda + lambda_bump).max(0.0);
+                        } else {
+                            return Err(Error::TenorNotFound {
+                                tenor: tenor_str.clone(),
+                                curve_id: curve_id.to_string(),
+                            });
+                        }
+                    }
+                    TenorMatchMode::Interpolate => {
+                        // Distribute bump to bracket pillars
+                        let pos = points
+                            .iter()
+                            .position(|(t, _)| *t >= tenor_years)
+                            .unwrap_or(points.len() - 1);
+
+                        if pos == 0 {
+                            points[0].1 = (points[0].1 + lambda_bump).max(0.0);
+                        } else {
+                            let i0 = pos - 1;
+                            let i1 = pos.min(points.len() - 1);
+                            let t0 = points[i0].0;
+                            let t1 = points[i1].0;
+
+                            let w1 = if (t1 - t0).abs() < 1e-12 {
+                                0.5
+                            } else {
+                                (tenor_years - t0) / (t1 - t0)
+                            };
+                            let w0 = 1.0 - w1;
+
+                            points[i0].1 = (points[i0].1 + lambda_bump * w0).max(0.0);
+                            points[i1].1 = (points[i1].1 + lambda_bump * w1).max(0.0);
+                        }
+                    }
+                }
+            }
+
+            // Rebuild hazard curve
+            let mut builder =
+                finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder(
+                    base_curve.id().as_str(),
+                )
+                .base_date(base_curve.base_date())
+                .recovery_rate(base_curve.recovery_rate())
+                .day_count(base_curve.day_count())
+                .knots(points)
+                .par_interp(base_curve.par_interp()); // Use accessor if available, or default
+
+            if let Some(issuer) = base_curve.issuer() {
+                builder = builder.issuer(issuer);
+            }
+            if let Some(seniority) = base_curve.seniority {
+                builder = builder.seniority(seniority);
+            }
+            if let Some(currency) = base_curve.currency() {
+                builder = builder.currency(currency);
+            }
+            // Preserve par spread points (though they might be inconsistent with new lambdas)
+            // Ideally we'd bump them too, but for scenario purposes, the lambdas matter for pricing.
+            // Using a hack to access par_spread_points via iterator if public?
+            // Yes, par_spread_points() is public.
+            let par_points: Vec<(f64, f64)> = base_curve.par_spread_points().collect();
+            builder = builder.par_spreads(par_points);
+
+            let rebuilt = builder
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild hazard curve: {}", e)))?;
+
+            market.insert_hazard_mut(std::sync::Arc::new(rebuilt));
         }
         CurveKind::Inflation => {
             let base_curve =

@@ -58,7 +58,7 @@ fn test_forecast_curve_parallel_shock() {
 }
 
 #[test]
-fn test_hazard_curve_parallel_shock() {
+fn test_par_cds_parallel_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create hazard curve
@@ -77,7 +77,7 @@ fn test_hazard_curve_parallel_shock() {
         name: Some("Hazard Curve Shock".into()),
         description: None,
         operations: vec![OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Hazard,
+            curve_kind: CurveKind::ParCDS,
             curve_id: "CORP_BBB".into(),
             bp: 50.0, // +50bp credit spread widening
         }],
@@ -192,7 +192,7 @@ fn test_forecast_curve_node_shock() {
 }
 
 #[test]
-fn test_hazard_curve_node_shock() {
+fn test_par_cds_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     let curve = HazardCurve::builder("CORP_BBB")
@@ -206,11 +206,11 @@ fn test_hazard_curve_node_shock() {
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
-        id: "hazard_node".into(),
+        id: "par_cds_node".into(),
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveNodeBp {
-            curve_kind: CurveKind::Hazard,
+            curve_kind: CurveKind::ParCDS,
             curve_id: "CORP_BBB".into(),
             nodes: vec![("5Y".into(), 25.0)],
             match_mode: TenorMatchMode::Interpolate,
@@ -228,16 +228,26 @@ fn test_hazard_curve_node_shock() {
         as_of: base_date,
     };
 
-    // Hazard curves don't expose knots, so node shocks should fail
-    let result = engine.apply(&scenario, &mut ctx);
-    assert!(result.is_err());
-    match result {
-        Err(finstack_scenarios::error::Error::UnsupportedOperation { operation, target }) => {
-            assert!(operation.contains("hazard curves don't expose knots"));
-            assert!(target.contains("CORP_BBB"));
-        }
-        _ => panic!("Expected UnsupportedOperation error"),
-    }
+    // Par CDS node shocks should now succeed via approximate hazard bump
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    // Check bumped value
+    let bumped = market.get_hazard("CORP_BBB").unwrap();
+    // Delta spread = 25bp, R=0.4 => Delta Lambda approx 25bp / 0.6 = 41.67bp
+    // Original 5Y lambda = 0.025. New approx 0.025 + 0.004167 = 0.029167
+
+    // We can just verify it changed in the right direction
+    let knots: Vec<_> = bumped.knot_points().collect();
+    let val_5y = knots
+        .iter()
+        .find(|(t, _)| (*t - 5.0).abs() < 1e-6)
+        .unwrap()
+        .1;
+    assert!(
+        val_5y > 0.025,
+        "Hazard rate should increase from Par CDS spread bump"
+    );
 }
 
 #[test]
@@ -376,7 +386,7 @@ fn test_all_curve_types_in_one_scenario() {
                 bp: 30.0,
             },
             OperationSpec::CurveParallelBp {
-                curve_kind: CurveKind::Hazard,
+                curve_kind: CurveKind::ParCDS,
                 curve_id: "CORP_BBB".into(),
                 bp: 50.0,
             },

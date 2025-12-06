@@ -739,12 +739,12 @@ fn bench_serde_roundtrip(c: &mut Criterion) {
             },
             // Credit hazard curves
             OperationSpec::CurveParallelBp {
-                curve_kind: CurveKind::Hazard,
+                curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_IG_HAZARD".into(),
                 bp: 75.0,
             },
             OperationSpec::CurveNodeBp {
-                curve_kind: CurveKind::Hazard,
+                curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_HY_HAZARD".into(),
                 nodes: vec![("3Y".into(), 100.0), ("5Y".into(), 150.0)],
                 match_mode: TenorMatchMode::Interpolate,
@@ -871,7 +871,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Hazard,
+            curve_kind: CurveKind::ParCDS,
             curve_id: "CDX_IG_HAZARD".into(),
             bp: 50.0, // +50bp widening
         }],
@@ -905,7 +905,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveNodeBp {
-            curve_kind: CurveKind::Hazard,
+            curve_kind: CurveKind::ParCDS,
             curve_id: "CDX_HY_HAZARD".into(),
             nodes: vec![("3Y".into(), 100.0), ("5Y".into(), 150.0)],
             match_mode: TenorMatchMode::Interpolate,
@@ -1076,12 +1076,12 @@ fn bench_comprehensive_credit_scenario(c: &mut Criterion) {
         operations: vec![
             // Widen hazard rates
             OperationSpec::CurveParallelBp {
-                curve_kind: CurveKind::Hazard,
+                curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_IG_HAZARD".into(),
                 bp: 75.0,
             },
             OperationSpec::CurveParallelBp {
-                curve_kind: CurveKind::Hazard,
+                curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_HY_HAZARD".into(),
                 bp: 200.0,
             },

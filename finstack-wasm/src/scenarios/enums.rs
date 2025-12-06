@@ -31,11 +31,11 @@ impl JsCurveKind {
         }
     }
 
-    /// Credit hazard rate curve.
+    /// Credit Par CDS curve (bumping spreads).
     #[wasm_bindgen(getter)]
-    pub fn HAZARD() -> JsCurveKind {
+    pub fn PAR_CDS() -> JsCurveKind {
         JsCurveKind {
-            inner: CurveKind::Hazard,
+            inner: CurveKind::ParCDS,
         }
     }
 

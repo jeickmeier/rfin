@@ -44,8 +44,8 @@ impl PyCurveKind {
 
     #[classattr]
     #[allow(non_snake_case)]
-    fn Hazard() -> Self {
-        Self::new(CurveKind::Hazard)
+    fn ParCDS() -> Self {
+        Self::new(CurveKind::ParCDS)
     }
 
     #[classattr]
@@ -58,7 +58,7 @@ impl PyCurveKind {
         match self.inner {
             CurveKind::Discount => "CurveKind.Discount".to_string(),
             CurveKind::Forecast => "CurveKind.Forecast".to_string(),
-            CurveKind::Hazard => "CurveKind.Hazard".to_string(),
+            CurveKind::ParCDS => "CurveKind.ParCDS".to_string(),
             CurveKind::Inflation => "CurveKind.Inflation".to_string(),
         }
     }
@@ -67,7 +67,7 @@ impl PyCurveKind {
         match self.inner {
             CurveKind::Discount => "Discount".to_string(),
             CurveKind::Forecast => "Forecast".to_string(),
-            CurveKind::Hazard => "Hazard".to_string(),
+            CurveKind::ParCDS => "ParCDS".to_string(),
             CurveKind::Inflation => "Inflation".to_string(),
         }
     }

@@ -430,7 +430,7 @@ impl ScenarioEngine {
                                 | crate::error::Error::TenorNotFound { .. } => return Err(e),
                                 _ => {
                                     // For other errors, convert to warning unless it's a hazard curve
-                                    if *curve_kind == crate::spec::CurveKind::Hazard {
+                                    if *curve_kind == crate::spec::CurveKind::ParCDS {
                                         return Err(e);
                                     }
                                     warnings.push(format!(

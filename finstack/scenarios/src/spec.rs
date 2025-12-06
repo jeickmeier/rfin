@@ -510,8 +510,9 @@ pub enum CurveKind {
     Discount,
     /// Forward rate curve.
     Forecast,
-    /// Credit hazard rate curve.
-    Hazard,
+    /// Credit Par CDS curve (bumping spreads)
+    #[serde(rename = "par_cds")]
+    ParCDS,
     /// Inflation index curve.
     Inflation,
 }
