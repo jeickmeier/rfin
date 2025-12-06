@@ -42,7 +42,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([1.0, 0.9950, 0.9900, 0.9750, 0.9400, 0.8700]),
+          new Float64Array([1.0, 0.995, 0.99, 0.975, 0.94, 0.87]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -54,7 +54,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           asOf,
           0.25,
           new Float64Array([0.0, 1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([0.0300, 0.0320, 0.0340, 0.0360, 0.0380]),
+          new Float64Array([0.03, 0.032, 0.034, 0.036, 0.038]),
           'act_360',
           2,
           'linear'
@@ -65,7 +65,10 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           'SWAPTION-VOL',
           new Float64Array([1.0, 2.0, 5.0, 10.0]),
           new Float64Array([0.02, 0.03, 0.04, 0.05]),
-          new Float64Array([0.30, 0.29, 0.28, 0.27, 0.28, 0.27, 0.26, 0.25, 0.26, 0.25, 0.24, 0.23, 0.24, 0.23, 0.22, 0.21])
+          new Float64Array([
+            0.3, 0.29, 0.28, 0.27, 0.28, 0.27, 0.26, 0.25, 0.26, 0.25, 0.24, 0.23, 0.24, 0.23, 0.22,
+            0.21,
+          ])
         );
 
         const market = new MarketContext();
@@ -73,7 +76,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         market.insertForward(forwardCurve);
         market.insertSurface(swaptionVol);
         // Add spot price for range accrual
-        market.insertPrice('USD-SOFR-3M-SPOT', MarketScalar.price(Money.fromCode(0.0320, 'USD')));
+        market.insertPrice('USD-SOFR-3M-SPOT', MarketScalar.price(Money.fromCode(0.032, 'USD')));
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
@@ -120,7 +123,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         const cmsPutJson = JSON.stringify({
           id: 'cms_put_5y',
           cms_tenor: 5.0,
-          strike_rate: 0.030,
+          strike_rate: 0.03,
           fixing_dates: ['2025-01-02'],
           accrual_fractions: [1.0],
           option_type: 'put',
@@ -158,14 +161,14 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         const observationDates: string[] = [];
         const startDate = new Date(2024, 0, 2); // 2024-01-02
         const endDate = new Date(2025, 0, 2); // 2025-01-02
-        let currentDate = new Date(startDate);
+        const currentDate = new Date(startDate);
         while (currentDate <= endDate) {
           observationDates.push(
             `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
           );
           currentDate.setMonth(currentDate.getMonth() + 1);
         }
-        
+
         const rangeAccrualJson = JSON.stringify({
           id: 'range_accrual_1',
           underlying_ticker: 'USD-SOFR-3M',
@@ -196,7 +199,11 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         });
         const rangeAccrual = RangeAccrual.fromJson(rangeAccrualJson);
         // Range accruals use monte_carlo_gbm model
-        const rangeAccrualResult = registry.priceRangeAccrual(rangeAccrual, 'monte_carlo_gbm', market);
+        const rangeAccrualResult = registry.priceRangeAccrual(
+          rangeAccrual,
+          'monte_carlo_gbm',
+          market
+        );
         results.push({
           name: 'Range Accrual Note',
           type: 'RangeAccrual',
@@ -238,9 +245,9 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
     <section className="example-section">
       <h2>Exotic Rates Derivatives</h2>
       <p>
-        Exotic interest rate derivatives including CMS options (options on swap rates)
-        and range accrual notes (accrual based on reference rate staying within a range).
-        These instruments are priced using Monte Carlo simulation with Hull-White and GBM processes.
+        Exotic interest rate derivatives including CMS options (options on swap rates) and range
+        accrual notes (accrual based on reference rate staying within a range). These instruments
+        are priced using Monte Carlo simulation with Hull-White and GBM processes.
       </p>
 
       <table>
@@ -268,4 +275,3 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
     </section>
   );
 };
-

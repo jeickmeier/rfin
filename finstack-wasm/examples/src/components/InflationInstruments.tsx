@@ -38,7 +38,7 @@ export const InflationInstrumentsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9980, 0.9960, 0.9820, 0.9600]),
+          new Float64Array([1.0, 0.998, 0.996, 0.982, 0.96]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -130,8 +130,8 @@ export const InflationInstrumentsExample: React.FC = () => {
     <section className="example-section">
       <h2>Inflation Instruments</h2>
       <p>
-        Inflation-linked bonds (TIPS-style) and zero-coupon inflation swaps. These instruments
-        use inflation curves to project CPI levels and adjust cashflows accordingly.
+        Inflation-linked bonds (TIPS-style) and zero-coupon inflation swaps. These instruments use
+        inflation curves to project CPI levels and adjust cashflows accordingly.
       </p>
 
       <table>
@@ -157,4 +157,3 @@ export const InflationInstrumentsExample: React.FC = () => {
     </section>
   );
 };
-

@@ -13,7 +13,13 @@ fn make_date(y: i32, m: u8, d: u8) -> Date {
 
 fn assert_applies(rule: &Rule, yes: &[(i32, u8, u8)], no: &[(i32, u8, u8)]) {
     for &(y, m, d) in yes {
-        assert!(rule.applies(make_date(y, m, d)), "expected {}-{}-{} to match", y, m, d);
+        assert!(
+            rule.applies(make_date(y, m, d)),
+            "expected {}-{}-{} to match",
+            y,
+            m,
+            d
+        );
     }
     for &(y, m, d) in no {
         assert!(
@@ -80,7 +86,13 @@ fn span_rule_cases() {
         SpanCase {
             start: (Month::April, 29),
             len: 5,
-            hits: &[(2025, 4, 29), (2025, 4, 30), (2025, 5, 1), (2025, 5, 2), (2025, 5, 3)],
+            hits: &[
+                (2025, 4, 29),
+                (2025, 4, 30),
+                (2025, 5, 1),
+                (2025, 5, 2),
+                (2025, 5, 3),
+            ],
             misses: &[],
             materialize_year: Some(2025),
         },
@@ -116,11 +128,7 @@ fn span_rule_cases() {
 #[test]
 fn equinox_rules() {
     let vernal = Rule::VernalEquinoxJP;
-    assert_applies(
-        &vernal,
-        &[(2024, 3, 20)],
-        &[(2024, 3, 19), (2024, 3, 22)],
-    );
+    assert_applies(&vernal, &[(2024, 3, 20)], &[(2024, 3, 19), (2024, 3, 22)]);
 
     let autumnal = Rule::AutumnalEquinoxJP;
     for year in 2020..2030 {
@@ -203,11 +211,7 @@ fn fixed_feb_29_rules() {
         observed: Observed::None,
     };
 
-    assert_applies(
-        &rule,
-        &[(2024, 2, 29)],
-        &[(2023, 2, 28), (2023, 3, 1)],
-    );
+    assert_applies(&rule, &[(2024, 2, 29)], &[(2023, 2, 28), (2023, 3, 1)]);
 
     let non_leap = materialize(&rule, 2023);
     assert!(
@@ -287,7 +291,11 @@ fn observed_variants() {
         day: 4,
         observed: Observed::FriIfSatMonIfSun,
     };
-    assert_applies(&july4, &[(2020, 7, 3), (2021, 7, 5)], &[(2020, 7, 4), (2021, 7, 4), (2021, 7, 2)]);
+    assert_applies(
+        &july4,
+        &[(2020, 7, 3), (2021, 7, 5)],
+        &[(2020, 7, 4), (2021, 7, 4), (2021, 7, 2)],
+    );
 
     let christmas = Rule::Fixed {
         month: Month::December,

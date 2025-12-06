@@ -376,7 +376,10 @@ pub fn greeks_unit(
                 }
             }
         };
-        return UnitGreeks { delta, ..Default::default() };
+        return UnitGreeks {
+            delta,
+            ..Default::default()
+        };
     }
 
     bs_greeks(

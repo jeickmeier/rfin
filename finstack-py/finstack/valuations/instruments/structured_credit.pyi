@@ -120,27 +120,6 @@ class StructuredCredit:
         ...         "cdr_by_asset_type": {},
         ...         "recovery_by_asset_type": {},
         ...     },
-        ...     "waterfall": {
-        ...         "base_currency": "USD",
-        ...         "coverage_triggers": [],
-        ...         "tiers": [
-        ...             {
-        ...                 "id": "Tier1-Interest",
-        ...                 "priority": 1,
-        ...                 "payment_type": "Interest",
-        ...                 "allocation_mode": "Sequential",
-        ...                 "divertible": False,
-        ...                 "recipients": [
-        ...                     {
-        ...                         "id": "A-INT",
-        ...                         "recipient_type": {"Tranche": "A"},
-        ...                         "calculation": {"TrancheInterest": {"tranche_id": "A"}},
-        ...                         "weight": None,
-        ...                     }
-        ...                 ],
-        ...             }
-        ...         ],
-        ...     },
         ... }
         >>> structured_credit = StructuredCredit.from_json(json.dumps(json_data))
 
@@ -167,7 +146,7 @@ class StructuredCredit:
     ----------
     data : str or Dict[str, Any]
         JSON string or dictionary containing structured credit definition.
-        Must include deal_type, tranches, collateral, and waterfall specifications.
+        Must include deal_type, tranches, and collateral pool specifications.
 
     Returns
     -------

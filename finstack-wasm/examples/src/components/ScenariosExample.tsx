@@ -48,7 +48,7 @@ export default function ScenariosExample() {
         'USD_SOFR',
         baseDate,
         new Float64Array([0.0, 1.0, 5.0, 10.0]),
-        new Float64Array([1.0, 0.98, 0.90, 0.80]),
+        new Float64Array([1.0, 0.98, 0.9, 0.8]),
         'act_365f',
         'monotone_convex',
         'flat_forward',
@@ -71,11 +71,7 @@ export default function ScenariosExample() {
 
       // 4. Define scenario with +50bp parallel shift
       const operations = [
-        JsOperationSpec.curveParallelBp(
-          JsCurveKind.DISCOUNT,
-          'USD_SOFR',
-          50.0
-        ).toJSON(),
+        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 50.0).toJSON(),
       ];
 
       const scenario = JsScenarioSpec.fromJSON({
@@ -135,7 +131,7 @@ export default function ScenariosExample() {
         'USD_SOFR',
         baseDate,
         new Float64Array([0.0, 1.0, 5.0]),
-        new Float64Array([1.0, 0.98, 0.90]),
+        new Float64Array([1.0, 0.98, 0.9]),
         'act_365f',
         'monotone_convex',
         'flat_forward',
@@ -156,9 +152,15 @@ export default function ScenariosExample() {
         new Float64Array([0.25, 0.5, 1.0]), // 3M, 6M, 1Y
         new Float64Array([90.0, 100.0, 110.0]),
         new Float64Array([
-          0.20, 0.18, 0.22, // 3M row
-          0.21, 0.19, 0.23, // 6M row
-          0.22, 0.20, 0.24, // 1Y row
+          0.2,
+          0.18,
+          0.22, // 3M row
+          0.21,
+          0.19,
+          0.23, // 6M row
+          0.22,
+          0.2,
+          0.24, // 1Y row
         ])
       );
       market.insertSurface(volSurface);
@@ -174,19 +176,11 @@ export default function ScenariosExample() {
       // 3. Define comprehensive scenario
       const operations = [
         // Curve shock
-        JsOperationSpec.curveParallelBp(
-          JsCurveKind.DISCOUNT,
-          'USD_SOFR',
-          75.0
-        ).toJSON(),
+        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 75.0).toJSON(),
         // Equity shock
         JsOperationSpec.equityPricePct(['SPY'], -15.0).toJSON(),
         // Vol shock
-        JsOperationSpec.volSurfaceParallelPct(
-          JsVolSurfaceKind.EQUITY,
-          'SPX_VOL',
-          25.0
-        ).toJSON(),
+        JsOperationSpec.volSurfaceParallelPct(JsVolSurfaceKind.EQUITY, 'SPX_VOL', 25.0).toJSON(),
       ];
 
       const scenario = JsScenarioSpec.fromJSON({
@@ -224,7 +218,7 @@ export default function ScenariosExample() {
 
       if (report.warnings.length > 0) {
         log.push('\nWarnings:');
-        Array.from(report.warnings).forEach(w => log.push(`  - ${w}`));
+        Array.from(report.warnings).forEach((w) => log.push(`  - ${w}`));
       }
 
       setOutput(log.join('\n'));
@@ -265,7 +259,7 @@ export default function ScenariosExample() {
       const builderWithRevenue = builderWithPeriods?.value('revenue', revenueValues);
 
       // Add forecast
-      const forecast = ForecastSpec.growth(0.10); // 10% growth
+      const forecast = ForecastSpec.growth(0.1); // 10% growth
       const builderWithForecast = builderWithRevenue?.forecast('revenue', forecast);
 
       const model = builderWithForecast?.build();
@@ -281,7 +275,7 @@ export default function ScenariosExample() {
 
       log.push('\n=== Initial Forecast ===\n');
       const periods = ['2025Q1', '2025Q2', '2025Q3', '2025Q4'];
-      periods.forEach(p => {
+      periods.forEach((p) => {
         const val = initialResults?.get('revenue', p);
         if (val !== null && val !== undefined) {
           log.push(`  ${p}: $${val.toLocaleString()}`);
@@ -315,7 +309,7 @@ export default function ScenariosExample() {
       const shockedResults = evaluator.evaluate(shockedModel);
 
       log.push('\n=== Shocked Forecast ===\n');
-      periods.forEach(p => {
+      periods.forEach((p) => {
         const val = shockedResults?.get('revenue', p);
         if (val !== null && val !== undefined) {
           log.push(`  ${p}: $${val.toLocaleString()}`);
@@ -505,7 +499,7 @@ export default function ScenariosExample() {
         'USD_SOFR',
         baseDate,
         new Float64Array([0.0, 1.0, 5.0, 10.0]),
-        new Float64Array([1.0, 0.98, 0.90, 0.80]),
+        new Float64Array([1.0, 0.98, 0.9, 0.8]),
         'act_365f',
         'monotone_convex',
         'flat_forward',
@@ -523,11 +517,7 @@ export default function ScenariosExample() {
         'SPX_VOL',
         new Float64Array([0.25, 0.5, 1.0]),
         new Float64Array([90.0, 100.0, 110.0]),
-        new Float64Array([
-          0.20, 0.18, 0.22,
-          0.21, 0.19, 0.23,
-          0.22, 0.20, 0.24,
-        ])
+        new Float64Array([0.2, 0.18, 0.22, 0.21, 0.19, 0.23, 0.22, 0.2, 0.24])
       );
       market.insertSurface(volSurface);
 
@@ -620,7 +610,7 @@ export default function ScenariosExample() {
 
       if (report.warnings.length > 0) {
         log.push('\n⚠ Warnings:');
-        Array.from(report.warnings).forEach(w => log.push(`  - ${w}`));
+        Array.from(report.warnings).forEach((w) => log.push(`  - ${w}`));
       }
 
       setOutput(log.join('\n'));
@@ -640,9 +630,9 @@ export default function ScenariosExample() {
     <div className="example-container">
       <h1>Scenarios Engine</h1>
       <p className="description">
-        Reproducible scenario analysis for stress testing and what-if analysis.
-        Apply market shocks, statement adjustments, and time roll-forwards with
-        full composability and priority-based ordering.
+        Reproducible scenario analysis for stress testing and what-if analysis. Apply market shocks,
+        statement adjustments, and time roll-forwards with full composability and priority-based
+        ordering.
       </p>
 
       <div className="button-group">
@@ -1061,4 +1051,3 @@ const operations = [
     </div>
   );
 }
-

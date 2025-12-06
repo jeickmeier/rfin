@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  MonteCarloPathGenerator,
-  SimulatedPath,
-} from 'finstack-wasm';
+import { MonteCarloPathGenerator, SimulatedPath } from 'finstack-wasm';
 
 type PathStats = {
   numPathsTotal: number;
@@ -36,15 +33,15 @@ export const MonteCarloPathExample: React.FC = () => {
         // Generate GBM paths
         const generator = new MonteCarloPathGenerator();
         const paths = generator.generateGbmPaths(
-          100.0,    // initial_spot
-          0.05,     // r (risk-free rate)
-          0.02,     // q (dividend yield)
-          0.25,     // sigma (volatility)
-          1.0,      // time_to_maturity (years)
-          252,      // num_steps (daily)
-          1000,     // num_paths
+          100.0, // initial_spot
+          0.05, // r (risk-free rate)
+          0.02, // q (dividend yield)
+          0.25, // sigma (volatility)
+          1.0, // time_to_maturity (years)
+          252, // num_steps (daily)
+          1000, // num_paths
           'sample', // capture_mode
-          50,       // sample_count
+          50, // sample_count
           BigInt(42) // seed
         );
 
@@ -70,7 +67,9 @@ export const MonteCarloPathExample: React.FC = () => {
 
         // Calculate statistics
         const meanTerminal = terminalValues.reduce((a, b) => a + b, 0) / terminalValues.length;
-        const variance = terminalValues.reduce((sum, val) => sum + Math.pow(val - meanTerminal, 2), 0) / terminalValues.length;
+        const variance =
+          terminalValues.reduce((sum, val) => sum + Math.pow(val - meanTerminal, 2), 0) /
+          terminalValues.length;
         const stdTerminal = Math.sqrt(variance);
         const minTerminal = Math.min(...terminalValues);
         const maxTerminal = Math.max(...terminalValues);
@@ -94,7 +93,7 @@ export const MonteCarloPathExample: React.FC = () => {
             stdTerminalValue: stdTerminal,
             minTerminalValue: minTerminal,
             maxTerminalValue: maxTerminal,
-            processParams: processParams,
+            processParams,
           });
           setPathData(rows);
           setLoading(false);
@@ -122,10 +121,7 @@ export const MonteCarloPathExample: React.FC = () => {
       row.steps.toString(),
     ]);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -161,9 +157,9 @@ export const MonteCarloPathExample: React.FC = () => {
     <section className="example-section">
       <h2>Monte Carlo Path Generation</h2>
       <p>
-        Generate and analyze Monte Carlo paths using Geometric Brownian Motion (GBM).
-        This example generates 1000 paths but captures only 50 for detailed analysis,
-        demonstrating efficient sampling strategies.
+        Generate and analyze Monte Carlo paths using Geometric Brownian Motion (GBM). This example
+        generates 1000 paths but captures only 50 for detailed analysis, demonstrating efficient
+        sampling strategies.
       </p>
 
       <div style={{ marginBottom: '2rem' }}>
@@ -171,15 +167,20 @@ export const MonteCarloPathExample: React.FC = () => {
         <table>
           <tbody>
             <tr>
-              <td><strong>Process Type:</strong></td>
+              <td>
+                <strong>Process Type:</strong>
+              </td>
               <td>{stats.processParams.processType || 'GBM'}</td>
             </tr>
-            {stats.processParams.parameters && Object.keys(stats.processParams.parameters).map((key) => (
-              <tr key={key}>
-                <td><strong>{key}:</strong></td>
-                <td>{stats.processParams.parameters[key].toFixed(4)}</td>
-              </tr>
-            ))}
+            {stats.processParams.parameters &&
+              Object.keys(stats.processParams.parameters).map((key) => (
+                <tr key={key}>
+                  <td>
+                    <strong>{key}:</strong>
+                  </td>
+                  <td>{stats.processParams.parameters[key].toFixed(4)}</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -265,15 +266,17 @@ export const MonteCarloPathExample: React.FC = () => {
         <h3>Usage Notes</h3>
         <ul>
           <li>
-            <strong>Capture Modes:</strong> Use 'all' to capture all paths (for small simulations)
-            or 'sample' with a count to capture only a subset (for large simulations).
+            <strong>Capture Modes:</strong> Use &apos;all&apos; to capture all paths (for small
+            simulations) or &apos;sample&apos; with a count to capture only a subset (for large
+            simulations).
           </li>
           <li>
-            <strong>Reproducibility:</strong> The seed parameter ensures deterministic path generation.
+            <strong>Reproducibility:</strong> The seed parameter ensures deterministic path
+            generation.
           </li>
           <li>
-            <strong>Performance:</strong> Sampling reduces memory usage while maintaining statistical
-            accuracy for visualization purposes.
+            <strong>Performance:</strong> Sampling reduces memory usage while maintaining
+            statistical accuracy for visualization purposes.
           </li>
           <li>
             <strong>Path Access:</strong> Use getPath(index) to access individual paths and their
@@ -284,4 +287,3 @@ export const MonteCarloPathExample: React.FC = () => {
     </section>
   );
 };
-

@@ -85,54 +85,57 @@ console.log(`Warnings: ${report.warnings.length}`);
 
 ```typescript
 // FX Rate Shock
-JsOperationSpec.marketFxPct(Currency.EUR, Currency.USD, 5.0)
+JsOperationSpec.marketFxPct(Currency.EUR, Currency.USD, 5.0);
 
 // Equity Price Shock
-JsOperationSpec.equityPricePct(["SPY", "QQQ"], -10.0)
+JsOperationSpec.equityPricePct(['SPY', 'QQQ'], -10.0);
 
 // Curve Parallel Shift
-JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, "USD_SOFR", 50.0)
+JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 50.0);
 
 // Curve Node Shock
 JsOperationSpec.curveNodeBp(
   JsCurveKind.DISCOUNT,
-  "USD_SOFR",
-  [["2Y", 25.0], ["10Y", -10.0]],
+  'USD_SOFR',
+  [
+    ['2Y', 25.0],
+    ['10Y', -10.0],
+  ],
   JsTenorMatchMode.INTERPOLATE
-)
+);
 
 // Volatility Surface Shock (Parallel)
-JsOperationSpec.volSurfaceParallelPct(JsVolSurfaceKind.EQUITY, "SPX", 15.0)
+JsOperationSpec.volSurfaceParallelPct(JsVolSurfaceKind.EQUITY, 'SPX', 15.0);
 
 // Volatility Surface Shock (Bucketed)
 JsOperationSpec.volSurfaceBucketPct(
   JsVolSurfaceKind.EQUITY,
-  "SPX",
-  ["1M", "3M"],  // Optional tenor filter
-  new Float64Array([90.0, 100.0]),  // Optional strike filter
+  'SPX',
+  ['1M', '3M'], // Optional tenor filter
+  new Float64Array([90.0, 100.0]), // Optional strike filter
   20.0
-)
+);
 
 // Base Correlation Shock (Parallel)
-JsOperationSpec.baseCorrParallelPts("CDX_IG", 0.05)
+JsOperationSpec.baseCorrParallelPts('CDX_IG', 0.05);
 
 // Base Correlation Shock (Bucketed)
 JsOperationSpec.baseCorrBucketPts(
-  "CDX_IG",
-  [300, 700],  // Detachment points in bps
-  null,        // Optional maturities
+  'CDX_IG',
+  [300, 700], // Detachment points in bps
+  null, // Optional maturities
   0.03
-)
+);
 ```
 
 ### Statement Shocks
 
 ```typescript
 // Forecast Percent Change
-JsOperationSpec.stmtForecastPercent("Revenue", -10.0)
+JsOperationSpec.stmtForecastPercent('Revenue', -10.0);
 
 // Forecast Value Assignment
-JsOperationSpec.stmtForecastAssign("Capex", 1_000_000.0)
+JsOperationSpec.stmtForecastAssign('Capex', 1_000_000.0);
 ```
 
 ### Time Operations
@@ -140,9 +143,9 @@ JsOperationSpec.stmtForecastAssign("Capex", 1_000_000.0)
 ```typescript
 // Roll Forward with Carry
 JsOperationSpec.timeRollForward(
-  "1M",   // Period: 1D, 1W, 1M, 1Y
-  true    // Apply shocks after roll
-)
+  '1M', // Period: 1D, 1W, 1M, 1Y
+  true // Apply shocks after roll
+);
 ```
 
 ## Scenario Composition
@@ -151,19 +154,15 @@ Combine multiple scenarios with priority-based ordering:
 
 ```typescript
 const s1 = JsScenarioSpec.fromJSON({
-  id: "base",
-  operations: [
-    JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, "USD_SOFR", 25.0).toJSON()
-  ],
-  priority: 0  // Runs first
+  id: 'base',
+  operations: [JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 25.0).toJSON()],
+  priority: 0, // Runs first
 });
 
 const s2 = JsScenarioSpec.fromJSON({
-  id: "overlay",
-  operations: [
-    JsOperationSpec.equityPricePct(["SPY"], -10.0).toJSON()
-  ],
-  priority: 1  // Runs second
+  id: 'overlay',
+  operations: [JsOperationSpec.equityPricePct(['SPY'], -10.0).toJSON()],
+  priority: 1, // Runs second
 });
 
 const engine = new JsScenarioEngine();
@@ -178,17 +177,17 @@ All scenarios can be serialized for storage or transmission:
 ```typescript
 // Create scenario
 const scenario = JsScenarioSpec.fromJSON({
-  id: "my_scenario",
-  name: "Custom Scenario",
+  id: 'my_scenario',
+  name: 'Custom Scenario',
   operations: [
     {
-      kind: "curve_parallel_bp",
-      curve_kind: "discount",
-      curve_id: "USD_SOFR",
-      bp: 50.0
-    }
+      kind: 'curve_parallel_bp',
+      curve_kind: 'discount',
+      curve_id: 'USD_SOFR',
+      bp: 50.0,
+    },
   ],
-  priority: 0
+  priority: 0,
 });
 
 // Export to JSON
@@ -216,11 +215,13 @@ try {
 ## Live Example
 
 See the interactive example at:
+
 ```
 http://localhost:5173/examples/scenarios-stress-testing
 ```
 
 Run the example app:
+
 ```bash
 cd finstack-wasm/examples
 npm install
@@ -250,11 +251,10 @@ The WASM bindings provide 100% API parity with the Rust implementation:
 ✅ Priority-based ordering  
 ✅ JSON serialization  
 ✅ Error handling  
-✅ Reproducible execution  
+✅ Reproducible execution
 
 ## Further Documentation
 
 - [Complete Bindings Guide](docs/SCENARIOS_BINDINGS.md)
 - [Implementation Summary](docs/SCENARIOS_IMPLEMENTATION_SUMMARY.md)
 - [Rust Documentation](../finstack/scenarios/README.md)
-

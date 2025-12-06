@@ -5,11 +5,7 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 import { resolve } from 'path';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    wasm(),
-    topLevelAwait(),
-  ],
+  plugins: [react(), wasm(), topLevelAwait()],
   server: {
     port: 3000,
     open: true,

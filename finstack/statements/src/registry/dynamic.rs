@@ -251,7 +251,7 @@ impl Registry {
 
         // Build dependency graph: metric_id -> set of metrics it depends on
         let mut dependencies: IndexMap<String, IndexSet<String>> = IndexMap::new();
-        
+
         // Collect already-loaded metrics from the same namespace (these are valid dependencies)
         let mut existing_metric_ids: IndexSet<String> = IndexSet::new();
         for (qualified_id, stored) in &self.metrics {
@@ -262,13 +262,21 @@ impl Registry {
                 }
             }
         }
-        
-        // When checking dependencies, only consider already-loaded metrics, not the ones being loaded
-        // This prevents false circular dependencies when loading multiple metrics at once
-        let all_metric_ids = &existing_metric_ids;
+
+        // Build the set of all metric IDs that can participate in dependency analysis:
+        // - metrics that are already loaded in this namespace
+        // - metrics that are being loaded from the current registry
+        //
+        // This allows us to:
+        // - detect true circular dependencies between metrics in the same registry, and
+        // - still treat references to previously loaded metrics as valid (external) dependencies.
+        let mut all_metric_ids: IndexSet<String> = existing_metric_ids;
+        for metric_id in metric_map.keys() {
+            all_metric_ids.insert(metric_id.clone());
+        }
 
         for (metric_id, metric) in &metric_map {
-            let deps = self.extract_metric_dependencies(&metric.formula, all_metric_ids);
+            let deps = self.extract_metric_dependencies(&metric.formula, &all_metric_ids);
             dependencies.insert(metric_id.to_owned(), deps);
         }
 

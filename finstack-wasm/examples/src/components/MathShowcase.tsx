@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   GaussHermiteQuadrature,
   adaptiveSimpson,
@@ -9,7 +9,7 @@ import {
   NewtonSolver,
   BrentSolver,
   HybridSolver,
-} from "finstack-wasm";
+} from 'finstack-wasm';
 
 interface IntegrationRow {
   label: string;
@@ -36,7 +36,7 @@ interface MathShowcaseState {
 
 const formatNumber = (value: number): string => {
   if (!Number.isFinite(value)) {
-    return "NaN";
+    return 'NaN';
   }
   const abs = Math.abs(value);
   if (abs !== 0 && (abs >= 1e4 || abs <= 1e-6)) {
@@ -59,18 +59,13 @@ export const MathShowcaseExample: React.FC = () => {
     try {
       quad = GaussHermiteQuadrature.order7();
       const normalMoment = quad.integrate((x: number) => x * x);
-      const legendre = gaussLegendreIntegrate(
-        (x: number) => Math.cos(x),
-        0.0,
-        Math.PI / 2.0,
-        8,
-      );
+      const legendre = gaussLegendreIntegrate((x: number) => Math.cos(x), 0.0, Math.PI / 2.0, 8);
       const adaptive = adaptiveSimpson(
         (x: number) => Math.sin(10.0 * x) / (1.0 + x * x),
         0.0,
         1.0,
         1e-8,
-        12,
+        12
       );
 
       newton = new NewtonSolver(1e-12, 50, 1e-8);
@@ -84,51 +79,51 @@ export const MathShowcaseExample: React.FC = () => {
 
       const integrals: IntegrationRow[] = [
         {
-          label: "E[X²] under N(0,1) (Gauss-Hermite order 7)",
+          label: 'E[X²] under N(0,1) (Gauss-Hermite order 7)',
           value: normalMoment,
-          reference: "≈ 1.0",
+          reference: '≈ 1.0',
         },
         {
-          label: "∫₀^{π/2} cos(x) dx (Gauss-Legendre order 8)",
+          label: '∫₀^{π/2} cos(x) dx (Gauss-Legendre order 8)',
           value: legendre,
-          reference: "= 1.0",
+          reference: '= 1.0',
         },
         {
-          label: "Adaptive Simpson ∫ sin(10x)/(1+x²) dx on [0,1]",
+          label: 'Adaptive Simpson ∫ sin(10x)/(1+x²) dx on [0,1]',
           value: adaptive,
-          reference: "≈ 0.4363",
+          reference: '≈ 0.4363',
         },
       ];
 
       const solvers: SolverRow[] = [
         {
-          label: "Newton solve x² − 2 = 0",
+          label: 'Newton solve x² − 2 = 0',
           root: sqrtTwo,
-          reference: "√2 ≈ 1.4142",
+          reference: '√2 ≈ 1.4142',
         },
         {
-          label: "Brent solve cos(x) − x = 0",
+          label: 'Brent solve cos(x) − x = 0',
           root: cosMinusX,
-          reference: "≈ 0.7391",
+          reference: '≈ 0.7391',
         },
         {
-          label: "Hybrid solve x³ − x − 1 = 0",
+          label: 'Hybrid solve x³ − x − 1 = 0',
           root: cubicRoot,
-          reference: "≈ 1.3247",
+          reference: '≈ 1.3247',
         },
       ];
 
       const distributions: DistributionRow[] = [
         {
-          label: "Binomial P(X=3; n=10, p=0.5)",
+          label: 'Binomial P(X=3; n=10, p=0.5)',
           value: binomialProbability(10, 3, 0.5),
         },
         {
-          label: "log C(5, 2)",
+          label: 'log C(5, 2)',
           value: logBinomialCoefficient(5, 2),
         },
         {
-          label: "log(10!)",
+          label: 'log(10!)',
           value: logFactorial(10),
         },
       ];
@@ -164,8 +159,9 @@ export const MathShowcaseExample: React.FC = () => {
     <section className="example-section">
       <h2>Math Utilities</h2>
       <p>
-        Demonstrates numerical integration, probability helpers, and root-finding solvers exposed via
-        the WASM bindings. These mirror the Python examples for consistent parity across runtimes.
+        Demonstrates numerical integration, probability helpers, and root-finding solvers exposed
+        via the WASM bindings. These mirror the Python examples for consistent parity across
+        runtimes.
       </p>
 
       <h3>Integration</h3>
@@ -182,7 +178,7 @@ export const MathShowcaseExample: React.FC = () => {
             <tr key={row.label}>
               <td>{row.label}</td>
               <td>{formatNumber(row.value)}</td>
-              <td>{row.reference ?? "—"}</td>
+              <td>{row.reference ?? '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -202,7 +198,7 @@ export const MathShowcaseExample: React.FC = () => {
             <tr key={row.label}>
               <td>{row.label}</td>
               <td>{formatNumber(row.root)}</td>
-              <td>{row.reference ?? "—"}</td>
+              <td>{row.reference ?? '—'}</td>
             </tr>
           ))}
         </tbody>

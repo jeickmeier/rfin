@@ -82,14 +82,15 @@ export const DepositValuationExample: React.FC = () => {
 
         // Extract primitives immediately
         const presentValue = result.presentValue.amount;
-        
+
         // Calculate metrics manually
         const dayCount = DayCount.act360();
         const accrualFraction = dayCount.yearFraction(start, end, undefined);
         const elapsed = dayCount.yearFraction(start, valuationDate, undefined);
-        const accrued = notional.amount * quoteRate * Math.max(Math.min(elapsed, accrualFraction), 0);
+        const accrued =
+          notional.amount * quoteRate * Math.max(Math.min(elapsed, accrualFraction), 0);
         const cleanPv = presentValue - accrued;
-        
+
         const dfEnd = discountCurve.dfOnDate(end, undefined);
         const dfStart = discountCurve.dfOnDate(start, undefined);
         const impliedRate = accrualFraction > 0 ? (dfStart / dfEnd - 1) / accrualFraction : 0;
@@ -129,7 +130,16 @@ export const DepositValuationExample: React.FC = () => {
     return <p>Valuing deposit…</p>;
   }
 
-  const { presentValue, quoteRate, cleanPv, accrued, impliedRate, spreadBps, accrualFraction, tenorDescription } = metrics;
+  const {
+    presentValue,
+    quoteRate,
+    cleanPv,
+    accrued,
+    impliedRate,
+    spreadBps,
+    accrualFraction,
+    tenorDescription,
+  } = metrics;
 
   return (
     <section className="example-section">

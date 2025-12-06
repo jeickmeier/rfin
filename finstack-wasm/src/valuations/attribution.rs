@@ -196,71 +196,60 @@ impl WasmModelParamsAttribution {
 }
 
 /// WASM wrapper for PnlAttribution.
-#[wasm_bindgen(js_name = PnlAttribution)]
+/// Note: This struct is not exported to WASM to avoid conflict with JsPnlAttribution
+/// in portfolio/attribution.rs. Use JsPnlAttribution instead.
+#[allow(dead_code)]
 pub struct WasmPnlAttribution {
-    #[wasm_bindgen(skip)]
     pub inner: PnlAttribution,
 }
 
-#[wasm_bindgen(js_class = PnlAttribution)]
+#[allow(dead_code)]
 impl WasmPnlAttribution {
-    #[wasm_bindgen(getter, js_name = totalPnl)]
     pub fn total_pnl(&self) -> f64 {
         self.inner.total_pnl.amount()
     }
 
-    #[wasm_bindgen(getter)]
     pub fn carry(&self) -> f64 {
         self.inner.carry.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = ratesCurvesPnl)]
     pub fn rates_curves_pnl(&self) -> f64 {
         self.inner.rates_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = creditCurvesPnl)]
     pub fn credit_curves_pnl(&self) -> f64 {
         self.inner.credit_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = inflationCurvesPnl)]
     pub fn inflation_curves_pnl(&self) -> f64 {
         self.inner.inflation_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = correlationsPnl)]
     pub fn correlations_pnl(&self) -> f64 {
         self.inner.correlations_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = fxPnl)]
     pub fn fx_pnl(&self) -> f64 {
         self.inner.fx_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = volPnl)]
     pub fn vol_pnl(&self) -> f64 {
         self.inner.vol_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = modelParamsPnl)]
     pub fn model_params_pnl(&self) -> f64 {
         self.inner.model_params_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = marketScalarsPnl)]
     pub fn market_scalars_pnl(&self) -> f64 {
         self.inner.market_scalars_pnl.amount()
     }
 
-    #[wasm_bindgen(getter)]
     pub fn residual(&self) -> f64 {
         self.inner.residual.amount()
     }
 
     /// Get attribution metadata
-    #[wasm_bindgen(getter)]
     pub fn meta(&self) -> WasmAttributionMeta {
         WasmAttributionMeta {
             inner: self.inner.meta.clone(),
@@ -268,7 +257,6 @@ impl WasmPnlAttribution {
     }
 
     /// Get rates curves detail (if available)
-    #[wasm_bindgen(getter, js_name = ratesDetail)]
     pub fn rates_detail(&self) -> Option<WasmRatesCurvesAttribution> {
         self.inner
             .rates_detail
@@ -277,7 +265,6 @@ impl WasmPnlAttribution {
     }
 
     /// Get model params detail (if available)
-    #[wasm_bindgen(getter, js_name = modelParamsDetail)]
     pub fn model_params_detail(&self) -> Option<WasmModelParamsAttribution> {
         self.inner
             .model_params_detail
@@ -285,29 +272,24 @@ impl WasmPnlAttribution {
             .map(|d| WasmModelParamsAttribution { inner: d.clone() })
     }
 
-    #[wasm_bindgen(js_name = toCsv)]
     pub fn to_csv(&self) -> String {
         self.inner.to_csv()
     }
 
-    #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
         self.inner
             .to_json()
             .map_err(|e| JsValue::from_str(&format!("JSON serialization failed: {}", e)))
     }
 
-    #[wasm_bindgen(js_name = ratesDetailToCsv)]
     pub fn rates_detail_to_csv(&self) -> Option<String> {
         self.inner.rates_detail_to_csv()
     }
 
-    #[wasm_bindgen]
     pub fn explain(&self) -> String {
         self.inner.explain()
     }
 
-    #[wasm_bindgen(js_name = residualWithinTolerance)]
     pub fn residual_within_tolerance(&self, pct_tolerance: f64, abs_tolerance: f64) -> bool {
         self.inner
             .residual_within_tolerance(pct_tolerance, abs_tolerance)
@@ -315,71 +297,60 @@ impl WasmPnlAttribution {
 }
 
 /// WASM wrapper for PortfolioAttribution.
-#[wasm_bindgen(js_name = PortfolioAttribution)]
+/// Note: This struct is not exported to WASM to avoid conflict with JsPortfolioAttribution
+/// in portfolio/attribution.rs. Use JsPortfolioAttribution instead.
+#[allow(dead_code)]
 pub struct WasmPortfolioAttribution {
-    #[wasm_bindgen(skip)]
     pub inner: finstack_portfolio::PortfolioAttribution,
 }
 
-#[wasm_bindgen(js_class = PortfolioAttribution)]
+#[allow(dead_code)]
 impl WasmPortfolioAttribution {
-    #[wasm_bindgen(getter, js_name = totalPnl)]
     pub fn total_pnl(&self) -> f64 {
         self.inner.total_pnl.amount()
     }
 
-    #[wasm_bindgen(getter)]
     pub fn carry(&self) -> f64 {
         self.inner.carry.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = ratesCurvesPnl)]
     pub fn rates_curves_pnl(&self) -> f64 {
         self.inner.rates_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = creditCurvesPnl)]
     pub fn credit_curves_pnl(&self) -> f64 {
         self.inner.credit_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = inflationCurvesPnl)]
     pub fn inflation_curves_pnl(&self) -> f64 {
         self.inner.inflation_curves_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = correlationsPnl)]
     pub fn correlations_pnl(&self) -> f64 {
         self.inner.correlations_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = fxPnl)]
     pub fn fx_pnl(&self) -> f64 {
         self.inner.fx_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = volPnl)]
     pub fn vol_pnl(&self) -> f64 {
         self.inner.vol_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = modelParamsPnl)]
     pub fn model_params_pnl(&self) -> f64 {
         self.inner.model_params_pnl.amount()
     }
 
-    #[wasm_bindgen(getter, js_name = marketScalarsPnl)]
     pub fn market_scalars_pnl(&self) -> f64 {
         self.inner.market_scalars_pnl.amount()
     }
 
-    #[wasm_bindgen(getter)]
     pub fn residual(&self) -> f64 {
         self.inner.residual.amount()
     }
 
     /// Get position breakdown as JSON
-    #[wasm_bindgen(js_name = byPositionToJson)]
     pub fn by_position_to_json(&self) -> Result<String, JsValue> {
         let map: std::collections::HashMap<String, f64> = self
             .inner
@@ -392,17 +363,14 @@ impl WasmPortfolioAttribution {
             .map_err(|e| JsValue::from_str(&format!("Serialization failed: {}", e)))
     }
 
-    #[wasm_bindgen(js_name = toCsv)]
     pub fn to_csv(&self) -> String {
         self.inner.to_csv()
     }
 
-    #[wasm_bindgen(js_name = positionDetailToCsv)]
     pub fn position_detail_to_csv(&self) -> String {
         self.inner.position_detail_to_csv()
     }
 
-    #[wasm_bindgen]
     pub fn explain(&self) -> String {
         self.inner.explain()
     }

@@ -236,6 +236,7 @@ Standalone Monte Carlo path generation and analysis:
 5. **Process Parameters** - Inspect and display underlying stochastic process parameters
 
 Key features:
+
 - Flexible capture modes (`all` vs `sample`)
 - Deterministic and reproducible via seed parameter
 - Path-by-path access for detailed analysis
@@ -291,10 +292,10 @@ Wrap WASM calls in try-catch blocks:
 
 ```typescript
 try {
-  const currency = new Currency("USD");
+  const currency = new Currency('USD');
   // ... use currency
 } catch (error) {
-  console.error("Failed:", error);
+  console.error('Failed:', error);
 }
 ```
 
@@ -328,7 +329,7 @@ The finstack date class is exported as `FsDate` to avoid conflicts with JavaScri
 ```typescript
 import { FsDate } from 'finstack-wasm';
 
-const date = new FsDate(2024, 9, 30);  // September 30, 2024
+const date = new FsDate(2024, 9, 30); // September 30, 2024
 ```
 
 ### Type errors

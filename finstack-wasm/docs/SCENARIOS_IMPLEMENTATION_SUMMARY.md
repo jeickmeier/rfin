@@ -16,31 +16,31 @@ Complete WASM bindings for the `finstack-scenarios` crate have been successfully
 
 2. **`src/scenarios/spec.rs`** (467 lines)
    - `JsOperationSpec` - Factory methods for all 14 operation types:
-     * Market data: FX, equity, curves, vol surfaces, base correlation
-     * Statements: forecast percent, forecast assign
-     * Instruments: price/spread shocks by type and attributes
-     * Time: roll forward with carry/theta
+     - Market data: FX, equity, curves, vol surfaces, base correlation
+     - Statements: forecast percent, forecast assign
+     - Instruments: price/spread shocks by type and attributes
+     - Time: roll forward with carry/theta
    - `JsScenarioSpec` - Complete scenario specification with id, name, description, operations, priority
    - Full JSON serialization support via `fromJSON` and `toJSON`
 
 3. **`src/scenarios/reports.rs`** (130 lines)
    - `JsApplicationReport` - Results from scenario application
-     * operations_applied count
-     * warnings array
-     * rounding_context metadata
+     - operations_applied count
+     - warnings array
+     - rounding_context metadata
    - `JsRollForwardReport` - Time roll-forward P&L breakdown
-     * old_date, new_date, days
-     * instrument_carry and instrument_mv_change arrays
-     * total_carry and total_mv_change aggregates
+     - old_date, new_date, days
+     - instrument_carry and instrument_mv_change arrays
+     - total_carry and total_mv_change aggregates
 
 4. **`src/scenarios/engine.rs`** (150 lines)
    - `JsScenarioEngine` - Main execution orchestrator
-     * `new()` - Create engine instance
-     * `compose(scenarios)` - Stable scenario composition
-     * `apply(spec, context)` - Execute scenario against context
+     - `new()` - Create engine instance
+     - `compose(scenarios)` - Stable scenario composition
+     - `apply(spec, context)` - Execute scenario against context
    - `JsExecutionContext` - Mutable state container
-     * Wraps MarketContext, FinancialModelSpec, and as_of date
-     * Provides getters/setters for all properties
+     - Wraps MarketContext, FinancialModelSpec, and as_of date
+     - Provides getters/setters for all properties
 
 5. **`src/scenarios/mod.rs`** (16 lines)
    - Module organization and re-exports
@@ -79,6 +79,7 @@ Complete WASM bindings for the `finstack-scenarios` crate have been successfully
 ### Complete Parity (14/14 Operations)
 
 ✅ **Market Data Operations**
+
 - MarketFxPct - FX rate percent shift
 - EquityPricePct - Equity price shock
 - CurveParallelBp - Parallel curve shift
@@ -89,16 +90,19 @@ Complete WASM bindings for the `finstack-scenarios` crate have been successfully
 - BaseCorrBucketPts - Bucketed base correlation shift
 
 ✅ **Statement Operations**
+
 - StmtForecastPercent - Forecast percent change
 - StmtForecastAssign - Forecast value assignment
 
 ✅ **Instrument Operations**
+
 - InstrumentPricePctByAttr - Price shock by attributes
 - InstrumentSpreadBpByAttr - Spread shock by attributes
 - InstrumentPricePctByType - Price shock by instrument type
 - InstrumentSpreadBpByType - Spread shock by instrument type
 
 ✅ **Time Operations**
+
 - TimeRollForward - Roll forward with carry/theta calculations
 
 ### Engine Features
@@ -158,12 +162,14 @@ While we have 100% parity with the current Rust API, the following could be adde
 ## Build and Usage
 
 Build the WASM package:
+
 ```bash
 cd finstack-wasm
 wasm-pack build --target web
 ```
 
 Import in JavaScript/TypeScript:
+
 ```typescript
 import * as finstack from '@finstack/wasm';
 
@@ -182,9 +188,9 @@ const engine = new finstack.ScenarioEngine();
 ## Implementation Time
 
 Completed in a single session with:
+
 - ~900 lines of Rust code
 - ~400 lines of documentation
 - Zero unsafe code
 - Full test coverage
 - Clean linting
-

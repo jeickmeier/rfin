@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { CashFlow, Money, FsDate } from "finstack-wasm";
+import React, { useEffect, useState } from 'react';
+import { CashFlow, Money, FsDate } from 'finstack-wasm';
 
 interface CashflowRow {
   label: string;
@@ -31,7 +31,7 @@ interface CashflowState {
 }
 
 const toIso = (date: FsDate): string =>
-  `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
 
 const asDisplayMoney = (money: Money): string => money.format();
 
@@ -49,24 +49,24 @@ export const CashflowBasicsExample: React.FC = () => {
       const feeDate = new FsDate(2025, 1, 15);
       const principalDate = new FsDate(2030, 3, 15);
 
-      const fixed = CashFlow.fixed(usdFixedDate, Money.fromCode(12_500.0, "USD"), 0.25);
+      const fixed = CashFlow.fixed(usdFixedDate, Money.fromCode(12_500.0, 'USD'), 0.25);
       const floating = CashFlow.floating(
         usdFloatPay,
-        Money.fromCode(13_750.0, "USD"),
+        Money.fromCode(13_750.0, 'USD'),
         usdResetDate,
         0.25
       );
-      const fee = CashFlow.fee(feeDate, Money.fromCode(150_000.0, "USD"));
+      const fee = CashFlow.fee(feeDate, Money.fromCode(150_000.0, 'USD'));
       const principal = CashFlow.principalExchange(
         principalDate,
-        Money.fromCode(-5_000_000.0, "USD")
+        Money.fromCode(-5_000_000.0, 'USD')
       );
 
       const flows = [
-        { label: "Fixed coupon", flow: fixed },
-        { label: "Floating coupon", flow: floating },
-        { label: "Up-front fee", flow: fee },
-        { label: "Principal exchange", flow: principal },
+        { label: 'Fixed coupon', flow: fixed },
+        { label: 'Floating coupon', flow: floating },
+        { label: 'Up-front fee', flow: fee },
+        { label: 'Principal exchange', flow: principal },
       ];
 
       const rows: CashflowRow[] = flows.map(({ label, flow }) => ({
@@ -84,7 +84,7 @@ export const CashflowBasicsExample: React.FC = () => {
         amount: asDisplayMoney(tupleView[1]),
         kind: tupleView[2].name,
         accrualFactor: asAccrual(tupleView[3]),
-        resetDate: tupleView[4] ? toIso(tupleView[4]) : "(none)",
+        resetDate: tupleView[4] ? toIso(tupleView[4]) : '(none)',
       };
 
       const schedule: ScheduleRow[] = flows
@@ -127,8 +127,8 @@ export const CashflowBasicsExample: React.FC = () => {
     <section className="example-section">
       <h2>Cashflow Primitives</h2>
       <p>
-        Create fixed, floating, fee, and principal cashflows directly from the wasm bindings – mirroring
-        the Python tutorial.
+        Create fixed, floating, fee, and principal cashflows directly from the wasm bindings –
+        mirroring the Python tutorial.
       </p>
 
       <h3>Constructed Cashflows</h3>
@@ -151,7 +151,7 @@ export const CashflowBasicsExample: React.FC = () => {
               <td>{row.date}</td>
               <td>{row.amount}</td>
               <td>{row.accrual}</td>
-              <td>{row.resetDate ?? "—"}</td>
+              <td>{row.resetDate ?? '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -159,11 +159,26 @@ export const CashflowBasicsExample: React.FC = () => {
 
       <h3>Tuple Conversion</h3>
       <div className="inline-cards">
-        <div className="card"><strong>Date</strong><span>{state.tuple.date}</span></div>
-        <div className="card"><strong>Amount</strong><span>{state.tuple.amount}</span></div>
-        <div className="card"><strong>Kind</strong><span>{state.tuple.kind}</span></div>
-        <div className="card"><strong>Accrual</strong><span>{state.tuple.accrualFactor}</span></div>
-        <div className="card"><strong>Reset</strong><span>{state.tuple.resetDate}</span></div>
+        <div className="card">
+          <strong>Date</strong>
+          <span>{state.tuple.date}</span>
+        </div>
+        <div className="card">
+          <strong>Amount</strong>
+          <span>{state.tuple.amount}</span>
+        </div>
+        <div className="card">
+          <strong>Kind</strong>
+          <span>{state.tuple.kind}</span>
+        </div>
+        <div className="card">
+          <strong>Accrual</strong>
+          <span>{state.tuple.accrualFactor}</span>
+        </div>
+        <div className="card">
+          <strong>Reset</strong>
+          <span>{state.tuple.resetDate}</span>
+        </div>
       </div>
 
       <h3>Sorted Schedule</h3>

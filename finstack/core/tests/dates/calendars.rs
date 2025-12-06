@@ -3,8 +3,8 @@
 use super::common::make_date;
 use finstack_core::dates::calendar::{
     calendar_by_id, ALL_IDS, ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh,
-    CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex, HKHK as Hkhk,
-    NYSE as Nyse, SGSI as Sgsi, SIFMA as Sifma, SSE as Sse, TARGET2 as Target2, USNY as Usny,
+    CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex, HKHK as Hkhk, NYSE as Nyse,
+    SGSI as Sgsi, SIFMA as Sifma, SSE as Sse, TARGET2 as Target2, USNY as Usny,
 };
 use finstack_core::dates::{CalendarRegistry, Date, HolidayCalendar};
 use std::collections::HashSet;
@@ -15,9 +15,9 @@ fn holiday_set(cal: &dyn HolidayCalendar, year: i32) -> HashSet<Date> {
     } else {
         365
     })
-    .filter_map(|d| Date::from_ordinal_date(year, d).ok())
-    .filter(|&dt| cal.is_holiday(dt))
-    .collect()
+        .filter_map(|d| Date::from_ordinal_date(year, d).ok())
+        .filter(|&dt| cal.is_holiday(dt))
+        .collect()
 }
 
 #[derive(Clone, Copy)]
@@ -397,12 +397,7 @@ fn test_cny_early_years_1970s() {
     let hkhk = Hkhk;
     let sgsi = Sgsi;
 
-    for &(y, m, d) in &[
-        (1970, 2, 6),
-        (1975, 2, 11),
-        (1980, 2, 16),
-        (1989, 2, 6),
-    ] {
+    for &(y, m, d) in &[(1970, 2, 6), (1975, 2, 11), (1980, 2, 16), (1989, 2, 6)] {
         let date = make_date(y, m, d);
         assert!(cnbe.is_holiday(date));
         assert!(hkhk.is_holiday(date));
@@ -423,4 +418,3 @@ fn test_cny_late_years_2100s() {
         assert!(sgsi.is_holiday(date));
     }
 }
-

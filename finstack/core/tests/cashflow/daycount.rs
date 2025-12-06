@@ -11,8 +11,8 @@
 //! - ISDA 2006 Definitions, Section 4.16 (Day Count Fractions)
 //! - ISDA 2006 Definitions, Appendix (Examples)
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use super::test_helpers::{assert_close, FACTOR_TOLERANCE};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
 
 /// Helper to create dates
@@ -147,7 +147,12 @@ fn actact_isma_with_annual_frequency() {
     // Full year with annual frequency should be 1.0
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
-    assert_close(yf, 1.0, FACTOR_TOLERANCE, "Annual ISMA full year should be 1.0");
+    assert_close(
+        yf,
+        1.0,
+        FACTOR_TOLERANCE,
+        "Annual ISMA full year should be 1.0",
+    );
 }
 
 #[test]
@@ -246,12 +251,7 @@ fn act365f_feb_leap_year() {
     let yf = dc.year_fraction(d(2024, 2, 1), d(2024, 3, 1), ctx).unwrap();
 
     let expected = 29.0 / 365.0;
-    assert_close(
-        yf,
-        expected,
-        FACTOR_TOLERANCE,
-        "Act/365F Feb leap year",
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Act/365F Feb leap year");
 }
 
 #[test]
@@ -263,12 +263,7 @@ fn act365f_feb_non_leap_year() {
     let yf = dc.year_fraction(d(2025, 2, 1), d(2025, 3, 1), ctx).unwrap();
 
     let expected = 28.0 / 365.0;
-    assert_close(
-        yf,
-        expected,
-        FACTOR_TOLERANCE,
-        "Act/365F Feb non-leap year",
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Act/365F Feb non-leap year");
 }
 
 // =============================================================================
@@ -297,12 +292,7 @@ fn act360_non_leap_year_365_days() {
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
     let expected = 365.0 / 360.0;
-    assert_close(
-        yf,
-        expected,
-        FACTOR_TOLERANCE,
-        "Act/360 non-leap year",
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Act/360 non-leap year");
 }
 
 // =============================================================================
@@ -318,7 +308,12 @@ fn thirty360_ignores_leap_year() {
 
     // Leap year
     let yf_leap = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
-    assert_close(yf_leap, 1.0, FACTOR_TOLERANCE, "30/360 leap year should be 1.0");
+    assert_close(
+        yf_leap,
+        1.0,
+        FACTOR_TOLERANCE,
+        "30/360 leap year should be 1.0",
+    );
 
     // Non-leap year
     let yf_non_leap = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();

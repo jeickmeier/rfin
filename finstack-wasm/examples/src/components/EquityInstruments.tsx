@@ -43,7 +43,7 @@ export const EquityInstrumentsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9970, 0.9940, 0.9725, 0.9480]),
+          new Float64Array([1.0, 0.997, 0.994, 0.9725, 0.948]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -55,7 +55,10 @@ export const EquityInstrumentsExample: React.FC = () => {
           'EQUITY-VOL',
           new Float64Array([0.25, 0.5, 1.0, 2.0]),
           new Float64Array([120.0, 140.0, 160.0, 180.0]),
-          new Float64Array([0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21])
+          new Float64Array([
+            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
+            0.22, 0.21,
+          ])
         );
 
         const market = new MarketContext();
@@ -143,8 +146,8 @@ export const EquityInstrumentsExample: React.FC = () => {
     <section className="example-section">
       <h2>Equity Instruments</h2>
       <p>
-        Equity spot positions and European-style equity options (calls and puts). Options
-        are priced using market data for spot prices and dividend yields.
+        Equity spot positions and European-style equity options (calls and puts). Options are priced
+        using market data for spot prices and dividend yields.
       </p>
 
       <table>
@@ -164,11 +167,7 @@ export const EquityInstrumentsExample: React.FC = () => {
               <td>{type}</td>
               <td>{ticker}</td>
               <td>{currencyFormatter.format(presentValue)}</td>
-              <td>
-                {keyMetric
-                  ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}`
-                  : '—'}
-              </td>
+              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -176,4 +175,3 @@ export const EquityInstrumentsExample: React.FC = () => {
     </section>
   );
 };
-

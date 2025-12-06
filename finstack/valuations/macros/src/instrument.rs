@@ -104,4 +104,3 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-

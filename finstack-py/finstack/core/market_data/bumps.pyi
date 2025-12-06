@@ -115,7 +115,9 @@ class BumpSpec:
 
     """
     @staticmethod
-    def triangular_key_rate_bp(prev_bucket: float, target_bucket: float, next_bucket: float, bump_bp: float) -> BumpSpec: ...
+    def triangular_key_rate_bp(
+        prev_bucket: float, target_bucket: float, next_bucket: float, bump_bp: float
+    ) -> BumpSpec: ...
     """Create a triangular key-rate bump in basis points at a specific tenor.
 
     Triangular key-rate bumps affect only the specified tenor point on the curve,

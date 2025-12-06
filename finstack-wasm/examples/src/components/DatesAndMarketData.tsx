@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   FsDate,
   Money,
@@ -10,7 +10,7 @@ import {
   Currency,
   FxConversionPolicy,
   FxMatrix,
-} from "finstack-wasm";
+} from 'finstack-wasm';
 
 type MarketSnapshot = {
   discountFactor: number;
@@ -28,26 +28,26 @@ export const MarketDataExample: React.FC = () => {
     (async () => {
       try {
         // Create currencies and base date
-        const usd = new Currency("USD");
-        const eur = new Currency("EUR");
+        const usd = new Currency('USD');
+        const eur = new Currency('EUR');
         const baseDate = new FsDate(2024, 1, 2);
-        
+
         // Create discount curve
         const curve = new DiscountCurve(
-          "USD-OIS",
+          'USD-OIS',
           baseDate,
           new Float64Array([0.0, 0.5, 1.0, 2.0]),
           new Float64Array([1.0, 0.9905, 0.979, 0.955]),
-          "act_365f",
-          "monotone_convex",
-          "flat_forward",
+          'act_365f',
+          'monotone_convex',
+          'flat_forward',
           true
         );
 
         // Create CPI time series
         const cpiDates = [new FsDate(2023, 12, 31), new FsDate(2024, 3, 31)];
         const series = new ScalarTimeSeries(
-          "US-CPI",
+          'US-CPI',
           cpiDates,
           new Float64Array([300.1, 302.8]),
           usd,
@@ -70,19 +70,19 @@ export const MarketDataExample: React.FC = () => {
         context.insertSeries(series);
 
         // Add equity price
-        const priceMoney = Money.fromCode(102.45, "USD");
+        const priceMoney = Money.fromCode(102.45, 'USD');
         const equitySpot = MarketScalar.price(priceMoney);
-        context.insertPrice("AAPL", equitySpot);
+        context.insertPrice('AAPL', equitySpot);
 
         // Query data from context
-        const fetchedCurve = context.discount("USD-OIS");
+        const fetchedCurve = context.discount('USD-OIS');
         const discountFactor = fetchedCurve.df(1.0);
 
-        const fetchedSeries = context.series("US-CPI");
+        const fetchedSeries = context.series('US-CPI');
         const lookThroughDate = new FsDate(2024, 2, 15);
         const cpiLevel = fetchedSeries.valueOn(lookThroughDate);
 
-        const storedSpot = context.price("AAPL");
+        const storedSpot = context.price('AAPL');
         const moneyValue = storedSpot.value as Money;
         const equitySpotAmount = moneyValue.amount;
 
@@ -94,7 +94,6 @@ export const MarketDataExample: React.FC = () => {
             equitySpot: equitySpotAmount,
           });
         }
-
       } catch (err) {
         if (!cancelled) {
           setError((err as Error).message);

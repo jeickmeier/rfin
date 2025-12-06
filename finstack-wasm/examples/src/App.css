@@ -148,7 +148,10 @@ tbody tr:hover {
   background: rgba(255, 255, 255, 0.02);
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .example-card:hover {

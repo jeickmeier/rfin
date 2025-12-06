@@ -114,7 +114,8 @@ export const EXAMPLES: ExampleDefinition[] = [
   {
     slug: 'cashflow-builder',
     title: 'Cashflow Builder',
-    description: 'Composable builder for complex coupon structures: fixed/floating, cash/PIK, amortization, step-ups.',
+    description:
+      'Composable builder for complex coupon structures: fixed/floating, cash/PIK, amortization, step-ups.',
     group: 'Cashflows',
     Component: CashflowBuilderExample,
   },
@@ -128,14 +129,16 @@ export const EXAMPLES: ExampleDefinition[] = [
   {
     slug: 'bond-valuations',
     title: 'Bond Instruments & Metrics',
-    description: 'Create fixed, zero, floating, and callable bonds; compute PV, duration, and DV01.',
+    description:
+      'Create fixed, zero, floating, and callable bonds; compute PV, duration, and DV01.',
     group: 'Valuations',
     Component: BondsValuationExample,
   },
   {
     slug: 'deposit-valuations',
     title: 'Deposit Valuation',
-    description: 'Accrue interest on money-market deposits and compare quoted vs curve-implied rates.',
+    description:
+      'Accrue interest on money-market deposits and compare quoted vs curve-implied rates.',
     group: 'Valuations',
     Component: DepositValuationExample,
   },
@@ -219,28 +222,32 @@ export const EXAMPLES: ExampleDefinition[] = [
   {
     slug: 'calibration',
     title: 'Curve Calibration',
-    description: 'Calibrate discount and forward curves from market quotes using numerical optimization.',
+    description:
+      'Calibrate discount and forward curves from market quotes using numerical optimization.',
     group: 'Calibration',
     Component: CalibrationExample,
   },
   {
     slug: 'statements-modeling',
     title: 'Financial Statements Modeling',
-    description: 'Build and evaluate financial statement models with formulas, forecasts, and dynamic metrics.',
+    description:
+      'Build and evaluate financial statement models with formulas, forecasts, and dynamic metrics.',
     group: 'Statements',
     Component: StatementsModeling,
   },
   {
     slug: 'scenarios-stress-testing',
     title: 'Scenarios & Stress Testing',
-    description: 'Apply deterministic market shocks, statement adjustments, and time roll-forwards with full composability.',
+    description:
+      'Apply deterministic market shocks, statement adjustments, and time roll-forwards with full composability.',
     group: 'Scenarios',
     Component: ScenariosExample,
   },
   {
     slug: 'portfolio-management',
     title: 'Portfolio Management',
-    description: 'Create entities, build portfolios, value positions, and aggregate metrics with cross-currency support.',
+    description:
+      'Create entities, build portfolios, value positions, and aggregate metrics with cross-currency support.',
     group: 'Portfolio',
     Component: PortfolioExample,
   },

@@ -26,7 +26,7 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
     Clone,
     Debug,
     finstack_valuations_macros::FinancialBuilder,
-    finstack_valuations_macros::Instrument
+    finstack_valuations_macros::Instrument,
 )]
 #[instrument(key = "FxOption", price_fn = "npv")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

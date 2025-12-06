@@ -42,16 +42,8 @@ export const CalibrationExample: React.FC = () => {
         // Example 1: Calibrate discount curve using deposits and swaps
         {
           const quotes = [
-            RatesQuote.deposit(
-              new FsDate(2024, 2, 1),
-              0.0450,
-              'act_360'
-            ),
-            RatesQuote.deposit(
-              new FsDate(2024, 4, 2),
-              0.0465,
-              'act_360'
-            ),
+            RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
+            RatesQuote.deposit(new FsDate(2024, 4, 2), 0.0465, 'act_360'),
             RatesQuote.swap(
               new FsDate(2025, 1, 2),
               0.0475,
@@ -82,7 +74,7 @@ export const CalibrationExample: React.FC = () => {
 
           try {
             const [curve, report] = calibratorWithConfig.calibrate(quotes, null) as any;
-            
+
             // PROOF: These values come from actual curve.df() method calls on the calibrated curve
             const sampleValues = [
               { time: 0.25, value: curve.df(0.25) },
@@ -91,7 +83,7 @@ export const CalibrationExample: React.FC = () => {
               { time: 2.0, value: curve.df(2.0) },
               { time: 3.0, value: curve.df(3.0) },
             ];
-            
+
             // Log actual calibrated values to prove they're real
             console.log('✅ Discount curve calibrated successfully!');
             console.log('  Curve ID:', curve.id);
@@ -142,7 +134,7 @@ export const CalibrationExample: React.FC = () => {
             const [market, report] = calibration.calibrate(quotes) as any;
 
             const stats = market.stats();
-            
+
             if (!cancelled) {
               allResults.push({
                 curveId: 'Simple Calibration',
@@ -150,9 +142,7 @@ export const CalibrationExample: React.FC = () => {
                 success: report.success,
                 iterations: report.iterations,
                 maxResidual: report.maxResidual,
-                sampleValues: [
-                  { time: 0, value: stats.total_curves ?? 0 },
-                ],
+                sampleValues: [{ time: 0, value: stats.total_curves ?? 0 }],
               });
             }
           } catch (err) {
@@ -177,7 +167,15 @@ export const CalibrationExample: React.FC = () => {
             try {
               const discQuotes = [
                 RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(new FsDate(2025, 1, 2), 0.047, Frequency.annual(), Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR'),
+                RatesQuote.swap(
+                  new FsDate(2025, 1, 2),
+                  0.047,
+                  Frequency.annual(),
+                  Frequency.quarterly(),
+                  '30_360',
+                  'act_360',
+                  'USD-SOFR'
+                ),
               ];
               const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
               const [curve] = discCal.calibrate(discQuotes, null) as any;
@@ -200,7 +198,13 @@ export const CalibrationExample: React.FC = () => {
               .withSolverKind(SolverKind.Hybrid())
               .withMaxIterations(30);
 
-            const calibrator = new ForwardCurveCalibrator('USD-SOFR-3M', 0.25, baseDate, 'USD', 'USD-OIS');
+            const calibrator = new ForwardCurveCalibrator(
+              'USD-SOFR-3M',
+              0.25,
+              baseDate,
+              'USD',
+              'USD-OIS'
+            );
             const calibratorWithConfig = calibrator.withConfig(config);
 
             try {
@@ -242,7 +246,15 @@ export const CalibrationExample: React.FC = () => {
             try {
               const discQuotes = [
                 RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(new FsDate(2025, 1, 2), 0.047, Frequency.annual(), Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR'),
+                RatesQuote.swap(
+                  new FsDate(2025, 1, 2),
+                  0.047,
+                  Frequency.annual(),
+                  Frequency.quarterly(),
+                  '30_360',
+                  'act_360',
+                  'USD-SOFR'
+                ),
               ];
               const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
               const [curve] = discCal.calibrate(discQuotes, null) as any;
@@ -257,20 +269,27 @@ export const CalibrationExample: React.FC = () => {
             market.insertDiscount(discCurve);
 
             const cdsQuotes = [
-              CreditQuote.cds('ACME', new FsDate(2027, 1, 2), 120.0, 0.40, 'USD'),
-              CreditQuote.cds('ACME', new FsDate(2029, 1, 2), 135.0, 0.40, 'USD'),
+              CreditQuote.cds('ACME', new FsDate(2027, 1, 2), 120.0, 0.4, 'USD'),
+              CreditQuote.cds('ACME', new FsDate(2029, 1, 2), 135.0, 0.4, 'USD'),
             ];
 
             const config = CalibrationConfig.multiCurve()
               .withSolverKind(SolverKind.Hybrid())
               .withMaxIterations(25);
 
-            const calibrator = new HazardCurveCalibrator('ACME', 'senior', 0.40, baseDate, 'USD', 'USD-OIS');
+            const calibrator = new HazardCurveCalibrator(
+              'ACME',
+              'senior',
+              0.4,
+              baseDate,
+              'USD',
+              'USD-OIS'
+            );
             const calibratorWithConfig = calibrator.withConfig(config);
 
             try {
               const [curve, report] = calibratorWithConfig.calibrate(cdsQuotes, market) as any;
-              
+
               // PROOF: These are real survival probabilities from the calibrated hazard curve
               console.log('✅ Hazard curve calibrated successfully!');
               console.log('  Entity:', 'ACME');
@@ -316,7 +335,15 @@ export const CalibrationExample: React.FC = () => {
             try {
               const discQuotes = [
                 RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(new FsDate(2025, 1, 2), 0.047, Frequency.annual(), Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR'),
+                RatesQuote.swap(
+                  new FsDate(2025, 1, 2),
+                  0.047,
+                  Frequency.annual(),
+                  Frequency.quarterly(),
+                  '30_360',
+                  'act_360',
+                  'USD-SOFR'
+                ),
               ];
               const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
               const [curve] = discCal.calibrate(discQuotes, null) as any;
@@ -339,7 +366,13 @@ export const CalibrationExample: React.FC = () => {
               .withSolverKind(SolverKind.Hybrid())
               .withMaxIterations(25);
 
-            const calibrator = new InflationCurveCalibrator('US-CPI-U', baseDate, 'USD', 300.0, 'USD-OIS');
+            const calibrator = new InflationCurveCalibrator(
+              'US-CPI-U',
+              baseDate,
+              'USD',
+              300.0,
+              'USD-OIS'
+            );
             const calibratorWithConfig = calibrator.withConfig(config);
 
             try {
@@ -382,7 +415,15 @@ export const CalibrationExample: React.FC = () => {
             try {
               const discQuotes = [
                 RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(new FsDate(2025, 1, 2), 0.047, Frequency.annual(), Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR'),
+                RatesQuote.swap(
+                  new FsDate(2025, 1, 2),
+                  0.047,
+                  Frequency.annual(),
+                  Frequency.quarterly(),
+                  '30_360',
+                  'act_360',
+                  'USD-SOFR'
+                ),
               ];
               const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
               const [curve] = discCal.calibrate(discQuotes, null) as any;
@@ -416,7 +457,8 @@ export const CalibrationExample: React.FC = () => {
               1.0,
               new Float64Array([0.5, 1.0]),
               new Float64Array([90.0, 100.0, 110.0])
-            ).withBaseDate(baseDate)
+            )
+              .withBaseDate(baseDate)
               .withConfig(config)
               .withDiscountId('USD-OIS');
 
@@ -480,13 +522,13 @@ export const CalibrationExample: React.FC = () => {
       <h2>Curve Calibration - All 5 Calibrators</h2>
       <p>
         Demonstrates all calibration types: discount curves, forward curves, credit hazard curves,
-        inflation curves, and volatility surfaces. Each calibrator fits curves to market prices using
-        numerical optimization with configurable solvers (Newton, Brent, Hybrid, etc.).
+        inflation curves, and volatility surfaces. Each calibrator fits curves to market prices
+        using numerical optimization with configurable solvers (Newton, Brent, Hybrid, etc.).
       </p>
       <p style={{ color: '#888', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-        Note: Examples use minimal quotes (2-4 instruments) for demonstration. Production calibration
-        requires 5-10+ quotes for reliable convergence. Failed calibrations with minimal data are
-        expected and demonstrate the validation logic.
+        Note: Examples use minimal quotes (2-4 instruments) for demonstration. Production
+        calibration requires 5-10+ quotes for reliable convergence. Failed calibrations with minimal
+        data are expected and demonstrate the validation logic.
       </p>
 
       <table>
@@ -514,42 +556,91 @@ export const CalibrationExample: React.FC = () => {
         </tbody>
       </table>
 
-      <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: 'rgba(100, 108, 255, 0.05)', borderRadius: '6px' }}>
+      <div
+        style={{
+          marginTop: '2rem',
+          padding: '1rem',
+          backgroundColor: 'rgba(100, 108, 255, 0.05)',
+          borderRadius: '6px',
+        }}
+      >
         <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Calibration API</h3>
-        <p style={{ color: '#aaa', margin: 0 }}>
-          The calibration module provides:
-        </p>
-        <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: '#aaa', lineHeight: '1.8' }}>
-          <li><strong>DiscountCurveCalibrator</strong> - Bootstrap OIS/Treasury curves from deposits/swaps</li>
-          <li><strong>ForwardCurveCalibrator</strong> - Calibrate LIBOR/SOFR forward curves from FRAs/swaps</li>
-          <li><strong>HazardCurveCalibrator</strong> - Calibrate credit default probability curves from CDS spreads</li>
-          <li><strong>InflationCurveCalibrator</strong> - Calibrate CPI projection curves from inflation swap quotes</li>
-          <li><strong>VolSurfaceCalibrator</strong> - Calibrate implied volatility surfaces from option/swaption quotes</li>
-          <li><strong>SimpleCalibration</strong> - One-shot multi-curve calibration workflow</li>
-          <li><strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent, Hybrid, LM, DE)</li>
-          <li><strong>CalibrationConfig</strong> - Configure tolerance, iterations, parallel execution, verbose logging</li>
+        <p style={{ color: '#aaa', margin: 0 }}>The calibration module provides:</p>
+        <ul
+          style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: '#aaa', lineHeight: '1.8' }}
+        >
+          <li>
+            <strong>DiscountCurveCalibrator</strong> - Bootstrap OIS/Treasury curves from
+            deposits/swaps
+          </li>
+          <li>
+            <strong>ForwardCurveCalibrator</strong> - Calibrate LIBOR/SOFR forward curves from
+            FRAs/swaps
+          </li>
+          <li>
+            <strong>HazardCurveCalibrator</strong> - Calibrate credit default probability curves
+            from CDS spreads
+          </li>
+          <li>
+            <strong>InflationCurveCalibrator</strong> - Calibrate CPI projection curves from
+            inflation swap quotes
+          </li>
+          <li>
+            <strong>VolSurfaceCalibrator</strong> - Calibrate implied volatility surfaces from
+            option/swaption quotes
+          </li>
+          <li>
+            <strong>SimpleCalibration</strong> - One-shot multi-curve calibration workflow
+          </li>
+          <li>
+            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent, Hybrid, LM,
+            DE)
+          </li>
+          <li>
+            <strong>CalibrationConfig</strong> - Configure tolerance, iterations, parallel
+            execution, verbose logging
+          </li>
         </ul>
-        
-        <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', borderLeft: '3px solid #646cff' }}>
-          <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>100% Feature Parity with Python</h4>
+
+        <div
+          style={{
+            marginTop: '1.5rem',
+            padding: '1rem',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '6px',
+            borderLeft: '3px solid #646cff',
+          }}
+        >
+          <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+            100% Feature Parity with Python
+          </h4>
           <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
             All 5 calibrators from finstack-py are now available in WASM with identical APIs:
           </p>
-          <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: '#bbb', fontSize: '0.9rem' }}>
-            <li>Same solver strategies (Newton, Brent, Hybrid, Levenberg-Marquardt, Differential Evolution)</li>
+          <ul
+            style={{
+              marginTop: '0.5rem',
+              paddingLeft: '1.5rem',
+              color: '#bbb',
+              fontSize: '0.9rem',
+            }}
+          >
+            <li>
+              Same solver strategies (Newton, Brent, Hybrid, Levenberg-Marquardt, Differential
+              Evolution)
+            </li>
             <li>Same configuration options (tolerance, max iterations, verbose, parallel)</li>
             <li>Same quote types (RatesQuote, CreditQuote, VolQuote, InflationQuote)</li>
             <li>Same detailed calibration reports with convergence diagnostics</li>
           </ul>
         </div>
-        
+
         <p style={{ marginTop: '1rem', color: '#888', fontSize: '0.9rem', fontStyle: 'italic' }}>
-          Production Note: These minimal examples (2-4 quotes) demonstrate the API. Real-world calibration
-          requires sufficient market quotes (typically 5-10+ instruments across the curve maturity spectrum)
-          for reliable convergence and accurate interpolation.
+          Production Note: These minimal examples (2-4 quotes) demonstrate the API. Real-world
+          calibration requires sufficient market quotes (typically 5-10+ instruments across the
+          curve maturity spectrum) for reliable convergence and accurate interpolation.
         </p>
       </div>
     </section>
   );
 };
-

@@ -46,7 +46,7 @@ type CashflowRow = {
   outstanding: number;
 };
 
-const metricKeys = ['accrued', 'clean_price', 'duration_mod','ytm','z_spread'];
+const metricKeys = ['accrued', 'clean_price', 'duration_mod', 'ytm', 'z_spread'];
 
 export const BondsValuationExample: React.FC = () => {
   const [rows, setRows] = useState<BondRow[]>([]);
@@ -77,7 +77,7 @@ export const BondsValuationExample: React.FC = () => {
         const forwardCurve = new ForwardCurve(
           'USD-SOFR-3M',
           valuationDate,
-          0.25,  // Tenor in years (3 months = 0.25)
+          0.25, // Tenor in years (3 months = 0.25)
           new Float64Array([0.25, 0.5, 1.0, 2.0, 3.0]),
           new Float64Array([0.053, 0.054, 0.055, 0.056, 0.057]),
           'act_360',
@@ -99,11 +99,11 @@ export const BondsValuationExample: React.FC = () => {
         const evaluateBond = (bond: Bond, bondName: string): BondRow => {
           const opts = new PricingRequest().withMetrics(metricKeys);
           const result = registry.priceBond(bond, 'discounting', market, opts);
-          
+
           // Extract primitives immediately to avoid GC issues
           const presentValue = result.presentValue.amount;
           const quotedPrice = bond.quotedCleanPrice ?? null;
-          
+
           const cleanPrice = result.metric('clean_price') ?? 0;
           const accrued = result.metric('accrued') ?? 0;
           const duration = result.metric('duration_mod') ?? 0;
@@ -134,15 +134,33 @@ export const BondsValuationExample: React.FC = () => {
         // IMPORTANT: quoted_clean_price expects a percentage of par (e.g., 99.5 for 99.5% of par),
         // NOT an absolute dollar amount.
         const quotedPricePct = 99.5; // 99.5% of par
-        const fixedBond = Bond.fixedSemiannual('corp_fixed_2029', notional, 0.045, issue, new FsDate(2029, 1, 15), 'USD-OIS', quotedPricePct);
-        
+        const fixedBond = Bond.fixedSemiannual(
+          'corp_fixed_2029',
+          notional,
+          0.045,
+          issue,
+          new FsDate(2029, 1, 15),
+          'USD-OIS',
+          quotedPricePct
+        );
+
         const fixedRow = evaluateBond(fixedBond, '5Y Corporate Fixed');
         fixedRow.kind = 'Fixed Coupon';
         fixedRow.couponLabel = '4.50% semi-annual';
-        fixedRow.notes = ['Constructed with Bond.fixedSemiannual helper', `Quoted at ${quotedPricePct}% of par`];
+        fixedRow.notes = [
+          'Constructed with Bond.fixedSemiannual helper',
+          `Quoted at ${quotedPricePct}% of par`,
+        ];
 
         const zeroQuotedPricePct = 95.0; // 95.0% of par
-        const zeroBond = Bond.zeroCoupon('corp_zero_2027', notional, issue, new FsDate(2027, 1, 15), 'USD-OIS', zeroQuotedPricePct);
+        const zeroBond = Bond.zeroCoupon(
+          'corp_zero_2027',
+          notional,
+          issue,
+          new FsDate(2027, 1, 15),
+          'USD-OIS',
+          zeroQuotedPricePct
+        );
         const zeroRow = evaluateBond(zeroBond, '3Y Discount Note');
         zeroRow.kind = 'Zero Coupon';
         zeroRow.couponLabel = '0.00% (discount)';
@@ -181,23 +199,23 @@ export const BondsValuationExample: React.FC = () => {
         const amortQuotedPricePct = 98.5;
         const finalNotional = Money.fromCode(200_000, 'USD'); // Amortize down to 200k
         const amortSpec = AmortizationSpec.linearTo(finalNotional);
-        
+
         const amortBond = new Bond(
-          'corp_amort_2029',           // instrumentId
-          notional,                     // notional
-          issue,                        // issue date
-          new FsDate(2029, 1, 15),     // maturity date
-          'USD-OIS',                    // discount curve
-          0.055,                        // coupon rate
-          Frequency.semiAnnual(),       // frequency
-          DayCount.thirty360(),         // day count
-          BusinessDayConvention.ModifiedFollowing,  // business day convention
-          undefined,                    // calendar (optional)
-          StubKind.none(),             // stub kind
-          amortSpec,                    // amortization spec
-          undefined,                    // call schedule (optional)
-          undefined,                    // put schedule (optional)
-          amortQuotedPricePct          // quoted clean price (optional)
+          'corp_amort_2029', // instrumentId
+          notional, // notional
+          issue, // issue date
+          new FsDate(2029, 1, 15), // maturity date
+          'USD-OIS', // discount curve
+          0.055, // coupon rate
+          Frequency.semiAnnual(), // frequency
+          DayCount.thirty360(), // day count
+          BusinessDayConvention.ModifiedFollowing, // business day convention
+          undefined, // calendar (optional)
+          StubKind.none(), // stub kind
+          amortSpec, // amortization spec
+          undefined, // call schedule (optional)
+          undefined, // put schedule (optional)
+          amortQuotedPricePct // quoted clean price (optional)
         );
         const amortRow = evaluateBond(amortBond, '5Y Amortizing Bond');
         amortRow.kind = 'Amortizing';
@@ -212,11 +230,11 @@ export const BondsValuationExample: React.FC = () => {
         // Callable bond with call schedule
         const callQuotedPricePct = 102.0;
         const callSchedule = [
-          ['2026-01-15', 103.0],  // Callable after 2 years at 103%
-          ['2027-01-15', 102.0],  // After 3 years at 102%
-          ['2028-01-15', 101.0],  // After 4 years at 101%
+          ['2026-01-15', 103.0], // Callable after 2 years at 103%
+          ['2027-01-15', 102.0], // After 3 years at 102%
+          ['2028-01-15', 101.0], // After 4 years at 101%
         ];
-        
+
         const callableBond = new Bond(
           'corp_call_2029',
           notional,
@@ -250,17 +268,17 @@ export const BondsValuationExample: React.FC = () => {
         const fixToFloatBond = Bond.fixedToFloating(
           'corp_fix2flt_2029',
           notional,
-          0.05,              // 5% fixed rate for first 2 years
-          switchDate,        // Switch date
-          'USD-SOFR-3M',     // Forward curve after switch
-          100.0,             // 100 bps margin (DM) over SOFR
+          0.05, // 5% fixed rate for first 2 years
+          switchDate, // Switch date
+          'USD-SOFR-3M', // Forward curve after switch
+          100.0, // 100 bps margin (DM) over SOFR
           issue,
           new FsDate(2029, 1, 15),
           Frequency.quarterly(),
           DayCount.act360(),
           'USD-OIS',
           fixToFloatQuotedPricePct,
-          market             // Market context for forward rate lookup
+          market // Market context for forward rate lookup
         );
         const fixToFloatRow = evaluateBond(fixToFloatBond, '5Y Fixed-to-Floating');
         fixToFloatRow.kind = 'Fixed-to-Floating';
@@ -280,13 +298,13 @@ export const BondsValuationExample: React.FC = () => {
           'corp_pik_2029',
           notional,
           0.08, // 8% coupon
-          0.5,  // 50% cash
-          0.5,  // 50% PIK
+          0.5, // 50% cash
+          0.5, // 50% PIK
           issue,
           new FsDate(2029, 1, 15),
           'USD-OIS',
           pikQuotedPricePct,
-          market             // Market context (not used for fixed PIK, but required)
+          market // Market context (not used for fixed PIK, but required)
         );
         const pikRow = evaluateBond(pikBond, '5Y PIK-Toggle Bond');
         pikRow.kind = 'PIK Toggle';
@@ -335,19 +353,19 @@ export const BondsValuationExample: React.FC = () => {
       if (!cashflows.has(bondId)) {
         const rawCashflows = bond.getCashflows(marketContext);
         const flowData: CashflowRow[] = [];
-        
+
         for (let i = 0; i < rawCashflows.length; i++) {
           const entry = rawCashflows[i] as any;
           const date = entry[0];
           const money = entry[1];
           const kind = entry[2] as string;
           const outstanding = entry[3] as number;
-          
+
           flowData.push({
             date: `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`,
             amount: money.amount,
-            kind: kind,
-            outstanding: outstanding,
+            kind,
+            outstanding,
           });
         }
 
@@ -375,9 +393,9 @@ export const BondsValuationExample: React.FC = () => {
       <p>
         Pricing and risk metrics are sourced directly from the finstack Rust pricing registry. This
         example demonstrates a variety of bond structures including fixed and floating rate bonds,
-        zero-coupon bonds, amortizing bonds, callable bonds, PIK-toggle structures, and fixed-to-floating
-        notes. Each bond is valued using market curves and priced with standard metrics like YTM,
-        Z-spread, modified duration, and DV01.
+        zero-coupon bonds, amortizing bonds, callable bonds, PIK-toggle structures, and
+        fixed-to-floating notes. Each bond is valued using market curves and priced with standard
+        metrics like YTM, Z-spread, modified duration, and DV01.
       </p>
 
       <table>
@@ -397,92 +415,155 @@ export const BondsValuationExample: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ id, name, kind, couponLabel, marginLabel, quotedPrice, presentValue, cleanPrice, accrued, ytm, zSpread, duration, bond }) => (
-            <React.Fragment key={id}>
-              <tr>
-                <td>{name}</td>
-                <td>{kind}</td>
-                <td>
-                  {couponLabel}
-                  {marginLabel ? (
-                    <>
-                      <br />
-                      {marginLabel}
-                    </>
-                  ) : null}
-                </td>
-                <td>{quotedPrice !== null ? `${quotedPrice.toFixed(2)}%` : '—'}</td>
-                <td>{currencyFormatter.format(presentValue)}</td>
-                <td>{currencyFormatter.format(cleanPrice)}</td>
-                <td>{currencyFormatter.format(accrued)}</td>
-                <td>{duration.toFixed(4)}</td>
-                <td>{ytm ? (ytm * 100).toFixed(2) : '—'}</td>
-                <td>{zSpread ? (zSpread * 10000).toFixed(0) : '—'}</td>
-                <td>
-                  <button
-                    onClick={() => loadCashflows(id, bond)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      cursor: 'pointer',
-                      backgroundColor: expandedBondId === id ? '#646cff' : 'rgba(100, 108, 255, 0.1)',
-                      color: expandedBondId === id ? 'white' : 'inherit',
-                      border: '1px solid #646cff',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {expandedBondId === id ? 'Hide' : 'Show'}
-                  </button>
-                </td>
-              </tr>
-              {expandedBondId === id && cashflows.has(id) && (() => {
-                const flows = cashflows.get(id)!;
-                
-                // Determine which columns are needed
-                const hasFixed = flows.some(f => f.kind === 'Fixed');
-                const hasFloat = flows.some(f => f.kind === 'Float');
-                const hasNotional = flows.some(f => f.kind === 'Notional');
-                const hasAmortization = flows.some(f => f.kind === 'Amortization');
-                const hasPIK = flows.some(f => f.kind === 'PIK');
-                const hasFee = flows.some(f => f.kind === 'Fee');
-                
-                return (
-                  <tr>
-                    <td colSpan={11} style={{ padding: '1rem', backgroundColor: 'rgba(100, 108, 255, 0.05)' }}>
-                      <h4 style={{ marginBottom: '0.5rem' }}>Cashflow Schedule for {name}</h4>
-                      <table style={{ width: '100%', marginTop: '0.5rem' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: 'left' }}>Date</th>
-                            {hasFixed && <th style={{ textAlign: 'right' }}>Fixed</th>}
-                            {hasFloat && <th style={{ textAlign: 'right' }}>Float</th>}
-                            {hasPIK && <th style={{ textAlign: 'right' }}>PIK</th>}
-                            {hasAmortization && <th style={{ textAlign: 'right' }}>Amortization</th>}
-                            {hasNotional && <th style={{ textAlign: 'right' }}>Notional</th>}
-                            {hasFee && <th style={{ textAlign: 'right' }}>Fee</th>}
-                            <th style={{ textAlign: 'right' }}>Outstanding</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {flows.map((flow, idx) => (
-                            <tr key={idx}>
-                              <td>{flow.date}</td>
-                              {hasFixed && <td style={{ textAlign: 'right' }}>{flow.kind === 'Fixed' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              {hasFloat && <td style={{ textAlign: 'right' }}>{flow.kind === 'Float' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              {hasPIK && <td style={{ textAlign: 'right' }}>{flow.kind === 'PIK' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              {hasAmortization && <td style={{ textAlign: 'right' }}>{flow.kind === 'Amortization' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              {hasNotional && <td style={{ textAlign: 'right' }}>{flow.kind === 'Notional' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              {hasFee && <td style={{ textAlign: 'right' }}>{flow.kind === 'Fee' ? currencyFormatter.format(flow.amount) : '—'}</td>}
-                              <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{currencyFormatter.format(flow.outstanding)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                );
-              })()}
-            </React.Fragment>
-          ))}
+          {rows.map(
+            ({
+              id,
+              name,
+              kind,
+              couponLabel,
+              marginLabel,
+              quotedPrice,
+              presentValue,
+              cleanPrice,
+              accrued,
+              ytm,
+              zSpread,
+              duration,
+              bond,
+            }) => (
+              <React.Fragment key={id}>
+                <tr>
+                  <td>{name}</td>
+                  <td>{kind}</td>
+                  <td>
+                    {couponLabel}
+                    {marginLabel ? (
+                      <>
+                        <br />
+                        {marginLabel}
+                      </>
+                    ) : null}
+                  </td>
+                  <td>{quotedPrice !== null ? `${quotedPrice.toFixed(2)}%` : '—'}</td>
+                  <td>{currencyFormatter.format(presentValue)}</td>
+                  <td>{currencyFormatter.format(cleanPrice)}</td>
+                  <td>{currencyFormatter.format(accrued)}</td>
+                  <td>{duration.toFixed(4)}</td>
+                  <td>{ytm ? (ytm * 100).toFixed(2) : '—'}</td>
+                  <td>{zSpread ? (zSpread * 10000).toFixed(0) : '—'}</td>
+                  <td>
+                    <button
+                      onClick={() => loadCashflows(id, bond)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        cursor: 'pointer',
+                        backgroundColor:
+                          expandedBondId === id ? '#646cff' : 'rgba(100, 108, 255, 0.1)',
+                        color: expandedBondId === id ? 'white' : 'inherit',
+                        border: '1px solid #646cff',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      {expandedBondId === id ? 'Hide' : 'Show'}
+                    </button>
+                  </td>
+                </tr>
+                {expandedBondId === id &&
+                  cashflows.has(id) &&
+                  (() => {
+                    const flows = cashflows.get(id);
+                    if (!flows) return null;
+
+                    // Determine which columns are needed
+                    const hasFixed = flows.some((f) => f.kind === 'Fixed');
+                    const hasFloat = flows.some((f) => f.kind === 'Float');
+                    const hasNotional = flows.some((f) => f.kind === 'Notional');
+                    const hasAmortization = flows.some((f) => f.kind === 'Amortization');
+                    const hasPIK = flows.some((f) => f.kind === 'PIK');
+                    const hasFee = flows.some((f) => f.kind === 'Fee');
+
+                    return (
+                      <tr>
+                        <td
+                          colSpan={11}
+                          style={{ padding: '1rem', backgroundColor: 'rgba(100, 108, 255, 0.05)' }}
+                        >
+                          <h4 style={{ marginBottom: '0.5rem' }}>Cashflow Schedule for {name}</h4>
+                          <table style={{ width: '100%', marginTop: '0.5rem' }}>
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left' }}>Date</th>
+                                {hasFixed && <th style={{ textAlign: 'right' }}>Fixed</th>}
+                                {hasFloat && <th style={{ textAlign: 'right' }}>Float</th>}
+                                {hasPIK && <th style={{ textAlign: 'right' }}>PIK</th>}
+                                {hasAmortization && (
+                                  <th style={{ textAlign: 'right' }}>Amortization</th>
+                                )}
+                                {hasNotional && <th style={{ textAlign: 'right' }}>Notional</th>}
+                                {hasFee && <th style={{ textAlign: 'right' }}>Fee</th>}
+                                <th style={{ textAlign: 'right' }}>Outstanding</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {flows.map((flow, idx) => (
+                                <tr key={idx}>
+                                  <td>{flow.date}</td>
+                                  {hasFixed && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'Fixed'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  {hasFloat && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'Float'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  {hasPIK && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'PIK'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  {hasAmortization && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'Amortization'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  {hasNotional && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'Notional'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  {hasFee && (
+                                    <td style={{ textAlign: 'right' }}>
+                                      {flow.kind === 'Fee'
+                                        ? currencyFormatter.format(flow.amount)
+                                        : '—'}
+                                    </td>
+                                  )}
+                                  <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                                    {currencyFormatter.format(flow.outstanding)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    );
+                  })()}
+              </React.Fragment>
+            )
+          )}
         </tbody>
       </table>
 

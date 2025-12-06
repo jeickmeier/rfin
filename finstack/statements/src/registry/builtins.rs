@@ -1,8 +1,9 @@
 //! Built-in financial metrics.
 //!
 //! This module provides access to standard financial metrics that are
-//! embedded in the crate. These metrics are stored as JSON files and discovered
-//! automatically at runtime.
+//! bundled with the crate. Metrics are stored as JSON files under
+//! `data/metrics` and are exposed via a small helper that is used by
+//! [`Registry::load_builtins()`](crate::registry::Registry::load_builtins).
 //!
 //! Metrics are organized into namespaces:
 //! - `fin.*` - Standard financial metrics
@@ -14,33 +15,35 @@
 //! ## Usage
 //!
 //! Built-in metrics are loaded via [`Registry::load_builtins()`](crate::registry::Registry::load_builtins),
-//! which uses `include_str!()` to embed the JSON metric definitions at compile time.
-//!
-//! ```rust,no_run
-//! use finstack_statements::registry::Registry;
-//!
-//! # fn main() -> finstack_statements::Result<()> {
-//! let mut registry = Registry::new();
-//! registry.load_builtins()?;
-//!
-//! // Access metrics from the fin.* namespace
-//! assert!(registry.has("fin.gross_profit"));
-//! assert!(registry.has("fin.gross_margin"));
-//! # Ok(())
-//! # }
-//! ```
+//! which uses a platform-appropriate strategy:
+//! - On native targets, JSON files are discovered at runtime from the bundled
+//!   `data/metrics` directory.
+//! - On `wasm32` targets, JSON contents are embedded at compile time via
+//!   `include_str!()` so no filesystem access is required.
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+
+// Native-only imports; the wasm32 implementation embeds JSON via `include_str!()`
+// and does not touch the filesystem or construct registry errors directly.
+#[cfg(not(target_arch = "wasm32"))]
+use crate::error::Error;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
 /// Discover and load all bundled metric registry JSON files.
 ///
-/// Files are located under `data/metrics` (relative to the crate root) and are picked up
-/// automatically based on the `.json` extension. The contents are returned in
-/// deterministic order (alphabetically by file name).
+/// On native targets, files are located under `data/metrics` (relative to the
+/// crate root) and are picked up automatically based on the `.json` extension.
+/// The contents are returned in deterministic order (alphabetically by file
+/// name).
+///
+/// On `wasm32` targets, filesystem access is not available, so the same set of
+/// JSON files is embedded at compile time using `include_str!()`.
 ///
 /// This helper is consumed by [`Registry::load_builtins`](crate::registry::Registry::load_builtins).
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn builtin_metric_sources() -> Result<Vec<String>> {
     let metrics_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/metrics");
 
@@ -88,6 +91,49 @@ pub(crate) fn builtin_metric_sources() -> Result<Vec<String>> {
             metrics_dir.display()
         )));
     }
+
+    Ok(discovered
+        .into_iter()
+        .map(|(_, contents)| contents)
+        .collect())
+}
+
+/// Discover and load all bundled metric registry JSON files for `wasm32`.
+///
+/// On WebAssembly targets, standard filesystem APIs are not available, so we
+/// embed the same JSON files at compile time using `include_str!()`. The
+/// returned contents are ordered deterministically by file name to match the
+/// native implementation.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn builtin_metric_sources() -> Result<Vec<String>> {
+    // Keep this list in sync with the files under `data/metrics` and with the
+    // expectations in the crate documentation.
+    let files: &[(&str, &str)] = &[
+        (
+            "fin_basic.json",
+            include_str!("../../data/metrics/fin_basic.json"),
+        ),
+        (
+            "fin_leverage.json",
+            include_str!("../../data/metrics/fin_leverage.json"),
+        ),
+        (
+            "fin_margins.json",
+            include_str!("../../data/metrics/fin_margins.json"),
+        ),
+        (
+            "fin_returns.json",
+            include_str!("../../data/metrics/fin_returns.json"),
+        ),
+    ];
+
+    let mut discovered: Vec<(String, String)> = files
+        .iter()
+        .map(|(name, contents)| (name.to_string(), contents.to_string()))
+        .collect();
+
+    // Ensure deterministic ordering regardless of list order
+    discovered.sort_by(|a, b| a.0.cmp(&b.0));
 
     Ok(discovered
         .into_iter()

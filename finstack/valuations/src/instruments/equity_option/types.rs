@@ -18,7 +18,7 @@ use super::parameters::EquityOptionParams;
     Clone,
     Debug,
     finstack_valuations_macros::FinancialBuilder,
-    finstack_valuations_macros::Instrument
+    finstack_valuations_macros::Instrument,
 )]
 #[instrument(key = "EquityOption", price_fn = "npv")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

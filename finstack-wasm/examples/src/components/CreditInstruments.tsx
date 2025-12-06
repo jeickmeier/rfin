@@ -45,7 +45,7 @@ export const CreditInstrumentsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9980, 0.9960, 0.9850, 0.9600]),
+          new Float64Array([1.0, 0.998, 0.996, 0.985, 0.96]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -56,8 +56,8 @@ export const CreditInstrumentsExample: React.FC = () => {
           'ACME-HZD',
           asOf,
           new Float64Array([0.0, 3.0, 5.0]),
-          new Float64Array([0.0120, 0.0180, 0.0220]),
-          0.40,
+          new Float64Array([0.012, 0.018, 0.022]),
+          0.4,
           'act_365f',
           null,
           null,
@@ -70,8 +70,8 @@ export const CreditInstrumentsExample: React.FC = () => {
           'CDX-IG-HZD',
           asOf,
           new Float64Array([0.0, 3.0, 5.0, 7.0]),
-          new Float64Array([0.0100, 0.0160, 0.0190, 0.0210]),
-          0.40,
+          new Float64Array([0.01, 0.016, 0.019, 0.021]),
+          0.4,
           'act_365f',
           null,
           null,
@@ -82,18 +82,18 @@ export const CreditInstrumentsExample: React.FC = () => {
 
         const baseCorr = new BaseCorrelationCurve(
           'CDX-IG-BC',
-          new Float64Array([0.03, 0.06, 0.10, 0.30, 0.70, 1.00]),
-          new Float64Array([0.10, 0.12, 0.15, 0.20, 0.23, 0.25])
+          new Float64Array([0.03, 0.06, 0.1, 0.3, 0.7, 1.0]),
+          new Float64Array([0.1, 0.12, 0.15, 0.2, 0.23, 0.25])
         );
 
-        const indexData = new CreditIndexData(125, 0.40, indexHazard, baseCorr, null, null);
+        const indexData = new CreditIndexData(125, 0.4, indexHazard, baseCorr, null, null);
 
         // Add CDS volatility surface for options (flattened grid: row-major order)
         const cdsVol = new VolSurface(
           'CDS-VOL',
           new Float64Array([0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([0.0100, 0.0200, 0.0400]),
-          new Float64Array([0.45, 0.40, 0.35, 0.42, 0.38, 0.33, 0.38, 0.35, 0.30, 0.35, 0.32, 0.28])
+          new Float64Array([0.01, 0.02, 0.04]),
+          new Float64Array([0.45, 0.4, 0.35, 0.42, 0.38, 0.33, 0.38, 0.35, 0.3, 0.35, 0.32, 0.28])
         );
 
         const market = new MarketContext();
@@ -246,7 +246,11 @@ export const CreditInstrumentsExample: React.FC = () => {
           attributes: { tags: [], meta: {} },
         });
         const revolvingCreditDet = RevolvingCredit.fromJson(revolvingCreditDetJson);
-        const rcDetResult = registry.priceRevolvingCredit(revolvingCreditDet, 'discounting', market);
+        const rcDetResult = registry.priceRevolvingCredit(
+          revolvingCreditDet,
+          'discounting',
+          market
+        );
         results.push({
           name: 'Revolving Credit (Deterministic)',
           type: 'RevolvingCredit',
@@ -279,9 +283,9 @@ export const CreditInstrumentsExample: React.FC = () => {
             Stochastic: {
               utilization_process: {
                 MeanReverting: {
-                  target_rate: 0.60,  // Target 60% utilization
-                  speed: 2.0,         // Mean reversion speed
-                  volatility: 0.15,    // 15% volatility
+                  target_rate: 0.6, // Target 60% utilization
+                  speed: 2.0, // Mean reversion speed
+                  volatility: 0.15, // 15% volatility
                 },
               },
               num_paths: 1000,
@@ -292,7 +296,11 @@ export const CreditInstrumentsExample: React.FC = () => {
           attributes: { tags: [], meta: {} },
         });
         const revolvingCreditStoch = RevolvingCredit.fromJson(revolvingCreditStochJson);
-        const rcStochResult = registry.priceRevolvingCredit(revolvingCreditStoch, 'monte_carlo_gbm', market);
+        const rcStochResult = registry.priceRevolvingCredit(
+          revolvingCreditStoch,
+          'monte_carlo_gbm',
+          market
+        );
         results.push({
           name: 'Revolving Credit (Stochastic MC)',
           type: 'RevolvingCredit',
@@ -332,7 +340,8 @@ export const CreditInstrumentsExample: React.FC = () => {
       <p>
         Credit instruments including single-name CDS, CDS indices, tranches, options on CDS, and
         revolving credit facilities. Uses hazard curves for survival probabilities, base correlation
-        for tranche pricing, and supports both deterministic and stochastic utilization for revolving credit.
+        for tranche pricing, and supports both deterministic and stochastic utilization for
+        revolving credit.
       </p>
 
       <table>
@@ -350,11 +359,7 @@ export const CreditInstrumentsExample: React.FC = () => {
               <td>{name}</td>
               <td>{type}</td>
               <td>{currencyFormatter.format(presentValue)}</td>
-              <td>
-                {keyMetric
-                  ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)} bps`
-                  : '—'}
-              </td>
+              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)} bps` : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -362,4 +367,3 @@ export const CreditInstrumentsExample: React.FC = () => {
     </section>
   );
 };
-

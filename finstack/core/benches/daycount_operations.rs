@@ -56,24 +56,20 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
     ];
 
     for (name, freq) in frequencies {
-        bench_utils::bench_with_criterion(
-            c,
-            format!("daycount_actact_isma_{}", name),
-            || {
-                let yf = DayCount::ActActIsma
-                    .year_fraction(
-                        black_box(start),
-                        black_box(end),
-                        DayCountCtx {
-                            calendar: None,
-                            frequency: Some(freq),
-                            bus_basis: None,
-                        },
-                    )
-                    .unwrap();
-                black_box(yf);
-            },
-        );
+        bench_utils::bench_with_criterion(c, format!("daycount_actact_isma_{}", name), || {
+            let yf = DayCount::ActActIsma
+                .year_fraction(
+                    black_box(start),
+                    black_box(end),
+                    DayCountCtx {
+                        calendar: None,
+                        frequency: Some(freq),
+                        bus_basis: None,
+                    },
+                )
+                .unwrap();
+            black_box(yf);
+        });
     }
 }
 

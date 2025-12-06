@@ -13,8 +13,10 @@ const groupExamples = () => {
       grouped.push({ group: example.group, items: [] });
     }
 
-    const index = groupIndex.get(example.group)!;
-    grouped[index].items.push(example);
+    const index = groupIndex.get(example.group);
+    if (index !== undefined) {
+      grouped[index].items.push(example);
+    }
   });
 
   return grouped;

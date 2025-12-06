@@ -88,7 +88,7 @@ import init, {
   ForecastSpec,
   Registry,
   AmountOrScalar,
-  Currency
+  Currency,
 } from './pkg/finstack_wasm.js';
 
 // Initialize WASM (required)
@@ -203,11 +203,7 @@ const evaluator = new Evaluator();
 const results = evaluator.evaluate(model);
 
 // With market context
-const results = evaluator.evaluateWithMarketContext(
-  model,
-  marketContext,
-  asOfDate
-);
+const results = evaluator.evaluateWithMarketContext(model, marketContext, asOfDate);
 ```
 
 ### Results
@@ -290,8 +286,8 @@ const currency = new Currency('USD');
 const amount = AmountOrScalar.amount(100.0, currency);
 
 // Check type
-scalar.isScalar();  // true
-amount.isAmount();  // true
+scalar.isScalar(); // true
+amount.isAmount(); // true
 
 // Get value
 const value = scalar.getValue();
@@ -348,22 +344,22 @@ coalesce(x, y)    // First non-null value
 
 ```typescript
 // Simple arithmetic
-"revenue - expenses"
+'revenue - expenses';
 
 // Ratios
-"gross_profit / revenue"
+'gross_profit / revenue';
 
 // Growth
-"(revenue - lag(revenue, 1)) / lag(revenue, 1)"
+'(revenue - lag(revenue, 1)) / lag(revenue, 1)';
 
 // Trailing twelve months
-"ttm(revenue)"
+'ttm(revenue)';
 
 // Rolling average
-"rolling_mean(revenue, 4)"
+'rolling_mean(revenue, 4)';
 
 // Complex
-"max(0, revenue * 0.4 - opex)"
+'max(0, revenue * 0.4 - opex)';
 ```
 
 ## Common Patterns
@@ -496,8 +492,8 @@ console.log('All results:', allResults);
 ## Support
 
 For issues or questions:
+
 1. Check the test suite for usage examples
 2. Review the live web examples
 3. Inspect TypeScript definitions for API details
 4. Refer to the Rust documentation for core concepts
-

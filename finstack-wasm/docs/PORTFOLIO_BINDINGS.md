@@ -5,6 +5,7 @@ This document describes the WebAssembly bindings for the finstack portfolio modu
 ## Overview
 
 The portfolio WASM bindings provide 100% parity with the Rust and Python implementations, exposing:
+
 - Entity and position management
 - Portfolio construction and validation
 - Position valuation with metrics
@@ -22,18 +23,18 @@ Represents a company, fund, or legal entity that owns positions.
 import { Entity } from 'finstack-wasm';
 
 // Create entity
-const entity = new Entity("ACME_CORP")
-  .withName("Acme Corporation")
-  .withTag("sector", "Technology")
-  .withTag("region", "US");
+const entity = new Entity('ACME_CORP')
+  .withName('Acme Corporation')
+  .withTag('sector', 'Technology')
+  .withTag('region', 'US');
 
 // Access properties
-console.log(entity.id);        // "ACME_CORP"
-console.log(entity.name);      // "Acme Corporation"
-console.log(entity.tags);      // { sector: "Technology", region: "US" }
+console.log(entity.id); // "ACME_CORP"
+console.log(entity.name); // "Acme Corporation"
+console.log(entity.tags); // { sector: "Technology", region: "US" }
 
 // Dummy entity for standalone instruments
-const dummy = Entity.dummy();  // Special entity with ID "_standalone"
+const dummy = Entity.dummy(); // Special entity with ID "_standalone"
 ```
 
 ### PositionUnit
@@ -44,11 +45,11 @@ Defines how position quantities should be interpreted.
 import { PositionUnit } from 'finstack-wasm';
 
 // Available unit types
-const units = PositionUnit.UNITS;            // For equities, shares
-const notional = PositionUnit.notional();    // For derivatives
-const notionalUsd = PositionUnit.notionalWithCcy("USD");
-const faceValue = PositionUnit.FACE_VALUE;   // For bonds
-const percentage = PositionUnit.PERCENTAGE;  // Ownership percentage
+const units = PositionUnit.UNITS; // For equities, shares
+const notional = PositionUnit.notional(); // For derivatives
+const notionalUsd = PositionUnit.notionalWithCcy('USD');
+const faceValue = PositionUnit.FACE_VALUE; // For bonds
+const percentage = PositionUnit.PERCENTAGE; // Ownership percentage
 ```
 
 ### Position
@@ -60,13 +61,13 @@ Represents a holding of a specific instrument.
 ```javascript
 // Positions are created and managed within portfolios
 // Access via portfolio methods:
-const position = portfolio.getPosition("POS_001");
-console.log(position.positionId);    // "POS_001"
-console.log(position.entityId);      // "ACME_CORP"
-console.log(position.instrumentId);  // "BOND_001"
-console.log(position.quantity);      // 1000000
-console.log(position.isLong());      // true
-console.log(position.isShort());     // false
+const position = portfolio.getPosition('POS_001');
+console.log(position.positionId); // "POS_001"
+console.log(position.entityId); // "ACME_CORP"
+console.log(position.instrumentId); // "BOND_001"
+console.log(position.quantity); // 1000000
+console.log(position.isLong()); // true
+console.log(position.isShort()); // false
 ```
 
 ## Portfolio
@@ -78,25 +79,25 @@ import { Portfolio, Entity, Currency, FsDate } from 'finstack-wasm';
 
 // Create empty portfolio
 const asOf = new FsDate(2024, 1, 1);
-const portfolio = new Portfolio("FUND_A", Currency.USD, asOf);
+const portfolio = new Portfolio('FUND_A', Currency.USD, asOf);
 
 // Set name
-portfolio.name = "Alpha Fund";
+portfolio.name = 'Alpha Fund';
 
 // Access properties
-console.log(portfolio.id);         // "FUND_A"
-console.log(portfolio.baseCcy);    // Currency.USD
-console.log(portfolio.asOf);       // FsDate(2024, 1, 1)
-console.log(portfolio.entities);   // Object mapping entity IDs to entities
-console.log(portfolio.positions);  // Array of positions
+console.log(portfolio.id); // "FUND_A"
+console.log(portfolio.baseCcy); // Currency.USD
+console.log(portfolio.asOf); // FsDate(2024, 1, 1)
+console.log(portfolio.entities); // Object mapping entity IDs to entities
+console.log(portfolio.positions); // Array of positions
 
 // Query methods
-const position = portfolio.getPosition("POS_001");
-const entityPositions = portfolio.positionsForEntity("ACME_CORP");
-const taggedPositions = portfolio.positionsWithTag("rating", "AAA");
+const position = portfolio.getPosition('POS_001');
+const entityPositions = portfolio.positionsForEntity('ACME_CORP');
+const taggedPositions = portfolio.positionsWithTag('rating', 'AAA');
 
 // Validate
-portfolio.validate();  // Throws if invalid references
+portfolio.validate(); // Throws if invalid references
 ```
 
 ## PortfolioBuilder
@@ -108,22 +109,22 @@ import { PortfolioBuilder, Entity, Currency, FsDate } from 'finstack-wasm';
 
 const asOf = new FsDate(2024, 1, 1);
 
-const portfolio = new PortfolioBuilder("FUND_A")
-  .name("Alpha Fund")
+const portfolio = new PortfolioBuilder('FUND_A')
+  .name('Alpha Fund')
   .baseCcy(Currency.USD)
   .asOf(asOf)
-  .entity(new Entity("ACME"))
-  .entity(new Entity("BETA"))
-  .tag("strategy", "balanced")
-  .tag("risk_profile", "moderate")
+  .entity(new Entity('ACME'))
+  .entity(new Entity('BETA'))
+  .tag('strategy', 'balanced')
+  .tag('risk_profile', 'moderate')
   .build();
 
 // Add multiple entities at once (from JSON)
 const entities = [
-  Entity.fromJSON({ id: "ENTITY_1", name: "Entity One" }),
-  Entity.fromJSON({ id: "ENTITY_2", name: "Entity Two" })
+  Entity.fromJSON({ id: 'ENTITY_1', name: 'Entity One' }),
+  Entity.fromJSON({ id: 'ENTITY_2', name: 'Entity Two' }),
 ];
-const builder = new PortfolioBuilder("FUND_B")
+const builder = new PortfolioBuilder('FUND_B')
   .baseCcy(Currency.USD)
   .asOf(asOf)
   .entities([entities[0].toJSON(), entities[1].toJSON()]);
@@ -148,20 +149,20 @@ const config = new FinstackConfig();
 const valuation = valuePortfolio(portfolio, market, config);
 
 // Access results
-console.log(valuation.totalBaseCcy);  // Total portfolio value in base currency
+console.log(valuation.totalBaseCcy); // Total portfolio value in base currency
 
 // Get position values
-const posValue = valuation.getPositionValue("POS_001");
-console.log(posValue.valueNative);    // Value in instrument's native currency
-console.log(posValue.valueBase);      // Value converted to portfolio base currency
+const posValue = valuation.getPositionValue('POS_001');
+console.log(posValue.valueNative); // Value in instrument's native currency
+console.log(posValue.valueBase); // Value converted to portfolio base currency
 
 // Get entity totals
-const entityValue = valuation.getEntityValue("ACME_CORP");
-console.log(entityValue);  // Total value for all ACME_CORP positions
+const entityValue = valuation.getEntityValue('ACME_CORP');
+console.log(entityValue); // Total value for all ACME_CORP positions
 
 // All values as objects
-console.log(valuation.positionValues);  // Object mapping position IDs to values
-console.log(valuation.byEntity);        // Object mapping entity IDs to totals
+console.log(valuation.positionValues); // Object mapping position IDs to values
+console.log(valuation.byEntity); // Object mapping entity IDs to totals
 ```
 
 ## Metrics Aggregation
@@ -175,16 +176,16 @@ import { aggregateMetrics } from 'finstack-wasm';
 const metrics = aggregateMetrics(valuation);
 
 // Get aggregated metric
-const dv01Metric = metrics.getMetric("dv01");
-console.log(dv01Metric.total);           // Total DV01 across portfolio
-console.log(dv01Metric.byEntity);        // DV01 by entity
+const dv01Metric = metrics.getMetric('dv01');
+console.log(dv01Metric.total); // Total DV01 across portfolio
+console.log(dv01Metric.byEntity); // DV01 by entity
 
 // Get total for a specific metric
-const totalDv01 = metrics.getTotal("dv01");
+const totalDv01 = metrics.getTotal('dv01');
 
 // Get metrics for a position
-const posMetrics = metrics.getPositionMetrics("POS_001");
-console.log(posMetrics);  // Object with all metrics for the position
+const posMetrics = metrics.getPositionMetrics('POS_001');
+console.log(posMetrics); // Object with all metrics for the position
 ```
 
 ## Grouping and Aggregation
@@ -195,14 +196,14 @@ Group positions and aggregate values by attributes.
 import { groupByAttribute, aggregateByAttribute } from 'finstack-wasm';
 
 // Group positions by sector
-const bySector = groupByAttribute(portfolio, "sector");
-console.log(bySector["Technology"]);  // Array of positions in tech sector
-console.log(bySector["Finance"]);     // Array of positions in finance sector
+const bySector = groupByAttribute(portfolio, 'sector');
+console.log(bySector['Technology']); // Array of positions in tech sector
+console.log(bySector['Finance']); // Array of positions in finance sector
 
 // Aggregate values by rating
-const byRating = aggregateByAttribute(valuation, portfolio, "rating");
-console.log(byRating["AAA"]);  // Total value of AAA-rated positions
-console.log(byRating["AA"]);   // Total value of AA-rated positions
+const byRating = aggregateByAttribute(valuation, portfolio, 'rating');
+console.log(byRating['AAA']); // Total value of AAA-rated positions
+console.log(byRating['AA']); // Total value of AA-rated positions
 ```
 
 ## Scenario Integration
@@ -214,31 +215,26 @@ import { applyScenario, applyAndRevalue, ScenarioSpec } from 'finstack-wasm';
 
 // Define scenario
 const scenario = ScenarioSpec.fromJSON({
-  id: "stress_test",
-  name: "Rate Shock",
+  id: 'stress_test',
+  name: 'Rate Shock',
   operations: [
     {
       curve_parallel_bp: {
-        curve_kind: "discount",
-        curve_id: "USD",
-        bp: 50.0  // +50bp parallel shift
-      }
-    }
-  ]
+        curve_kind: 'discount',
+        curve_id: 'USD',
+        bp: 50.0, // +50bp parallel shift
+      },
+    },
+  ],
 });
 
 // Apply scenario to portfolio
 const transformedPortfolio = applyScenario(portfolio, scenario, market);
 
 // Or apply and revalue in one step
-const stressedValuation = applyAndRevalue(
-  portfolio,
-  scenario,
-  market,
-  config
-);
+const stressedValuation = applyAndRevalue(portfolio, scenario, market, config);
 
-console.log(stressedValuation.totalBaseCcy);  // Portfolio value under stress
+console.log(stressedValuation.totalBaseCcy); // Portfolio value under stress
 ```
 
 ## JSON Serialization
@@ -247,7 +243,7 @@ All types support JSON serialization (except positions with instruments).
 
 ```javascript
 // Entity serialization
-const entity = new Entity("ACME");
+const entity = new Entity('ACME');
 const entityJson = entity.toJSON();
 const entityCopy = Entity.fromJSON(entityJson);
 
@@ -288,71 +284,68 @@ import {
 
 async function runPortfolioExample() {
   // 1. Create entities
-  const corpA = new Entity("CORP_A")
-    .withName("Corporate A")
-    .withTag("sector", "Finance");
-  
-  const fundB = new Entity("FUND_B")
-    .withName("Fund B")
-    .withTag("sector", "Technology");
+  const corpA = new Entity('CORP_A').withName('Corporate A').withTag('sector', 'Finance');
+
+  const fundB = new Entity('FUND_B').withName('Fund B').withTag('sector', 'Technology');
 
   // 2. Create instruments
   const asOf = new FsDate(2024, 1, 2);
-  
+
   const bond = Bond.fixedSemiannual(
-    "BOND_001",
+    'BOND_001',
     new Money(5_000_000, Currency.USD),
     0.045,
     new FsDate(2024, 1, 15),
     new FsDate(2029, 1, 15),
-    "USD-OIS"
+    'USD-OIS'
   );
 
   const deposit = new Deposit(
-    "DEPOSIT_001",
+    'DEPOSIT_001',
     new Money(2_000_000, Currency.USD),
     asOf,
     new FsDate(2024, 7, 2),
     DayCount.ACT_360,
-    "USD-OIS"
+    'USD-OIS'
   );
 
   // 3. Build portfolio
-  const portfolio = new PortfolioBuilder("MULTI_ASSET_FUND")
-    .name("Multi-Asset Investment Fund")
+  const portfolio = new PortfolioBuilder('MULTI_ASSET_FUND')
+    .name('Multi-Asset Investment Fund')
     .baseCcy(Currency.USD)
     .asOf(asOf)
     .entity(corpA)
     .entity(fundB)
-    .tag("strategy", "balanced")
+    .tag('strategy', 'balanced')
     .build();
 
   // 4. Create market data
   const market = new MarketContext();
-  const curve = new DiscountCurve(
-    "USD-OIS",
-    asOf,
-    [[0.0, 1.0], [1.0, 0.995], [5.0, 0.950], [10.0, 0.900]]
-  );
+  const curve = new DiscountCurve('USD-OIS', asOf, [
+    [0.0, 1.0],
+    [1.0, 0.995],
+    [5.0, 0.95],
+    [10.0, 0.9],
+  ]);
   market.insertDiscount(curve);
 
   // 5. Value portfolio
   const config = new FinstackConfig();
   const valuation = valuePortfolio(portfolio, market, config);
-  
-  console.log("Total Value:", valuation.totalBaseCcy);
+
+  console.log('Total Value:', valuation.totalBaseCcy);
 
   // 6. Aggregate metrics
   const metrics = aggregateMetrics(valuation);
-  console.log("Total DV01:", metrics.getTotal("dv01"));
+  console.log('Total DV01:', metrics.getTotal('dv01'));
 
   // 7. Group by sector
-  const bySector = groupByAttribute(portfolio, "sector");
-  console.log("Tech positions:", bySector["Technology"]?.length || 0);
-  
+  const bySector = groupByAttribute(portfolio, 'sector');
+  console.log('Tech positions:', bySector['Technology']?.length || 0);
+
   // 8. Aggregate by sector
-  const valueBySector = aggregateByAttribute(valuation, portfolio, "sector");
-  console.log("Tech value:", valueBySector["Technology"]);
+  const valueBySector = aggregateByAttribute(valuation, portfolio, 'sector');
+  console.log('Tech value:', valueBySector['Technology']);
 
   return {
     portfolio,
@@ -387,14 +380,12 @@ function buildPortfolio(
   baseCcy: Currency,
   asOf: FsDate
 ): Portfolio {
-  let builder = new PortfolioBuilder(id)
-    .baseCcy(baseCcy)
-    .asOf(asOf);
-  
+  let builder = new PortfolioBuilder(id).baseCcy(baseCcy).asOf(asOf);
+
   for (const entity of entities) {
     builder = builder.entity(entity);
   }
-  
+
   return builder.build();
 }
 ```
@@ -406,12 +397,12 @@ All methods that can fail return `Result<T, JsValue>` which throws on error.
 ```javascript
 try {
   // Build portfolio
-  const portfolio = new PortfolioBuilder("FUND")
+  const portfolio = new PortfolioBuilder('FUND')
     .baseCcy(Currency.USD)
     // Missing as_of - will throw
     .build();
 } catch (error) {
-  console.error("Portfolio build failed:", error);
+  console.error('Portfolio build failed:', error);
   // Error: "Valuation date (as_of) must be set"
 }
 
@@ -419,7 +410,7 @@ try {
   // Invalid entity reference
   portfolio.validate();
 } catch (error) {
-  console.error("Validation failed:", error);
+  console.error('Validation failed:', error);
   // Error: "Position 'POS_1' references unknown entity 'UNKNOWN'"
 }
 ```
@@ -476,6 +467,7 @@ The portfolio bindings support feature-based compilation:
 - **scenarios**: Enables scenario integration (`applyScenario`, `applyAndRevalue`)
 
 Build without scenarios:
+
 ```bash
 wasm-pack build --no-default-features
 ```
@@ -485,6 +477,7 @@ wasm-pack build --no-default-features
 See `finstack-wasm/examples/src/components/PortfolioExample.tsx` for a complete React integration example.
 
 For Node.js usage, import from the Node.js package:
+
 ```javascript
 const { Portfolio, Entity } = require('finstack-wasm/pkg-node');
 ```
@@ -519,4 +512,3 @@ const { Portfolio, Entity } = require('finstack-wasm/pkg-node');
 - [Python Portfolio Bindings](../../finstack-py/finstack/portfolio.pyi)
 - [WASM Scenarios Integration](./SCENARIOS_BINDINGS.md)
 - [WASM Statements Quickstart](./STATEMENTS_QUICKSTART.md)
-

@@ -46,30 +46,37 @@ export const StructuredCreditExample: React.FC = () => {
 
   // Helper function to extract tranche information from JSON and calculate metrics
   // @ts-expect-error - Reserved for future use to display detailed tranche breakdowns
-  const extractTrancheInfo = (jsonStr: string, totalPV: number, maturityDate: string): TrancheInfo[] => {
+  const _extractTrancheInfo = (
+    jsonStr: string,
+    totalPV: number,
+    maturityDate: string
+  ): TrancheInfo[] => {
     try {
       const data = JSON.parse(jsonStr);
       const tranches = data.tranches?.tranches || [];
-      
+
       return tranches.map((t: any, index: number) => {
         const balance = t.original_balance?.amount || 0;
         const couponRate = t.coupon?.Fixed?.rate || t.coupon?.Floating?.spread || 0;
-        
+
         // Calculate WAL (Weighted Average Life) - simplified as years to maturity
         const maturity = new Date(maturityDate);
         const now = new Date(2024, 0, 2);
-        const wal = Math.max(0.5, (maturity.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        
+        const wal = Math.max(
+          0.5,
+          (maturity.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+        );
+
         // Estimate PV proportional to tranche size and seniority
         // Senior tranches get better pricing (closer to par)
-        const seniorityFactor = index === 0 ? 0.98 : index === tranches.length - 1 ? 0.70 : 0.85;
+        const seniorityFactor = index === 0 ? 0.98 : index === tranches.length - 1 ? 0.7 : 0.85;
         const estimatedPV = balance * seniorityFactor;
-        
+
         // Estimate yield (higher for junior tranches)
         const baseYield = couponRate * 100;
         const yieldSpread = index * 2; // 0bps for senior, increases for junior
         const estimatedYield = baseYield + yieldSpread;
-        
+
         return {
           id: t.id || `tranche-${index}`,
           name: t.id || `Tranche ${String.fromCharCode(65 + index)}`,
@@ -92,33 +99,36 @@ export const StructuredCreditExample: React.FC = () => {
 
   // Helper to calculate pool-level metrics
   // @ts-expect-error - Reserved for future use to display pool analytics
-  const calculatePoolMetrics = (jsonStr: string, maturityDate: string) => {
+  const _calculatePoolMetrics = (jsonStr: string, maturityDate: string) => {
     try {
       const data = JSON.parse(jsonStr);
       const assets = data.pool?.assets || [];
-      
+
       if (assets.length === 0) {
         return { wal: 0, wac: 0 };
       }
-      
+
       // Calculate weighted average life
       const maturity = new Date(maturityDate);
       const now = new Date(2024, 0, 2);
-      const wal = Math.max(0.5, (maturity.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-      
+      const wal = Math.max(
+        0.5,
+        (maturity.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      );
+
       // Calculate weighted average coupon
       let totalBalance = 0;
       let weightedCoupon = 0;
-      
+
       assets.forEach((asset: any) => {
         const balance = asset.balance?.amount || 0;
         const rate = asset.rate || 0;
         totalBalance += balance;
         weightedCoupon += balance * rate;
       });
-      
+
       const wac = totalBalance > 0 ? (weightedCoupon / totalBalance) * 100 : 0;
-      
+
       return { wal, wac };
     } catch (e) {
       return { wal: 0, wac: 0 };
@@ -136,7 +146,7 @@ export const StructuredCreditExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 1.0, 3.0, 5.0, 7.0, 10.0]),
-          new Float64Array([1.0, 0.9950, 0.9800, 0.9600, 0.9350, 0.9050]),
+          new Float64Array([1.0, 0.995, 0.98, 0.96, 0.935, 0.905]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -148,8 +158,8 @@ export const StructuredCreditExample: React.FC = () => {
           'POOL-HZD',
           asOf,
           new Float64Array([0.0, 3.0, 5.0, 7.0]),
-          new Float64Array([0.0080, 0.0120, 0.0150, 0.0180]),
-          0.40, // 40% recovery rate
+          new Float64Array([0.008, 0.012, 0.015, 0.018]),
+          0.4, // 40% recovery rate
           'act_365f',
           null,
           null,
@@ -237,7 +247,7 @@ export const StructuredCreditExample: React.FC = () => {
                 id: 'loan_004',
                 asset_type: { type: 'SecondLienLoan', industry: 'Retail' },
                 balance: { amount: 80_000_000.0, currency: 'USD' },
-                rate: 0.080,
+                rate: 0.08,
                 spread_bps: 475.0,
                 index_id: 'SOFR-3M',
                 maturity: '2028-09-15',
@@ -340,7 +350,7 @@ export const StructuredCreditExample: React.FC = () => {
                 coupon: { Fixed: { rate: 0.045 } },
                 seniority: 'Senior',
                 attachment_point: 0.0,
-                detachment_point: 0.70,
+                detachment_point: 0.7,
                 rating: 'AAA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -365,7 +375,7 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 60_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.065 } },
                 seniority: 'Mezzanine',
-                attachment_point: 0.70,
+                attachment_point: 0.7,
                 detachment_point: 0.85,
                 rating: 'AA',
                 credit_enhancement: {
@@ -515,7 +525,7 @@ export const StructuredCreditExample: React.FC = () => {
             assets: [
               {
                 id: 'auto_001',
-                asset_type: { type: 'NewAutoLoan', ltv: 0.80 },
+                asset_type: { type: 'NewAutoLoan', ltv: 0.8 },
                 balance: { amount: 50_000_000.0, currency: 'USD' },
                 rate: 0.055,
                 spread_bps: null,
@@ -622,12 +632,12 @@ export const StructuredCreditExample: React.FC = () => {
               num_industries: 0,
               cumulative_default_rate: 0.018,
               recovery_rate: 0.55,
-              prepayment_rate: 0.20,
+              prepayment_rate: 0.2,
             },
             original_balance: { amount: 250_000_000.0, currency: 'USD' },
             coupon_rate: 0.055,
             maturity: '2029-06-15',
-            prepayment_speed: 0.20,
+            prepayment_speed: 0.2,
             default_rate: 0.018,
             recovery_rate: 0.55,
             asset_type: 'auto_loans',
@@ -643,7 +653,7 @@ export const StructuredCreditExample: React.FC = () => {
                 coupon: { Fixed: { rate: 0.038 } },
                 seniority: 'Senior',
                 attachment_point: 0.0,
-                detachment_point: 0.60,
+                detachment_point: 0.6,
                 rating: 'AAA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -668,8 +678,8 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 50_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.045 } },
                 seniority: 'Senior',
-                attachment_point: 0.60,
-                detachment_point: 0.80,
+                attachment_point: 0.6,
+                detachment_point: 0.8,
                 rating: 'AA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -692,9 +702,9 @@ export const StructuredCreditExample: React.FC = () => {
                 name: 'Class B (Subordinate)',
                 original_balance: { amount: 30_000_000.0, currency: 'USD' },
                 current_balance: { amount: 30_000_000.0, currency: 'USD' },
-                coupon: { Fixed: { rate: 0.060 } },
+                coupon: { Fixed: { rate: 0.06 } },
                 seniority: 'Subordinated',
-                attachment_point: 0.80,
+                attachment_point: 0.8,
                 detachment_point: 0.92,
                 rating: 'A',
                 credit_enhancement: {
@@ -834,7 +844,7 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'mortgage_002',
-                asset_type: { type: 'SingleFamilyMortgage', ltv: 0.80 },
+                asset_type: { type: 'SingleFamilyMortgage', ltv: 0.8 },
                 balance: { amount: 125_000_000.0, currency: 'USD' },
                 rate: 0.068,
                 spread_bps: null,
@@ -924,7 +934,7 @@ export const StructuredCreditExample: React.FC = () => {
               num_obligors: 0,
               num_industries: 0,
               cumulative_default_rate: 0.008,
-              recovery_rate: 0.70,
+              recovery_rate: 0.7,
               prepayment_rate: 0.12,
             },
             original_balance: { amount: 500_000_000.0, currency: 'USD' },
@@ -932,7 +942,7 @@ export const StructuredCreditExample: React.FC = () => {
             maturity: '2054-01-15',
             prepayment_speed: 0.12,
             default_rate: 0.008,
-            recovery_rate: 0.70,
+            recovery_rate: 0.7,
             asset_type: 'residential_mortgages',
             pool_characteristics: {
               wam: 348,
@@ -952,7 +962,7 @@ export const StructuredCreditExample: React.FC = () => {
                 coupon: { Fixed: { rate: 0.042 } },
                 seniority: 'Senior',
                 attachment_point: 0.0,
-                detachment_point: 0.50,
+                detachment_point: 0.5,
                 rating: 'AAA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -977,8 +987,8 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 150_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.048 } },
                 seniority: 'Senior',
-                attachment_point: 0.50,
-                detachment_point: 0.80,
+                attachment_point: 0.5,
+                detachment_point: 0.8,
                 rating: 'AAA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -1003,8 +1013,8 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 50_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.065 } },
                 seniority: 'Mezzanine',
-                attachment_point: 0.80,
-                detachment_point: 0.90,
+                attachment_point: 0.8,
+                detachment_point: 0.9,
                 rating: 'AA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -1029,7 +1039,7 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 30_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.085 } },
                 seniority: 'Subordinated',
-                attachment_point: 0.90,
+                attachment_point: 0.9,
                 detachment_point: 0.96,
                 rating: 'A',
                 credit_enhancement: {
@@ -1174,7 +1184,7 @@ export const StructuredCreditExample: React.FC = () => {
                 id: 'commercial_002',
                 asset_type: { type: 'MultifamilyMortgage', ltv: 0.68 },
                 balance: { amount: 87_500_000.0, currency: 'USD' },
-                rate: 0.060,
+                rate: 0.06,
                 spread_bps: null,
                 index_id: null,
                 maturity: '2034-01-15',
@@ -1188,7 +1198,7 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'commercial_003',
-                asset_type: { type: 'OfficeMortgage', ltv: 0.60 },
+                asset_type: { type: 'OfficeMortgage', ltv: 0.6 },
                 balance: { amount: 105_000_000.0, currency: 'USD' },
                 rate: 0.056,
                 spread_bps: null,
@@ -1290,7 +1300,7 @@ export const StructuredCreditExample: React.FC = () => {
                 coupon: { Fixed: { rate: 0.046 } },
                 seniority: 'Senior',
                 attachment_point: 0.0,
-                detachment_point: 0.70,
+                detachment_point: 0.7,
                 rating: 'AAA',
                 credit_enhancement: {
                   subordination: { amount: 0.0, currency: 'USD' },
@@ -1315,7 +1325,7 @@ export const StructuredCreditExample: React.FC = () => {
                 current_balance: { amount: 52_500_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.062 } },
                 seniority: 'Mezzanine',
-                attachment_point: 0.70,
+                attachment_point: 0.7,
                 detachment_point: 0.85,
                 rating: 'AA',
                 credit_enhancement: {
@@ -1339,7 +1349,7 @@ export const StructuredCreditExample: React.FC = () => {
                 name: 'Class C (Junior)',
                 original_balance: { amount: 35_000_000.0, currency: 'USD' },
                 current_balance: { amount: 35_000_000.0, currency: 'USD' },
-                coupon: { Fixed: { rate: 0.080 } },
+                coupon: { Fixed: { rate: 0.08 } },
                 seniority: 'Subordinated',
                 attachment_point: 0.85,
                 detachment_point: 0.95,
@@ -1497,8 +1507,9 @@ export const StructuredCreditExample: React.FC = () => {
       <h2>Structured Credit Instruments</h2>
       <p>
         Complex structured credit securities including CLOs, ABS, RMBS, and CMBS. These instruments
-        represent pools of underlying loans (corporate, auto, residential mortgage, or commercial mortgage)
-        tranched into sequential or pro-rata payment structures with varying credit ratings and yields.
+        represent pools of underlying loans (corporate, auto, residential mortgage, or commercial
+        mortgage) tranched into sequential or pro-rata payment structures with varying credit
+        ratings and yields.
       </p>
 
       <table>
@@ -1534,53 +1545,104 @@ export const StructuredCreditExample: React.FC = () => {
         ))}
       </div>
 
-      <div style={{ marginTop: '3rem', padding: '1.5rem', backgroundColor: 'rgba(100, 108, 255, 0.05)', borderRadius: '8px' }}>
+      <div
+        style={{
+          marginTop: '3rem',
+          padding: '1.5rem',
+          backgroundColor: 'rgba(100, 108, 255, 0.05)',
+          borderRadius: '8px',
+        }}
+      >
         <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Key Concepts</h3>
         <div style={{ display: 'grid', gap: '1.5rem' }}>
           <div>
-            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>Tranching & Credit Enhancement</h4>
+            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>
+              Tranching & Credit Enhancement
+            </h4>
             <p style={{ color: '#bbb', lineHeight: '1.6', margin: 0 }}>
-              Structured credit uses <strong>tranching</strong> to redistribute cash flows and credit risk.
-              Senior tranches receive priority payment and have lower yields, while junior tranches absorb
-              first losses and offer higher returns. The subordination of junior tranches provides credit
-              enhancement to senior tranches.
+              Structured credit uses <strong>tranching</strong> to redistribute cash flows and
+              credit risk. Senior tranches receive priority payment and have lower yields, while
+              junior tranches absorb first losses and offer higher returns. The subordination of
+              junior tranches provides credit enhancement to senior tranches.
             </p>
           </div>
 
           <div>
-            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>Prepayment & Default Risk</h4>
+            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>
+              Prepayment & Default Risk
+            </h4>
             <p style={{ color: '#bbb', lineHeight: '1.6', margin: 0 }}>
-              <strong>CPR (Constant Prepayment Rate)</strong> measures voluntary prepayments, which reduce
-              interest income. <strong>Default rates</strong> represent credit losses that erode junior tranches.
-              Higher recoveries reduce losses on defaulted assets. Models incorporate both to project cash flows.
+              <strong>CPR (Constant Prepayment Rate)</strong> measures voluntary prepayments, which
+              reduce interest income. <strong>Default rates</strong> represent credit losses that
+              erode junior tranches. Higher recoveries reduce losses on defaulted assets. Models
+              incorporate both to project cash flows.
             </p>
           </div>
 
           <div>
-            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>Waterfall Structures</h4>
+            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>
+              Waterfall Structures
+            </h4>
             <p style={{ color: '#bbb', lineHeight: '1.6', margin: 0 }}>
-              <strong>Sequential</strong> structures pay senior tranches completely before subordinate tranches,
-              providing maximum protection but longer maturities for juniors. <strong>Pro-rata</strong> structures
-              distribute principal proportionally, reducing duration differences but lowering credit enhancement.
+              <strong>Sequential</strong> structures pay senior tranches completely before
+              subordinate tranches, providing maximum protection but longer maturities for juniors.{' '}
+              <strong>Pro-rata</strong> structures distribute principal proportionally, reducing
+              duration differences but lowering credit enhancement.
             </p>
           </div>
 
           <div>
-            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>Collateral Types</h4>
-            <ul style={{ color: '#bbb', lineHeight: '1.8', paddingLeft: '1.5rem', margin: '0.5rem 0 0 0' }}>
-              <li><strong>CLO:</strong> Senior secured leveraged loans to corporations (floating rate, SOFR-based)</li>
-              <li><strong>ABS:</strong> Auto loans, credit cards, student loans, equipment leases</li>
-              <li><strong>RMBS:</strong> Residential mortgages (prime, Alt-A, subprime) - long duration, prepayment-sensitive</li>
-              <li><strong>CMBS:</strong> Commercial real estate mortgages (office, retail, multifamily, industrial)</li>
+            <h4 style={{ fontSize: '1rem', color: '#a8afff', marginBottom: '0.5rem' }}>
+              Collateral Types
+            </h4>
+            <ul
+              style={{
+                color: '#bbb',
+                lineHeight: '1.8',
+                paddingLeft: '1.5rem',
+                margin: '0.5rem 0 0 0',
+              }}
+            >
+              <li>
+                <strong>CLO:</strong> Senior secured leveraged loans to corporations (floating rate,
+                SOFR-based)
+              </li>
+              <li>
+                <strong>ABS:</strong> Auto loans, credit cards, student loans, equipment leases
+              </li>
+              <li>
+                <strong>RMBS:</strong> Residential mortgages (prime, Alt-A, subprime) - long
+                duration, prepayment-sensitive
+              </li>
+              <li>
+                <strong>CMBS:</strong> Commercial real estate mortgages (office, retail,
+                multifamily, industrial)
+              </li>
             </ul>
           </div>
 
-          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', borderLeft: '3px solid #646cff' }}>
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '6px',
+              borderLeft: '3px solid #646cff',
+            }}
+          >
             <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>JSON-Based Modeling</h4>
             <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
               All structured credit instruments are defined via JSON for maximum flexibility:
             </p>
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: '#bbb', fontSize: '0.9rem', lineHeight: '1.8' }}>
+            <ul
+              style={{
+                marginTop: '0.5rem',
+                paddingLeft: '1.5rem',
+                color: '#bbb',
+                fontSize: '0.9rem',
+                lineHeight: '1.8',
+              }}
+            >
               <li>Define collateral pools with prepayment/default assumptions</li>
               <li>Specify tranches with attachment/detachment points (waterfall)</li>
               <li>Configure fees (servicing, management, trustee)</li>

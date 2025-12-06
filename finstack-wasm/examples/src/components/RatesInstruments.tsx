@@ -46,7 +46,7 @@ export const RatesInstrumentsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 2.0, 5.0]),
-          new Float64Array([1.0, 0.9950, 0.9900, 0.9750, 0.9400]),
+          new Float64Array([1.0, 0.995, 0.99, 0.975, 0.94]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -58,7 +58,7 @@ export const RatesInstrumentsExample: React.FC = () => {
           asOf,
           0.25,
           new Float64Array([0.0, 1.0, 2.0, 5.0]),
-          new Float64Array([0.0300, 0.0320, 0.0340, 0.0360]),
+          new Float64Array([0.03, 0.032, 0.034, 0.036]),
           'act_360',
           2,
           'linear'
@@ -69,14 +69,17 @@ export const RatesInstrumentsExample: React.FC = () => {
           'SWAPTION-VOL',
           new Float64Array([1.0, 2.0, 5.0]),
           new Float64Array([0.02, 0.03, 0.04]),
-          new Float64Array([0.30, 0.29, 0.28, 0.28, 0.27, 0.26, 0.26, 0.25, 0.24])
+          new Float64Array([0.3, 0.29, 0.28, 0.28, 0.27, 0.26, 0.26, 0.25, 0.24])
         );
 
         const capVol = new VolSurface(
           'IR-CAP-VOL',
           new Float64Array([0.5, 1.0, 2.0, 5.0]),
           new Float64Array([0.01, 0.02, 0.03, 0.04]),
-          new Float64Array([0.38, 0.36, 0.34, 0.32, 0.35, 0.33, 0.31, 0.30, 0.32, 0.31, 0.29, 0.28, 0.28, 0.27, 0.26, 0.25])
+          new Float64Array([
+            0.38, 0.36, 0.34, 0.32, 0.35, 0.33, 0.31, 0.3, 0.32, 0.31, 0.29, 0.28, 0.28, 0.27, 0.26,
+            0.25,
+          ])
         );
 
         const market = new MarketContext();
@@ -121,7 +124,7 @@ export const RatesInstrumentsExample: React.FC = () => {
         const fra = new ForwardRateAgreement(
           'fra_3x6',
           notional,
-          0.0360,
+          0.036,
           new FsDate(2024, 4, 2),
           new FsDate(2024, 4, 4),
           new FsDate(2024, 7, 4),
@@ -244,9 +247,9 @@ export const RatesInstrumentsExample: React.FC = () => {
     <section className="example-section">
       <h2>Interest Rate Instruments</h2>
       <p>
-        Comprehensive suite of interest rate derivatives including swaps, FRAs, swaptions,
-        basis swaps, caps/floors, and futures. All instruments are priced using the standard
-        registry with market curves.
+        Comprehensive suite of interest rate derivatives including swaps, FRAs, swaptions, basis
+        swaps, caps/floors, and futures. All instruments are priced using the standard registry with
+        market curves.
       </p>
 
       <table>
@@ -266,11 +269,7 @@ export const RatesInstrumentsExample: React.FC = () => {
               <td>{type}</td>
               <td>{currencyFormatter.format(notional)}</td>
               <td>{currencyFormatter.format(presentValue)}</td>
-              <td>
-                {keyMetric
-                  ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}`
-                  : '—'}
-              </td>
+              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}` : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -278,4 +277,3 @@ export const RatesInstrumentsExample: React.FC = () => {
     </section>
   );
 };
-

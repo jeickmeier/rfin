@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+pkg/
+pkg-node/
+
+# Build outputs
+dist/
+build/
+target/
+
+# Generated files
+*.d.ts
+*.wasm
+*.wasm.d.ts
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+

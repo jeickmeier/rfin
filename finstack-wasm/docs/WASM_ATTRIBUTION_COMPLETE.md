@@ -10,7 +10,7 @@ Successfully implemented comprehensive WASM bindings for P&L attribution with fu
 
 1. ✅ **WasmAttributionMethod** - Complete
    - `parallel()` constructor - Independent factor isolation
-   - `waterfall(factors)` static method - Sequential application  
+   - `waterfall(factors)` static method - Sequential application
    - `metricsBased()` static method - Fast approximation
    - Full TypeScript support
 
@@ -47,19 +47,19 @@ Successfully implemented comprehensive WASM bindings for P&L attribution with fu
 
 ## Feature Parity Matrix
 
-| Feature | Rust | Python | WASM | Status |
-|---------|------|--------|------|--------|
-| Attribution data types | ✅ | ✅ | ✅ | **100%** |
-| AttributionMethod (3 types) | ✅ | ✅ | ✅ | **100%** |
-| PnlAttribution (all fields) | ✅ | ✅ | ✅ | **100%** |
-| PortfolioAttribution | ✅ | ✅ | ✅ | **100%** |
-| AttributionMeta | ✅ | ✅ | ✅ | **100%** |
-| Detail structures | ✅ | ✅ | ✅ | **100%** |
-| CSV export | ✅ | ✅ | ✅ | **100%** |
-| JSON export | ✅ | ✅ | ✅ | **100%** |
-| Explain tree | ✅ | ✅ | ✅ | **100%** |
-| Tolerance validation | ✅ | ✅ | ✅ | **100%** |
-| Generic attribution function | ✅ | ✅ | ⚠️ | **Partial*** |
+| Feature                      | Rust | Python | WASM | Status        |
+| ---------------------------- | ---- | ------ | ---- | ------------- |
+| Attribution data types       | ✅   | ✅     | ✅   | **100%**      |
+| AttributionMethod (3 types)  | ✅   | ✅     | ✅   | **100%**      |
+| PnlAttribution (all fields)  | ✅   | ✅     | ✅   | **100%**      |
+| PortfolioAttribution         | ✅   | ✅     | ✅   | **100%**      |
+| AttributionMeta              | ✅   | ✅     | ✅   | **100%**      |
+| Detail structures            | ✅   | ✅     | ✅   | **100%**      |
+| CSV export                   | ✅   | ✅     | ✅   | **100%**      |
+| JSON export                  | ✅   | ✅     | ✅   | **100%**      |
+| Explain tree                 | ✅   | ✅     | ✅   | **100%**      |
+| Tolerance validation         | ✅   | ✅     | ✅   | **100%**      |
+| Generic attribution function | ✅   | ✅     | ⚠️   | **Partial\*** |
 
 \* Note: WASM doesn't support generic instrument types like Python/Rust. Attribution types are complete; functions would be instrument-specific.
 
@@ -68,15 +68,19 @@ Successfully implemented comprehensive WASM bindings for P&L attribution with fu
 ### Files Created
 
 **WASM Bindings (1 file, 419 lines):**
+
 - `finstack-wasm/src/valuations/attribution.rs` - Complete implementation
 
 **TypeScript Definitions (1 file, 255 lines):**
+
 - `finstack-wasm/attribution.d.ts` - Complete type definitions
 
 **Examples (1 file, 188 lines):**
+
 - `finstack-wasm/examples/attribution-example.ts` - Usage demonstrations
 
 **Modified Files:**
+
 - `finstack-wasm/src/valuations/mod.rs` - Added attribution module
 
 **Total**: 3 new files, 1 modified file, ~862 lines
@@ -87,8 +91,8 @@ Successfully implemented comprehensive WASM bindings for P&L attribution with fu
 
 ```typescript
 // Attribution method selector
-const method = new AttributionMethod();  // Parallel
-const waterfall = AttributionMethod.waterfall(["carry", "rates_curves", "fx"]);
+const method = new AttributionMethod(); // Parallel
+const waterfall = AttributionMethod.waterfall(['carry', 'rates_curves', 'fx']);
 const metricsBased = AttributionMethod.metricsBased();
 
 // Attribution results (from hypothetical attribution function)
@@ -105,12 +109,12 @@ interface PnlAttribution {
   modelParamsPnl: number;
   marketScalarsPnl: number;
   residual: number;
-  
+
   // Metadata and details
   meta: AttributionMeta;
   ratesDetail?: RatesCurvesAttribution;
   modelParamsDetail?: ModelParamsAttribution;
-  
+
   // Methods
   toCsv(): string;
   toJson(): string;
@@ -125,7 +129,7 @@ interface PortfolioAttribution {
   totalPnl: number;
   carry: number;
   // ... all factors
-  
+
   // Methods
   byPositionToJson(): string;
   toCsv(): string;
@@ -204,6 +208,7 @@ Unlike Python (which uses runtime type extraction) and Rust (which uses trait ob
 **For Production WASM Usage:**
 
 1. **Server-Side Attribution** (Python/Rust):
+
    ```python
    # Server computes attribution
    attr = finstack.attribute_pnl(bond, market_t0, market_t1, ...)
@@ -211,6 +216,7 @@ Unlike Python (which uses runtime type extraction) and Rust (which uses trait ob
    ```
 
 2. **Client-Side Visualization** (WASM):
+
    ```typescript
    // Client receives and displays
    const attr: PnlAttribution = JSON.parse(result_json);
@@ -226,6 +232,7 @@ Unlike Python (which uses runtime type extraction) and Rust (which uses trait ob
 ## Files Delivered
 
 ### WASM Implementation
+
 ```
 finstack-wasm/
 ├── src/valuations/attribution.rs (419 lines)
@@ -242,6 +249,7 @@ finstack-wasm/
 ```
 
 ### Integration
+
 - ✅ Registered in `finstack-wasm/src/valuations/mod.rs`
 - ✅ Ready for `wasm-pack build`
 
@@ -276,33 +284,36 @@ const method = finstack.AttributionMethod.parallel();
 
 ## Comparison: Python vs WASM
 
-| Aspect | Python | WASM |
-|--------|--------|------|
-| **Function Calls** | `attribute_pnl(instrument, ...)` | Types only* |
-| **Type Safety** | Runtime + .pyi stubs | Compile-time TypeScript |
-| **Performance** | Native speed | Near-native (WASM) |
-| **Environment** | Server/desktop | Browser/Node.js |
-| **Use Case** | Production workflows | Client visualization |
-| **Generic Instruments** | ✅ Full support | ⚠️ Type-specific |
-| **Data Structures** | ✅ Complete | ✅ Complete |
+| Aspect                  | Python                           | WASM                    |
+| ----------------------- | -------------------------------- | ----------------------- |
+| **Function Calls**      | `attribute_pnl(instrument, ...)` | Types only\*            |
+| **Type Safety**         | Runtime + .pyi stubs             | Compile-time TypeScript |
+| **Performance**         | Native speed                     | Near-native (WASM)      |
+| **Environment**         | Server/desktop                   | Browser/Node.js         |
+| **Use Case**            | Production workflows             | Client visualization    |
+| **Generic Instruments** | ✅ Full support                  | ⚠️ Type-specific        |
+| **Data Structures**     | ✅ Complete                      | ✅ Complete             |
 
 \* WASM types are complete; generic attribution function requires instrument-specific implementations
 
 ## Summary Statistics
 
 **WASM Implementation:**
+
 - Classes: 6
 - Properties/Getters: 50+
 - Methods: 15+
 - Lines of Code: ~860
 
 **Type Parity:**
+
 - Data structures: 100%
 - Methodologies: 100%
 - Export functions: 100%
 - Analysis methods: 100%
 
 **TypeScript Support:**
+
 - Type definitions: Complete
 - JSDoc comments: Complete
 - IDE autocomplete: Full
@@ -337,7 +348,8 @@ The WASM attribution bindings provide **complete type coverage** with:
 
 **Status**: ✅ Complete for WASM use cases
 
-**Recommendation**: 
+**Recommendation**:
+
 - Use for **client-side display** of attribution results
 - Use Python/Rust for **server-side computation** of attribution
 - Combine both for **full-stack attribution workflows**
@@ -349,4 +361,3 @@ The WASM attribution bindings provide **complete type coverage** with:
 **Type Parity**: 100% (data structures)  
 **TypeScript Support**: Complete  
 **Production Ready**: Yes (for display/analysis)
-

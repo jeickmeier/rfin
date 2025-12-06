@@ -1,46 +1,54 @@
 .PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
 
 help:
-	@echo "Available targets:"
-	@echo "  setup-python  - Set up Python development environment with uv"
-	@echo "  build         - Build all crates"
-	@echo "  build-prod    - Build all crates optimized without debug info"
+	@echo "Builds:"
+	@echo "  build         				- Build all crates"
+	@echo "  build-prod    				- Build all crates optimized without debug info"
+	@echo "  python-dev    				- Build Python bindings in development mode"
+	@echo "  wasm-build    				- Build WASM package"
+	@echo "  examples       				- Run all Rust examples"
+	@echo ""
+	@echo "Formatting:"
+	@echo "  fmt-rust       				- Format Rust code"
+	@echo "  fmt-python     				- Format Python code"
+	@echo "  fmt-wasm       				- Format WASM code"
+	@echo ""
+	@echo "Linting:"
+	@echo "  lint-rust      				- Run Rust linters"
+	@echo "  lint-python    				- Run Python linters"
+	@echo "  lint-wasm      				- Run WASM linters"
+	@echo ""
+	@echo "Linting fixes:"
+	@echo "  lint-rust-fix      				- Run Rust linters fixes"
+	@echo "  lint-python-fix   				- Run Python linters fixes"
+	@echo "  lint-wasm-fix      				- Run WASM linters fixes"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test-rust      - Run Rust tests (cargo-nextest)"
-	@echo "  test-rust-slow - Run all Rust tests incl. slow (cargo-nextest)"
-	@echo "  test-rust-doc  - Run Rust documentation tests only"
-	@echo "  test-python    - Run Python tests in finstack-py"
+	@echo "  test-rust      				- Run Rust tests (cargo-nextest)"
+	@echo "  test-rust-slow 				- Run all Rust tests incl. slow (cargo-nextest)"
+	@echo "  test-rust-doc  				- Run Rust documentation tests only"
+	@echo "  test-python     				- Run Python tests in finstack-py"
+	@echo "  test-wasm       				- Run WASM tests in finstack-wasm"
 	@echo ""
 	@echo "Benchmarking & Profiling:"
-	@echo "  bench-perf         - Run all benchmarks with optimized profile"
-	@echo "  bench-baseline     - Save benchmark baseline for comparison"
-	@echo "  bench-compare      - Compare benchmarks against baseline"
-	@echo "  bench-flamegraph   - Generate CPU flamegraph for MC pricing"
+	@echo "  bench-perf         				- Run all benchmarks with optimized profile"
+	@echo "  bench-baseline     				- Save benchmark baseline for comparison"
+	@echo "  bench-compare      				- Compare benchmarks against baseline"
+	@echo "  bench-flamegraph   				- Generate CPU flamegraph for MC pricing"
 	@echo ""
 	@echo "Documentation:"
-	@echo "  doc            - Generate rustdoc documentation (workspace crates only, no deps)"
-	@echo "  book-build     - Build mdBook documentation"
-	@echo "  book-serve     - Build and serve mdBook with live reload"
-	@echo "  book-watch     - Watch and rebuild mdBook on changes"
-	@echo "  book-clean     - Clean mdBook build artifacts"
+	@echo "  doc            				- Generate rustdoc documentation (workspace crates only, no deps)"
+	@echo "  book-build     				- Build mdBook documentation"
+	@echo "  book-serve     				- Build and serve mdBook with live reload"
+	@echo "  book-watch     				- Watch and rebuild mdBook on changes"
+	@echo "  book-clean     				- Clean mdBook build artifacts"
 	@echo ""
 	@echo "Other:"
-	@echo "  fmt            - Format all code"
-	@echo "  lint           - Run linters"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  install-nextest  - Install cargo-nextest (test runner)"
-	@echo "  install-mdbook   - Install mdBook (documentation builder)"
-	@echo "  python-dev    - Build Python bindings in development mode"
-	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
-	@echo "  wasm-build    - Build WASM package"
-	@echo "  wasm-examples-dev - Build WASM, then start examples dev server"
-	@echo "  examples      - Run all Rust examples"
-	@echo "  coverage      - Run code coverage and print summary"
-	@echo "  coverage-html - Generate HTML coverage report"
-	@echo "  coverage-open - Generate HTML coverage report and open in browser"
-	@echo "  coverage-lcov - Generate LCOV coverage report for CI"
-	@echo "  ci_test       - Run all CI checks locally (mirrors GitHub Actions)"
+	@echo "  clean          				- Clean build artifacts"
+	@echo "  setup-python  				- Set up Python development environment with uv"
+	@echo "  install-nextest  				- Install cargo-nextest (test runner)"
+	@echo "  install-mdbook  				- Install mdBook (documentation builder)"
+	@echo "  ci_test       				- Run all CI checks locally (mirrors GitHub Actions)"
 
 setup-python:
 	@echo "Setting up Python development environment..."
@@ -68,47 +76,27 @@ test-python:
 	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python tests (https://github.com/astral-sh/uv)."; exit 1; }
 	cd finstack-py && uv run pytest tests -v
 
-doc:
-	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
+test-wasm:
+	cd finstack-wasm && npm run test
 
-install-nextest:
-	@if command -v cargo-nextest >/dev/null 2>&1; then \
-		echo "cargo-nextest already installed"; \
-	else \
-		echo "Installing cargo-nextest..."; \
-		cargo install cargo-nextest --locked; \
-	fi
-
-install-mdbook:
-	@if command -v mdbook >/dev/null 2>&1; then \
-		echo "mdbook already installed"; \
-	else \
-		echo "Installing mdbook..."; \
-		cargo install mdbook; \
-	fi
-
-book-build: install-mdbook
-	@echo "Building mdBook documentation..."
-	cd book && mdbook build
-
-book-serve: install-mdbook
-	@echo "Building and serving mdBook with live reload..."
-	@echo "Documentation will be available at http://localhost:3000"
-	cd book && mdbook serve --open
-
-book-watch: install-mdbook
-	@echo "Watching for changes and rebuilding mdBook..."
-	cd book && mdbook watch
-
-book-clean:
-	@echo "Cleaning mdBook build artifacts..."
-	rm -rf book/book
-
-fmt:
+fmt-rust:
 	cargo fmt --all
 
+fmt-python:
+	cd finstack-py && uv run ruff format .
+
+fmt-wasm:
+	cd finstack-wasm && npm run format .
+
 lint:
+	make lint-rust
+	make lint-python
+	make lint-wasm
+
+lint-rust:
 	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+lint-python:
 	@if command -v uv >/dev/null 2>&1; then \
 		if [ -f .venv/bin/activate ]; then \
 			. .venv/bin/activate && ruff check .; \
@@ -116,6 +104,21 @@ lint:
 			uv run ruff check .; \
 		fi \
 	fi
+
+lint-python-fix:
+	@if command -v uv >/dev/null 2>&1; then \
+		if [ -f .venv/bin/activate ]; then \
+			. .venv/bin/activate && ruff check . --fix; \
+		else \
+			uv run ruff check . --fix; \
+		fi \
+	fi
+
+lint-wasm:
+	cd finstack-wasm && npm run lint
+
+lint-wasm-fix:
+	cd finstack-wasm && npm run lint:fix
 
 clean:
 	cargo clean
@@ -213,3 +216,39 @@ bench-flamegraph:
 bench-compare:
 	@echo "Comparing benchmarks against baseline..."
 	cargo bench -- --baseline main
+
+doc:
+	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
+
+install-nextest:
+	@if command -v cargo-nextest >/dev/null 2>&1; then \
+		echo "cargo-nextest already installed"; \
+	else \
+		echo "Installing cargo-nextest..."; \
+		cargo install cargo-nextest --locked; \
+	fi
+
+install-mdbook:
+	@if command -v mdbook >/dev/null 2>&1; then \
+		echo "mdbook already installed"; \
+	else \
+		echo "Installing mdbook..."; \
+		cargo install mdbook; \
+	fi
+
+book-build: install-mdbook
+	@echo "Building mdBook documentation..."
+	cd book && mdbook build
+
+book-serve: install-mdbook
+	@echo "Building and serving mdBook with live reload..."
+	@echo "Documentation will be available at http://localhost:3000"
+	cd book && mdbook serve --open
+
+book-watch: install-mdbook
+	@echo "Watching for changes and rebuilding mdBook..."
+	cd book && mdbook watch
+
+book-clean:
+	@echo "Cleaning mdBook build artifacts..."
+	rm -rf book/book

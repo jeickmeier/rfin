@@ -118,20 +118,16 @@ export const CashflowBuilderExample: React.FC = () => {
           const schedule = ScheduleParams.quarterlyAct360();
           const floatParams = new FloatCouponParams(
             'USD-SOFR-3M', // index
-            150.0,         // margin in bps
-            1.0,           // gearing
-            2              // reset lag days
+            150.0, // margin in bps
+            1.0, // gearing
+            2 // reset lag days
           );
-          const floatSpec = new FloatingCouponSpec(
-            floatParams,
-            schedule,
-            CouponType.Cash()
-          );
+          const floatSpec = new FloatingCouponSpec(floatParams, schedule, CouponType.Cash());
 
           const cfSchedule = new CashflowBuilder()
             .principal(notional, issue, maturity)
             .floatingCf(floatSpec)
-            .build();  // No market curves - uses margin only
+            .build(); // No market curves - uses margin only
 
           const flows = cfSchedule.flows();
           const flowData = [];
@@ -147,7 +143,8 @@ export const CashflowBuilderExample: React.FC = () => {
 
           examples.push({
             title: 'Floating Rate Note - Margin Only (No Curves)',
-            description: 'Uses only margin (150 bps): coupon = outstanding × 0.0150 × year_fraction',
+            description:
+              'Uses only margin (150 bps): coupon = outstanding × 0.0150 × year_fraction',
             flowCount: flows.length,
             notional: cfSchedule.notional.amount,
             dayCount: cfSchedule.dayCount.name,
@@ -165,7 +162,7 @@ export const CashflowBuilderExample: React.FC = () => {
             'USD-OIS',
             baseDate,
             new Float64Array([0.0, 1.0, 2.0, 3.0]),
-            new Float64Array([1.0, 0.9950, 0.9880, 0.9800]),
+            new Float64Array([1.0, 0.995, 0.988, 0.98]),
             'act_365f',
             'monotone_convex',
             'flat_forward',
@@ -177,9 +174,9 @@ export const CashflowBuilderExample: React.FC = () => {
           const forwardCurve = new ForwardCurve(
             'USD-SOFR-3M',
             baseDate,
-            0.25,  // 3-month tenor
+            0.25, // 3-month tenor
             new Float64Array([0.0, 0.5, 1.0, 2.0]),
-            new Float64Array([0.0300, 0.0325, 0.0350, 0.0400]),
+            new Float64Array([0.03, 0.0325, 0.035, 0.04]),
             'act_360',
             2,
             'linear'
@@ -187,22 +184,13 @@ export const CashflowBuilderExample: React.FC = () => {
           market.insertForward(forwardCurve);
 
           const schedule = ScheduleParams.quarterlyAct360();
-          const floatParams = new FloatCouponParams(
-            'USD-SOFR-3M',
-            150.0,
-            1.0,
-            2
-          );
-          const floatSpec = new FloatingCouponSpec(
-            floatParams,
-            schedule,
-            CouponType.Cash()
-          );
+          const floatParams = new FloatCouponParams('USD-SOFR-3M', 150.0, 1.0, 2);
+          const floatSpec = new FloatingCouponSpec(floatParams, schedule, CouponType.Cash());
 
           const cfSchedule = new CashflowBuilder()
             .principal(notional, issue, maturity)
             .floatingCf(floatSpec)
-            .buildWithCurves(market);  // WITH market curves - uses forward rates
+            .buildWithCurves(market); // WITH market curves - uses forward rates
 
           const flows = cfSchedule.flows();
           const flowData = [];
@@ -218,7 +206,8 @@ export const CashflowBuilderExample: React.FC = () => {
 
           examples.push({
             title: 'Floating Rate Note - With Forward Rates (Market Curves)',
-            description: 'Uses forward_rate × gearing + margin: coupon = outstanding × (fwd_rate + 0.0150) × yf',
+            description:
+              'Uses forward_rate × gearing + margin: coupon = outstanding × (fwd_rate + 0.0150) × yf',
             flowCount: flows.length,
             notional: cfSchedule.notional.amount,
             dayCount: cfSchedule.dayCount.name,
@@ -270,9 +259,9 @@ export const CashflowBuilderExample: React.FC = () => {
         {
           const schedule = ScheduleParams.semiannual30360();
           const stepProgram = [
-            ['2027-01-15', 0.04],  // 4% until 2027
-            ['2029-01-15', 0.05],  // 5% until 2029
-            ['2030-01-15', 0.06],  // 6% until maturity
+            ['2027-01-15', 0.04], // 4% until 2027
+            ['2029-01-15', 0.05], // 5% until 2029
+            ['2030-01-15', 0.06], // 6% until maturity
           ];
 
           const cfSchedule = new CashflowBuilder()
@@ -312,9 +301,9 @@ export const CashflowBuilderExample: React.FC = () => {
           );
 
           const splitProgram = [
-            ['2027-01-15', 'cash'],           // 100% cash until 2027
-            ['2028-01-15', 'split:0.5:0.5'],  // 50/50 split from 2027-2028
-            ['2030-01-15', 'pik'],            // 100% PIK thereafter
+            ['2027-01-15', 'cash'], // 100% cash until 2027
+            ['2028-01-15', 'split:0.5:0.5'], // 50/50 split from 2027-2028
+            ['2030-01-15', 'pik'], // 100% PIK thereafter
           ];
 
           const cfSchedule = new CashflowBuilder()
@@ -337,7 +326,8 @@ export const CashflowBuilderExample: React.FC = () => {
 
           examples.push({
             title: 'Payment Split Program (Cash → PIK Transition)',
-            description: 'Quarterly coupons transitioning from 100% cash to 50/50 split to 100% PIK',
+            description:
+              'Quarterly coupons transitioning from 100% cash to 50/50 split to 100% PIK',
             flowCount: flows.length,
             notional: cfSchedule.notional.amount,
             dayCount: cfSchedule.dayCount.name,
@@ -378,10 +368,10 @@ export const CashflowBuilderExample: React.FC = () => {
     <section className="example-section">
       <h2>Cashflow Builder</h2>
       <p>
-        The <code>CashflowBuilder</code> provides a composable interface for creating complex
-        coupon structures with fixed/floating rates, Cash/PIK/split payment types, amortization,
-        step-up programs, and payment split transitions. This mirrors the Python bindings for
-        full feature parity.
+        The <code>CashflowBuilder</code> provides a composable interface for creating complex coupon
+        structures with fixed/floating rates, Cash/PIK/split payment types, amortization, step-up
+        programs, and payment split transitions. This mirrors the Python bindings for full feature
+        parity.
       </p>
 
       {schedules.map((example, idx) => (
@@ -424,7 +414,10 @@ export const CashflowBuilderExample: React.FC = () => {
               ))}
               {example.flowCount > example.flows.length && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', color: '#888', fontStyle: 'italic' }}>
+                  <td
+                    colSpan={4}
+                    style={{ textAlign: 'center', color: '#888', fontStyle: 'italic' }}
+                  >
                     … and {example.flowCount - example.flows.length} more flows
                   </td>
                 </tr>
@@ -434,25 +427,63 @@ export const CashflowBuilderExample: React.FC = () => {
         </div>
       ))}
 
-      <div style={{ marginTop: '3rem', padding: '1.5rem', backgroundColor: 'rgba(100, 108, 255, 0.05)', borderRadius: '8px' }}>
+      <div
+        style={{
+          marginTop: '3rem',
+          padding: '1.5rem',
+          backgroundColor: 'rgba(100, 108, 255, 0.05)',
+          borderRadius: '8px',
+        }}
+      >
         <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Key Features</h3>
         <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.8' }}>
-          <li><strong>Fixed and Floating Coupons:</strong> Support for both fixed rates and floating indices (e.g., SOFR + margin)</li>
-          <li><strong>Forward Rate Incorporation:</strong> Use <code>buildWithCurves(market)</code> to include forward rates in floating cashflows, or <code>build()</code> for margin-only calculation</li>
-          <li><strong>Payment Types:</strong> Cash, PIK (payment-in-kind), or split percentages between cash and PIK</li>
-          <li><strong>Amortization:</strong> Linear amortization, step schedules, or custom principal repayment</li>
-          <li><strong>Step-Up Programs:</strong> Coupon rates that change over time based on date boundaries</li>
-          <li><strong>Payment Split Programs:</strong> Transition between cash and PIK payment types (e.g., cash → 50/50 → PIK)</li>
-          <li><strong>Builder Pattern:</strong> Fluent chainable API matching Python bindings</li>
+          <li>
+            <strong>Fixed and Floating Coupons:</strong> Support for both fixed rates and floating
+            indices (e.g., SOFR + margin)
+          </li>
+          <li>
+            <strong>Forward Rate Incorporation:</strong> Use <code>buildWithCurves(market)</code> to
+            include forward rates in floating cashflows, or <code>build()</code> for margin-only
+            calculation
+          </li>
+          <li>
+            <strong>Payment Types:</strong> Cash, PIK (payment-in-kind), or split percentages
+            between cash and PIK
+          </li>
+          <li>
+            <strong>Amortization:</strong> Linear amortization, step schedules, or custom principal
+            repayment
+          </li>
+          <li>
+            <strong>Step-Up Programs:</strong> Coupon rates that change over time based on date
+            boundaries
+          </li>
+          <li>
+            <strong>Payment Split Programs:</strong> Transition between cash and PIK payment types
+            (e.g., cash → 50/50 → PIK)
+          </li>
+          <li>
+            <strong>Builder Pattern:</strong> Fluent chainable API matching Python bindings
+          </li>
         </ul>
 
-        <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', borderLeft: '3px solid #646cff' }}>
+        <div
+          style={{
+            marginTop: '1.5rem',
+            padding: '1rem',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '6px',
+            borderLeft: '3px solid #646cff',
+          }}
+        >
           <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Floating Rate Calculation</h4>
           <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
-            <strong>build():</strong> coupon = outstanding × (margin_bp × 0.0001 × gearing) × year_fraction
+            <strong>build():</strong> coupon = outstanding × (margin_bp × 0.0001 × gearing) ×
+            year_fraction
           </p>
           <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
-            <strong>buildWithCurves():</strong> coupon = outstanding × (forward_rate × gearing + margin_bp × 0.0001) × year_fraction
+            <strong>buildWithCurves():</strong> coupon = outstanding × (forward_rate × gearing +
+            margin_bp × 0.0001) × year_fraction
           </p>
           <p style={{ margin: '0.5rem 0', color: '#bbb', fontSize: '0.9rem', fontStyle: 'italic' }}>
             Example 3 shows margin-only vs. Example 3b shows forward rate + margin
@@ -462,4 +493,3 @@ export const CashflowBuilderExample: React.FC = () => {
     </section>
   );
 };
-

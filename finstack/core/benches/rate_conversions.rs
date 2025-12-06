@@ -105,8 +105,7 @@ fn bench_round_trip_conversions(c: &mut Criterion) {
     });
 
     bench_iter(&mut group, "simple_periodic_simple", || {
-        let periodic =
-            simple_to_periodic(black_box(0.05), black_box(1.0), black_box(2)).unwrap();
+        let periodic = simple_to_periodic(black_box(0.05), black_box(1.0), black_box(2)).unwrap();
         let back = periodic_to_simple(black_box(periodic), black_box(1.0), black_box(2)).unwrap();
         black_box(back);
     });

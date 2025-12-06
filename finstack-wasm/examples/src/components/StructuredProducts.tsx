@@ -40,7 +40,7 @@ export const StructuredProductsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9950, 0.9800, 0.9600]),
+          new Float64Array([1.0, 0.995, 0.98, 0.96]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -49,7 +49,7 @@ export const StructuredProductsExample: React.FC = () => {
 
         const market = new MarketContext();
         market.insertDiscount(discountCurve);
-        
+
         // Add spot prices for basket constituents
         market.insertPrice('AAPL-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
         market.insertPrice('MSFT-SPOT', MarketScalar.price(Money.fromCode(380.0, 'USD')));
@@ -59,7 +59,10 @@ export const StructuredProductsExample: React.FC = () => {
           'EQUITY-VOL',
           new Float64Array([0.25, 0.5, 1.0, 2.0]),
           new Float64Array([120.0, 140.0, 160.0, 180.0]),
-          new Float64Array([0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21])
+          new Float64Array([
+            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
+            0.22, 0.21,
+          ])
         );
         market.insertSurface(equityVol);
 
@@ -109,10 +112,7 @@ export const StructuredProductsExample: React.FC = () => {
             style: 'european',
             catchup_mode: 'full',
             irr_basis: 'act_365f',
-            tranches: [
-              'return_of_capital',
-              { preferred_irr: { irr: 0.08 } },
-            ],
+            tranches: ['return_of_capital', { preferred_irr: { irr: 0.08 } }],
           },
           events: [
             {
@@ -142,11 +142,11 @@ export const StructuredProductsExample: React.FC = () => {
           underlying_ticker: 'AAPL',
           notional: { amount: 1_000_000.0, currency: 'USD' },
           observation_dates: ['2025-01-02', '2026-01-02'],
-          autocall_barriers: [1.20, 1.20],
-          coupons: [0.08, 0.10],
+          autocall_barriers: [1.2, 1.2],
+          coupons: [0.08, 0.1],
           final_barrier: 0.75,
           final_payoff_type: {
-            CapitalProtection: { floor: 0.9 }
+            CapitalProtection: { floor: 0.9 },
           },
           participation_rate: 1.0,
           cap_level: 2.0,
@@ -171,7 +171,11 @@ export const StructuredProductsExample: React.FC = () => {
           attributes: { tags: [], meta: {} },
         });
         const autocallable = Autocallable.fromJson(autocallableJson);
-        const autocallableResult = registry.priceAutocallable(autocallable, 'monte_carlo_gbm', market);
+        const autocallableResult = registry.priceAutocallable(
+          autocallable,
+          'monte_carlo_gbm',
+          market
+        );
         results.push({
           name: 'Autocallable Note',
           type: 'Autocallable',
@@ -209,8 +213,9 @@ export const StructuredProductsExample: React.FC = () => {
     <section className="example-section">
       <h2>Structured Products</h2>
       <p>
-        Complex structured instruments including baskets, ABS, CLO, autocallables, and private markets funds.
-        These instruments use JSON-based definitions for flexible modeling of complex structures.
+        Complex structured instruments including baskets, ABS, CLO, autocallables, and private
+        markets funds. These instruments use JSON-based definitions for flexible modeling of complex
+        structures.
       </p>
 
       <table>
@@ -234,7 +239,14 @@ export const StructuredProductsExample: React.FC = () => {
         </tbody>
       </table>
 
-      <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: 'rgba(100, 108, 255, 0.05)', borderRadius: '6px' }}>
+      <div
+        style={{
+          marginTop: '2rem',
+          padding: '1rem',
+          backgroundColor: 'rgba(100, 108, 255, 0.05)',
+          borderRadius: '6px',
+        }}
+      >
         <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>JSON-Based Instruments</h3>
         <p style={{ color: '#aaa', margin: 0 }}>
           Structured products (ABS, CLO, CMBS, RMBS, Basket, PrivateMarketsFund) use JSON
@@ -245,4 +257,3 @@ export const StructuredProductsExample: React.FC = () => {
     </section>
   );
 };
-

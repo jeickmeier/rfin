@@ -23,6 +23,7 @@ statements/
 ## Exposed JavaScript API
 
 ### Builder (JsModelBuilder)
+
 - `new(id: string)` - Create builder
 - `periods(range: string, actualsUntil?: string)` - Define periods
 - `value(nodeId: string, values: object)` - Add value node
@@ -32,11 +33,13 @@ statements/
 - `build()` - Build model
 
 ### Evaluator (JsEvaluator)
+
 - `new()` - Create evaluator
 - `evaluate(model: FinancialModelSpec)` - Evaluate model
 - `evaluateWithMarketContext(model, ctx, date)` - Evaluate with pricing
 
 ### Results (JsResults)
+
 - `get(nodeId: string, periodId: string)` - Get single value
 - `getNode(nodeId: string)` - Get all periods for node
 - `getOr(nodeId, periodId, default)` - Get with default
@@ -45,6 +48,7 @@ statements/
 - `meta()` - Evaluation metadata
 
 ### Forecast Specifications (JsForecastSpec)
+
 - `forwardFill()` - Carry forward last value
 - `growth(rate: number)` - Compound growth
 - `curve(rates: number[])` - Period-specific rates
@@ -52,6 +56,7 @@ statements/
 - `lognormal(mean, stdDev, seed)` - Log-normal distribution
 
 ### Registry (JsRegistry)
+
 - `new()` - Create registry
 - `loadBuiltins()` - Load 22 built-in metrics
 - `loadFromJsonStr(json)` - Load custom metrics
@@ -60,6 +65,7 @@ statements/
 - `hasMetric(metricId)` - Check existence
 
 ### Extensions
+
 - `CorkscrewExtension` - Balance sheet validation
 - `CreditScorecardExtension` - Credit rating assignment
 - `ExtensionRegistry` - Extension management
@@ -67,13 +73,7 @@ statements/
 ## TypeScript Usage
 
 ```typescript
-import {
-  ModelBuilder,
-  Evaluator,
-  ForecastSpec,
-  Registry,
-  AmountOrScalar,
-} from 'finstack-wasm';
+import { ModelBuilder, Evaluator, ForecastSpec, Registry, AmountOrScalar } from 'finstack-wasm';
 
 // Build model
 const builder = new ModelBuilder('P&L');
@@ -91,15 +91,19 @@ console.log(results.get('margin', '2025Q1'));
 ## Implementation Notes
 
 ### Type State Pattern
+
 The Rust builder uses a type-state pattern (`NeedPeriods` → `Ready`), but WASM exposes a runtime-checked version since wasm-bindgen doesn't support type-state patterns cleanly.
 
 ### Period Parsing
+
 Periods are parsed from strings using `PeriodId::from_str()`. Supported formats:
+
 - Quarterly: `2025Q1`, `2025Q2`, etc.
 - Monthly: `2025M01`, `2025M02`, etc.
 - Annual: `2025`, `2026`, etc.
 
 ### Value Mapping
+
 Values are passed as JavaScript objects mapping period IDs to numbers or `AmountOrScalar` instances:
 
 ```javascript
@@ -114,6 +118,7 @@ Values are passed as JavaScript objects mapping period IDs to numbers or `Amount
 ```
 
 ### Error Handling
+
 All Rust errors are converted to JavaScript exceptions with descriptive messages:
 
 ```javascript
@@ -129,6 +134,7 @@ try {
 Tests are located in `finstack-wasm/tests/statements_tests.rs`.
 
 Run with:
+
 ```bash
 cd finstack-wasm
 wasm-pack test --headless --chrome --test statements_tests
@@ -139,6 +145,7 @@ wasm-pack test --headless --chrome --test statements_tests
 Interactive examples are in `finstack-wasm/examples/src/components/StatementsModeling.tsx`.
 
 Run with:
+
 ```bash
 cd finstack-wasm/examples
 npm run dev
@@ -152,4 +159,3 @@ Then navigate to http://localhost:5173/example/statements-modeling
 - **Implementation Summary**: `WASM_STATEMENTS_IMPLEMENTATION_COMPLETE.md`
 - **Python Bindings**: `STATEMENTS_PYTHON_BINDINGS_COMPLETE.md`
 - **Rust Core**: `finstack/statements/src/lib.rs`
-

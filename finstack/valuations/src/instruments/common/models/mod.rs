@@ -12,15 +12,16 @@
 //! - [`trees`]: Tree-based methods (Binomial, Trinomial, Multi-factor, Short-rate)
 //! - [`correlation`]: Shared correlation infrastructure (copulas, recovery models, factor models)
 
+pub mod bs;
 pub mod closed_form;
 pub mod correlation;
-pub mod bs;
 #[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub mod trees;
 pub mod volatility;
 
 // Re-export commonly used items from submodules for convenience
+pub use bs::{bs_greeks, bs_price, BsGreeks, ONE_PERCENT};
 pub use closed_form::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, barrier_call_continuous,
     barrier_put_continuous, bs_call_delta, bs_call_greeks, bs_call_rho, bs_call_theta, bs_gamma,
@@ -31,7 +32,6 @@ pub use closed_form::{
     quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call, up_out_call, AsianGreeks,
     AsianPriceResult, BarrierType, CallGreeks, HestonParams, PutGreeks,
 };
-pub use bs::{bs_greeks, bs_price, BsGreeks, ONE_PERCENT};
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,
     CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,

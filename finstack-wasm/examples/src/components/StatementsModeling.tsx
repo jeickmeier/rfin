@@ -47,7 +47,7 @@ export default function StatementsModeling() {
       log.push('✓ Added revenue with Q1 actual: $1,000,000');
 
       // Add forecast for revenue (10% growth)
-      const revenueForecast = ForecastSpec.growth(0.10);
+      const revenueForecast = ForecastSpec.growth(0.1);
       const builderWithRevenueForecast = builderWithRevenue.forecast('revenue', revenueForecast);
       if (!builderWithRevenueForecast) {
         throw new Error('Failed to add revenue forecast');
@@ -197,7 +197,10 @@ export default function StatementsModeling() {
       log.push('✓ Added expenses with curve forecast [2%, 3%, 4%]');
 
       // Calculate net income
-      const builderWithNetIncome = builderWithCurveForecast.compute('net_income', 'revenue - expenses');
+      const builderWithNetIncome = builderWithCurveForecast.compute(
+        'net_income',
+        'revenue - expenses'
+      );
       if (!builderWithNetIncome) {
         throw new Error('Failed to add net_income');
       }
@@ -232,7 +235,9 @@ export default function StatementsModeling() {
           const value = evalResults.get(nodeId, quarter);
           if (value !== null && value !== undefined) {
             periods[quarter] = value;
-            log.push(`  ${quarter}: $${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`);
+            log.push(
+              `  ${quarter}: $${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+            );
           }
         }
         log.push('');
@@ -382,11 +387,17 @@ export default function StatementsModeling() {
       }
 
       // Calculate margins
-      const builderWithGrossMargin = builderWithEbitda.compute('gross_margin', 'gross_profit / revenue');
+      const builderWithGrossMargin = builderWithEbitda.compute(
+        'gross_margin',
+        'gross_profit / revenue'
+      );
       if (!builderWithGrossMargin) {
         throw new Error('Failed to add gross_margin');
       }
-      const builderWithEbitdaMargin = builderWithGrossMargin.compute('ebitda_margin', 'ebitda / revenue');
+      const builderWithEbitdaMargin = builderWithGrossMargin.compute(
+        'ebitda_margin',
+        'ebitda / revenue'
+      );
       if (!builderWithEbitdaMargin) {
         throw new Error('Failed to add ebitda_margin');
       }
@@ -432,7 +443,9 @@ export default function StatementsModeling() {
             if (metric.includes('margin')) {
               log.push(`  ${quarter}: ${(value * 100).toFixed(1)}%`);
             } else {
-              log.push(`  ${quarter}: $${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`);
+              log.push(
+                `  ${quarter}: $${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+              );
             }
           }
         }
@@ -455,8 +468,8 @@ export default function StatementsModeling() {
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-2xl font-bold mb-4">Financial Statements Modeling</h2>
         <p className="text-gray-600 mb-6">
-          Build and evaluate financial statement models with formulas, forecasts, and dynamic metrics.
-          Supports period-by-period evaluation with deterministic results.
+          Build and evaluate financial statement models with formulas, forecasts, and dynamic
+          metrics. Supports period-by-period evaluation with deterministic results.
         </p>
 
         <div className="space-y-4">
@@ -553,17 +566,33 @@ export default function StatementsModeling() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold mb-2 text-blue-900">Features Demonstrated</h3>
         <ul className="space-y-2 text-blue-800">
-          <li>✓ <strong>Builder Pattern:</strong> Fluent API for model construction</li>
-          <li>✓ <strong>Period Ranges:</strong> Define periods using string ranges (e.g., "2025Q1..Q4")</li>
-          <li>✓ <strong>Value Nodes:</strong> Explicit values for actuals and assumptions</li>
-          <li>✓ <strong>Calculated Nodes:</strong> Formula-based computations with DSL</li>
-          <li>✓ <strong>Forecast Methods:</strong> Growth rates, curves, and statistical distributions</li>
-          <li>✓ <strong>Evaluator:</strong> Deterministic period-by-period evaluation</li>
-          <li>✓ <strong>Dynamic Registry:</strong> 22+ built-in financial metrics</li>
-          <li>✓ <strong>Type Safety:</strong> Full TypeScript support</li>
+          <li>
+            ✓ <strong>Builder Pattern:</strong> Fluent API for model construction
+          </li>
+          <li>
+            ✓ <strong>Period Ranges:</strong> Define periods using string ranges (e.g.,
+            &quot;2025Q1..Q4&quot;)
+          </li>
+          <li>
+            ✓ <strong>Value Nodes:</strong> Explicit values for actuals and assumptions
+          </li>
+          <li>
+            ✓ <strong>Calculated Nodes:</strong> Formula-based computations with DSL
+          </li>
+          <li>
+            ✓ <strong>Forecast Methods:</strong> Growth rates, curves, and statistical distributions
+          </li>
+          <li>
+            ✓ <strong>Evaluator:</strong> Deterministic period-by-period evaluation
+          </li>
+          <li>
+            ✓ <strong>Dynamic Registry:</strong> 22+ built-in financial metrics
+          </li>
+          <li>
+            ✓ <strong>Type Safety:</strong> Full TypeScript support
+          </li>
         </ul>
       </div>
     </div>
   );
 }
-

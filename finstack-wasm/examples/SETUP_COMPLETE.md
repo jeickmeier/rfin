@@ -5,17 +5,20 @@ The finstack-wasm examples are now ready to use.
 ## What Was Done
 
 ### 1. Created Full Vite + React + TypeScript Example App
+
 - Complete modern development setup with hot module replacement
 - TypeScript strict mode with proper type checking
 - React 18 with hooks
 - Professional styling with light/dark mode support
 
 ### 2. Migrated Examples
+
 - Moved WASM examples from `examples/wasm/` to `finstack-wasm/examples/`
 - Preserved all functionality: Period Plans and Market Data examples
 - Updated imports for local package usage
 
 ### 3. Fixed WASM Build Issues
+
 - Converted `InterpStyle` and `ExtrapolationPolicy` from enums to wrapper structs
 - This resolves wasm-bindgen limitations with Rust enum exports
 - The JavaScript API remains clean with static factory methods:
@@ -23,6 +26,7 @@ The finstack-wasm examples are now ready to use.
   - `ExtrapolationPolicy.FlatZero()`, `ExtrapolationPolicy.FlatForward()`, etc.
 
 ### 4. Added Documentation
+
 - `README.md` - Comprehensive guide
 - `QUICKSTART.md` - Quick start instructions
 - `SETUP_COMPLETE.md` - This file
@@ -49,6 +53,7 @@ The dev server will start at http://localhost:3000
 The following types now use static factory methods instead of enum variants:
 
 ### InterpStyle
+
 ```typescript
 // Old (if these were enums):
 // const style = InterpStyle.Linear;
@@ -58,17 +63,18 @@ const style = InterpStyle.Linear();
 const style2 = InterpStyle.MonotoneConvex();
 
 // From string still works:
-const style3 = InterpStyle.fromName("linear");
+const style3 = InterpStyle.fromName('linear');
 ```
 
 ### ExtrapolationPolicy
+
 ```typescript
 // New (struct with static methods):
 const policy = ExtrapolationPolicy.FlatZero();
 const policy2 = ExtrapolationPolicy.FlatForward();
 
 // From string still works:
-const policy3 = ExtrapolationPolicy.fromName("flat_zero");
+const policy3 = ExtrapolationPolicy.fromName('flat_zero');
 ```
 
 **Note**: String-based constructors (used in the examples) continue to work without any changes!

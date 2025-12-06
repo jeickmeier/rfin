@@ -118,4 +118,3 @@ pub fn bs_greeks(
         rho_q,
     }
 }
-

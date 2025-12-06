@@ -1,8 +1,8 @@
 /**
  * P&L Attribution Example for WASM
- * 
+ *
  * Demonstrates how to use the attribution types and methodology selectors.
- * 
+ *
  * Note: Full attribution functions require instrument-specific implementations.
  * For complete attribution workflows, use the Python or Rust APIs which support
  * generic instrument types.
@@ -17,21 +17,21 @@ function exampleAttributionMethods() {
   console.log('='.repeat(70));
   console.log('Example 1: Attribution Methods');
   console.log('='.repeat(70));
-  
+
   // Parallel attribution (default)
   const parallel = new finstack.AttributionMethod();
   console.log(`Parallel method: ${parallel.toString()}`);
-  
+
   // Waterfall attribution with custom order
   const waterfall = finstack.AttributionMethod.waterfall([
-    "carry",
-    "rates_curves",
-    "credit_curves",
-    "fx",
-    "volatility"
+    'carry',
+    'rates_curves',
+    'credit_curves',
+    'fx',
+    'volatility',
   ]);
   console.log(`Waterfall method: ${waterfall.toString()}`);
-  
+
   // Metrics-based attribution
   const metricsBased = finstack.AttributionMethod.metricsBased();
   console.log(`Metrics-based method: ${metricsBased.toString()}`);
@@ -39,15 +39,15 @@ function exampleAttributionMethods() {
 
 /**
  * Example 2: Working with Attribution Results
- * 
+ *
  * In practice, PnlAttribution would be returned from an attribution function.
  * Here we demonstrate how to access the data once you have it.
  */
 function exampleAttributionResults() {
-  console.log('\n' + '='.repeat(70));
+  console.log(`\n${'='.repeat(70)}`);
   console.log('Example 2: Attribution Results Structure');
   console.log('='.repeat(70));
-  
+
   console.log(`
 Attribution results provide:
 
@@ -88,10 +88,10 @@ Attribution results provide:
  * Example 3: Hypothetical Usage (Structure Demonstration)
  */
 function exampleUsagePattern() {
-  console.log('\n' + '='.repeat(70));
+  console.log(`\n${'='.repeat(70)}`);
   console.log('Example 3: Usage Pattern (Conceptual)');
   console.log('='.repeat(70));
-  
+
   console.log(`
 Conceptual TypeScript/JavaScript Usage:
 
@@ -164,10 +164,10 @@ For Production Use:
  * Example 4: Portfolio Attribution
  */
 function examplePortfolioAttribution() {
-  console.log('\n' + '='.repeat(70));
+  console.log(`\n${'='.repeat(70)}`);
   console.log('Example 4: Portfolio Attribution Structure');
   console.log('='.repeat(70));
-  
+
   console.log(`
 Portfolio Attribution provides:
 
@@ -200,15 +200,15 @@ const tree = portfolioAttr.explain();
 function main() {
   console.log('');
   console.log('█'.repeat(70));
-  console.log('  '.repeat(10) + 'FINSTACK WASM - P&L ATTRIBUTION');
+  console.log(`${'  '.repeat(10)}FINSTACK WASM - P&L ATTRIBUTION`);
   console.log('█'.repeat(70));
-  
+
   exampleAttributionMethods();
   exampleAttributionResults();
   exampleUsagePattern();
   examplePortfolioAttribution();
-  
-  console.log('\n' + '='.repeat(70));
+
+  console.log(`\n${'='.repeat(70)}`);
   console.log('Attribution types ready for use!');
   console.log('For full attribution workflows, use Python or Rust bindings.');
   console.log('='.repeat(70));
@@ -221,4 +221,3 @@ if (require.main === module) {
 }
 
 export { main };
-

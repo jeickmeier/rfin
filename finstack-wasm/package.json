@@ -10,6 +10,10 @@
     "build:optimized": "wasm-pack build --target web --out-dir pkg && npm run optimize",
     "optimize": "command -v wasm-opt >/dev/null 2>&1 && wasm-opt -Oz -o pkg/finstack_wasm_bg.wasm pkg/finstack_wasm_bg.wasm || echo 'wasm-opt not found, skipping optimization'",
     "test": "wasm-pack test --chrome --firefox --headless",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "examples:install": "cd examples && npm install",
     "examples:dev": "cd examples && npm run dev",
     "examples:build": "cd examples && npm run build"
@@ -46,6 +50,14 @@
   "author": "RustFin Contributors",
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.7.0"
+    "@wasm-tool/wasm-pack-plugin": "^1.7.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.5.3"
   }
 }

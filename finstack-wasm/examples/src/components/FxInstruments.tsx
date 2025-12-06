@@ -45,7 +45,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9975, 0.9945, 0.9720, 0.9450]),
+          new Float64Array([1.0, 0.9975, 0.9945, 0.972, 0.945]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -56,7 +56,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'EUR-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9980, 0.9960, 0.9800, 0.9550]),
+          new Float64Array([1.0, 0.998, 0.996, 0.98, 0.955]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -64,14 +64,14 @@ export const FxInstrumentsExample: React.FC = () => {
         );
 
         const fx = new FxMatrix();
-        fx.setQuote(eur, usd, 1.0850);
+        fx.setQuote(eur, usd, 1.085);
 
         // Add FX volatility surface for options (flattened grid: row-major order)
         const fxVol = new VolSurface(
           'FX-VOL',
           new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([1.05, 1.10, 1.15]),
-          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.10, 0.11, 0.10, 0.095])
+          new Float64Array([1.05, 1.1, 1.15]),
+          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.1, 0.11, 0.1, 0.095])
         );
 
         const market = new MarketContext();
@@ -89,7 +89,7 @@ export const FxInstrumentsExample: React.FC = () => {
           eur,
           usd,
           new FsDate(2024, 1, 4), // T+2 settlement
-          1.0860,
+          1.086,
           Money.fromCode(1_000_000, 'EUR')
         );
         const spotResult = registry.priceFxSpot(spot, 'discounting', market);
@@ -105,7 +105,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'eurusd_call',
           eur,
           usd,
-          1.10,
+          1.1,
           new FsDate(2025, 1, 2),
           Money.fromCode(2_000_000, 'EUR'),
           'USD-OIS',
@@ -122,9 +122,10 @@ export const FxInstrumentsExample: React.FC = () => {
           keyMetric: {
             name: 'Delta',
             // Normalize delta to per-unit if it comes back as notional-adjusted
-            value: Math.abs(callResult.metric('delta') ?? 0) > 100 
-              ? (callResult.metric('delta') ?? 0) / 2_000_000  // Normalize by notional
-              : (callResult.metric('delta') ?? 0)
+            value:
+              Math.abs(callResult.metric('delta') ?? 0) > 100
+                ? (callResult.metric('delta') ?? 0) / 2_000_000 // Normalize by notional
+                : (callResult.metric('delta') ?? 0),
           },
         });
 
@@ -159,7 +160,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'USD-OIS',
           'EUR-OIS',
           1.0865,
-          1.0920
+          1.092
         );
         const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market);
         results.push({
@@ -196,8 +197,8 @@ export const FxInstrumentsExample: React.FC = () => {
     <section className="example-section">
       <h2>FX Instruments</h2>
       <p>
-        Foreign exchange instruments including spot transactions, European options (calls/puts),
-        and FX swaps with near and far legs.
+        Foreign exchange instruments including spot transactions, European options (calls/puts), and
+        FX swaps with near and far legs.
       </p>
 
       <table>
@@ -217,11 +218,7 @@ export const FxInstrumentsExample: React.FC = () => {
               <td>{type}</td>
               <td>{pair}</td>
               <td>{currencyFormatter.format(presentValue)}</td>
-              <td>
-                {keyMetric
-                  ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}`
-                  : '—'}
-              </td>
+              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -229,4 +226,3 @@ export const FxInstrumentsExample: React.FC = () => {
     </section>
   );
 };
-

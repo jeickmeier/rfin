@@ -45,7 +45,7 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           'USD-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9975, 0.9945, 0.9720, 0.9450]),
+          new Float64Array([1.0, 0.9975, 0.9945, 0.972, 0.945]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -56,7 +56,7 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           'EUR-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9980, 0.9960, 0.9800, 0.9550]),
+          new Float64Array([1.0, 0.998, 0.996, 0.98, 0.955]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -67,7 +67,7 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           'GBP-OIS',
           asOf,
           new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9978, 0.9955, 0.9780, 0.9520]),
+          new Float64Array([1.0, 0.9978, 0.9955, 0.978, 0.952]),
           'act_365f',
           'monotone_convex',
           'flat_forward',
@@ -75,15 +75,15 @@ export const ExoticFxDerivativesExample: React.FC = () => {
         );
 
         const fx = new FxMatrix();
-        fx.setQuote(eur, usd, 1.0850);
-        fx.setQuote(gbp, usd, 1.2650);
+        fx.setQuote(eur, usd, 1.085);
+        fx.setQuote(gbp, usd, 1.265);
 
         // Add FX volatility surface for options (flattened grid: row-major order)
         const fxVol = new VolSurface(
           'FX-VOL',
           new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([1.05, 1.10, 1.15]),
-          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.10, 0.11, 0.10, 0.095])
+          new Float64Array([1.05, 1.1, 1.15]),
+          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.1, 0.11, 0.1, 0.095])
         );
 
         // Equity vol for quanto options
@@ -91,7 +91,10 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           'EQUITY-VOL',
           new Float64Array([0.25, 0.5, 1.0, 2.0]),
           new Float64Array([100.0, 120.0, 140.0, 160.0]),
-          new Float64Array([0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21])
+          new Float64Array([
+            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
+            0.22, 0.21,
+          ])
         );
 
         const market = new MarketContext();
@@ -102,8 +105,8 @@ export const ExoticFxDerivativesExample: React.FC = () => {
         market.insertSurface(fxVol);
         market.insertSurface(equityVol);
         // Add FX spot prices for barrier options
-        market.insertPrice('EURUSD-SPOT', MarketScalar.price(Money.fromCode(1.0850, 'USD')));
-        market.insertPrice('GBPUSD-SPOT', MarketScalar.price(Money.fromCode(1.2650, 'USD')));
+        market.insertPrice('EURUSD-SPOT', MarketScalar.price(Money.fromCode(1.085, 'USD')));
+        market.insertPrice('GBPUSD-SPOT', MarketScalar.price(Money.fromCode(1.265, 'USD')));
         // Add equity spot prices for quanto options
         market.insertPrice('EUR-EQUITY-SPOT', MarketScalar.price(Money.fromCode(150.0, 'EUR')));
         market.insertPrice('GBP-EQUITY-SPOT', MarketScalar.price(Money.fromCode(140.0, 'GBP')));
@@ -116,7 +119,7 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           id: 'fx_barrier_up_out',
           domestic_currency: 'USD',
           foreign_currency: 'EUR',
-          strike: { amount: 1.10, currency: 'USD' },
+          strike: { amount: 1.1, currency: 'USD' },
           barrier: { amount: 1.15, currency: 'USD' },
           option_type: 'call',
           barrier_type: 'UpAndOut',
@@ -144,7 +147,11 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           attributes: { tags: [], meta: {} },
         });
         const fxBarrierOption = FxBarrierOption.fromJson(fxBarrierJson);
-        const fxBarrierResult = registry.priceFxBarrierOption(fxBarrierOption, 'monte_carlo_gbm', market);
+        const fxBarrierResult = registry.priceFxBarrierOption(
+          fxBarrierOption,
+          'monte_carlo_gbm',
+          market
+        );
         results.push({
           name: 'FX Barrier Up-and-Out Call',
           type: 'FxBarrierOption',
@@ -159,7 +166,7 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           domestic_currency: 'USD',
           foreign_currency: 'GBP',
           strike: { amount: 1.25, currency: 'USD' },
-          barrier: { amount: 1.20, currency: 'USD' },
+          barrier: { amount: 1.2, currency: 'USD' },
           option_type: 'put',
           barrier_type: 'DownAndIn',
           expiry: '2024-12-31',
@@ -186,7 +193,11 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           attributes: { tags: [], meta: {} },
         });
         const fxBarrierPut = FxBarrierOption.fromJson(fxBarrierPutJson);
-        const fxBarrierPutResult = registry.priceFxBarrierOption(fxBarrierPut, 'monte_carlo_gbm', market);
+        const fxBarrierPutResult = registry.priceFxBarrierOption(
+          fxBarrierPut,
+          'monte_carlo_gbm',
+          market
+        );
         results.push({
           name: 'FX Barrier Down-and-In Put',
           type: 'FxBarrierOption',
@@ -318,9 +329,9 @@ export const ExoticFxDerivativesExample: React.FC = () => {
     <section className="example-section">
       <h2>Exotic FX Derivatives</h2>
       <p>
-        Exotic FX derivatives including FX barrier options (up-and-out, down-and-in)
-        and quanto options (cross-currency equity options). These instruments are priced
-        using Monte Carlo simulation with GBM processes.
+        Exotic FX derivatives including FX barrier options (up-and-out, down-and-in) and quanto
+        options (cross-currency equity options). These instruments are priced using Monte Carlo
+        simulation with GBM processes.
       </p>
 
       <table>
@@ -348,4 +359,3 @@ export const ExoticFxDerivativesExample: React.FC = () => {
     </section>
   );
 };
-
