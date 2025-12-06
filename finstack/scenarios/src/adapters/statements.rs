@@ -39,34 +39,42 @@ impl ScenarioAdapter for StatementAdapter {
     }
 }
 
-/// Apply a percentage change to a statement node's forecast values.
-pub fn apply_forecast_percent(
-    model: &mut FinancialModelSpec,
-    node_id: &str,
-    pct: f64,
-) -> Result<()> {
+fn with_node_values_mut<F>(model: &mut FinancialModelSpec, node_id: &str, mut f: F) -> Result<()>
+where
+    F: FnMut(&mut AmountOrScalar),
+{
     let node = model
         .get_node_mut(node_id)
         .ok_or_else(|| Error::NodeNotFound {
             node_id: node_id.to_string(),
         })?;
 
-    // Apply multiplicative factor to all explicit period values
-    let factor = 1.0 + (pct / 100.0);
-
     if let Some(values) = node.values.as_mut() {
         for val in values.values_mut() {
-            match val {
-                AmountOrScalar::Scalar(s) => *s *= factor,
-                AmountOrScalar::Amount(money) => {
-                    *money =
-                        finstack_core::money::Money::new(money.amount() * factor, money.currency());
-                }
-            }
+            f(val);
         }
     }
 
     Ok(())
+}
+
+/// Apply a percentage change to a statement node's forecast values.
+pub fn apply_forecast_percent(
+    model: &mut FinancialModelSpec,
+    node_id: &str,
+    pct: f64,
+) -> Result<()> {
+    // Apply multiplicative factor to all explicit period values
+    let factor = 1.0 + (pct / 100.0);
+
+    with_node_values_mut(model, node_id, |val| {
+        match val {
+            AmountOrScalar::Scalar(s) => *s *= factor,
+            AmountOrScalar::Amount(money) => {
+                *money = finstack_core::money::Money::new(money.amount() * factor, money.currency());
+            }
+        }
+    })
 }
 
 /// Assign a uniform scalar value to all explicit forecasts in a node.
@@ -75,20 +83,9 @@ pub fn apply_forecast_assign(
     node_id: &str,
     value: f64,
 ) -> Result<()> {
-    let node = model
-        .get_node_mut(node_id)
-        .ok_or_else(|| Error::NodeNotFound {
-            node_id: node_id.to_string(),
-        })?;
-
-    // Assign value to all period values (as scalar)
-    if let Some(values) = node.values.as_mut() {
-        for val in values.values_mut() {
-            *val = AmountOrScalar::Scalar(value);
-        }
-    }
-
-    Ok(())
+    with_node_values_mut(model, node_id, |val| {
+        *val = AmountOrScalar::Scalar(value);
+    })
 }
 
 /// Update a statement rate node with a representative 1-year rate from a market curve.

@@ -310,7 +310,6 @@ impl ScenarioEngine {
             &asset_corr_adapter,
         ];
 
-        let mut market_bumps = Vec::new();
         let mut deferred_stmts = Vec::new();
 
         // Phase 1: Market data operations & Instrument operations
@@ -330,12 +329,6 @@ impl ScenarioEngine {
             }
 
             if let Some(effects) = adapter_effects {
-                // FLUSH pending legacy bumps before applying new effects to ensure correct ordering
-                if !market_bumps.is_empty() {
-                    *ctx.market = ctx.market.apply_bumps(&market_bumps)?;
-                    market_bumps.clear();
-                }
-
                 for effect in effects {
                     match effect {
                         crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
@@ -461,20 +454,12 @@ impl ScenarioEngine {
                             // Defer statement operations
                             deferred_stmts.push(effect);
                         }
-                        crate::adapters::traits::ScenarioEffect::TimeRoll { .. } => {
-                            // Already handled or no-op in loop
-                        }
                     }
                 }
             } else {
                 // Warning: Operation not handled by any adapter
                 warnings.push(format!("Operation not supported: {:?}", op));
             }
-        }
-
-        // Apply remaining bumps
-        if !market_bumps.is_empty() {
-            *ctx.market = ctx.market.apply_bumps(&market_bumps)?;
         }
 
         // Phase 2: Rate bindings update (from context configuration)

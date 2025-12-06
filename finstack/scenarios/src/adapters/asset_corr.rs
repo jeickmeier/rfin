@@ -77,20 +77,22 @@ pub fn apply_asset_correlation_shock(
 
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
-            let original = corr_structure.asset_correlation();
-            let new_corr_structure = corr_structure.bump_asset(shock_points);
-            let new = new_corr_structure.asset_correlation();
-
-            // Check for clamping
-            let expected = original + shock_points;
-            if (new - expected).abs() > 0.001 {
-                warnings.push(format!(
-                    "Asset correlation clamped for '{}': requested {:.2}%, got {:.2}%",
-                    inst.id.as_str(),
-                    expected * 100.0,
-                    new * 100.0
-                ));
-            }
+            let new_corr_structure = bump_correlation_with_clamp(
+                corr_structure,
+                shock_points,
+                inst.id.as_str(),
+                |s| s.asset_correlation(),
+                |s, shock| s.bump_asset(shock),
+                |id, _original, new, expected| {
+                    format!(
+                        "Asset correlation clamped for '{}': requested {:.2}%, got {:.2}%",
+                        id,
+                        expected * 100.0,
+                        new * 100.0,
+                    )
+                },
+                &mut warnings,
+            );
 
             inst.correlation_structure = Some(new_corr_structure);
             modified += 1;
@@ -120,20 +122,22 @@ pub fn apply_prepay_default_correlation_shock(
 
     for inst in instruments.iter_mut() {
         if let Some(ref corr_structure) = inst.correlation_structure {
-            let original = corr_structure.prepay_default_correlation();
-            let new_corr_structure = corr_structure.bump_prepay_default(shock_points);
-            let new = new_corr_structure.prepay_default_correlation();
-
-            // Check for clamping
-            let expected = original + shock_points;
-            if (new - expected).abs() > 0.001 {
-                warnings.push(format!(
-                    "Prepay-default correlation clamped for '{}': requested {:.2}%, got {:.2}%",
-                    inst.id.as_str(),
-                    expected * 100.0,
-                    new * 100.0
-                ));
-            }
+            let new_corr_structure = bump_correlation_with_clamp(
+                corr_structure,
+                shock_points,
+                inst.id.as_str(),
+                |s| s.prepay_default_correlation(),
+                |s, shock| s.bump_prepay_default(shock),
+                |id, _original, new, expected| {
+                    format!(
+                        "Prepay-default correlation clamped for '{}': requested {:.2}%, got {:.2}%",
+                        id,
+                        expected * 100.0,
+                        new * 100.0,
+                    )
+                },
+                &mut warnings,
+            );
 
             inst.correlation_structure = Some(new_corr_structure);
             modified += 1;
@@ -175,38 +179,44 @@ where
 
             // Apply asset correlation shock
             if let Some(shock) = asset_corr_shock {
-                let original = new_structure.asset_correlation();
-                new_structure = new_structure.bump_asset(shock);
-                let new = new_structure.asset_correlation();
-
-                let expected = original + shock;
-                if (new - expected).abs() > 0.001 {
-                    warnings.push(format!(
-                        "Asset correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
-                        inst.id.as_str(),
-                        original * 100.0,
-                        new * 100.0,
-                        expected * 100.0
-                    ));
-                }
+                new_structure = bump_correlation_with_clamp(
+                    &new_structure,
+                    shock,
+                    inst.id.as_str(),
+                    |s| s.asset_correlation(),
+                    |s, shock| s.bump_asset(shock),
+                    |id, original, new, expected| {
+                        format!(
+                            "Asset correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
+                            id,
+                            original * 100.0,
+                            new * 100.0,
+                            expected * 100.0,
+                        )
+                    },
+                    &mut warnings,
+                );
             }
 
             // Apply prepay-default correlation shock
             if let Some(shock) = prepay_default_shock {
-                let original = new_structure.prepay_default_correlation();
-                new_structure = new_structure.bump_prepay_default(shock);
-                let new = new_structure.prepay_default_correlation();
-
-                let expected = original + shock;
-                if (new - expected).abs() > 0.001 {
-                    warnings.push(format!(
-                        "Prepay-default correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
-                        inst.id.as_str(),
-                        original * 100.0,
-                        new * 100.0,
-                        expected * 100.0
-                    ));
-                }
+                new_structure = bump_correlation_with_clamp(
+                    &new_structure,
+                    shock,
+                    inst.id.as_str(),
+                    |s| s.prepay_default_correlation(),
+                    |s, shock| s.bump_prepay_default(shock),
+                    |id, original, new, expected| {
+                        format!(
+                            "Prepay-default correlation clamped for '{}': {:.2}% -> {:.2}% (requested {:.2}%)",
+                            id,
+                            original * 100.0,
+                            new * 100.0,
+                            expected * 100.0,
+                        )
+                    },
+                    &mut warnings,
+                );
             }
 
             inst.correlation_structure = Some(new_structure);
@@ -215,6 +225,32 @@ where
     }
 
     Ok((modified, warnings))
+}
+
+fn bump_correlation_with_clamp<FGet, FBump, FMsg>(
+    structure: &CorrelationStructure,
+    shock: f64,
+    inst_id: &str,
+    get_current: FGet,
+    bump: FBump,
+    make_message: FMsg,
+    warnings: &mut Vec<String>,
+) -> CorrelationStructure
+where
+    FGet: Fn(&CorrelationStructure) -> f64,
+    FBump: Fn(&CorrelationStructure, f64) -> CorrelationStructure,
+    FMsg: Fn(&str, f64, f64, f64) -> String,
+{
+    let original = get_current(structure);
+    let new_structure = bump(structure, shock);
+    let new_val = get_current(&new_structure);
+    let expected = original + shock;
+
+    if (new_val - expected).abs() > 0.001 {
+        warnings.push(make_message(inst_id, original, new_val, expected));
+    }
+
+    new_structure
 }
 
 // === Internal helpers ===

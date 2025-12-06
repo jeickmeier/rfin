@@ -25,9 +25,3 @@ The Bottleneck List: Ranked list of the biggest performance offenders.
 Zero-Cost Alternatives: Rewrite the specific functions using faster patterns (e.g., changing a signature to take &str instead of String).
 
 Benchmarking Strategy: Suggest specifically what I should benchmark using criterion.rs to prove the optimization works.
-
-The Code:
-
-Rust
-
-[PASTE CODE HERE]

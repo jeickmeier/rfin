@@ -91,14 +91,6 @@ pub enum ScenarioEffect {
         /// The spread shock in basis points.
         bp: f64,
     },
-
-    /// Time roll forward (special case, usually happens first, but can be an effect).
-    TimeRoll {
-        /// The period string (e.g., "1Y") to roll forward by.
-        period: String,
-        /// Whether to apply subsequent shocks after rolling.
-        apply_shocks: bool,
-    },
 }
 
 /// Trait for adapters that can convert an OperationSpec into effects.
