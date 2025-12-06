@@ -15,9 +15,8 @@ jobs:
     env:
       # Reduce parallelism to avoid OOM during linking
       CARGO_BUILD_JOBS: 1
-      # Use GNU linker (bfd) instead of LLD - more memory efficient for large binaries
-      # Also reduce codegen units to lower peak memory during compilation
-      RUSTFLAGS: "-C linker=cc -C link-arg=-fuse-ld=bfd -C codegen-units=1"
+      CARGO_PROFILE_DEV_DEBUG: 0      
+      RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
 
     steps:
       - name: Checkout repository
@@ -26,7 +25,7 @@ jobs:
       - name: Set up swap space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 20
+          swap-size-gb: 10
 
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -44,9 +43,14 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
-      - name: Clippy
-        run: cargo clippy --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features -- -D warnings
+      - name: Clippy (core + statements)
+        run: cargo clippy -p finstack-core -p finstack-statements --lib --tests --all-features -- -D warnings
 
+      - name: Clippy (valuations)
+        run: cargo clippy -p finstack-valuations --lib --tests --all-features -- -D warnings
+
+      - name: Clippy (portfolio + scenarios + io)
+        run: cargo clippy -p finstack-portfolio -p finstack-scenarios -p finstack-io --lib --tests --all-features -- -D warnings
       - name: Clean debug artifacts before tests
         run: cargo clean
 
