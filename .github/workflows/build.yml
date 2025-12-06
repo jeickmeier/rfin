@@ -47,8 +47,11 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features -- -D warnings
 
-      - name: Run tests
-        run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features
+      - name: Clean debug artifacts before tests
+        run: cargo clean
+
+      - name: Run tests (release mode for smaller binaries)
+        run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
 
   sonarqube:
     name: SonarQube Scan
