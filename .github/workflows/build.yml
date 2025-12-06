@@ -50,11 +50,11 @@ jobs:
       - name: Clean debug artifacts before tests
         run: cargo clean
 
-      # - name: Run tests (release mode for smaller binaries)
-      #   run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
+      - name: Run tests (release mode for smaller binaries)
+        run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
 
-  sonarqube:
-    name: SonarQube Scan
+  sonarcloud:
+    name: SonarCloud Scan
     runs-on: ubuntu-latest
     needs: rust-ci   # ensure CI runs first
 
@@ -63,11 +63,11 @@ jobs:
         with:
           fetch-depth: 0  # full history improves analysis quality
 
-      - name: SonarQube Scan
+      - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} # required if self-hosted
+          SONAR_HOST_URL: https://sonarcloud.io
 
       # Optional: fail job if Quality Gate is red
       - name: SonarQube Quality Gate
