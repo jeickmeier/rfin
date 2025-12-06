@@ -6,6 +6,8 @@ selected methods from :trait:`finstack_core::dates::DateExt` for Python.
 
 from typing import Union
 from datetime import date
+from .periods import FiscalConfig
+from .calendar import Calendar
 
 def add_months(d: Union[str, date], months: int) -> date: ...
 

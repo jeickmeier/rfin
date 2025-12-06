@@ -283,7 +283,6 @@ class NotchedRating:
     """Credit rating with notch information."""
 
     def __init__(self, rating: CreditRating, notch: RatingNotch | None = ...) -> None: ...
-
     @classmethod
     def parse(cls, value: str) -> "NotchedRating": ...
     """Parse a rating string (e.g., ``\"AA-\"``, ``\"B3\"``, ``\"NR\"``)."""
@@ -311,7 +310,6 @@ class RatingLabel:
     def generic(cls, rating: NotchedRating) -> "RatingLabel": ...
     @classmethod
     def moodys(cls, rating: NotchedRating) -> "RatingLabel": ...
-
     @property
     def value(self) -> str: ...
     """String representation of the label."""
@@ -338,6 +336,7 @@ class RatingFactorTable:
     def __repr__(self) -> str: ...
 
 def moodys_warf_factor(rating: NotchedRating | CreditRating | str) -> float: ...
+
 """Convenience wrapper returning Moody's WARF factor for a rating."""
 
 __all__ = [

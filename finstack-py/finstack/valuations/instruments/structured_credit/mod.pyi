@@ -2,9 +2,9 @@
 
 from typing import Optional
 from datetime import date
-from ...core.money import Money
-from ...core.currency import Currency
-from ..common import InstrumentType
+from finstack.core.money import Money
+from finstack.core.currency import Currency
+from finstack.valuations.common import InstrumentType
 
 class StructuredCredit:
     """Structured credit instrument."""

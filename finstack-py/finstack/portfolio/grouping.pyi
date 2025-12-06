@@ -1,7 +1,7 @@
 """Portfolio grouping utilities."""
 
 from typing import Dict, List
-from ...core.money import Money
+from finstack.core.money import Money
 from .portfolio import Portfolio
 from .valuation import PortfolioValuation
 from .types import Position

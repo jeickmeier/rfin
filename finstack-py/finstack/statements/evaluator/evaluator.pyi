@@ -237,7 +237,6 @@ class DependencyGraph:
 
     def __repr__(self) -> str: ...
 
-
 class MonteCarloResults:
     """Monte Carlo results for statement forecasts.
 
@@ -255,9 +254,7 @@ class MonteCarloResults:
         """Percentiles computed for each metric/period."""
         ...
 
-    def get_percentile(
-        self, metric: str, percentile: float
-    ) -> Optional[Dict[PeriodId, float]]:
+    def get_percentile(self, metric: str, percentile: float) -> Optional[Dict[PeriodId, float]]:
         """Get a percentile time series for a metric.
 
         Args:

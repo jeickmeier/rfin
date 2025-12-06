@@ -7,8 +7,9 @@ and base correlation curves for financial modeling.
 from typing import List, Tuple, Optional, Dict, Union
 from datetime import date
 from ..currency import Currency
-from ..dates import DayCount
-from .interp import InterpStyle, ExtrapolationPolicy
+from ..money import Money
+from ..dates.daycount import DayCount
+from ..math.interp import InterpStyle, ExtrapolationPolicy
 
 class DiscountCurve:
     """Discount curve for present value calculations and interest rate modeling.
@@ -204,8 +205,6 @@ class DiscountCurve:
     ValueError
         If t1 < 0, t2 <= t1, or if discount factors are invalid.
     """
-
-    from ..money import Money
 
     def df_on_date(self, date: Union[str, date]) -> float: ...
     """Get discount factor on a specific date.

@@ -1,6 +1,6 @@
 """Valuation result envelopes, metadata, and covenant report bindings."""
 
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from datetime import date
 from ..core.money import Money
 

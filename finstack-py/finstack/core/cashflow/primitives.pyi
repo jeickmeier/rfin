@@ -5,6 +5,7 @@ for financial instrument modeling.
 """
 
 from typing import List, Tuple, Optional, Union
+import datetime
 from datetime import date
 from ..money import Money
 
@@ -130,7 +131,7 @@ class CashFlow:
         Cashflow kind.
     """
 
-    def date(self) -> date: ...
+    def date(self) -> datetime.date: ...
     """Get the cashflow date.
     
     Returns
@@ -139,7 +140,7 @@ class CashFlow:
         Cashflow date.
     """
 
-    def reset_date(self) -> Optional[date]: ...
+    def reset_date(self) -> Optional[datetime.date]: ...
     """Get the reset date.
     
     Returns
@@ -177,13 +178,13 @@ class CashFlow:
         New accrual factor.
     """
 
-    def to_tuple(self) -> Tuple[date, Money, CFKind, float, Optional[date]]: ...
+    def to_tuple(self) -> Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]: ...
     """Convert to tuple representation.
     
     Returns
     -------
-    Tuple[date, Money, CFKind, float, Optional[date]]
-        (date, amount, kind, accrual_factor, reset_date).
+    Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]
+        (payment_date, amount, kind, accrual_factor, reset_date).
     """
 
     def __repr__(self) -> str: ...

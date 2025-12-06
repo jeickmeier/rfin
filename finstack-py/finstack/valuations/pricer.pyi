@@ -1,9 +1,9 @@
 """Pricer registry bridging instruments and pricing models to valuation engines."""
 
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional
 from .common import ModelKey, PricerKey
 from .results import ValuationResult
-from ..core.market_data import MarketContext
+from ..core.market_data.context import MarketContext
 
 class PricerRegistry:
     """Central registry for instrument pricing and risk calculations.
@@ -210,7 +210,7 @@ class PricerRegistry:
         market: MarketContext,
         forward_curve: str,
         float_margin_bp: float,
-        dirty_price_ccy: float = None,
+        dirty_price_ccy: Optional[float] = None,
     ) -> Tuple[float, float]: ...
     """Compute par and market asset swap spreads using a forward curve.
 

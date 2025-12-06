@@ -1,8 +1,8 @@
 """Portfolio core types."""
 
 from typing import Dict, Any, Optional, Mapping, Iterable, Tuple
-from ...core.currency import Currency
-from ...core.money import Money
+from finstack.core.currency import Currency
+from finstack.core.money import Money
 
 DUMMY_ENTITY_ID: str
 """Constant for the dummy entity used for standalone instruments ('_standalone')."""

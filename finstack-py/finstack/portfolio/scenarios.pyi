@@ -1,9 +1,9 @@
 """Portfolio scenario integration."""
 
 from typing import Optional
-from ...core.config import FinstackConfig
-from ...core.market_data.context import MarketContext
-from ...scenarios.spec import ScenarioSpec
+from finstack.core.config import FinstackConfig
+from finstack.core.market_data.context import MarketContext
+from finstack.scenarios.spec import ScenarioSpec
 from .portfolio import Portfolio
 from .valuation import PortfolioValuation
 

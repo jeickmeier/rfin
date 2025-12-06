@@ -17,7 +17,7 @@ from .pricer import PricerRegistry, create_standard_registry
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
 from .performance import xirr, npv, irr_periodic
-from .instruments.structured_credit import (
+from .instruments.structured_credit.waterfall import (
     AllocationMode,
     PaymentType,
     WaterfallTier,

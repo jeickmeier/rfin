@@ -1,6 +1,6 @@
 """Builder API for financial models."""
 
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from ..types.model import FinancialModelSpec
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar

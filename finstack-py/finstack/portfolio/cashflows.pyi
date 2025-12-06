@@ -1,11 +1,14 @@
 """Portfolio cashflow aggregation bindings."""
 
-from typing import Dict, List, Tuple
-from ..core.money import Money
-from ..core.currency import Currency
-from ..core.dates import DateLike, Period
-from ..core.market_data.context import MarketContext
+from typing import Dict, List, Tuple, Union
+from datetime import date
+from finstack.core.money import Money
+from finstack.core.currency import Currency
+from finstack.core.dates.periods import Period
+from finstack.core.market_data.context import MarketContext
 from .portfolio import Portfolio
+
+DateLike = Union[str, date]
 
 DateMoney = Tuple[DateLike, Money]
 
@@ -24,7 +27,6 @@ class PortfolioCashflows:
 
     def __repr__(self) -> str: ...
 
-
 class PortfolioCashflowBuckets:
     """Cashflows bucketed by reporting period in base currency."""
 
@@ -35,14 +37,12 @@ class PortfolioCashflowBuckets:
 
     def __repr__(self) -> str: ...
 
-
 def aggregate_cashflows(portfolio: Portfolio, market_context: MarketContext) -> PortfolioCashflows:
     """Collect and aggregate holder-view cashflows across all positions.
 
     Returns cashflows by date and currency; no FX conversion is applied.
     """
     ...
-
 
 def collapse_cashflows_to_base_by_date(
     ladder: PortfolioCashflows,
@@ -51,7 +51,6 @@ def collapse_cashflows_to_base_by_date(
 ) -> Dict[DateLike, Money]:
     """Convert a multi-currency cashflow ladder into base currency by date."""
     ...
-
 
 def cashflows_to_base_by_period(
     ladder: PortfolioCashflows,

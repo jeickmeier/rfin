@@ -5,9 +5,44 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use crate::portfolio::portfolio::JsPortfolio;
 use crate::valuations::results::JsValuationResult;
-use finstack_portfolio::valuation::{PortfolioValuation, PositionValue};
+use finstack_portfolio::valuation::{
+    value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions, PositionValue,
+};
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
+
+/// Options controlling portfolio valuation behaviour.
+#[wasm_bindgen(js_name = PortfolioValuationOptions)]
+pub struct JsPortfolioValuationOptions {
+    inner: PortfolioValuationOptions,
+}
+
+#[wasm_bindgen(js_class = PortfolioValuationOptions)]
+impl JsPortfolioValuationOptions {
+    /// Create valuation options.
+    #[wasm_bindgen(constructor)]
+    pub fn new(strict_risk: bool) -> JsPortfolioValuationOptions {
+        JsPortfolioValuationOptions {
+            inner: PortfolioValuationOptions {
+                strict_risk,
+                additional_metrics: None,
+                replace_standard_metrics: false,
+            },
+        }
+    }
+
+    /// Whether missing risk metrics are treated as errors.
+    #[wasm_bindgen(getter, js_name = strictRisk)]
+    pub fn strict_risk(&self) -> bool {
+        self.inner.strict_risk
+    }
+}
+
+impl JsPortfolioValuationOptions {
+    pub(crate) fn inner(&self) -> &PortfolioValuationOptions {
+        &self.inner
+    }
+}
 
 /// Result of valuing a single position.
 ///
@@ -293,6 +328,27 @@ pub fn js_value_portfolio(
     let market_ctx = market_context.inner();
 
     finstack_portfolio::value_portfolio(&portfolio.inner, market_ctx, cfg_ref)
+        .map(JsPortfolioValuation::from_inner)
+        .map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Value a portfolio with explicit valuation options.
+#[wasm_bindgen(js_name = valuePortfolioWithOptions)]
+pub fn js_value_portfolio_with_options(
+    portfolio: &JsPortfolio,
+    market_context: &JsMarketContext,
+    options: &JsPortfolioValuationOptions,
+    config: Option<JsFinstackConfig>,
+) -> Result<JsPortfolioValuation, JsValue> {
+    let default_cfg = finstack_core::config::FinstackConfig::default();
+    let cfg_ref = match &config {
+        Some(c) => c.inner(),
+        None => &default_cfg,
+    };
+
+    let market_ctx = market_context.inner();
+
+    value_portfolio_with_options(&portfolio.inner, market_ctx, cfg_ref, options.inner())
         .map(JsPortfolioValuation::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }

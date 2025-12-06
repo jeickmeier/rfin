@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Any, Optional
 from datetime import date
-from ...core.currency import Currency
+from finstack.core.currency import Currency
 from .types import Entity, Position
 
 class Portfolio:

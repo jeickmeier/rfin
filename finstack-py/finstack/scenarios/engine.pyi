@@ -2,9 +2,9 @@
 
 from typing import List, Optional, Dict, Any, Union
 from datetime import date
-from ...core.market_data.context import MarketContext
-from ...core.dates import Calendar
-from ...statements.types.model import FinancialModelSpec
+from finstack.core.market_data.context import MarketContext
+from finstack.core.dates.calendar import Calendar
+from finstack.statements.types.model import FinancialModelSpec
 from .spec import ScenarioSpec, RateBindingSpec
 from .reports import ApplicationReport
 
@@ -49,9 +49,7 @@ class ExecutionContext:
         model: FinancialModelSpec,
         as_of: date,
         instruments: Optional[List[Any]] = None,
-        rate_bindings: Optional[
-            Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]
-        ] = None,
+        rate_bindings: Optional[Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]] = None,
         calendar: Optional[Calendar] = None,
     ) -> None:
         """Create a new execution context.
@@ -132,9 +130,7 @@ class ExecutionContext:
     @rate_bindings.setter
     def rate_bindings(
         self,
-        value: Optional[
-            Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]
-        ],
+        value: Optional[Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]],
     ) -> None:
         """Set the rate bindings.
 

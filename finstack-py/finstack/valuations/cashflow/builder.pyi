@@ -8,7 +8,7 @@ from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
 from ...core.cashflow.primitives import CashFlow
-from ...core.market_data import MarketContext
+from ...core.market_data.context import MarketContext
 
 class AmortizationSpec:
     """Amortization specification for principal payments.
@@ -319,7 +319,7 @@ class CashFlowSchedule:
         market: Optional[MarketContext] = None,
         discount_curve_id: Optional[str] = None,
         as_of: Optional[date | str] = None,
-    ) -> "polars.DataFrame":
+    ) -> Any:
         """Convert the schedule into a Polars DataFrame.
 
         Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount",

@@ -1,6 +1,6 @@
 """Validation classes for calibration."""
 
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import date
 
 class ValidationResult:
@@ -37,7 +37,7 @@ class ValidationResult:
         """Validation date."""
         ...
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         ...
 

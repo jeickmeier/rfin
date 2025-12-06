@@ -23,7 +23,6 @@ from . import market_data
 from . import math
 from . import money
 from . import types
-from . import volatility
 
 __all__ = [
     "cashflow",
@@ -36,5 +35,4 @@ __all__ = [
     "math",
     "money",
     "types",
-    "volatility",
 ]

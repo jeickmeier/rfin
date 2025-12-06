@@ -7,6 +7,7 @@ for scalar market data.
 from typing import List, Tuple, Optional, Union
 from datetime import date
 from ..currency import Currency
+from ..money import Money
 
 class SeriesInterpolation:
     """Interpolation method for time series.

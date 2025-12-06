@@ -7,6 +7,7 @@
 
 mod constraints;
 mod decision;
+mod helpers;
 mod lp_solver;
 mod problem;
 mod result;
@@ -14,6 +15,7 @@ mod types;
 mod universe;
 
 pub use constraints::{Constraint, Inequality};
+pub use helpers::{optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult};
 pub use lp_solver::{DefaultLpOptimizer, PortfolioOptimizer};
 pub use problem::PortfolioOptimizationProblem;
 pub use result::{

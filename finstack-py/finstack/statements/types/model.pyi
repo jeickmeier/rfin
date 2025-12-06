@@ -1,7 +1,8 @@
 """Financial model specification bindings."""
 
 from typing import Optional, List, Dict, Any
-from ..core.dates.periods import Period
+from finstack.core.dates.periods import Period
+from .node import NodeSpec
 from .waterfall import WaterfallSpec
 
 class CapitalStructureSpec:

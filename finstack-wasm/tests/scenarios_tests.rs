@@ -83,6 +83,47 @@ fn test_operation_spec_time_roll() {
 }
 
 #[wasm_bindgen_test]
+fn test_operation_spec_structured_credit() {
+    use finstack_wasm::OperationSpec;
+
+    let operations = vec![
+        OperationSpec::asset_correlation_pts(0.05),
+        OperationSpec::prepay_default_correlation_pts(-0.10),
+        OperationSpec::recovery_correlation_pts(0.02),
+        OperationSpec::prepay_factor_loading_pts(0.15),
+    ];
+
+    for op in operations {
+        let json = op.to_json().expect("serialize structured credit op");
+        let roundtrip = OperationSpec::from_json(&json).expect("deserialize structured credit op");
+
+        let original = js_sys::JSON::stringify(&json).unwrap();
+        let reparsed = js_sys::JSON::stringify(&roundtrip.to_json().unwrap()).unwrap();
+        assert_eq!(original, reparsed);
+    }
+}
+
+#[wasm_bindgen_test]
+fn test_rate_binding_from_json() {
+    use finstack_wasm::{Compounding, RateBindingSpec};
+
+    let binding = RateBindingSpec::new(
+        "RateNode".to_string(),
+        "USD_SOFR".to_string(),
+        "1Y".to_string(),
+        Some(Compounding::CONTINUOUS()),
+        None,
+    );
+
+    let json = binding.to_json().expect("serialize rate binding");
+    let parsed = RateBindingSpec::from_json(&json).expect("deserialize rate binding");
+
+    assert_eq!(parsed.node_id(), "RateNode");
+    assert_eq!(parsed.curve_id(), "USD_SOFR");
+    assert_eq!(parsed.tenor(), "1Y");
+}
+
+#[wasm_bindgen_test]
 fn test_operation_spec_json_roundtrip() {
     use finstack_wasm::OperationSpec;
 

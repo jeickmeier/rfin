@@ -214,15 +214,15 @@ fn extract_from_pandas(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)
                 let item = item?;
                 // Check if item is a pair (k, v)
                 if let Ok((k, v)) = item.extract::<(f64, f64)>() {
-                     results.push((k, v));
+                    results.push((k, v));
                 } else {
-                     // If items() returns something else (unlikely for Series/Dict but possible for others)
-                     // we might want to bail out or treat it as failure of this method.
-                     // However, for Series.items(), it should return pairs.
-                     // If we fail here, maybe we should return Err?
-                     // But "items" might exist on other objects.
-                     // Let's assume if it has items(), it should behave like dict/series items.
-                     return Err(PyTypeError::new_err("Expected pair from items() iterator"));
+                    // If items() returns something else (unlikely for Series/Dict but possible for others)
+                    // we might want to bail out or treat it as failure of this method.
+                    // However, for Series.items(), it should return pairs.
+                    // If we fail here, maybe we should return Err?
+                    // But "items" might exist on other objects.
+                    // Let's assume if it has items(), it should behave like dict/series items.
+                    return Err(PyTypeError::new_err("Expected pair from items() iterator"));
                 }
             }
             return Ok(Some(results));

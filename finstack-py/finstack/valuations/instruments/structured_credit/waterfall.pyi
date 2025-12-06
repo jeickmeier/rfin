@@ -135,4 +135,3 @@ class WaterfallTier:
     def recipient_count(self) -> int:
         """Get number of recipients."""
         ...
-

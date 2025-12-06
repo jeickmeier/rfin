@@ -4,6 +4,7 @@ from typing import Any, List, Tuple
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar
 from ...core.dates.periods import PeriodId
+from .builder import ModelBuilder
 
 class MixedNodeBuilder:
     """Builder for mixed nodes with values, forecasts, and formulas.

@@ -168,58 +168,42 @@ class VarianceConfig:
 
     @property
     def baseline_label(self) -> str: ...
-
     @property
     def comparison_label(self) -> str: ...
-
     @property
     def metrics(self) -> List[str]: ...
-
     @property
     def periods(self) -> List[PeriodId]: ...
-
     def __repr__(self) -> str: ...
-
 
 class VarianceRow:
     """One row of variance output."""
 
     @property
     def period(self) -> PeriodId: ...
-
     @property
     def metric(self) -> str: ...
-
     @property
     def baseline(self) -> float: ...
-
     @property
     def comparison(self) -> float: ...
-
     @property
     def abs_var(self) -> float: ...
-
     @property
     def pct_var(self) -> float: ...
-
     @property
     def driver_contribution(self) -> List[tuple[str, float]]: ...
-
     def __repr__(self) -> str: ...
-
 
 class VarianceReport:
     """Variance report between a baseline and comparison scenario."""
 
     @property
     def baseline_label(self) -> str: ...
-
     @property
     def comparison_label(self) -> str: ...
-
     @property
     def rows(self) -> List[VarianceRow]: ...
-
     def to_polars(self) -> Any:
         """Export variance rows to a Polars DataFrame.
 
@@ -230,45 +214,33 @@ class VarianceReport:
 
     def __repr__(self) -> str: ...
 
-
 class BridgeStep:
     """Single driver contribution in a bridge chart."""
 
     @property
     def driver(self) -> str: ...
-
     @property
     def contribution(self) -> float: ...
-
     def __repr__(self) -> str: ...
-
 
 class BridgeChart:
     """Bridge chart for a single metric and period."""
 
     @property
     def target_metric(self) -> str: ...
-
     @property
     def period(self) -> PeriodId: ...
-
     @property
     def baseline_label(self) -> str: ...
-
     @property
     def comparison_label(self) -> str: ...
-
     @property
     def baseline_value(self) -> float: ...
-
     @property
     def comparison_value(self) -> float: ...
-
     @property
     def steps(self) -> List[BridgeStep]: ...
-
     def __repr__(self) -> str: ...
-
 
 class VarianceAnalyzer:
     """Variance analyzer between two evaluated Results."""
@@ -326,7 +298,6 @@ class VarianceAnalyzer:
 
     def __repr__(self) -> str: ...
 
-
 # =============================================================================
 # Scenario Management
 # =============================================================================
@@ -351,21 +322,16 @@ class ScenarioDefinition:
 
     @property
     def parent(self) -> Optional[str]: ...
-
     @property
     def model_id(self) -> Optional[str]: ...
-
     @property
     def overrides(self) -> Dict[str, float]: ...
-
     def __repr__(self) -> str: ...
-
 
 class ScenarioSet:
     """Named scenario registry for financial models."""
 
     def __init__(self) -> None: ...
-
     @staticmethod
     def from_mapping(mapping: Dict[str, Dict[str, Any]]) -> ScenarioSet:
         """Create a scenario set from a mapping of name → definition dict."""
@@ -410,15 +376,12 @@ class ScenarioSet:
 
     def __repr__(self) -> str: ...
 
-
 class ScenarioResults:
     """Evaluated results for all scenarios in a ScenarioSet."""
 
     @property
     def scenario_names(self) -> List[str]: ...
-
     def __len__(self) -> int: ...
-
     def get(self, name: str) -> Results:
         """Get the Results for a given scenario."""
         ...
@@ -429,19 +392,15 @@ class ScenarioResults:
 
     def __repr__(self) -> str: ...
 
-
 class ScenarioDiff:
     """Variance-style diff between two evaluated scenarios."""
 
     @property
     def baseline(self) -> str: ...
-
     @property
     def comparison(self) -> str: ...
-
     @property
     def variance(self) -> VarianceReport: ...
-
     def __repr__(self) -> str: ...
 
 class TornadoEntry:

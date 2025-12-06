@@ -52,6 +52,14 @@ impl JsRateBindingSpec {
             .map_err(|e| JsValue::from_str(&format!("Failed to serialize RateBindingSpec: {}", e)))
     }
 
+    /// Build from a JSON object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: &JsValue) -> Result<JsRateBindingSpec, JsValue> {
+        let inner: RateBindingSpec = serde_wasm_bindgen::from_value(value.clone())
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse RateBindingSpec: {}", e)))?;
+        Ok(JsRateBindingSpec { inner })
+    }
+
     #[wasm_bindgen(getter, js_name = nodeId)]
     pub fn node_id(&self) -> String {
         self.inner.node_id.clone()
@@ -422,6 +430,50 @@ impl JsOperationSpec {
                 bp,
             },
         })
+    }
+
+    /// Shock asset correlation for structured credit instruments.
+    ///
+    /// # Arguments
+    /// * `delta_pts` - Additive shock in correlation points (e.g., 0.05 for +5%)
+    #[wasm_bindgen(js_name = assetCorrelationPts)]
+    pub fn asset_correlation_pts(delta_pts: f64) -> JsOperationSpec {
+        JsOperationSpec {
+            inner: OperationSpec::AssetCorrelationPts { delta_pts },
+        }
+    }
+
+    /// Shock prepay-default correlation for structured credit instruments.
+    ///
+    /// # Arguments
+    /// * `delta_pts` - Additive shock in correlation points
+    #[wasm_bindgen(js_name = prepayDefaultCorrelationPts)]
+    pub fn prepay_default_correlation_pts(delta_pts: f64) -> JsOperationSpec {
+        JsOperationSpec {
+            inner: OperationSpec::PrepayDefaultCorrelationPts { delta_pts },
+        }
+    }
+
+    /// Shock recovery-default correlation for structured credit instruments.
+    ///
+    /// # Arguments
+    /// * `delta_pts` - Additive shock in correlation points
+    #[wasm_bindgen(js_name = recoveryCorrelationPts)]
+    pub fn recovery_correlation_pts(delta_pts: f64) -> JsOperationSpec {
+        JsOperationSpec {
+            inner: OperationSpec::RecoveryCorrelationPts { delta_pts },
+        }
+    }
+
+    /// Shock prepayment factor loading (systematic factor sensitivity).
+    ///
+    /// # Arguments
+    /// * `delta_pts` - Additive shock to factor loading
+    #[wasm_bindgen(js_name = prepayFactorLoadingPts)]
+    pub fn prepay_factor_loading_pts(delta_pts: f64) -> JsOperationSpec {
+        JsOperationSpec {
+            inner: OperationSpec::PrepayFactorLoadingPts { delta_pts },
+        }
     }
 
     /// Roll forward horizon by a period with carry/theta.

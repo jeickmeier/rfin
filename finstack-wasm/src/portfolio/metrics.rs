@@ -278,3 +278,9 @@ pub fn js_aggregate_metrics(
         .map(JsPortfolioMetrics::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
+
+/// Check if a metric can be summed across positions.
+#[wasm_bindgen(js_name = isSummable)]
+pub fn js_is_summable(metric_id: &str) -> bool {
+    finstack_portfolio::metrics::is_summable(metric_id)
+}

@@ -1,9 +1,9 @@
 """P&L Attribution type stubs."""
 
 from datetime import date
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Mapping, Any
 from finstack.core.money import Money
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from finstack.portfolio import Portfolio
 
 class AttributionMethod:
@@ -375,7 +375,7 @@ class PortfolioAttribution:
         ...
 
 def attribute_pnl(
-    instrument,
+    instrument: Any,
     market_t0: MarketContext,
     market_t1: MarketContext,
     as_of_t0: date,

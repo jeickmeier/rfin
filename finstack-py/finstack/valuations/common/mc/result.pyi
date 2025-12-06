@@ -1,8 +1,8 @@
 """Monte Carlo result wrapper with optional path data."""
 
 from typing import Optional, Tuple
-from finstack.core import Money
-from finstack.valuations.mc_paths import PathDataset
+from finstack.core.money import Money
+from finstack.valuations.common.mc import PathDataset
 
 class MonteCarloResult:
     """Monte Carlo result with optional path data."""

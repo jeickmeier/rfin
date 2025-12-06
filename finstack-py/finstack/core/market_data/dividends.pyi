@@ -4,7 +4,7 @@ Provides dividend event modeling and schedule management
 for equity instruments.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 from datetime import date
 from ..currency import Currency
 from ..money import Money

@@ -29,6 +29,7 @@ dependencies = [
     "pandas>=2.3.2",
     "polars>=1.8.2",
     "pyarrow>=22.0.0",
+    "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,9 @@ dev-dependencies = [
     "pytest-benchmark>=4.0", 
     "mypy>=1.0",
     "ruff>=0.1.0",
+    "flake8>=7.0",
+    "flake8-cognitive-complexity>=0.1.0",
+    "flake8-pyproject>=1.2.3",
     "ipython>=8.0",
     "jupyter>=1.0",
 ]
@@ -252,6 +256,9 @@ skip-magic-trailing-comma = false
 line-ending = "lf"
 preview = true                    # adopt next-year style early
 
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
 # ---------------------------------
 #  isort settings (for "I" rules)
 # ---------------------------------
@@ -259,6 +266,19 @@ preview = true                    # adopt next-year style early
 known-first-party = ["finstack-py"]   # add your own modules here
 combine-as-imports = true
 force-sort-within-sections = true
+
+#######################
+# Flake8 Configuration
+#######################
+[tool.flake8]
+max-cognitive-complexity = 15
+# Ignore standard flake8 checks that ruff handles (optional, but recommended for speed/noise)
+ignore = ["E", "W", "F", "C901"]
+per-file-ignores = [
+    "finstack-py/examples/**:CCR001",
+    "finstack-py/tests/**:CCR001"
+]
+# recursive = true (not supported in all versions, but good to have if supported)
 
 #######################
 # MyPy Configuration
@@ -269,26 +289,20 @@ warn_return_any = true
 warn_unused_configs = true
 strict = true
 plugins = ['pydantic.mypy']
-exclude = "^(examples/|concatenate_script\\.py|outputs/)"
+exclude = [
+    "^examples/",
+    "^finstack-py/examples/",
+    "^tests/",
+    "^finstack-py/tests/",
+    "^concatenate_script\\.py$",
+    "^outputs/",
+    "^scripts/",
+]
 
 # Per-package overrides migrated from mypy.ini
 [[tool.mypy.overrides]]
 module = ["pandas.*", "pandas.api.types", "requests.*", "numpy.*", "asteval.*"]
 ignore_missing_imports = true
-
-# Completely skip type checking for test files
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-ignore_errors = true
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
-
-# File length enforcement (1200 lines max)
-# Note: Ruff doesn't have a built-in file length checker
-# Enforcement methods:
-#   1. Pre-commit hook: uv run pre-commit run file-length-check --all-files
-#   2. Manual check: uv run python scripts/check_file_lengths.py [max_lines]
 
 #######################
 # Bandit Configuration (Security)

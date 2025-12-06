@@ -4,7 +4,7 @@ Provides various numerical integration methods including
 Simpson's rule, Gauss-Legendre quadrature, and adaptive methods.
 """
 
-from typing import Callable
+from typing import Callable, List
 
 class GaussHermiteQuadrature:
     """Gauss-Hermite quadrature for infinite integrals.

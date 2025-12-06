@@ -10,8 +10,8 @@ them, and :class:`RateBindingSpec` to link market curves into statement nodes.
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date
-from ...core.currency import Currency
-from ...valuations.common import InstrumentType
+from finstack.core.currency import Currency
+from finstack.valuations.common import InstrumentType
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode
 
 class Compounding:
@@ -59,7 +59,6 @@ class RateBindingSpec:
         compounding: Optional[Compounding] = None,
         day_count: Optional[str] = None,
     ) -> None: ...
-
     @property
     def node_id(self) -> str:
         """Statement node ID to receive the bound rate."""
@@ -86,6 +85,10 @@ class RateBindingSpec:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> RateBindingSpec:
         """Create a binding spec from a JSON-style mapping."""
+
+    @classmethod
+    def from_legacy(cls, node_id: str, curve_id: str) -> RateBindingSpec:
+        """Build from a legacy ``(node_id, curve_id)`` mapping using 1Y continuous compounding."""
 
     def __repr__(self) -> str: ...
 

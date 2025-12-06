@@ -7,31 +7,31 @@ from enum import Enum
 class CashflowType(Enum):
     """Type of cashflow for categorization and analysis."""
 
-    Principal: int
+    Principal = ...
     """Principal deployment (draws) or repayment"""
 
-    Interest: int
+    Interest = ...
     """Interest payment on drawn amounts"""
 
-    CommitmentFee: int
+    CommitmentFee = ...
     """Commitment fee on undrawn amounts"""
 
-    UsageFee: int
+    UsageFee = ...
     """Usage fee on drawn amounts"""
 
-    FacilityFee: int
+    FacilityFee = ...
     """Facility fee on total commitment"""
 
-    UpfrontFee: int
+    UpfrontFee = ...
     """One-time upfront fee"""
 
-    Recovery: int
+    Recovery = ...
     """Recovery proceeds on default"""
 
-    MarkToMarket: int
+    MarkToMarket = ...
     """Mark-to-market P&L at timestep"""
 
-    Other: int
+    Other = ...
     """Other/generic cashflow"""
 
 class PathPoint:
@@ -270,7 +270,7 @@ class PathDataset:
         """Get all state variable keys present in the dataset."""
         ...
 
-    def to_dict(self) -> Dict[str, List]:
+    def to_dict(self) -> Dict[str, List[Any]]:
         """
         Convert to a long-format dictionary suitable for pandas DataFrame.
 
@@ -284,7 +284,7 @@ class PathDataset:
         """
         ...
 
-    def to_wide_dict(self, state_var: str) -> Dict[str, List]:
+    def to_wide_dict(self, state_var: str) -> Dict[str, List[Any]]:
         """
         Convert to a wide-format dictionary (paths as columns).
 

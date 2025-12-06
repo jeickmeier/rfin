@@ -1,7 +1,7 @@
 """Node specification bindings."""
 
 from typing import Optional, Dict, Any, List
-from ..core.dates.periods import PeriodId
+from finstack.core.dates.periods import PeriodId
 from .forecast import ForecastSpec
 from .value import AmountOrScalar
 

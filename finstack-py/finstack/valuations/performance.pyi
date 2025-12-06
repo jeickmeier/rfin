@@ -8,7 +8,6 @@ performed in Rust; the stubs document the expected shapes and behavior.
 from typing import Iterable, List, Optional, Tuple
 from datetime import date
 
-
 def xirr(cash_flows: Iterable[Tuple[date, float]], guess: Optional[float] = ...) -> float:
     """Calculate XIRR (Extended Internal Rate of Return) for irregular cash flows.
 
@@ -33,7 +32,6 @@ def xirr(cash_flows: Iterable[Tuple[date, float]], guess: Optional[float] = ...)
         If the solver cannot converge.
     """
     ...
-
 
 def npv(
     cash_flows: Iterable[Tuple[date, float]],
@@ -62,7 +60,6 @@ def npv(
     """
     ...
 
-
 def irr_periodic(amounts: List[float], guess: Optional[float] = ...) -> float:
     """Compute IRR for evenly spaced (periodic) cash flows.
 
@@ -81,4 +78,3 @@ def irr_periodic(amounts: List[float], guess: Optional[float] = ...) -> float:
         appropriate to your period length.
     """
     ...
-

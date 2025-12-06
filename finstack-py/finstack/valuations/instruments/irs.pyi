@@ -160,32 +160,6 @@ class InterestRateSwap:
         ...
 
     @classmethod
-    @overload
-    def builder(cls, instrument_id: str) -> InterestRateSwapBuilder: ...
-    @classmethod
-    @overload
-    def builder(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        fixed_rate: float,
-        start: date,
-        end: date,
-        side: str,
-        discount_curve: str,
-        forward_curve: str,
-        *,
-        fixed_frequency: Optional[Frequency] = None,
-        float_frequency: Optional[Frequency] = None,
-        fixed_day_count: Optional[DayCount] = None,
-        float_day_count: Optional[DayCount] = None,
-        business_day_convention: Optional[BusinessDayConvention] = None,
-        float_spread_bp: Optional[float] = None,
-        reset_lag_days: Optional[int] = None,
-        calendar: Optional[str] = None,
-        stub: Optional[StubKind] = None,
-    ) -> "InterestRateSwap": ...
-    @classmethod
     def builder(
         cls,
         instrument_id: str,
@@ -236,18 +210,6 @@ class InterestRateSwapBuilder:
     def id(self) -> str: ...
     @property
     def instrument_id(self) -> str: ...
-    @property
-    def notional(self) -> Money: ...
-    @property
-    def side(self) -> PayReceive: ...
-    @property
-    def fixed_rate(self) -> float: ...
-    @property
-    def float_spread_bp(self) -> float: ...
-    @property
-    def start(self) -> date: ...
-    @property
-    def end(self) -> date: ...
     @property
     def discount_curve(self) -> str: ...
     @property

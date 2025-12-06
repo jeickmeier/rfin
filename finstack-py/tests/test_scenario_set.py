@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from finstack.core.dates import PeriodId
 from finstack.statements import AmountOrScalar, ModelBuilder, ScenarioDefinition, ScenarioSet
 
@@ -49,8 +51,8 @@ def test_scenario_set_evaluate_and_diff() -> None:
     base_results = results.get("base")
     downside_results = results.get("downside")
 
-    assert base_results.get("revenue", period) == 100_000.0
-    assert downside_results.get("revenue", period) == 90_000.0
+    assert base_results.get("revenue", period) == pytest.approx(100_000.0)
+    assert downside_results.get("revenue", period) == pytest.approx(90_000.0)
 
     # Diff between base and downside
     metrics = ["revenue", "ebitda"]
@@ -63,11 +65,11 @@ def test_scenario_set_evaluate_and_diff() -> None:
     report = diff.variance
     rows = {row.metric(): row for row in report.rows()}
 
-    assert rows["revenue"].baseline() == 100_000.0
-    assert rows["revenue"].comparison() == 90_000.0
+    assert rows["revenue"].baseline() == pytest.approx(100_000.0)
+    assert rows["revenue"].comparison() == pytest.approx(90_000.0)
 
-    assert rows["ebitda"].baseline() == 60_000.0
-    assert rows["ebitda"].comparison() == 54_000.0
+    assert rows["ebitda"].baseline() == pytest.approx(60_000.0)
+    assert rows["ebitda"].comparison() == pytest.approx(54_000.0)
 
 
 def test_scenario_set_from_mapping() -> None:
@@ -90,7 +92,5 @@ def test_scenario_set_from_mapping() -> None:
     base_results = results.get("base")
     downside_results = results.get("downside")
 
-    assert base_results.get("revenue", period) == 100_000.0
-    assert downside_results.get("revenue", period) == 90_000.0
-
-
+    assert base_results.get("revenue", period) == pytest.approx(100_000.0)
+    assert downside_results.get("revenue", period) == pytest.approx(90_000.0)

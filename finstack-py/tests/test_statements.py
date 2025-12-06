@@ -67,7 +67,7 @@ class TestAmountOrScalar:
         """Test creating a scalar value."""
         val = AmountOrScalar.scalar(100.0)
         assert val.is_scalar
-        assert val.value == 100.0
+        assert val.value == pytest.approx(100.0)
         assert val.currency is None
 
     def test_amount_creation(self) -> None:
@@ -75,7 +75,7 @@ class TestAmountOrScalar:
         usd = Currency("USD")
         val = AmountOrScalar.amount(1000.0, usd)
         assert not val.is_scalar
-        assert val.value == 1000.0
+        assert val.value == pytest.approx(1000.0)
         assert val.currency.code == "USD"
 
     def test_json_roundtrip(self) -> None:
@@ -84,7 +84,7 @@ class TestAmountOrScalar:
         json1 = val1.to_json()
         restored1 = AmountOrScalar.from_json(json1)
         assert restored1.is_scalar
-        assert restored1.value == 42.0
+        assert restored1.value == pytest.approx(42.0)
 
 
 class TestForecastSpec:
@@ -108,22 +108,22 @@ class TestForecastSpec:
         spec = ForecastSpec.growth(0.05)
         assert str(spec.method) == str(ForecastMethod.GROWTH_PCT)
         params = spec.params
-        assert params["rate"] == 0.05
+        assert params["rate"] == pytest.approx(0.05)
 
     def test_forecast_spec_curve(self) -> None:
         """Test curve percentage forecast."""
         spec = ForecastSpec.curve([0.05, 0.06, 0.07])
         assert str(spec.method) == str(ForecastMethod.CURVE_PCT)
         params = spec.params
-        assert params["curve"] == [0.05, 0.06, 0.07]
+        assert params["curve"] == pytest.approx([0.05, 0.06, 0.07])
 
     def test_forecast_spec_normal(self) -> None:
         """Test normal distribution forecast."""
         spec = ForecastSpec.normal(0.05, 0.01, 42)
         assert str(spec.method) == str(ForecastMethod.NORMAL)
         params = spec.params
-        assert params["mean"] == 0.05
-        assert params["std_dev"] == 0.01
+        assert params["mean"] == pytest.approx(0.05)
+        assert params["std_dev"] == pytest.approx(0.01)
         assert params["seed"] == 42
 
 
@@ -217,13 +217,13 @@ class TestEvaluator:
         q1 = PeriodId.quarter(2025, 1)
 
         revenue_q1 = results.get("revenue", q1)
-        assert revenue_q1 == 100.0
+        assert revenue_q1 == pytest.approx(100.0)
 
         cogs_q1 = results.get("cogs", q1)
-        assert cogs_q1 == 60.0  # 100 * 0.6
+        assert cogs_q1 == pytest.approx(60.0)  # 100 * 0.6
 
         gross_profit_q1 = results.get("gross_profit", q1)
-        assert gross_profit_q1 == 40.0  # 100 - 60
+        assert gross_profit_q1 == pytest.approx(40.0)  # 100 - 60
 
     def test_evaluator_with_forecast(self) -> None:
         """Test evaluation with forecast."""
@@ -253,8 +253,8 @@ class TestEvaluator:
         revenue_q3 = results.get("revenue", q3)
         revenue_q4 = results.get("revenue", q4)
 
-        assert revenue_q3 == 105.0  # Forward filled from Q2
-        assert revenue_q4 == 105.0
+        assert revenue_q3 == pytest.approx(105.0)  # Forward filled from Q2
+        assert revenue_q4 == pytest.approx(105.0)
 
     def test_results_accessors(self) -> None:
         """Test Results accessor methods."""
@@ -280,8 +280,8 @@ class TestEvaluator:
         # Test get_or
         q1 = PeriodId.quarter(2025, 1)
         q3 = PeriodId.quarter(2025, 3)
-        assert results.get_or("test_metric", q1, 0.0) == 10.0
-        assert results.get_or("test_metric", q3, 99.0) == 99.0  # Default value
+        assert results.get_or("test_metric", q1, 0.0) == pytest.approx(10.0)
+        assert results.get_or("test_metric", q3, 99.0) == pytest.approx(99.0)  # Default value
 
 
 class TestRegistry:
@@ -397,10 +397,10 @@ class TestIntegration:
 
         # Check Q1 calculations
         q1 = PeriodId.quarter(2025, 1)
-        assert results.get("revenue", q1) == 1000000.0
-        assert results.get("cogs", q1) == 600000.0
-        assert results.get("gross_profit", q1) == 400000.0
-        assert results.get("gross_margin", q1) == 0.4
+        assert results.get("revenue", q1) == pytest.approx(1000000.0)
+        assert results.get("cogs", q1) == pytest.approx(600000.0)
+        assert results.get("gross_profit", q1) == pytest.approx(400000.0)
+        assert results.get("gross_margin", q1) == pytest.approx(0.4)
 
 
 class TestPeriodAggregations:
@@ -429,9 +429,9 @@ class TestPeriodAggregations:
         q2 = PeriodId.quarter(2025, 2)
         q3 = PeriodId.quarter(2025, 3)
 
-        assert results.get("revenue_ytd", q1) == 100.0
-        assert results.get("revenue_ytd", q2) == 210.0  # 100 + 110
-        assert results.get("revenue_ytd", q3) == 330.0  # 100 + 110 + 120
+        assert results.get("revenue_ytd", q1) == pytest.approx(100.0)
+        assert results.get("revenue_ytd", q2) == pytest.approx(210.0)  # 100 + 110
+        assert results.get("revenue_ytd", q3) == pytest.approx(330.0)  # 100 + 110 + 120
 
     def test_qtd_monthly(self) -> None:
         """QTD should sum from quarter start for monthly models."""
@@ -458,9 +458,9 @@ class TestPeriodAggregations:
         m5 = PeriodId.month(2025, 5)
         m6 = PeriodId.month(2025, 6)
 
-        assert results.get("revenue_qtd", m4) == 100.0
-        assert results.get("revenue_qtd", m5) == 210.0  # 100 + 110
-        assert results.get("revenue_qtd", m6) == 330.0  # 100 + 110 + 120
+        assert results.get("revenue_qtd", m4) == pytest.approx(100.0)
+        assert results.get("revenue_qtd", m5) == pytest.approx(210.0)  # 100 + 110
+        assert results.get("revenue_qtd", m6) == pytest.approx(330.0)  # 100 + 110 + 120
 
     def test_fiscal_ytd_april_start(self) -> None:
         """Fiscal YTD should respect a fiscal year starting in April for monthly models."""

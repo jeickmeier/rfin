@@ -1,14 +1,15 @@
 """Portfolio margin aggregation bindings."""
 
-from typing import Dict, List, Optional, Tuple
-from ..core.currency import Currency
-from ..core.money import Money
-from ..core.market_data.context import MarketContext
-from ..core.dates import DateLike
-from ..valuations.margin import OtcMarginSpec, SimmSensitivities
+from typing import Dict, List, Optional, Tuple, Any, Union
+from datetime import date
+from finstack.core.currency import Currency
+from finstack.core.money import Money
+from finstack.core.market_data.context import MarketContext
 from .types import Position
 from .portfolio import Portfolio
 
+DateLike = Union[str, date]
+SimmSensitivities = Any
 
 class NettingSetId:
     """Identifier for a margin netting set (CSA or CCP)."""
@@ -21,17 +22,14 @@ class NettingSetId:
     def bilateral(counterparty_id: str, csa_id: str) -> "NettingSetId": ...
     @staticmethod
     def cleared(ccp_id: str) -> "NettingSetId": ...
-
     def is_cleared(self) -> bool: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
-
 
 class NettingSet:
     """Netting set containing positions for margin aggregation."""
 
     def __init__(self, id: NettingSetId) -> None: ...
-
     @property
     def id(self) -> str:
         """Netting set identifier as string."""
@@ -54,7 +52,6 @@ class NettingSet:
         ...
 
     def __repr__(self) -> str: ...
-
 
 class NettingSetMargin:
     """Margin results for a single netting set."""
@@ -110,12 +107,10 @@ class NettingSetMargin:
 
     def __repr__(self) -> str: ...
 
-
 class NettingSetManager:
     """Organize positions into netting sets."""
 
     def __init__(self) -> None: ...
-
     def with_default_set(self, id: NettingSetId) -> "NettingSetManager":
         """Configure a default netting set for positions without explicit spec."""
         ...
@@ -135,7 +130,6 @@ class NettingSetManager:
     def get(self, id: NettingSetId) -> Optional[NettingSet]:
         """Fetch a netting set by id."""
         ...
-
 
 class PortfolioMarginResult:
     """Portfolio-wide margin calculation results."""
@@ -185,7 +179,6 @@ class PortfolioMarginResult:
         ...
 
     def __repr__(self) -> str: ...
-
 
 class PortfolioMarginAggregator:
     """Aggregate margin requirements across a portfolio."""

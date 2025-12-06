@@ -5,7 +5,14 @@ surfaces, FX rates, and other market information.
 """
 
 from typing import Dict, List, Optional, Any, Union
-from .term_structures import DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, BaseCorrelationCurve
+from .term_structures import (
+    DiscountCurve,
+    ForwardCurve,
+    HazardCurve,
+    InflationCurve,
+    BaseCorrelationCurve,
+    CreditIndexData,
+)
 from .surfaces import VolSurface
 from .fx import FxMatrix
 from .scalars import MarketScalar, ScalarTimeSeries

@@ -4,18 +4,20 @@ Wraps the Rust portfolio attribution engine to attribute portfolio P&L across
 factors (carry, rates, credit, FX, vol, etc.) with no Python-side logic.
 """
 
-from typing import Dict, Optional
-from ..core.money import Money
-from ..core.market_data.context import MarketContext
-from ..core.config import FinstackConfig
-from ..core.dates import DateLike
+from typing import Dict, Optional, Union
+from datetime import date
+from finstack.core.money import Money
+from finstack.core.market_data.context import MarketContext
+from finstack.core.config import FinstackConfig
 from .portfolio import Portfolio
-from ..valuations.attribution import (
+from finstack.valuations.attribution import (
     PnlAttribution,
     RatesCurvesAttribution,
     CreditCurvesAttribution,
     AttributionMethod,
 )
+
+DateLike = Union[str, date]
 
 class PortfolioAttribution:
     """Portfolio-level P&L attribution result.
@@ -112,7 +114,6 @@ class PortfolioAttribution:
         ...
 
     def __repr__(self) -> str: ...
-
 
 def attribute_portfolio_pnl(
     portfolio: Portfolio,

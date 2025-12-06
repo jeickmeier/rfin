@@ -18,7 +18,7 @@ from .convertible import ConvertibleBond
 from .quanto_option import QuantoOption
 from .range_accrual import RangeAccrual
 from .cds import CreditDefaultSwap, CDSPayReceive
-from .cds_index import CdsIndex
+from .cds_index import CDSIndex as CdsIndex
 from .cds_option import CdsOption
 from .cds_tranche import CdsTranche
 from .barrier_option import BarrierOption, BarrierType

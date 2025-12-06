@@ -121,6 +121,9 @@ pub use valuations::common::parameters::{
     JsPayReceive as PayReceive, JsSettlementType as SettlementType,
 };
 
+// Attribution helpers
+pub use valuations::attribution::WasmAttributionMethod as AttributionMethod;
+
 // Risk analysis functions
 pub use valuations::risk::{
     calculate_portfolio_var_js as calculatePortfolioVar, calculate_var_js as calculateVar,
@@ -157,14 +160,28 @@ pub use scenarios::{
 
 // Portfolio exports
 pub use portfolio::{
-    js_aggregate_by_attribute as aggregateByAttribute, js_aggregate_metrics as aggregateMetrics,
+    js_aggregate_by_attribute as aggregateByAttribute,
+    js_aggregate_cashflows as aggregateCashflows, js_aggregate_metrics as aggregateMetrics,
+    js_attribute_portfolio_pnl as attributePortfolioPnl,
+    js_cashflows_to_base_by_period as cashflowsToBaseByPeriod,
+    js_collapse_cashflows_to_base_by_date as collapseCashflowsToBaseByDate,
     js_create_position_from_bond as createPositionFromBond,
     js_create_position_from_deposit as createPositionFromDeposit,
-    js_group_by_attribute as groupByAttribute, js_value_portfolio as valuePortfolio,
-    JsAggregatedMetric as AggregatedMetric, JsEntity as Entity, JsPortfolio as Portfolio,
-    JsPortfolioBuilder as PortfolioBuilder, JsPortfolioMetrics as PortfolioMetrics,
+    js_group_by_attribute as groupByAttribute, js_is_summable as isSummable,
+    js_optimize_max_yield_with_ccc_limit as optimizeMaxYieldWithCccLimit,
+    js_value_portfolio as valuePortfolio,
+    js_value_portfolio_with_options as valuePortfolioWithOptions,
+    JsAggregatedMetric as AggregatedMetric, JsEntity as Entity, JsNettingSet as NettingSet,
+    JsNettingSetId as NettingSetId, JsNettingSetManager as NettingSetManager,
+    JsNettingSetMargin as NettingSetMargin, JsPnlAttribution as PnlAttribution,
+    JsPortfolio as Portfolio, JsPortfolioAttribution as PortfolioAttribution,
+    JsPortfolioBuilder as PortfolioBuilder, JsPortfolioCashflowBuckets as PortfolioCashflowBuckets,
+    JsPortfolioCashflows as PortfolioCashflows,
+    JsPortfolioMarginAggregator as PortfolioMarginAggregator,
+    JsPortfolioMarginResult as PortfolioMarginResult, JsPortfolioMetrics as PortfolioMetrics,
     JsPortfolioResults as PortfolioResults, JsPortfolioValuation as PortfolioValuation,
-    JsPosition as Position, JsPositionUnit as PositionUnit, JsPositionValue as PositionValue,
+    JsPortfolioValuationOptions as PortfolioValuationOptions, JsPosition as Position,
+    JsPositionUnit as PositionUnit, JsPositionValue as PositionValue,
 };
 
 #[cfg(feature = "scenarios")]

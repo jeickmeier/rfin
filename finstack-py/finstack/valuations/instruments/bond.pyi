@@ -7,8 +7,7 @@ from ...core.currency import Currency
 from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
-from ...core.cashflow.primitives import AmortizationSpec
-from ...core.cashflow.builder import CashFlowSchedule
+from ..cashflow.builder import AmortizationSpec, CashFlowSchedule
 from ..common import InstrumentType
 
 class CallScheduleItem(TypedDict):
@@ -241,34 +240,6 @@ class Bond:
         """
         ...
 
-    @classmethod
-    @overload
-    def builder(cls, instrument_id: str) -> BondBuilder: ...
-    @classmethod
-    @overload
-    def builder(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        issue: date,
-        maturity: date,
-        discount_curve: str,
-        *,
-        coupon_rate: Optional[float] = None,
-        frequency: Optional[Frequency] = None,
-        day_count: Optional[DayCount] = None,
-        bdc: Optional[BusinessDayConvention] = None,
-        calendar_id: Optional[str] = None,
-        stub: Optional[StubKind] = None,
-        amortization: Optional[AmortizationSpec] = None,
-        call_schedule: Optional[List[CallScheduleItem]] = None,
-        put_schedule: Optional[List[PutScheduleItem]] = None,
-        quoted_clean_price: Optional[float] = None,
-        forward_curve: Optional[str] = None,
-        float_margin_bp: Optional[float] = None,
-        float_gearing: Optional[float] = None,
-        float_reset_lag_days: Optional[int] = None,
-    ) -> Bond: ...
     @classmethod
     def builder(
         cls,

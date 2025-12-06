@@ -1,7 +1,7 @@
 """Portfolio results."""
 
 from typing import Dict, Any, Optional
-from ...core.money import Money
+from finstack.core.money import Money
 from .valuation import PortfolioValuation
 from .metrics import PortfolioMetrics
 

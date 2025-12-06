@@ -7,7 +7,7 @@ Also exposes a RoundingMode enum with common strategies (bankers, floor,
 ceil, toward/away from zero).
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from .currency import Currency
 
 class RoundingMode:

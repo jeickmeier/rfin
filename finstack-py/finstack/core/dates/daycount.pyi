@@ -7,6 +7,7 @@ between dates, essential for interest calculations.
 from typing import Optional, Union
 from datetime import date
 from .calendar import Calendar
+from .schedule import Frequency
 
 class DayCount:
     """Day count convention for year fraction calculations.

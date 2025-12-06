@@ -3,6 +3,7 @@
 from typing import Union, Tuple, Optional
 from datetime import date
 from .currency import Currency
+from .config import FinstackConfig
 from .market_data.fx import FxMatrix, FxConversionPolicy
 
 class Money:

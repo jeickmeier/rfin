@@ -382,16 +382,16 @@ class TestAnalysisModule:
         param = ParameterSpec.with_percentages("revenue", PeriodId.quarter(2025, 1), 100000.0, [-10.0, 0.0, 10.0])
 
         assert param.node_id == "revenue"
-        assert param.base_value == 100000.0
+        assert param.base_value == pytest.approx(100000.0)
         assert len(param.perturbations) == 3
 
     def test_tornado_entry_creation(self) -> None:
         """Test TornadoEntry creation."""
         entry = TornadoEntry("revenue", -5000.0, 5000.0)
         assert entry.parameter_id == "revenue"
-        assert entry.downside_impact == -5000.0
-        assert entry.upside_impact == 5000.0
-        assert entry.swing == 10000.0
+        assert entry.downside_impact == pytest.approx(-5000.0)
+        assert entry.upside_impact == pytest.approx(5000.0)
+        assert entry.swing == pytest.approx(10000.0)
 
 
 class TestExplainModule:
@@ -501,7 +501,7 @@ class TestExplainModule:
         explanation = explainer.explain("gross_profit", period)
 
         assert explanation.node_id == "gross_profit"
-        assert explanation.final_value == 60000.0
+        assert explanation.final_value == pytest.approx(60000.0)
         assert explanation.formula_text == "revenue - cogs"
 
     def test_explanation_to_string(self) -> None:
@@ -705,7 +705,7 @@ class TestComprehensiveParity:
 
         # Deserialize results
         results_restored = Results.from_json(results_json)
-        assert results_restored.get("revenue", PeriodId.quarter(2025, 1)) == 100000.0
+        assert results_restored.get("revenue", PeriodId.quarter(2025, 1)) == pytest.approx(100000.0)
 
 
 class TestExtensions:

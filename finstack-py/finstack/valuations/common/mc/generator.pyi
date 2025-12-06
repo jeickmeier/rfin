@@ -1,7 +1,7 @@
 """Standalone Monte Carlo path generation for visualization and analysis."""
 
 from typing import Optional, Dict, List
-from finstack.valuations.mc_paths import PathDataset
+from .paths import PathDataset
 
 class MonteCarloPathGenerator:
     """

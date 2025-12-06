@@ -280,6 +280,25 @@ impl PyRateBindingSpec {
             self.inner.node_id, self.inner.curve_id, self.inner.tenor
         )
     }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, node_id, curve_id)")]
+    /// Build a binding from a legacy `(node_id, curve_id)` mapping.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Statement node ID to receive the rate.
+    /// curve_id : str
+    ///     Curve ID to extract rate from.
+    ///
+    /// Returns
+    /// -------
+    /// RateBindingSpec
+    ///     Binding with 1Y tenor, continuous compounding, and no day-count override.
+    fn from_legacy(_cls: &Bound<'_, PyType>, node_id: String, curve_id: String) -> Self {
+        Self::from_inner(RateBindingSpec::from_legacy(node_id, curve_id))
+    }
 }
 
 /// Individual operation within a scenario.

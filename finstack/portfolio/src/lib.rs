@@ -91,8 +91,9 @@ pub use margin::{
 };
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use optimization::{
-    CandidatePosition, Constraint, DefaultLpOptimizer, Inequality, MetricExpr, MissingMetricPolicy,
-    Objective, PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
+    optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
+    Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
+    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
     PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec, TradeType, TradeUniverse,
     WeightingScheme,
 };
