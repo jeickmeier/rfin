@@ -15,9 +15,9 @@ jobs:
     env:
       # Reduce parallelism to avoid OOM during linking
       CARGO_BUILD_JOBS: 1
-      # Reduce codegen units to lower peak memory during compilation/linking
-      # Pass --threads=1 through cc to LLD linker
-      RUSTFLAGS: "-C codegen-units=1 -C link-arg=-Wl,--threads=1"
+      # Use GNU linker (bfd) instead of LLD - more memory efficient for large binaries
+      # Also reduce codegen units to lower peak memory during compilation
+      RUSTFLAGS: "-C linker=cc -C link-arg=-fuse-ld=bfd -C codegen-units=1"
 
     steps:
       - name: Checkout repository
