@@ -73,9 +73,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
 
-      # Optional: fail job if Quality Gate is red
-      - name: SonarQube Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
+      # Quality Gate enforcement for SonarCloud is done via the GitHub check
+      # (e.g. "SonarCloud Code Analysis") and branch protection rules, so we
+      # do not run the separate SonarQube Quality Gate action here.
