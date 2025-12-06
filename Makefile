@@ -148,7 +148,7 @@ wasm-examples-dev: wasm-build
 
 examples:
 	@echo "════════════════════════════════════════════════════════════════"
-	@echo "🚀 Running all Rust examples 2"
+	@echo "🚀 Running all Rust examplesx"
 	@echo "════════════════════════════════════════════════════════════════"
 	@echo ""
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq is required but not installed. Install with: brew install jq"; exit 1; }
