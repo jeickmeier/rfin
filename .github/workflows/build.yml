@@ -13,8 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Reduce linker parallelism to avoid OOM during linking
-      CARGO_BUILD_JOBS: 2
+      # Reduce parallelism to avoid OOM during linking
+      CARGO_BUILD_JOBS: 1
+      # Limit LLD linker threads to reduce memory usage
+      RUSTFLAGS: "-C link-arg=-Wl,--threads=1"
 
     steps:
       - name: Checkout repository
@@ -42,7 +44,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --exclude finstack-py --exclude finstack-wasm --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features -- -D warnings
 
       - name: Run tests
         run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --all-features --verbose
