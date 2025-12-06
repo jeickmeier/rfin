@@ -170,7 +170,68 @@ pub fn extract_float_pairs(obj: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> 
         return Ok(vec);
     }
 
-    // 2. Try iterating (works for list of lists, list of tuples, numpy 2D array, etc.)
+    // 2. Try dict (key=float, value=float)
+    if let Some(vec) = extract_from_dict(obj)? {
+        return Ok(vec);
+    }
+
+    // 3. Pandas Series support (index=time, value=rate)
+    if let Some(vec) = extract_from_pandas(obj)? {
+        return Ok(vec);
+    }
+
+    // 4. Try iterating (works for list of lists, list of tuples, numpy 2D array, etc.)
+    if let Some(vec) = extract_from_sequence(obj)? {
+        return Ok(vec);
+    }
+
+    Err(PyTypeError::new_err(
+        "Expected list of pairs, dict, or pandas Series (float index)",
+    ))
+}
+
+fn extract_from_dict(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {
+    if let Ok(dict) = obj.downcast::<PyDict>() {
+        let mut results = Vec::new();
+        for (k, v) in dict {
+            let key = k.extract::<f64>()?;
+            let val = v.extract::<f64>()?;
+            results.push((key, val));
+        }
+        // Sort by key (time) as dicts are unordered
+        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        return Ok(Some(results));
+    }
+    Ok(None)
+}
+
+fn extract_from_pandas(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {
+    // Check for "items" method which returns iterator of (index, value)
+    if let Ok(items_method) = obj.getattr("items") {
+        if let Ok(iter) = items_method.call0()?.try_iter() {
+            let mut results = Vec::new();
+            for item in iter {
+                let item = item?;
+                // Check if item is a pair (k, v)
+                if let Ok((k, v)) = item.extract::<(f64, f64)>() {
+                     results.push((k, v));
+                } else {
+                     // If items() returns something else (unlikely for Series/Dict but possible for others)
+                     // we might want to bail out or treat it as failure of this method.
+                     // However, for Series.items(), it should return pairs.
+                     // If we fail here, maybe we should return Err?
+                     // But "items" might exist on other objects.
+                     // Let's assume if it has items(), it should behave like dict/series items.
+                     return Err(PyTypeError::new_err("Expected pair from items() iterator"));
+                }
+            }
+            return Ok(Some(results));
+        }
+    }
+    Ok(None)
+}
+
+fn extract_from_sequence(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>> {
     if let Ok(iter) = obj.try_iter() {
         let mut results = Vec::new();
         for item in iter {
@@ -191,37 +252,7 @@ pub fn extract_float_pairs(obj: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> 
                 return Err(PyTypeError::new_err("Expected pair of floats"));
             }
         }
-        return Ok(results);
+        return Ok(Some(results));
     }
-
-    // 3. Try dict (key=float, value=float)
-    if let Ok(dict) = obj.downcast::<PyDict>() {
-        let mut results = Vec::new();
-        for (k, v) in dict {
-            let key = k.extract::<f64>()?;
-            let val = v.extract::<f64>()?;
-            results.push((key, val));
-        }
-        // Sort by key (time) as dicts are unordered
-        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        return Ok(results);
-    }
-
-    // 4. Pandas Series support (index=time, value=rate)
-    // Check for "items" method which returns iterator of (index, value)
-    if let Ok(items_method) = obj.getattr("items") {
-        if let Ok(iter) = items_method.call0()?.try_iter() {
-            let mut results = Vec::new();
-            for item in iter {
-                let item = item?;
-                let (k, v) = item.extract::<(f64, f64)>()?;
-                results.push((k, v));
-            }
-            return Ok(results);
-        }
-    }
-
-    Err(PyTypeError::new_err(
-        "Expected list of pairs, dict, or pandas Series (float index)",
-    ))
+    Ok(None)
 }
