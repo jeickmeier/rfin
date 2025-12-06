@@ -39,10 +39,10 @@ macro_rules! interp_basic_tests {
                 )
                 .unwrap();
 
-                assert!((interp.interp(0.0) - 1.0).abs() < 1e-12);
-                assert!((interp.interp(1.0) - 0.95).abs() < 1e-12);
-                assert!((interp.interp(2.0) - 0.9).abs() < 1e-12);
-                assert!((interp.interp(3.0) - 0.85).abs() < 1e-12);
+                assert!(approx_eq(interp.interp(0.0), 1.0, 1e-12));
+                assert!(approx_eq(interp.interp(1.0), 0.95, 1e-12));
+                assert!(approx_eq(interp.interp(2.0), 0.9, 1e-12));
+                assert!(approx_eq(interp.interp(3.0), 0.85, 1e-12));
             }
 
             #[test]

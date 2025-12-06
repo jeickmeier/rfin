@@ -11,268 +11,179 @@ fn make_date(y: i32, m: u8, d: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
 }
 
-// ============================================
-// Span Rule Tests
-// ============================================
-
-#[test]
-fn rule_span_basic() {
-    static START_RULE: Rule = Rule::Fixed {
-        month: Month::December,
-        day: 24,
-        observed: Observed::None,
-    };
-
-    let span = Rule::Span {
-        start: &START_RULE,
-        len: 3,
-    };
-
-    // Dec 24, 25, 26 should all be holidays
-    assert!(span.applies(make_date(2025, 12, 24)));
-    assert!(span.applies(make_date(2025, 12, 25)));
-    assert!(span.applies(make_date(2025, 12, 26)));
-
-    // Dec 23 and 27 should not be
-    assert!(!span.applies(make_date(2025, 12, 23)));
-    assert!(!span.applies(make_date(2025, 12, 27)));
-}
-
-#[test]
-fn rule_span_crossing_year_boundary() {
-    static START_RULE: Rule = Rule::Fixed {
-        month: Month::December,
-        day: 30,
-        observed: Observed::None,
-    };
-
-    let span = Rule::Span {
-        start: &START_RULE,
-        len: 5,
-    };
-
-    // Dec 30, 31 of 2024, and Jan 1, 2, 3 of 2025
-    assert!(span.applies(make_date(2024, 12, 30)));
-    assert!(span.applies(make_date(2024, 12, 31)));
-    assert!(span.applies(make_date(2025, 1, 1)));
-    assert!(span.applies(make_date(2025, 1, 2)));
-    assert!(span.applies(make_date(2025, 1, 3)));
-    assert!(!span.applies(make_date(2025, 1, 4)));
-}
-
-#[test]
-fn rule_span_zero_length() {
-    static START_RULE: Rule = Rule::Fixed {
-        month: Month::January,
-        day: 1,
-        observed: Observed::None,
-    };
-
-    let span = Rule::Span {
-        start: &START_RULE,
-        len: 0,
-    };
-
-    // Zero-length span should not match any date
-    assert!(!span.applies(make_date(2025, 1, 1)));
-    assert!(!span.applies(make_date(2025, 1, 2)));
-}
-
-#[test]
-fn rule_span_single_day() {
-    static START_RULE: Rule = Rule::Fixed {
-        month: Month::January,
-        day: 1,
-        observed: Observed::None,
-    };
-
-    let span = Rule::Span {
-        start: &START_RULE,
-        len: 1,
-    };
-
-    // Single-day span should match only the start date
-    assert!(span.applies(make_date(2025, 1, 1)));
-    assert!(!span.applies(make_date(2025, 1, 2)));
-}
-
-#[test]
-fn rule_span_materialize_year() {
-    static START_RULE: Rule = Rule::Fixed {
-        month: Month::April,
-        day: 29,
-        observed: Observed::None,
-    };
-
-    let span = Rule::Span {
-        start: &START_RULE,
-        len: 5,
-    };
-
-    let mut out = SmallVec::<[Date; 32]>::new();
-    span.materialize_year(2025, &mut out);
-
-    // Implementation also materializes previous year for spans > 1 day
-    // So we get both 2024 and 2025 spans (10 dates total)
-    // Just verify the 2025 dates are included
-    assert!(out.contains(&make_date(2025, 4, 29)));
-    assert!(out.contains(&make_date(2025, 4, 30)));
-    assert!(out.contains(&make_date(2025, 5, 1)));
-    assert!(out.contains(&make_date(2025, 5, 2)));
-    assert!(out.contains(&make_date(2025, 5, 3)));
-}
-
-// ============================================
-// Japanese Equinox Tests
-// ============================================
-
-#[test]
-fn rule_vernal_equinox_jp_applies() {
-    let rule = Rule::VernalEquinoxJP;
-
-    // Test specific known dates for vernal equinox
-    // 2024: March 20
-    assert!(rule.applies(make_date(2024, 3, 20)));
-
-    // Non-equinox dates should not match
-    assert!(!rule.applies(make_date(2024, 3, 19)));
-    assert!(!rule.applies(make_date(2024, 3, 22)));
-}
-
-#[test]
-fn rule_autumnal_equinox_jp_applies() {
-    let rule = Rule::AutumnalEquinoxJP;
-
-    // Test that it applies for various years
-    for year in 2020..2030 {
-        let mut out = SmallVec::<[Date; 1]>::new();
-        rule.materialize_year(year, &mut out);
-        let eq_date = out[0];
-
-        // The rule should apply to its computed date
+fn assert_applies(rule: &Rule, yes: &[(i32, u8, u8)], no: &[(i32, u8, u8)]) {
+    for &(y, m, d) in yes {
+        assert!(rule.applies(make_date(y, m, d)), "expected {}-{}-{} to match", y, m, d);
+    }
+    for &(y, m, d) in no {
         assert!(
-            rule.applies(eq_date),
-            "Autumnal equinox {} should apply to its computed date",
-            year
+            !rule.applies(make_date(y, m, d)),
+            "expected {}-{}-{} to miss",
+            y,
+            m,
+            d
         );
-
-        // Days before/after should not match
-        let prev_day = eq_date - time::Duration::days(1);
-        let next_day = eq_date + time::Duration::days(1);
-        assert!(!rule.applies(prev_day));
-        assert!(!rule.applies(next_day));
     }
 }
 
-// ============================================
-// Buddha's Birthday Tests
-// ============================================
+fn materialize(rule: &Rule, year: i32) -> SmallVec<[Date; 32]> {
+    let mut out = SmallVec::<[Date; 32]>::new();
+    rule.materialize_year(year, &mut out);
+    out
+}
 
 #[test]
-fn rule_buddhas_birthday_materialize() {
-    let rule = Rule::BuddhasBirthday;
+fn span_rule_cases() {
+    struct SpanCase {
+        start: (Month, u8),
+        len: usize,
+        hits: &'static [(i32, u8, u8)],
+        misses: &'static [(i32, u8, u8)],
+        materialize_year: Option<i32>,
+    }
 
+    static CASES: &[SpanCase] = &[
+        SpanCase {
+            start: (Month::December, 24),
+            len: 3,
+            hits: &[(2025, 12, 24), (2025, 12, 25), (2025, 12, 26)],
+            misses: &[(2025, 12, 23), (2025, 12, 27)],
+            materialize_year: None,
+        },
+        SpanCase {
+            start: (Month::December, 30),
+            len: 5,
+            hits: &[
+                (2024, 12, 30),
+                (2024, 12, 31),
+                (2025, 1, 1),
+                (2025, 1, 2),
+                (2025, 1, 3),
+            ],
+            misses: &[(2025, 1, 4)],
+            materialize_year: Some(2025),
+        },
+        SpanCase {
+            start: (Month::January, 1),
+            len: 0,
+            hits: &[],
+            misses: &[(2025, 1, 1), (2025, 1, 2)],
+            materialize_year: Some(2025),
+        },
+        SpanCase {
+            start: (Month::January, 1),
+            len: 1,
+            hits: &[(2025, 1, 1)],
+            misses: &[(2025, 1, 2)],
+            materialize_year: Some(2025),
+        },
+        SpanCase {
+            start: (Month::April, 29),
+            len: 5,
+            hits: &[(2025, 4, 29), (2025, 4, 30), (2025, 5, 1), (2025, 5, 2), (2025, 5, 3)],
+            misses: &[],
+            materialize_year: Some(2025),
+        },
+    ];
+
+    for case in CASES {
+        let start_rule: &'static Rule = Box::leak(Box::new(Rule::Fixed {
+            month: case.start.0,
+            day: case.start.1,
+            observed: Observed::None,
+        }));
+        let rule = Rule::Span {
+            start: start_rule,
+            len: case.len,
+        };
+        assert_applies(&rule, case.hits, case.misses);
+
+        if let Some(year) = case.materialize_year {
+            let mats = materialize(&rule, year);
+            for &(y, m, d) in case.hits.iter().filter(|(y, _, _)| *y == year) {
+                assert!(
+                    mats.contains(&make_date(y, m, d)),
+                    "span should materialize {}-{}-{}",
+                    y,
+                    m,
+                    d
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn equinox_rules() {
+    let vernal = Rule::VernalEquinoxJP;
+    assert_applies(
+        &vernal,
+        &[(2024, 3, 20)],
+        &[(2024, 3, 19), (2024, 3, 22)],
+    );
+
+    let autumnal = Rule::AutumnalEquinoxJP;
     for year in 2020..2030 {
-        let mut out = SmallVec::<[Date; 1]>::new();
-        rule.materialize_year(year, &mut out);
+        let eq_date = {
+            let out = materialize(&autumnal, year);
+            assert_eq!(out.len(), 1, "autumnal equinox should yield one date");
+            out[0]
+        };
+        assert!(autumnal.applies(eq_date), "autumnal {} should apply", year);
+        let prev = eq_date - time::Duration::days(1);
+        let next = eq_date + time::Duration::days(1);
+        assert!(!autumnal.applies(prev));
+        assert!(!autumnal.applies(next));
+    }
+}
 
-        // Should produce exactly one date
-        assert_eq!(
-            out.len(),
-            1,
-            "Buddha's Birthday should produce 1 date for year {}",
-            year
-        );
-
-        // Buddha's Birthday is CNY + 95 days, so it falls in April-June range
+#[test]
+fn buddhas_birthday_rules() {
+    let rule = Rule::BuddhasBirthday;
+    for year in 2020..2030 {
+        let out = materialize(&rule, year);
+        assert_eq!(out.len(), 1, "Buddha's Birthday should yield one date");
         let date = out[0];
         assert!(
-            date.month() == Month::April
-                || date.month() == Month::May
-                || date.month() == Month::June,
-            "Buddha's Birthday should be in April, May or June, got {:?}",
-            date
+            matches!(date.month(), Month::April | Month::May | Month::June),
+            "Buddha's Birthday should be in Apr-Jun"
         );
+        assert!(rule.applies(date));
+        let prev = date - time::Duration::days(1);
+        let next = date + time::Duration::days(1);
+        assert!(!rule.applies(prev));
+        assert!(!rule.applies(next));
     }
 }
 
 #[test]
-fn rule_buddhas_birthday_applies() {
-    let rule = Rule::BuddhasBirthday;
-
-    // Get the computed date for 2025
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2025, &mut out);
-    let bb_date = out[0];
-
-    // Should apply to computed date
-    assert!(rule.applies(bb_date));
-
-    // Should not apply to adjacent dates
-    let prev = bb_date - time::Duration::days(1);
-    let next = bb_date + time::Duration::days(1);
-    assert!(!rule.applies(prev));
-    assert!(!rule.applies(next));
-}
-
-// ============================================
-// Qing Ming Tests
-// ============================================
-
-#[test]
-fn rule_qing_ming_materialize() {
+fn qing_ming_rules() {
     let rule = Rule::QingMing;
-
     for year in 2020..2030 {
-        let mut out = SmallVec::<[Date; 1]>::new();
-        rule.materialize_year(year, &mut out);
-
-        // Should produce exactly one date
+        let out = materialize(&rule, year);
         assert_eq!(out.len(), 1);
-
-        // Should be in April
         let date = out[0];
         assert_eq!(date.month(), Month::April);
-
-        // Should be between 4th and 6th
         assert!(
-            date.day() >= 4 && date.day() <= 6,
-            "Qing Ming should be April 4-6, got {:?}",
-            date
+            (4..=6).contains(&date.day()),
+            "Qing Ming should be April 4-6"
         );
     }
 }
 
-// ============================================
-// Chinese New Year Tests
-// ============================================
-
 #[test]
-fn rule_chinese_new_year_materialize() {
+fn chinese_new_year_rules() {
     let rule = Rule::ChineseNewYear;
-
     for year in 2020..2030 {
-        let mut out = SmallVec::<[Date; 1]>::new();
-        rule.materialize_year(year, &mut out);
-
-        // Should produce exactly one date
+        let out = materialize(&rule, year);
         assert_eq!(out.len(), 1);
-
-        // Should be January or February
         let date = out[0];
         assert!(
-            date.month() == Month::January || date.month() == Month::February,
-            "CNY should be in January or February, got {:?}",
-            date
+            matches!(date.month(), Month::January | Month::February),
+            "CNY should be Jan/Feb"
         );
     }
-}
 
-#[test]
-fn rule_chinese_new_year_known_dates() {
-    let rule = Rule::ChineseNewYear;
-
-    // Known CNY dates
     let known = [
         (2020, 1, 25),
         (2021, 2, 12),
@@ -281,279 +192,125 @@ fn rule_chinese_new_year_known_dates() {
         (2024, 2, 10),
         (2025, 1, 29),
     ];
-
-    for (year, month, day) in known {
-        let date = make_date(year, month, day);
-        assert!(
-            rule.applies(date),
-            "CNY {} should be {}-{}-{}",
-            year,
-            year,
-            month,
-            day
-        );
-    }
+    assert_applies(&rule, &known, &[]);
 }
 
-// ============================================
-// Fixed Rule Edge Cases
-// ============================================
-
 #[test]
-fn rule_fixed_feb_29_leap_year() {
+fn fixed_feb_29_rules() {
     let rule = Rule::Fixed {
         month: Month::February,
         day: 29,
         observed: Observed::None,
     };
 
-    // Feb 29 exists in 2024 (leap year)
-    assert!(rule.applies(make_date(2024, 2, 29)));
-
-    // Feb 29 doesn't exist in 2023 - shouldn't match any date
-    assert!(!rule.applies(make_date(2023, 2, 28)));
-    assert!(!rule.applies(make_date(2023, 3, 1)));
-}
-
-#[test]
-fn rule_fixed_materialize_feb_29_non_leap() {
-    let rule = Rule::Fixed {
-        month: Month::February,
-        day: 29,
-        observed: Observed::None,
-    };
-
-    // Non-leap year 2023
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2023, &mut out);
-
-    // Should not produce any dates (invalid date in non-leap year)
-    // Based on implementation, it pushes 1900-01-01 then filters it out
-    assert!(
-        out.is_empty() || out.iter().all(|d| d.year() != 2023),
-        "Feb 29 in non-leap year should not produce valid 2023 dates"
+    assert_applies(
+        &rule,
+        &[(2024, 2, 29)],
+        &[(2023, 2, 28), (2023, 3, 1)],
     );
+
+    let non_leap = materialize(&rule, 2023);
+    assert!(
+        non_leap.is_empty() || non_leap.iter().all(|d| d.year() != 2023),
+        "non-leap year should not produce 2023 dates"
+    );
+
+    let leap = materialize(&rule, 2024);
+    assert_eq!(leap.len(), 1);
+    assert_eq!(leap[0], make_date(2024, 2, 29));
 }
 
 #[test]
-fn rule_fixed_materialize_feb_29_leap() {
-    let rule = Rule::Fixed {
-        month: Month::February,
-        day: 29,
-        observed: Observed::None,
-    };
-
-    // Leap year 2024
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2024, &mut out);
-
-    // Should produce Feb 29, 2024
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0], make_date(2024, 2, 29));
-}
-
-// ============================================
-// WeekdayShift Edge Cases
-// ============================================
-
-#[test]
-fn rule_weekday_shift_materialize() {
-    // First Tuesday on or after Nov 2 (US Election Day)
-    let rule = Rule::WeekdayShift {
+fn weekday_shift_rules() {
+    let after = Rule::WeekdayShift {
         weekday: Weekday::Tuesday,
         month: Month::November,
         day: 2,
         dir: Direction::After,
     };
+    let after_out = materialize(&after, 2024);
+    assert_eq!(after_out.len(), 1);
+    assert_eq!(after_out[0], make_date(2024, 11, 5));
+    assert_eq!(after_out[0].weekday(), Weekday::Tuesday);
 
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2024, &mut out);
-
-    // 2024: Nov 2 is Saturday, first Tuesday after is Nov 5
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0], make_date(2024, 11, 5));
-    assert_eq!(out[0].weekday(), Weekday::Tuesday);
-}
-
-#[test]
-fn rule_weekday_shift_before_materialize() {
-    let rule = Rule::WeekdayShift {
+    let before = Rule::WeekdayShift {
         weekday: Weekday::Friday,
         month: Month::June,
         day: 15,
         dir: Direction::Before,
     };
-
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2025, &mut out);
-
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0].weekday(), Weekday::Friday);
-    // Should be on or before June 15
-    assert!(out[0] <= make_date(2025, 6, 15));
+    let before_out = materialize(&before, 2025);
+    assert_eq!(before_out.len(), 1);
+    assert_eq!(before_out[0].weekday(), Weekday::Friday);
+    assert!(before_out[0] <= make_date(2025, 6, 15));
 }
 
-// ============================================
-// NthWeekday Edge Cases
-// ============================================
-
 #[test]
-fn rule_nth_weekday_fifth_occurrence() {
-    // 5th Monday if exists
-    let rule = Rule::NthWeekday {
+fn nth_weekday_rules() {
+    let fifth_monday = Rule::NthWeekday {
         n: 5,
         weekday: Weekday::Monday,
         month: Month::December,
     };
+    let fifth_out = materialize(&fifth_monday, 2025);
+    assert_eq!(fifth_out, SmallVec::from_slice(&[make_date(2025, 12, 29)]));
 
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2025, &mut out);
-
-    // December 2025 has 5 Mondays: 1, 8, 15, 22, 29
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0], make_date(2025, 12, 29));
-}
-
-#[test]
-fn rule_nth_weekday_second_to_last() {
-    // Second-to-last Friday
-    let rule = Rule::NthWeekday {
+    let second_last_friday = Rule::NthWeekday {
         n: -2,
         weekday: Weekday::Friday,
         month: Month::November,
     };
-
-    let mut out = SmallVec::<[Date; 1]>::new();
-    rule.materialize_year(2025, &mut out);
-
-    assert_eq!(out.len(), 1);
-    // November 2025: Fridays are 7, 14, 21, 28
-    // Second-to-last = 21st
-    assert_eq!(out[0], make_date(2025, 11, 21));
+    let sl_out = materialize(&second_last_friday, 2025);
+    assert_eq!(sl_out, SmallVec::from_slice(&[make_date(2025, 11, 21)]));
 }
 
-// ============================================
-// Easter Offset Edge Cases
-// ============================================
-
 #[test]
-fn rule_easter_positive_offsets() {
-    // Ascension Day is Easter Monday + 38 days
+fn easter_offset_rules() {
     let ascension = Rule::EasterOffset(38);
-
-    let mut out = SmallVec::<[Date; 1]>::new();
-    ascension.materialize_year(2025, &mut out);
-
-    assert_eq!(out.len(), 1);
-    // Easter Monday 2025 is April 21
-    // Ascension = April 21 + 38 = May 29
-    assert_eq!(out[0], make_date(2025, 5, 29));
-    assert_eq!(out[0].weekday(), Weekday::Thursday);
-}
-
-#[test]
-fn rule_easter_whit_monday() {
-    // Whit Monday is Easter Monday + 49 days
     let whit = Rule::EasterOffset(49);
 
-    let mut out = SmallVec::<[Date; 1]>::new();
-    whit.materialize_year(2025, &mut out);
+    let ascension_out = materialize(&ascension, 2025);
+    assert_eq!(ascension_out.len(), 1);
+    assert_eq!(ascension_out[0], make_date(2025, 5, 29));
+    assert_eq!(ascension_out[0].weekday(), Weekday::Thursday);
 
-    assert_eq!(out.len(), 1);
-    // Easter Monday 2025 is April 21
-    // Whit = April 21 + 49 = June 9
-    assert_eq!(out[0], make_date(2025, 6, 9));
-    assert_eq!(out[0].weekday(), Weekday::Monday);
+    let whit_out = materialize(&whit, 2025);
+    assert_eq!(whit_out.len(), 1);
+    assert_eq!(whit_out[0], make_date(2025, 6, 9));
+    assert_eq!(whit_out[0].weekday(), Weekday::Monday);
 }
 
-// ============================================
-// Observed Edge Cases
-// ============================================
-
 #[test]
-fn rule_observed_friday_for_saturday() {
-    let rule = Rule::Fixed {
+fn observed_variants() {
+    let july4 = Rule::Fixed {
         month: Month::July,
         day: 4,
         observed: Observed::FriIfSatMonIfSun,
     };
+    assert_applies(&july4, &[(2020, 7, 3), (2021, 7, 5)], &[(2020, 7, 4), (2021, 7, 4), (2021, 7, 2)]);
 
-    // 2020: July 4 is Saturday
-    // Observed on Friday July 3
-    assert!(rule.applies(make_date(2020, 7, 3)));
-    assert!(!rule.applies(make_date(2020, 7, 4)));
-    assert!(!rule.applies(make_date(2020, 7, 6)));
-}
-
-#[test]
-fn rule_observed_monday_for_sunday() {
-    let rule = Rule::Fixed {
-        month: Month::July,
-        day: 4,
-        observed: Observed::FriIfSatMonIfSun,
-    };
-
-    // 2021: July 4 is Sunday
-    // Observed on Monday July 5
-    assert!(rule.applies(make_date(2021, 7, 5)));
-    assert!(!rule.applies(make_date(2021, 7, 4)));
-    assert!(!rule.applies(make_date(2021, 7, 2)));
-}
-
-#[test]
-fn rule_observed_next_monday_saturday() {
-    let rule = Rule::Fixed {
+    let christmas = Rule::Fixed {
         month: Month::December,
         day: 25,
         observed: Observed::NextMonday,
     };
-
-    // 2021: Dec 25 is Saturday
-    // UK style: observed on Monday Dec 27
-    assert!(rule.applies(make_date(2021, 12, 27)));
-    assert!(!rule.applies(make_date(2021, 12, 25)));
+    assert_applies(
+        &christmas,
+        &[(2021, 12, 27), (2022, 12, 26)],
+        &[(2021, 12, 25), (2022, 12, 25)],
+    );
 }
 
 #[test]
-fn rule_observed_next_monday_sunday() {
-    let rule = Rule::Fixed {
-        month: Month::December,
-        day: 25,
-        observed: Observed::NextMonday,
-    };
-
-    // 2022: Dec 25 is Sunday
-    // UK style: observed on Monday Dec 26
-    assert!(rule.applies(make_date(2022, 12, 26)));
-    assert!(!rule.applies(make_date(2022, 12, 25)));
-}
-
-// ============================================
-// Direction Enum Tests
-// ============================================
-
-#[test]
-fn direction_after_finds_same_day() {
-    // If reference is already the target weekday, After should find it
-    let rule = Rule::WeekdayShift {
+fn direction_same_day() {
+    let after = Rule::WeekdayShift {
         weekday: Weekday::Wednesday,
         month: Month::January,
-        day: 1, // 2025: Jan 1 is Wednesday
+        day: 1,
         dir: Direction::After,
     };
+    let before = Rule::WeekdayShift { dir: Direction::Before, ..after };
 
-    assert!(rule.applies(make_date(2025, 1, 1)));
-}
-
-#[test]
-fn direction_before_finds_same_day() {
-    // If reference is already the target weekday, Before should find it
-    let rule = Rule::WeekdayShift {
-        weekday: Weekday::Wednesday,
-        month: Month::January,
-        day: 1, // 2025: Jan 1 is Wednesday
-        dir: Direction::Before,
-    };
-
-    assert!(rule.applies(make_date(2025, 1, 1)));
+    assert!(after.applies(make_date(2025, 1, 1)));
+    assert!(before.applies(make_date(2025, 1, 1)));
 }

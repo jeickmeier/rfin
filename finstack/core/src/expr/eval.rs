@@ -378,6 +378,27 @@ impl CompiledExpr {
     }
 
     #[inline]
+    fn rolling_with(
+        &self,
+        arg_results: &[Vec<f64>],
+        default_win: Option<usize>,
+        mut op: impl FnMut(&[f64]) -> f64,
+    ) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        if arg_results.is_empty() || len == 0 {
+            return Vec::with_capacity(len);
+        }
+        let base = &arg_results[0];
+        let win = match Self::window_arg(arg_results, default_win) {
+            Ok(win) => win,
+            Err(_) => return Self::nan_output(len),
+        };
+        let mut out = vec![0.0; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut op);
+        out
+    }
+
+    #[inline]
     fn rolling_apply_into(
         base: &[f64],
         win: usize,
@@ -526,29 +547,13 @@ impl CompiledExpr {
     }
 
     fn eval_rolling_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        Self::rolling_apply(base, win, |w| w.iter().copied().sum::<f64>() / win as f64)
+        self.rolling_with(arg_results, None, |w| {
+            w.iter().copied().sum::<f64>() / w.len() as f64
+        })
     }
 
     fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        Self::rolling_apply(base, win, |w| w.iter().copied().sum())
+        self.rolling_with(arg_results, None, |w| w.iter().copied().sum())
     }
 
     fn eval_ewm_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
@@ -696,18 +701,8 @@ impl CompiledExpr {
     }
 
     fn eval_rolling_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            let m = w.iter().copied().sum::<f64>() / (win as f64);
+        self.rolling_with(arg_results, None, |w| {
+            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
             let var = w
                 .iter()
                 .map(|v| {
@@ -715,36 +710,22 @@ impl CompiledExpr {
                     dv * dv
                 })
                 .sum::<f64>()
-                / (win as f64);
+                / (w.len() as f64);
             var.sqrt()
-        });
-        out
+        })
     }
 
     fn eval_rolling_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            let m = w.iter().copied().sum::<f64>() / (win as f64);
-            let var = w
-                .iter()
+        self.rolling_with(arg_results, None, |w| {
+            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
+            w.iter()
                 .map(|v| {
                     let dv = *v - m;
                     dv * dv
                 })
                 .sum::<f64>()
-                / (win as f64);
-            var
-        });
-        out
+                / (w.len() as f64)
+        })
     }
 
     fn eval_rolling_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {

@@ -12,10 +12,8 @@
 //! - ISDA 2006 Definitions, Appendix (Examples)
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use super::test_helpers::{assert_close, FACTOR_TOLERANCE};
 use time::Month;
-
-/// Tolerance for year fraction comparisons
-const FACTOR_TOLERANCE: f64 = 1e-12;
 
 /// Helper to create dates
 fn d(year: i32, month: u8, day: u8) -> Date {
@@ -43,11 +41,11 @@ fn actact_isda_leap_year_crossing_nov_to_mar() {
     // Year fraction = 61/365 + 60/366
     let expected = 61.0 / 365.0 + 60.0 / 366.0;
 
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/Act ISDA leap crossing (Nov-Mar): expected {:.12}, got {:.12}",
+    assert_close(
+        yf,
         expected,
-        yf
+        FACTOR_TOLERANCE,
+        "Act/Act ISDA leap crossing (Nov-Mar)",
     );
 }
 
@@ -68,11 +66,11 @@ fn actact_isda_leap_year_crossing_dec_to_jan() {
     // Year fraction = 17/365 + 14/366 ≈ 0.084827
     let expected = 17.0 / 365.0 + 14.0 / 366.0;
 
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/Act ISDA Dec-Jan period: expected {:.12}, got {:.12}",
+    assert_close(
+        yf,
         expected,
-        yf
+        FACTOR_TOLERANCE,
+        "Act/Act ISDA Dec-Jan period",
     );
 }
 
@@ -85,11 +83,7 @@ fn actact_isda_full_leap_year_is_one() {
 
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
-    assert!(
-        (yf - 1.0).abs() < FACTOR_TOLERANCE,
-        "Full leap year should be 1.0, got {}",
-        yf
-    );
+    assert_close(yf, 1.0, FACTOR_TOLERANCE, "Full leap year should be 1.0");
 }
 
 #[test]
@@ -100,10 +94,11 @@ fn actact_isda_full_non_leap_year_is_one() {
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
-    assert!(
-        (yf - 1.0).abs() < FACTOR_TOLERANCE,
-        "Full non-leap year should be 1.0, got {}",
-        yf
+    assert_close(
+        yf,
+        1.0,
+        FACTOR_TOLERANCE,
+        "Full non-leap year should be 1.0",
     );
 }
 
@@ -120,12 +115,7 @@ fn actact_isda_feb_29_to_mar_1() {
     // 1 day in 366-day year
     let expected = 1.0 / 366.0;
 
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Feb 29 to Mar 1: expected {:.12}, got {:.12}",
-        expected,
-        yf
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Feb 29 to Mar 1");
 }
 
 #[test]
@@ -138,11 +128,7 @@ fn actact_isda_spanning_multiple_years() {
     let yf = dc.year_fraction(d(2023, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
     // Should be exactly 3.0 years
-    assert!(
-        (yf - 3.0).abs() < FACTOR_TOLERANCE,
-        "3-year period should be 3.0, got {}",
-        yf
-    );
+    assert_close(yf, 3.0, FACTOR_TOLERANCE, "3-year period should be 3.0");
 }
 
 // =============================================================================
@@ -161,11 +147,7 @@ fn actact_isma_with_annual_frequency() {
     // Full year with annual frequency should be 1.0
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
-    assert!(
-        (yf - 1.0).abs() < FACTOR_TOLERANCE,
-        "Annual ISMA full year should be 1.0, got {}",
-        yf
-    );
+    assert_close(yf, 1.0, FACTOR_TOLERANCE, "Annual ISMA full year should be 1.0");
 }
 
 #[test]
@@ -241,12 +223,7 @@ fn act365f_leap_year_366_days() {
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
     let expected = 366.0 / 365.0;
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/365F leap year: expected {:.12}, got {:.12}",
-        expected,
-        yf
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Act/365F leap year");
 }
 
 #[test]
@@ -257,11 +234,7 @@ fn act365f_non_leap_year_365_days() {
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
-    assert!(
-        (yf - 1.0).abs() < FACTOR_TOLERANCE,
-        "Act/365F non-leap year: expected 1.0, got {}",
-        yf
-    );
+    assert_close(yf, 1.0, FACTOR_TOLERANCE, "Act/365F non-leap year");
 }
 
 #[test]
@@ -273,11 +246,11 @@ fn act365f_feb_leap_year() {
     let yf = dc.year_fraction(d(2024, 2, 1), d(2024, 3, 1), ctx).unwrap();
 
     let expected = 29.0 / 365.0;
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/365F Feb leap year: expected {:.12}, got {:.12}",
+    assert_close(
+        yf,
         expected,
-        yf
+        FACTOR_TOLERANCE,
+        "Act/365F Feb leap year",
     );
 }
 
@@ -290,11 +263,11 @@ fn act365f_feb_non_leap_year() {
     let yf = dc.year_fraction(d(2025, 2, 1), d(2025, 3, 1), ctx).unwrap();
 
     let expected = 28.0 / 365.0;
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/365F Feb non-leap year: expected {:.12}, got {:.12}",
+    assert_close(
+        yf,
         expected,
-        yf
+        FACTOR_TOLERANCE,
+        "Act/365F Feb non-leap year",
     );
 }
 
@@ -312,12 +285,7 @@ fn act360_leap_year_366_days() {
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
     let expected = 366.0 / 360.0;
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/360 leap year: expected {:.12}, got {:.12}",
-        expected,
-        yf
-    );
+    assert_close(yf, expected, FACTOR_TOLERANCE, "Act/360 leap year");
 }
 
 #[test]
@@ -329,11 +297,11 @@ fn act360_non_leap_year_365_days() {
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
     let expected = 365.0 / 360.0;
-    assert!(
-        (yf - expected).abs() < FACTOR_TOLERANCE,
-        "Act/360 non-leap year: expected {:.12}, got {:.12}",
+    assert_close(
+        yf,
         expected,
-        yf
+        FACTOR_TOLERANCE,
+        "Act/360 non-leap year",
     );
 }
 
@@ -350,18 +318,15 @@ fn thirty360_ignores_leap_year() {
 
     // Leap year
     let yf_leap = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
-    assert!(
-        (yf_leap - 1.0).abs() < FACTOR_TOLERANCE,
-        "30/360 leap year should be 1.0, got {}",
-        yf_leap
-    );
+    assert_close(yf_leap, 1.0, FACTOR_TOLERANCE, "30/360 leap year should be 1.0");
 
     // Non-leap year
     let yf_non_leap = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
-    assert!(
-        (yf_non_leap - 1.0).abs() < FACTOR_TOLERANCE,
-        "30/360 non-leap year should be 1.0, got {}",
-        yf_non_leap
+    assert_close(
+        yf_non_leap,
+        1.0,
+        FACTOR_TOLERANCE,
+        "30/360 non-leap year should be 1.0",
     );
 }
 
@@ -377,22 +342,22 @@ fn thirty360_feb_always_30_days() {
         .year_fraction(d(2024, 1, 15), d(2024, 3, 15), ctx)
         .unwrap();
     let expected = 60.0 / 360.0;
-    assert!(
-        (yf_leap - expected).abs() < FACTOR_TOLERANCE,
-        "30/360 through Feb leap: expected {:.12}, got {:.12}",
+    assert_close(
+        yf_leap,
         expected,
-        yf_leap
+        FACTOR_TOLERANCE,
+        "30/360 through Feb leap",
     );
 
     // Feb in non-leap year (actual 28 days, 30/360 treats as 30)
     let yf_non_leap = dc
         .year_fraction(d(2025, 1, 15), d(2025, 3, 15), ctx)
         .unwrap();
-    assert!(
-        (yf_non_leap - expected).abs() < FACTOR_TOLERANCE,
-        "30/360 through Feb non-leap: expected {:.12}, got {:.12}",
+    assert_close(
+        yf_non_leap,
         expected,
-        yf_non_leap
+        FACTOR_TOLERANCE,
+        "30/360 through Feb non-leap",
     );
 }
 
@@ -439,9 +404,10 @@ fn century_leap_year_rule() {
 
     // Year 2000 (leap year)
     let yf_2000 = dc.year_fraction(d(2000, 1, 1), d(2001, 1, 1), ctx).unwrap();
-    assert!(
-        (yf_2000 - 1.0).abs() < FACTOR_TOLERANCE,
-        "Year 2000 (leap) should be 1.0, got {}",
-        yf_2000
+    assert_close(
+        yf_2000,
+        1.0,
+        FACTOR_TOLERANCE,
+        "Year 2000 (leap) should be 1.0",
     );
 }

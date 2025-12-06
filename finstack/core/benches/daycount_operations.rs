@@ -6,7 +6,10 @@
 //! - ISMA vs ISDA ActAct variants
 //! - 30/360 family conventions
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+mod bench_utils;
+
+use bench_utils::bench_iter;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
@@ -28,35 +31,14 @@ fn bench_daycount_year_fraction(c: &mut Criterion) {
     let mut group = c.benchmark_group("daycount_year_fraction");
 
     for (name, convention) in conventions {
-        // 1 year period
-        group.bench_function(format!("{}_{}", name, "1y"), |b| {
-            b.iter(|| {
+        for (suffix, end) in [("1y", end_1y), ("5y", end_5y), ("10y", end_10y)] {
+            bench_iter(&mut group, format!("{}_{}", name, suffix), || {
                 let yf = black_box(convention)
-                    .year_fraction(black_box(start), black_box(end_1y), DayCountCtx::default())
+                    .year_fraction(black_box(start), black_box(end), DayCountCtx::default())
                     .unwrap();
                 black_box(yf);
-            })
-        });
-
-        // 5 year period
-        group.bench_function(format!("{}_{}", name, "5y"), |b| {
-            b.iter(|| {
-                let yf = black_box(convention)
-                    .year_fraction(black_box(start), black_box(end_5y), DayCountCtx::default())
-                    .unwrap();
-                black_box(yf);
-            })
-        });
-
-        // 10 year period
-        group.bench_function(format!("{}_{}", name, "10y"), |b| {
-            b.iter(|| {
-                let yf = black_box(convention)
-                    .year_fraction(black_box(start), black_box(end_10y), DayCountCtx::default())
-                    .unwrap();
-                black_box(yf);
-            })
-        });
+            });
+        }
     }
 
     group.finish();
@@ -74,8 +56,10 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
     ];
 
     for (name, freq) in frequencies {
-        c.bench_function(&format!("daycount_actact_isma_{}", name), |b| {
-            b.iter(|| {
+        bench_utils::bench_with_criterion(
+            c,
+            &format!("daycount_actact_isma_{}", name),
+            || {
                 let yf = DayCount::ActActIsma
                     .year_fraction(
                         black_box(start),
@@ -88,8 +72,8 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
                     )
                     .unwrap();
                 black_box(yf);
-            })
-        });
+            },
+        );
     }
 }
 
@@ -102,21 +86,19 @@ fn bench_daycount_bus252(c: &mut Criterion) {
         let start = Date::from_calendar_date(2025, Month::January, start_month).unwrap();
         let end = Date::from_calendar_date(2025, Month::January, end_month).unwrap();
 
-        c.bench_function(&format!("daycount_bus252_{}", name), |b| {
-            b.iter(|| {
-                let yf = DayCount::Bus252
-                    .year_fraction(
-                        black_box(start),
-                        black_box(end),
-                        DayCountCtx {
-                            calendar: Some(calendar),
-                            frequency: None,
-                            bus_basis: None,
-                        },
-                    )
-                    .unwrap();
-                black_box(yf);
-            })
+        bench_utils::bench_with_criterion(c, &format!("daycount_bus252_{}", name), || {
+            let yf = DayCount::Bus252
+                .year_fraction(
+                    black_box(start),
+                    black_box(end),
+                    DayCountCtx {
+                        calendar: Some(calendar),
+                        frequency: None,
+                        bus_basis: None,
+                    },
+                )
+                .unwrap();
+            black_box(yf);
         });
     }
 }

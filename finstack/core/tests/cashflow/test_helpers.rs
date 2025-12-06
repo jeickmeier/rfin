@@ -91,6 +91,18 @@ pub const FACTOR_TOLERANCE: f64 = 1e-12;
 #[allow(dead_code)]
 pub const XIRR_TOLERANCE: f64 = 1e-6;
 
+/// Convenience assertion for floating-point comparisons used across cashflow tests.
+#[allow(dead_code)]
+pub fn assert_close(actual: f64, expected: f64, tolerance: f64, label: &str) {
+    assert!(
+        (actual - expected).abs() < tolerance,
+        "{}: expected {:.12}, got {:.12}",
+        label,
+        expected,
+        actual
+    );
+}
+
 /// Calculate appropriate tolerance for financial amounts based on notional.
 ///
 /// Returns `max(notional * 1e-8, 0.01)` to ensure reasonable precision
