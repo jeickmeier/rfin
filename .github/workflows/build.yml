@@ -16,8 +16,8 @@ jobs:
       # Reduce parallelism to avoid OOM during linking
       CARGO_BUILD_JOBS: 1
       # Reduce codegen units to lower peak memory during compilation/linking
-      # Use --threads=1 directly for LLD (not -Wl, prefix)
-      RUSTFLAGS: "-C codegen-units=1 -C link-arg=--threads=1"
+      # Pass --threads=1 through cc to LLD linker
+      RUSTFLAGS: "-C codegen-units=1 -C link-arg=-Wl,--threads=1"
 
     steps:
       - name: Checkout repository
