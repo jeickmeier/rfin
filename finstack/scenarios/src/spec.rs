@@ -618,3 +618,158 @@ pub enum Compounding {
     /// Monthly compounding (12 per year).
     Monthly,
 }
+
+impl ScenarioSpec {
+    /// Validate the scenario specification for consistency.
+    ///
+    /// Checks for:
+    /// - Non-empty ID
+    /// - Valid operations (recursively)
+    pub fn validate(&self) -> crate::error::Result<()> {
+        if self.id.trim().is_empty() {
+            return Err(crate::error::Error::Validation(
+                "Scenario ID cannot be empty".into(),
+            ));
+        }
+        for (i, op) in self.operations.iter().enumerate() {
+            op.validate()
+                .map_err(|e| crate::error::Error::Validation(format!("Operation {}: {}", i, e)))?;
+        }
+        Ok(())
+    }
+}
+
+impl OperationSpec {
+    /// Validate the operation specification.
+    ///
+    /// Checks for:
+    /// - Non-NaN numeric values
+    /// - Non-empty identifiers
+    /// - Logical consistency (e.g. valid currency pairs)
+    pub fn validate(&self) -> crate::error::Result<()> {
+        match self {
+            OperationSpec::MarketFxPct { base, quote, pct } => {
+                if base == quote {
+                    return Err(crate::error::Error::Validation(
+                        "Base and quote currencies must be different".into(),
+                    ));
+                }
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::EquityPricePct { ids, pct } => {
+                if ids.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Equity IDs cannot be empty".into(),
+                    ));
+                }
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::InstrumentPricePctByAttr { pct, .. } => {
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::CurveParallelBp { curve_id, bp, .. } => {
+                check_id(curve_id, "curve_id")?;
+                check_finite(*bp, "bp")?;
+            }
+            OperationSpec::CurveNodeBp {
+                curve_id, nodes, ..
+            } => {
+                check_id(curve_id, "curve_id")?;
+                if nodes.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Curve nodes cannot be empty".into(),
+                    ));
+                }
+                for (tenor, bp) in nodes {
+                    if tenor.trim().is_empty() {
+                        return Err(crate::error::Error::Validation(
+                            "Curve node tenor cannot be empty".into(),
+                        ));
+                    }
+                    check_finite(*bp, "bp")?;
+                }
+            }
+            OperationSpec::BaseCorrParallelPts { surface_id, points } => {
+                check_id(surface_id, "surface_id")?;
+                check_finite(*points, "points")?;
+            }
+            OperationSpec::BaseCorrBucketPts {
+                surface_id, points, ..
+            } => {
+                check_id(surface_id, "surface_id")?;
+                check_finite(*points, "points")?;
+            }
+            OperationSpec::VolSurfaceParallelPct {
+                surface_id, pct, ..
+            } => {
+                check_id(surface_id, "surface_id")?;
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::VolSurfaceBucketPct {
+                surface_id, pct, ..
+            } => {
+                check_id(surface_id, "surface_id")?;
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::StmtForecastPercent { node_id, pct } => {
+                check_id(node_id, "node_id")?;
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::StmtForecastAssign { node_id, value } => {
+                check_id(node_id, "node_id")?;
+                check_finite(*value, "value")?;
+            }
+            OperationSpec::InstrumentSpreadBpByAttr { bp, .. } => {
+                check_finite(*bp, "bp")?;
+            }
+            OperationSpec::InstrumentPricePctByType { pct, .. } => {
+                check_finite(*pct, "pct")?;
+            }
+            OperationSpec::InstrumentSpreadBpByType { bp, .. } => {
+                check_finite(*bp, "bp")?;
+            }
+            OperationSpec::AssetCorrelationPts { delta_pts } => {
+                check_finite(*delta_pts, "delta_pts")?;
+            }
+            OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => {
+                check_finite(*delta_pts, "delta_pts")?;
+            }
+            OperationSpec::RecoveryCorrelationPts { delta_pts } => {
+                check_finite(*delta_pts, "delta_pts")?;
+            }
+            OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
+                check_finite(*delta_pts, "delta_pts")?;
+            }
+            OperationSpec::TimeRollForward { period, .. } => {
+                if period.trim().is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Time roll period cannot be empty".into(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn check_finite(val: f64, name: &str) -> crate::error::Result<()> {
+    if !val.is_finite() {
+        Err(crate::error::Error::Validation(format!(
+            "Value '{}' must be finite",
+            name
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn check_id(id: &str, name: &str) -> crate::error::Result<()> {
+    if id.trim().is_empty() {
+        Err(crate::error::Error::Validation(format!(
+            "Identifier '{}' cannot be empty",
+            name
+        )))
+    } else {
+        Ok(())
+    }
+}

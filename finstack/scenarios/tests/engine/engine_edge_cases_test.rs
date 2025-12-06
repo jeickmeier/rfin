@@ -226,8 +226,15 @@ fn test_warnings_attribute_based_operations() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.warnings.len(), 2);
-    assert!(report.warnings[0].contains("not implemented in Phase A"));
-    assert!(report.warnings[1].contains("not implemented in Phase A"));
+    // The message changed from "not implemented in Phase A" to "Instrument price shock error: Unsupported operation..."
+    assert!(
+        report.warnings[0].contains("not implemented in Phase A")
+            || report.warnings[0].contains("Unsupported operation")
+    );
+    assert!(
+        report.warnings[1].contains("not implemented in Phase A")
+            || report.warnings[1].contains("Unsupported operation")
+    );
 }
 
 #[test]

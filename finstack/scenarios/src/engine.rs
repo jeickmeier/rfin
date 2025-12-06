@@ -288,15 +288,26 @@ impl ScenarioEngine {
         }
 
         // Initialize adapters
-        let adapters: Vec<Box<dyn crate::adapters::traits::ScenarioAdapter>> = vec![
-            Box::new(crate::adapters::vol::VolAdapter),
-            Box::new(crate::adapters::curves::CurveAdapter),
-            Box::new(crate::adapters::basecorr::BaseCorrAdapter),
-            Box::new(crate::adapters::fx::FxAdapter),
-            Box::new(crate::adapters::equity::EquityAdapter),
-            Box::new(crate::adapters::instruments::InstrumentAdapter),
-            Box::new(crate::adapters::statements::StatementAdapter),
-            Box::new(crate::adapters::asset_corr::AssetCorrAdapter),
+        // Optimization: Use stack-allocated array of references instead of Vec<Box<dyn>>
+        // to avoid heap allocation on every call.
+        let vol_adapter = crate::adapters::vol::VolAdapter;
+        let curve_adapter = crate::adapters::curves::CurveAdapter;
+        let base_corr_adapter = crate::adapters::basecorr::BaseCorrAdapter;
+        let fx_adapter = crate::adapters::fx::FxAdapter;
+        let equity_adapter = crate::adapters::equity::EquityAdapter;
+        let instrument_adapter = crate::adapters::instruments::InstrumentAdapter;
+        let statement_adapter = crate::adapters::statements::StatementAdapter;
+        let asset_corr_adapter = crate::adapters::asset_corr::AssetCorrAdapter;
+
+        let adapters: [&dyn crate::adapters::traits::ScenarioAdapter; 8] = [
+            &vol_adapter,
+            &curve_adapter,
+            &base_corr_adapter,
+            &fx_adapter,
+            &equity_adapter,
+            &instrument_adapter,
+            &statement_adapter,
+            &asset_corr_adapter,
         ];
 
         let mut market_bumps = Vec::new();

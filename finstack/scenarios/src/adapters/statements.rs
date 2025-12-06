@@ -143,6 +143,15 @@ pub fn update_1y_rate_from_curve(
 ) -> Result<()> {
     // Try to get the curve and extract a representative rate
     let rate = if let Ok(curve) = market.get_discount_ref(curve_id) {
+        // Validation: Check if curve covers at least 1 year to avoid unsafe extrapolation
+        if let Some(&max_t) = curve.knots().last() {
+            if max_t < 1.0 {
+                return Err(Error::Validation(format!(
+                    "Curve {} maturity ({:.2}Y) is too short for 1Y rate binding",
+                    curve_id, max_t
+                )));
+            }
+        }
         // Extract 1Y rate from discount curve
         let df_1y = curve.df(1.0);
         -df_1y.ln()

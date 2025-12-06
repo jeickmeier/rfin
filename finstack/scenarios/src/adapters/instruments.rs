@@ -121,25 +121,25 @@ pub fn apply_instrument_type_spread_shock(
 /// Apply a percentage price shock to instruments matching the provided attributes.
 pub fn apply_instrument_attr_price_shock(
     _instruments: &mut [Box<dyn Instrument>],
-    attrs: &indexmap::IndexMap<String, String>,
+    _attrs: &indexmap::IndexMap<String, String>,
     _pct: f64,
 ) -> Result<Vec<String>> {
-    Ok(vec![format!(
-        "InstrumentPricePctByAttr with {} attrs: not implemented in Phase A",
-        attrs.len()
-    )])
+    Err(crate::error::Error::UnsupportedOperation {
+        operation: "InstrumentPricePctByAttr".into(),
+        target: "Attributes".into(),
+    })
 }
 
 /// Apply a spread shock to instruments matching the provided attributes.
 pub fn apply_instrument_attr_spread_shock(
     _instruments: &mut [Box<dyn Instrument>],
-    attrs: &indexmap::IndexMap<String, String>,
+    _attrs: &indexmap::IndexMap<String, String>,
     _bp: f64,
 ) -> Result<Vec<String>> {
-    Ok(vec![format!(
-        "InstrumentSpreadBpByAttr with {} attrs: not implemented in Phase A",
-        attrs.len()
-    )])
+    Err(crate::error::Error::UnsupportedOperation {
+        operation: "InstrumentSpreadBpByAttr".into(),
+        target: "Attributes".into(),
+    })
 }
 
 #[cfg(test)]
