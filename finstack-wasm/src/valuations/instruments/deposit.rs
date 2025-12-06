@@ -7,21 +7,23 @@ use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 
 #[wasm_bindgen(js_name = Deposit)]
 #[derive(Clone, Debug)]
-pub struct JsDeposit(Deposit);
+pub struct JsDeposit {
+    pub(crate) inner: Deposit,
+}
 
 impl InstrumentWrapper for JsDeposit {
     type Inner = Deposit;
     fn from_inner(inner: Deposit) -> Self {
-        JsDeposit(inner)
+        JsDeposit { inner }
     }
     fn inner(&self) -> Deposit {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = Deposit)]
 impl JsDeposit {
@@ -50,37 +52,37 @@ impl JsDeposit {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn start(&self) -> JsDate {
-        JsDate::from_core(self.0.start)
+        JsDate::from_core(self.inner.start)
     }
 
     #[wasm_bindgen(getter)]
     pub fn end(&self) -> JsDate {
-        JsDate::from_core(self.0.end)
+        JsDate::from_core(self.inner.end)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]
     pub fn day_count(&self) -> String {
-        format!("{:?}", self.0.day_count)
+        format!("{:?}", self.inner.day_count)
     }
 
     #[wasm_bindgen(getter, js_name = quoteRate)]
     pub fn quote_rate(&self) -> Option<f64> {
-        self.0.quote_rate
+        self.inner.quote_rate
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -92,12 +94,12 @@ impl JsDeposit {
     pub fn to_string_js(&self) -> String {
         format!(
             "Deposit(id='{}', start='{}', end='{}', quote_rate={:?})",
-            self.0.id, self.0.start, self.0.end, self.0.quote_rate
+            self.inner.id, self.inner.start, self.inner.end, self.inner.quote_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsDeposit {
-        JsDeposit::from_inner(self.0.clone())
+        JsDeposit::from_inner(self.inner.clone())
     }
 }

@@ -78,7 +78,7 @@ fn test_operation_spec_statement_shock() {
 fn test_operation_spec_time_roll() {
     use finstack_wasm::OperationSpec;
 
-    let _op = OperationSpec::time_roll_forward("1M".to_string(), Some(true));
+    let _op = OperationSpec::time_roll_forward("1M".to_string(), Some(true), None);
     // If this compiles and runs, time roll operation binding works
 }
 

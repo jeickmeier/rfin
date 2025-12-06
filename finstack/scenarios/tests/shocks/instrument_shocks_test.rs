@@ -10,6 +10,7 @@ use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use finstack_valuations::instruments::Bond;
+use indexmap::IndexMap;
 use time::Month;
 
 #[test]
@@ -175,6 +176,149 @@ fn test_instrument_type_spread_shock_matching() {
         assert!(meta.contains_key("scenario_spread_shock_bp"));
         assert_eq!(meta.get("scenario_spread_shock_bp").unwrap(), "100.00");
     }
+}
+
+#[test]
+fn test_instrument_attr_price_shock_matching() {
+    use finstack_valuations::instruments::bond::CashflowSpec;
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let mut instruments: Vec<Box<dyn Instrument>> = vec![
+        Box::new(
+            Bond::builder()
+                .id("ENERGY_BBB".into())
+                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+                .issue(base_date)
+                .maturity(base_date + time::Duration::days(365))
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.05,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
+                .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+                .credit_curve_id_opt(None)
+                .pricing_overrides(PricingOverrides::default())
+                .attributes(
+                    Attributes::new()
+                        .with_meta("sector", "Energy")
+                        .with_meta("rating", "BBB"),
+                )
+                .build()
+                .unwrap(),
+        ),
+        Box::new(
+            Bond::builder()
+                .id("TECH_AA".into())
+                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+                .issue(base_date)
+                .maturity(base_date + time::Duration::days(365))
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.05,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
+                .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+                .credit_curve_id_opt(None)
+                .pricing_overrides(PricingOverrides::default())
+                .attributes(
+                    Attributes::new()
+                        .with_meta("sector", "Technology")
+                        .with_meta("rating", "AA"),
+                )
+                .build()
+                .unwrap(),
+        ),
+    ];
+
+    let mut attrs = IndexMap::new();
+    attrs.insert("SECTOR".into(), "energy".into()); // case-insensitive match
+    attrs.insert("rating".into(), "bbb".into());
+
+    let scenario = ScenarioSpec {
+        id: "attr_price_shock".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::InstrumentPricePctByAttr { attrs, pct: -4.0 }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: Some(&mut instruments),
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    let first_overrides = instruments[0]
+        .scenario_overrides()
+        .and_then(|o| o.scenario_price_shock_pct);
+    assert_eq!(first_overrides, Some(-0.04));
+
+    let second_overrides = instruments[1]
+        .scenario_overrides()
+        .and_then(|o| o.scenario_price_shock_pct);
+    assert_eq!(second_overrides, None);
+}
+
+#[test]
+fn test_instrument_attr_price_shock_no_matches() {
+    use finstack_valuations::instruments::bond::CashflowSpec;
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+        Bond::builder()
+            .id("ENERGY_BBB".into())
+            .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+            .issue(base_date)
+            .maturity(base_date + time::Duration::days(365))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::DayCount::Thirty360,
+            ))
+            .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new().with_meta("sector", "Energy"))
+            .build()
+            .unwrap(),
+    )];
+
+    let mut attrs = IndexMap::new();
+    attrs.insert("sector".into(), "Utilities".into());
+
+    let scenario = ScenarioSpec {
+        id: "attr_price_shock_none".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::InstrumentPricePctByAttr { attrs, pct: -4.0 }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: Some(&mut instruments),
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 0);
+    assert_eq!(report.warnings.len(), 1);
+    assert!(report.warnings[0].contains("No instruments matched attribute filter"));
 }
 
 #[test]

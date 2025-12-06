@@ -16,17 +16,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CDSIndex)]
 #[derive(Clone, Debug)]
-pub struct JsCDSIndex(CDSIndex);
+pub struct JsCDSIndex {
+    pub(crate) inner: CDSIndex,
+}
 
 impl InstrumentWrapper for JsCDSIndex {
     type Inner = CDSIndex;
     fn from_inner(inner: CDSIndex) -> Self {
-        JsCDSIndex(inner)
+        JsCDSIndex { inner }
     }
     fn inner(&self) -> CDSIndex {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = CDSIndex)]
 impl JsCDSIndex {
@@ -86,27 +89,27 @@ impl JsCDSIndex {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = indexName)]
     pub fn index_name(&self) -> String {
-        self.0.index_name.clone()
+        self.inner.index_name.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = fixedCouponBp)]
     pub fn fixed_coupon_bp(&self) -> f64 {
-        self.0.premium.spread_bp
+        self.inner.premium.spread_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.premium.end)
+        JsDate::from_core(self.inner.premium.end)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -118,12 +121,12 @@ impl JsCDSIndex {
     pub fn to_string_js(&self) -> String {
         format!(
             "CDSIndex(id='{}', name='{}', series={})",
-            self.0.id, self.0.index_name, self.0.series
+            self.inner.id, self.inner.index_name, self.inner.series
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCDSIndex {
-        JsCDSIndex::from_inner(self.0.clone())
+        JsCDSIndex::from_inner(self.inner.clone())
     }
 }

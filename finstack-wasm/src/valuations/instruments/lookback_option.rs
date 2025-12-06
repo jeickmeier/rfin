@@ -31,17 +31,20 @@ impl From<JsLookbackType> for LookbackType {
 
 #[wasm_bindgen(js_name = LookbackOption)]
 #[derive(Clone, Debug)]
-pub struct JsLookbackOption(LookbackOption);
+pub struct JsLookbackOption {
+    pub(crate) inner: LookbackOption,
+}
 
 impl InstrumentWrapper for JsLookbackOption {
     type Inner = LookbackOption;
     fn from_inner(inner: LookbackOption) -> Self {
-        JsLookbackOption(inner)
+        JsLookbackOption { inner }
     }
     fn inner(&self) -> LookbackOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = LookbackOption)]
 impl JsLookbackOption {
@@ -55,13 +58,13 @@ impl JsLookbackOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
         use crate::core::error::js_error;
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -71,11 +74,11 @@ impl JsLookbackOption {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("LookbackOption(id='{}')", self.0.id.as_str())
+        format!("LookbackOption(id='{}')", self.inner.id.as_str())
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsLookbackOption {
-        JsLookbackOption::from_inner(self.0.clone())
+        JsLookbackOption::from_inner(self.inner.clone())
     }
 }

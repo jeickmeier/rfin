@@ -1,11 +1,11 @@
 """Scenario engine and execution context."""
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import date
 from ...core.market_data.context import MarketContext
 from ...core.dates import Calendar
 from ...statements.types.model import FinancialModelSpec
-from .spec import ScenarioSpec
+from .spec import ScenarioSpec, RateBindingSpec
 from .reports import ApplicationReport
 
 class ExecutionContext:
@@ -27,7 +27,7 @@ class ExecutionContext:
         model: Financial statements model
         as_of: Valuation date for context
         instruments: Optional vector of instruments for price/spread shocks and carry calculations
-        rate_bindings: Optional mapping from statement node IDs to curve IDs for automatic rate updates
+        rate_bindings: Optional rate bindings for statement rate updates. Accepts ``dict[str, RateBindingSpec]``, ``list[RateBindingSpec]`` or legacy ``dict[str, str]`` (converted to 1Y continuous bindings).
 
     Examples:
         >>> from datetime import date
@@ -49,7 +49,9 @@ class ExecutionContext:
         model: FinancialModelSpec,
         as_of: date,
         instruments: Optional[List[Any]] = None,
-        rate_bindings: Optional[Dict[str, str]] = None,
+        rate_bindings: Optional[
+            Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]
+        ] = None,
         calendar: Optional[Calendar] = None,
     ) -> None:
         """Create a new execution context.
@@ -119,16 +121,21 @@ class ExecutionContext:
         ...
 
     @property
-    def rate_bindings(self) -> Optional[Dict[str, str]]:
+    def rate_bindings(self) -> Optional[Dict[str, RateBindingSpec]]:
         """Get the rate bindings.
 
         Returns:
-            dict[str, str] | None: Rate bindings if set
+            dict[str, RateBindingSpec] | None: Rate bindings if set (legacy ``dict[str, str]`` inputs are upgraded to 1Y continuous bindings)
         """
         ...
 
     @rate_bindings.setter
-    def rate_bindings(self, value: Optional[Dict[str, str]]) -> None:
+    def rate_bindings(
+        self,
+        value: Optional[
+            Union[Dict[str, RateBindingSpec], List[RateBindingSpec], Dict[str, str]]
+        ],
+    ) -> None:
         """Set the rate bindings.
 
         Args:

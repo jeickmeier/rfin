@@ -1,7 +1,9 @@
 //! Tests for JSON serialization stability.
 
 use finstack_core::currency::Currency;
-use finstack_scenarios::{CurveKind, OperationSpec, ScenarioSpec, TenorMatchMode, VolSurfaceKind};
+use finstack_scenarios::{
+    CurveKind, OperationSpec, ScenarioSpec, TenorMatchMode, TimeRollMode, VolSurfaceKind,
+};
 use indexmap::IndexMap;
 
 #[test]
@@ -147,6 +149,7 @@ fn test_time_roll_forward_default_apply_shocks() {
     let op = OperationSpec::TimeRollForward {
         period: "1M".into(),
         apply_shocks: true,
+        roll_mode: TimeRollMode::BusinessDays,
     };
 
     let json = serde_json::to_string(&op).unwrap();
@@ -156,9 +159,11 @@ fn test_time_roll_forward_default_apply_shocks() {
         OperationSpec::TimeRollForward {
             period,
             apply_shocks,
+            roll_mode,
         } => {
             assert_eq!(period, "1M");
             assert!(apply_shocks);
+            assert_eq!(roll_mode, TimeRollMode::BusinessDays);
         }
         _ => panic!("Wrong operation type"),
     }
@@ -169,6 +174,7 @@ fn test_time_roll_forward_apply_shocks_false() {
     let op = OperationSpec::TimeRollForward {
         period: "1W".into(),
         apply_shocks: false,
+        roll_mode: TimeRollMode::BusinessDays,
     };
 
     let json = serde_json::to_string(&op).unwrap();
@@ -178,9 +184,11 @@ fn test_time_roll_forward_apply_shocks_false() {
         OperationSpec::TimeRollForward {
             period,
             apply_shocks,
+            roll_mode,
         } => {
             assert_eq!(period, "1W");
             assert!(!apply_shocks);
+            assert_eq!(roll_mode, TimeRollMode::BusinessDays);
         }
         _ => panic!("Wrong operation type"),
     }

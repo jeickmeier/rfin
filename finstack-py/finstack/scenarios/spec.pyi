@@ -29,12 +29,26 @@ class Compounding:
     Quarterly: Compounding
     Monthly: Compounding
 
+class TimeRollMode:
+    """Controls how time roll-forward periods are interpreted.
+
+    - ``BusinessDays`` (default): Calendar-aware roll using provided holiday calendars and ModifiedFollowing.
+    - ``CalendarDays``: Pure calendar addition, no business-day adjustment.
+    - ``Approximate``: Legacy fixed-day approximations (30/365 style).
+    """
+
+    BusinessDays: TimeRollMode
+    CalendarDays: TimeRollMode
+    Approximate: TimeRollMode
+
 class RateBindingSpec:
     """Configuration for rate binding between curves and statement nodes.
 
     A rate binding tells the scenario engine how to pull a rate off a curve
     and feed it into a statement forecast node. All computation happens in
-    Rust; this class only carries data.
+    Rust; this class only carries data. Legacy ``dict[str, str]`` bindings
+    are automatically upgraded to 1Y continuous bindings with the curve's
+    day-count convention.
     """
 
     def __init__(
@@ -128,7 +142,9 @@ class OperationSpec:
 
     @classmethod
     def instrument_price_pct_by_attr(cls, attrs: Dict[str, str], pct: float) -> OperationSpec:
-        """Instrument price shock by exact attribute match.
+        """Instrument price shock by attribute match.
+
+        Attributes are matched with AND semantics on metadata (case-insensitive keys/values).
 
         Args:
             attrs: Attribute filters (e.g., {"sector": "Energy", "rating": "BBB"})
@@ -273,10 +289,10 @@ class OperationSpec:
 
     @classmethod
     def instrument_spread_bp_by_attr(cls, attrs: Dict[str, str], bp: float) -> OperationSpec:
-        """Instrument spread shock by exact attribute match.
+        """Instrument spread shock by attribute match.
 
         Args:
-            attrs: Attribute filters
+            attrs: Attribute filters (case-insensitive keys/values, AND semantics)
             bp: Basis points to add
 
         Returns:
@@ -359,12 +375,15 @@ class OperationSpec:
         ...
 
     @classmethod
-    def time_roll_forward(cls, period: str, apply_shocks: Optional[bool] = True) -> OperationSpec:
+    def time_roll_forward(
+        cls, period: str, apply_shocks: Optional[bool] = True, roll_mode: Optional[TimeRollMode] = None
+    ) -> OperationSpec:
         """Roll forward horizon by a period with carry/theta.
 
         Args:
             period: Period to roll forward (e.g., "1D", "1W", "1M", "1Y")
             apply_shocks: Whether to apply market shocks after rolling (default: True)
+            roll_mode: Roll interpretation (business days by default)
 
         Returns:
             OperationSpec: Operation specification

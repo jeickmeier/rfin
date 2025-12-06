@@ -12,17 +12,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsOption)]
 #[derive(Clone, Debug)]
-pub struct JsCdsOption(CdsOption);
+pub struct JsCdsOption {
+    pub(crate) inner: CdsOption,
+}
 
 impl InstrumentWrapper for JsCdsOption {
     type Inner = CdsOption;
     fn from_inner(inner: CdsOption) -> Self {
-        JsCdsOption(inner)
+        JsCdsOption { inner }
     }
     fn inner(&self) -> CdsOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = CdsOption)]
 impl JsCdsOption {
@@ -85,27 +88,27 @@ impl JsCdsOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = strikeSpreadBp)]
     pub fn strike_spread_bp(&self) -> f64 {
-        self.0.strike_spread_bp
+        self.inner.strike_spread_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = cdsMaturity)]
     pub fn cds_maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.cds_maturity)
+        JsDate::from_core(self.inner.cds_maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -117,12 +120,12 @@ impl JsCdsOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "CdsOption(id='{}', strike_bp={:.1})",
-            self.0.id, self.0.strike_spread_bp
+            self.inner.id, self.inner.strike_spread_bp
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCdsOption {
-        JsCdsOption::from_inner(self.0.clone())
+        JsCdsOption::from_inner(self.inner.clone())
     }
 }

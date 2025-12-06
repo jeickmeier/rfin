@@ -6,7 +6,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_scenarios::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
+use finstack_scenarios::{
+    ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
+};
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
 use time::Month;
@@ -226,15 +228,8 @@ fn test_warnings_attribute_based_operations() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.warnings.len(), 2);
-    // The message changed from "not implemented in Phase A" to "Instrument price shock error: Unsupported operation..."
-    assert!(
-        report.warnings[0].contains("not implemented in Phase A")
-            || report.warnings[0].contains("Unsupported operation")
-    );
-    assert!(
-        report.warnings[1].contains("not implemented in Phase A")
-            || report.warnings[1].contains("Unsupported operation")
-    );
+    assert!(report.warnings[0].contains("no instruments provided"));
+    assert!(report.warnings[1].contains("no instruments provided"));
 }
 
 #[test]
@@ -253,9 +248,9 @@ fn test_rate_binding_missing_curve() {
     let node = NodeSpec::new("InterestRate", NodeType::Value).with_values(values);
     model.add_node(node);
 
-    let rate_bindings = Some(indexmap! {
+    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
         "InterestRate".to_string() => "NONEXISTENT_CURVE".to_string(),
-    });
+    }));
 
     let scenario = ScenarioSpec {
         id: "test".into(),
@@ -293,9 +288,9 @@ fn test_rate_binding_missing_node() {
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let rate_bindings = Some(indexmap! {
+    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
         "NONEXISTENT_NODE".to_string() => "USD_SOFR".to_string(),
-    });
+    }));
 
     let scenario = ScenarioSpec {
         id: "test".into(),
@@ -334,6 +329,7 @@ fn test_time_roll_with_apply_shocks_false() {
             OperationSpec::TimeRollForward {
                 period: "1M".into(),
                 apply_shocks: false, // Should stop after roll
+                roll_mode: finstack_scenarios::TimeRollMode::BusinessDays,
             },
             OperationSpec::EquityPricePct {
                 ids: vec!["SPY".into()],
@@ -357,7 +353,7 @@ fn test_time_roll_with_apply_shocks_false() {
     assert_eq!(report.operations_applied, 1, "Only time roll should apply");
 
     // Date should be rolled
-    let expected = base_date + time::Duration::days(30);
+    let expected = base_date + time::Duration::days(31);
     assert_eq!(ctx.as_of, expected);
 }
 
@@ -376,6 +372,7 @@ fn test_time_roll_with_apply_shocks_true() {
             OperationSpec::TimeRollForward {
                 period: "1W".into(),
                 apply_shocks: true, // Should continue to other ops
+                roll_mode: finstack_scenarios::TimeRollMode::BusinessDays,
             },
             OperationSpec::EquityPricePct {
                 ids: vec!["SPY".into()],

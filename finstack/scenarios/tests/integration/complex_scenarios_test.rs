@@ -9,7 +9,8 @@ use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
+    CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
+    TimeRollMode,
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
@@ -123,9 +124,9 @@ fn test_statements_rate_bindings_curve() {
     model.add_node(NodeSpec::new("Revenue", NodeType::Value).with_values(revenue_values));
     model.add_node(NodeSpec::new("InterestRate", NodeType::Value).with_values(rate_values));
 
-    let rate_bindings = Some(indexmap! {
+    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
         "InterestRate".to_string() => "USD_SOFR".to_string(),
-    });
+    }));
 
     let scenario = ScenarioSpec {
         id: "stmt_curve".into(),
@@ -195,6 +196,7 @@ fn test_time_roll_with_market_shocks() {
             OperationSpec::TimeRollForward {
                 period: "1M".into(),
                 apply_shocks: true,
+                roll_mode: TimeRollMode::BusinessDays,
             },
             OperationSpec::EquityPricePct {
                 ids: vec!["SPY".into()],
@@ -218,7 +220,7 @@ fn test_time_roll_with_market_shocks() {
     assert_eq!(report.operations_applied, 2);
 
     // Date rolled
-    let expected_date = base_date + time::Duration::days(30);
+    let expected_date = base_date + time::Duration::days(31);
     assert_eq!(ctx.as_of, expected_date);
 
     // Price shocked

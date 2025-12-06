@@ -1,5 +1,6 @@
 //! Enum type bindings for scenarios.
 
+use finstack_scenarios::spec::{Compounding, TimeRollMode};
 use finstack_scenarios::{CurveKind, TenorMatchMode, VolSurfaceKind};
 use wasm_bindgen::prelude::*;
 
@@ -162,6 +163,128 @@ impl From<TenorMatchMode> for JsTenorMatchMode {
 
 impl From<JsTenorMatchMode> for TenorMatchMode {
     fn from(js: JsTenorMatchMode) -> Self {
+        js.inner
+    }
+}
+
+/// Controls how time roll-forward periods are interpreted.
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug)]
+pub struct JsTimeRollMode {
+    pub(crate) inner: TimeRollMode,
+}
+
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+impl JsTimeRollMode {
+    /// Calendar-aware roll that adjusts to business days when a calendar is supplied.
+    #[wasm_bindgen(getter)]
+    pub fn BUSINESS_DAYS() -> JsTimeRollMode {
+        JsTimeRollMode {
+            inner: TimeRollMode::BusinessDays,
+        }
+    }
+
+    /// Pure calendar-day addition (no business-day adjustment even if a calendar exists).
+    #[wasm_bindgen(getter)]
+    pub fn CALENDAR_DAYS() -> JsTimeRollMode {
+        JsTimeRollMode {
+            inner: TimeRollMode::CalendarDays,
+        }
+    }
+
+    /// Approximate mode using fixed day-count conventions (legacy 30/365 semantics).
+    #[wasm_bindgen(getter)]
+    pub fn APPROXIMATE() -> JsTimeRollMode {
+        JsTimeRollMode {
+            inner: TimeRollMode::Approximate,
+        }
+    }
+
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+impl From<TimeRollMode> for JsTimeRollMode {
+    fn from(inner: TimeRollMode) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<JsTimeRollMode> for TimeRollMode {
+    fn from(js: JsTimeRollMode) -> Self {
+        js.inner
+    }
+}
+
+/// Compounding convention for rate conversions.
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug)]
+pub struct JsCompounding {
+    pub(crate) inner: Compounding,
+}
+
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+impl JsCompounding {
+    #[wasm_bindgen(getter)]
+    pub fn SIMPLE() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::Simple,
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn CONTINUOUS() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::Continuous,
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn ANNUAL() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::Annual,
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn SEMI_ANNUAL() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::SemiAnnual,
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn QUARTERLY() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::Quarterly,
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn MONTHLY() -> JsCompounding {
+        JsCompounding {
+            inner: Compounding::Monthly,
+        }
+    }
+
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+impl From<Compounding> for JsCompounding {
+    fn from(inner: Compounding) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<JsCompounding> for Compounding {
+    fn from(js: JsCompounding) -> Self {
         js.inner
     }
 }

@@ -8,17 +8,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CreditDefaultSwap)]
 #[derive(Clone, Debug)]
-pub struct JsCreditDefaultSwap(CreditDefaultSwap);
+pub struct JsCreditDefaultSwap {
+    pub(crate) inner: CreditDefaultSwap,
+}
 
 impl InstrumentWrapper for JsCreditDefaultSwap {
     type Inner = CreditDefaultSwap;
     fn from_inner(inner: CreditDefaultSwap) -> Self {
-        JsCreditDefaultSwap(inner)
+        JsCreditDefaultSwap { inner }
     }
     fn inner(&self) -> CreditDefaultSwap {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = CreditDefaultSwap)]
 impl JsCreditDefaultSwap {
@@ -78,42 +81,42 @@ impl JsCreditDefaultSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = spreadBp)]
     pub fn spread_bp(&self) -> f64 {
-        self.0.premium.spread_bp
+        self.inner.premium.spread_bp
     }
 
     #[wasm_bindgen(getter, js_name = recoveryRate)]
     pub fn recovery_rate(&self) -> f64 {
-        self.0.protection.recovery_rate
+        self.inner.protection.recovery_rate
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.premium.discount_curve_id.as_str().to_string()
+        self.inner.premium.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = creditCurve)]
     pub fn credit_curve(&self) -> String {
-        self.0.protection.credit_curve_id.as_str().to_string()
+        self.inner.protection.credit_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.0.premium.start)
+        JsDate::from_core(self.inner.premium.start)
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.premium.end)
+        JsDate::from_core(self.inner.premium.end)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -125,12 +128,12 @@ impl JsCreditDefaultSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "CreditDefaultSwap(id='{}', spread_bp={:.1})",
-            self.0.id, self.0.premium.spread_bp
+            self.inner.id, self.inner.premium.spread_bp
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCreditDefaultSwap {
-        JsCreditDefaultSwap::from_inner(self.0.clone())
+        JsCreditDefaultSwap::from_inner(self.inner.clone())
     }
 }

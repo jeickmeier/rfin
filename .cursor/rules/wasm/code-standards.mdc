@@ -45,27 +45,78 @@ serde-wasm-bindgen = "0.6"  # For complex object serialization
 
 ## Type Wrapping Patterns
 
+### ⚠️ CRITICAL: Always Use Named Structs with `pub(crate) inner`
+
+**Always use named structs with a `pub(crate) inner` field for WASM bindings.** This is the **required pattern** for all type wrappers.
+
+**Do NOT use tuple structs** (e.g., `pub struct JsBond(Bond)`) as they:
+- Prevent safe type extraction from `JsValue`
+- Cause `JsCast` trait bound errors (`E0277`)
+- Are incompatible with `wasm_bindgen`'s type system for structs with private fields
+
+**Why `pub(crate)`?**
+- Allows other modules in the same crate to access the inner field for type extraction
+- Required for runtime type checking and safe downcasting from `JsValue`
+- Enables polymorphic functions that extract types from JavaScript values
+
 ### Basic Type Wrapper
 ```rust
 use wasm_bindgen::prelude::*;
 use rfin_core::TypeName as CoreType;
 
 /// JavaScript-visible documentation
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = TypeName)]
 #[derive(Clone, Debug)]
-pub struct TypeName {
-    inner: CoreType,
+pub struct JsTypeName {
+    /// The inner Rust core type wrapped for JavaScript interop
+    /// Must be `pub(crate)` to allow access from other modules for type extraction
+    pub(crate) inner: CoreType,
 }
 
-#[wasm_bindgen]
-impl TypeName {
+#[wasm_bindgen(js_class = TypeName)]
+impl JsTypeName {
     /// Constructor - always use #[wasm_bindgen(constructor)]
     #[wasm_bindgen(constructor)]
-    pub fn new(param: String) -> Result<TypeName, JsValue> {
+    pub fn new(param: String) -> Result<JsTypeName, JsValue> {
         let inner = param
             .parse::<CoreType>()
             .map_err(|e| JsValue::from_str(&format!("Error: {}", e)))?;
-        Ok(TypeName { inner })
+        Ok(JsTypeName { inner })
+    }
+    
+    /// Access the inner type (for use within the crate)
+    pub(crate) fn inner(&self) -> &CoreType {
+        &self.inner
+    }
+}
+```
+
+### Type Extraction Pattern
+
+When extracting types from `JsValue` (e.g., in polymorphic functions), use runtime constructor name checking with `js_sys::Reflect`:
+
+```rust
+use js_sys::Reflect;
+use wasm_bindgen::JsValue;
+
+/// Extract a wrapped type from a JsValue using constructor name matching
+#[allow(unsafe_code)]
+pub(crate) fn extract_type(value: &JsValue) -> Result<&JsTypeName, JsValue> {
+    // Check if the value is an instance of the expected type by checking constructor name
+    let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
+        .ok()
+        .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
+        .and_then(|n| n.as_string())
+        .map(|n| n == "TypeName")
+        .unwrap_or(false);
+    
+    if is_instance {
+        // Safe because we've verified the type via constructor name check
+        // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
+        let inst: &JsTypeName = unsafe { &*(value as *const JsValue as *const JsTypeName) };
+        Ok(inst)
+    } else {
+        Err(JsValue::from_str("Expected TypeName instance"))
     }
 }
 ```
@@ -531,27 +582,78 @@ serde-wasm-bindgen = "0.6"  # For complex object serialization
 
 ## Type Wrapping Patterns
 
+### ⚠️ CRITICAL: Always Use Named Structs with `pub(crate) inner`
+
+**Always use named structs with a `pub(crate) inner` field for WASM bindings.** This is the **required pattern** for all type wrappers.
+
+**Do NOT use tuple structs** (e.g., `pub struct JsBond(Bond)`) as they:
+- Prevent safe type extraction from `JsValue`
+- Cause `JsCast` trait bound errors (`E0277`)
+- Are incompatible with `wasm_bindgen`'s type system for structs with private fields
+
+**Why `pub(crate)`?**
+- Allows other modules in the same crate to access the inner field for type extraction
+- Required for runtime type checking and safe downcasting from `JsValue`
+- Enables polymorphic functions that extract types from JavaScript values
+
 ### Basic Type Wrapper
 ```rust
 use wasm_bindgen::prelude::*;
 use rfin_core::TypeName as CoreType;
 
 /// JavaScript-visible documentation
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = TypeName)]
 #[derive(Clone, Debug)]
-pub struct TypeName {
-    inner: CoreType,
+pub struct JsTypeName {
+    /// The inner Rust core type wrapped for JavaScript interop
+    /// Must be `pub(crate)` to allow access from other modules for type extraction
+    pub(crate) inner: CoreType,
 }
 
-#[wasm_bindgen]
-impl TypeName {
+#[wasm_bindgen(js_class = TypeName)]
+impl JsTypeName {
     /// Constructor - always use #[wasm_bindgen(constructor)]
     #[wasm_bindgen(constructor)]
-    pub fn new(param: String) -> Result<TypeName, JsValue> {
+    pub fn new(param: String) -> Result<JsTypeName, JsValue> {
         let inner = param
             .parse::<CoreType>()
             .map_err(|e| JsValue::from_str(&format!("Error: {}", e)))?;
-        Ok(TypeName { inner })
+        Ok(JsTypeName { inner })
+    }
+    
+    /// Access the inner type (for use within the crate)
+    pub(crate) fn inner(&self) -> &CoreType {
+        &self.inner
+    }
+}
+```
+
+### Type Extraction Pattern
+
+When extracting types from `JsValue` (e.g., in polymorphic functions), use runtime constructor name checking with `js_sys::Reflect`:
+
+```rust
+use js_sys::Reflect;
+use wasm_bindgen::JsValue;
+
+/// Extract a wrapped type from a JsValue using constructor name matching
+#[allow(unsafe_code)]
+pub(crate) fn extract_type(value: &JsValue) -> Result<&JsTypeName, JsValue> {
+    // Check if the value is an instance of the expected type by checking constructor name
+    let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
+        .ok()
+        .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
+        .and_then(|n| n.as_string())
+        .map(|n| n == "TypeName")
+        .unwrap_or(false);
+    
+    if is_instance {
+        // Safe because we've verified the type via constructor name check
+        // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
+        let inst: &JsTypeName = unsafe { &*(value as *const JsValue as *const JsTypeName) };
+        Ok(inst)
+    } else {
+        Err(JsValue::from_str("Expected TypeName instance"))
     }
 }
 ```

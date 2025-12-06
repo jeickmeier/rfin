@@ -15,7 +15,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(js_name = InflationLinkedBond)]
 #[derive(Clone, Debug)]
 pub struct JsInflationLinkedBond {
-    inner: InflationLinkedBond,
+    pub(crate) inner: InflationLinkedBond,
 }
 
 impl JsInflationLinkedBond {

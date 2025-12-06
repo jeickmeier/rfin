@@ -8,17 +8,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = PrivateMarketsFund)]
 #[derive(Clone, Debug)]
-pub struct JsPrivateMarketsFund(PrivateMarketsFund);
+pub struct JsPrivateMarketsFund {
+    pub(crate) inner: PrivateMarketsFund,
+}
 
 impl InstrumentWrapper for JsPrivateMarketsFund {
     type Inner = PrivateMarketsFund;
     fn from_inner(inner: PrivateMarketsFund) -> Self {
-        JsPrivateMarketsFund(inner)
+        JsPrivateMarketsFund { inner }
     }
     fn inner(&self) -> PrivateMarketsFund {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = PrivateMarketsFund)]
 impl JsPrivateMarketsFund {
@@ -31,17 +34,17 @@ impl JsPrivateMarketsFund {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.currency)
+        JsCurrency::from_inner(self.inner.currency)
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -53,13 +56,13 @@ impl JsPrivateMarketsFund {
     pub fn to_string_js(&self) -> String {
         format!(
             "PrivateMarketsFund(id='{}', events={})",
-            self.0.id,
-            self.0.events.len()
+            self.inner.id,
+            self.inner.events.len()
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsPrivateMarketsFund {
-        JsPrivateMarketsFund::from_inner(self.0.clone())
+        JsPrivateMarketsFund::from_inner(self.inner.clone())
     }
 }

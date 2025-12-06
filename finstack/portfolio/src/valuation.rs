@@ -241,7 +241,7 @@ fn value_portfolio_serial(
 
     // Calculate total using compensated summation for numerical stability
     let entity_amounts: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
-    let total_amount = neumaier_sum(entity_amounts.into_iter());
+    let total_amount = neumaier_sum(entity_amounts);
     let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
 
     Ok(PortfolioValuation {

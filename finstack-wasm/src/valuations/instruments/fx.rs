@@ -16,17 +16,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = FxSpot)]
 #[derive(Clone, Debug)]
-pub struct JsFxSpot(FxSpot);
+pub struct JsFxSpot {
+    pub(crate) inner: FxSpot,
+}
 
 impl InstrumentWrapper for JsFxSpot {
     type Inner = FxSpot;
     fn from_inner(inner: FxSpot) -> Self {
-        JsFxSpot(inner)
+        JsFxSpot { inner }
     }
     fn inner(&self) -> FxSpot {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = FxSpot)]
 impl JsFxSpot {
@@ -63,22 +66,22 @@ impl JsFxSpot {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.base)
+        JsCurrency::from_inner(self.inner.base)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.quote)
+        JsCurrency::from_inner(self.inner.quote)
     }
 
     #[wasm_bindgen(getter, js_name = pairName)]
     pub fn pair_name(&self) -> String {
-        self.0.pair_name()
+        self.inner.pair_name()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -88,12 +91,12 @@ impl JsFxSpot {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FxSpot(id='{}', pair='{}')", self.0.id, self.0.pair_name())
+        format!("FxSpot(id='{}', pair='{}')", self.inner.id, self.inner.pair_name())
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxSpot {
-        JsFxSpot::from_inner(self.0.clone())
+        JsFxSpot::from_inner(self.inner.clone())
     }
 }
 
@@ -103,17 +106,20 @@ impl JsFxSpot {
 
 #[wasm_bindgen(js_name = FxOption)]
 #[derive(Clone, Debug)]
-pub struct JsFxOption(FxOption);
+pub struct JsFxOption {
+    pub(crate) inner: FxOption,
+}
 
 impl InstrumentWrapper for JsFxOption {
     type Inner = FxOption;
     fn from_inner(inner: FxOption) -> Self {
-        JsFxOption(inner)
+        JsFxOption { inner }
     }
     fn inner(&self) -> FxOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = FxOption)]
 impl JsFxOption {
@@ -179,32 +185,32 @@ impl JsFxOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.base_currency)
+        JsCurrency::from_inner(self.inner.base_currency)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.quote_currency)
+        JsCurrency::from_inner(self.inner.quote_currency)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.0.strike
+        self.inner.strike
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -214,12 +220,12 @@ impl JsFxOption {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FxOption(id='{}', strike={:.4})", self.0.id, self.0.strike)
+        format!("FxOption(id='{}', strike={:.4})", self.inner.id, self.inner.strike)
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxOption {
-        JsFxOption::from_inner(self.0.clone())
+        JsFxOption::from_inner(self.inner.clone())
     }
 }
 
@@ -229,17 +235,20 @@ impl JsFxOption {
 
 #[wasm_bindgen(js_name = FxSwap)]
 #[derive(Clone, Debug)]
-pub struct JsFxSwap(FxSwap);
+pub struct JsFxSwap {
+    pub(crate) inner: FxSwap,
+}
 
 impl InstrumentWrapper for JsFxSwap {
     type Inner = FxSwap;
     fn from_inner(inner: FxSwap) -> Self {
-        JsFxSwap(inner)
+        JsFxSwap { inner }
     }
     fn inner(&self) -> FxSwap {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = FxSwap)]
 impl JsFxSwap {
@@ -282,32 +291,32 @@ impl JsFxSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.base_currency)
+        JsCurrency::from_inner(self.inner.base_currency)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.quote_currency)
+        JsCurrency::from_inner(self.inner.quote_currency)
     }
 
     #[wasm_bindgen(getter, js_name = baseNotional)]
     pub fn base_notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.base_notional)
+        JsMoney::from_inner(self.inner.base_notional)
     }
 
     #[wasm_bindgen(getter, js_name = nearDate)]
     pub fn near_date(&self) -> JsDate {
-        JsDate::from_core(self.0.near_date)
+        JsDate::from_core(self.inner.near_date)
     }
 
     #[wasm_bindgen(getter, js_name = farDate)]
     pub fn far_date(&self) -> JsDate {
-        JsDate::from_core(self.0.far_date)
+        JsDate::from_core(self.inner.far_date)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -319,12 +328,12 @@ impl JsFxSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "FxSwap(id='{}', near='{}', far='{}')",
-            self.0.id, self.0.near_date, self.0.far_date
+            self.inner.id, self.inner.near_date, self.inner.far_date
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxSwap {
-        JsFxSwap::from_inner(self.0.clone())
+        JsFxSwap::from_inner(self.inner.clone())
     }
 }

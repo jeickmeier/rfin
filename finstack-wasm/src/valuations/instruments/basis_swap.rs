@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(js_name = BasisSwapLeg)]
 #[derive(Clone, Debug)]
 pub struct JsBasisSwapLeg {
-    inner: BasisSwapLeg,
+    pub(crate) inner: BasisSwapLeg,
 }
 
 #[wasm_bindgen(js_class = BasisSwapLeg)]
@@ -58,17 +58,20 @@ impl JsBasisSwapLeg {
 
 #[wasm_bindgen(js_name = BasisSwap)]
 #[derive(Clone, Debug)]
-pub struct JsBasisSwap(BasisSwap);
+pub struct JsBasisSwap {
+    pub(crate) inner: BasisSwap,
+}
 
 impl InstrumentWrapper for JsBasisSwap {
     type Inner = BasisSwap;
     fn from_inner(inner: BasisSwap) -> Self {
-        JsBasisSwap(inner)
+        JsBasisSwap { inner }
     }
     fn inner(&self) -> BasisSwap {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = BasisSwap)]
 impl JsBasisSwap {
@@ -107,17 +110,17 @@ impl JsBasisSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -127,11 +130,11 @@ impl JsBasisSwap {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("BasisSwap(id='{}')", self.0.id)
+        format!("BasisSwap(id='{}')", self.inner.id)
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBasisSwap {
-        JsBasisSwap::from_inner(self.0.clone())
+        JsBasisSwap::from_inner(self.inner.clone())
     }
 }

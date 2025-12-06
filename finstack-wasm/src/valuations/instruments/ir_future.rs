@@ -14,17 +14,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = InterestRateFuture)]
 #[derive(Clone, Debug)]
-pub struct JsInterestRateFuture(InterestRateFuture);
+pub struct JsInterestRateFuture {
+    pub(crate) inner: InterestRateFuture,
+}
 
 impl InstrumentWrapper for JsInterestRateFuture {
     type Inner = InterestRateFuture;
     fn from_inner(inner: InterestRateFuture) -> Self {
-        JsInterestRateFuture(inner)
+        JsInterestRateFuture { inner }
     }
     fn inner(&self) -> InterestRateFuture {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = InterestRateFuture)]
 impl JsInterestRateFuture {
@@ -69,17 +72,17 @@ impl JsInterestRateFuture {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = quotedPrice)]
     pub fn quoted_price(&self) -> f64 {
-        self.0.quoted_price
+        self.inner.quoted_price
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -91,12 +94,12 @@ impl JsInterestRateFuture {
     pub fn to_string_js(&self) -> String {
         format!(
             "InterestRateFuture(id='{}', price={:.2})",
-            self.0.id, self.0.quoted_price
+            self.inner.id, self.inner.quoted_price
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInterestRateFuture {
-        JsInterestRateFuture::from_inner(self.0.clone())
+        JsInterestRateFuture::from_inner(self.inner.clone())
     }
 }

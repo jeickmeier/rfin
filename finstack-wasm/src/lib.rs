@@ -141,11 +141,12 @@ pub use statements::{
 
 // Scenarios exports
 pub use scenarios::{
-    JsApplicationReport as ApplicationReport, JsCurveKind as ScenarioCurveKind,
-    JsExecutionContext as ExecutionContext, JsOperationSpec as OperationSpec,
+    JsApplicationReport as ApplicationReport, JsCompounding as Compounding,
+    JsCurveKind as ScenarioCurveKind, JsExecutionContext as ExecutionContext,
+    JsOperationSpec as OperationSpec, JsRateBindingSpec as RateBindingSpec,
     JsRollForwardReport as RollForwardReport, JsScenarioEngine as ScenarioEngine,
     JsScenarioSpec as ScenarioSpec, JsTenorMatchMode as TenorMatchMode,
-    JsVolSurfaceKind as VolSurfaceKind,
+    JsTimeRollMode as TimeRollMode, JsVolSurfaceKind as VolSurfaceKind,
 };
 
 // Portfolio exports

@@ -12,15 +12,17 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Basket)]
 #[derive(Clone, Debug)]
-pub struct JsBasket(Basket);
+pub struct JsBasket {
+    pub(crate) inner: Basket,
+}
 
 impl InstrumentWrapper for JsBasket {
     type Inner = Basket;
     fn from_inner(inner: Basket) -> Self {
-        JsBasket(inner)
+        JsBasket { inner }
     }
     fn inner(&self) -> Basket {
-        self.0.clone()
+        self.inner.clone()
     }
 }
 
@@ -35,12 +37,12 @@ impl JsBasket {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -52,14 +54,14 @@ impl JsBasket {
     pub fn to_string_js(&self) -> String {
         format!(
             "Basket(id='{}', constituents={})",
-            self.0.id,
-            self.0.constituents.len()
+            self.inner.id,
+            self.inner.constituents.len()
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBasket {
-        JsBasket::from_inner(self.0.clone())
+        JsBasket::from_inner(self.inner.clone())
     }
 }
 
@@ -69,15 +71,17 @@ impl JsBasket {
 
 #[wasm_bindgen(js_name = StructuredCredit)]
 #[derive(Clone, Debug)]
-pub struct JsStructuredCredit(StructuredCredit);
+pub struct JsStructuredCredit {
+    pub(crate) inner: StructuredCredit,
+}
 
 impl InstrumentWrapper for JsStructuredCredit {
     type Inner = StructuredCredit;
     fn from_inner(inner: StructuredCredit) -> Self {
-        JsStructuredCredit(inner)
+        JsStructuredCredit { inner }
     }
     fn inner(&self) -> StructuredCredit {
-        self.0.clone()
+        self.inner.clone()
     }
 }
 
@@ -92,17 +96,17 @@ impl JsStructuredCredit {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = dealType)]
     pub fn deal_type(&self) -> String {
-        format!("{:?}", self.0.deal_type)
+        format!("{:?}", self.inner.deal_type)
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -114,19 +118,19 @@ impl JsStructuredCredit {
     pub fn to_string_js(&self) -> String {
         format!(
             "StructuredCredit({:?}, id='{}', tranches={})",
-            self.0.deal_type,
-            self.0.id,
-            self.0.tranches.tranches.len()
+            self.inner.deal_type,
+            self.inner.id,
+            self.inner.tranches.tranches.len()
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsStructuredCredit {
-        JsStructuredCredit::from_inner(self.0.clone())
+        JsStructuredCredit::from_inner(self.inner.clone())
     }
 
     #[wasm_bindgen(getter, js_name = trancheCount)]
     pub fn tranche_count(&self) -> usize {
-        self.0.tranches.tranches.len()
+        self.inner.tranches.tranches.len()
     }
 }

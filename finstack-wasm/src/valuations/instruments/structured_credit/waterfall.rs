@@ -104,7 +104,9 @@ impl From<RustPaymentType> for JsPaymentType {
 /// ```
 #[wasm_bindgen(js_name = WaterfallTier)]
 #[derive(Clone, Debug)]
-pub struct JsWaterfallTier(RustWaterfallTier);
+pub struct JsWaterfallTier {
+    pub(crate) inner: RustWaterfallTier,
+}
 
 #[wasm_bindgen(js_class = WaterfallTier)]
 impl JsWaterfallTier {
@@ -112,50 +114,50 @@ impl JsWaterfallTier {
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsWaterfallTier, JsValue> {
         serde_json::from_str(json_str)
-            .map(JsWaterfallTier)
+            .map(|inner| JsWaterfallTier { inner })
             .map_err(|e| js_error(e.to_string()))
     }
 
     /// Convert to JSON string.
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     /// Get tier ID.
     #[wasm_bindgen(getter, js_name = tierId)]
     pub fn tier_id(&self) -> String {
-        self.0.id.clone()
+        self.inner.id.clone()
     }
 
     /// Get priority.
     #[wasm_bindgen(getter)]
     pub fn priority(&self) -> usize {
-        self.0.priority
+        self.inner.priority
     }
 
     /// Get number of recipients.
     #[wasm_bindgen(getter, js_name = recipientCount)]
     pub fn recipient_count(&self) -> usize {
-        self.0.recipients.len()
+        self.inner.recipients.len()
     }
 
     /// Get payment type as number.
     #[wasm_bindgen(getter, js_name = paymentType)]
     pub fn payment_type(&self) -> u8 {
-        JsPaymentType::from(self.0.payment_type) as u8
+        JsPaymentType::from(self.inner.payment_type) as u8
     }
 
     /// Get allocation mode as number.
     #[wasm_bindgen(getter, js_name = allocationMode)]
     pub fn allocation_mode(&self) -> u8 {
-        JsAllocationMode::from(self.0.allocation_mode) as u8
+        JsAllocationMode::from(self.inner.allocation_mode) as u8
     }
 
     /// Is tier divertible.
     #[wasm_bindgen(getter)]
     pub fn divertible(&self) -> bool {
-        self.0.divertible
+        self.inner.divertible
     }
 }
 

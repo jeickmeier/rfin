@@ -56,17 +56,20 @@ impl From<JsRealizedVarMethod> for RealizedVarMethod {
 
 #[wasm_bindgen(js_name = VarianceSwap)]
 #[derive(Clone, Debug)]
-pub struct JsVarianceSwap(VarianceSwap);
+pub struct JsVarianceSwap {
+    pub(crate) inner: VarianceSwap,
+}
 
 impl InstrumentWrapper for JsVarianceSwap {
     type Inner = VarianceSwap;
     fn from_inner(inner: VarianceSwap) -> Self {
-        JsVarianceSwap(inner)
+        JsVarianceSwap { inner }
     }
     fn inner(&self) -> VarianceSwap {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = VarianceSwap)]
 impl JsVarianceSwap {
@@ -117,12 +120,12 @@ impl JsVarianceSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = strikeVariance)]
     pub fn strike_variance(&self) -> f64 {
-        self.0.strike_variance
+        self.inner.strike_variance
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -134,12 +137,12 @@ impl JsVarianceSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "VarianceSwap(id='{}', strike_var={})",
-            self.0.id, self.0.strike_variance
+            self.inner.id, self.inner.strike_variance
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsVarianceSwap {
-        JsVarianceSwap::from_inner(self.0.clone())
+        JsVarianceSwap::from_inner(self.inner.clone())
     }
 }

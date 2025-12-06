@@ -10,6 +10,6 @@ pub mod spec;
 
 // Re-export all public types for convenient access
 pub use engine::{JsExecutionContext, JsScenarioEngine};
-pub use enums::{JsCurveKind, JsTenorMatchMode, JsVolSurfaceKind};
+pub use enums::{JsCompounding, JsCurveKind, JsTenorMatchMode, JsTimeRollMode, JsVolSurfaceKind};
 pub use reports::{JsApplicationReport, JsRollForwardReport};
-pub use spec::{JsOperationSpec, JsScenarioSpec};
+pub use spec::{JsOperationSpec, JsRateBindingSpec, JsScenarioSpec};

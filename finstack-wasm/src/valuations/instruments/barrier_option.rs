@@ -14,17 +14,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = BarrierOption)]
 #[derive(Clone, Debug)]
-pub struct JsBarrierOption(BarrierOption);
+pub struct JsBarrierOption {
+    pub(crate) inner: BarrierOption,
+}
 
 impl InstrumentWrapper for JsBarrierOption {
     type Inner = BarrierOption;
     fn from_inner(inner: BarrierOption) -> Self {
-        JsBarrierOption(inner)
+        JsBarrierOption { inner }
     }
     fn inner(&self) -> BarrierOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = BarrierOption)]
 impl JsBarrierOption {
@@ -99,27 +102,27 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.0.underlying_ticker.clone()
+        self.inner.underlying_ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.strike)
+        JsMoney::from_inner(self.inner.strike)
     }
 
     #[wasm_bindgen(getter)]
     pub fn barrier(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.barrier)
+        JsMoney::from_inner(self.inner.barrier)
     }
 
     #[wasm_bindgen(getter, js_name = optionType)]
     pub fn option_type(&self) -> String {
-        match self.0.option_type {
+        match self.inner.option_type {
             OptionType::Call => "call",
             OptionType::Put => "put",
         }
@@ -129,7 +132,7 @@ impl JsBarrierOption {
     #[wasm_bindgen(getter, js_name = barrierType)]
     pub fn barrier_type(&self) -> JsMcBarrierType {
         // Convert BarrierOptionType to McBarrierType
-        let mc_type = match self.0.barrier_type {
+        let mc_type = match self.inner.barrier_type {
             BarrierOptionType::UpAndOut => McBarrierType::UpAndOut,
             BarrierOptionType::UpAndIn => McBarrierType::UpAndIn,
             BarrierOptionType::DownAndOut => McBarrierType::DownAndOut,
@@ -140,32 +143,32 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = spotId)]
     pub fn spot_id(&self) -> String {
-        self.0.spot_id.clone()
+        self.inner.spot_id.clone()
     }
 
     #[wasm_bindgen(getter, js_name = volSurface)]
     pub fn vol_surface(&self) -> String {
-        self.0.vol_surface_id.as_str().to_string()
+        self.inner.vol_surface_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
     pub fn div_yield_id(&self) -> Option<String> {
-        self.0
+        self.inner
             .div_yield_id
             .as_ref()
             .map(|id| id.as_str().to_string())
@@ -173,7 +176,7 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter, js_name = useGobetMiri)]
     pub fn use_gobet_miri(&self) -> bool {
-        self.0.use_gobet_miri
+        self.inner.use_gobet_miri
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -185,16 +188,16 @@ impl JsBarrierOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "BarrierOption(id='{}', ticker='{}', strike={}, barrier={}, barrier_type='{:?}')",
-            self.0.id.as_str(),
-            self.0.underlying_ticker,
-            self.0.strike.amount(),
-            self.0.barrier.amount(),
-            self.0.barrier_type
+            self.inner.id.as_str(),
+            self.inner.underlying_ticker,
+            self.inner.strike.amount(),
+            self.inner.barrier.amount(),
+            self.inner.barrier_type
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBarrierOption {
-        JsBarrierOption::from_inner(self.0.clone())
+        JsBarrierOption::from_inner(self.inner.clone())
     }
 }

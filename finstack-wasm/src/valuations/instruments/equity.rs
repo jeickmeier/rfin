@@ -6,17 +6,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Equity)]
 #[derive(Clone, Debug)]
-pub struct JsEquity(Equity);
+pub struct JsEquity {
+    pub(crate) inner: Equity,
+}
 
 impl InstrumentWrapper for JsEquity {
     type Inner = Equity;
     fn from_inner(inner: Equity) -> Self {
-        JsEquity(inner)
+        JsEquity { inner }
     }
     fn inner(&self) -> Equity {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = Equity)]
 impl JsEquity {
@@ -40,22 +43,22 @@ impl JsEquity {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.0.ticker.clone()
+        self.inner.ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.0.currency)
+        JsCurrency::from_inner(self.inner.currency)
     }
 
     #[wasm_bindgen(getter)]
     pub fn shares(&self) -> f64 {
-        self.0.effective_shares()
+        self.inner.effective_shares()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -67,14 +70,14 @@ impl JsEquity {
     pub fn to_string_js(&self) -> String {
         format!(
             "Equity(id='{}', ticker='{}', shares={})",
-            self.0.id,
-            self.0.ticker,
+            self.inner.id,
+            self.inner.ticker,
             self.shares()
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsEquity {
-        JsEquity::from_inner(self.0.clone())
+        JsEquity::from_inner(self.inner.clone())
     }
 }

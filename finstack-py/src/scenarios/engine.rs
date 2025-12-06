@@ -5,12 +5,15 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
 use crate::scenarios::error::scenario_to_py;
 use crate::scenarios::reports::PyApplicationReport;
-use crate::scenarios::spec::PyScenarioSpec;
+use crate::scenarios::spec::{PyRateBindingSpec, PyScenarioSpec};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::valuations::instruments::extract_instrument;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
+use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ScenarioSpec;
 use finstack_valuations::instruments::common::traits::Instrument;
+use indexmap::IndexMap;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyModule};
 use std::collections::HashMap;
@@ -31,8 +34,9 @@ use std::collections::HashMap;
 ///     Valuation date for context.
 /// instruments : list, optional
 ///     Optional vector of instruments for price/spread shocks and carry calculations.
-/// rate_bindings : dict[str, str], optional
-///     Optional mapping from statement node IDs to curve IDs for automatic rate updates.
+/// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str], optional
+///     Optional mapping from statement node IDs to rate binding specifications. Legacy dict[str, str]
+///     is supported for backwards compatibility (assumes 1Y continuous rates).
 /// calendar : Calendar, optional
 ///     Optional holiday calendar for calendar-aware tenor calculations.
 ///
@@ -51,7 +55,7 @@ pub struct PyExecutionContext {
     model: Py<PyFinancialModelSpec>,
     instruments: Option<Vec<PyObject>>,
     rust_instruments: Option<Vec<Box<dyn Instrument>>>,
-    rate_bindings: Option<HashMap<String, String>>,
+    rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
     calendar: Option<Py<PyCalendar>>,
     as_of: finstack_core::dates::Date,
 }
@@ -73,6 +77,50 @@ impl PyExecutionContext {
             Ok(None)
         }
     }
+
+    fn convert_rate_bindings(
+        py: Python<'_>,
+        bindings: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Option<IndexMap<String, RateBindingSpec>>> {
+        let Some(obj) = bindings else {
+            return Ok(None);
+        };
+
+        if obj.is_none() {
+            return Ok(None);
+        }
+
+        // Preferred: dict[str, RateBindingSpec]
+        if let Ok(map) = obj.extract::<HashMap<String, Py<PyRateBindingSpec>>>() {
+            let mut out: IndexMap<String, RateBindingSpec> = IndexMap::with_capacity(map.len());
+            for (node_id, spec_obj) in map {
+                let borrowed = spec_obj.borrow(py);
+                out.insert(node_id, borrowed.inner.clone());
+            }
+            return Ok(Some(out));
+        }
+
+        // Fallback: list[RateBindingSpec]
+        if let Ok(list) = obj.extract::<Vec<Py<PyRateBindingSpec>>>() {
+            let mut out: IndexMap<String, RateBindingSpec> = IndexMap::with_capacity(list.len());
+            for spec_obj in list {
+                let borrowed = spec_obj.borrow(py);
+                let spec = borrowed.inner.clone();
+                out.insert(spec.node_id.clone(), spec);
+            }
+            return Ok(Some(out));
+        }
+
+        // Legacy: dict[str, str] mapping node_id -> curve_id
+        if let Ok(map) = obj.extract::<HashMap<String, String>>() {
+            let legacy: IndexMap<String, String> = map.into_iter().collect();
+            return Ok(Some(RateBindingSpec::map_from_legacy(legacy)));
+        }
+
+        Err(PyTypeError::new_err(
+            "rate_bindings must be a dict[str, RateBindingSpec], list[RateBindingSpec], dict[str, str], or None",
+        ))
+    }
 }
 
 #[pymethods]
@@ -91,8 +139,8 @@ impl PyExecutionContext {
     ///     Valuation date.
     /// instruments : list, optional
     ///     Optional instruments.
-    /// rate_bindings : dict[str, str], optional
-    ///     Optional rate bindings.
+    /// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str], optional
+    ///     Optional rate bindings (legacy dict[str, str] uses default tenor/compounding).
     ///
     /// Returns
     /// -------
@@ -104,7 +152,7 @@ impl PyExecutionContext {
         model: &Bound<'_, PyAny>,
         as_of: &Bound<'_, PyAny>,
         instruments: Option<Vec<PyObject>>,
-        rate_bindings: Option<HashMap<String, String>>,
+        rate_bindings: Option<&Bound<'_, PyAny>>,
         calendar: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let market_ref = market.extract::<Py<PyMarketContext>>()?;
@@ -115,6 +163,7 @@ impl PyExecutionContext {
             None => None,
         };
         let rust_instruments = Self::convert_instruments(_py, &instruments)?;
+        let rate_bindings = Self::convert_rate_bindings(_py, rate_bindings)?;
 
         Ok(Self {
             market: market_ref,
@@ -203,10 +252,15 @@ impl PyExecutionContext {
     ///
     /// Returns
     /// -------
-    /// dict[str, str] | None
+    /// dict[str, RateBindingSpec] | None
     ///     Rate bindings if set.
-    fn rate_bindings(&self) -> Option<HashMap<String, String>> {
-        self.rate_bindings.clone()
+    fn rate_bindings(&self) -> Option<HashMap<String, PyRateBindingSpec>> {
+        self.rate_bindings.as_ref().map(|bindings| {
+            bindings
+                .iter()
+                .map(|(k, v)| (k.clone(), PyRateBindingSpec::from_inner(v.clone())))
+                .collect()
+        })
     }
 
     #[setter]
@@ -214,10 +268,15 @@ impl PyExecutionContext {
     ///
     /// Parameters
     /// ----------
-    /// value : dict[str, str] | None
+    /// value : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str] | None
     ///     New rate bindings.
-    fn set_rate_bindings(&mut self, value: Option<HashMap<String, String>>) {
-        self.rate_bindings = value;
+    fn set_rate_bindings(
+        &mut self,
+        py: Python<'_>,
+        value: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        self.rate_bindings = Self::convert_rate_bindings(py, value)?;
+        Ok(())
     }
 
     #[getter]
@@ -345,12 +404,7 @@ impl PyScenarioEngine {
         let mut model_borrow = context.model.borrow_mut(py);
 
         // Convert rate_bindings to IndexMap if present
-        let rate_bindings = context.rate_bindings.as_ref().map(|bindings| {
-            bindings
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect::<indexmap::IndexMap<String, String>>()
-        });
+        let rate_bindings = context.rate_bindings.clone();
 
         let instruments_option = context.rust_instruments.as_mut().map(|vec| vec.as_mut());
         let calendar = context

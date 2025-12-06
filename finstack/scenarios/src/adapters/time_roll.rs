@@ -7,7 +7,9 @@
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::utils::parse_period_to_days;
+use crate::TimeRollMode;
 use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use indexmap::IndexMap;
@@ -66,6 +68,7 @@ pub struct RollForwardReport {
 /// - `ctx`: Execution context providing the mutable valuation date, market data,
 ///   and optional instruments.
 /// - `period_str`: Period string such as `"1D"`, `"1W"`, `"1M"`, or `"1Y"`.
+/// - `mode`: Roll interpretation (business-day aware vs approximate days).
 ///
 /// # Returns
 /// [`RollForwardReport`] summarising the new date and P&L breakdown.
@@ -95,7 +98,7 @@ pub struct RollForwardReport {
 ///     calendar: None,
 ///     as_of,
 /// };
-/// let report = apply_time_roll_forward(&mut ctx, "1M")?;
+/// let report = apply_time_roll_forward(&mut ctx, "1M", TimeRollMode::BusinessDays)?;
 /// assert_eq!(report.days, 30);
 /// # Ok(())
 /// # }
@@ -103,20 +106,46 @@ pub struct RollForwardReport {
 pub fn apply_time_roll_forward(
     ctx: &mut ExecutionContext,
     period_str: &str,
+    mode: TimeRollMode,
 ) -> Result<RollForwardReport> {
     use crate::error::Error;
 
     let old_date = ctx.as_of;
-    let days = parse_period_to_days(period_str)?;
-
-    // Calculate new date by adding days
-    let new_date = old_date + time::Duration::days(days);
+    let (new_date, day_shift) = match mode {
+        TimeRollMode::Approximate => {
+            let days = parse_period_to_days(period_str)?;
+            let new_date = old_date + time::Duration::days(days);
+            (new_date, days)
+        }
+        TimeRollMode::CalendarDays => {
+            let tenor =
+                Tenor::parse(period_str).map_err(|e| Error::InvalidPeriod(e.to_string()))?;
+            let target = tenor
+                .add_to_date(old_date, None, BusinessDayConvention::Unadjusted)
+                .map_err(|e| Error::Internal(e.to_string()))?;
+            let days = (target - old_date).whole_days();
+            (target, days)
+        }
+        TimeRollMode::BusinessDays => {
+            let tenor =
+                Tenor::parse(period_str).map_err(|e| Error::InvalidPeriod(e.to_string()))?;
+            let target = tenor
+                .add_to_date(
+                    old_date,
+                    ctx.calendar,
+                    BusinessDayConvention::ModifiedFollowing,
+                )
+                .map_err(|e| Error::Internal(e.to_string()))?;
+            let days = (target - old_date).whole_days();
+            (target, days)
+        }
+    };
 
     // Calculate carry and market value changes for instruments BEFORE rolling curves
     // This ensures we capture the true carry (time value change with constant curves)
     let (instrument_carry, instrument_mv_change, total_carry, total_mv_change) =
         if let Some(instruments) = ctx.instruments.as_ref() {
-            calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, days)?
+            calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, day_shift)?
         } else {
             (Vec::new(), Vec::new(), IndexMap::new(), IndexMap::new())
         };
@@ -124,10 +153,10 @@ pub fn apply_time_roll_forward(
     // Roll all curves forward (adjusts base dates, shifts knots, filters expired)
     // This is the "constant curves" scenario - rates at calendar dates stay the same,
     // but maturities are re-measured from the new base date
-    let rolled_market = ctx.market.roll_forward(days).map_err(|e| {
+    let rolled_market = ctx.market.roll_forward(day_shift).map_err(|e| {
         Error::Internal(format!(
             "Failed to roll market data forward by {} days: {}",
-            days, e
+            day_shift, e
         ))
     })?;
 
@@ -140,7 +169,7 @@ pub fn apply_time_roll_forward(
     Ok(RollForwardReport {
         old_date,
         new_date,
-        days,
+        days: day_shift,
         instrument_carry,
         instrument_mv_change,
         total_carry,

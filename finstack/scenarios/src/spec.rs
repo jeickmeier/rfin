@@ -126,8 +126,14 @@ pub enum OperationSpec {
     ///     pct: -3.0,
     /// };
     /// ```
+    ///
+    /// Matching semantics:
+    /// - Attribute keys/values compared case-insensitively
+    /// - AND semantics (all provided pairs must match metadata)
+    /// - Empty map matches all instruments; missing keys do not match
     InstrumentPricePctByAttr {
-        /// Attributes to match (all must match exactly).
+        /// Attributes to match. Matching uses AND semantics with
+        /// case-insensitive key/value comparison.
         attrs: IndexMap<String, String>,
         /// Percentage price change.
         pct: f64,
@@ -323,8 +329,14 @@ pub enum OperationSpec {
     ///     bp: 50.0,
     /// };
     /// ```
+    ///
+    /// Matching semantics:
+    /// - Attribute keys/values compared case-insensitively
+    /// - AND semantics (all provided pairs must match metadata)
+    /// - Empty map matches all instruments; missing keys do not match
     InstrumentSpreadBpByAttr {
-        /// Attributes to match (all must match exactly).
+        /// Attributes to match. Matching uses AND semantics with
+        /// case-insensitive key/value comparison.
         attrs: IndexMap<String, String>,
         /// Basis point shift to apply.
         bp: f64,
@@ -476,6 +488,7 @@ pub enum OperationSpec {
     /// let op = OperationSpec::TimeRollForward {
     ///     period: "1M".into(),
     ///     apply_shocks: true,
+    ///     roll_mode: TimeRollMode::BusinessDays,
     /// };
     /// ```
     TimeRollForward {
@@ -484,6 +497,11 @@ pub enum OperationSpec {
         /// Whether to apply market shocks after rolling
         #[serde(default = "default_true")]
         apply_shocks: bool,
+        /// Roll mode controlling calendar vs business-day behaviour.
+        ///
+        /// Defaults to `BusinessDays`, which respects calendars when provided.
+        #[serde(default)]
+        roll_mode: TimeRollMode,
     },
 }
 
@@ -557,6 +575,19 @@ pub enum TenorMatchMode {
     Interpolate,
 }
 
+/// Controls how time roll-forward periods are interpreted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TimeRollMode {
+    /// Calendar-aware roll that adjusts to business days when a calendar is supplied.
+    #[default]
+    BusinessDays,
+    /// Pure calendar-day addition (no business-day adjustment even if a calendar exists).
+    CalendarDays,
+    /// Explicit approximate mode using fixed day counts (legacy 30/365 semantics).
+    Approximate,
+}
+
 /// Configuration for rate binding between curves and statement nodes.
 ///
 /// Specifies how to extract a rate from a market curve and link it to a
@@ -595,6 +626,32 @@ pub struct RateBindingSpec {
     /// Day count convention override. If None, uses curve's convention.
     #[serde(default)]
     pub day_count: Option<String>,
+}
+
+impl RateBindingSpec {
+    /// Build a binding from the legacy `(node_id, curve_id)` map.
+    ///
+    /// Uses a 1Y tenor with continuous compounding and no day-count override.
+    pub fn from_legacy(node_id: impl Into<String>, curve_id: impl Into<String>) -> Self {
+        Self {
+            node_id: node_id.into(),
+            curve_id: curve_id.into(),
+            tenor: "1Y".to_string(),
+            compounding: Compounding::Continuous,
+            day_count: None,
+        }
+    }
+
+    /// Convert a legacy `(node_id, curve_id)` map into detailed binding specs.
+    pub fn map_from_legacy(legacy: IndexMap<String, String>) -> IndexMap<String, RateBindingSpec> {
+        legacy
+            .into_iter()
+            .map(|(node_id, curve_id)| {
+                let spec = RateBindingSpec::from_legacy(node_id.clone(), curve_id);
+                (node_id, spec)
+            })
+            .collect()
+    }
 }
 
 /// Compounding convention for rate conversions.

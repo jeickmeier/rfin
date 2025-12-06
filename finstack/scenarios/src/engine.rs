@@ -9,7 +9,7 @@
 //!   warnings were produced during execution
 
 use crate::error::Result;
-use crate::spec::{OperationSpec, ScenarioSpec};
+use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec};
 use indexmap::IndexMap;
 
 /// Execution context for scenario application.
@@ -25,7 +25,7 @@ use indexmap::IndexMap;
 /// - `instruments`: Optional set of instruments to receive price/spread shocks
 ///   and to calculate carry/theta for time rolls.
 /// - `rate_bindings`: Optional mapping from statement node identifiers to
-///   market curve identifiers; used to sync statement rates after curve shocks.
+///   detailed rate binding specs; used to sync statement rates after curve shocks.
 /// - `calendar`: Optional holiday calendar for calendar-aware tenor calculations.
 /// - `as_of`: Valuation date that operations reference.
 ///
@@ -61,8 +61,8 @@ pub struct ExecutionContext<'a> {
     pub instruments:
         Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>>>,
 
-    /// Optional mapping from statement node IDs to curve IDs for automatic rate updates.
-    pub rate_bindings: Option<IndexMap<String, String>>,
+    /// Optional mapping from statement node IDs to binding specs for automatic rate updates.
+    pub rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
 
     /// Optional holiday calendar for calendar-aware tenor calculations.
     pub calendar: Option<&'a dyn finstack_core::dates::HolidayCalendar>,
@@ -271,10 +271,11 @@ impl ScenarioEngine {
             if let OperationSpec::TimeRollForward {
                 period,
                 apply_shocks,
+                roll_mode,
             } = op
             {
                 // Use the adapter logic
-                crate::adapters::time_roll::apply_time_roll_forward(ctx, period)?;
+                crate::adapters::time_roll::apply_time_roll_forward(ctx, period, *roll_mode)?;
 
                 // If shocks should NOT be applied, we stop here.
                 if !*apply_shocks {
@@ -387,27 +388,27 @@ impl ScenarioEngine {
                             }
                             // Handle Attrs: Supports empty (legacy fallback)
                             if let Some(ats) = attrs {
-                                let mut empty_instruments: Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>> = Vec::new();
-                                let instruments = ctx
-                                    .instruments
-                                    .as_deref_mut()
-                                    .unwrap_or(&mut empty_instruments);
-
-                                match crate::adapters::instruments::apply_instrument_attr_price_shock(
-                                     instruments,
-                                     &ats,
-                                     pct,
-                                 ) {
-                                    Ok(w) => warnings.extend(w),
-                                    Err(e) => warnings.push(format!("Instrument price shock error: {}", e)),
+                                if let Some(instruments) = &mut ctx.instruments {
+                                    match crate::adapters::instruments::apply_instrument_attr_price_shock(
+                                        instruments,
+                                        &ats,
+                                        pct,
+                                    ) {
+                                        Ok((count, w)) => {
+                                            applied += count;
+                                            warnings.extend(w);
+                                        }
+                                        Err(e) => warnings.push(format!(
+                                            "Instrument price shock error: {}",
+                                            e
+                                        )),
+                                    }
+                                } else {
+                                    warnings.push(
+                                        "Instrument attribute shock requested but no instruments provided"
+                                            .to_string(),
+                                    );
                                 }
-                                // Attr shocks don't return count in legacy, so we add 0 to applied.
-                                // If we want to be strict, we could change the applicator to return count.
-                                // For now, keep as 0 contribution to 'applied' (other than operations_applied count if we counted it differently).
-                                // But wait, applied is "operations applied".
-                                // If this effect runs, it counts as part of the loop.
-                                // My loop counts 'applied' based on summation.
-                                // Legacy ByAttr didn't return count.
                             }
                         }
                         crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
@@ -432,19 +433,26 @@ impl ScenarioEngine {
                             }
                             // Handle Attrs: Supports empty
                             if let Some(ats) = attrs {
-                                let mut empty_instruments: Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>> = Vec::new();
-                                let instruments = ctx
-                                    .instruments
-                                    .as_deref_mut()
-                                    .unwrap_or(&mut empty_instruments);
-
-                                match crate::adapters::instruments::apply_instrument_attr_spread_shock(
-                                     instruments,
-                                     &ats,
-                                     bp,
-                                 ) {
-                                    Ok(w) => warnings.extend(w),
-                                    Err(e) => warnings.push(format!("Instrument spread shock error: {}", e)),
+                                if let Some(instruments) = &mut ctx.instruments {
+                                    match crate::adapters::instruments::apply_instrument_attr_spread_shock(
+                                        instruments,
+                                        &ats,
+                                        bp,
+                                    ) {
+                                        Ok((count, w)) => {
+                                            applied += count;
+                                            warnings.extend(w);
+                                        }
+                                        Err(e) => warnings.push(format!(
+                                            "Instrument spread shock error: {}",
+                                            e
+                                        )),
+                                    }
+                                } else {
+                                    warnings.push(
+                                        "Instrument attribute shock requested but no instruments provided"
+                                            .to_string(),
+                                    );
                                 }
                             }
                         }
@@ -464,14 +472,29 @@ impl ScenarioEngine {
 
         // Phase 2: Rate bindings update (from context configuration)
         if let Some(bindings) = &ctx.rate_bindings {
-            for (node_id, curve_id) in bindings {
-                match crate::adapters::statements::update_1y_rate_from_curve(
-                    ctx.model, node_id, ctx.market, curve_id,
+            for (node_id, binding) in bindings {
+                let mut binding_to_use = None;
+                if binding.node_id != *node_id {
+                    warnings.push(format!(
+                        "Rate binding node_id mismatch: map key '{}' vs binding '{}'; using key",
+                        node_id, binding.node_id
+                    ));
+                    let mut clone = binding.clone();
+                    clone.node_id = node_id.clone();
+                    binding_to_use = Some(clone);
+                }
+                let binding_ref = binding_to_use.as_ref().unwrap_or(binding);
+
+                match crate::adapters::statements::update_rate_from_binding(
+                    binding_ref,
+                    ctx.model,
+                    ctx.market,
                 ) {
                     Ok(_) => {}
-                    Err(e) => {
-                        warnings.push(format!("Rate binding {}->{}: {}", node_id, curve_id, e))
-                    }
+                    Err(e) => warnings.push(format!(
+                        "Rate binding {}->{}: {}",
+                        node_id, binding_ref.curve_id, e
+                    )),
                 }
             }
         }
@@ -479,19 +502,19 @@ impl ScenarioEngine {
         // Phase 3: Statement Operations (Deferred)
         for effect in deferred_stmts {
             match effect {
-                crate::adapters::traits::ScenarioEffect::RateBinding { node_id, curve_id } => {
+                crate::adapters::traits::ScenarioEffect::RateBinding { binding } => {
                     // Apply dynamic rate binding
                     if let Some(rb) = &mut ctx.rate_bindings {
-                        rb.insert(node_id.clone(), curve_id.clone());
+                        rb.insert(binding.node_id.clone(), binding.clone());
                     }
                     // Update immediately
-                    match crate::adapters::statements::update_1y_rate_from_curve(
-                        ctx.model, &node_id, ctx.market, &curve_id,
+                    match crate::adapters::statements::update_rate_from_binding(
+                        &binding, ctx.model, ctx.market,
                     ) {
                         Ok(_) => {}
                         Err(e) => warnings.push(format!(
                             "Dynamic Rate binding {}->{}: {}",
-                            node_id, curve_id, e
+                            binding.node_id, binding.curve_id, e
                         )),
                     }
                 }

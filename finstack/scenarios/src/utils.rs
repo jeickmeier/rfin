@@ -12,7 +12,11 @@
 //! approximations suitable for most scenarios, use [`parse_tenor_to_years`].
 
 use crate::error::{Error, Result};
+use crate::spec::RateBindingSpec;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, HolidayCalendar, Tenor};
+use finstack_core::market_data::term_structures::{
+    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
+};
 
 /// Parse a tenor string to a fractional number of years using simple approximations.
 ///
@@ -60,45 +64,90 @@ pub fn parse_tenor_to_years(tenor: &str) -> Result<f64> {
 /// This function computes actual year fractions by:
 /// 1. Adding the tenor to the as-of date using proper date arithmetic
 /// 2. Applying business day adjustment if a calendar is provided
-/// 3. Computing the year fraction using the Act/Act day count convention
+/// 3. Computing the year fraction using the supplied day-count convention
 ///
 /// # Arguments
 /// - `tenor`: Tenor string in formats like "1D", "1W", "3M", "5Y"
 /// - `as_of`: Starting date for the calculation
 /// - `calendar`: Optional holiday calendar for business day adjustment
+/// - `bdc`: Business-day convention to apply when a calendar is supplied
+/// - `day_count`: Day-count convention for year fraction calculation
 ///
 /// # Returns
 /// Actual year fraction computed using calendar-aware date arithmetic.
 ///
 /// # Errors
 /// Returns an error if the tenor string is invalid or date computation fails.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::utils::parse_tenor_to_years_with_context;
-/// use finstack_core::dates::calendar::TARGET2;
-/// use time::{Date, Month};
-///
-/// let as_of = Date::from_calendar_date(2025, Month::January, 31).unwrap();
-///
-/// // Calendar-aware: 1M from Jan 31 respects end-of-month rules
-/// let years = parse_tenor_to_years_with_context("1M", as_of, Some(&TARGET2)).unwrap();
-/// ```
 pub fn parse_tenor_to_years_with_context(
     tenor: &str,
     as_of: Date,
     calendar: Option<&dyn HolidayCalendar>,
+    bdc: BusinessDayConvention,
+    day_count: DayCount,
 ) -> Result<f64> {
     let parsed = Tenor::parse(tenor).map_err(|e| Error::InvalidTenor(e.to_string()))?;
 
     parsed
-        .to_years_with_context(
-            as_of,
-            calendar,
-            BusinessDayConvention::ModifiedFollowing,
-            DayCount::ActAct,
-        )
+        .to_years_with_context(as_of, calendar, bdc, day_count)
         .map_err(|e| Error::Internal(e.to_string()))
+}
+
+/// Parse a day-count string override into a [`DayCount`] enum.
+pub fn parse_day_count_override(raw: &str) -> Result<DayCount> {
+    let normalised = raw.trim().to_lowercase();
+    let parsed = match normalised.as_str() {
+        "act360" | "act/360" | "actual/360" => DayCount::Act360,
+        "act365f" | "act/365f" | "actual/365" | "actual/365f" | "act365" => DayCount::Act365F,
+        "actact" | "act/act" | "actual/actual" => DayCount::ActAct,
+        "30/360" | "thirty360" => DayCount::Thirty360,
+        "30e/360" | "30/360e" | "thirtye360" => DayCount::ThirtyE360,
+        other => {
+            return Err(Error::Validation(format!(
+                "Unsupported day count override '{}'",
+                other
+            )))
+        }
+    };
+    Ok(parsed)
+}
+
+/// Calendar-aware tenor conversion using the conventions of a discount curve.
+pub fn tenor_years_from_discount_curve(
+    tenor: &str,
+    curve: &DiscountCurve,
+    calendar: Option<&dyn HolidayCalendar>,
+    bdc: BusinessDayConvention,
+) -> Result<f64> {
+    parse_tenor_to_years_with_context(tenor, curve.base_date(), calendar, bdc, curve.day_count())
+}
+
+/// Calendar-aware tenor conversion using the conventions of a forward curve.
+pub fn tenor_years_from_forward_curve(
+    tenor: &str,
+    curve: &ForwardCurve,
+    calendar: Option<&dyn HolidayCalendar>,
+    bdc: BusinessDayConvention,
+) -> Result<f64> {
+    parse_tenor_to_years_with_context(tenor, curve.base_date(), calendar, bdc, curve.day_count())
+}
+
+/// Resolve the effective day-count and tenor length for a rate binding.
+pub fn tenor_years_from_binding(
+    binding: &RateBindingSpec,
+    base_date: Date,
+    default_day_count: DayCount,
+    calendar: Option<&dyn HolidayCalendar>,
+    bdc: BusinessDayConvention,
+) -> Result<(f64, DayCount)> {
+    let effective_dc = if let Some(dc) = &binding.day_count {
+        parse_day_count_override(dc)?
+    } else {
+        default_day_count
+    };
+
+    let years =
+        parse_tenor_to_years_with_context(&binding.tenor, base_date, calendar, bdc, effective_dc)?;
+    Ok((years, effective_dc))
 }
 
 /// Parse a period string to an integer number of days.
@@ -217,7 +266,14 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Without calendar, should still work
-        let years = parse_tenor_to_years_with_context("1Y", as_of, None).expect("should parse 1Y");
+        let years = parse_tenor_to_years_with_context(
+            "1Y",
+            as_of,
+            None,
+            BusinessDayConvention::ModifiedFollowing,
+            DayCount::ActAct,
+        )
+        .expect("should parse 1Y");
         // 2025 is not a leap year, so should be close to 1.0
         assert!((years - 1.0).abs() < 0.01);
     }
@@ -226,7 +282,14 @@ mod tests {
     fn test_parse_tenor_months_with_context() {
         let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
 
-        let years = parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
+        let years = parse_tenor_to_years_with_context(
+            "1M",
+            as_of,
+            None,
+            BusinessDayConvention::ModifiedFollowing,
+            DayCount::ActAct,
+        )
+        .expect("should parse 1M");
         // 1M from Jan 15 to Feb 15 = 31 days / 365 ≈ 0.0849
         assert!(years > 0.08 && years < 0.09);
     }
@@ -236,7 +299,14 @@ mod tests {
         // Jan 31 + 1M should go to Feb 28 in non-leap year
         let as_of = Date::from_calendar_date(2025, Month::January, 31).expect("valid date");
 
-        let years = parse_tenor_to_years_with_context("1M", as_of, None).expect("should parse 1M");
+        let years = parse_tenor_to_years_with_context(
+            "1M",
+            as_of,
+            None,
+            BusinessDayConvention::ModifiedFollowing,
+            DayCount::ActAct,
+        )
+        .expect("should parse 1M");
         // Jan 31 to Feb 28 = 28 days / 365 ≈ 0.0767
         assert!(years > 0.07 && years < 0.08);
     }

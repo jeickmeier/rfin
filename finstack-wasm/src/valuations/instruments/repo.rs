@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(js_name = RepoCollateral)]
 #[derive(Clone, Debug)]
 pub struct JsRepoCollateral {
-    inner: CollateralSpec,
+    pub(crate) inner: CollateralSpec,
 }
 
 #[wasm_bindgen(js_class = RepoCollateral)]
@@ -34,17 +34,20 @@ impl JsRepoCollateral {
 
 #[wasm_bindgen(js_name = Repo)]
 #[derive(Clone, Debug)]
-pub struct JsRepo(Repo);
+pub struct JsRepo {
+    pub(crate) inner: Repo,
+}
 
 impl InstrumentWrapper for JsRepo {
     type Inner = Repo;
     fn from_inner(inner: Repo) -> Self {
-        JsRepo(inner)
+        JsRepo { inner }
     }
     fn inner(&self) -> Repo {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = Repo)]
 impl JsRepo {
@@ -91,27 +94,27 @@ impl JsRepo {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = cashAmount)]
     pub fn cash_amount(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.cash_amount)
+        JsMoney::from_inner(self.inner.cash_amount)
     }
 
     #[wasm_bindgen(getter, js_name = repoRate)]
     pub fn repo_rate(&self) -> f64 {
-        self.0.repo_rate
+        self.inner.repo_rate
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.0.start_date)
+        JsDate::from_core(self.inner.start_date)
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.maturity)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -121,11 +124,11 @@ impl JsRepo {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Repo(id='{}', rate={:.4})", self.0.id, self.0.repo_rate)
+        format!("Repo(id='{}', rate={:.4})", self.inner.id, self.inner.repo_rate)
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsRepo {
-        JsRepo::from_inner(self.0.clone())
+        JsRepo::from_inner(self.inner.clone())
     }
 }

@@ -3,7 +3,7 @@
 use crate::core::currency::PyCurrency;
 use crate::scenarios::enums::{PyCurveKind, PyTenorMatchMode, PyVolSurfaceKind};
 use crate::valuations::common::PyInstrumentType;
-use finstack_scenarios::{Compounding, OperationSpec, RateBindingSpec, ScenarioSpec};
+use finstack_scenarios::{Compounding, OperationSpec, RateBindingSpec, ScenarioSpec, TimeRollMode};
 use indexmap::IndexMap;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
@@ -21,6 +21,68 @@ pub struct PyCompounding {
 impl PyCompounding {
     pub(crate) fn new(inner: Compounding) -> Self {
         Self { inner }
+    }
+}
+
+/// Roll interpretation mode for time roll-forward operations.
+#[pyclass(module = "finstack.scenarios", name = "TimeRollMode", frozen)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PyTimeRollMode {
+    pub(crate) inner: TimeRollMode,
+}
+
+impl PyTimeRollMode {
+    pub(crate) fn new(inner: TimeRollMode) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyTimeRollMode {
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn BusinessDays() -> Self {
+        Self::new(TimeRollMode::BusinessDays)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn CalendarDays() -> Self {
+        Self::new(TimeRollMode::CalendarDays)
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Approximate() -> Self {
+        Self::new(TimeRollMode::Approximate)
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            TimeRollMode::BusinessDays => "TimeRollMode.BusinessDays".to_string(),
+            TimeRollMode::CalendarDays => "TimeRollMode.CalendarDays".to_string(),
+            TimeRollMode::Approximate => "TimeRollMode.Approximate".to_string(),
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        match self.inner {
+            TimeRollMode::BusinessDays => "BusinessDays",
+            TimeRollMode::CalendarDays => "CalendarDays",
+            TimeRollMode::Approximate => "Approximate",
+        }
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => self.inner == other.inner,
+            CompareOp::Ne => self.inner != other.inner,
+            _ => false,
+        }
+    }
+
+    fn __hash__(&self) -> u64 {
+        self.inner as u64
     }
 }
 
@@ -673,7 +735,7 @@ impl PyOperationSpec {
     }
 
     #[classmethod]
-    #[pyo3(text_signature = "(cls, period, apply_shocks=True)")]
+    #[pyo3(text_signature = "(cls, period, apply_shocks=True, roll_mode=None)")]
     /// Roll forward horizon by a period with carry/theta.
     ///
     /// Parameters
@@ -682,6 +744,8 @@ impl PyOperationSpec {
     ///     Period to roll forward (e.g., "1D", "1W", "1M", "1Y").
     /// apply_shocks : bool, optional
     ///     Whether to apply market shocks after rolling (default: True).
+    /// roll_mode : TimeRollMode, optional
+    ///     Roll interpretation (defaults to business-day aware).
     ///
     /// Returns
     /// -------
@@ -691,10 +755,12 @@ impl PyOperationSpec {
         _cls: &Bound<'_, PyType>,
         period: String,
         apply_shocks: Option<bool>,
+        roll_mode: Option<&PyTimeRollMode>,
     ) -> Self {
         Self::new(OperationSpec::TimeRollForward {
             period,
             apply_shocks: apply_shocks.unwrap_or(true),
+            roll_mode: roll_mode.map_or_else(TimeRollMode::default, |m| m.inner),
         })
     }
 
@@ -959,12 +1025,14 @@ pub(crate) fn register(
     module: &Bound<'_, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCompounding>()?;
+    module.add_class::<PyTimeRollMode>()?;
     module.add_class::<PyRateBindingSpec>()?;
     module.add_class::<PyOperationSpec>()?;
     module.add_class::<PyScenarioSpec>()?;
 
     Ok(vec![
         "Compounding",
+        "TimeRollMode",
         "RateBindingSpec",
         "OperationSpec",
         "ScenarioSpec",

@@ -10,17 +10,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Swaption)]
 #[derive(Clone, Debug)]
-pub struct JsSwaption(Swaption);
+pub struct JsSwaption {
+    pub(crate) inner: Swaption,
+}
 
 impl InstrumentWrapper for JsSwaption {
     type Inner = Swaption;
     fn from_inner(inner: Swaption) -> Self {
-        JsSwaption(inner)
+        JsSwaption { inner }
     }
     fn inner(&self) -> Swaption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = Swaption)]
 impl JsSwaption {
@@ -150,42 +153,42 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.0.strike_rate
+        self.inner.strike_rate
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = swapStart)]
     pub fn swap_start(&self) -> JsDate {
-        JsDate::from_core(self.0.swap_start)
+        JsDate::from_core(self.inner.swap_start)
     }
 
     #[wasm_bindgen(getter, js_name = swapEnd)]
     pub fn swap_end(&self) -> JsDate {
-        JsDate::from_core(self.0.swap_end)
+        JsDate::from_core(self.inner.swap_end)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.0.forward_id.as_str().to_string()
+        self.inner.forward_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -197,12 +200,12 @@ impl JsSwaption {
     pub fn to_string_js(&self) -> String {
         format!(
             "Swaption(id='{}', strike={:.4})",
-            self.0.id, self.0.strike_rate
+            self.inner.id, self.inner.strike_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsSwaption {
-        JsSwaption::from_inner(self.0.clone())
+        JsSwaption::from_inner(self.inner.clone())
     }
 }

@@ -61,5 +61,5 @@ pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
 pub use spec::{
     Compounding, CurveKind, InstrumentType, OperationSpec, RateBindingSpec, ScenarioSpec,
-    TenorMatchMode, VolSurfaceKind,
+    TenorMatchMode, TimeRollMode, VolSurfaceKind,
 };

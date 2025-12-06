@@ -4,8 +4,10 @@ Lightweight, deterministic scenario capability for stress testing and what-if an
 
 ## Features
 
-- **Market Data Shocks**: FX rates, equity prices, yield curves, volatility surfaces, base correlation
-- **Statement Adjustments**: Forecast percent changes and value assignments (Phase A stubs)
+- **Market Data Shocks**: FX, equities, yield curves, vol surfaces, base correlation
+- **Statement Adjustments**: Forecast percent changes and value assignments
+- **Rate Bindings**: Curve-to-statement links with tenor, compounding, and day-count awareness
+- **Attribute/Type Instrument Shocks**: Price/spread shocks by instrument type or metadata filters
 - **Deterministic Composition**: Stable ordering with priority-based conflict resolution
 - **Serde-Stable Wire Format**: JSON interoperability for pipelines and storage
 - **Minimal Dependencies**: Reuses existing `valuations` and `statements` APIs
@@ -65,15 +67,17 @@ println!("Applied {} operations", report.operations_applied);
 ### Statements
 - `StmtForecastPercent`: Forecast percent change
 - `StmtForecastAssign`: Forecast value assignment
+- `RateBinding` (via context): Bind statement nodes to curves with tenor/compounding/day-count
 
 ### Instrument-Based
-- `InstrumentPricePctByAttr`: Price shock by exact attribute match (Phase A stub)
-- `InstrumentSpreadBpByAttr`: Spread shock by exact attribute match (Phase A stub)
+- `InstrumentPricePctByAttr`: Price shock by attribute match (case-insensitive AND on metadata)
+- `InstrumentSpreadBpByAttr`: Spread shock by attribute match (case-insensitive AND on metadata)
 - `InstrumentPricePctByType`: Price shock by instrument type (Bond, CDS, Swap, etc.)
 - `InstrumentSpreadBpByType`: Spread shock by instrument type
 
 ### Time Operations
 - `TimeRollForward`: Roll forward horizon by period with carry/theta calculation
+  - Modes: `business_days` (default), `calendar_days`, `approximate`
 
 ## Architecture
 
@@ -147,4 +151,3 @@ cargo clippy -p finstack-scenarios --all-features -- -D warnings
 ## License
 
 MIT OR Apache-2.0
-

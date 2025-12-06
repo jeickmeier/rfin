@@ -4,7 +4,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_scenarios::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
+use finstack_scenarios::{
+    ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, TimeRollMode,
+};
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
@@ -26,6 +28,7 @@ fn test_time_roll_1_day() {
         operations: vec![OperationSpec::TimeRollForward {
             period: "1D".into(),
             apply_shocks: false,
+            roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
     };
@@ -64,6 +67,7 @@ fn test_time_roll_1_month() {
         operations: vec![OperationSpec::TimeRollForward {
             period: "1M".into(),
             apply_shocks: false,
+            roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
     };
@@ -81,8 +85,8 @@ fn test_time_roll_1_month() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    // Verify date advanced by ~30 days
-    let expected_date = base_date + time::Duration::days(30);
+    // Verify date advanced using calendar-aware month addition
+    let expected_date = base_date + time::Duration::days(31);
     assert_eq!(ctx.as_of, expected_date);
 }
 
@@ -99,6 +103,7 @@ fn test_time_roll_1_year() {
         operations: vec![OperationSpec::TimeRollForward {
             period: "1Y".into(),
             apply_shocks: false,
+            roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
     };
@@ -167,14 +172,18 @@ fn test_time_roll_with_bond_carry() {
     };
 
     // Call the time roll adapter directly to get the RollForwardReport with carry info
-    let roll_report =
-        finstack_scenarios::adapters::time_roll::apply_time_roll_forward(&mut ctx, "1M").unwrap();
+    let roll_report = finstack_scenarios::adapters::time_roll::apply_time_roll_forward(
+        &mut ctx,
+        "1M",
+        TimeRollMode::BusinessDays,
+    )
+    .unwrap();
 
     // Verify date rolled
-    let expected_date = base_date + time::Duration::days(30);
+    let expected_date = base_date + time::Duration::days(31);
     assert_eq!(ctx.as_of, expected_date);
     assert_eq!(roll_report.new_date, expected_date);
-    assert_eq!(roll_report.days, 30);
+    assert_eq!(roll_report.days, 31);
 
     // Verify carry was computed for the bond
     assert!(

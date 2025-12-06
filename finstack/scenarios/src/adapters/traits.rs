@@ -1,6 +1,6 @@
 use crate::engine::ExecutionContext;
 use crate::error::Result;
-use crate::spec::OperationSpec;
+use crate::spec::{OperationSpec, RateBindingSpec};
 use finstack_core::market_data::bumps::MarketBump;
 
 use finstack_core::market_data::term_structures::{
@@ -67,10 +67,8 @@ pub enum ScenarioEffect {
 
     /// Update rate binding.
     RateBinding {
-        /// The ID of the statement item node.
-        node_id: String,
-        /// The ID of the curve to bind to.
-        curve_id: String,
+        /// Binding specification to apply.
+        binding: RateBindingSpec,
     },
 
     /// Apply a price shock to instruments.

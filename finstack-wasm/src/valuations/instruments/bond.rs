@@ -17,7 +17,6 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::{Array, Reflect};
 use time::Month;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 
 fn parse_iso_date(value: &str) -> Result<CoreDate, JsValue> {
     let parts: Vec<&str> = value.split('-').collect();
@@ -109,15 +108,17 @@ fn parse_call_put_entries(
 
 #[wasm_bindgen(js_name = Bond)]
 #[derive(Clone, Debug)]
-pub struct JsBond(Bond);
+pub struct JsBond {
+    pub(crate) inner: Bond,
+}
 
 impl InstrumentWrapper for JsBond {
     type Inner = Bond;
     fn from_inner(inner: Bond) -> Self {
-        JsBond(inner)
+        JsBond { inner }
     }
     fn inner(&self) -> Bond {
-        self.0.clone()
+        self.inner.clone()
     }
 }
 
@@ -125,9 +126,12 @@ impl InstrumentWrapper for JsBond {
 impl JsBond {
     /// Get a clone of the inner Bond (for internal WASM use).
     pub(crate) fn inner_bond(&self) -> Bond {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
+// Manually implement JsCast for wasm_bindgen structs
+// wasm_bindgen doesn't automatically implement JsCast for structs with private fields
 
 #[wasm_bindgen(js_class = Bond)]
 impl JsBond {
@@ -482,18 +486,18 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn coupon(&self) -> f64 {
         // Extract coupon from cashflow_spec - return 0 for floating or amortizing
-        match &self.0.cashflow_spec {
+        match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.rate,
             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
                 CashflowSpec::Fixed(spec) => spec.rate,
@@ -505,7 +509,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter)]
     pub fn frequency(&self) -> JsFrequency {
-        let freq = match &self.0.cashflow_spec {
+        let freq = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.freq,
             CashflowSpec::Floating(spec) => spec.freq,
             CashflowSpec::Amortizing { base, .. } => base.frequency(),
@@ -515,7 +519,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = dayCount)]
     pub fn day_count(&self) -> String {
-        let dc = match &self.0.cashflow_spec {
+        let dc = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.dc,
             CashflowSpec::Floating(spec) => spec.rate_spec.dc,
             CashflowSpec::Amortizing { base, .. } => base.day_count(),
@@ -525,7 +529,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = businessDayConvention)]
     pub fn business_day_convention(&self) -> JsBusinessDayConvention {
-        let bdc = match &self.0.cashflow_spec {
+        let bdc = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.bdc,
             CashflowSpec::Floating(spec) => spec.rate_spec.bdc,
             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
@@ -539,22 +543,22 @@ impl JsBond {
 
     #[wasm_bindgen(getter)]
     pub fn issue(&self) -> JsDate {
-        JsDate::from_core(self.0.issue)
+        JsDate::from_core(self.inner.issue)
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.maturity)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = hazardCurve)]
     pub fn hazard_curve(&self) -> Option<String> {
-        self.0
+        self.inner
             .credit_curve_id
             .as_ref()
             .map(|id| id.as_str().to_string())
@@ -562,7 +566,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = quotedCleanPrice)]
     pub fn quoted_clean_price(&self) -> Option<f64> {
-        self.0.pricing_overrides.quoted_clean_price
+        self.inner.pricing_overrides.quoted_clean_price
     }
 
     /// Get the cashflow schedule for this bond.
@@ -580,7 +584,7 @@ impl JsBond {
 
         // Use the Bond's get_full_schedule method with market curves
         let sched = self
-            .0
+            .inner
             .get_full_schedule(market.inner())
             .map_err(|e| js_error(e.to_string()))?;
 
@@ -602,7 +606,7 @@ impl JsBond {
             let kind_str = match cf.kind {
                 CFKind::Fixed | CFKind::Stub => {
                     // Classify stub based on bond type
-                    let is_floating = match &self.0.cashflow_spec {
+                    let is_floating = match &self.inner.cashflow_spec {
                         CashflowSpec::Floating(_) => true,
                         CashflowSpec::Amortizing { base, .. } => {
                             matches!(**base, CashflowSpec::Floating(_))
@@ -646,12 +650,12 @@ impl JsBond {
         let coupon = self.coupon(); // Use the getter method
         format!(
             "Bond(id='{}', coupon={:.4}, maturity='{}')",
-            self.0.id, coupon, self.0.maturity
+            self.inner.id, coupon, self.inner.maturity
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBond {
-        JsBond::from_inner(self.0.clone())
+        JsBond::from_inner(self.inner.clone())
     }
 }

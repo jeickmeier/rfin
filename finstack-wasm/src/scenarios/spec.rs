@@ -1,10 +1,82 @@
 //! Scenario specification bindings for WASM.
 
 use crate::core::currency::JsCurrency;
-use crate::scenarios::enums::{JsCurveKind, JsTenorMatchMode, JsVolSurfaceKind};
+use crate::scenarios::enums::{
+    JsCompounding, JsCurveKind, JsTenorMatchMode, JsTimeRollMode, JsVolSurfaceKind,
+};
+use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::{InstrumentType, OperationSpec, ScenarioSpec};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen(js_name = RateBindingSpec)]
+#[derive(Clone, Debug)]
+pub struct JsRateBindingSpec {
+    pub(crate) inner: RateBindingSpec,
+}
+
+#[wasm_bindgen(js_class = RateBindingSpec)]
+impl JsRateBindingSpec {
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        node_id: String,
+        curve_id: String,
+        tenor: String,
+        compounding: Option<JsCompounding>,
+        day_count: Option<String>,
+    ) -> JsRateBindingSpec {
+        JsRateBindingSpec {
+            inner: RateBindingSpec {
+                node_id,
+                curve_id,
+                tenor,
+                compounding: compounding.map(|c| c.inner).unwrap_or_default(),
+                day_count,
+            },
+        }
+    }
+
+    /// Build from legacy `(node_id, curve_id)` mapping (tenor defaults to 1Y continuous).
+    #[wasm_bindgen(js_name = fromLegacy)]
+    pub fn from_legacy(node_id: String, curve_id: String) -> JsRateBindingSpec {
+        JsRateBindingSpec {
+            inner: RateBindingSpec::from_legacy(node_id, curve_id),
+        }
+    }
+
+    /// Convert to JSON object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize RateBindingSpec: {}", e)))
+    }
+
+    #[wasm_bindgen(getter, js_name = nodeId)]
+    pub fn node_id(&self) -> String {
+        self.inner.node_id.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = curveId)]
+    pub fn curve_id(&self) -> String {
+        self.inner.curve_id.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn tenor(&self) -> String {
+        self.inner.tenor.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn compounding(&self) -> JsCompounding {
+        JsCompounding::from(self.inner.compounding)
+    }
+
+    #[wasm_bindgen(getter, js_name = dayCount)]
+    pub fn day_count(&self) -> Option<String> {
+        self.inner.day_count.clone()
+    }
+}
 
 /// Individual operation within a scenario.
 ///
@@ -357,15 +429,21 @@ impl JsOperationSpec {
     /// # Arguments
     /// * `period` - Period string (e.g., "1D", "1W", "1M", "1Y")
     /// * `apply_shocks` - Whether to apply market shocks after rolling (default: true)
+    /// * `roll_mode` - Optional roll interpretation (defaults to business days)
     ///
     /// # Returns
     /// Operation specification
     #[wasm_bindgen(js_name = timeRollForward)]
-    pub fn time_roll_forward(period: String, apply_shocks: Option<bool>) -> JsOperationSpec {
+    pub fn time_roll_forward(
+        period: String,
+        apply_shocks: Option<bool>,
+        roll_mode: Option<JsTimeRollMode>,
+    ) -> JsOperationSpec {
         JsOperationSpec {
             inner: OperationSpec::TimeRollForward {
                 period,
                 apply_shocks: apply_shocks.unwrap_or(true),
+                roll_mode: roll_mode.map(|m| m.inner).unwrap_or_default(),
             },
         }
     }

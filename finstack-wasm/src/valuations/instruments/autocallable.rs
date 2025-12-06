@@ -6,17 +6,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Autocallable)]
 #[derive(Clone, Debug)]
-pub struct JsAutocallable(Autocallable);
+pub struct JsAutocallable {
+    pub(crate) inner: Autocallable,
+}
 
 impl InstrumentWrapper for JsAutocallable {
     type Inner = Autocallable;
     fn from_inner(inner: Autocallable) -> Self {
-        JsAutocallable(inner)
+        JsAutocallable { inner }
     }
     fn inner(&self) -> Autocallable {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = Autocallable)]
 impl JsAutocallable {
@@ -30,13 +33,13 @@ impl JsAutocallable {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
         use crate::core::error::js_error;
-        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -46,11 +49,11 @@ impl JsAutocallable {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Autocallable(id='{}')", self.0.id.as_str())
+        format!("Autocallable(id='{}')", self.inner.id.as_str())
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsAutocallable {
-        JsAutocallable::from_inner(self.0.clone())
+        JsAutocallable::from_inner(self.inner.clone())
     }
 }

@@ -15,7 +15,8 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, VolSurfaceKind,
+    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, TimeRollMode,
+    VolSurfaceKind,
 };
 use finstack_statements::FinancialModelSpec;
 
@@ -205,6 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         operations: vec![OperationSpec::TimeRollForward {
             period: "1M".into(),
             apply_shocks: false,
+            roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
     };
@@ -240,6 +242,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         operations: vec![OperationSpec::TimeRollForward {
             period: "3M".into(),
             apply_shocks: false,
+            roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
     };

@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
+    CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
@@ -143,9 +143,9 @@ fn test_rate_binding() {
     model.add_node(rate_node);
 
     // Configure rate binding
-    let rate_bindings = Some(indexmap! {
+    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
         "InterestRate".to_string() => "USD_SOFR".to_string(),
-    });
+    }));
 
     // Create scenario with curve shock
     let scenario = ScenarioSpec {

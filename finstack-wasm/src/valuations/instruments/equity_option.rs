@@ -7,17 +7,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = EquityOption)]
 #[derive(Clone, Debug)]
-pub struct JsEquityOption(EquityOption);
+pub struct JsEquityOption {
+    pub(crate) inner: EquityOption,
+}
 
 impl InstrumentWrapper for JsEquityOption {
     type Inner = EquityOption;
     fn from_inner(inner: EquityOption) -> Self {
-        JsEquityOption(inner)
+        JsEquityOption { inner }
     }
     fn inner(&self) -> EquityOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = EquityOption)]
 impl JsEquityOption {
@@ -63,27 +66,27 @@ impl JsEquityOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.0.underlying_ticker.clone()
+        self.inner.underlying_ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.strike)
+        JsMoney::from_inner(self.inner.strike)
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = contractSize)]
     pub fn contract_size(&self) -> f64 {
-        self.0.contract_size
+        self.inner.contract_size
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -95,12 +98,12 @@ impl JsEquityOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "EquityOption(id='{}', ticker='{}')",
-            self.0.id, self.0.underlying_ticker
+            self.inner.id, self.inner.underlying_ticker
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsEquityOption {
-        JsEquityOption::from_inner(self.0.clone())
+        JsEquityOption::from_inner(self.inner.clone())
     }
 }

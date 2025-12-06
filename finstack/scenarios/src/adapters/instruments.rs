@@ -9,7 +9,7 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::OperationSpec;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::pricer::InstrumentType;
 
 /// Adapter for instrument operations.
@@ -120,26 +120,94 @@ pub fn apply_instrument_type_spread_shock(
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
 pub fn apply_instrument_attr_price_shock(
-    _instruments: &mut [Box<dyn Instrument>],
-    _attrs: &indexmap::IndexMap<String, String>,
-    _pct: f64,
-) -> Result<Vec<String>> {
-    Err(crate::error::Error::UnsupportedOperation {
-        operation: "InstrumentPricePctByAttr".into(),
-        target: "Attributes".into(),
-    })
+    instruments: &mut [Box<dyn Instrument>],
+    attrs: &indexmap::IndexMap<String, String>,
+    pct: f64,
+) -> Result<(usize, Vec<String>)> {
+    let mut warnings = Vec::new();
+    let shock_decimal = pct / 100.0;
+    let filters = normalise_filters(attrs);
+    let mut count = 0;
+
+    for instrument in instruments.iter_mut() {
+        if matches_attr_filter(instrument.attributes(), &filters) {
+            if let Some(overrides) = instrument.scenario_overrides_mut() {
+                overrides.scenario_price_shock_pct = Some(shock_decimal);
+            } else {
+                let shock_str = format!("{:.6}", shock_decimal);
+                instrument
+                    .attributes_mut()
+                    .meta
+                    .insert("scenario_price_shock_pct".to_string(), shock_str);
+            }
+            count += 1;
+        }
+    }
+
+    if count == 0 {
+        warnings.push(format!(
+            "No instruments matched attribute filter {:?}",
+            attrs
+        ));
+    }
+
+    Ok((count, warnings))
 }
 
 /// Apply a spread shock to instruments matching the provided attributes.
 pub fn apply_instrument_attr_spread_shock(
-    _instruments: &mut [Box<dyn Instrument>],
-    _attrs: &indexmap::IndexMap<String, String>,
-    _bp: f64,
-) -> Result<Vec<String>> {
-    Err(crate::error::Error::UnsupportedOperation {
-        operation: "InstrumentSpreadBpByAttr".into(),
-        target: "Attributes".into(),
+    instruments: &mut [Box<dyn Instrument>],
+    attrs: &indexmap::IndexMap<String, String>,
+    bp: f64,
+) -> Result<(usize, Vec<String>)> {
+    let mut warnings = Vec::new();
+    let filters = normalise_filters(attrs);
+    let mut count = 0;
+
+    for instrument in instruments.iter_mut() {
+        if matches_attr_filter(instrument.attributes(), &filters) {
+            if let Some(overrides) = instrument.scenario_overrides_mut() {
+                overrides.scenario_spread_shock_bp = Some(bp);
+            } else {
+                let shock_str = format!("{:.2}", bp);
+                instrument
+                    .attributes_mut()
+                    .meta
+                    .insert("scenario_spread_shock_bp".to_string(), shock_str);
+            }
+            count += 1;
+        }
+    }
+
+    if count == 0 {
+        warnings.push(format!(
+            "No instruments matched attribute filter {:?}",
+            attrs
+        ));
+    }
+
+    Ok((count, warnings))
+}
+
+/// Case-insensitive AND match across provided filters.
+fn matches_attr_filter(attrs: &Attributes, filters: &[(String, String)]) -> bool {
+    if filters.is_empty() {
+        return true;
+    }
+
+    filters.iter().all(|(key, value)| {
+        attrs
+            .meta
+            .iter()
+            .any(|(k, v)| k.eq_ignore_ascii_case(key) && v.eq_ignore_ascii_case(value))
     })
+}
+
+fn normalise_filters(attrs: &indexmap::IndexMap<String, String>) -> Vec<(String, String)> {
+    attrs
+        .iter()
+        .map(|(k, v)| (k.to_lowercase(), v.to_lowercase()))
+        .collect()
 }
 
 #[cfg(test)]

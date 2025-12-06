@@ -7,7 +7,12 @@
 use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
-use crate::spec::OperationSpec;
+use crate::spec::{Compounding, OperationSpec, RateBindingSpec};
+use crate::utils::tenor_years_from_binding;
+use finstack_core::dates::rate_conversions::{
+    continuous_to_periodic, continuous_to_simple, simple_to_continuous,
+};
+use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
@@ -67,12 +72,10 @@ pub fn apply_forecast_percent(
     // Apply multiplicative factor to all explicit period values
     let factor = 1.0 + (pct / 100.0);
 
-    with_node_values_mut(model, node_id, |val| {
-        match val {
-            AmountOrScalar::Scalar(s) => *s *= factor,
-            AmountOrScalar::Amount(money) => {
-                *money = finstack_core::money::Money::new(money.amount() * factor, money.currency());
-            }
+    with_node_values_mut(model, node_id, |val| match val {
+        AmountOrScalar::Scalar(s) => *s *= factor,
+        AmountOrScalar::Amount(money) => {
+            *money = finstack_core::money::Money::new(money.amount() * factor, money.currency());
         }
     })
 }
@@ -88,86 +91,98 @@ pub fn apply_forecast_assign(
     })
 }
 
-/// Update a statement rate node with a representative 1-year rate from a market curve.
+/// Update a statement rate node using a full [`RateBindingSpec`].
 ///
-/// This function uses a heuristic to extract a scalar rate from market curves:
-/// - **Discount curves**: Continuously compounded 1Y zero rate, computed as `-ln(DF(1Y))`.
-///   This provides the annualized rate implied by the 1-year discount factor.
-/// - **Forward curves**: First tenor forward rate from the curve's forward array.
-///   This represents the forward rate for the curve's native tenor at the earliest period.
-///
-/// # Assumptions
-/// - Statement nodes are expected to accept rates in these units (continuously compounded
-///   for discount-derived rates, simple forward rates for forecast curves).
-/// - Day count conventions and compounding frequencies are not parameterized; the function
-///   assumes the statement model will interpret rates consistently.
-/// - For more sophisticated rate extraction (e.g., matching node tenor, different day count,
-///   or compounding), extend this function or use custom bindings.
-///
-/// # Arguments
-/// - `model`: Financial model whose node will be updated.
-/// - `node_id`: Identifier of the statement node.
-/// - `market`: Source of market data curves.
-/// - `curve_id`: Identifier of the curve providing the rate.
-///
-/// # Returns
-/// [`Result`](crate::error::Result) with the unit type on success.
-///
-/// # Errors
-/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
-///   the specified curve cannot be retrieved.
-/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node is
-///   absent.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::adapters::statements::update_1y_rate_from_curve;
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_statements::FinancialModelSpec;
-///
-/// # fn main() -> finstack_scenarios::Result<()> {
-/// let mut model = FinancialModelSpec::new("demo", vec![]);
-/// let market = MarketContext::new();
-/// update_1y_rate_from_curve(&mut model, "FloatingRate", &market, "USD_SOFR")?;
-/// # Ok(())
-/// # }
-/// ```
+/// Behaviour:
+/// - Extracts a rate at `binding.tenor` using the curve's day count and base date
+///   (or the binding's day-count override).
+/// - Converts from the curve's native quoting (continuous zeros for discount curves,
+///   simple forwards for forward curves) into the requested [`Compounding`].
+/// - Emits clear validation errors when the tenor is outside the curve range or
+///   when compounding/day-count combinations are incompatible.
+pub fn update_rate_from_binding(
+    binding: &RateBindingSpec,
+    model: &mut FinancialModelSpec,
+    market: &MarketContext,
+) -> Result<()> {
+    let curve_id = &binding.curve_id;
+
+    if let Ok(curve) = market.get_discount_ref(curve_id) {
+        let (tenor_years, _) = tenor_years_from_binding(
+            binding,
+            curve.base_date(),
+            curve.day_count(),
+            None,
+            BusinessDayConvention::ModifiedFollowing,
+        )?;
+
+        if let Some(&max_t) = curve.knots().last() {
+            if tenor_years > max_t + 1e-8 {
+                return Err(Error::Validation(format!(
+                    "Tenor {} ({:.4}y) is out of range for discount curve {} (max {:.4}y)",
+                    binding.tenor, tenor_years, curve_id, max_t
+                )));
+            }
+        }
+
+        let zero = curve.zero(tenor_years);
+        let converted = convert_continuous_rate(zero, binding.compounding, tenor_years)?;
+        return set_scalar_rate(model, &binding.node_id, converted);
+    }
+
+    if let Ok(curve) = market.get_forward_ref(curve_id) {
+        let (start_years, effective_dc) = tenor_years_from_binding(
+            binding,
+            curve.base_date(),
+            curve.day_count(),
+            None,
+            BusinessDayConvention::ModifiedFollowing,
+        )?;
+
+        if let Some(&max_t) = curve.knots().last() {
+            if start_years > max_t + 1e-8 {
+                return Err(Error::Validation(format!(
+                    "Tenor {} ({:.4}y) is out of range for forward curve {} (max {:.4}y)",
+                    binding.tenor, start_years, curve_id, max_t
+                )));
+            }
+        }
+
+        let accrual_years = Tenor::from_years(curve.tenor(), effective_dc)
+            .to_years_with_context(
+                curve.base_date(),
+                None,
+                BusinessDayConvention::ModifiedFollowing,
+                effective_dc,
+            )
+            .map_err(|e| Error::Internal(e.to_string()))?;
+
+        let forward_simple = curve.rate(start_years);
+        let forward_continuous = simple_to_continuous(forward_simple, accrual_years)
+            .map_err(|e| Error::Validation(e.to_string()))?;
+        let converted =
+            convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
+        return set_scalar_rate(model, &binding.node_id, converted);
+    }
+
+    Err(Error::MarketDataNotFound {
+        id: curve_id.to_string(),
+    })
+}
+
+/// Legacy adapter kept for backward compatibility with older call sites.
+#[deprecated(note = "use update_rate_from_binding instead")]
 pub fn update_1y_rate_from_curve(
     model: &mut FinancialModelSpec,
     node_id: &str,
     market: &MarketContext,
     curve_id: &str,
 ) -> Result<()> {
-    // Try to get the curve and extract a representative rate
-    let rate = if let Ok(curve) = market.get_discount_ref(curve_id) {
-        // Validation: Check if curve covers at least 1 year to avoid unsafe extrapolation
-        if let Some(&max_t) = curve.knots().last() {
-            if max_t < 1.0 {
-                return Err(Error::Validation(format!(
-                    "Curve {} maturity ({:.2}Y) is too short for 1Y rate binding",
-                    curve_id, max_t
-                )));
-            }
-        }
-        // Extract 1Y rate from discount curve
-        let df_1y = curve.df(1.0);
-        -df_1y.ln()
-    } else if let Ok(curve) = market.get_forward_ref(curve_id) {
-        // Extract forward rate at 1Y (average of available forwards)
-        let forwards = curve.forwards();
-        if forwards.is_empty() {
-            return Err(Error::MarketDataNotFound {
-                id: curve_id.to_string(),
-            });
-        }
-        forwards[0] // Use first forward rate as representative
-    } else {
-        return Err(Error::MarketDataNotFound {
-            id: curve_id.to_string(),
-        });
-    };
+    let binding = RateBindingSpec::from_legacy(node_id.to_string(), curve_id.to_string());
+    update_rate_from_binding(&binding, model, market)
+}
 
-    // Set the rate on all explicit values
+fn set_scalar_rate(model: &mut FinancialModelSpec, node_id: &str, rate: f64) -> Result<()> {
     let node = model
         .get_node_mut(node_id)
         .ok_or_else(|| Error::NodeNotFound {
@@ -181,6 +196,36 @@ pub fn update_1y_rate_from_curve(
     }
 
     Ok(())
+}
+
+fn convert_continuous_rate(
+    continuous_rate: f64,
+    comp: Compounding,
+    year_fraction: f64,
+) -> Result<f64> {
+    let freq = match comp {
+        Compounding::Annual => Some(1),
+        Compounding::SemiAnnual => Some(2),
+        Compounding::Quarterly => Some(4),
+        Compounding::Monthly => Some(12),
+        _ => None,
+    };
+
+    let converted = match comp {
+        Compounding::Continuous => continuous_rate,
+        Compounding::Simple => continuous_to_simple(continuous_rate, year_fraction)
+            .map_err(|e| Error::Validation(e.to_string()))?,
+        Compounding::Annual
+        | Compounding::SemiAnnual
+        | Compounding::Quarterly
+        | Compounding::Monthly => continuous_to_periodic(
+            continuous_rate,
+            freq.expect("frequency only used for periodic variants"),
+        )
+        .map_err(|e| Error::Validation(e.to_string()))?,
+    };
+
+    Ok(converted)
 }
 
 /// Re-evaluate the financial model to propagate changes (no-op placeholder).

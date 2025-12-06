@@ -11,17 +11,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = InflationSwap)]
 #[derive(Clone, Debug)]
-pub struct JsInflationSwap(InflationSwap);
+pub struct JsInflationSwap {
+    pub(crate) inner: InflationSwap,
+}
 
 impl InstrumentWrapper for JsInflationSwap {
     type Inner = InflationSwap;
     fn from_inner(inner: InflationSwap) -> Self {
-        JsInflationSwap(inner)
+        JsInflationSwap { inner }
     }
     fn inner(&self) -> InflationSwap {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = InflationSwap)]
 impl JsInflationSwap {
@@ -61,22 +64,22 @@ impl JsInflationSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.0.fixed_rate
+        self.inner.fixed_rate
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.maturity)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -88,12 +91,12 @@ impl JsInflationSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "InflationSwap(id='{}', fixed_rate={:.4})",
-            self.0.id, self.0.fixed_rate
+            self.inner.id, self.inner.fixed_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInflationSwap {
-        JsInflationSwap::from_inner(self.0.clone())
+        JsInflationSwap::from_inner(self.inner.clone())
     }
 }

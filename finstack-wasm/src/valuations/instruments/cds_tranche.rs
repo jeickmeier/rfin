@@ -12,17 +12,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsTranche)]
 #[derive(Clone, Debug)]
-pub struct JsCdsTranche(CdsTranche);
+pub struct JsCdsTranche {
+    pub(crate) inner: CdsTranche,
+}
 
 impl InstrumentWrapper for JsCdsTranche {
     type Inner = CdsTranche;
     fn from_inner(inner: CdsTranche) -> Self {
-        JsCdsTranche(inner)
+        JsCdsTranche { inner }
     }
     fn inner(&self) -> CdsTranche {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = CdsTranche)]
 impl JsCdsTranche {
@@ -82,32 +85,32 @@ impl JsCdsTranche {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = attachPct)]
     pub fn attach_pct(&self) -> f64 {
-        self.0.attach_pct
+        self.inner.attach_pct
     }
 
     #[wasm_bindgen(getter, js_name = detachPct)]
     pub fn detach_pct(&self) -> f64 {
-        self.0.detach_pct
+        self.inner.detach_pct
     }
 
     #[wasm_bindgen(getter, js_name = runningCouponBp)]
     pub fn running_coupon_bp(&self) -> f64 {
-        self.0.running_coupon_bp
+        self.inner.running_coupon_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.0.maturity)
+        JsDate::from_core(self.inner.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -119,12 +122,12 @@ impl JsCdsTranche {
     pub fn to_string_js(&self) -> String {
         format!(
             "CdsTranche(id='{}', attach={:.2}%, detach={:.2}%)",
-            self.0.id, self.0.attach_pct, self.0.detach_pct
+            self.inner.id, self.inner.attach_pct, self.inner.detach_pct
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCdsTranche {
-        JsCdsTranche::from_inner(self.0.clone())
+        JsCdsTranche::from_inner(self.inner.clone())
     }
 }

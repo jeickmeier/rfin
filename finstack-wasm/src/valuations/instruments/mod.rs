@@ -38,6 +38,10 @@ mod variance_swap;
 // Re-export wrapper trait for internal use
 pub(crate) use wrapper::InstrumentWrapper;
 
+use finstack_valuations::instruments::common::traits::Instrument;
+use js_sys::Reflect;
+use wasm_bindgen::JsValue;
+
 pub use asian_option::{JsAsianOption as AsianOption, JsAveragingMethod as AveragingMethod};
 pub use autocallable::JsAutocallable as Autocallable;
 pub use barrier_option::JsBarrierOption as BarrierOption;
@@ -77,3 +81,78 @@ pub use trs::{
     JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 };
 pub use variance_swap::{JsRealizedVarMethod as RealizedVarMethod, JsVarianceSwap as VarianceSwap};
+
+/// Downcast a JavaScript instrument wrapper into a core instrument reference.
+///
+/// This performs only type checks and cloning; it does not add any binding-specific logic,
+/// keeping bindings as thin passthroughs to the Rust implementations.
+///
+/// Note: Since wasm_bindgen doesn't automatically implement `JsCast` for structs with private fields,
+/// we use `unchecked_ref` with runtime type checking via constructor name matching.
+/// This is safe because we verify the type before casting.
+#[allow(unsafe_code)]
+pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>, JsValue> {
+    macro_rules! try_extract {
+        ($js_type:ty, $js_name:expr) => {
+            {
+                // Check if the value is an instance of the expected type by checking constructor name
+                let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
+                    .ok()
+                    .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
+                    .and_then(|n| n.as_string())
+                    .map(|n| n == $js_name)
+                    .unwrap_or(false);
+                
+                if is_instance {
+                    // Safe because we've verified the type via constructor name check
+                    // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
+                    let inst: &$js_type = unsafe { &*(value as *const JsValue as *const $js_type) };
+                    return Ok(Box::new(inst.inner()));
+                }
+            }
+        };
+    }
+
+    try_extract!(bond::JsBond, "Bond");
+    try_extract!(deposit::JsDeposit, "Deposit");
+    try_extract!(basis_swap::JsBasisSwap, "BasisSwap");
+    try_extract!(fra::JsForwardRateAgreement, "ForwardRateAgreement");
+    try_extract!(cap_floor::JsInterestRateOption, "InterestRateOption");
+    try_extract!(ir_future::JsInterestRateFuture, "InterestRateFuture");
+    try_extract!(irs::JsInterestRateSwap, "InterestRateSwap");
+    try_extract!(fx::JsFxSpot, "FxSpot");
+    try_extract!(fx::JsFxOption, "FxOption");
+    try_extract!(fx::JsFxSwap, "FxSwap");
+    try_extract!(equity::JsEquity, "Equity");
+    try_extract!(equity_option::JsEquityOption, "EquityOption");
+    try_extract!(convertible::JsConvertibleBond, "ConvertibleBond");
+    try_extract!(swaption::JsSwaption, "Swaption");
+    try_extract!(trs::JsEquityTotalReturnSwap, "EquityTotalReturnSwap");
+    try_extract!(trs::JsFiIndexTotalReturnSwap, "FiIndexTotalReturnSwap");
+    try_extract!(variance_swap::JsVarianceSwap, "VarianceSwap");
+    try_extract!(cds::JsCreditDefaultSwap, "CreditDefaultSwap");
+    try_extract!(cds_index::JsCDSIndex, "CDSIndex");
+    try_extract!(cds_option::JsCdsOption, "CdsOption");
+    try_extract!(cds_tranche::JsCdsTranche, "CdsTranche");
+    try_extract!(repo::JsRepo, "Repo");
+    try_extract!(inflation_linked_bond::JsInflationLinkedBond, "InflationLinkedBond");
+    try_extract!(inflation_swap::JsInflationSwap, "InflationSwap");
+    try_extract!(structured_credit::JsStructuredCredit, "StructuredCredit");
+    try_extract!(private_markets_fund::JsPrivateMarketsFund, "PrivateMarketsFund");
+    try_extract!(structured_credit::JsBasket, "Basket");
+    try_extract!(asian_option::JsAsianOption, "AsianOption");
+    try_extract!(autocallable::JsAutocallable, "Autocallable");
+    try_extract!(barrier_option::JsBarrierOption, "BarrierOption");
+    try_extract!(cliquet_option::JsCliquetOption, "CliquetOption");
+    try_extract!(cms_option::JsCmsOption, "CmsOption");
+    try_extract!(fx_barrier_option::JsFxBarrierOption, "FxBarrierOption");
+    try_extract!(lookback_option::JsLookbackOption, "LookbackOption");
+    try_extract!(quanto_option::JsQuantoOption, "QuantoOption");
+    try_extract!(range_accrual::JsRangeAccrual, "RangeAccrual");
+    try_extract!(revolving_credit::JsRevolvingCredit, "RevolvingCredit");
+    try_extract!(term_loan::JsTermLoan, "TermLoan");
+
+    Err(JsValue::from_str(
+        "Unsupported instrument type; construct instruments from finstack-wasm valuations module",
+    ))
+}

@@ -36,17 +36,20 @@ impl From<JsAveragingMethod> for AveragingMethod {
 
 #[wasm_bindgen(js_name = AsianOption)]
 #[derive(Clone, Debug)]
-pub struct JsAsianOption(AsianOption);
+pub struct JsAsianOption {
+    pub(crate) inner: AsianOption,
+}
 
 impl InstrumentWrapper for JsAsianOption {
     type Inner = AsianOption;
     fn from_inner(inner: AsianOption) -> Self {
-        JsAsianOption(inner)
+        JsAsianOption { inner }
     }
     fn inner(&self) -> AsianOption {
-        self.0.clone()
+        self.inner.clone()
     }
 }
+
 
 #[wasm_bindgen(js_class = AsianOption)]
 impl JsAsianOption {
@@ -120,22 +123,22 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.0.id.as_str().to_string()
+        self.inner.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn ticker(&self) -> String {
-        self.0.underlying_ticker.clone()
+        self.inner.underlying_ticker.clone()
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.strike)
+        JsMoney::from_inner(self.inner.strike)
     }
 
     #[wasm_bindgen(getter, js_name = optionType)]
     pub fn option_type(&self) -> String {
-        match self.0.option_type {
+        match self.inner.option_type {
             OptionType::Call => "call",
             OptionType::Put => "put",
         }
@@ -144,18 +147,18 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = averagingMethod)]
     pub fn averaging_method(&self) -> JsAveragingMethod {
-        self.0.averaging_method.into()
+        self.inner.averaging_method.into()
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.0.expiry)
+        JsDate::from_core(self.inner.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = fixingDates)]
     pub fn fixing_dates(&self) -> Array {
         let arr = Array::new();
-        for date in &self.0.fixing_dates {
+        for date in &self.inner.fixing_dates {
             arr.push(&JsDate::from_core(*date).into());
         }
         arr
@@ -163,27 +166,27 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.0.notional)
+        JsMoney::from_inner(self.inner.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.discount_curve_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = spotId)]
     pub fn spot_id(&self) -> String {
-        self.0.spot_id.clone()
+        self.inner.spot_id.clone()
     }
 
     #[wasm_bindgen(getter, js_name = volSurface)]
     pub fn vol_surface(&self) -> String {
-        self.0.vol_surface_id.as_str().to_string()
+        self.inner.vol_surface_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
     pub fn div_yield_id(&self) -> Option<String> {
-        self.0
+        self.inner
             .div_yield_id
             .as_ref()
             .map(|id| id.as_str().to_string())
@@ -198,17 +201,17 @@ impl JsAsianOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "AsianOption(id='{}', ticker='{}', strike={}, expiry={}, averaging_method='{:?}')",
-            self.0.id.as_str(),
-            self.0.underlying_ticker,
-            self.0.strike.amount(),
-            self.0.expiry,
-            self.0.averaging_method
+            self.inner.id.as_str(),
+            self.inner.underlying_ticker,
+            self.inner.strike.amount(),
+            self.inner.expiry,
+            self.inner.averaging_method
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsAsianOption {
-        JsAsianOption::from_inner(self.0.clone())
+        JsAsianOption::from_inner(self.inner.clone())
     }
 }
 
