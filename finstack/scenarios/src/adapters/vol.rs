@@ -152,78 +152,75 @@ fn check_arbitrage(
     violations
 }
 
-/// Schedule a parallel percentage shock to a volatility surface.
-///
-/// This schedules a `MarketBump::Curve` with `BumpMode::Multiplicative` and `BumpUnits::Factor`.
-///
-/// # Arguments
-/// - `surface_id`: Identifier of the volatility surface.
-/// - `pct`: Percentage change to apply.
-/// - `market_bumps`: Output vector to append scheduled bumps to.
-///
-/// # Returns
-/// `Ok(())` (always succeeds immediately, validation happens at application time).
-pub fn apply_vol_parallel_shock(
-    surface_id: &str,
-    pct: f64,
-    market_bumps: &mut Vec<MarketBump>,
-) -> Result<()> {
-    market_bumps.push(MarketBump::Curve {
-        id: finstack_core::types::CurveId::from(surface_id),
-        spec: BumpSpec {
-            mode: BumpMode::Multiplicative,
-            units: BumpUnits::Factor,
-            value: 1.0 + (pct / 100.0),
-            bump_type: BumpType::Parallel,
-        },
-    });
-    Ok(())
-}
+use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
+use crate::engine::ExecutionContext;
+use crate::spec::OperationSpec;
 
-/// Schedule a bucketed percentage shock to a volatility surface.
-///
-/// Matches buckets by optional tenors and strikes.
-///
-/// # Arguments
-/// - `surface_id`: Identifier of the volatility surface.
-/// - `tenors`: Optional slice of tenor strings to match (e.g., `["1M", "3M"]`).
-/// - `strikes`: Optional slice of strikes to match.
-/// - `pct`: Percentage change to apply to matching buckets.
-/// - `market_bumps`: Output vector to append scheduled bumps to.
-/// - `warnings`: Output vector for warnings (e.g. parsing failures).
-///
-/// # Returns
-/// `Ok(())` on success.
-pub fn apply_vol_bucket_shock(
-    surface_id: &str,
-    tenors: Option<&[String]>,
-    strikes: Option<&[f64]>,
-    pct: f64,
-    market_bumps: &mut Vec<MarketBump>,
-    warnings: &mut Vec<String>,
-) -> Result<()> {
-    // Parse tenor strings to years if present
-    let exp_years = if let Some(t) = tenors {
-        let parsed: std::result::Result<Vec<f64>, _> =
-            t.iter().map(|s| parse_tenor_to_years(s)).collect();
-        match parsed {
-            Ok(v) => Some(v),
-            Err(e) => {
-                warnings.push(format!("Vol bucket tenor parse failed: {}", e));
-                None
+/// Adapter for volatility surface operations.
+pub struct VolAdapter;
+
+impl ScenarioAdapter for VolAdapter {
+    fn try_generate_effects(
+        &self,
+        op: &OperationSpec,
+        _ctx: &ExecutionContext,
+    ) -> Result<Option<Vec<ScenarioEffect>>> {
+        match op {
+            OperationSpec::VolSurfaceParallelPct {
+                surface_id, pct, ..
+            } => {
+                let bump = MarketBump::Curve {
+                    id: finstack_core::types::CurveId::from(surface_id.as_str()),
+                    spec: BumpSpec {
+                        mode: BumpMode::Multiplicative,
+                        units: BumpUnits::Factor,
+                        value: 1.0 + (pct / 100.0),
+                        bump_type: BumpType::Parallel,
+                    },
+                };
+                Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
             }
-        }
-    } else {
-        None
-    };
+            OperationSpec::VolSurfaceBucketPct {
+                surface_id,
+                tenors,
+                strikes,
+                pct,
+                ..
+            } => {
+                let mut warnings = Vec::new();
 
-    market_bumps.push(MarketBump::VolBucketPct {
-        surface_id: finstack_core::types::CurveId::from(surface_id),
-        expiries: exp_years,
-        strikes: strikes.map(|s| s.to_vec()),
-        pct,
-    });
-    Ok(())
+                // Parse tenor strings to years if present
+                let exp_years = if let Some(t) = tenors {
+                    let parsed: std::result::Result<Vec<f64>, _> =
+                        t.iter().map(|s| parse_tenor_to_years(s)).collect();
+                    match parsed {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            warnings.push(format!("Vol bucket tenor parse failed: {}", e));
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                let bump = MarketBump::VolBucketPct {
+                    surface_id: finstack_core::types::CurveId::from(surface_id.as_str()),
+                    expiries: exp_years,
+                    strikes: strikes.clone(),
+                    pct: *pct,
+                };
+
+                let mut effects = vec![ScenarioEffect::MarketBump(bump)];
+                for w in warnings {
+                    effects.push(ScenarioEffect::Warning(w));
+                }
+
+                Ok(Some(effects))
+            }
+            _ => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]

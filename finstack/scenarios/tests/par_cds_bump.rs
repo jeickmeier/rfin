@@ -1,8 +1,10 @@
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_scenarios::adapters::curves::apply_curve_node_shock;
-use finstack_scenarios::{CurveKind, TenorMatchMode};
+use finstack_scenarios::{
+    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, TenorMatchMode,
+};
+use finstack_statements::FinancialModelSpec;
 use time::Month;
 
 #[test]
@@ -17,19 +19,35 @@ fn test_par_cds_bump_integration() {
         .unwrap();
 
     let mut market = MarketContext::new().insert_hazard(hazard);
+    let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Apply 10bp Par CDS bump at 5Y
-    // Delta Lambda = 10bp / 10000 / (1 - 0.4) = 0.001 / 0.6 = 0.001666...
-    let nodes = vec![("5Y".to_string(), 10.0)];
+    let scenario = ScenarioSpec {
+        id: "par_cds_bump".into(),
+        name: Some("Par CDS Bump".into()),
+        description: None,
+        operations: vec![OperationSpec::CurveNodeBp {
+            curve_kind: CurveKind::ParCDS,
+            curve_id: "USD-CDS".into(),
+            nodes: vec![("5Y".to_string(), 10.0)],
+            match_mode: TenorMatchMode::Exact,
+        }],
+        priority: 0,
+    };
 
-    apply_curve_node_shock(
-        &mut market,
-        CurveKind::ParCDS,
-        "USD-CDS",
-        &nodes,
-        TenorMatchMode::Exact,
-    )
-    .expect("Shock application should succeed");
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    engine
+        .apply(&scenario, &mut ctx)
+        .expect("Shock application should succeed");
 
     // Verify result
     let bumped = market.get_hazard("USD-CDS").unwrap();
@@ -41,6 +59,7 @@ fn test_par_cds_bump_integration() {
         .find(|(t, _)| (*t - 5.0).abs() < 1e-6)
         .unwrap();
 
+    // Delta Lambda = 10bp / 10000 / (1 - 0.4) = 0.001 / 0.6 = 0.001666...
     let expected_delta = 0.001 / 0.6;
     let expected_lambda = 0.02 + expected_delta;
 

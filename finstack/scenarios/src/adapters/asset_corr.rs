@@ -26,9 +26,36 @@
 //! - Prepay-default correlation: [-0.99, 0.99]
 //! - Recovery correlation: [-0.99, 0.99]
 
+use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
+use crate::engine::ExecutionContext;
 use crate::error::Result;
+use crate::spec::OperationSpec;
 use finstack_valuations::instruments::structured_credit::pricing::stochastic::CorrelationStructure;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
+
+/// Adapter for asset correlation operations.
+pub struct AssetCorrAdapter;
+
+impl ScenarioAdapter for AssetCorrAdapter {
+    fn try_generate_effects(
+        &self,
+        op: &OperationSpec,
+        _ctx: &ExecutionContext,
+    ) -> Result<Option<Vec<ScenarioEffect>>> {
+        match op {
+            OperationSpec::AssetCorrelationPts { .. }
+            | OperationSpec::PrepayDefaultCorrelationPts { .. }
+            | OperationSpec::RecoveryCorrelationPts { .. }
+            | OperationSpec::PrepayFactorLoadingPts { .. } => {
+                // Currently returning warning as engine only holds generic instruments
+                Ok(Some(vec![ScenarioEffect::Warning(
+                    "Correlation operation: requires StructuredCredit instruments (not supported in generic context)".to_string(),
+                )]))
+            }
+            _ => Ok(None),
+        }
+    }
+}
 
 /// Apply a parallel shock to asset correlation across structured credit instruments.
 ///

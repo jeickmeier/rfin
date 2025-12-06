@@ -4,37 +4,42 @@
 //! manipulating `FinancialModelSpec` values directly or synchronising them with
 //! market curve data.
 
+use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
+use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
+use crate::spec::OperationSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 
+/// Adapter for statement operations.
+pub struct StatementAdapter;
+
+impl ScenarioAdapter for StatementAdapter {
+    fn try_generate_effects(
+        &self,
+        op: &OperationSpec,
+        _ctx: &ExecutionContext,
+    ) -> Result<Option<Vec<ScenarioEffect>>> {
+        match op {
+            OperationSpec::StmtForecastPercent { node_id, pct } => {
+                Ok(Some(vec![ScenarioEffect::StmtForecastPercent {
+                    node_id: node_id.clone(),
+                    pct: *pct,
+                }]))
+            }
+            OperationSpec::StmtForecastAssign { node_id, value } => {
+                Ok(Some(vec![ScenarioEffect::StmtForecastAssign {
+                    node_id: node_id.clone(),
+                    value: *value,
+                }]))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
 /// Apply a percentage change to a statement node's forecast values.
-///
-/// # Arguments
-/// - `model`: Financial model containing the node to update.
-/// - `node_id`: Identifier of the statement node.
-/// - `pct`: Percentage change to apply (positive increases the forecast).
-///
-/// # Returns
-/// [`Result`](crate::error::Result) with `Ok(())` when the update succeeds.
-///
-/// # Errors
-/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node
-///   identifier cannot be resolved.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::adapters::statements::apply_forecast_percent;
-/// use finstack_statements::FinancialModelSpec;
-///
-/// # fn main() -> finstack_scenarios::Result<()> {
-/// let mut model = FinancialModelSpec::new("demo", vec![]);
-/// // ... populate node ...
-/// apply_forecast_percent(&mut model, "Revenue", -5.0)?;
-/// # Ok(())
-/// # }
-/// ```
 pub fn apply_forecast_percent(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -65,31 +70,6 @@ pub fn apply_forecast_percent(
 }
 
 /// Assign a uniform scalar value to all explicit forecasts in a node.
-///
-/// # Arguments
-/// - `model`: Financial model containing the node to update.
-/// - `node_id`: Identifier of the statement node.
-/// - `value`: Scalar value to assign to each explicit forecast entry.
-///
-/// # Returns
-/// [`Result`](crate::error::Result) communicating success or failure.
-///
-/// # Errors
-/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node
-///   identifier cannot be resolved.
-///
-/// # Examples
-/// ```rust,no_run
-/// use finstack_scenarios::adapters::statements::apply_forecast_assign;
-/// use finstack_statements::FinancialModelSpec;
-///
-/// # fn main() -> finstack_scenarios::Result<()> {
-/// let mut model = FinancialModelSpec::new("demo", vec![]);
-/// // ... populate node ...
-/// apply_forecast_assign(&mut model, "Capex", 1_000.0)?;
-/// # Ok(())
-/// # }
-/// ```
 pub fn apply_forecast_assign(
     model: &mut FinancialModelSpec,
     node_id: &str,

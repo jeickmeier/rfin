@@ -137,9 +137,9 @@ fn test_basecorr_bucket_filtering() {
     // Create base correlation curve
     let basecorr = BaseCorrelationCurve::builder("CDX_IG")
         .points(vec![
-            (3.0, 0.25),  // 3% detachment
-            (7.0, 0.45),  // 7% detachment
-            (10.0, 0.60), // 10% detachment
+            (0.03, 0.25), // 3% detachment
+            (0.07, 0.45), // 7% detachment
+            (0.10, 0.60), // 10% detachment
         ])
         .build()
         .unwrap();
@@ -154,7 +154,7 @@ fn test_basecorr_bucket_filtering() {
         description: None,
         operations: vec![OperationSpec::BaseCorrBucketPts {
             surface_id: "CDX_IG".into(),
-            detachment_bps: Some(vec![700]), // 7% = 700bp
+            detachment_bps: Some(vec![700]), // 7% = 700bp. Adapter converts 700 -> 0.07
             maturities: None,
             points: 0.05, // +5 points
         }],
@@ -179,7 +179,7 @@ fn test_basecorr_bucket_filtering() {
     let shocked_curve = market.get_base_correlation_ref("CDX_IG").unwrap();
 
     // 7% should be shocked
-    let shocked_7 = shocked_curve.correlation(7.0);
+    let shocked_7 = shocked_curve.correlation(0.07);
     let expected = (0.45_f64 + 0.05).min(1.0); // Clamped to [0, 1]
     assert!(
         (shocked_7 - expected).abs() < 1e-6,
@@ -189,7 +189,7 @@ fn test_basecorr_bucket_filtering() {
     );
 
     // 3% should be unchanged
-    let unchanged_3 = shocked_curve.correlation(3.0);
+    let unchanged_3 = shocked_curve.correlation(0.03);
     assert!(
         (unchanged_3 - 0.25).abs() < 1e-6,
         "3% should be unchanged: expected 0.25, got {}",

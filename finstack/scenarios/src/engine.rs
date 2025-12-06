@@ -10,7 +10,6 @@
 
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
-use finstack_core::market_data::bumps::MarketBump;
 use indexmap::IndexMap;
 
 /// Execution context for scenario application.
@@ -263,22 +262,24 @@ impl ScenarioEngine {
     ) -> Result<ApplicationReport> {
         let mut applied = 0;
         let mut warnings = Vec::new();
+        // Track whether model was re-evaluated if we wanted to report it,
+        // but ApplicationReport doesn't support it yet.
+        // We focus on operations_applied and warnings.
 
-        // Phase 0: Time roll-forward (if present)
+        // Phase 0: Time Roll Forward
         for op in &spec.operations {
             if let OperationSpec::TimeRollForward {
                 period,
                 apply_shocks,
             } = op
             {
-                let _roll_report =
-                    crate::adapters::time_roll::apply_time_roll_forward(ctx, period)?;
-                applied += 1;
+                // Use the adapter logic
+                crate::adapters::time_roll::apply_time_roll_forward(ctx, period)?;
 
-                // If apply_shocks is false, skip remaining operations
-                if !apply_shocks {
+                // If shocks should NOT be applied, we stop here.
+                if !*apply_shocks {
                     return Ok(ApplicationReport {
-                        operations_applied: applied,
+                        operations_applied: 1,
                         warnings,
                         rounding_context: Some("default".into()),
                     });
@@ -286,226 +287,186 @@ impl ScenarioEngine {
             }
         }
 
-        // Phase 1: Market data operations (order: FX → Equities → Vol → Curves)
-        let mut market_bumps: Vec<MarketBump> = Vec::new();
+        // Initialize adapters
+        let adapters: Vec<Box<dyn crate::adapters::traits::ScenarioAdapter>> = vec![
+            Box::new(crate::adapters::vol::VolAdapter),
+            Box::new(crate::adapters::curves::CurveAdapter),
+            Box::new(crate::adapters::basecorr::BaseCorrAdapter),
+            Box::new(crate::adapters::fx::FxAdapter),
+            Box::new(crate::adapters::equity::EquityAdapter),
+            Box::new(crate::adapters::instruments::InstrumentAdapter),
+            Box::new(crate::adapters::statements::StatementAdapter),
+            Box::new(crate::adapters::asset_corr::AssetCorrAdapter),
+        ];
 
+        let mut market_bumps = Vec::new();
+        let mut deferred_stmts = Vec::new();
+
+        // Phase 1: Market data operations & Instrument operations
         for op in &spec.operations {
-            match op {
-                OperationSpec::MarketFxPct { base, quote, pct } => {
-                    applied += crate::adapters::fx::apply_fx_shock(
-                        *base,
-                        *quote,
-                        *pct,
-                        ctx.as_of,
-                        &mut market_bumps,
-                    )?;
-                }
-                OperationSpec::EquityPricePct { ids, pct } => {
-                    applied += crate::adapters::equity::apply_equity_price_shock(
-                        ctx.market,
-                        ids,
-                        *pct,
-                        &mut market_bumps,
-                        &mut warnings,
-                    )?;
-                }
-                OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
-                    let mut empty_instruments: Vec<
-                        Box<dyn finstack_valuations::instruments::common::traits::Instrument>,
-                    > = Vec::new();
-                    let instruments_slice = ctx
-                        .instruments
-                        .as_deref_mut()
-                        .unwrap_or(&mut empty_instruments);
+            // Skip TimeRoll as it was handled (or skipped) in Phase 0
+            if let OperationSpec::TimeRollForward { .. } = op {
+                applied += 1;
+                continue;
+            }
 
-                    let w = crate::adapters::instruments::apply_instrument_attr_price_shock(
-                        instruments_slice,
-                        attrs,
-                        *pct,
-                    )?;
-                    warnings.extend(w);
+            let mut adapter_effects = None;
+            for adapter in &adapters {
+                if let Some(effects) = adapter.try_generate_effects(op, ctx)? {
+                    adapter_effects = Some(effects);
+                    break;
                 }
-                OperationSpec::InstrumentPricePctByType {
-                    instrument_types,
-                    pct,
-                } => {
-                    if let Some(instruments) = ctx.instruments.as_mut() {
-                        match crate::adapters::instruments::apply_instrument_type_price_shock(
-                            instruments,
-                            instrument_types,
-                            *pct,
-                        ) {
-                            Ok(count) => applied += count,
-                            Err(e) => warnings.push(format!("Instrument type price shock: {}", e)),
+            }
+
+            if let Some(effects) = adapter_effects {
+                // FLUSH pending legacy bumps before applying new effects to ensure correct ordering
+                if !market_bumps.is_empty() {
+                    *ctx.market = ctx.market.apply_bumps(&market_bumps)?;
+                    market_bumps.clear();
+                }
+
+                for effect in effects {
+                    match effect {
+                        crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
+                            // Apply immediately
+                            *ctx.market = ctx.market.apply_bumps(&[b])?;
+                            applied += 1;
                         }
-                    } else {
-                        warnings.push(
-                            "Instrument type shock requested but no instruments provided"
-                                .to_string(),
-                        );
-                    }
-                }
-                OperationSpec::VolSurfaceParallelPct {
-                    surface_kind: _,
-                    surface_id,
-                    pct,
-                } => {
-                    crate::adapters::vol::apply_vol_parallel_shock(
-                        surface_id,
-                        *pct,
-                        &mut market_bumps,
-                    )?;
-                    applied += 1;
-                }
-                OperationSpec::VolSurfaceBucketPct {
-                    surface_kind: _,
-                    surface_id,
-                    tenors,
-                    strikes,
-                    pct,
-                } => {
-                    crate::adapters::vol::apply_vol_bucket_shock(
-                        surface_id,
-                        tenors.as_deref(),
-                        strikes.as_deref(),
-                        *pct,
-                        &mut market_bumps,
-                        &mut warnings,
-                    )?;
-                    applied += 1;
-                }
-                OperationSpec::CurveParallelBp {
-                    curve_kind,
-                    curve_id,
-                    bp,
-                } => {
-                    crate::adapters::curves::apply_curve_parallel_shock(
-                        *curve_kind,
-                        curve_id,
-                        *bp,
-                        &mut market_bumps,
-                    )?;
-                    applied += 1;
-                }
-                OperationSpec::CurveNodeBp {
-                    curve_kind,
-                    curve_id,
-                    nodes,
-                    match_mode,
-                } => {
-                    // Apply node shocks directly using the adapter function
-                    match crate::adapters::curves::apply_curve_node_shock(
-                        ctx.market,
-                        *curve_kind,
-                        curve_id,
-                        nodes,
-                        *match_mode,
-                    ) {
-                        Ok(()) => applied += 1,
-                        Err(e) => {
-                            // Return errors for hazard curves and tenor not found (exact mode failures)
-                            match &e {
-                                crate::error::Error::UnsupportedOperation { .. }
-                                | crate::error::Error::TenorNotFound { .. } => return Err(e),
-                                _ => {
-                                    // For other errors, convert to warning unless it's a hazard curve
-                                    if *curve_kind == crate::spec::CurveKind::ParCDS {
-                                        return Err(e);
+                        crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
+                        crate::adapters::traits::ScenarioEffect::UpdateDiscountCurve {
+                            id: _id,
+                            curve,
+                        } => {
+                            ctx.market.insert_discount_mut(curve);
+                            applied += 1;
+                        }
+                        crate::adapters::traits::ScenarioEffect::UpdateForwardCurve {
+                            id: _id,
+                            curve,
+                        } => {
+                            ctx.market.insert_forward_mut(curve);
+                            applied += 1;
+                        }
+                        crate::adapters::traits::ScenarioEffect::UpdateHazardCurve {
+                            id: _id,
+                            curve,
+                        } => {
+                            ctx.market.insert_hazard_mut(curve);
+                            applied += 1;
+                        }
+                        crate::adapters::traits::ScenarioEffect::UpdateInflationCurve {
+                            id: _id,
+                            curve,
+                        } => {
+                            ctx.market.insert_inflation_mut(curve);
+                            applied += 1;
+                        }
+                        crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
+                            types,
+                            attrs,
+                            pct,
+                        } => {
+                            // Handle Types: Requires instruments
+                            if let Some(ts) = types {
+                                if let Some(instruments) = &mut ctx.instruments {
+                                    match crate::adapters::instruments::apply_instrument_type_price_shock(
+                                        instruments,
+                                        &ts,
+                                        pct,
+                                    ) {
+                                        Ok(c) => applied += c,
+                                        Err(e) => warnings.push(format!("Instrument price shock error: {}", e)),
                                     }
-                                    warnings.push(format!(
-                                        "Curve node shock failed for {}: {}",
-                                        curve_id, e
-                                    ));
+                                } else {
+                                    warnings.push("Instrument type shock requested but no instruments provided".to_string());
+                                }
+                            }
+                            // Handle Attrs: Supports empty (legacy fallback)
+                            if let Some(ats) = attrs {
+                                let mut empty_instruments: Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>> = Vec::new();
+                                let instruments = ctx
+                                    .instruments
+                                    .as_deref_mut()
+                                    .unwrap_or(&mut empty_instruments);
+
+                                match crate::adapters::instruments::apply_instrument_attr_price_shock(
+                                     instruments,
+                                     &ats,
+                                     pct,
+                                 ) {
+                                    Ok(w) => warnings.extend(w),
+                                    Err(e) => warnings.push(format!("Instrument price shock error: {}", e)),
+                                }
+                                // Attr shocks don't return count in legacy, so we add 0 to applied.
+                                // If we want to be strict, we could change the applicator to return count.
+                                // For now, keep as 0 contribution to 'applied' (other than operations_applied count if we counted it differently).
+                                // But wait, applied is "operations applied".
+                                // If this effect runs, it counts as part of the loop.
+                                // My loop counts 'applied' based on summation.
+                                // Legacy ByAttr didn't return count.
+                            }
+                        }
+                        crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
+                            types,
+                            attrs,
+                            bp,
+                        } => {
+                            // Handle Types: Requires instruments
+                            if let Some(ts) = types {
+                                if let Some(instruments) = &mut ctx.instruments {
+                                    match crate::adapters::instruments::apply_instrument_type_spread_shock(
+                                        instruments,
+                                        &ts,
+                                        bp,
+                                    ) {
+                                        Ok(c) => applied += c,
+                                        Err(e) => warnings.push(format!("Instrument spread shock error: {}", e)),
+                                    }
+                                } else {
+                                    warnings.push("Instrument type shock requested but no instruments provided".to_string());
+                                }
+                            }
+                            // Handle Attrs: Supports empty
+                            if let Some(ats) = attrs {
+                                let mut empty_instruments: Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>> = Vec::new();
+                                let instruments = ctx
+                                    .instruments
+                                    .as_deref_mut()
+                                    .unwrap_or(&mut empty_instruments);
+
+                                match crate::adapters::instruments::apply_instrument_attr_spread_shock(
+                                     instruments,
+                                     &ats,
+                                     bp,
+                                 ) {
+                                    Ok(w) => warnings.extend(w),
+                                    Err(e) => warnings.push(format!("Instrument spread shock error: {}", e)),
                                 }
                             }
                         }
-                    }
-                }
-                OperationSpec::BaseCorrParallelPts { surface_id, points } => {
-                    crate::adapters::basecorr::apply_basecorr_parallel_shock(
-                        surface_id,
-                        *points,
-                        &mut market_bumps,
-                    )?;
-                    applied += 1;
-                }
-                OperationSpec::BaseCorrBucketPts {
-                    surface_id,
-                    detachment_bps,
-                    maturities,
-                    points,
-                } => {
-                    crate::adapters::basecorr::apply_basecorr_bucket_shock(
-                        surface_id,
-                        detachment_bps.as_deref(),
-                        maturities.as_deref(),
-                        *points,
-                        &mut market_bumps,
-                        &mut warnings,
-                    )?;
-                    applied += 1;
-                }
-                OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => {
-                    let mut empty_instruments: Vec<
-                        Box<dyn finstack_valuations::instruments::common::traits::Instrument>,
-                    > = Vec::new();
-                    let instruments_slice = ctx
-                        .instruments
-                        .as_deref_mut()
-                        .unwrap_or(&mut empty_instruments);
-
-                    let w = crate::adapters::instruments::apply_instrument_attr_spread_shock(
-                        instruments_slice,
-                        attrs,
-                        *bp,
-                    )?;
-                    warnings.extend(w);
-                }
-                OperationSpec::InstrumentSpreadBpByType {
-                    instrument_types,
-                    bp,
-                } => {
-                    if let Some(instruments) = ctx.instruments.as_mut() {
-                        match crate::adapters::instruments::apply_instrument_type_spread_shock(
-                            instruments,
-                            instrument_types,
-                            *bp,
-                        ) {
-                            Ok(count) => applied += count,
-                            Err(e) => warnings.push(format!("Instrument type spread shock: {}", e)),
+                        crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
+                        | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
+                        | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
+                            // Defer statement operations
+                            deferred_stmts.push(effect);
                         }
-                    } else {
-                        warnings.push(
-                            "Instrument type shock requested but no instruments provided"
-                                .to_string(),
-                        );
+                        crate::adapters::traits::ScenarioEffect::TimeRoll { .. } => {
+                            // Already handled or no-op in loop
+                        }
                     }
                 }
-                OperationSpec::AssetCorrelationPts { delta_pts: _ }
-                | OperationSpec::PrepayDefaultCorrelationPts { delta_pts: _ }
-                | OperationSpec::RecoveryCorrelationPts { delta_pts: _ }
-                | OperationSpec::PrepayFactorLoadingPts { delta_pts: _ } => {
-                    // Note: Correlation operations for structured credit instruments
-                    // require direct access to StructuredCredit instruments.
-                    // These operations are applied via the asset_corr adapter
-                    // when StructuredCredit instruments are in scope.
-                    // The engine provides placeholders here; actual application
-                    // happens in the valuations layer via:
-                    //   crate::adapters::asset_corr::apply_asset_correlation_shock
-                    //   crate::adapters::asset_corr::apply_prepay_default_correlation_shock
-                    warnings.push(
-                        "Correlation operation: requires StructuredCredit instruments (use adapters::asset_corr directly)".to_string(),
-                    );
-                }
-                _ => {} // statements and time roll handled elsewhere
+            } else {
+                // Warning: Operation not handled by any adapter
+                warnings.push(format!("Operation not supported: {:?}", op));
             }
         }
 
+        // Apply remaining bumps
         if !market_bumps.is_empty() {
             *ctx.market = ctx.market.apply_bumps(&market_bumps)?;
         }
 
-        // Phase 2: Rate bindings update (if configured)
+        // Phase 2: Rate bindings update (from context configuration)
         if let Some(bindings) = &ctx.rate_bindings {
             for (node_id, curve_id) in bindings {
                 match crate::adapters::statements::update_1y_rate_from_curve(
@@ -519,18 +480,34 @@ impl ScenarioEngine {
             }
         }
 
-        // Phase 3: Statement operations
-        for op in &spec.operations {
-            match op {
-                OperationSpec::StmtForecastPercent { node_id, pct } => {
-                    crate::adapters::statements::apply_forecast_percent(ctx.model, node_id, *pct)?;
+        // Phase 3: Statement Operations (Deferred)
+        for effect in deferred_stmts {
+            match effect {
+                crate::adapters::traits::ScenarioEffect::RateBinding { node_id, curve_id } => {
+                    // Apply dynamic rate binding
+                    if let Some(rb) = &mut ctx.rate_bindings {
+                        rb.insert(node_id.clone(), curve_id.clone());
+                    }
+                    // Update immediately
+                    match crate::adapters::statements::update_1y_rate_from_curve(
+                        ctx.model, &node_id, ctx.market, &curve_id,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => warnings.push(format!(
+                            "Dynamic Rate binding {}->{}: {}",
+                            node_id, curve_id, e
+                        )),
+                    }
+                }
+                crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
+                    crate::adapters::statements::apply_forecast_percent(ctx.model, &node_id, pct)?;
                     applied += 1;
                 }
-                OperationSpec::StmtForecastAssign { node_id, value } => {
-                    crate::adapters::statements::apply_forecast_assign(ctx.model, node_id, *value)?;
+                crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
+                    crate::adapters::statements::apply_forecast_assign(ctx.model, &node_id, value)?;
                     applied += 1;
                 }
-                _ => {} // already handled above
+                _ => {}
             }
         }
 
@@ -543,7 +520,7 @@ impl ScenarioEngine {
         Ok(ApplicationReport {
             operations_applied: applied,
             warnings,
-            rounding_context: Some("default".into()), // Phase A: simple stamp
+            rounding_context: Some("default".into()),
         })
     }
 }

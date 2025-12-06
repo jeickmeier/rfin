@@ -5,40 +5,59 @@
 //! When instruments support pricing_overrides_mut(), shocks are applied functionally.
 //! Otherwise, shocks are stored as metadata attributes for downstream processing.
 
+use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
+use crate::engine::ExecutionContext;
 use crate::error::Result;
+use crate::spec::OperationSpec;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 
+/// Adapter for instrument operations.
+pub struct InstrumentAdapter;
+
+impl ScenarioAdapter for InstrumentAdapter {
+    fn try_generate_effects(
+        &self,
+        op: &OperationSpec,
+        _ctx: &ExecutionContext,
+    ) -> Result<Option<Vec<ScenarioEffect>>> {
+        match op {
+            OperationSpec::InstrumentPricePctByType {
+                instrument_types,
+                pct,
+            } => Ok(Some(vec![ScenarioEffect::InstrumentPriceShock {
+                types: Some(instrument_types.clone()),
+                attrs: None,
+                pct: *pct,
+            }])),
+            OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
+                Ok(Some(vec![ScenarioEffect::InstrumentPriceShock {
+                    types: None,
+                    attrs: Some(attrs.clone()),
+                    pct: *pct,
+                }]))
+            }
+            OperationSpec::InstrumentSpreadBpByType {
+                instrument_types,
+                bp,
+            } => Ok(Some(vec![ScenarioEffect::InstrumentSpreadShock {
+                types: Some(instrument_types.clone()),
+                attrs: None,
+                bp: *bp,
+            }])),
+            OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => {
+                Ok(Some(vec![ScenarioEffect::InstrumentSpreadShock {
+                    types: None,
+                    attrs: Some(attrs.clone()),
+                    bp: *bp,
+                }]))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
 /// Apply a percentage price shock to instruments matching the provided types.
-///
-/// # Arguments
-/// - `instruments`: Slice of instrument trait objects to mutate.
-/// - `instrument_types`: Instrument types that should receive the shock.
-/// - `pct`: Percentage change (e.g., -3.0 for -3% price shock).
-///
-/// # Returns
-/// [`Result`](crate::error::Result) containing the number of instruments that
-/// were updated.
-///
-/// # Pricing Effect
-///
-/// When the instrument supports `pricing_overrides_mut()`, the shock is applied
-/// to the `scenario_price_shock_pct` field, which affects actual pricing:
-/// - New price = Base price × (1 + shock_pct/100)
-///
-/// For instruments without pricing override support, the shock is stored as
-/// metadata for downstream processing.
-///
-/// # Examples
-/// ```rust
-/// use finstack_scenarios::adapters::instruments::apply_instrument_type_price_shock;
-/// use finstack_valuations::instruments::common::traits::Instrument;
-/// use finstack_valuations::pricer::InstrumentType;
-///
-/// fn run(mut instruments: Vec<Box<dyn Instrument>>) -> finstack_scenarios::Result<usize> {
-///     apply_instrument_type_price_shock(&mut instruments, &[InstrumentType::Bond], -3.0)
-/// }
-/// ```
 pub fn apply_instrument_type_price_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],
@@ -70,35 +89,6 @@ pub fn apply_instrument_type_price_shock(
 }
 
 /// Apply a spread shock (basis points) to instruments matching the provided types.
-///
-/// # Arguments
-/// - `instruments`: Slice of instrument trait objects to mutate.
-/// - `instrument_types`: Instrument types that should receive the spread shock.
-/// - `bp`: Basis-point change (e.g., 25.0 for +25bp spread widening).
-///
-/// # Returns
-/// [`Result`](crate::error::Result) containing the number of instruments that
-/// were updated.
-///
-/// # Pricing Effect
-///
-/// When the instrument supports `pricing_overrides_mut()`, the shock is applied
-/// to the `scenario_spread_shock_bp` field, which affects actual pricing:
-/// - New spread = Base spread + shock_bp
-///
-/// For instruments without pricing override support, the shock is stored as
-/// metadata for downstream processing.
-///
-/// # Examples
-/// ```rust
-/// use finstack_scenarios::adapters::instruments::apply_instrument_type_spread_shock;
-/// use finstack_valuations::instruments::common::traits::Instrument;
-/// use finstack_valuations::pricer::InstrumentType;
-///
-/// fn run(mut instruments: Vec<Box<dyn Instrument>>) -> finstack_scenarios::Result<usize> {
-///     apply_instrument_type_spread_shock(&mut instruments, &[InstrumentType::CDS], 25.0)
-/// }
-/// ```
 pub fn apply_instrument_type_spread_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],
@@ -129,17 +119,6 @@ pub fn apply_instrument_type_spread_shock(
 }
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
-///
-/// **Note**: Partial implementation (Phase A). Currently returns a warning indicating
-/// not implemented, without modifying instruments.
-///
-/// # Arguments
-/// - `_instruments`: Slice of instrument trait objects (unused in Phase A).
-/// - `attrs`: Attribute key-value pairs to match.
-/// - `_pct`: Percentage change (unused in Phase A).
-///
-/// # Returns
-/// `Ok(warnings)` containing the not-implemented warning.
 pub fn apply_instrument_attr_price_shock(
     _instruments: &mut [Box<dyn Instrument>],
     attrs: &indexmap::IndexMap<String, String>,
@@ -152,17 +131,6 @@ pub fn apply_instrument_attr_price_shock(
 }
 
 /// Apply a spread shock to instruments matching the provided attributes.
-///
-/// **Note**: Partial implementation (Phase A). Currently returns a warning indicating
-/// not implemented, without modifying instruments.
-///
-/// # Arguments
-/// - `_instruments`: Slice of instrument trait objects (unused in Phase A).
-/// - `attrs`: Attribute key-value pairs to match.
-/// - `_bp`: Basis-point change (unused in Phase A).
-///
-/// # Returns
-/// `Ok(warnings)` containing the not-implemented warning.
 pub fn apply_instrument_attr_spread_shock(
     _instruments: &mut [Box<dyn Instrument>],
     attrs: &indexmap::IndexMap<String, String>,
