@@ -54,8 +54,8 @@ jobs:
       - name: Clean debug artifacts before tests
         run: cargo clean
 
-      # - name: Run tests (release mode for smaller binaries)
-      #   run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
+      - name: Run tests (release mode for smaller binaries)
+        run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
 
   sonarcloud:
     name: SonarCloud Scan
