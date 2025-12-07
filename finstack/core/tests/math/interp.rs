@@ -129,13 +129,13 @@ macro_rules! interp_basic_tests {
             }
 
             #[test]
-            #[should_panic(expected = "assertion")]
             fn rejects_mismatched_lengths() {
-                let _ = $constructor(
+                let result = $constructor(
                     vec![0.0, 1.0, 2.0].into_boxed_slice(),
                     vec![1.0, 0.95].into_boxed_slice(),
                     ExtrapolationPolicy::default(),
                 );
+                assert!(result.is_err(), "Should reject mismatched lengths");
             }
 
             #[test]

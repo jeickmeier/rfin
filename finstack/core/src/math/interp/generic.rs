@@ -73,9 +73,10 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
-        debug_assert_eq!(knots.len(), values.len());
-
         // Centralized validation
+        if knots.len() != values.len() {
+            return Err(InputError::DimensionMismatch.into());
+        }
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
@@ -116,9 +117,10 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
-        debug_assert_eq!(knots.len(), values.len());
-
         // Validate knots but NOT values (allow negative rates)
+        if knots.len() != values.len() {
+            return Err(InputError::DimensionMismatch.into());
+        }
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
