@@ -9,7 +9,7 @@ import globals from 'globals';
 export default [
   // Base recommended configs
   js.configs.recommended,
-  
+
   // Global ignores
   {
     ignores: [
@@ -17,11 +17,13 @@ export default [
       'pkg/**',
       'pkg-node/**',
       'dist/**',
+      '**/dist/**',
       'build/**',
+      '**/build/**',
       '**/*.d.ts',
     ],
   },
-  
+
   // TypeScript files configuration
   {
     files: ['**/*.{ts,tsx}'],
@@ -80,7 +82,7 @@ export default [
       'prefer-template': 'error',
     },
   },
-  
+
   // JavaScript/JSX files configuration
   {
     files: ['**/*.{js,jsx}'],
@@ -126,10 +128,13 @@ export default [
       'prefer-template': 'error',
     },
   },
-  
+
   // Examples directory overrides
   {
-    files: ['examples/**/*.{js,jsx,ts,tsx}'],
+    files: ['examples/**/*.{ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
@@ -139,16 +144,35 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'warn',
     },
   },
-  
-  // Test files overrides
   {
-    files: ['**/*.test.{js,jsx,ts,tsx}', '**/*.spec.{js,jsx,ts,tsx}'],
+    files: ['examples/**/*.{js,jsx}'],
+    rules: {
+      'no-console': 'off',
+      'prefer-template': 'warn',
+      'object-shorthand': 'warn',
+      'react/no-unescaped-entities': 'warn',
+    },
+  },
+
+  // Test files overrides (TypeScript)
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-  
+  // Test files overrides (JavaScript)
+  {
+    files: ['**/*.test.{js,jsx}', '**/*.spec.{js,jsx}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // Prettier config (must be last to override other rules)
   prettierConfig,
 ];

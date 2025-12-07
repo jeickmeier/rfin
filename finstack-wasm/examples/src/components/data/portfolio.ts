@@ -155,4 +155,3 @@ export const DEFAULT_PORTFOLIO_PROPS: PortfolioExampleProps = {
   portfolio: DEFAULT_PORTFOLIO_CONFIG,
   discountCurve: DEFAULT_PORTFOLIO_DISCOUNT_CURVE,
 };
-

@@ -2,11 +2,7 @@
  * Structured credit instruments fixture data.
  */
 
-import {
-  DiscountCurveData,
-  DateData,
-  DEFAULT_VALUATION_DATE,
-} from './market-data';
+import { DiscountCurveData, DateData, DEFAULT_VALUATION_DATE } from './market-data';
 
 // Hazard curve for structured credit
 export interface StructuredCreditHazardData {

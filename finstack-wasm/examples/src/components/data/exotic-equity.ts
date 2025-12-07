@@ -239,4 +239,3 @@ export const DEFAULT_EXOTIC_EQUITY_PROPS: ExoticEquityOptionsProps = {
   lookbackOptions: DEFAULT_LOOKBACK_OPTIONS,
   cliquetOptions: DEFAULT_CLIQUET_OPTIONS,
 };
-

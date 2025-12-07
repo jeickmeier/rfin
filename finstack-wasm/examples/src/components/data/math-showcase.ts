@@ -120,4 +120,3 @@ export const DEFAULT_MATH_SHOWCASE_PROPS: MathShowcaseProps = {
   solverExamples: DEFAULT_SOLVER_EXAMPLES,
   distributionExamples: DEFAULT_DISTRIBUTION_EXAMPLES,
 };
-

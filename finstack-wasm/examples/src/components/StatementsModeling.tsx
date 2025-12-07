@@ -523,9 +523,7 @@ export default function StatementsModeling() {
                 <tr>
                   <th>Metric</th>
                   {results[0] &&
-                    Object.keys(results[0].periods).map((period) => (
-                      <th key={period}>{period}</th>
-                    ))}
+                    Object.keys(results[0].periods).map((period) => <th key={period}>{period}</th>)}
                 </tr>
               </thead>
               <tbody>

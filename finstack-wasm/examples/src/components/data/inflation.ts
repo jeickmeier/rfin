@@ -93,4 +93,3 @@ export const DEFAULT_INFLATION_PROPS: InflationInstrumentsProps = {
   bonds: DEFAULT_INFLATION_BONDS,
   swaps: DEFAULT_INFLATION_SWAPS,
 };
-

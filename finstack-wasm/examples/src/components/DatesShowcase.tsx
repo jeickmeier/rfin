@@ -42,6 +42,14 @@ import {
   DEFAULT_IMM_DATES,
 } from './data/dates-showcase';
 
+type RequiredDateConstructionProps = Required<DateConstructionProps>;
+type RequiredDateUtilitiesProps = Required<DateUtilitiesProps>;
+type RequiredCalendarExampleProps = Required<CalendarExampleProps>;
+type RequiredDayCountExampleProps = Required<DayCountExampleProps>;
+type RequiredScheduleBuilderExampleProps = Required<ScheduleBuilderExampleProps>;
+type RequiredPeriodPlansExampleProps = Required<PeriodPlansExampleProps>;
+type RequiredIMMDatesExampleProps = Required<IMMDatesExampleProps>;
+
 const toIso = (date: FsDate) => {
   const month = String(date.month).padStart(2, '0');
   const day = String(date.day).padStart(2, '0');
@@ -50,10 +58,8 @@ const toIso = (date: FsDate) => {
 
 // 1. Date Construction & Manipulation Example
 export const DateConstructionExample: React.FC<DateConstructionProps> = (props) => {
-  const {
-    exampleDate = DEFAULT_DATE_CONSTRUCTION.exampleDate!,
-    weekdaysToAdd = DEFAULT_DATE_CONSTRUCTION.weekdaysToAdd!,
-  } = props;
+  const defaults = DEFAULT_DATE_CONSTRUCTION as RequiredDateConstructionProps;
+  const { exampleDate = defaults.exampleDate, weekdaysToAdd = defaults.weekdaysToAdd } = props;
 
   const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
   const [error, setError] = useState<string | null>(null);
@@ -108,10 +114,8 @@ export const DateConstructionExample: React.FC<DateConstructionProps> = (props) 
 
 // 2. Date Utilities Example
 export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
-  const {
-    baseDate = DEFAULT_DATE_UTILITIES.baseDate!,
-    monthsToAdd = DEFAULT_DATE_UTILITIES.monthsToAdd!,
-  } = props;
+  const defaults = DEFAULT_DATE_UTILITIES as RequiredDateUtilitiesProps;
+  const { baseDate = defaults.baseDate, monthsToAdd = defaults.monthsToAdd } = props;
 
   const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
   const [error, setError] = useState<string | null>(null);
@@ -180,10 +184,11 @@ export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
 
 // 3. Calendar & Business Day Adjustments
 export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
+  const defaults = DEFAULT_CALENDAR_EXAMPLE as RequiredCalendarExampleProps;
   const {
-    saturdayDate = DEFAULT_CALENDAR_EXAMPLE.saturdayDate!,
-    holidayDate = DEFAULT_CALENDAR_EXAMPLE.holidayDate!,
-    calendarCodes = DEFAULT_CALENDAR_EXAMPLE.calendarCodes!,
+    saturdayDate = defaults.saturdayDate,
+    holidayDate = defaults.holidayDate,
+    calendarCodes = defaults.calendarCodes,
   } = props;
 
   const [data, setData] = useState<{ [key: string]: string | boolean }>({});
@@ -264,10 +269,11 @@ export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
 
 // 4. Day Count Conventions
 export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
+  const defaults = DEFAULT_DAY_COUNT_EXAMPLE as RequiredDayCountExampleProps;
   const {
-    startDate = DEFAULT_DAY_COUNT_EXAMPLE.startDate!,
-    endDate = DEFAULT_DAY_COUNT_EXAMPLE.endDate!,
-    calendarCode = DEFAULT_DAY_COUNT_EXAMPLE.calendarCode!,
+    startDate = defaults.startDate,
+    endDate = defaults.endDate,
+    calendarCode = defaults.calendarCode,
   } = props;
 
   const [data, setData] = useState<{ [key: string]: string }>({});
@@ -343,12 +349,13 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
 
 // 5. Schedule Builder Examples
 export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (props) => {
+  const defaults = DEFAULT_SCHEDULE_BUILDER as RequiredScheduleBuilderExampleProps;
   const {
-    startDate = DEFAULT_SCHEDULE_BUILDER.startDate!,
-    endDate = DEFAULT_SCHEDULE_BUILDER.endDate!,
-    cdsStartDate = DEFAULT_SCHEDULE_BUILDER.cdsStartDate!,
-    cdsEndDate = DEFAULT_SCHEDULE_BUILDER.cdsEndDate!,
-    calendarCode = DEFAULT_SCHEDULE_BUILDER.calendarCode!,
+    startDate = defaults.startDate,
+    endDate = defaults.endDate,
+    cdsStartDate = defaults.cdsStartDate,
+    cdsEndDate = defaults.cdsEndDate,
+    calendarCode = defaults.calendarCode,
   } = props;
 
   const [schedules, setSchedules] = useState<{ [key: string]: string[] }>({});
@@ -446,10 +453,11 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
 
 // 6. Period Plans (Calendar & Fiscal)
 export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => {
+  const defaults = DEFAULT_PERIOD_PLANS as RequiredPeriodPlansExampleProps;
   const {
-    calendarPeriodRange = DEFAULT_PERIOD_PLANS.calendarPeriodRange!,
-    calendarActualsThrough = DEFAULT_PERIOD_PLANS.calendarActualsThrough!,
-    fiscalPeriodRange = DEFAULT_PERIOD_PLANS.fiscalPeriodRange!,
+    calendarPeriodRange = defaults.calendarPeriodRange,
+    calendarActualsThrough = defaults.calendarActualsThrough,
+    fiscalPeriodRange = defaults.fiscalPeriodRange,
   } = props;
 
   const [data, setData] = useState<{
@@ -554,10 +562,11 @@ export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => 
 
 // 7. IMM Dates & Option Expiries
 export const IMMDatesExample: React.FC<IMMDatesExampleProps> = (props) => {
+  const defaults = DEFAULT_IMM_DATES as RequiredIMMDatesExampleProps;
   const {
-    referenceDate = DEFAULT_IMM_DATES.referenceDate!,
-    immYears = DEFAULT_IMM_DATES.immYears!,
-    immMonths = DEFAULT_IMM_DATES.immMonths!,
+    referenceDate = defaults.referenceDate,
+    immYears = defaults.immYears,
+    immMonths = defaults.immMonths,
   } = props;
 
   const [data, setData] = useState<{ [key: string]: string }>({});

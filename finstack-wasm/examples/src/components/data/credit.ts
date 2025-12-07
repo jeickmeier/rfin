@@ -68,7 +68,8 @@ export interface CdsTrancheData {
   maturityDate: DateData;
   spreadBps: number;
   discountCurveId: string;
-  hazardCurveId: string;
+  /** Credit index ID - must match the indexFamily used in market.insertCreditIndex() */
+  creditIndexId: string;
   direction: 'buy_protection' | 'sell_protection';
   frequency: number;
 }
@@ -106,7 +107,15 @@ export interface RevolvingCreditData {
   };
   drawRepaySpec:
     | { Deterministic: Array<{ date: string; amount: MoneyData; is_draw: boolean }> }
-    | { Stochastic: { utilization_process: { MeanReverting: { target_rate: number; speed: number; volatility: number } }; num_paths: number; seed: number } };
+    | {
+        Stochastic: {
+          utilization_process: {
+            MeanReverting: { target_rate: number; speed: number; volatility: number };
+          };
+          num_paths: number;
+          seed: number;
+        };
+      };
   discountCurveId: string;
 }
 
@@ -157,10 +166,11 @@ export const DEFAULT_HAZARD_CURVES: HazardCurveData[] = [
 ];
 
 // Default base correlation curve
+// Note: attachment points are in PERCENTAGE format (3.0 = 3%), matching Rust internals
 export const DEFAULT_BASE_CORRELATION: BaseCorrelationData = {
   id: 'CDX-IG-BC',
-  attachmentPoints: [0.03, 0.06, 0.1, 0.3, 0.7, 1],
-  correlations: [0.1, 0.12, 0.15, 0.2, 0.23, 0.25],
+  attachmentPoints: [3, 7, 10, 15, 30, 100], // Percentage format: 3%, 7%, 10%, 15%, 30%, 100%
+  correlations: [0.25, 0.45, 0.6, 0.75, 0.85, 0.95], // Realistic correlations for CDX.NA.IG
 };
 
 // Default CDS volatility surface
@@ -217,13 +227,13 @@ export const DEFAULT_CDS_TRANCHES: CdsTrancheData[] = [
     id: 'cdx_mez_tranche',
     indexFamily: 'CDX.NA.IG',
     series: 42,
-    attachmentPoint: 3,
-    detachmentPoint: 7,
+    attachmentPoint: 3, // 3% as percentage value
+    detachmentPoint: 7, // 7% as percentage value
     notional: { amount: 10_000_000, currency: 'USD' },
     maturityDate: { year: 2029, month: 1, day: 2 },
     spreadBps: 500,
     discountCurveId: 'USD-OIS',
-    hazardCurveId: 'CDX-IG-HZD',
+    creditIndexId: 'CDX.NA.IG', // Must match the key used in market.insertCreditIndex()
     direction: 'buy_protection',
     frequency: 4,
   },

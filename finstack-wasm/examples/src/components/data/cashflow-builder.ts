@@ -141,7 +141,8 @@ export const DEFAULT_CASHFLOW_EXAMPLES: CashflowExampleData[] = [
   },
   {
     title: 'Floating Rate Note - With Forward Rates (Market Curves)',
-    description: 'Uses forward_rate × gearing + margin: coupon = outstanding × (fwd_rate + 0.0150) × yf',
+    description:
+      'Uses forward_rate × gearing + margin: coupon = outstanding × (fwd_rate + 0.0150) × yf',
     notional: DEFAULT_NOTIONAL,
     issueDate: DEFAULT_ISSUE,
     maturityDate: DEFAULT_MATURITY,
@@ -207,4 +208,3 @@ export const DEFAULT_CASHFLOW_EXAMPLES: CashflowExampleData[] = [
 export const DEFAULT_CASHFLOW_BUILDER_PROPS: CashflowBuilderProps = {
   examples: DEFAULT_CASHFLOW_EXAMPLES,
 };
-

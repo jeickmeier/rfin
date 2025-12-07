@@ -215,4 +215,3 @@ export const DEFAULT_EXOTIC_FX_PROPS: ExoticFxDerivativesProps = {
   fxBarrierOptions: DEFAULT_FX_BARRIER_OPTIONS,
   quantoOptions: DEFAULT_QUANTO_OPTIONS,
 };
-

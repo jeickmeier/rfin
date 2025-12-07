@@ -13,10 +13,9 @@ import {
   DiscountCurve,
   ForwardCurve,
 } from 'finstack-wasm';
-import {
-  CashflowBuilderProps,
-  DEFAULT_CASHFLOW_BUILDER_PROPS,
-} from './data/cashflow-builder';
+import { CashflowBuilderProps, DEFAULT_CASHFLOW_BUILDER_PROPS } from './data/cashflow-builder';
+
+type RequiredCashflowBuilderProps = Required<CashflowBuilderProps>;
 
 interface ExampleSchedule {
   title: string;
@@ -61,7 +60,9 @@ function buildCouponType(data: { type: string; cashPct?: number; pikPct?: number
 }
 
 export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) => {
-  const { examples = DEFAULT_CASHFLOW_BUILDER_PROPS.examples! } = props;
+  // Merge with defaults - DEFAULT_CASHFLOW_BUILDER_PROPS always has these values defined
+  const defaults = DEFAULT_CASHFLOW_BUILDER_PROPS as RequiredCashflowBuilderProps;
+  const { examples = defaults.examples } = props;
 
   const [schedules, setSchedules] = useState<ExampleSchedule[]>([]);
   const [error, setError] = useState<string | null>(null);

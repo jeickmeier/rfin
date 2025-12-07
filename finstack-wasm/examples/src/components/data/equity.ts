@@ -44,10 +44,22 @@ export const DEFAULT_EQUITY_VOL_SURFACE: VolSurfaceData = {
   strikes: [120.0, 140.0, 160.0, 180.0],
   // Flattened grid (row-major): 4 expiries x 4 strikes = 16 values
   vols: [
-    0.28, 0.26, 0.25, 0.24, // 3M expiry
-    0.27, 0.25, 0.24, 0.23, // 6M expiry
-    0.26, 0.24, 0.23, 0.22, // 1Y expiry
-    0.25, 0.23, 0.22, 0.21, // 2Y expiry
+    0.28,
+    0.26,
+    0.25,
+    0.24, // 3M expiry
+    0.27,
+    0.25,
+    0.24,
+    0.23, // 6M expiry
+    0.26,
+    0.24,
+    0.23,
+    0.22, // 1Y expiry
+    0.25,
+    0.23,
+    0.22,
+    0.21, // 2Y expiry
   ],
 };
 
@@ -102,4 +114,3 @@ export const DEFAULT_EQUITY_PROPS: EquityInstrumentsProps = {
   positions: DEFAULT_EQUITY_POSITIONS,
   options: DEFAULT_EQUITY_OPTIONS,
 };
-

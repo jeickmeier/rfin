@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { CashFlow, Money, FsDate } from 'finstack-wasm';
 import { CashflowBasicsProps, DEFAULT_CASHFLOW_PROPS } from './data/cashflows';
 
+type RequiredCashflowBasicsProps = Required<CashflowBasicsProps>;
+
 interface CashflowRow {
   label: string;
   kind: string;
@@ -39,8 +41,9 @@ const asDisplayMoney = (money: Money): string => money.format();
 const asAccrual = (value: number): string => `${value.toFixed(4)}`;
 
 export const CashflowBasicsExample: React.FC<CashflowBasicsProps> = (props) => {
-  // Merge with defaults
-  const { cashflows = DEFAULT_CASHFLOW_PROPS.cashflows! } = props;
+  // Merge with defaults - DEFAULT_CASHFLOW_PROPS always has these values defined
+  const defaults = DEFAULT_CASHFLOW_PROPS as RequiredCashflowBasicsProps;
+  const { cashflows = defaults.cashflows } = props;
 
   const [state, setState] = useState<CashflowState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,12 +63,13 @@ export const CashflowBasicsExample: React.FC<CashflowBasicsProps> = (props) => {
             case 'fixed':
               flow = CashFlow.fixed(date, money, cfData.accrualFactor ?? 0.25);
               break;
-            case 'floating':
+            case 'floating': {
               const resetDate = cfData.resetDate
                 ? new FsDate(cfData.resetDate.year, cfData.resetDate.month, cfData.resetDate.day)
                 : date;
               flow = CashFlow.floating(date, money, resetDate, cfData.accrualFactor ?? 0.25);
               break;
+            }
             case 'fee':
               flow = CashFlow.fee(date, money);
               break;

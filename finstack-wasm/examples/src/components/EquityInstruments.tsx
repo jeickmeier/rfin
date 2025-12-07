@@ -14,6 +14,8 @@ import {
 } from 'finstack-wasm';
 import { EquityInstrumentsProps, DEFAULT_EQUITY_PROPS } from './data/equity';
 
+type RequiredEquityInstrumentsProps = Required<EquityInstrumentsProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -29,14 +31,15 @@ type InstrumentRow = {
 };
 
 export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props) => {
-  // Merge with defaults
+  // Merge with defaults - DEFAULT_EQUITY_PROPS always has these values defined
+  const defaults = DEFAULT_EQUITY_PROPS as RequiredEquityInstrumentsProps;
   const {
-    valuationDate = DEFAULT_EQUITY_PROPS.valuationDate!,
-    discountCurve = DEFAULT_EQUITY_PROPS.discountCurve!,
-    volSurface = DEFAULT_EQUITY_PROPS.volSurface!,
-    marketData = DEFAULT_EQUITY_PROPS.marketData!,
-    positions = DEFAULT_EQUITY_PROPS.positions!,
-    options = DEFAULT_EQUITY_PROPS.options!,
+    valuationDate = defaults.valuationDate,
+    discountCurve = defaults.discountCurve,
+    volSurface = defaults.volSurface,
+    marketData = defaults.marketData,
+    positions = defaults.positions,
+    options = defaults.options,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);
@@ -105,7 +108,11 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
         // Process options
         for (const opt of options) {
-          const expiryDate = new FsDate(opt.expiryDate.year, opt.expiryDate.month, opt.expiryDate.day);
+          const expiryDate = new FsDate(
+            opt.expiryDate.year,
+            opt.expiryDate.month,
+            opt.expiryDate.day
+          );
           const spotPrice = Money.fromCode(opt.spotPrice.amount, opt.spotPrice.currency);
 
           const option =
@@ -132,9 +139,7 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           const optResult = registry.priceEquityOption(option, 'discounting', market, asOf, opts);
 
           const tenorDesc =
-            opt.expiryDate.month === 12
-              ? '1Y'
-              : `${opt.expiryDate.month - valuationDate.month}M`;
+            opt.expiryDate.month === 12 ? '1Y' : `${opt.expiryDate.month - valuationDate.month}M`;
 
           results.push({
             name: `${opt.ticker} ${opt.optionType === 'call' ? 'Call' : 'Put'} @ $${opt.strike} (${tenorDesc})`,

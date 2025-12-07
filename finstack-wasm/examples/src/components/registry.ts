@@ -60,7 +60,6 @@ import { DEFAULT_MATH_SHOWCASE_PROPS } from './data/math-showcase';
 import { DEFAULT_MONTE_CARLO_PROPS } from './data/monte-carlo';
 import { DEFAULT_PORTFOLIO_PROPS } from './data/portfolio';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ExampleDefinition<P = any> = {
   slug: string;
   title: string;

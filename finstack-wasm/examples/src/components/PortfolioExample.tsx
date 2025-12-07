@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import * as finstack from 'finstack-wasm';
 import { PortfolioExampleProps, DEFAULT_PORTFOLIO_PROPS } from './data/portfolio';
 
+type RequiredPortfolioExampleProps = Required<PortfolioExampleProps>;
+
 /**
  * Portfolio Example Component
  *
@@ -13,14 +15,15 @@ import { PortfolioExampleProps, DEFAULT_PORTFOLIO_PROPS } from './data/portfolio
  * - Grouping by attributes
  */
 export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
+  const defaults = DEFAULT_PORTFOLIO_PROPS as RequiredPortfolioExampleProps;
   const {
-    valuationDate = DEFAULT_PORTFOLIO_PROPS.valuationDate!,
-    entities = DEFAULT_PORTFOLIO_PROPS.entities!,
-    bonds = DEFAULT_PORTFOLIO_PROPS.bonds!,
-    deposits = DEFAULT_PORTFOLIO_PROPS.deposits!,
-    positions = DEFAULT_PORTFOLIO_PROPS.positions!,
-    portfolio = DEFAULT_PORTFOLIO_PROPS.portfolio!,
-    discountCurve = DEFAULT_PORTFOLIO_PROPS.discountCurve!,
+    valuationDate = defaults.valuationDate,
+    entities = defaults.entities,
+    bonds = defaults.bonds,
+    deposits = defaults.deposits,
+    positions = defaults.positions,
+    portfolio = defaults.portfolio,
+    discountCurve = defaults.discountCurve,
   } = props;
 
   const [output, setOutput] = useState<string>('Click "Run Example" to execute');
@@ -59,10 +62,21 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
       for (const bondData of bonds) {
         const bond = finstack.Bond.fixedSemiannual(
           bondData.id,
-          new finstack.Money(bondData.notional.amount, new finstack.Currency(bondData.notional.currency)),
+          new finstack.Money(
+            bondData.notional.amount,
+            new finstack.Currency(bondData.notional.currency)
+          ),
           bondData.couponRate,
-          new finstack.FsDate(bondData.issueDate.year, bondData.issueDate.month, bondData.issueDate.day),
-          new finstack.FsDate(bondData.maturityDate.year, bondData.maturityDate.month, bondData.maturityDate.day),
+          new finstack.FsDate(
+            bondData.issueDate.year,
+            bondData.issueDate.month,
+            bondData.issueDate.day
+          ),
+          new finstack.FsDate(
+            bondData.maturityDate.year,
+            bondData.maturityDate.month,
+            bondData.maturityDate.day
+          ),
           bondData.discountCurveId
         );
         bondMap.set(bondData.id, bond);
@@ -74,9 +88,20 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
       for (const depositData of deposits) {
         const deposit = new finstack.Deposit(
           depositData.id,
-          new finstack.Money(depositData.notional.amount, new finstack.Currency(depositData.notional.currency)),
-          new finstack.FsDate(depositData.startDate.year, depositData.startDate.month, depositData.startDate.day),
-          new finstack.FsDate(depositData.endDate.year, depositData.endDate.month, depositData.endDate.day),
+          new finstack.Money(
+            depositData.notional.amount,
+            new finstack.Currency(depositData.notional.currency)
+          ),
+          new finstack.FsDate(
+            depositData.startDate.year,
+            depositData.startDate.month,
+            depositData.startDate.day
+          ),
+          new finstack.FsDate(
+            depositData.endDate.year,
+            depositData.endDate.month,
+            depositData.endDate.day
+          ),
           finstack.DayCount.act360(),
           depositData.discountCurveId,
           depositData.quoteRate
@@ -102,7 +127,9 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
             posData.entityId,
             bond,
             posData.quantity,
-            posData.unit === 'units' ? finstack.JsPositionUnit.UNITS : finstack.JsPositionUnit.notional()
+            posData.unit === 'units'
+              ? finstack.JsPositionUnit.UNITS
+              : finstack.JsPositionUnit.notional()
           );
         } else {
           const deposit = depositMap.get(posData.instrumentRef);
@@ -114,7 +141,9 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
             posData.entityId,
             deposit,
             posData.quantity,
-            posData.unit === 'units' ? finstack.JsPositionUnit.UNITS : finstack.JsPositionUnit.notional()
+            posData.unit === 'units'
+              ? finstack.JsPositionUnit.UNITS
+              : finstack.JsPositionUnit.notional()
           );
         }
 
@@ -210,7 +239,9 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
       for (const entityData of entities) {
         const entityValue = valuation.getEntityValue(entityData.id);
         if (entityValue) {
-          addLog(`    ${entityData.name}: ${entityValue.amount.toFixed(2)} ${entityValue.currency.code}`);
+          addLog(
+            `    ${entityData.name}: ${entityValue.amount.toFixed(2)} ${entityValue.currency.code}`
+          );
         }
       }
 

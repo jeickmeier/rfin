@@ -2,10 +2,7 @@
  * Bond instruments fixture data.
  */
 
-import {
-  DiscountCurveData,
-  ForwardCurveData,
-} from './market-data';
+import { DiscountCurveData, ForwardCurveData } from './market-data';
 
 export interface BondData {
   id: string;
@@ -19,9 +16,19 @@ export interface BondData {
     | { type: 'fixed'; couponRate: number }
     | { type: 'zero' }
     | { type: 'floating'; forwardCurveId: string; marginBps: number }
-    | { type: 'amortizing'; couponRate: number; finalNotional: { amount: number; currency: string } }
+    | {
+        type: 'amortizing';
+        couponRate: number;
+        finalNotional: { amount: number; currency: string };
+      }
     | { type: 'callable'; couponRate: number; callSchedule: Array<[string, number]> }
-    | { type: 'fixedToFloating'; fixedRate: number; switchDate: { year: number; month: number; day: number }; forwardCurveId: string; marginBps: number }
+    | {
+        type: 'fixedToFloating';
+        fixedRate: number;
+        switchDate: { year: number; month: number; day: number };
+        forwardCurveId: string;
+        marginBps: number;
+      }
     | { type: 'pikToggle'; couponRate: number; cashPct: number; pikPct: number };
 }
 

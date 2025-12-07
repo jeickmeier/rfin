@@ -51,4 +51,3 @@ export const DEFAULT_DEPOSIT_PROPS: DepositValuationProps = {
   deposit: DEFAULT_DEPOSIT,
   discountCurve: DEFAULT_DEPOSIT_DISCOUNT_CURVE,
 };
-

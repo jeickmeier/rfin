@@ -11,6 +11,8 @@ import {
 } from 'finstack-wasm';
 import { MathShowcaseProps, DEFAULT_MATH_SHOWCASE_PROPS } from './data/math-showcase';
 
+type RequiredMathShowcaseProps = Required<MathShowcaseProps>;
+
 interface IntegrationRow {
   label: string;
   value: number;
@@ -46,10 +48,11 @@ const formatNumber = (value: number): string => {
 };
 
 export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
+  const defaults = DEFAULT_MATH_SHOWCASE_PROPS as RequiredMathShowcaseProps;
   const {
-    integrationExamples = DEFAULT_MATH_SHOWCASE_PROPS.integrationExamples!,
-    solverExamples = DEFAULT_MATH_SHOWCASE_PROPS.solverExamples!,
-    distributionExamples = DEFAULT_MATH_SHOWCASE_PROPS.distributionExamples!,
+    integrationExamples = defaults.integrationExamples,
+    solverExamples = defaults.solverExamples,
+    distributionExamples = defaults.distributionExamples,
   } = props;
 
   const [state, setState] = useState<MathShowcaseState | null>(null);

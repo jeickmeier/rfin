@@ -2,8 +2,6 @@
  * Statements modeling fixture data.
  */
 
- 
-
 // Node value specification
 export interface NodeValueData {
   nodeId: string;
@@ -70,9 +68,7 @@ export const FORECAST_DEMO_MODEL: StatementsModelData = {
     { nodeId: 'revenue', type: 'growth', value: 0.05 },
     { nodeId: 'expenses', type: 'curve', value: [0.02, 0.03, 0.04] },
   ],
-  formulas: [
-    { nodeId: 'net_income', formula: 'revenue - expenses' },
-  ],
+  formulas: [{ nodeId: 'net_income', formula: 'revenue - expenses' }],
 };
 
 // Complete example model

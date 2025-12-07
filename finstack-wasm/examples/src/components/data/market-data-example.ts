@@ -85,4 +85,3 @@ export const DEFAULT_MARKET_DATA_EXAMPLE_PROPS: MarketDataExampleProps = {
   equityPrice: DEFAULT_EQUITY_PRICE,
   cpiLookupDate: DEFAULT_CPI_LOOKUP_DATE,
 };
-

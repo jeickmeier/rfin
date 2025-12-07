@@ -2,7 +2,13 @@
  * Exotic rates derivatives fixture data.
  */
 
-import { DateData, DiscountCurveData, ForwardCurveData, VolSurfaceData, MoneyData } from './market-data';
+import {
+  DateData,
+  DiscountCurveData,
+  ForwardCurveData,
+  VolSurfaceData,
+  MoneyData,
+} from './market-data';
 
 // CMS option JSON data
 export interface CmsOptionJsonData {
@@ -179,4 +185,3 @@ export const DEFAULT_EXOTIC_RATES_PROPS: ExoticRatesDerivativesProps = {
   cmsOptions: DEFAULT_CMS_OPTIONS,
   rangeAccruals: DEFAULT_RANGE_ACCRUALS,
 };
-

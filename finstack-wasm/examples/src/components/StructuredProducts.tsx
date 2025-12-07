@@ -11,7 +11,12 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
-import { StructuredProductsProps, DEFAULT_STRUCTURED_PRODUCTS_PROPS } from './data/structured-products';
+import {
+  StructuredProductsProps,
+  DEFAULT_STRUCTURED_PRODUCTS_PROPS,
+} from './data/structured-products';
+
+type RequiredStructuredProductsProps = Required<StructuredProductsProps>;
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -27,12 +32,13 @@ type InstrumentRow = {
 };
 
 export const StructuredProductsExample: React.FC<StructuredProductsProps> = (props) => {
+  const defaults = DEFAULT_STRUCTURED_PRODUCTS_PROPS as RequiredStructuredProductsProps;
   const {
-    valuationDate = DEFAULT_STRUCTURED_PRODUCTS_PROPS.valuationDate!,
-    market = DEFAULT_STRUCTURED_PRODUCTS_PROPS.market!,
-    baskets = DEFAULT_STRUCTURED_PRODUCTS_PROPS.baskets!,
-    privateMarketsFunds = DEFAULT_STRUCTURED_PRODUCTS_PROPS.privateMarketsFunds!,
-    autocallables = DEFAULT_STRUCTURED_PRODUCTS_PROPS.autocallables!,
+    valuationDate = defaults.valuationDate,
+    market = defaults.market,
+    baskets = defaults.baskets,
+    privateMarketsFunds = defaults.privateMarketsFunds,
+    autocallables = defaults.autocallables,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);

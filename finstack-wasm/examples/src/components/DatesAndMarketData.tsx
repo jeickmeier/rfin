@@ -16,6 +16,8 @@ import {
   DEFAULT_MARKET_DATA_EXAMPLE_PROPS,
 } from './data/market-data-example';
 
+type RequiredMarketDataExampleProps = Required<MarketDataExampleProps>;
+
 type MarketSnapshot = {
   discountFactor: number;
   fxRate: number;
@@ -24,13 +26,15 @@ type MarketSnapshot = {
 };
 
 export const MarketDataExample: React.FC<MarketDataExampleProps> = (props) => {
+  // Merge with defaults - DEFAULT_MARKET_DATA_EXAMPLE_PROPS always has these values defined
+  const defaults = DEFAULT_MARKET_DATA_EXAMPLE_PROPS as RequiredMarketDataExampleProps;
   const {
-    baseDate = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.baseDate!,
-    discountCurve = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.discountCurve!,
-    cpiSeries = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.cpiSeries!,
-    fxQuote = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.fxQuote!,
-    equityPrice = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.equityPrice!,
-    cpiLookupDate = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.cpiLookupDate!,
+    baseDate = defaults.baseDate,
+    discountCurve = defaults.discountCurve,
+    cpiSeries = defaults.cpiSeries,
+    fxQuote = defaults.fxQuote,
+    equityPrice = defaults.equityPrice,
+    cpiLookupDate = defaults.cpiLookupDate,
   } = props;
 
   const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);

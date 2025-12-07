@@ -97,4 +97,3 @@ export const DEFAULT_USD_SOFR_3M_CURVE: ForwardCurveData = {
 
 // Default valuation date
 export const DEFAULT_VALUATION_DATE = { year: 2024, month: 1, day: 2 };
-

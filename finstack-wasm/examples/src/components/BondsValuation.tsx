@@ -16,6 +16,8 @@ import {
 } from 'finstack-wasm';
 import { BondsValuationProps, DEFAULT_BONDS_PROPS, BondData } from './data/bonds';
 
+type RequiredBondsValuationProps = Required<BondsValuationProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -50,12 +52,13 @@ type CashflowRow = {
 const metricKeys = ['accrued', 'clean_price', 'duration_mod', 'ytm', 'z_spread'];
 
 export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
-  // Merge with defaults
+  // Merge with defaults - DEFAULT_BONDS_PROPS always has these values defined
+  const defaults = DEFAULT_BONDS_PROPS as RequiredBondsValuationProps;
   const {
-    valuationDate = DEFAULT_BONDS_PROPS.valuationDate!,
-    discountCurve = DEFAULT_BONDS_PROPS.discountCurve!,
-    forwardCurve = DEFAULT_BONDS_PROPS.forwardCurve!,
-    bonds = DEFAULT_BONDS_PROPS.bonds!,
+    valuationDate = defaults.valuationDate,
+    discountCurve = defaults.discountCurve,
+    forwardCurve = defaults.forwardCurve,
+    bonds = defaults.bonds,
   } = props;
 
   const [rows, setRows] = useState<BondRow[]>([]);
@@ -141,8 +144,16 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
 
         const buildBond = (bondData: BondData): { bond: Bond; row: BondRow } | null => {
           const notional = Money.fromCode(bondData.notional.amount, bondData.notional.currency);
-          const issue = new FsDate(bondData.issueDate.year, bondData.issueDate.month, bondData.issueDate.day);
-          const maturity = new FsDate(bondData.maturityDate.year, bondData.maturityDate.month, bondData.maturityDate.day);
+          const issue = new FsDate(
+            bondData.issueDate.year,
+            bondData.issueDate.month,
+            bondData.issueDate.day
+          );
+          const maturity = new FsDate(
+            bondData.maturityDate.year,
+            bondData.maturityDate.month,
+            bondData.maturityDate.day
+          );
 
           let bond: Bond;
           let row: BondRow;
@@ -341,7 +352,8 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
 
         // Build all bonds
         const allRows: BondRow[] = [];
-        for (const bondData of bonds) {
+        const bondsArray = [...bonds];
+        for (const bondData of bondsArray) {
           const result = buildBond(bondData);
           if (result) {
             allRows.push(result.row);

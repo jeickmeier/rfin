@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { MonteCarloPathGenerator, SimulatedPath } from 'finstack-wasm';
 import { MonteCarloPathProps, DEFAULT_MONTE_CARLO_PROPS } from './data/monte-carlo';
 
+type RequiredMonteCarloPathProps = Required<MonteCarloPathProps>;
+
 type PathStats = {
   numPathsTotal: number;
   numPathsCaptured: number;
@@ -20,10 +22,8 @@ type PathDataRow = {
 };
 
 export const MonteCarloPathExample: React.FC<MonteCarloPathProps> = (props) => {
-  const {
-    gbmParams = DEFAULT_MONTE_CARLO_PROPS.gbmParams!,
-    maxRowsToDisplay = DEFAULT_MONTE_CARLO_PROPS.maxRowsToDisplay!,
-  } = props;
+  const defaults = DEFAULT_MONTE_CARLO_PROPS as RequiredMonteCarloPathProps;
+  const { gbmParams = defaults.gbmParams, maxRowsToDisplay = defaults.maxRowsToDisplay } = props;
 
   const [stats, setStats] = useState<PathStats | null>(null);
   const [pathData, setPathData] = useState<PathDataRow[]>([]);

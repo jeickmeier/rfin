@@ -167,4 +167,3 @@ export const DEFAULT_STRUCTURED_PRODUCTS_PROPS: StructuredProductsProps = {
   privateMarketsFunds: DEFAULT_PRIVATE_MARKETS_FUNDS,
   autocallables: DEFAULT_AUTOCALLABLES,
 };
-

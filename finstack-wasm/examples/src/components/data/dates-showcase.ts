@@ -114,4 +114,3 @@ export const DEFAULT_DATES_SHOWCASE_PROPS = {
   periodPlans: DEFAULT_PERIOD_PLANS,
   immDates: DEFAULT_IMM_DATES,
 };
-

@@ -15,6 +15,8 @@ import {
 } from 'finstack-wasm';
 import { FxInstrumentsProps, DEFAULT_FX_PROPS } from './data/fx';
 
+type RequiredFxInstrumentsProps = Required<FxInstrumentsProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -30,15 +32,16 @@ type InstrumentRow = {
 };
 
 export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
-  // Merge with defaults
+  // Merge with defaults - DEFAULT_FX_PROPS always has these values defined
+  const defaults = DEFAULT_FX_PROPS as RequiredFxInstrumentsProps;
   const {
-    valuationDate = DEFAULT_FX_PROPS.valuationDate!,
-    discountCurves = DEFAULT_FX_PROPS.discountCurves!,
-    volSurface = DEFAULT_FX_PROPS.volSurface!,
-    fxQuotes = DEFAULT_FX_PROPS.fxQuotes!,
-    spots = DEFAULT_FX_PROPS.spots!,
-    options = DEFAULT_FX_PROPS.options!,
-    swaps = DEFAULT_FX_PROPS.swaps!,
+    valuationDate = defaults.valuationDate,
+    discountCurves = defaults.discountCurves,
+    volSurface = defaults.volSurface,
+    fxQuotes = defaults.fxQuotes,
+    spots = defaults.spots,
+    options = defaults.options,
+    swaps = defaults.swaps,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);
@@ -126,7 +129,11 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
         for (const opt of options) {
           const baseCcy = new Currency(opt.baseCurrency);
           const quoteCcy = new Currency(opt.quoteCurrency);
-          const expiryDate = new FsDate(opt.expiryDate.year, opt.expiryDate.month, opt.expiryDate.day);
+          const expiryDate = new FsDate(
+            opt.expiryDate.year,
+            opt.expiryDate.month,
+            opt.expiryDate.day
+          );
           const notional = Money.fromCode(opt.notional.amount, opt.notional.currency);
 
           const option =

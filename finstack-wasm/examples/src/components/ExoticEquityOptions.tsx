@@ -15,6 +15,8 @@ import {
 } from 'finstack-wasm';
 import { ExoticEquityOptionsProps, DEFAULT_EXOTIC_EQUITY_PROPS } from './data/exotic-equity';
 
+type RequiredExoticEquityOptionsProps = Required<ExoticEquityOptionsProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -30,13 +32,14 @@ type InstrumentRow = {
 };
 
 export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (props) => {
+  const defaults = DEFAULT_EXOTIC_EQUITY_PROPS as RequiredExoticEquityOptionsProps;
   const {
-    valuationDate = DEFAULT_EXOTIC_EQUITY_PROPS.valuationDate!,
-    market = DEFAULT_EXOTIC_EQUITY_PROPS.market!,
-    barrierOptions = DEFAULT_EXOTIC_EQUITY_PROPS.barrierOptions!,
-    asianOptions = DEFAULT_EXOTIC_EQUITY_PROPS.asianOptions!,
-    lookbackOptions = DEFAULT_EXOTIC_EQUITY_PROPS.lookbackOptions!,
-    cliquetOptions = DEFAULT_EXOTIC_EQUITY_PROPS.cliquetOptions!,
+    valuationDate = defaults.valuationDate,
+    market = defaults.market,
+    barrierOptions = defaults.barrierOptions,
+    asianOptions = defaults.asianOptions,
+    lookbackOptions = defaults.lookbackOptions,
+    cliquetOptions = defaults.cliquetOptions,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);
@@ -75,7 +78,10 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
 
         // Add spot prices
         for (const spot of market.spotPrices) {
-          marketCtx.insertPrice(spot.id, MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency)));
+          marketCtx.insertPrice(
+            spot.id,
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
+          );
         }
 
         // Add dividend yields
@@ -158,7 +164,8 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               null
             );
 
-            const avgMethod = opt.averagingMethod.charAt(0).toUpperCase() + opt.averagingMethod.slice(1);
+            const avgMethod =
+              opt.averagingMethod.charAt(0).toUpperCase() + opt.averagingMethod.slice(1);
             results.push({
               name: `Asian ${avgMethod} ${opt.optionType.charAt(0).toUpperCase() + opt.optionType.slice(1)}`,
               type: 'AsianOption',

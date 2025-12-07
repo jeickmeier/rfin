@@ -13,6 +13,8 @@ import {
 } from 'finstack-wasm';
 import { ExoticRatesDerivativesProps, DEFAULT_EXOTIC_RATES_PROPS } from './data/exotic-rates';
 
+type RequiredExoticRatesDerivativesProps = Required<ExoticRatesDerivativesProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -28,12 +30,13 @@ type InstrumentRow = {
 };
 
 export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps> = (props) => {
+  const defaults = DEFAULT_EXOTIC_RATES_PROPS as RequiredExoticRatesDerivativesProps;
   const {
-    valuationDate = DEFAULT_EXOTIC_RATES_PROPS.valuationDate!,
-    notional = DEFAULT_EXOTIC_RATES_PROPS.notional!,
-    market = DEFAULT_EXOTIC_RATES_PROPS.market!,
-    cmsOptions = DEFAULT_EXOTIC_RATES_PROPS.cmsOptions!,
-    rangeAccruals = DEFAULT_EXOTIC_RATES_PROPS.rangeAccruals!,
+    valuationDate = defaults.valuationDate,
+    notional = defaults.notional,
+    market = defaults.market,
+    cmsOptions = defaults.cmsOptions,
+    rangeAccruals = defaults.rangeAccruals,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);

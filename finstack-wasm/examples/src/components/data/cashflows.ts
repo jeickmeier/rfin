@@ -50,4 +50,3 @@ export const DEFAULT_CASHFLOWS: CashflowData[] = [
 export const DEFAULT_CASHFLOW_PROPS: CashflowBasicsProps = {
   cashflows: DEFAULT_CASHFLOWS,
 };
-

@@ -595,8 +595,8 @@ export const CalibrationExample: React.FC = () => {
             option/swaption quotes
           </li>
           <li>
-            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent, LevenbergMarquardt,
-            DE)
+            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent,
+            LevenbergMarquardt, DE)
           </li>
           <li>
             <strong>CalibrationConfig</strong> - Configure tolerance, iterations, parallel

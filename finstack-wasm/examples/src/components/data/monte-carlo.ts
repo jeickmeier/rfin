@@ -40,4 +40,3 @@ export const DEFAULT_MONTE_CARLO_PROPS: MonteCarloPathProps = {
   gbmParams: DEFAULT_GBM_PARAMS,
   maxRowsToDisplay: 20,
 };
-

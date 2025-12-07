@@ -8,10 +8,9 @@ import {
   Money,
   createStandardRegistry,
 } from 'finstack-wasm';
-import {
-  DepositValuationProps,
-  DEFAULT_DEPOSIT_PROPS,
-} from './data/deposits';
+import { DepositValuationProps, DEFAULT_DEPOSIT_PROPS } from './data/deposits';
+
+type RequiredDepositValuationProps = Required<DepositValuationProps>;
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -42,11 +41,12 @@ type DepositMetrics = {
 };
 
 export const DepositValuationExample: React.FC<DepositValuationProps> = (props) => {
-  // Merge with defaults
+  // Merge with defaults - DEFAULT_DEPOSIT_PROPS always has these values defined
+  const defaults = DEFAULT_DEPOSIT_PROPS as RequiredDepositValuationProps;
   const {
-    valuationDate = DEFAULT_DEPOSIT_PROPS.valuationDate!,
-    deposit = DEFAULT_DEPOSIT_PROPS.deposit!,
-    discountCurve = DEFAULT_DEPOSIT_PROPS.discountCurve!,
+    valuationDate = defaults.valuationDate,
+    deposit = defaults.deposit,
+    discountCurve = defaults.discountCurve,
   } = props;
 
   const [metrics, setMetrics] = useState<DepositMetrics | null>(null);
@@ -56,7 +56,11 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
     let cancelled = false;
     (async () => {
       try {
-        const start = new FsDate(deposit.startDate.year, deposit.startDate.month, deposit.startDate.day);
+        const start = new FsDate(
+          deposit.startDate.year,
+          deposit.startDate.month,
+          deposit.startDate.day
+        );
         const end = new FsDate(deposit.endDate.year, deposit.endDate.month, deposit.endDate.day);
         const valDate = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
         const quoteRate = deposit.quoteRate;

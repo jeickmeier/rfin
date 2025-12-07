@@ -14,6 +14,8 @@ import {
 } from 'finstack-wasm';
 import { ExoticFxDerivativesProps, DEFAULT_EXOTIC_FX_PROPS } from './data/exotic-fx';
 
+type RequiredExoticFxDerivativesProps = Required<ExoticFxDerivativesProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -29,11 +31,12 @@ type InstrumentRow = {
 };
 
 export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (props) => {
+  const defaults = DEFAULT_EXOTIC_FX_PROPS as RequiredExoticFxDerivativesProps;
   const {
-    valuationDate = DEFAULT_EXOTIC_FX_PROPS.valuationDate!,
-    market = DEFAULT_EXOTIC_FX_PROPS.market!,
-    fxBarrierOptions = DEFAULT_EXOTIC_FX_PROPS.fxBarrierOptions!,
-    quantoOptions = DEFAULT_EXOTIC_FX_PROPS.quantoOptions!,
+    valuationDate = defaults.valuationDate,
+    market = defaults.market,
+    fxBarrierOptions = defaults.fxBarrierOptions,
+    quantoOptions = defaults.quantoOptions,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);
@@ -140,7 +143,10 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               null
             );
 
-            const barrierTypeName = opt.barrier_type.replace(/([A-Z])/g, '-$1').slice(1).toLowerCase();
+            const barrierTypeName = opt.barrier_type
+              .replace(/([A-Z])/g, '-$1')
+              .slice(1)
+              .toLowerCase();
             results.push({
               name: `FX Barrier ${barrierTypeName.replace(/-/g, ' ').replace('and', '&')} ${opt.option_type.charAt(0).toUpperCase() + opt.option_type.slice(1)}`,
               type: 'FxBarrierOption',

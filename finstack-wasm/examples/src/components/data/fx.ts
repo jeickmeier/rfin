@@ -65,9 +65,7 @@ export const DEFAULT_FX_VOL_SURFACE: VolSurfaceData = {
 };
 
 // Default FX quotes
-export const DEFAULT_FX_QUOTES: FxQuoteData[] = [
-  { base: 'EUR', quote: 'USD', rate: 1.085 },
-];
+export const DEFAULT_FX_QUOTES: FxQuoteData[] = [{ base: 'EUR', quote: 'USD', rate: 1.085 }];
 
 // Default FX spot trades
 export const DEFAULT_FX_SPOTS: FxSpotData[] = [
@@ -135,4 +133,3 @@ export const DEFAULT_FX_PROPS: FxInstrumentsProps = {
   options: DEFAULT_FX_OPTIONS,
   swaps: DEFAULT_FX_SWAPS,
 };
-

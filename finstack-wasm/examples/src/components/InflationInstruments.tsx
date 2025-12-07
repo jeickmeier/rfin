@@ -11,6 +11,8 @@ import {
 } from 'finstack-wasm';
 import { InflationInstrumentsProps, DEFAULT_INFLATION_PROPS } from './data/inflation';
 
+type RequiredInflationInstrumentsProps = Required<InflationInstrumentsProps>;
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -25,13 +27,14 @@ type InstrumentRow = {
 };
 
 export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = (props) => {
-  // Merge with defaults
+  // Merge with defaults - DEFAULT_INFLATION_PROPS always has these values defined
+  const defaults = DEFAULT_INFLATION_PROPS as RequiredInflationInstrumentsProps;
   const {
-    valuationDate = DEFAULT_INFLATION_PROPS.valuationDate!,
-    discountCurve = DEFAULT_INFLATION_PROPS.discountCurve!,
-    inflationCurve = DEFAULT_INFLATION_PROPS.inflationCurve!,
-    bonds = DEFAULT_INFLATION_PROPS.bonds!,
-    swaps = DEFAULT_INFLATION_PROPS.swaps!,
+    valuationDate = defaults.valuationDate,
+    discountCurve = defaults.discountCurve,
+    inflationCurve = defaults.inflationCurve,
+    bonds = defaults.bonds,
+    swaps = defaults.swaps,
   } = props;
 
   const [rows, setRows] = useState<InstrumentRow[]>([]);
@@ -78,7 +81,11 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
 
         // Process inflation-linked bonds
         for (const bond of bonds) {
-          const issueDate = new FsDate(bond.issueDate.year, bond.issueDate.month, bond.issueDate.day);
+          const issueDate = new FsDate(
+            bond.issueDate.year,
+            bond.issueDate.month,
+            bond.issueDate.day
+          );
           const maturityDate = new FsDate(
             bond.maturityDate.year,
             bond.maturityDate.month,
@@ -111,7 +118,11 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
 
         // Process inflation swaps
         for (const swap of swaps) {
-          const startDate = new FsDate(swap.startDate.year, swap.startDate.month, swap.startDate.day);
+          const startDate = new FsDate(
+            swap.startDate.year,
+            swap.startDate.month,
+            swap.startDate.day
+          );
           const endDate = new FsDate(swap.endDate.year, swap.endDate.month, swap.endDate.day);
           const notional = Money.fromCode(swap.notional.amount, swap.notional.currency);
 
