@@ -34,13 +34,15 @@ _sys.modules[f"{__name__}.core"] = _core
 def _walk_and_register(
     _parent_mod: _Any,
     _qualname: str,
-    _modules: _MutableMapping[str, _Any] = _sys.modules,
+    _modules: _MutableMapping[str, _Any] = None,
     _module_type: type = _types.ModuleType,
 ) -> None:
     """Recursively register submodules under sys.modules for import to work.
 
     This avoids manual updates when new PyO3 submodules are added under core.
     """
+    if _modules is None:
+        _modules = _sys.modules
     _seen: set[int] = set()
 
     def _recurse(_mod: object, _qname: str) -> None:
