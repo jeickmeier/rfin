@@ -9,19 +9,12 @@ import globals from 'globals';
 export default [
   // Base recommended configs
   js.configs.recommended,
-  
+
   // Global ignores
   {
-    ignores: [
-      'node_modules/**',
-      'pkg/**',
-      'pkg-node/**',
-      'dist/**',
-      'build/**',
-      '**/*.d.ts',
-    ],
+    ignores: ['node_modules/**', 'pkg/**', 'pkg-node/**', 'dist/**', 'build/**', '**/*.d.ts'],
   },
-  
+
   // TypeScript files configuration
   {
     files: ['**/*.{ts,tsx}'],
@@ -80,7 +73,7 @@ export default [
       'prefer-template': 'error',
     },
   },
-  
+
   // JavaScript/JSX files configuration
   {
     files: ['**/*.{js,jsx}'],
@@ -126,7 +119,7 @@ export default [
       'prefer-template': 'error',
     },
   },
-  
+
   // Examples directory overrides
   {
     files: ['examples/**/*.{js,jsx,ts,tsx}'],
@@ -139,7 +132,7 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'warn',
     },
   },
-  
+
   // Test files overrides
   {
     files: ['**/*.test.{js,jsx,ts,tsx}', '**/*.spec.{js,jsx,ts,tsx}'],
@@ -148,7 +141,7 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-  
+
   // Prettier config (must be last to override other rules)
   prettierConfig,
 ];
