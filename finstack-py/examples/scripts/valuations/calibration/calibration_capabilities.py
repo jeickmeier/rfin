@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Demonstrate full-market calibration including forward and volatility surfaces."""
 from __future__ import annotations
 
@@ -456,22 +455,11 @@ def main() -> None:
         .with_verbose(False)
     )
 
-    # calibration = cal.SimpleCalibration(base_date, "USD", config=config)
-    # calibration.set_multi_curve_config(cal.MultiCurveConfig(True, True))
-    # calibration.add_entity_seniority("ACME", "senior")
 
-    # market, report = calibration.calibrate(market_quotes)
     print("SimpleCalibration is deprecated. Please use specific calibrators (DiscountCurveCalibrator, etc.)")
     return
 
-    # forward_reports = calibrate_forward_curves(market, base_date, forward_inputs)
-    # credit_reports = calibrate_credit_index_structures(market, base_date, credit_inputs)
-    # fallback_surface = ensure_swaption_surface(market, base_date, swaption_specs)
-    # report_info = report.to_dict()
 
-    # print("=== Simple Calibration Summary ===")
-    # print("Success:", report_info["success"])
-    # ...
     print("Report type:", report_info["metadata"].get("type"))
     print("Iterations:", report_info["iterations"])
     print("Max residual:", round(report_info["max_residual"], 8))

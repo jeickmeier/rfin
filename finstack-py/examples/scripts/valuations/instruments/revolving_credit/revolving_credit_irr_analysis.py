@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Revolving Credit IRR Distribution Analysis.
 
 This script analyzes the Internal Rate of Return (IRR) distributions from 
@@ -521,7 +520,6 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
     plt.tight_layout()
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
     print(f"\nSingle scenario analysis saved to {output_file}")  # noqa: T201
-    # plt.show()  # Commented out for headless environment
 
 
 def analyze_volatility_grid(
@@ -1272,7 +1270,6 @@ def plot_extreme_paths_analysis(
     plt.tight_layout(rect=[0, 0.01, 1, 0.99])
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
     print(f"\nExtreme paths analysis saved to {output_file}")  # noqa: T201
-    # plt.show()  # Commented out for headless environment
 
 
 def plot_volatility_grid_comparison(
@@ -1413,7 +1410,6 @@ def plot_volatility_grid_comparison(
     plt.tight_layout()
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
     print(f"\nVolatility grid comparison saved to {output_file}")  # noqa: T201
-    # plt.show()  # Commented out for headless environment
 
 
 def main() -> int:
