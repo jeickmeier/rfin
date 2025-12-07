@@ -205,7 +205,7 @@ export default function ScenariosExample() {
 
       // Verify results
       const shockedPrice = market.price('SPY');
-      if (shockedPrice && shockedPrice.isPrice) {
+      if (shockedPrice?.isPrice) {
         // Price was shocked
         log.push(`  - SPY price shocked (from $450)`);
       }
@@ -592,12 +592,12 @@ export default function ScenariosExample() {
 
       // Check results
       const spyPrice = market.price('SPY');
-      if (spyPrice && spyPrice.isPrice) {
+      if (spyPrice?.isPrice) {
         log.push(`\nSPY: Price shocked (original: $450)`);
       }
 
       const qqqPrice = market.price('QQQ');
-      if (qqqPrice && qqqPrice.isPrice) {
+      if (qqqPrice?.isPrice) {
         log.push(`QQQ: Price shocked (original: $380)`);
       }
 
