@@ -5,13 +5,13 @@ Demonstrates pricing and analysis of range accrual instruments.
 """
 
 from datetime import date, timedelta
+
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
-from finstack.core.market_data.context import MarketContext
 from finstack.valuations.instruments import RangeAccrual
 from finstack.valuations.pricer import create_standard_registry
 
@@ -63,14 +63,13 @@ def example_narrow_range_accrual():
     print("\n" + "=" * 80)
     print("NARROW RANGE ACCRUAL")
     print("=" * 80)
-    
-    
+
     # Daily observations over 3 months
     # Narrow range around current spot
     start_date = date(2025, 1, 1)
     end_date = date(2025, 3, 31)
     observation_dates = generate_daily_observations(start_date, end_date)[:60]  # ~60 trading days
-    
+
     range_accrual = RangeAccrual.builder(
         instrument_id="RANGE_001",
         ticker="SPY",
@@ -84,7 +83,7 @@ def example_narrow_range_accrual():
         vol_surface="SPY.VOL",
         div_yield_id="SPY.DIV",
     )
-    
+
     print(f"\nInstrument: {range_accrual}")
     print(f"  Ticker: {range_accrual.ticker}")
     print(f"  Notional: {range_accrual.notional}")
@@ -92,25 +91,27 @@ def example_narrow_range_accrual():
     print(f"  Upper Bound: {range_accrual.upper_bound}")
     print(f"  Coupon Rate: {range_accrual.coupon_rate:.2%}")
     print(f"  Number of Observations: {len(observation_dates)}")
-    print(f"  Range Width: {(range_accrual.upper_bound - range_accrual.lower_bound):.0f} " +
-          f"({(range_accrual.upper_bound / range_accrual.lower_bound - 1) * 100:.1f}%)")
-    
+    print(
+        f"  Range Width: {(range_accrual.upper_bound - range_accrual.lower_bound):.0f} "
+        + f"({(range_accrual.upper_bound / range_accrual.lower_bound - 1) * 100:.1f}%)"
+    )
+
     # Price the range accrual
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Pays 8% p.a. for each day SPY stays in [480, 520] range")
     print(f"    - Coupon accrues proportionally to days in range")
     print(f"    - Bet on low volatility / rangebound market")
     print(f"    - Popular in structured notes")
-    
+
     return range_accrual, result
 
 
@@ -119,13 +120,10 @@ def example_wide_range_accrual():
     print("\n" + "=" * 80)
     print("WIDE RANGE ACCRUAL")
     print("=" * 80)
-    
-    
+
     # Weekly observations over 1 year
-    observation_dates = [
-        date(2025, 1, 1) + timedelta(days=7 * i) for i in range(52)
-    ]
-    
+    observation_dates = [date(2025, 1, 1) + timedelta(days=7 * i) for i in range(52)]
+
     range_accrual = RangeAccrual.builder(
         instrument_id="RANGE_002",
         ticker="SPY",
@@ -139,7 +137,7 @@ def example_wide_range_accrual():
         vol_surface="SPY.VOL",
         div_yield_id="SPY.DIV",
     )
-    
+
     print(f"\nInstrument: {range_accrual}")
     print(f"  Ticker: {range_accrual.ticker}")
     print(f"  Notional: {range_accrual.notional}")
@@ -148,22 +146,22 @@ def example_wide_range_accrual():
     print(f"  Coupon Rate: {range_accrual.coupon_rate:.2%}")
     print(f"  Number of Observations: {len(observation_dates)}")
     print(f"  Range Width: {(range_accrual.upper_bound - range_accrual.lower_bound):.0f}")
-    
+
     # Price the range accrual
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Wider range [400, 600] provides more safety")
     print(f"    - Lower coupon rate compensates for higher probability")
     print(f"    - Weekly observations reduce noise vs daily")
-    
+
     return range_accrual, result
 
 
@@ -172,8 +170,7 @@ def example_asymmetric_range_accrual():
     print("\n" + "=" * 80)
     print("ASYMMETRIC RANGE ACCRUAL")
     print("=" * 80)
-    
-    
+
     # Monthly observations over 6 months
     observation_dates = [
         date(2025, 2, 1),
@@ -183,7 +180,7 @@ def example_asymmetric_range_accrual():
         date(2025, 6, 1),
         date(2025, 7, 1),
     ]
-    
+
     # Asymmetric range: more upside room than downside
     range_accrual = RangeAccrual.builder(
         instrument_id="RANGE_003",
@@ -198,7 +195,7 @@ def example_asymmetric_range_accrual():
         vol_surface="SPY.VOL",
         div_yield_id="SPY.DIV",
     )
-    
+
     print(f"\nInstrument: {range_accrual}")
     print(f"  Ticker: {range_accrual.ticker}")
     print(f"  Notional: {range_accrual.notional}")
@@ -208,23 +205,23 @@ def example_asymmetric_range_accrual():
     print(f"  Current Spot: 500.0")
     print(f"  Downside Buffer: {(500.0 - range_accrual.lower_bound) / 500.0:.1%}")
     print(f"  Upside Room: {(range_accrual.upper_bound - 500.0) / 500.0:.1%}")
-    
+
     # Price the range accrual
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Asymmetric range allows for modest uptrend")
     print(f"    - Tighter downside protection")
     print(f"    - Monthly observations smooth out noise")
     print(f"    - View: market will stay stable or drift higher")
-    
+
     return range_accrual, result
 
 
@@ -233,14 +230,10 @@ def example_high_coupon_tight_range():
     print("\n" + "=" * 80)
     print("HIGH COUPON TIGHT RANGE")
     print("=" * 80)
-    
-    
+
     # Daily observations over 1 month
-    observation_dates = generate_daily_observations(
-        date(2025, 1, 1),
-        date(2025, 1, 31)
-    )[:20]  # ~20 trading days
-    
+    observation_dates = generate_daily_observations(date(2025, 1, 1), date(2025, 1, 31))[:20]  # ~20 trading days
+
     range_accrual = RangeAccrual.builder(
         instrument_id="RANGE_004",
         ticker="SPY",
@@ -254,7 +247,7 @@ def example_high_coupon_tight_range():
         vol_surface="SPY.VOL",
         div_yield_id="SPY.DIV",
     )
-    
+
     print(f"\nInstrument: {range_accrual}")
     print(f"  Ticker: {range_accrual.ticker}")
     print(f"  Notional: {range_accrual.notional}")
@@ -262,23 +255,23 @@ def example_high_coupon_tight_range():
     print(f"  Upper Bound: {range_accrual.upper_bound}")
     print(f"  Coupon Rate: {range_accrual.coupon_rate:.2%}")
     print(f"  Range Width: ±{((range_accrual.upper_bound - 500.0) / 500.0) * 100:.1f}%")
-    
+
     # Price the range accrual
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Very tight range [495, 505] = ±1% around spot")
     print(f"    - High 15% coupon compensates for low probability")
     print(f"    - Extreme low-volatility bet")
     print(f"    - High risk/high reward structure")
-    
+
     return range_accrual, result
 
 
@@ -290,12 +283,12 @@ def main():
     print("\nRange accruals pay coupons proportional to time spent in range.")
     print("Wider ranges → lower coupons, higher safety")
     print("Tighter ranges → higher coupons, higher risk")
-    
+
     example_narrow_range_accrual()
     example_wide_range_accrual()
     example_asymmetric_range_accrual()
     example_high_coupon_tight_range()
-    
+
     print("\n" + "=" * 80)
     print("Examples completed successfully!")
     print("=" * 80 + "\n")
@@ -303,4 +296,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

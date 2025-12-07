@@ -19,16 +19,17 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
+    import numpy as np
+    import pandas as pd
+
     from finstack.valuations import (
         MonteCarloPathGenerator,
-        PathPoint,
-        SimulatedPath,
-        PathDataset,
-        ProcessParams,
         MonteCarloResult,
+        PathDataset,
+        PathPoint,
+        ProcessParams,
+        SimulatedPath,
     )
-    import pandas as pd
-    import numpy as np
 
     HAS_FINSTACK = True
 except ImportError as e:
@@ -36,8 +37,8 @@ except ImportError as e:
     HAS_FINSTACK = False
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.cm as cm
+    import matplotlib.pyplot as plt
     from matplotlib.patches import Rectangle
 
     HAS_MATPLOTLIB = True
@@ -146,12 +147,8 @@ def example_3_visualization():
     generator = MonteCarloPathGenerator()
 
     # Generate paths with different volatilities for comparison
-    vol_low = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.15, 1.0, 252, 500, "sample", 30, 42
-    )
-    vol_high = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.35, 1.0, 252, 500, "sample", 30, 43
-    )
+    vol_low = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.15, 1.0, 252, 500, "sample", 30, 42)
+    vol_high = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.35, 1.0, 252, 500, "sample", 30, 43)
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
@@ -204,9 +201,7 @@ def example_3_visualization():
     std = grouped.std()
 
     ax.plot(mean.index, mean.values, "b-", linewidth=2, label="Mean Path")
-    ax.fill_between(
-        mean.index, mean - 2 * std, mean + 2 * std, alpha=0.3, label="±2σ"
-    )
+    ax.fill_between(mean.index, mean - 2 * std, mean + 2 * std, alpha=0.3, label="±2σ")
     ax.axhline(y=100, color="red", linestyle="--", linewidth=1, label="Initial")
     ax.set_title("Mean Path with Confidence Bands (High Vol)")
     ax.set_xlabel("Time (years)")
@@ -231,9 +226,7 @@ def example_4_process_parameters():
         return
 
     generator = MonteCarloPathGenerator()
-    paths = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.25, 1.0, 252, 100, "all", seed=42
-    )
+    paths = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.25, 1.0, 252, 100, "all", seed=42)
 
     # Access process parameters (available via internal API)
     # In production, this would come from result.paths.process_params
@@ -294,9 +287,7 @@ def example_5_barrier_analysis():
     print(f"Paths hitting upper barrier ({upper_barrier}): {len(paths_hit_upper)}")
     print(f"Paths hitting lower barrier ({lower_barrier}): {len(paths_hit_lower)}")
     print(f"Paths staying in range: {len(paths_in_range)}")
-    print(
-        f"Estimated knock-out rate: {(len(paths_hit_upper) + len(paths_hit_lower)) / paths.num_captured():.1%}"
-    )
+    print(f"Estimated knock-out rate: {(len(paths_hit_upper) + len(paths_hit_lower)) / paths.num_captured():.1%}")
 
     if HAS_MATPLOTLIB:
         # Visualize paths by category
@@ -335,9 +326,7 @@ def example_5_barrier_analysis():
             linewidth=2,
             label="Lower Barrier",
         )
-        ax.axhline(
-            y=100, color="black", linestyle="-", linewidth=1, alpha=0.5, label="Initial"
-        )
+        ax.axhline(y=100, color="black", linestyle="-", linewidth=1, alpha=0.5, label="Initial")
 
         ax.set_title("Barrier Option: Path Classification")
         ax.set_xlabel("Time (years)")
@@ -361,9 +350,7 @@ def example_6_export_for_external_analysis():
         return
 
     generator = MonteCarloPathGenerator()
-    paths = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.20, 2.0, 500, 100, "sample", 50, 42
-    )
+    paths = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.20, 2.0, 500, 100, "sample", 50, 42)
 
     # Convert to DataFrame
     df = pd.DataFrame(paths.to_dict())
@@ -397,17 +384,13 @@ def example_7_sampling_strategies():
 
     # Small simulation - capture all
     print("\nSmall simulation (100 paths, capture all):")
-    paths_all = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.20, 1.0, 50, 100, "all", seed=42
-    )
+    paths_all = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.20, 1.0, 50, 100, "all", seed=42)
     print(f"  Captured: {paths_all.num_captured()}/{paths_all.num_paths_total}")
     print(f"  Is complete: {paths_all.is_complete()}")
 
     # Large simulation - capture sample
     print("\nLarge simulation (2,000 paths, sample 100):")
-    paths_sample = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.20, 1.0, 50, 2000, "sample", 100, 42
-    )
+    paths_sample = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.20, 1.0, 50, 2000, "sample", 100, 42)
     print(f"  Captured: {paths_sample.num_captured()}/{paths_sample.num_paths_total}")
     print(f"  Sampling ratio: {paths_sample.sampling_ratio():.2%}")
     print(f"  Is complete: {paths_sample.is_complete()}")
@@ -415,15 +398,9 @@ def example_7_sampling_strategies():
     print("\nMemory efficiency:")
     df_all = pd.DataFrame(paths_all.to_dict())
     df_sample = pd.DataFrame(paths_sample.to_dict())
-    print(
-        f"  All paths (100): {len(df_all)} rows, ~{df_all.memory_usage(deep=True).sum() / 1024:.1f} KB"
-    )
-    print(
-        f"  Sample (100 of 2k): {len(df_sample)} rows, ~{df_sample.memory_usage(deep=True).sum() / 1024:.1f} KB"
-    )
-    print(
-        "  => Same memory usage, but second simulation has 20x better statistics!"
-    )
+    print(f"  All paths (100): {len(df_all)} rows, ~{df_all.memory_usage(deep=True).sum() / 1024:.1f} KB")
+    print(f"  Sample (100 of 2k): {len(df_sample)} rows, ~{df_sample.memory_usage(deep=True).sum() / 1024:.1f} KB")
+    print("  => Same memory usage, but second simulation has 20x better statistics!")
 
 
 def main():
@@ -489,4 +466,3 @@ Next Steps:
 
 if __name__ == "__main__":
     main()
-

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Showcase equity spot and listed option bindings."""
+
 from datetime import date
 
 from finstack import Money

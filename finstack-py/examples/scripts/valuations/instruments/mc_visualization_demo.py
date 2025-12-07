@@ -22,17 +22,19 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
+    import numpy as np
+    import pandas as pd
+
     import finstack
     from finstack import Money
     from finstack.core.currency import Currency
-    from finstack.valuations.common.mc import PathPoint, SimulatedPath, PathDataset
-    import pandas as pd
-    import numpy as np
-    
+    from finstack.valuations.common.mc import PathDataset, PathPoint, SimulatedPath
+
     # Optional: matplotlib for plotting
     try:
-        import matplotlib.pyplot as plt
         import matplotlib.cm as cm
+        import matplotlib.pyplot as plt
+
         HAS_MATPLOTLIB = True
     except ImportError:
         print("matplotlib not available - skipping plots")
@@ -46,13 +48,13 @@ except ImportError as e:
 
 def demo_basic_path_capture():
     """Demonstrate basic path capture with all paths."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 1: Basic Path Capture (All Paths)")
-    print("="*70)
-    
+    print("=" * 70)
+
     # Note: This is a placeholder showing the intended API
     # The actual pricer integration will be completed in the next phase
-    
+
     print("""
     # Example code (once pricer integration is complete):
     
@@ -86,10 +88,10 @@ def demo_basic_path_capture():
 
 def demo_sampled_path_capture():
     """Demonstrate sampled path capture for efficiency."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 2: Sampled Path Capture (100 out of 10,000 paths)")
-    print("="*70)
-    
+    print("=" * 70)
+
     print("""
     # Example code for sampling paths:
     
@@ -121,10 +123,10 @@ def demo_sampled_path_capture():
 
 def demo_dataframe_conversion():
     """Demonstrate DataFrame conversion for analysis."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 3: DataFrame Conversion and Analysis")
-    print("="*70)
-    
+    print("=" * 70)
+
     print("""
     # Convert paths to long-format DataFrame
     df_long = pd.DataFrame(result.paths.to_dict())
@@ -150,14 +152,14 @@ def demo_dataframe_conversion():
 
 def demo_visualization():
     """Demonstrate visualization with matplotlib."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 4: Path Visualization")
-    print("="*70)
-    
+    print("=" * 70)
+
     if not HAS_MATPLOTLIB:
         print("Matplotlib not available - skipping visualization demo")
         return
-    
+
     print("""
     # Plot all captured paths
     import matplotlib.pyplot as plt
@@ -224,10 +226,10 @@ def demo_visualization():
 
 def demo_correlation_analysis():
     """Demonstrate correlation matrix analysis."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 5: Correlation and Multi-Factor Analysis")
-    print("="*70)
-    
+    print("=" * 70)
+
     print("""
     # For multi-factor processes (e.g., Heston, RevolvingCredit)
     
@@ -278,10 +280,10 @@ def demo_correlation_analysis():
 
 def demo_path_specific_analysis():
     """Demonstrate analyzing specific paths."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEMO 6: Path-Specific Analysis")
-    print("="*70)
-    
+    print("=" * 70)
+
     print("""
     # Access individual paths
     dataset = result.paths
@@ -337,24 +339,24 @@ def demo_path_specific_analysis():
 
 def main():
     """Run all demonstration examples."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("MONTE CARLO PATH VISUALIZATION DEMONSTRATION")
-    print("="*70)
+    print("=" * 70)
     print("\nThis script demonstrates the Monte Carlo path capture and")
     print("visualization capabilities in the finstack library.")
     print("\nNote: Some examples show the intended API that will be fully")
     print("functional once pricer integration is complete.")
-    
+
     demo_basic_path_capture()
     demo_sampled_path_capture()
     demo_dataframe_conversion()
     demo_visualization()
     demo_correlation_analysis()
     demo_path_specific_analysis()
-    
-    print("\n" + "="*70)
+
+    print("\n" + "=" * 70)
     print("SUMMARY")
-    print("="*70)
+    print("=" * 70)
     print("""
     Key Takeaways:
     
@@ -389,4 +391,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

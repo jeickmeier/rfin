@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Demonstrate creating and valuing plain-vanilla interest rate swaps."""
+
 from datetime import date, timedelta
 
 from finstack import Money
@@ -61,19 +62,19 @@ def main() -> None:
     swap = build_swap(as_of, notional)
 
     registry = create_standard_registry()
-    
+
     # Price with metrics - now supports working metrics
     result = registry.price_with_metrics(
-        swap, 
-        "discounting", 
+        swap,
+        "discounting",
         market,
-        ["annuity", "dv01","par_rate"],  # Start with metrics that work
+        ["annuity", "dv01", "par_rate"],  # Start with metrics that work
         as_of=as_of,
     )
-    
+
     pv = result.value
     print(f"Swap PV: {pv.amount:,.2f} {pv.currency}")
-    
+
     measures = result.measures
     annuity = measures.get("annuity", 0.0)
     print(f"Swap Annuity: {annuity:.6f}")
@@ -81,6 +82,7 @@ def main() -> None:
     print(f"Swap DV01: {dv01:.6f}")
     par_rate = measures.get("par_rate", 0.0)
     print(f"Swap Par Rate: {par_rate:.6f}")
+
 
 if __name__ == "__main__":
     main()

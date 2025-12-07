@@ -8,45 +8,47 @@ This script shows how to:
 """
 
 from datetime import date
+
 from finstack.core.dates.periods import PeriodId
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.types import AmountOrScalar, EcfSweepSpec, PaymentPriority, PikToggleSpec, WaterfallSpec
 
+
 def run_example():
     print("Building Financial Model with Dynamic Capital Structure...")
-    
+
     # 1. Create builder and define periods
     builder = ModelBuilder.new("LBO Model")
     builder.periods("2025Q1..2026Q4", None)
-    
+
     # 2. Add operating model nodes (Revenue, EBITDA, Capex, Taxes)
     # Scenario: High EBITDA in 2025Q2 triggers a sweep
     builder.value(
         "revenue",
         [
             (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1_000_000.0)),
-            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(2_000_000.0)), # High revenue
+            (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(2_000_000.0)),  # High revenue
             (PeriodId.quarter(2025, 3), AmountOrScalar.scalar(1_000_000.0)),
             (PeriodId.quarter(2025, 4), AmountOrScalar.scalar(1_000_000.0)),
             (PeriodId.quarter(2026, 1), AmountOrScalar.scalar(1_000_000.0)),
             (PeriodId.quarter(2026, 2), AmountOrScalar.scalar(1_000_000.0)),
             (PeriodId.quarter(2026, 3), AmountOrScalar.scalar(1_000_000.0)),
             (PeriodId.quarter(2026, 4), AmountOrScalar.scalar(1_000_000.0)),
-        ]
+        ],
     )
-    
-    builder.compute("ebitda", "revenue * 0.4") # 40% EBITDA margin
-    builder.compute("capex", "revenue * 0.05") # 5% Capex
+
+    builder.compute("ebitda", "revenue * 0.4")  # 40% EBITDA margin
+    builder.compute("capex", "revenue * 0.05")  # 5% Capex
     builder.compute("taxes", "ebitda * 0.25")  # 25% Tax rate
-    
+
     # Add liquidity metric for PIK toggle
     # Scenario: Low liquidity in 2025Q1 triggers PIK
     builder.value(
         "liquidity",
         [
-            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(50_000.0)), # Triggers PIK (< 100k)
+            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(50_000.0)),  # Triggers PIK (< 100k)
             (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(500_000.0)),
             (PeriodId.quarter(2025, 3), AmountOrScalar.scalar(200_000.0)),
             (PeriodId.quarter(2025, 4), AmountOrScalar.scalar(250_000.0)),
@@ -54,9 +56,9 @@ def run_example():
             (PeriodId.quarter(2026, 2), AmountOrScalar.scalar(275_000.0)),
             (PeriodId.quarter(2026, 3), AmountOrScalar.scalar(300_000.0)),
             (PeriodId.quarter(2026, 4), AmountOrScalar.scalar(325_000.0)),
-        ]
+        ],
     )
-    
+
     # 3. Add Capital Structure
     # $10M Term Loan at 8% interest
     term_loan_spec = {
@@ -113,7 +115,7 @@ def run_example():
     }
 
     builder.add_custom_debt("TL-A", term_loan_spec)
-    
+
     # 4. Configure Waterfall
     waterfall = WaterfallSpec(
         priority_of_payments=[
@@ -121,7 +123,7 @@ def run_example():
             PaymentPriority.Interest,
             PaymentPriority.Amortization,
             PaymentPriority.Sweep,
-            PaymentPriority.Equity
+            PaymentPriority.Equity,
         ],
         # Sweep 50% of ECF (EBITDA - Taxes - Capex)
         ecf_sweep=EcfSweepSpec(
@@ -129,31 +131,28 @@ def run_example():
             sweep_percentage=0.5,
             taxes_node="taxes",
             capex_node="capex",
-            target_instrument_id="TL-A"
+            target_instrument_id="TL-A",
         ),
         # Toggle to PIK if liquidity < 100k
-        pik_toggle=PikToggleSpec(
-            liquidity_metric="liquidity",
-            threshold=100_000.0,
-            target_instrument_ids=["TL-A"]
-        )
+        pik_toggle=PikToggleSpec(liquidity_metric="liquidity", threshold=100_000.0, target_instrument_ids=["TL-A"]),
     )
-    
+
     builder.waterfall(waterfall)
-    
+
     # Add CS references to output for inspection
     builder.compute("interest_expense", "cs.interest_expense.total")
     builder.compute("interest_cash", "cs.interest_expense_cash.total")
     builder.compute("interest_pik", "cs.interest_expense_pik.total")
     builder.compute("principal_payment", "cs.principal_payment.total")
     builder.compute("debt_balance", "cs.debt_balance.total")
-    
+
     # 5. Build and Evaluate
     model = builder.build()
-    
+
     from finstack.statements.evaluator import Evaluator
+
     evaluator = Evaluator.new()
-    
+
     # Minimal market context for capital structure pricing (flat USD discount curve)
     market_ctx = MarketContext()
     usd_ois_curve = DiscountCurve(
@@ -168,13 +167,15 @@ def run_example():
     market_ctx.insert_discount(usd_ois_curve)
 
     results = evaluator.evaluate_with_market_context(model, market_ctx, date(2025, 1, 1))
-    
+
     print("\nResults Summary:")
     separator = "-" * 108
     print(separator)
-    print(f"{'Period':<10} | {'EBITDA':>12} | {'Liquidity':>12} | {'Interest':>12} | {'PIK':>12} | {'Principal':>12} | {'Balance':>12}")
+    print(
+        f"{'Period':<10} | {'EBITDA':>12} | {'Liquidity':>12} | {'Interest':>12} | {'PIK':>12} | {'Principal':>12} | {'Balance':>12}"
+    )
     print(separator)
-    
+
     for period in model.periods:
         pid = period.id
         ebitda = results.get("ebitda", pid)
@@ -183,7 +184,7 @@ def run_example():
         interest_pik = results.get_or("interest_pik", pid, 0.0)
         principal = results.get("principal_payment", pid)
         balance = results.get("debt_balance", pid)
-        
+
         print(
             f"{str(pid):<10} | "
             f"{ebitda:>12,.0f} | "
@@ -193,24 +194,24 @@ def run_example():
             f"{principal:>12,.0f} | "
             f"{balance:>12,.0f}"
         )
-        
+
     print(separator)
-    
+
     # Verification
     q1_pik_interest = results.get_or("interest_pik", PeriodId.quarter(2025, 1), 0.0)
-    
+
     print("\nAnalysis:")
     if q1_pik_interest > 0:
         print(f"✅ Q1 PIK Toggle Active: ${q1_pik_interest:,.0f} accrued as PIK interest")
     else:
         print("❌ Q1 PIK Toggle Failed")
-        
+
     q2_principal = results.get("principal_payment", PeriodId.quarter(2025, 2))
     if q2_principal > 0:
         print(f"✅ Q2 ECF Sweep Active: Sweep payment of ${q2_principal:.0f} applied")
     else:
         print("❌ Q2 ECF Sweep Failed")
 
+
 if __name__ == "__main__":
     run_example()
-

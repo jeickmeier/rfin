@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Variance swap example using historical prices and implied volatility surface."""
+
 from datetime import date
 
 from finstack import Money

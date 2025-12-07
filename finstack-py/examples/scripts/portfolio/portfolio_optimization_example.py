@@ -45,12 +45,7 @@ def build_bond_portfolio(as_of: date):
     """Build a small USD bond portfolio with rating tags."""
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import (
-        Entity,
-        PortfolioBuilder,
-        Position,
-        PositionUnit,
-    )
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond
 
     # 5-year horizon for all bonds
@@ -193,5 +188,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

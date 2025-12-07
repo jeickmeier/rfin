@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from datetime import date
 
+from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -11,8 +12,6 @@ from finstack.valuations.cashflow import CashflowBuilder, CouponType, FixedCoupo
 from finstack.valuations.instruments import Bond
 from finstack.valuations.metrics import MetricId, MetricRegistry
 from finstack.valuations.pricer import create_standard_registry
-
-from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:

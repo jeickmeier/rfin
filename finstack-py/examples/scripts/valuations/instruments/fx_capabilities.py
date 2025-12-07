@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Demonstrate FX instrument bindings: spot, swap, and options."""
+
 from datetime import date, timedelta
 
 from finstack import Money

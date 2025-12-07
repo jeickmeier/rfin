@@ -3,6 +3,7 @@
 
 from datetime import date, timedelta
 
+from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates.daycount import DayCount
 from finstack.core.market_data.context import MarketContext
@@ -18,8 +19,6 @@ from finstack.valuations.instruments import (
     Swaption,
 )
 from finstack.valuations.pricer import create_standard_registry
-
-from finstack import Money
 
 
 def build_rate_market(as_of: date) -> MarketContext:

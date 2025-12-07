@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
 """Examples covering credit derivatives: single-name CDS, CDS index, tranche, and options."""
+
 from datetime import date, timedelta
 
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface
-from finstack.core.market_data.term_structures import (
-    BaseCorrelationCurve,
-    CreditIndexData,
-    DiscountCurve,
-    HazardCurve,
-)
-from finstack.valuations.instruments import (
-    CDSIndex,
-    CdsOption,
-    CdsTranche,
-    CreditDefaultSwap,
-)
+from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve
+from finstack.valuations.instruments import CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap
 from finstack.valuations.pricer import create_standard_registry
 
 

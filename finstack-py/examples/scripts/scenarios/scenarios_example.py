@@ -72,7 +72,7 @@ def main() -> None:
         ],
         name="Rate Shock +50bp",
         description="Parallel shift of USD discount curve",
-        priority=0
+        priority=0,
     )
     print("  - Created rate shock scenario (+50bp)")
 
@@ -84,7 +84,7 @@ def main() -> None:
         ],
         name="Equity Crash -20%",
         description="Market sell-off scenario",
-        priority=1
+        priority=1,
     )
     print("  - Created equity crash scenario (-20%)")
 
@@ -97,7 +97,7 @@ def main() -> None:
         ],
         name="Combined Stress",
         description="Rates up 100bp + Equities down 30%",
-        priority=2
+        priority=2,
     )
     print("  - Created combined stress scenario")
 
@@ -155,13 +155,10 @@ def main() -> None:
         "steepener",
         [
             OperationSpec.curve_node_bp(
-                CurveKind.Discount,
-                "USD-OIS",
-                [("5Y", 25.0), ("10Y", 50.0)],
-                TenorMatchMode.Interpolate
+                CurveKind.Discount, "USD-OIS", [("5Y", 25.0), ("10Y", 50.0)], TenorMatchMode.Interpolate
             ),
         ],
-        name="Curve Steepener"
+        name="Curve Steepener",
     )
 
     # Create fresh market
@@ -180,4 +177,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

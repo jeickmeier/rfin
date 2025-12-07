@@ -58,7 +58,7 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
     """Create a revolving credit facility."""
     commitment = 100_000_000
     drawn = int(commitment * util)
-    
+
     spec = {
         "id": f"RC-{'STOCH' if is_stochastic else 'DET'}-{util:.0%}",
         "commitment_amount": {"amount": commitment, "currency": "USD"},
@@ -73,42 +73,33 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
                 "reset_freq": {"Months": 3},
                 "floor_bp": 0.0,
                 "dc": "Act360",
-                "bdc": "modified_following"
+                "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
         "payment_frequency": {"Months": 3},
         "fees": {
-            "commitment_fee_tiers": [
-                {"threshold": 0.0, "bps": 50},
-                {"threshold": 0.5, "bps": 35}
-            ],
+            "commitment_fee_tiers": [{"threshold": 0.0, "bps": 50}, {"threshold": 0.5, "bps": 35}],
             "usage_fee_tiers": [],
-            "facility_fee_bp": 10
+            "facility_fee_bp": 10,
         },
         "discount_curve_id": "USD-OIS",
-        "attributes": {"tags": [], "meta": {}}
+        "attributes": {"tags": [], "meta": {}},
     }
-    
+
     if is_stochastic:
         spec["draw_repay_spec"] = {
             "Stochastic": {
-                "utilization_process": {
-                    "MeanReverting": {
-                        "target_rate": util,
-                        "speed": 2.0,
-                        "volatility": util_vol
-                    }
-                },
+                "utilization_process": {"MeanReverting": {"target_rate": util, "speed": 2.0, "volatility": util_vol}},
                 "num_paths": num_paths,
                 "seed": 42,
                 "antithetic": True,
-                "use_sobol_qmc": False
+                "use_sobol_qmc": False,
             }
         }
     else:
         spec["draw_repay_spec"] = {"Deterministic": []}
-    
+
     return RevolvingCredit.from_json(json.dumps(spec))
 
 
@@ -116,33 +107,33 @@ def main():
     print("=" * 80)
     print("REVOLVING CREDIT PRICING COMPARISON")
     print("=" * 80)
-    
+
     print("\nNOTE: This is a simplified example showing the Python bindings.")
     print("For full functionality, provide a MarketContext with curves.")
     print("This example demonstrates the API without actual pricing.\n")
-    
+
     # Create facilities
     det_facility = create_facility(util=0.5, is_stochastic=False)
     mc_zero_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.0)
     mc_low_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.1)
     mc_high_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.3)
-    
+
     print("Created facilities:")
     print(f"  1. Deterministic (50% util): {det_facility}")
     print(f"  2. MC with 0% vol (50% util): {mc_zero_vol}")
     print(f"  3. MC with 10% vol (50% util): {mc_low_vol}")
     print(f"  4. MC with 30% vol (50% util): {mc_high_vol}")
-    
+
     print("\nFacility properties:")
     print(f"  Deterministic utilization: {det_facility.utilization_rate():.1%}")
     print(f"  Is deterministic: {det_facility.is_deterministic()}")
     print(f"  MC facility is stochastic: {mc_zero_vol.is_stochastic()}")
-    
+
     print("\nJSON round-trip test:")
     json_str = det_facility.to_json()
     rc2 = RevolvingCredit.from_json(json_str)
     print(f"  ✓ Serialization successful: {rc2.instrument_id}")
-    
+
     print("\n" + "=" * 80)
     print("BINDINGS VALIDATION COMPLETE")
     print("=" * 80)
@@ -155,10 +146,9 @@ def main():
     print("  - Higher volatility increases value uncertainty")
     print("  - All functionality accessible through Python bindings")
     print()
-    
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

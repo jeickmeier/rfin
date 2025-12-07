@@ -23,11 +23,10 @@ try:
 except Exception:  # pragma: no cover - optional
     pl = None
 
+from finstack import Covenant, CovenantForecastConfig, CovenantSpec, CovenantType, forecast_covenant
 from finstack.core.dates.periods import build_periods
 from finstack.statements.evaluator import Evaluator
 from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec, NodeSpec, NodeType
-
-from finstack import Covenant, CovenantForecastConfig, CovenantSpec, CovenantType, forecast_covenant
 
 
 def build_demo_model() -> tuple[FinancialModelSpec, list]:
