@@ -75,7 +75,7 @@ export const EquityInstrumentsExample: React.FC = () => {
 
         // Equity Spot
         const equity = new Equity('aapl_position', 'AAPL', usd, 1000.0, null);
-        const equityResult = registry.priceEquity(equity, 'discounting', market);
+        const equityResult = registry.priceEquity(equity, 'discounting', market, asOf);
         results.push({
           name: 'AAPL Stock (1000 shares)',
           type: 'Equity',
@@ -93,7 +93,7 @@ export const EquityInstrumentsExample: React.FC = () => {
           100.0
         );
         const callOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
-        const callResult = registry.priceEquityOption(call, 'discounting', market, callOpts);
+        const callResult = registry.priceEquityOption(call, 'discounting', market, asOf, callOpts);
         results.push({
           name: 'AAPL Call @ $150 (1Y)',
           type: 'EquityOption',
@@ -111,7 +111,7 @@ export const EquityInstrumentsExample: React.FC = () => {
           Money.fromCode(140.0, 'USD'),
           100.0
         );
-        const putResult = registry.priceEquityOption(put, 'discounting', market);
+        const putResult = registry.priceEquityOption(put, 'discounting', market, asOf, null);
         results.push({
           name: 'AAPL Put @ $140 (9M)',
           type: 'EquityOption',

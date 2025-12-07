@@ -36,6 +36,7 @@ export const StructuredProductsExample: React.FC = () => {
         const asOf = new FsDate(2024, 1, 2);
 
         // Build market
+
         const discountCurve = new DiscountCurve(
           'USD-OIS',
           asOf,
@@ -95,7 +96,7 @@ export const StructuredProductsExample: React.FC = () => {
           },
         });
         const basket = Basket.fromJson(basketJson);
-        const basketResult = registry.priceBasket(basket, 'discounting', market);
+        const basketResult = registry.priceBasket(basket, 'discounting', market, asOf, null);
         results.push({
           name: 'Tech Stock Basket',
           type: 'Basket',
@@ -107,7 +108,7 @@ export const StructuredProductsExample: React.FC = () => {
         const fundJson = JSON.stringify({
           id: 'pe_fund_1',
           currency: 'USD',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
           spec: {
             style: 'european',
             catchup_mode: 'full',
@@ -128,7 +129,7 @@ export const StructuredProductsExample: React.FC = () => {
           ],
         });
         const fund = PrivateMarketsFund.fromJson(fundJson);
-        const fundResult = registry.pricePrivateMarketsFund(fund, 'discounting', market);
+        const fundResult = registry.pricePrivateMarketsFund(fund, 'discounting', market, asOf, null);
         results.push({
           name: 'PE Fund (8% Pref)',
           type: 'PrivateMarketsFund',
@@ -151,22 +152,24 @@ export const StructuredProductsExample: React.FC = () => {
           participation_rate: 1.0,
           cap_level: 2.0,
           day_count: 'act_365f',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
           spot_id: 'AAPL-SPOT',
-          vol_id: 'EQUITY-VOL',
+          vol_surface_id: 'EQUITY-VOL',
           div_yield_id: null,
           pricing_overrides: {
             quoted_clean_price: null,
             implied_volatility: null,
             quoted_spread_bp: null,
             upfront_payment: null,
-            ytm_bump_bp: null,
+            ytm_bump_decimal: null,
             theta_period: null,
             mc_seed_scenario: null,
             adaptive_bumps: false,
             spot_bump_pct: null,
             vol_bump_pct: null,
             rate_bump_bp: null,
+            rho_bump_decimal: null,
+            vega_bump_decimal: null,
           },
           attributes: { tags: [], meta: {} },
         });
@@ -174,7 +177,9 @@ export const StructuredProductsExample: React.FC = () => {
         const autocallableResult = registry.priceAutocallable(
           autocallable,
           'monte_carlo_gbm',
-          market
+          market,
+          asOf,
+          null
         );
         results.push({
           name: 'Autocallable Note',

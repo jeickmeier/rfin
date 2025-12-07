@@ -50,6 +50,14 @@ export const DepositValuationExample: React.FC = () => {
         const valuationDate = new FsDate(2024, 2, 15);
         const quoteRate = 0.0525;
 
+        // Debug type checks to ensure FsDate instances are from the same WASM module
+        console.debug(
+          'FsDate checks (deposit)',
+          start instanceof FsDate,
+          end instanceof FsDate,
+          valuationDate instanceof FsDate
+        );
+
         // Set curve base date to start to avoid date range errors
         const discountCurve = new DiscountCurve(
           'USD-OIS',
@@ -78,21 +86,41 @@ export const DepositValuationExample: React.FC = () => {
         );
 
         const registry = createStandardRegistry();
-        const result = registry.priceDeposit(deposit, 'discounting', market);
+        let result;
+        try {
+          result = registry.priceDeposit(deposit, 'discounting', market, valuationDate, null);
+        } catch (err) {
+          console.error('priceDeposit failed', err);
+          throw err;
+        }
 
         // Extract primitives immediately
         const presentValue = result.presentValue.amount;
 
         // Calculate metrics manually
         const dayCount = DayCount.act360();
-        const accrualFraction = dayCount.yearFraction(start, end, undefined);
-        const elapsed = dayCount.yearFraction(start, valuationDate, undefined);
+        let accrualFraction = 0;
+        let elapsed = 0;
+        try {
+          accrualFraction = dayCount.yearFraction(start, end, undefined);
+          elapsed = dayCount.yearFraction(start, valuationDate, undefined);
+        } catch (err) {
+          console.error('yearFraction failed', err);
+          throw err;
+        }
         const accrued =
           notional.amount * quoteRate * Math.max(Math.min(elapsed, accrualFraction), 0);
         const cleanPv = presentValue - accrued;
 
-        const dfEnd = discountCurve.dfOnDate(end, undefined);
-        const dfStart = discountCurve.dfOnDate(start, undefined);
+        let dfEnd = 0;
+        let dfStart = 0;
+        try {
+          dfEnd = discountCurve.dfOnDate(end, null);
+          dfStart = discountCurve.dfOnDate(start, null);
+        } catch (err) {
+          console.error('dfOnDate failed', err);
+          throw err;
+        }
         const impliedRate = accrualFraction > 0 ? (dfStart / dfEnd - 1) / accrualFraction : 0;
         const spreadBps = (quoteRate - impliedRate) * 10_000;
 

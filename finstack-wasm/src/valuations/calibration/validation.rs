@@ -322,7 +322,10 @@ pub fn validate_vol_surface(surface: &JsVolSurface) -> Result<bool, JsValue> {
 ///
 /// @example
 /// ```typescript
-/// const [market, report] = SimpleCalibration.calibrate(quotes);
+/// const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
+/// const [curve, report] = calibrator.calibrate(quotes, null);
+/// const market = new MarketContext();
+/// market.insertDiscount(curve);
 /// const errors = validateMarketContext(market);
 /// if (errors.length > 0) {
 ///   console.error('Market validation found issues:', errors);

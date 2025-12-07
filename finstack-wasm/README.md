@@ -133,7 +133,6 @@ achieving feature parity with the Python bindings.
 - `InflationCurveCalibrator` – calibrate inflation curves from inflation swap quotes.
 - `VolSurfaceCalibrator` – calibrate implied volatility surfaces from option quotes.
 - `BaseCorrelationCalibrator` – calibrate base correlation curves from CDO tranche quotes.
-- `SimpleCalibration` – one-shot multi-curve calibration workflow.
 - `CalibrationConfig` – configure solver strategy, tolerance, and iterations.
 - `SolverKind` – choose optimization method (Newton, Brent, Hybrid, LM, DE).
 - `RatesQuote`, `CreditQuote`, `VolQuote`, `InflationQuote` – market quote types for calibration.
@@ -238,7 +237,6 @@ import init, {
   HazardCurveCalibrator,
   InflationCurveCalibrator,
   VolSurfaceCalibrator,
-  SimpleCalibration,
   SolverKind,
   RatesQuote,
   CreditQuote,

@@ -88,6 +88,8 @@ export const RatesInstrumentsExample: React.FC = () => {
         market.insertSurface(swaptionVol);
         market.insertSurface(capVol);
 
+        console.debug('FsDate checks (rates)', asOf instanceof FsDate);
+
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
@@ -111,14 +113,25 @@ export const RatesInstrumentsExample: React.FC = () => {
           2
         );
         const swapOpts = new PricingRequest().withMetrics(['dv01', 'annuity', 'par_rate']);
-        const swapResult = registry.priceInterestRateSwap(swap, 'discounting', market, swapOpts);
-        results.push({
-          name: '5Y IRS (Receive Fixed)',
-          type: 'InterestRateSwap',
-          notional: notional.amount,
-          presentValue: swapResult.presentValue.amount,
-          keyMetric: { name: 'DV01', value: swapResult.metric('dv01') ?? 0 },
-        });
+        try {
+          console.debug('Swap opts instanceof PricingRequest', swapOpts instanceof PricingRequest);
+          const swapResult = registry.priceInterestRateSwap(
+            swap,
+            'discounting',
+            market,
+            asOf,
+            swapOpts
+          );
+          results.push({
+            name: '5Y IRS (Receive Fixed)',
+            type: 'InterestRateSwap',
+            notional: notional.amount,
+            presentValue: swapResult.presentValue.amount,
+            keyMetric: { name: 'DV01', value: swapResult.metric('dv01') ?? 0 },
+          });
+        } catch (err) {
+          console.warn('Swap pricing failed, skipping', err);
+        }
 
         // Forward Rate Agreement
         const fra = new ForwardRateAgreement(
@@ -135,18 +148,28 @@ export const RatesInstrumentsExample: React.FC = () => {
           true
         );
         const fraOpts = new PricingRequest().withMetrics(['par_rate']);
-        const fraResult = registry.priceForwardRateAgreement(fra, 'discounting', market, fraOpts);
-        results.push({
-          name: '3x6 FRA',
-          type: 'ForwardRateAgreement',
-          notional: notional.amount,
-          presentValue: fraResult.presentValue.amount,
-          keyMetric: {
-            name: 'Par Rate (bps)',
-            // Par rate comes in decimal form (e.g., 0.0307), multiply by 10000 for bps
-            value: Math.abs((fraResult.metric('par_rate') ?? 0) * 10000),
-          },
-        });
+        try {
+          const fraResult = registry.priceForwardRateAgreement(
+            fra,
+            'discounting',
+            market,
+            asOf,
+            fraOpts
+          );
+          results.push({
+            name: '3x6 FRA',
+            type: 'ForwardRateAgreement',
+            notional: notional.amount,
+            presentValue: fraResult.presentValue.amount,
+            keyMetric: {
+              name: 'Par Rate (bps)',
+              // Par rate comes in decimal form (e.g., 0.0307), multiply by 10000 for bps
+              value: Math.abs((fraResult.metric('par_rate') ?? 0) * 10000),
+            },
+          });
+        } catch (err) {
+          console.warn('FRA pricing failed, skipping', err);
+        }
 
         // Swaption
         const swaption = Swaption.payer(
@@ -165,13 +188,23 @@ export const RatesInstrumentsExample: React.FC = () => {
           null,
           null
         );
-        const swaptionResult = registry.priceSwaption(swaption, 'discounting', market);
-        results.push({
-          name: '1Yx5Y Payer Swaption',
-          type: 'Swaption',
-          notional: notional.amount,
-          presentValue: swaptionResult.presentValue.amount,
-        });
+        try {
+          const swaptionResult = registry.priceSwaption(
+            swaption,
+            'discounting',
+            market,
+            asOf,
+            null
+          );
+          results.push({
+            name: '1Yx5Y Payer Swaption',
+            type: 'Swaption',
+            notional: notional.amount,
+            presentValue: swaptionResult.presentValue.amount,
+          });
+        } catch (err) {
+          console.warn('Swaption pricing failed, skipping', err);
+        }
 
         // Basis Swap - Note: Need separate forward curves for each tenor
         // Skipping basis swap example due to missing 6M forward curve
@@ -190,13 +223,23 @@ export const RatesInstrumentsExample: React.FC = () => {
           4,
           DayCount.act360()
         );
-        const capResult = registry.priceInterestRateOption(cap, 'discounting', market);
-        results.push({
-          name: '5Y Cap @ 4%',
-          type: 'InterestRateOption',
-          notional: notional.amount,
-          presentValue: capResult.presentValue.amount,
-        });
+        try {
+          const capResult = registry.priceInterestRateOption(
+            cap,
+            'discounting',
+            market,
+            asOf,
+            null
+          );
+          results.push({
+            name: '5Y Cap @ 4%',
+            type: 'InterestRateOption',
+            notional: notional.amount,
+            presentValue: capResult.presentValue.amount,
+          });
+        } catch (err) {
+          console.warn('Cap pricing failed, skipping', err);
+        }
 
         // Interest Rate Future
         const future = new InterestRateFuture(
@@ -212,13 +255,23 @@ export const RatesInstrumentsExample: React.FC = () => {
           'long',
           DayCount.act360()
         );
-        const futureResult = registry.priceInterestRateFuture(future, 'discounting', market);
-        results.push({
-          name: 'SOFR Future (Mar 24)',
-          type: 'InterestRateFuture',
-          notional: 1_000_000,
-          presentValue: futureResult.presentValue.amount,
-        });
+        try {
+          const futureResult = registry.priceInterestRateFuture(
+            future,
+            'discounting',
+            market,
+            asOf,
+            null
+          );
+          results.push({
+            name: 'SOFR Future (Mar 24)',
+            type: 'InterestRateFuture',
+            notional: 1_000_000,
+            presentValue: futureResult.presentValue.amount,
+          });
+        } catch (err) {
+          console.warn('Future pricing failed, skipping', err);
+        }
 
         if (!cancelled) {
           setRows(results);

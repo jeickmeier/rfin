@@ -92,7 +92,7 @@ export const FxInstrumentsExample: React.FC = () => {
           1.086,
           Money.fromCode(1_000_000, 'EUR')
         );
-        const spotResult = registry.priceFxSpot(spot, 'discounting', market);
+        const spotResult = registry.priceFxSpot(spot, 'discounting', market, asOf);
         results.push({
           name: 'EUR/USD Spot',
           type: 'FxSpot',
@@ -113,7 +113,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'FX-VOL'
         );
         const callOpts = new PricingRequest().withMetrics(['delta']);
-        const callResult = registry.priceFxOption(call, 'discounting', market, callOpts);
+        const callResult = registry.priceFxOption(call, 'discounting', market, asOf, callOpts);
         results.push({
           name: '1Y Call @ 1.10',
           type: 'FxOption',
@@ -141,7 +141,7 @@ export const FxInstrumentsExample: React.FC = () => {
           'EUR-OIS',
           'FX-VOL'
         );
-        const putResult = registry.priceFxOption(put, 'discounting', market);
+        const putResult = registry.priceFxOption(put, 'discounting', market, asOf, null);
         results.push({
           name: '6M Put @ 1.06',
           type: 'FxOption',
@@ -162,7 +162,7 @@ export const FxInstrumentsExample: React.FC = () => {
           1.0865,
           1.092
         );
-        const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market);
+        const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market, asOf);
         results.push({
           name: '6M FX Swap',
           type: 'FxSwap',

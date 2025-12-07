@@ -38,7 +38,6 @@ export const ExoticEquityOptionsExample: React.FC = () => {
       try {
         const asOf = new FsDate(2024, 1, 2);
 
-        // Build market
         const discountCurve = new DiscountCurve(
           'USD-OIS',
           asOf,
@@ -95,6 +94,7 @@ export const ExoticEquityOptionsExample: React.FC = () => {
             barrierOption1,
             'monte_carlo_gbm',
             market,
+            asOf,
             barrierOpts1
           );
           results.push({
@@ -129,7 +129,9 @@ export const ExoticEquityOptionsExample: React.FC = () => {
           const barrierResult2 = registry.priceBarrierOption(
             barrierOption2,
             'monte_carlo_gbm',
-            market
+            market,
+            asOf,
+            null
           );
           results.push({
             name: 'Barrier Down-and-In Put',
@@ -165,7 +167,13 @@ export const ExoticEquityOptionsExample: React.FC = () => {
             'call', // option_type
             'AAPL-DIVYIELD'
           );
-          const asianResult1 = registry.priceAsianOption(asianOption1, 'monte_carlo_gbm', market);
+          const asianResult1 = registry.priceAsianOption(
+            asianOption1,
+            'monte_carlo_gbm',
+            market,
+            asOf,
+            null
+          );
           results.push({
             name: 'Asian Arithmetic Call',
             type: 'AsianOption',
@@ -193,7 +201,13 @@ export const ExoticEquityOptionsExample: React.FC = () => {
             'put',
             'AAPL-DIVYIELD'
           );
-          const asianResult2 = registry.priceAsianOption(asianOption2, 'monte_carlo_gbm', market);
+          const asianResult2 = registry.priceAsianOption(
+            asianOption2,
+            'monte_carlo_gbm',
+            market,
+            asOf,
+            null
+          );
           results.push({
             name: 'Asian Geometric Put',
             type: 'AsianOption',
@@ -214,9 +228,9 @@ export const ExoticEquityOptionsExample: React.FC = () => {
             expiry: '2024-12-31',
             lookback_type: 'FixedStrike',
             option_type: 'call',
-            notional: 1.0,
+            notional: { amount: 1.0, currency: 'USD' },
             day_count: 'act_365f',
-            disc_id: 'USD-OIS',
+            discount_curve_id: 'USD-OIS',
             spot_id: 'AAPL-SPOT',
             vol_id: 'EQUITY-VOL',
             div_yield_id: 'AAPL-DIVYIELD',
@@ -239,7 +253,9 @@ export const ExoticEquityOptionsExample: React.FC = () => {
           const lookbackResult = registry.priceLookbackOption(
             lookbackOption,
             'monte_carlo_gbm',
-            market
+            market,
+            asOf,
+            null
           );
           results.push({
             name: 'Lookback Fixed Strike Call',
@@ -262,7 +278,7 @@ export const ExoticEquityOptionsExample: React.FC = () => {
             global_cap: 0.3,
             notional: { amount: 1_000_000.0, currency: 'USD' },
             day_count: 'act_365f',
-            disc_id: 'USD-OIS',
+            discount_curve_id: 'USD-OIS',
             spot_id: 'AAPL-SPOT',
             vol_id: 'EQUITY-VOL',
             div_yield_id: 'AAPL-DIVYIELD',
@@ -285,7 +301,9 @@ export const ExoticEquityOptionsExample: React.FC = () => {
           const cliquetResult = registry.priceCliquetOption(
             cliquetOption,
             'monte_carlo_gbm',
-            market
+            market,
+            asOf,
+            null
           );
           results.push({
             name: 'Cliquet Option',

@@ -343,11 +343,12 @@ export default function ScenariosExample() {
       const market = new MarketContext();
       const baseDate = new FsDate(2025, 1, 1);
 
+      // Need more data points for time roll forward to have enough curve data after rolling
       const curve = new DiscountCurve(
         'USD_SOFR',
         baseDate,
-        new Float64Array([0.0, 1.0]),
-        new Float64Array([1.0, 0.98]),
+        new Float64Array([0.0, 0.25, 0.5, 1.0, 2.0, 5.0]),
+        new Float64Array([1.0, 0.9975, 0.995, 0.98, 0.96, 0.92]),
         'act_365f',
         'monotone_convex',
         'flat_forward',

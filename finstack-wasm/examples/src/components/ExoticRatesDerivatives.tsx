@@ -87,30 +87,25 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           cms_tenor: 10.0,
           strike_rate: 0.035,
           fixing_dates: ['2025-01-02'],
+          payment_dates: ['2025-01-02'],
           accrual_fractions: [1.0],
           option_type: 'call',
           notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'act_365f',
-          disc_id: 'USD-OIS',
-          vol_id: 'SWAPTION-VOL',
+          day_count: 'Act365F',
+          swap_fixed_freq: { Months: 6 },
+          swap_float_freq: { Months: 3 },
+          swap_day_count: 'Act360',
+          discount_curve_id: 'USD-OIS',
+          forward_curve_id: 'USD-SOFR-3M',
+          vol_surface_id: 'SWAPTION-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
         const cmsCall = CmsOption.fromJson(cmsCallJson);
         // CMS options use monte_carlo_hull_white_1f model
-        const cmsCallResult = registry.priceCmsOption(cmsCall, 'monte_carlo_hull_white_1f', market);
+        const cmsCallResult = registry.priceCmsOption(cmsCall, 'monte_carlo_hull_white_1f', market, asOf, null);
         results.push({
           name: 'CMS Call (10Y Swap Rate)',
           type: 'CmsOption',
@@ -125,29 +120,24 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           cms_tenor: 5.0,
           strike_rate: 0.03,
           fixing_dates: ['2025-01-02'],
+          payment_dates: ['2025-01-02'],
           accrual_fractions: [1.0],
           option_type: 'put',
           notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'act_365f',
-          disc_id: 'USD-OIS',
-          vol_id: 'SWAPTION-VOL',
+          day_count: 'Act365F',
+          swap_fixed_freq: { Months: 6 },
+          swap_float_freq: { Months: 3 },
+          swap_day_count: 'Act360',
+          discount_curve_id: 'USD-OIS',
+          forward_curve_id: 'USD-SOFR-3M',
+          vol_surface_id: 'SWAPTION-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
         const cmsPut = CmsOption.fromJson(cmsPutJson);
-        const cmsPutResult = registry.priceCmsOption(cmsPut, 'monte_carlo_hull_white_1f', market);
+        const cmsPutResult = registry.priceCmsOption(cmsPut, 'monte_carlo_hull_white_1f', market, asOf, null);
         results.push({
           name: 'CMS Put (5Y Swap Rate)',
           type: 'CmsOption',
@@ -177,23 +167,13 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           upper_bound: 0.05,
           coupon_rate: 0.06,
           notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'act_365f',
-          disc_id: 'USD-OIS',
+          day_count: 'Act365F',
+          discount_curve_id: 'USD-OIS',
           spot_id: 'USD-SOFR-3M-SPOT',
-          vol_id: 'SWAPTION-VOL',
+          vol_surface_id: 'SWAPTION-VOL',
           div_yield_id: null,
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
@@ -202,7 +182,9 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         const rangeAccrualResult = registry.priceRangeAccrual(
           rangeAccrual,
           'monte_carlo_gbm',
-          market
+          market,
+          asOf,
+          null
         );
         results.push({
           name: 'Range Accrual Note',

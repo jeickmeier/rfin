@@ -8,7 +8,6 @@ import {
   logFactorial,
   NewtonSolver,
   BrentSolver,
-  HybridSolver,
 } from 'finstack-wasm';
 
 interface IntegrationRow {
@@ -54,7 +53,7 @@ export const MathShowcaseExample: React.FC = () => {
     let quad: GaussHermiteQuadrature | null = null;
     let newton: NewtonSolver | null = null;
     let brent: BrentSolver | null = null;
-    let hybrid: HybridSolver | null = null;
+    let brent2: BrentSolver | null = null;
 
     try {
       quad = GaussHermiteQuadrature.order7();
@@ -74,8 +73,8 @@ export const MathShowcaseExample: React.FC = () => {
       brent = new BrentSolver(1e-12, 100, 2.0, null);
       const cosMinusX = brent.solve((x: number) => Math.cos(x) - x, 0.5);
 
-      hybrid = new HybridSolver(1e-12, 100);
-      const cubicRoot = hybrid.solve((x: number) => x * x * x - x - 1.0, 1.0);
+      brent2 = new BrentSolver(1e-12, 100, 2.0, null);
+      const cubicRoot = brent2.solve((x: number) => x * x * x - x - 1.0, 1.0);
 
       const integrals: IntegrationRow[] = [
         {
@@ -107,7 +106,7 @@ export const MathShowcaseExample: React.FC = () => {
           reference: '≈ 0.7391',
         },
         {
-          label: 'Hybrid solve x³ − x − 1 = 0',
+          label: 'Brent solve x³ − x − 1 = 0',
           root: cubicRoot,
           reference: '≈ 1.3247',
         },
@@ -139,7 +138,7 @@ export const MathShowcaseExample: React.FC = () => {
       quad?.free();
       newton?.free();
       brent?.free();
-      hybrid?.free();
+      brent2?.free();
     }
 
     return () => {

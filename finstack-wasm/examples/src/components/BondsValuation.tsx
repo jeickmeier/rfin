@@ -63,6 +63,13 @@ export const BondsValuationExample: React.FC = () => {
         const issue = new FsDate(2024, 1, 15);
         const valuationDate = new FsDate(2024, 3, 15);
 
+        // Debug type checks to ensure FsDate instances are from the same WASM module
+        console.debug(
+          'FsDate checks (bonds)',
+          issue instanceof FsDate,
+          valuationDate instanceof FsDate
+        );
+
         const discountCurve = new DiscountCurve(
           'USD-OIS',
           valuationDate,
@@ -98,7 +105,7 @@ export const BondsValuationExample: React.FC = () => {
 
         const evaluateBond = (bond: Bond, bondName: string): BondRow => {
           const opts = new PricingRequest().withMetrics(metricKeys);
-          const result = registry.priceBond(bond, 'discounting', market, opts);
+          const result = registry.priceBond(bond, 'discounting', market, valuationDate, opts);
 
           // Extract primitives immediately to avoid GC issues
           const presentValue = result.presentValue.amount;
@@ -134,17 +141,22 @@ export const BondsValuationExample: React.FC = () => {
         // IMPORTANT: quoted_clean_price expects a percentage of par (e.g., 99.5 for 99.5% of par),
         // NOT an absolute dollar amount.
         const quotedPricePct = 99.5; // 99.5% of par
-        const fixedBond = Bond.fixedSemiannual(
-          'corp_fixed_2029',
-          notional,
-          0.045,
-          issue,
-          new FsDate(2029, 1, 15),
-          'USD-OIS',
-          quotedPricePct
-        );
-
-        const fixedRow = evaluateBond(fixedBond, '5Y Corporate Fixed');
+        let fixedRow: BondRow;
+        try {
+          const fixedBond = Bond.fixedSemiannual(
+            'corp_fixed_2029',
+            notional,
+            0.045,
+            issue,
+            new FsDate(2029, 1, 15),
+            'USD-OIS',
+            quotedPricePct
+          );
+          fixedRow = evaluateBond(fixedBond, '5Y Corporate Fixed');
+        } catch (err) {
+          console.error('Fixed bond failed:', err);
+          throw err; // Re-throw to show error
+        }
         fixedRow.kind = 'Fixed Coupon';
         fixedRow.couponLabel = '4.50% semi-annual';
         fixedRow.notes = [
@@ -228,99 +240,123 @@ export const BondsValuationExample: React.FC = () => {
         ];
 
         // Callable bond with call schedule
-        const callQuotedPricePct = 102.0;
-        const callSchedule = [
-          ['2026-01-15', 103.0], // Callable after 2 years at 103%
-          ['2027-01-15', 102.0], // After 3 years at 102%
-          ['2028-01-15', 101.0], // After 4 years at 101%
-        ];
+        let callableRow: BondRow | null = null;
+        try {
+          const callQuotedPricePct = 102.0;
+          const callSchedule = [
+            ['2026-01-15', 103.0], // Callable after 2 years at 103%
+            ['2027-01-15', 102.0], // After 3 years at 102%
+            ['2028-01-15', 101.0], // After 4 years at 101%
+          ];
 
-        const callableBond = new Bond(
-          'corp_call_2029',
-          notional,
-          issue,
-          new FsDate(2029, 1, 15),
-          'USD-OIS',
-          0.06, // 6.0% coupon
-          Frequency.semiAnnual(),
-          DayCount.thirty360(),
-          BusinessDayConvention.ModifiedFollowing,
-          undefined, // calendar
-          StubKind.none(),
-          undefined, // amortization
-          callSchedule,
-          undefined, // put schedule
-          callQuotedPricePct
-        );
-        const callableRow = evaluateBond(callableBond, '5Y Callable Bond');
-        callableRow.kind = 'Callable';
-        callableRow.couponLabel = '6.00% semi-annual';
-        callableRow.notes = [
-          'Callable starting 2026-01-15 at 103%',
-          'Call prices step down: 103% → 102% → 101%',
-          `Quoted at ${callQuotedPricePct}% of par`,
-        ];
+          const callableBond = new Bond(
+            'corp_call_2029',
+            notional,
+            issue,
+            new FsDate(2029, 1, 15),
+            'USD-OIS',
+            0.06, // 6.0% coupon
+            Frequency.semiAnnual(),
+            DayCount.thirty360(),
+            BusinessDayConvention.ModifiedFollowing,
+            undefined, // calendar
+            StubKind.none(),
+            undefined, // amortization
+            callSchedule,
+            undefined, // put schedule
+            callQuotedPricePct
+          );
+          callableRow = evaluateBond(callableBond, '5Y Callable Bond');
+          callableRow.kind = 'Callable';
+          callableRow.couponLabel = '6.00% semi-annual';
+          callableRow.notes = [
+            'Callable starting 2026-01-15 at 103%',
+            'Call prices step down: 103% → 102% → 101%',
+            `Quoted at ${callQuotedPricePct}% of par`,
+          ];
+        } catch (err) {
+          console.warn('Callable bond creation failed, skipping:', err);
+        }
 
         // Fixed-to-Floating bond
         // EXAMPLE: Using Bond.fixedToFloating() helper for windowed cashflows
         const fixToFloatQuotedPricePct = 99.75;
         const switchDate = new FsDate(2026, 1, 15); // Switch after 2 years
-        const fixToFloatBond = Bond.fixedToFloating(
-          'corp_fix2flt_2029',
-          notional,
-          0.05, // 5% fixed rate for first 2 years
-          switchDate, // Switch date
-          'USD-SOFR-3M', // Forward curve after switch
-          100.0, // 100 bps margin (DM) over SOFR
-          issue,
-          new FsDate(2029, 1, 15),
-          Frequency.quarterly(),
-          DayCount.act360(),
-          'USD-OIS',
-          fixToFloatQuotedPricePct,
-          market // Market context for forward rate lookup
-        );
-        const fixToFloatRow = evaluateBond(fixToFloatBond, '5Y Fixed-to-Floating');
-        fixToFloatRow.kind = 'Fixed-to-Floating';
-        fixToFloatRow.couponLabel = '5.00% → SOFR 3M + 100bps';
-        fixToFloatRow.notes = [
-          'Created via Bond.fixedToFloating helper',
-          'Fixed at 5% until 2026-01-15',
-          'Then floats at SOFR 3M + 100 bps (discount margin)',
-          'Cashflows show Fixed column, then Float column',
-          `Quoted at ${fixToFloatQuotedPricePct}% of par`,
-        ];
+        let fixToFloatRow: BondRow | null = null;
+        try {
+          const fixToFloatBond = Bond.fixedToFloating(
+            'corp_fix2flt_2029',
+            notional,
+            0.05, // 5% fixed rate for first 2 years
+            switchDate, // Switch date
+            'USD-SOFR-3M', // Forward curve after switch
+            100.0, // 100 bps margin (DM) over SOFR
+            issue,
+            new FsDate(2029, 1, 15),
+            Frequency.quarterly(),
+            DayCount.act360(),
+            'USD-OIS',
+            fixToFloatQuotedPricePct,
+            market // Market context for forward rate lookup
+          );
+          fixToFloatRow = evaluateBond(fixToFloatBond, '5Y Fixed-to-Floating');
+          fixToFloatRow.kind = 'Fixed-to-Floating';
+          fixToFloatRow.couponLabel = '5.00% → SOFR 3M + 100bps';
+          fixToFloatRow.notes = [
+            'Created via Bond.fixedToFloating helper',
+            'Fixed at 5% until 2026-01-15',
+            'Then floats at SOFR 3M + 100 bps (discount margin)',
+            'Cashflows show Fixed column, then Float column',
+            `Quoted at ${fixToFloatQuotedPricePct}% of par`,
+          ];
+        } catch (err) {
+          console.warn('Fixed-to-floating bond creation failed, skipping:', err);
+        }
 
         // PIK Toggle bond (50/50 Cash/PIK)
         // EXAMPLE: Using Bond.pikToggle() helper method
         const pikQuotedPricePct = 97.0;
-        const pikBond = Bond.pikToggle(
-          'corp_pik_2029',
-          notional,
-          0.08, // 8% coupon
-          0.5, // 50% cash
-          0.5, // 50% PIK
-          issue,
-          new FsDate(2029, 1, 15),
-          'USD-OIS',
-          pikQuotedPricePct,
-          market // Market context (not used for fixed PIK, but required)
-        );
-        const pikRow = evaluateBond(pikBond, '5Y PIK-Toggle Bond');
-        pikRow.kind = 'PIK Toggle';
-        pikRow.couponLabel = '8.00% (50/50 Cash/PIK)';
-        pikRow.notes = [
-          'Created via Bond.pikToggle helper',
-          '50% of each coupon paid in cash (Fixed column)',
-          '50% of each coupon capitalized into principal (PIK column)',
-          'Outstanding balance increases as PIK interest compounds',
-          `Quoted at ${pikQuotedPricePct}% of par`,
-        ];
+        let pikRow: BondRow | null = null;
+        try {
+          const pikBond = Bond.pikToggle(
+            'corp_pik_2029',
+            notional,
+            0.08, // 8% coupon
+            0.5, // 50% cash
+            0.5, // 50% PIK
+            issue,
+            new FsDate(2029, 1, 15),
+            'USD-OIS',
+            pikQuotedPricePct,
+            market // Market context (not used for fixed PIK, but required)
+          );
+          pikRow = evaluateBond(pikBond, '5Y PIK-Toggle Bond');
+          pikRow.kind = 'PIK Toggle';
+          pikRow.couponLabel = '8.00% (50/50 Cash/PIK)';
+          pikRow.notes = [
+            'Created via Bond.pikToggle helper',
+            '50% of each coupon paid in cash (Fixed column)',
+            '50% of each coupon capitalized into principal (PIK column)',
+            'Outstanding balance increases as PIK interest compounds',
+            `Quoted at ${pikQuotedPricePct}% of par`,
+          ];
+        } catch (err) {
+          console.warn('PIK toggle bond creation failed, skipping:', err);
+        }
 
         if (!cancelled) {
-          const allRows = [fixedRow, zeroRow, amortRow, callableRow, fixToFloatRow, pikRow];
+          const allRows = [fixedRow, zeroRow, amortRow];
+          if (callableRow) {
+            allRows.push(callableRow);
+          }
           if (floatingRow) {
             allRows.splice(2, 0, floatingRow); // Insert floating row at position 2
+          }
+          if (fixToFloatRow) {
+            allRows.push(fixToFloatRow);
+          }
+          if (pikRow) {
+            allRows.push(pikRow);
           }
           setRows(allRows);
         }

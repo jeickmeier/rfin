@@ -75,7 +75,7 @@ export const InflationInstrumentsExample: React.FC = () => {
           null,
           null
         );
-        const ilbResult = registry.priceInflationLinkedBond(ilb, 'discounting', market);
+        const ilbResult = registry.priceInflationLinkedBond(ilb, 'discounting', market, asOf);
         results.push({
           name: 'US TIPS 2034',
           type: 'InflationLinkedBond',
@@ -95,7 +95,7 @@ export const InflationInstrumentsExample: React.FC = () => {
           'pay_fixed',
           'act_act'
         );
-        const swapResult = registry.priceInflationSwap(infSwap, 'discounting', market);
+        const swapResult = registry.priceInflationSwap(infSwap, 'discounting', market, asOf);
         results.push({
           name: 'ZC Inflation Swap (6Y)',
           type: 'InflationSwap',

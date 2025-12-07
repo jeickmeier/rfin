@@ -145,16 +145,127 @@ impl JsCashFlow {
 
 #[wasm_bindgen(js_class = CashFlow)]
 impl JsCashFlow {
+    /// Create a fixed coupon cashflow.
+    ///
+    /// @param {Date} date - Payment date
+    /// @param {Money} amount - Payment amount
+    /// @param {number} accrualFactor - Accrual factor for the period
+    /// @returns {CashFlow} Fixed coupon cashflow
+    ///
+    /// @example
+    /// ```javascript
+    /// const fixed = CashFlow.fixed(
+    ///     new FsDate(2025, 3, 15),
+    ///     Money.fromCode(12500.0, 'USD'),
+    ///     0.25
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = fixed)]
+    pub fn fixed(date: &JsDate, amount: &JsMoney, accrual_factor: f64) -> JsCashFlow {
+        JsCashFlow::from_inner(CashFlow {
+            date: date.inner(),
+            reset_date: None,
+            amount: amount.inner(),
+            kind: CFKind::Fixed,
+            accrual_factor,
+            rate: None,
+        })
+    }
+
+    /// Create a floating rate cashflow with reset date.
+    ///
+    /// @param {Date} paymentDate - Payment date
+    /// @param {Money} amount - Payment amount
+    /// @param {Date} resetDate - Index reset date
+    /// @param {number} accrualFactor - Accrual factor for the period
+    /// @returns {CashFlow} Floating rate cashflow
+    ///
+    /// @example
+    /// ```javascript
+    /// const floating = CashFlow.floating(
+    ///     new FsDate(2025, 6, 15),
+    ///     Money.fromCode(13750.0, 'USD'),
+    ///     new FsDate(2025, 3, 15),
+    ///     0.25
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = floating)]
+    pub fn floating(
+        payment_date: &JsDate,
+        amount: &JsMoney,
+        reset_date: &JsDate,
+        accrual_factor: f64,
+    ) -> JsCashFlow {
+        JsCashFlow::from_inner(CashFlow {
+            date: payment_date.inner(),
+            reset_date: Some(reset_date.inner()),
+            amount: amount.inner(),
+            kind: CFKind::FloatReset,
+            accrual_factor,
+            rate: None,
+        })
+    }
+
+    /// Create a fee cashflow.
+    ///
+    /// @param {Date} date - Payment date
+    /// @param {Money} amount - Fee amount
+    /// @returns {CashFlow} Fee cashflow
+    ///
+    /// @example
+    /// ```javascript
+    /// const fee = CashFlow.fee(
+    ///     new FsDate(2025, 1, 15),
+    ///     Money.fromCode(150000.0, 'USD')
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = fee)]
+    pub fn fee(date: &JsDate, amount: &JsMoney) -> JsCashFlow {
+        JsCashFlow::from_inner(CashFlow {
+            date: date.inner(),
+            reset_date: None,
+            amount: amount.inner(),
+            kind: CFKind::Fee,
+            accrual_factor: 0.0,
+            rate: None,
+        })
+    }
+
+    /// Create a principal exchange (notional) cashflow.
+    ///
+    /// @param {Date} date - Payment date
+    /// @param {Money} amount - Principal amount (negative for repayment)
+    /// @returns {CashFlow} Principal exchange cashflow
+    ///
+    /// @example
+    /// ```javascript
+    /// const principal = CashFlow.principalExchange(
+    ///     new FsDate(2030, 3, 15),
+    ///     Money.fromCode(-5000000.0, 'USD')
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = principalExchange)]
+    pub fn principal_exchange(date: &JsDate, amount: &JsMoney) -> JsCashFlow {
+        JsCashFlow::from_inner(CashFlow {
+            date: date.inner(),
+            reset_date: None,
+            amount: amount.inner(),
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        })
+    }
+
+    /// Validate cashflow amount and fields.
     /// Validate cashflow amount and fields.
     ///
     /// @throws {Error} If the cashflow amount is zero
     ///
     /// @example
     /// ```javascript
-    /// const cf = new CashFlow(
-    ///     new Date(2025, 2, 15),
-    ///     new Money(50000, new Currency("USD")),
-    ///     CFKind.Fixed(),
+    /// const cf = CashFlow.fixed(
+    ///     new FsDate(2025, 2, 15),
+    ///     Money.fromCode(50000, 'USD'),
     ///     0.25
     /// );
     /// cf.validate(); // Should pass

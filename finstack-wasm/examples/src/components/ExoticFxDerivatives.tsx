@@ -124,25 +124,15 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           option_type: 'call',
           barrier_type: 'UpAndOut',
           expiry: '2024-12-31',
-          notional: 1.0,
-          correlation: 0.0,
-          day_count: 'act_365f',
+          notional: { amount: 1.0, currency: 'USD' },
+          day_count: 'Act365F',
           use_gobet_miri: false,
-          disc_id: 'USD-OIS',
+          domestic_discount_curve_id: 'USD-OIS',
+          foreign_discount_curve_id: 'EUR-OIS',
           fx_spot_id: 'EURUSD-SPOT',
           fx_vol_id: 'FX-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
@@ -150,7 +140,9 @@ export const ExoticFxDerivativesExample: React.FC = () => {
         const fxBarrierResult = registry.priceFxBarrierOption(
           fxBarrierOption,
           'monte_carlo_gbm',
-          market
+          market,
+          asOf,
+          null
         );
         results.push({
           name: 'FX Barrier Up-and-Out Call',
@@ -170,25 +162,15 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           option_type: 'put',
           barrier_type: 'DownAndIn',
           expiry: '2024-12-31',
-          notional: 1.0,
-          correlation: 0.0,
-          day_count: 'act_365f',
+          notional: { amount: 1.0, currency: 'USD' },
+          day_count: 'Act365F',
           use_gobet_miri: false,
-          disc_id: 'USD-OIS',
+          domestic_discount_curve_id: 'USD-OIS',
+          foreign_discount_curve_id: 'GBP-OIS',
           fx_spot_id: 'GBPUSD-SPOT',
           fx_vol_id: 'FX-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
@@ -196,7 +178,9 @@ export const ExoticFxDerivativesExample: React.FC = () => {
         const fxBarrierPutResult = registry.priceFxBarrierOption(
           fxBarrierPut,
           'monte_carlo_gbm',
-          market
+          market,
+          asOf,
+          null
         );
         results.push({
           name: 'FX Barrier Down-and-In Put',
@@ -213,35 +197,26 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           equity_strike: { amount: 150.0, currency: 'EUR' },
           expiry: '2024-12-31',
           option_type: 'call',
-          notional: 1.0,
+          notional: { amount: 1.0, currency: 'USD' },
           domestic_currency: 'USD',
           foreign_currency: 'EUR',
           correlation: 0.3,
-          day_count: 'act_365f',
-          disc_id: 'USD-OIS',
+          day_count: 'Act365F',
+          discount_curve_id: 'USD-OIS',
+          foreign_discount_curve_id: 'EUR-OIS',
           spot_id: 'EUR-EQUITY-SPOT',
-          vol_id: 'EQUITY-VOL',
+          vol_surface_id: 'EQUITY-VOL',
           div_yield_id: null,
           fx_rate_id: null,
-          fx_vol_id: null,
+          fx_vol_id: 'FX-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
         const quantoOption = QuantoOption.fromJson(quantoJson);
         // Quanto options are priced using priceQuantoOption
-        const quantoResult = registry.priceQuantoOption(quantoOption, 'monte_carlo_gbm', market);
+        const quantoResult = registry.priceQuantoOption(quantoOption, 'monte_carlo_gbm', market, asOf, null);
         results.push({
           name: 'Quanto Call (EUR equity, USD payment)',
           type: 'QuantoOption',
@@ -257,34 +232,25 @@ export const ExoticFxDerivativesExample: React.FC = () => {
           equity_strike: { amount: 140.0, currency: 'GBP' },
           expiry: '2024-12-31',
           option_type: 'put',
-          notional: 1.0,
+          notional: { amount: 1.0, currency: 'USD' },
           domestic_currency: 'USD',
           foreign_currency: 'GBP',
           correlation: 0.3,
-          day_count: 'act_365f',
-          disc_id: 'USD-OIS',
+          day_count: 'Act365F',
+          discount_curve_id: 'USD-OIS',
+          foreign_discount_curve_id: 'GBP-OIS',
           spot_id: 'GBP-EQUITY-SPOT',
-          vol_id: 'EQUITY-VOL',
+          vol_surface_id: 'EQUITY-VOL',
           div_yield_id: null,
           fx_rate_id: null,
-          fx_vol_id: null,
+          fx_vol_id: 'FX-VOL',
           pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_bp: null,
-            theta_period: null,
-            mc_seed_scenario: null,
             adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
           },
           attributes: { tags: [], meta: {} },
         });
         const quantoPut = QuantoOption.fromJson(quantoPutJson);
-        const quantoPutResult = registry.priceQuantoOption(quantoPut, 'monte_carlo_gbm', market);
+        const quantoPutResult = registry.priceQuantoOption(quantoPut, 'monte_carlo_gbm', market, asOf, null);
         results.push({
           name: 'Quanto Put (GBP equity, USD payment)',
           type: 'QuantoOption',

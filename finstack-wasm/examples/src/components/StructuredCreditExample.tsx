@@ -182,14 +182,15 @@ export const StructuredCreditExample: React.FC = () => {
         const cloJson = JSON.stringify({
           id: 'clo_2024_1',
           deal_type: 'CLO',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
+          payment_calendar_id: 'nyse',
           closing_date: '2024-01-02',
           first_payment_date: '2024-04-15',
           reinvestment_end_date: '2027-01-15',
           legal_maturity: '2031-01-15',
           payment_frequency: { Months: 3 },
-          manager_id: 'CLO_Manager',
-          servicer_id: 'CLO_Servicer',
+          // manager/servicer metadata
+          deal_metadata: { manager: 'CLO_Manager', servicer: 'CLO_Servicer' },
           attributes: { tags: [], meta: {} },
           pool: {
             id: 'clo_pool_2024_1',
@@ -201,7 +202,7 @@ export const StructuredCreditExample: React.FC = () => {
                 balance: { amount: 50_000_000.0, currency: 'USD' },
                 rate: 0.078,
                 spread_bps: 450.0,
-                index_id: 'SOFR-3M',
+                index_id: null,
                 maturity: '2030-01-15',
                 credit_quality: 'B',
                 industry: 'Technology',
@@ -210,6 +211,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 50_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-02',
+                day_count: 'Act360',
               },
               {
                 id: 'loan_002',
@@ -217,7 +219,7 @@ export const StructuredCreditExample: React.FC = () => {
                 balance: { amount: 75_000_000.0, currency: 'USD' },
                 rate: 0.072,
                 spread_bps: 400.0,
-                index_id: 'SOFR-3M',
+                index_id: null,
                 maturity: '2029-06-15',
                 credit_quality: 'BB',
                 industry: 'Healthcare',
@@ -226,6 +228,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 75_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-02',
+                day_count: 'Act360',
               },
               {
                 id: 'loan_003',
@@ -233,7 +236,7 @@ export const StructuredCreditExample: React.FC = () => {
                 balance: { amount: 100_000_000.0, currency: 'USD' },
                 rate: 0.075,
                 spread_bps: 425.0,
-                index_id: 'SOFR-3M',
+                index_id: null,
                 maturity: '2030-12-15',
                 credit_quality: 'B',
                 industry: 'Manufacturing',
@@ -242,6 +245,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 100_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-02',
+                day_count: 'Act360',
               },
               {
                 id: 'loan_004',
@@ -249,7 +253,7 @@ export const StructuredCreditExample: React.FC = () => {
                 balance: { amount: 80_000_000.0, currency: 'USD' },
                 rate: 0.08,
                 spread_bps: 475.0,
-                index_id: 'SOFR-3M',
+                index_id: null,
                 maturity: '2028-09-15',
                 credit_quality: 'B',
                 industry: 'Retail',
@@ -258,6 +262,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 80_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-02',
+                day_count: 'Act360',
               },
               {
                 id: 'loan_005',
@@ -265,7 +270,7 @@ export const StructuredCreditExample: React.FC = () => {
                 balance: { amount: 95_000_000.0, currency: 'USD' },
                 rate: 0.076,
                 spread_bps: 450.0,
-                index_id: 'SOFR-3M',
+                index_id: null,
                 maturity: '2031-03-15',
                 credit_quality: 'BB',
                 industry: 'Energy',
@@ -274,35 +279,9 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 95_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-02',
+                day_count: 'Act360',
               },
             ],
-            eligibility_criteria: {
-              min_rating: null,
-              max_rating: null,
-              min_spread_bps: null,
-              max_maturity: null,
-              min_remaining_term: null,
-              max_remaining_term: null,
-              allowed_asset_types: [],
-              allowed_currencies: [],
-              max_price_pct: null,
-              min_asset_size: null,
-              max_asset_size: null,
-              excluded_industries: [],
-              excluded_obligors: [],
-            },
-            concentration_limits: {
-              max_obligor_concentration: 2.0,
-              max_top5_concentration: 10.0,
-              max_top10_concentration: 20.0,
-              industry_limits: {},
-              rating_bucket_limits: {},
-              geographic_limits: {},
-              asset_type_limits: {},
-              max_second_lien: 10.0,
-              max_cov_lite: 70.0,
-              max_dip: 5.0,
-            },
             cumulative_defaults: { amount: 0.0, currency: 'USD' },
             cumulative_recoveries: { amount: 0.0, currency: 'USD' },
             cumulative_prepayments: { amount: 0.0, currency: 'USD' },
@@ -320,31 +299,12 @@ export const StructuredCreditExample: React.FC = () => {
             collection_account: { amount: 0.0, currency: 'USD' },
             reserve_account: { amount: 0.0, currency: 'USD' },
             excess_spread_account: { amount: 0.0, currency: 'USD' },
-            stats: {
-              weighted_avg_coupon: 0.076,
-              weighted_avg_spread: 440.0,
-              weighted_avg_life: 5.5,
-              weighted_avg_rating_factor: 2600.0,
-              diversity_score: 5.0,
-              num_obligors: 5,
-              num_industries: 5,
-              cumulative_default_rate: 0.02,
-              recovery_rate: 0.65,
-              prepayment_rate: 0.15,
-            },
-            original_balance: { amount: 400_000_000.0, currency: 'USD' },
-            coupon_rate: 0.075,
-            maturity: '2031-01-15',
-            prepayment_speed: 0.15,
-            default_rate: 0.02,
-            recovery_rate: 0.65,
           },
           tranches: {
             total_size: { amount: 400_000_000.0, currency: 'USD' },
             tranches: [
               {
                 id: 'clo_2024_1_class_a',
-                name: 'Class A (Senior)',
                 original_balance: { amount: 280_000_000.0, currency: 'USD' },
                 current_balance: { amount: 280_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.045 } },
@@ -360,7 +320,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 3 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: true,
@@ -370,7 +330,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'clo_2024_1_class_b',
-                name: 'Class B (Mezzanine)',
                 original_balance: { amount: 60_000_000.0, currency: 'USD' },
                 current_balance: { amount: 60_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.065 } },
@@ -386,7 +345,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 3 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: true,
@@ -396,7 +355,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'clo_2024_1_class_c',
-                name: 'Class C (Junior)',
                 original_balance: { amount: 40_000_000.0, currency: 'USD' },
                 current_balance: { amount: 40_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.095 } },
@@ -412,7 +370,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 3 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: true,
@@ -422,7 +380,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'clo_2024_1_equity',
-                name: 'Equity (First Loss)',
                 original_balance: { amount: 20_000_000.0, currency: 'USD' },
                 current_balance: { amount: 20_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.0 } },
@@ -438,7 +395,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 3 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: true,
@@ -447,15 +404,6 @@ export const StructuredCreditExample: React.FC = () => {
                 attributes: { tags: [], meta: {} },
               },
             ],
-          },
-          fees: {
-            management_fee_bps: 40,
-            trustee_fee_bps: 5,
-          },
-          waterfall: {
-            payment_rules: [],
-            coverage_triggers: [],
-            base_currency: 'USD',
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -475,32 +423,52 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const clo = StructuredCredit.fromJson(cloJson);
+        let clo: StructuredCredit;
         try {
-          const cloResult = registry.priceStructuredCredit(clo, 'discounting', market);
-          results.push({
-            name: 'CLO 2024-1',
-            type: 'Collateralized Loan Obligation',
-            totalSize: 400_000_000,
-            trancheCount: 4,
-            presentValue: cloResult.presentValue.amount,
-            description: 'Senior secured leveraged loans with 4-tranche structure',
-            tranches: [],
-            poolWal: 5.5,
-            poolWac: 7.6,
-          });
+          clo = StructuredCredit.fromJson(cloJson);
         } catch (err) {
+          console.error('CLO fromJson failed', err);
           results.push({
             name: 'CLO 2024-1',
             type: 'Collateralized Loan Obligation',
             totalSize: 400_000_000,
             trancheCount: 4,
             presentValue: 0,
-            description: `CLO structure created successfully (empty pool: ${err instanceof Error ? err.message : String(err)})`,
+            description: `CLO JSON invalid: ${err instanceof Error ? err.message : String(err)}`,
             tranches: [],
             poolWal: 5.5,
             poolWac: 7.6,
           });
+          clo = null as unknown as StructuredCredit;
+        }
+        if (clo) {
+          try {
+            const cloResult = registry.priceStructuredCredit(clo, 'discounting', market, asOf, null);
+            results.push({
+              name: 'CLO 2024-1',
+              type: 'Collateralized Loan Obligation',
+              totalSize: 400_000_000,
+              trancheCount: 4,
+              presentValue: cloResult.presentValue.amount,
+              description: 'Senior secured leveraged loans with 4-tranche structure',
+              tranches: [],
+              poolWal: 5.5,
+              poolWac: 7.6,
+            });
+          } catch (err) {
+            console.error('CLO pricing failed:', err);
+            results.push({
+              name: 'CLO 2024-1',
+              type: 'Collateralized Loan Obligation',
+              totalSize: 400_000_000,
+              trancheCount: 4,
+              presentValue: 0,
+              description: `CLO pricing failed: ${err instanceof Error ? err.message : String(err)}`,
+              tranches: [],
+              poolWal: 5.5,
+              poolWac: 7.6,
+            });
+          }
         }
 
         // ===================================================================
@@ -510,14 +478,14 @@ export const StructuredCreditExample: React.FC = () => {
         const absJson = JSON.stringify({
           id: 'abs_auto_2024_1',
           deal_type: 'ABS',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
+          payment_calendar_id: 'nyse',
           closing_date: '2024-03-01',
           first_payment_date: '2024-04-15',
           reinvestment_end_date: null,
           legal_maturity: '2029-06-15',
           payment_frequency: { Months: 1 },
-          manager_id: 'ABS_Servicer',
-          servicer_id: 'ABS_Servicer',
+          deal_metadata: { servicer: 'ABS_Servicer' },
           attributes: { tags: [], meta: {} },
           pool: {
             id: 'abs_pool_2024_1',
@@ -538,6 +506,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 50_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-03-01',
+                day_count: 'Act360',
               },
               {
                 id: 'auto_002',
@@ -554,6 +523,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 62_500_000.0, currency: 'USD' },
                 acquisition_date: '2024-03-01',
+                day_count: 'Act360',
               },
               {
                 id: 'auto_003',
@@ -570,6 +540,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 75_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-03-01',
+                day_count: 'Act360',
               },
               {
                 id: 'auto_004',
@@ -586,35 +557,9 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 62_500_000.0, currency: 'USD' },
                 acquisition_date: '2024-03-01',
+                day_count: 'Act360',
               },
             ],
-            eligibility_criteria: {
-              min_rating: null,
-              max_rating: null,
-              min_spread_bps: null,
-              max_maturity: null,
-              min_remaining_term: null,
-              max_remaining_term: null,
-              allowed_asset_types: [],
-              allowed_currencies: [],
-              max_price_pct: null,
-              min_asset_size: null,
-              max_asset_size: null,
-              excluded_industries: [],
-              excluded_obligors: [],
-            },
-            concentration_limits: {
-              max_obligor_concentration: 5.0,
-              max_top5_concentration: 20.0,
-              max_top10_concentration: 35.0,
-              industry_limits: {},
-              rating_bucket_limits: {},
-              geographic_limits: {},
-              asset_type_limits: {},
-              max_second_lien: null,
-              max_cov_lite: null,
-              max_dip: null,
-            },
             cumulative_defaults: { amount: 0.0, currency: 'USD' },
             cumulative_recoveries: { amount: 0.0, currency: 'USD' },
             cumulative_prepayments: { amount: 0.0, currency: 'USD' },
@@ -622,32 +567,12 @@ export const StructuredCreditExample: React.FC = () => {
             collection_account: { amount: 0.0, currency: 'USD' },
             reserve_account: { amount: 0.0, currency: 'USD' },
             excess_spread_account: { amount: 0.0, currency: 'USD' },
-            stats: {
-              weighted_avg_coupon: 0.055,
-              weighted_avg_spread: 0.0,
-              weighted_avg_life: 3.5,
-              weighted_avg_rating_factor: 0.0,
-              diversity_score: 0.0,
-              num_obligors: 0,
-              num_industries: 0,
-              cumulative_default_rate: 0.018,
-              recovery_rate: 0.55,
-              prepayment_rate: 0.2,
-            },
-            original_balance: { amount: 250_000_000.0, currency: 'USD' },
-            coupon_rate: 0.055,
-            maturity: '2029-06-15',
-            prepayment_speed: 0.2,
-            default_rate: 0.018,
-            recovery_rate: 0.55,
-            asset_type: 'auto_loans',
           },
           tranches: {
             total_size: { amount: 250_000_000.0, currency: 'USD' },
             tranches: [
               {
                 id: 'abs_auto_2024_1_class_a1',
-                name: 'Class A-1 (Super Senior)',
                 original_balance: { amount: 150_000_000.0, currency: 'USD' },
                 current_balance: { amount: 150_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.038 } },
@@ -663,7 +588,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -673,7 +598,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'abs_auto_2024_1_class_a2',
-                name: 'Class A-2 (Senior)',
                 original_balance: { amount: 50_000_000.0, currency: 'USD' },
                 current_balance: { amount: 50_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.045 } },
@@ -689,7 +613,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -699,7 +623,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'abs_auto_2024_1_class_b',
-                name: 'Class B (Subordinate)',
                 original_balance: { amount: 30_000_000.0, currency: 'USD' },
                 current_balance: { amount: 30_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.06 } },
@@ -715,7 +638,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -725,7 +648,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'abs_auto_2024_1_class_c',
-                name: 'Class C (Junior)',
                 original_balance: { amount: 20_000_000.0, currency: 'USD' },
                 current_balance: { amount: 20_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.0 } },
@@ -741,7 +663,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -750,14 +672,6 @@ export const StructuredCreditExample: React.FC = () => {
                 attributes: { tags: [], meta: {} },
               },
             ],
-          },
-          fees: {
-            servicing_fee_bps: 50,
-          },
-          waterfall: {
-            payment_rules: [],
-            coverage_triggers: [],
-            base_currency: 'USD',
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -777,9 +691,15 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const abs = StructuredCredit.fromJson(absJson);
+        let abs: StructuredCredit;
         try {
-          const absResult = registry.priceStructuredCredit(abs, 'discounting', market);
+          abs = StructuredCredit.fromJson(absJson);
+        } catch (err) {
+          console.error('ABS fromJson failed', err);
+          throw err;
+        }
+        try {
+          const absResult = registry.priceStructuredCredit(abs, 'discounting', market, asOf, null);
           results.push({
             name: 'ABS Auto 2024-1',
             type: 'Asset-Backed Securities',
@@ -813,14 +733,14 @@ export const StructuredCreditExample: React.FC = () => {
         const rmbsJson = JSON.stringify({
           id: 'rmbs_prime_2024_1',
           deal_type: 'RMBS',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
+          payment_calendar_id: 'nyse',
           closing_date: '2024-01-15',
           first_payment_date: '2024-02-15',
           reinvestment_end_date: null,
           legal_maturity: '2054-01-15',
           payment_frequency: { Months: 1 },
-          manager_id: 'RMBS_Servicer',
-          servicer_id: 'RMBS_Master_Servicer',
+          deal_metadata: { servicer: 'RMBS_Master_Servicer' },
           attributes: { tags: [], meta: {} },
           pool: {
             id: 'rmbs_pool_2024_1',
@@ -841,6 +761,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 100_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'mortgage_002',
@@ -857,6 +778,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 125_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'mortgage_003',
@@ -873,6 +795,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 150_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'mortgage_004',
@@ -889,35 +812,9 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 125_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
             ],
-            eligibility_criteria: {
-              min_rating: null,
-              max_rating: null,
-              min_spread_bps: null,
-              max_maturity: null,
-              min_remaining_term: null,
-              max_remaining_term: null,
-              allowed_asset_types: [],
-              allowed_currencies: [],
-              max_price_pct: null,
-              min_asset_size: null,
-              max_asset_size: null,
-              excluded_industries: [],
-              excluded_obligors: [],
-            },
-            concentration_limits: {
-              max_obligor_concentration: null,
-              max_top5_concentration: null,
-              max_top10_concentration: null,
-              industry_limits: {},
-              rating_bucket_limits: {},
-              geographic_limits: {},
-              asset_type_limits: {},
-              max_second_lien: null,
-              max_cov_lite: null,
-              max_dip: null,
-            },
             cumulative_defaults: { amount: 0.0, currency: 'USD' },
             cumulative_recoveries: { amount: 0.0, currency: 'USD' },
             cumulative_prepayments: { amount: 0.0, currency: 'USD' },
@@ -925,38 +822,12 @@ export const StructuredCreditExample: React.FC = () => {
             collection_account: { amount: 0.0, currency: 'USD' },
             reserve_account: { amount: 0.0, currency: 'USD' },
             excess_spread_account: { amount: 0.0, currency: 'USD' },
-            stats: {
-              weighted_avg_coupon: 0.065,
-              weighted_avg_spread: 0.0,
-              weighted_avg_life: 25.0,
-              weighted_avg_rating_factor: 0.0,
-              diversity_score: 0.0,
-              num_obligors: 0,
-              num_industries: 0,
-              cumulative_default_rate: 0.008,
-              recovery_rate: 0.7,
-              prepayment_rate: 0.12,
-            },
-            original_balance: { amount: 500_000_000.0, currency: 'USD' },
-            coupon_rate: 0.065,
-            maturity: '2054-01-15',
-            prepayment_speed: 0.12,
-            default_rate: 0.008,
-            recovery_rate: 0.7,
-            asset_type: 'residential_mortgages',
-            pool_characteristics: {
-              wam: 348,
-              wala: 12,
-              ltv: 75.0,
-              fico_score: 740,
-            },
           },
           tranches: {
             total_size: { amount: 500_000_000.0, currency: 'USD' },
             tranches: [
               {
                 id: 'rmbs_prime_2024_1_class_a1',
-                name: 'Class A-1 (Senior Sequential)',
                 original_balance: { amount: 250_000_000.0, currency: 'USD' },
                 current_balance: { amount: 250_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.042 } },
@@ -972,7 +843,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -982,7 +853,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'rmbs_prime_2024_1_class_a2',
-                name: 'Class A-2 (Senior Sequential)',
                 original_balance: { amount: 150_000_000.0, currency: 'USD' },
                 current_balance: { amount: 150_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.048 } },
@@ -998,7 +868,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -1008,7 +878,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'rmbs_prime_2024_1_class_m1',
-                name: 'Class M-1 (Mezzanine)',
                 original_balance: { amount: 50_000_000.0, currency: 'USD' },
                 current_balance: { amount: 50_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.065 } },
@@ -1024,7 +893,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -1034,7 +903,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'rmbs_prime_2024_1_class_b',
-                name: 'Class B (Subordinate)',
                 original_balance: { amount: 30_000_000.0, currency: 'USD' },
                 current_balance: { amount: 30_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.085 } },
@@ -1050,7 +918,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -1060,7 +928,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'rmbs_prime_2024_1_residual',
-                name: 'Residual Interest',
                 original_balance: { amount: 20_000_000.0, currency: 'USD' },
                 current_balance: { amount: 20_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.0 } },
@@ -1076,7 +943,7 @@ export const StructuredCreditExample: React.FC = () => {
                   cash_trap_active: false,
                 },
                 payment_frequency: { Months: 1 },
-                day_count: 'act360',
+                day_count: 'Act360',
                 deferred_interest: { amount: 0.0, currency: 'USD' },
                 is_revolving: false,
                 can_reinvest: false,
@@ -1085,15 +952,6 @@ export const StructuredCreditExample: React.FC = () => {
                 attributes: { tags: [], meta: {} },
               },
             ],
-          },
-          fees: {
-            servicing_fee_bps: 25,
-            master_servicing_fee_bps: 5,
-          },
-          waterfall: {
-            payment_rules: [],
-            coverage_triggers: [],
-            base_currency: 'USD',
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -1111,13 +969,17 @@ export const StructuredCreditExample: React.FC = () => {
             unemployment_rate: 0.04,
             custom_factors: {},
           },
-          psa_speed: 1.0,
-          sda_speed: 1.0,
         });
 
-        const rmbs = StructuredCredit.fromJson(rmbsJson);
+        let rmbs: StructuredCredit;
         try {
-          const rmbsResult = registry.priceStructuredCredit(rmbs, 'discounting', market);
+          rmbs = StructuredCredit.fromJson(rmbsJson);
+        } catch (err) {
+          console.error('RMBS fromJson failed', err);
+          throw err;
+        }
+        try {
+          const rmbsResult = registry.priceStructuredCredit(rmbs, 'discounting', market, asOf, null);
           results.push({
             name: 'RMBS Prime 2024-1',
             type: 'Residential Mortgage-Backed Securities',
@@ -1151,14 +1013,14 @@ export const StructuredCreditExample: React.FC = () => {
         const cmbsJson = JSON.stringify({
           id: 'cmbs_multifamily_2024_1',
           deal_type: 'CMBS',
-          disc_id: 'USD-OIS',
+          discount_curve_id: 'USD-OIS',
+          payment_calendar_id: 'nyse',
           closing_date: '2024-01-15',
           first_payment_date: '2024-02-15',
           reinvestment_end_date: null,
           legal_maturity: '2034-01-15',
           payment_frequency: { Months: 1 },
-          manager_id: 'CMBS_Servicer',
-          servicer_id: 'CMBS_Special_Servicer',
+          deal_metadata: { servicer: 'CMBS_Special_Servicer' },
           attributes: { tags: [], meta: {} },
           pool: {
             id: 'cmbs_pool_2024_1',
@@ -1179,6 +1041,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 70_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'commercial_002',
@@ -1195,6 +1058,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 87_500_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'commercial_003',
@@ -1211,6 +1075,7 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 105_000_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
               {
                 id: 'commercial_004',
@@ -1227,35 +1092,9 @@ export const StructuredCreditExample: React.FC = () => {
                 recovery_amount: null,
                 purchase_price: { amount: 87_500_000.0, currency: 'USD' },
                 acquisition_date: '2024-01-15',
+                day_count: 'Act360',
               },
             ],
-            eligibility_criteria: {
-              min_rating: null,
-              max_rating: null,
-              min_spread_bps: null,
-              max_maturity: null,
-              min_remaining_term: null,
-              max_remaining_term: null,
-              allowed_asset_types: [],
-              allowed_currencies: [],
-              max_price_pct: null,
-              min_asset_size: null,
-              max_asset_size: null,
-              excluded_industries: [],
-              excluded_obligors: [],
-            },
-            concentration_limits: {
-              max_obligor_concentration: null,
-              max_top5_concentration: null,
-              max_top10_concentration: null,
-              industry_limits: {},
-              rating_bucket_limits: {},
-              geographic_limits: {},
-              asset_type_limits: {},
-              max_second_lien: null,
-              max_cov_lite: null,
-              max_dip: null,
-            },
             cumulative_defaults: { amount: 0.0, currency: 'USD' },
             cumulative_recoveries: { amount: 0.0, currency: 'USD' },
             cumulative_prepayments: { amount: 0.0, currency: 'USD' },
@@ -1263,38 +1102,12 @@ export const StructuredCreditExample: React.FC = () => {
             collection_account: { amount: 0.0, currency: 'USD' },
             reserve_account: { amount: 0.0, currency: 'USD' },
             excess_spread_account: { amount: 0.0, currency: 'USD' },
-            stats: {
-              weighted_avg_coupon: 0.058,
-              weighted_avg_spread: 0.0,
-              weighted_avg_life: 8.0,
-              weighted_avg_rating_factor: 0.0,
-              diversity_score: 0.0,
-              num_obligors: 0,
-              num_industries: 0,
-              cumulative_default_rate: 0.012,
-              recovery_rate: 0.75,
-              prepayment_rate: 0.05,
-            },
-            original_balance: { amount: 350_000_000.0, currency: 'USD' },
-            coupon_rate: 0.058,
-            maturity: '2034-01-15',
-            prepayment_speed: 0.05,
-            default_rate: 0.012,
-            recovery_rate: 0.75,
-            asset_type: 'commercial_mortgages',
-            pool_characteristics: {
-              property_type: 'multifamily',
-              dscr: 1.45,
-              ltv: 65.0,
-              occupancy_rate: 0.94,
-            },
           },
           tranches: {
             total_size: { amount: 350_000_000.0, currency: 'USD' },
             tranches: [
               {
                 id: 'cmbs_multifamily_2024_1_class_a',
-                name: 'Class A (Senior)',
                 original_balance: { amount: 245_000_000.0, currency: 'USD' },
                 current_balance: { amount: 245_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.046 } },
@@ -1320,7 +1133,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'cmbs_multifamily_2024_1_class_b',
-                name: 'Class B (Mezzanine)',
                 original_balance: { amount: 52_500_000.0, currency: 'USD' },
                 current_balance: { amount: 52_500_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.062 } },
@@ -1346,7 +1158,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'cmbs_multifamily_2024_1_class_c',
-                name: 'Class C (Junior)',
                 original_balance: { amount: 35_000_000.0, currency: 'USD' },
                 current_balance: { amount: 35_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.08 } },
@@ -1372,7 +1183,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'cmbs_multifamily_2024_1_class_x',
-                name: 'Class X (Interest-Only)',
                 original_balance: { amount: 350_000_000.0, currency: 'USD' },
                 current_balance: { amount: 350_000_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.012 } },
@@ -1398,7 +1208,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
               {
                 id: 'cmbs_multifamily_2024_1_residual',
-                name: 'Residual Certificate',
                 original_balance: { amount: 17_500_000.0, currency: 'USD' },
                 current_balance: { amount: 17_500_000.0, currency: 'USD' },
                 coupon: { Fixed: { rate: 0.0 } },
@@ -1424,15 +1233,6 @@ export const StructuredCreditExample: React.FC = () => {
               },
             ],
           },
-          fees: {
-            servicing_fee_bps: 20,
-            special_servicing_fee_bps: 25,
-          },
-          waterfall: {
-            payment_rules: [],
-            coverage_triggers: [],
-            base_currency: 'USD',
-          },
           market_conditions: {
             refi_rate: 0.05,
             original_rate: null,
@@ -1451,9 +1251,15 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const cmbs = StructuredCredit.fromJson(cmbsJson);
+        let cmbs: StructuredCredit;
         try {
-          const cmbsResult = registry.priceStructuredCredit(cmbs, 'discounting', market);
+          cmbs = StructuredCredit.fromJson(cmbsJson);
+        } catch (err) {
+          console.error('CMBS fromJson failed', err);
+          throw err;
+        }
+        try {
+          const cmbsResult = registry.priceStructuredCredit(cmbs, 'discounting', market, asOf, null);
           results.push({
             name: 'CMBS Multifamily 2024-1',
             type: 'Commercial Mortgage-Backed Securities',

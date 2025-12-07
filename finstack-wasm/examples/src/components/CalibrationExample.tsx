@@ -13,7 +13,6 @@ import {
   MarketScalar,
   Money,
   RatesQuote,
-  SimpleCalibration,
   SolverKind,
   VolQuote,
   VolSurfaceCalibrator,
@@ -65,7 +64,7 @@ export const CalibrationExample: React.FC = () => {
           ];
 
           const config = CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Hybrid())
+            .withSolverKind(SolverKind.Brent())
             .withMaxIterations(40)
             .withVerbose(false);
 
@@ -117,40 +116,47 @@ export const CalibrationExample: React.FC = () => {
           }
         }
 
-        // Example 2: Simple calibration workflow
+        // Example 2: Multi-curve calibration workflow
+        // Note: This demonstrates building a market context with multiple curves
+        // For production use, use CalibrationSpec for complex multi-step workflows
         {
           const quotes = [
-            RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360').toMarketQuote(),
-            RatesQuote.deposit(new FsDate(2024, 4, 1), 0.046, 'act_360').toMarketQuote(),
+            RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
+            RatesQuote.deposit(new FsDate(2024, 4, 1), 0.046, 'act_360'),
           ];
 
           const config = CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Hybrid())
+            .withSolverKind(SolverKind.Brent())
             .withMaxIterations(20);
 
-          const calibration = new SimpleCalibration(baseDate, 'USD', config);
+          const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
+          const calibratorWithConfig = calibrator.withConfig(config);
 
           try {
-            const [market, report] = calibration.calibrate(quotes) as any;
-
+            const [curve, report] = calibratorWithConfig.calibrate(quotes, null) as any;
+            const market = new MarketContext();
+            market.insertDiscount(curve);
             const stats = market.stats();
 
             if (!cancelled) {
               allResults.push({
-                curveId: 'Simple Calibration',
-                curveType: 'Multi-curve',
+                curveId: 'USD-OIS (Multi-curve)',
+                curveType: 'Discount',
                 success: report.success,
                 iterations: report.iterations,
                 maxResidual: report.maxResidual,
-                sampleValues: [{ time: 0, value: stats.total_curves ?? 0 }],
+                sampleValues: [
+                  { time: 0.25, value: curve.df(0.25) },
+                  { time: 0.5, value: curve.df(0.5) },
+                ],
               });
             }
           } catch (err) {
-            console.warn('Simple calibration failed (expected with minimal quotes):', err);
+            console.warn('Multi-curve calibration failed (expected with minimal quotes):', err);
             if (!cancelled) {
               allResults.push({
-                curveId: 'Simple Calibration',
-                curveType: 'Multi-curve',
+                curveId: 'USD-OIS (Multi-curve)',
+                curveType: 'Discount',
                 success: false,
                 iterations: 0,
                 maxResidual: 0,
@@ -195,7 +201,7 @@ export const CalibrationExample: React.FC = () => {
             ];
 
             const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Hybrid())
+              .withSolverKind(SolverKind.Brent())
               .withMaxIterations(30);
 
             const calibrator = new ForwardCurveCalibrator(
@@ -274,7 +280,7 @@ export const CalibrationExample: React.FC = () => {
             ];
 
             const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Hybrid())
+              .withSolverKind(SolverKind.Brent())
               .withMaxIterations(25);
 
             const calibrator = new HazardCurveCalibrator(
@@ -363,7 +369,7 @@ export const CalibrationExample: React.FC = () => {
             ];
 
             const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Hybrid())
+              .withSolverKind(SolverKind.Brent())
               .withMaxIterations(25);
 
             const calibrator = new InflationCurveCalibrator(
@@ -449,7 +455,7 @@ export const CalibrationExample: React.FC = () => {
             ];
 
             const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Hybrid())
+              .withSolverKind(SolverKind.Brent())
               .withMaxIterations(50);
 
             const calibrator = new VolSurfaceCalibrator(
@@ -590,10 +596,7 @@ export const CalibrationExample: React.FC = () => {
             option/swaption quotes
           </li>
           <li>
-            <strong>SimpleCalibration</strong> - One-shot multi-curve calibration workflow
-          </li>
-          <li>
-            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent, Hybrid, LM,
+            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent, LevenbergMarquardt,
             DE)
           </li>
           <li>
