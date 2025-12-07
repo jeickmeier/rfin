@@ -15,17 +15,18 @@ from __future__ import annotations
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.cashflow import (
     CashflowBuilder,
-    ScheduleParams,
+    CouponType,
     FloatCouponParams,
     FloatingCouponSpec,
-    CouponType,
+    ScheduleParams,
 )
+
+from finstack import Money
 
 
 def main() -> None:
@@ -96,10 +97,10 @@ def main() -> None:
         "USD-SOFR-3M",
         0.25,  # 3-month tenor
         [
-            (0.0, 0.0300),   # 3.00% at t=0
-            (0.5, 0.0325),   # 3.25% at 6 months
-            (1.0, 0.0350),   # 3.50% at 1 year
-            (2.0, 0.0400),   # 4.00% at 2 years
+            (0.0, 0.0300),  # 3.00% at t=0
+            (0.5, 0.0325),  # 3.25% at 6 months
+            (1.0, 0.0350),  # 3.50% at 1 year
+            (2.0, 0.0400),  # 4.00% at 2 years
         ],
         base_date=base_date,
     )
@@ -107,7 +108,7 @@ def main() -> None:
 
     print("\nForward Curve (USD-SOFR-3M):")
     for t, rate in [(0.0, 0.0300), (0.5, 0.0325), (1.0, 0.0350), (2.0, 0.0400)]:
-        print(f"  t={t:.1f}y: {rate*100:.2f}%")
+        print(f"  t={t:.1f}y: {rate * 100:.2f}%")
 
     print(f"\nCalculation: coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * yf")
     print(f"            = outstanding * (forward_rate * 1.0 + 0.0150) * yf\n")
@@ -129,15 +130,10 @@ def main() -> None:
     for i in range(min(5, len(flows_no_curves), len(flows_with_curves))):
         f_no = flows_no_curves[i]
         f_with = flows_with_curves[i]
-        
-        if f_no.kind.name == 'float_reset':  # Only compare float flows
+
+        if f_no.kind.name == "float_reset":  # Only compare float flows
             diff = f_with.amount.amount - f_no.amount.amount
-            print(
-                f"{f_no.date}  "
-                f"{f_no.amount.amount:>18,.2f}  "
-                f"{f_with.amount.amount:>18,.2f}  "
-                f"{diff:>18,.2f}"
-            )
+            print(f"{f_no.date}  {f_no.amount.amount:>18,.2f}  {f_with.amount.amount:>18,.2f}  {diff:>18,.2f}")
 
     print("\n" + "=" * 80)
     print("KEY INSIGHTS")
@@ -162,4 +158,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

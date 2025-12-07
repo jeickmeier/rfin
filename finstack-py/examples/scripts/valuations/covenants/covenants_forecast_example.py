@@ -24,21 +24,10 @@ except Exception:  # pragma: no cover - optional
     pl = None
 
 from finstack.core.dates.periods import build_periods
-from finstack import (
-    CovenantType,
-    Covenant,
-    CovenantSpec,
-    CovenantForecastConfig,
-    forecast_covenant,
-)
-from finstack.statements.types import (
-    FinancialModelSpec,
-    NodeSpec,
-    NodeType,
-    ForecastSpec,
-    AmountOrScalar,
-)
 from finstack.statements.evaluator import Evaluator
+from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec, NodeSpec, NodeType
+
+from finstack import Covenant, CovenantForecastConfig, CovenantSpec, CovenantType, forecast_covenant
 
 
 def build_demo_model() -> tuple[FinancialModelSpec, list]:
@@ -71,9 +60,7 @@ def build_demo_model() -> tuple[FinancialModelSpec, list]:
     debt_total = NodeSpec("debt_total", NodeType.MIXED).with_values(debt_values)
 
     # Debt/EBITDA covenant metric node
-    debt_to_ebitda = NodeSpec("debt_to_ebitda", NodeType.CALCULATED).with_formula(
-        "debt_total / ebitda"
-    )
+    debt_to_ebitda = NodeSpec("debt_to_ebitda", NodeType.CALCULATED).with_formula("debt_total / ebitda")
 
     model.add_node(ebitda)
     model.add_node(debt_total)
@@ -105,9 +92,7 @@ def main() -> int:
 
     print("=== Covenant Forward Projection: Max Debt/EBITDA <= 5.0x ===")
     print(f"First breach date: {forecast.first_breach_date}")
-    print(
-        f"Min headroom: {forecast.min_headroom_value:.1%} on {forecast.min_headroom_date}"
-    )
+    print(f"Min headroom: {forecast.min_headroom_value:.1%} on {forecast.min_headroom_date}")
 
     # Warn where headroom < 10%
     warn_indices = [i for i, h in enumerate(forecast.headroom) if h < 0.10]
@@ -133,5 +118,3 @@ def main() -> int:
 
 if __name__ == "__main__":  # pragma: no cover - manual example
     raise SystemExit(main())
-
-

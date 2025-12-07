@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 from datetime import date
-from finstack import Money
+
 from finstack.core.currency import USD
-from finstack.core.dates.schedule import Frequency, StubKind
-from finstack.core.dates.daycount import DayCount
 from finstack.core.dates import BusinessDayConvention
-from finstack.valuations.cashflow import (
-    CashflowBuilder,
-    ScheduleParams,
-    FixedCouponSpec,
-    CouponType,
-)
-from finstack.valuations.instruments import Bond
-from finstack.valuations.pricer import create_standard_registry
-from finstack.valuations.metrics import MetricId, MetricRegistry
+from finstack.core.dates.daycount import DayCount
+from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
+from finstack.valuations.cashflow import CashflowBuilder, CouponType, FixedCouponSpec, ScheduleParams
+from finstack.valuations.instruments import Bond
+from finstack.valuations.metrics import MetricId, MetricRegistry
+from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -57,10 +54,9 @@ def build_custom_schedule(issue: date, maturity: date, notional: Money):
         coupon_type=CouponType.split(0.7, 0.3),  # 70% cash, 30% PIK
     )
     cfb = (
-        CashflowBuilder
-            .new()
-            .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
-            .fixed_cf(fixed_5pct)
+        CashflowBuilder.new()
+        .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
+        .fixed_cf(fixed_5pct)
     )
     return cfb.build()
 
@@ -144,14 +140,15 @@ def main():
 
     # E) Payment split program: switch 100% PIK for the first year, then 100% cash
     cfb2 = (
-        CashflowBuilder
-            .new()
-            .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
-            .fixed_cf(FixedCouponSpec.new(rate=0.055, schedule=ScheduleParams.semiannual_30360(), coupon_type=CouponType.CASH))
-            .payment_split_program([
-                (date(2026, 1, 15), CouponType.PIK),   # up to this date: PIK
-                (maturity,            CouponType.CASH), # remainder: cash
-            ])
+        CashflowBuilder.new()
+        .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
+        .fixed_cf(
+            FixedCouponSpec.new(rate=0.055, schedule=ScheduleParams.semiannual_30360(), coupon_type=CouponType.CASH)
+        )
+        .payment_split_program([
+            (date(2026, 1, 15), CouponType.PIK),  # up to this date: PIK
+            (maturity, CouponType.CASH),  # remainder: cash
+        ])
     )
     sched2 = cfb2.build()
     bond_split = Bond.from_cashflows(
@@ -210,6 +207,7 @@ def main():
         name = m.name
         if isinstance(name, str) and name in measures:
             print(f"metric[{name}] = {measures[name]}")
+
 
 if __name__ == "__main__":
     main()
