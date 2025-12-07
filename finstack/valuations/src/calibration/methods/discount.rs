@@ -900,15 +900,7 @@ impl DiscountCurveCalibrator {
                 let pv = future.value(context, self.base_date)?;
                 Ok(pv.amount() / future.notional.amount())
             }
-            RatesQuote::Swap {
-                maturity,
-                rate,
-                fixed_freq,
-                float_freq,
-                fixed_dc,
-                float_dc,
-                index: _,
-            } => {
+            RatesQuote::Swap { maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc, .. } => {
                 // Create swap instrument
                 use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
@@ -975,17 +967,7 @@ impl DiscountCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
-            RatesQuote::BasisSwap {
-                maturity,
-                primary_index,
-                reference_index,
-                spread_bp,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                currency: _,
-            } => {
+            RatesQuote::BasisSwap { maturity, primary_index, reference_index, spread_bp, primary_freq, reference_freq, primary_dc, reference_dc, .. } => {
                 // Import BasisSwap types
                 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
                 use finstack_core::dates::BusinessDayConvention;

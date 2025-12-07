@@ -181,17 +181,7 @@ impl XccyBasisCalibrator {
         foreign_curve_id: &CurveId,
     ) -> Result<f64> {
         match quote {
-            RatesQuote::BasisSwap {
-                maturity,
-                primary_index,
-                reference_index,
-                spread_bp,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                currency: _,
-            } => {
+            RatesQuote::BasisSwap { maturity, primary_index, reference_index, spread_bp, primary_freq, reference_freq, primary_dc, reference_dc, .. } => {
                 use crate::instruments::basis_swap::BasisSwapLeg;
                 use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind};
                 use finstack_core::money::Money;
