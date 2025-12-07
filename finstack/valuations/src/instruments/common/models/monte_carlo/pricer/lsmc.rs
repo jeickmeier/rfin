@@ -306,7 +306,9 @@ impl LsmcPricer {
 mod tests {
     use super::*;
     use crate::instruments::common::mc::process::gbm::GbmParams;
-    use crate::instruments::common::models::monte_carlo::prelude::{LaguerreBasis, PolynomialBasis};
+    use crate::instruments::common::models::monte_carlo::prelude::{
+        LaguerreBasis, PolynomialBasis,
+    };
 
     #[test]
     fn test_polynomial_basis() {

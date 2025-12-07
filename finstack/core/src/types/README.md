@@ -82,7 +82,7 @@ The `Id<T>` type wraps a string identifier with a **phantom type tag**:
 
 - **Compile‑time type safety**:
   - `CurveId` and `InstrumentId` are different Rust types, even though both store strings.
-  - Equality, ordering, and hashing are only defined for the *same* tag type.
+  - Equality, ordering, and hashing are only defined for the _same_ tag type.
 - **Runtime representation**:
   - Internally represented as `Arc<str>` plus `PhantomData<T>`.
   - Cloning an ID is O(1) (refcount bump), ideal for large maps and graphs.
@@ -347,10 +347,3 @@ Before adding a new re‑export, prefer importing from the original module insid
   - Working with cashflows, term structures, and models rather than scalar types.
 
 Keeping this separation clean ensures the `core` crate remains **small, deterministic, and reusable**, while higher‑level crates compose these primitives into full financial models.
-
-
-
-
-
-
-

@@ -22,10 +22,10 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::barri
     BarrierOptionPayoff, BarrierType,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
+use finstack_valuations::instruments::common::models::monte_carlo::prelude::PolynomialBasis;
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::european::{
     EuropeanPricer, EuropeanPricerConfig,
 };
-use finstack_valuations::instruments::common::models::monte_carlo::prelude::PolynomialBasis;
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::lsmc::{
     AmericanPut, LsmcConfig, LsmcPricer,
 };
