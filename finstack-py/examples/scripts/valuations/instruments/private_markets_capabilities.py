@@ -2,8 +2,6 @@
 """Private markets fund example demonstrating waterfall-driven cashflows."""
 import json
 from datetime import date
-
-from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import PrivateMarketsFund

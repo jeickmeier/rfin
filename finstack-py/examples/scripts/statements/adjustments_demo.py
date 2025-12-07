@@ -1,4 +1,3 @@
-import finstack
 from finstack.statements import ModelBuilder, Evaluator
 from finstack import dates
 PeriodId = dates.PeriodId

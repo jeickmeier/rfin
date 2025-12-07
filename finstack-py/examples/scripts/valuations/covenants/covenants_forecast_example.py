@@ -18,8 +18,6 @@ uv run python finstack-py/examples/scripts/valuations/covenants_forecast_example
 
 from __future__ import annotations
 
-from datetime import date
-
 try:
     import polars as pl  # type: ignore
 except Exception:  # pragma: no cover - optional

@@ -11,7 +11,7 @@ Key analyses:
 
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 

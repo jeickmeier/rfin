@@ -3,15 +3,12 @@ from datetime import date
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates.schedule import Frequency, StubKind
-from finstack.core.dates.daycount import DayCount, DayCountContext
+from finstack.core.dates.daycount import DayCount
 from finstack.core.dates import BusinessDayConvention
-from finstack.valuations.cashflow import AmortizationSpec
 from finstack.valuations.cashflow import (
     CashflowBuilder,
     ScheduleParams,
     FixedCouponSpec,
-    FloatCouponParams,
-    FloatingCouponSpec,
     CouponType,
 )
 from finstack.valuations.instruments import Bond

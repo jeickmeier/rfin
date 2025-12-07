@@ -502,7 +502,6 @@ def example_6_portfolio_results():
     from finstack.portfolio import (
         Entity,
         PortfolioBuilder,
-        PortfolioResults,
         Position,
         PositionUnit,
         aggregate_metrics,
