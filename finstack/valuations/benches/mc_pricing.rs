@@ -25,8 +25,9 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanil
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::european::{
     EuropeanPricer, EuropeanPricerConfig,
 };
+use finstack_valuations::instruments::common::models::monte_carlo::prelude::PolynomialBasis;
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::lsmc::{
-    AmericanPut, LsmcConfig, LsmcPricer, PolynomialBasis,
+    AmericanPut, LsmcConfig, LsmcPricer,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,

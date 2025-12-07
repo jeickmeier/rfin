@@ -8,7 +8,7 @@ use finstack_core::{Error, Result};
 
 use super::tree_framework::{
     price_recombining_tree, state_keys, RecombiningInputs, StateVariables, TreeBranching,
-    TreeGreeks, TreeModel, TreeValuator,
+    TreeModel, TreeValuator,
 };
 
 #[cfg(test)]
