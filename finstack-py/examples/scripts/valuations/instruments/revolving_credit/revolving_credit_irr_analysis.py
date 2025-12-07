@@ -25,11 +25,12 @@ try:
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
     import pandas as pd
+    from matplotlib.gridspec import GridSpec
+
     from finstack.core.cashflow import xirr
     from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
-    from matplotlib.gridspec import GridSpec
 
     print("All imports successful")  # noqa: T201
 except ImportError as e:
