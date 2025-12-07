@@ -451,30 +451,6 @@ def main() -> None:
     print("SimpleCalibration is deprecated. Please use specific calibrators (DiscountCurveCalibrator, etc.)")
     return
 
-    print("Report type:", report_info["metadata"].get("type"))
-    print("Iterations:", report_info["iterations"])
-    print("Max residual:", round(report_info["max_residual"], 8))
-
-    TOP_N = 20
-    PENALTY_THRESHOLD = 1e11
-    residuals = report_info.get("residuals", {})
-    if residuals:
-        filtered = {k: v for k, v in residuals.items() if math.isfinite(v) and abs(v) < PENALTY_THRESHOLD}
-        if filtered:
-            print(f"Top {min(TOP_N, len(filtered))} residuals (by |value|):")
-            for name, value in sorted(filtered.items(), key=lambda kv: abs(kv[1]), reverse=True)[:TOP_N]:
-                print(f"  {name}: {value:.8f}")
-        else:
-            print("Top residuals: (no non-penalty residuals)")
-    print("Convergence reason:", report_info["convergence_reason"])
-    print("Residual count:", len(report_info["residuals"]))
-    print("Quotes used:", len(market_quotes))
-
-    print("\n=== Calibrated Market Snapshot ===")
-    summarize_context(market, forward_reports, credit_reports)
-    if fallback_surface:
-        print("Swaption surface: populated from sample ATM grid")
-
 
 if __name__ == "__main__":
     main()
