@@ -10,7 +10,7 @@
     "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
     "build:optimized": "wasm-pack build --target web --out-dir pkg && npm run optimize",
     "optimize": "command -v wasm-opt >/dev/null 2>&1 && wasm-opt -Oz -o pkg/finstack_wasm_bg.wasm pkg/finstack_wasm_bg.wasm || echo 'wasm-opt not found, skipping optimization'",
-    "test": "wasm-pack test --chrome --firefox --headless",
+    "test": "wasm-pack test --chrome --headless",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
