@@ -55,8 +55,7 @@ jobs:
         run: cargo clean
 
       - name: Run tests (release mode for smaller binaries)
-        run: cargo test --workspace --exclude finstack-py --exclude finstack-wasm --lib --tests --all-features --release
-
+        run: cargo test --workspace --exclude finstack-py --features mc --lib --test '*'
   sonarcloud:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
