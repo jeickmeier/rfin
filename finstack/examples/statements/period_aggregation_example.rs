@@ -46,17 +46,17 @@ fn example_quarterly_ytd_and_ttm() -> Result<()> {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model)?;
 
-    println!("{:<8} {:>10} {:>12} {:>12}", "Period", "Revenue", "YTD", "TTM");
+    println!(
+        "{:<8} {:>10} {:>12} {:>12}",
+        "Period", "Revenue", "YTD", "TTM"
+    );
     println!("{}", "-".repeat(50));
     for period in &model.periods {
         let id = &period.id;
         let revenue = results.get("revenue", id).unwrap();
         let ytd = results.get("revenue_ytd", id).unwrap();
         let ttm = results.get("revenue_ttm", id).unwrap();
-        println!(
-            "{:<8} {:>10.0} {:>12.0} {:>12.0}",
-            id, revenue, ytd, ttm
-        );
+        println!("{:<8} {:>10.0} {:>12.0} {:>12.0}", id, revenue, ytd, ttm);
     }
 
     println!();
@@ -117,10 +117,3 @@ fn example_monthly_qtd_and_fiscal_ytd() -> Result<()> {
     println!();
     Ok(())
 }
-
-
-
-
-
-
-
