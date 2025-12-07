@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
@@ -25,8 +26,6 @@ from finstack.valuations.cashflow import (
     FloatingCouponSpec,
     ScheduleParams,
 )
-
-from finstack import Money
 
 
 def main() -> None:

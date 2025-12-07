@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Convertible bond example showcasing conversion features and pricing."""
+
 from datetime import date
 
 from finstack import Money
@@ -8,13 +9,8 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
-from finstack.valuations.cashflow import FixedCouponSpec, ScheduleParams, CouponType
-from finstack.valuations.instruments import (
-    ConvertibleBond,
-    ConversionEvent,
-    ConversionPolicy,
-    ConversionSpec,
-)
+from finstack.valuations.cashflow import CouponType, FixedCouponSpec, ScheduleParams
+from finstack.valuations.instruments import ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond
 from finstack.valuations.pricer import create_standard_registry
 
 

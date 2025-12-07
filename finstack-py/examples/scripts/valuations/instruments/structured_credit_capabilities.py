@@ -3,8 +3,10 @@
 
 Updated to use the unified StructuredCredit type and the current serde shapes.
 """
+
 import json
 from datetime import date
+
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import StructuredCredit
@@ -28,88 +30,80 @@ def coverage_tests_template() -> dict:
 def waterfall_engine(tranche_ids) -> dict:
     # Minimal sequential engine: fees -> tranche interest -> tranche principal -> equity
     tiers: list[dict] = []
-    
+
     # Fee tier
-    tiers.append(
-        {
-            "id": "trustee_fees",
-            "priority": 1,
-            "recipients": [
-                {
-                    "id": "trustee_fee_payment",
-                    "recipient_type": {"ServiceProvider": "Trustee"},
-                    "calculation": {"FixedAmount": {"amount": money(25_000.0)}},
-                    "weight": None,
-                }
-            ],
-            "payment_type": "Fee",
-            "allocation_mode": "Sequential",
-            "divertible": False,
-        }
-    )
-    
+    tiers.append({
+        "id": "trustee_fees",
+        "priority": 1,
+        "recipients": [
+            {
+                "id": "trustee_fee_payment",
+                "recipient_type": {"ServiceProvider": "Trustee"},
+                "calculation": {"FixedAmount": {"amount": money(25_000.0)}},
+                "weight": None,
+            }
+        ],
+        "payment_type": "Fee",
+        "allocation_mode": "Sequential",
+        "divertible": False,
+    })
+
     prio = 2
     # Interest tiers
     for tid in tranche_ids:
-        tiers.append(
-            {
-                "id": f"{tid}_interest",
-                "priority": prio,
-                "recipients": [
-                    {
-                        "id": f"{tid}_int_payment",
-                        "recipient_type": {"Tranche": tid},
-                        "calculation": {"TrancheInterest": {"tranche_id": tid}},
-                        "weight": None,
-                    }
-                ],
-                "payment_type": "Interest",
-                "allocation_mode": "Sequential",
-                "divertible": False,
-            }
-        )
-        prio += 1
-    
-    # Principal tiers
-    for tid in tranche_ids:
-        tiers.append(
-            {
-                "id": f"{tid}_principal",
-                "priority": prio,
-                "recipients": [
-                    {
-                        "id": f"{tid}_prin_payment",
-                        "recipient_type": {"Tranche": tid},
-                        "calculation": {"TranchePrincipal": {"tranche_id": tid, "target_balance": None}},
-                        "weight": None,
-                    }
-                ],
-                "payment_type": "Principal",
-                "allocation_mode": "Sequential",
-                "divertible": True,
-            }
-        )
-        prio += 1
-    
-    # Residual tier
-    tiers.append(
-        {
-            "id": "equity_distribution",
+        tiers.append({
+            "id": f"{tid}_interest",
             "priority": prio,
             "recipients": [
                 {
-                    "id": "equity_payment",
-                    "recipient_type": "Equity",
-                    "calculation": "ResidualCash",
+                    "id": f"{tid}_int_payment",
+                    "recipient_type": {"Tranche": tid},
+                    "calculation": {"TrancheInterest": {"tranche_id": tid}},
                     "weight": None,
                 }
             ],
-            "payment_type": "Residual",
+            "payment_type": "Interest",
             "allocation_mode": "Sequential",
             "divertible": False,
-        }
-    )
-    
+        })
+        prio += 1
+
+    # Principal tiers
+    for tid in tranche_ids:
+        tiers.append({
+            "id": f"{tid}_principal",
+            "priority": prio,
+            "recipients": [
+                {
+                    "id": f"{tid}_prin_payment",
+                    "recipient_type": {"Tranche": tid},
+                    "calculation": {"TranchePrincipal": {"tranche_id": tid, "target_balance": None}},
+                    "weight": None,
+                }
+            ],
+            "payment_type": "Principal",
+            "allocation_mode": "Sequential",
+            "divertible": True,
+        })
+        prio += 1
+
+    # Residual tier
+    tiers.append({
+        "id": "equity_distribution",
+        "priority": prio,
+        "recipients": [
+            {
+                "id": "equity_payment",
+                "recipient_type": "Equity",
+                "calculation": "ResidualCash",
+                "weight": None,
+            }
+        ],
+        "payment_type": "Residual",
+        "allocation_mode": "Sequential",
+        "divertible": False,
+    })
+
     return {"tiers": tiers, "coverage_triggers": [], "base_currency": CURRENCY}
 
 
@@ -131,7 +125,9 @@ def asset_entry(identifier: str, asset_type: dict, balance: float, rate: float, 
     }
 
 
-def tranche_entry(identifier: str, attach: float, detach: float, seniority: str, rate: float, balance: float, priority: int) -> dict:
+def tranche_entry(
+    identifier: str, attach: float, detach: float, seniority: str, rate: float, balance: float, priority: int
+) -> dict:
     return {
         "id": identifier,
         "attachment_point": attach,
@@ -262,8 +258,22 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
         "prepayment_spec": {"type": "constant_cpr", "cpr": 0.15},
         "default_spec": {"type": "constant_cdr", "cdr": 0.02},
         "recovery_spec": {"type": "constant", "rate": 0.4, "recovery_lag": 12},
-        "market_conditions": {"refi_rate": 0.04, "original_rate": None, "hpa": None, "unemployment": None, "seasonal_factor": 1.0, "custom_factors": {}},
-        "credit_factors": {"credit_score": None, "dti": None, "ltv": None, "delinquency_days": 0, "unemployment_rate": None, "custom_factors": {}},
+        "market_conditions": {
+            "refi_rate": 0.04,
+            "original_rate": None,
+            "hpa": None,
+            "unemployment": None,
+            "seasonal_factor": 1.0,
+            "custom_factors": {},
+        },
+        "credit_factors": {
+            "credit_score": None,
+            "dti": None,
+            "ltv": None,
+            "delinquency_days": 0,
+            "unemployment_rate": None,
+            "custom_factors": {},
+        },
         "deal_metadata": {},
         "behavior_overrides": {},
         "default_assumptions": {
@@ -275,7 +285,7 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
             "abs_speed_monthly": None,
             "cpr_by_asset_type": {},
             "cdr_by_asset_type": {},
-            "recovery_by_asset_type": {}
+            "recovery_by_asset_type": {},
         },
     }
     return payload

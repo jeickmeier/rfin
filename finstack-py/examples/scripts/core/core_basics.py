@@ -10,41 +10,23 @@ that the compiled ``finstack`` module is available to Python.
 
 from __future__ import annotations
 
-from datetime import date
 import logging
+from datetime import date
 
 from finstack.core.config import FinstackConfig
 from finstack.core.currency import Currency
-from finstack.core.dates import (
-    BusinessDayConvention,
-    available_calendar_codes,
-    get_calendar,
-    adjust,
-)
+from finstack.core.dates import BusinessDayConvention, adjust, available_calendar_codes, get_calendar
 from finstack.core.dates.daycount import DayCount, DayCountContext
-from finstack.core.dates.periods import (
-    FiscalConfig,
-    build_fiscal_periods,
-    build_periods,
-)
-from finstack.core.dates.schedule import Frequency, ScheduleBuilder
-from finstack.core.dates.utils import (
-    add_months,
-    date_to_days_since_epoch,
-    days_in_month,
-    last_day_of_month,
-)
 from finstack.core.dates.imm import next_imm
+from finstack.core.dates.periods import FiscalConfig, build_fiscal_periods, build_periods
+from finstack.core.dates.schedule import Frequency, ScheduleBuilder
+from finstack.core.dates.utils import add_months, date_to_days_since_epoch, days_in_month, last_day_of_month
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.dividends import DividendScheduleBuilder
 from finstack.core.market_data.fx import FxConfig, FxConversionPolicy, FxMatrix
 from finstack.core.market_data.scalars import MarketScalar, ScalarTimeSeries, SeriesInterpolation
 from finstack.core.market_data.surfaces import VolSurface
-from finstack.core.market_data.term_structures import (
-    BaseCorrelationCurve,
-    DiscountCurve,
-    HazardCurve,
-)
+from finstack.core.market_data.term_structures import BaseCorrelationCurve, DiscountCurve, HazardCurve
 from finstack.core.money import Money
 
 logger = logging.getLogger(__name__)

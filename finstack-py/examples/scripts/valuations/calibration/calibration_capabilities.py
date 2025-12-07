@@ -10,7 +10,6 @@ from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface as MarketVolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData
-
 from finstack.valuations import calibration as cal
 
 RatesPoint = Tuple[str, Dict[str, object]]

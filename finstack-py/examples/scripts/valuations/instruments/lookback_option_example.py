@@ -5,13 +5,13 @@ Demonstrates pricing and analysis of lookback options with fixed and floating st
 """
 
 from datetime import date
+
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
-from finstack.core.market_data.context import MarketContext
 from finstack.valuations.instruments import LookbackOption, LookbackType
 from finstack.valuations.pricer import create_standard_registry
 
@@ -52,8 +52,7 @@ def example_fixed_strike_call():
     print("\n" + "=" * 80)
     print("FIXED-STRIKE LOOKBACK CALL")
     print("=" * 80)
-    
-    
+
     # Fixed strike lookback call: payoff = max(S_max - K, 0)
     # where S_max is the maximum spot price during option life
     option = LookbackOption.builder(
@@ -69,30 +68,30 @@ def example_fixed_strike_call():
         vol_surface="TSLA.VOL",
         div_yield_id="TSLA.DIV",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
     print(f"  Option Type: {option.option_type}")
     print(f"  Lookback Type: {option.lookback_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Payoff based on maximum spot price achieved")
     print(f"    - Payoff = max(S_max - {option.strike.amount}, 0)")
     print(f"    - Always worth at least as much as standard call")
     print(f"    - Eliminates timing risk for the holder")
-    
+
     return option, result
 
 
@@ -101,8 +100,7 @@ def example_fixed_strike_put():
     print("\n" + "=" * 80)
     print("FIXED-STRIKE LOOKBACK PUT")
     print("=" * 80)
-    
-    
+
     # Fixed strike lookback put: payoff = max(K - S_min, 0)
     # where S_min is the minimum spot price during option life
     option = LookbackOption.builder(
@@ -118,29 +116,29 @@ def example_fixed_strike_put():
         vol_surface="TSLA.VOL",
         div_yield_id="TSLA.DIV",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
     print(f"  Option Type: {option.option_type}")
     print(f"  Lookback Type: {option.lookback_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Payoff based on minimum spot price achieved")
     print(f"    - Payoff = max({option.strike.amount} - S_min, 0)")
     print(f"    - Valuable for downside protection")
-    
+
     return option, result
 
 
@@ -149,8 +147,7 @@ def example_floating_strike_call():
     print("\n" + "=" * 80)
     print("FLOATING-STRIKE LOOKBACK CALL")
     print("=" * 80)
-    
-    
+
     # Floating strike lookback call: payoff = S_T - S_min
     # Strike is set to minimum price during option life
     # No fixed strike needed
@@ -167,30 +164,30 @@ def example_floating_strike_call():
         vol_surface="TSLA.VOL",
         div_yield_id="TSLA.DIV",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")  # Will be None
     print(f"  Option Type: {option.option_type}")
     print(f"  Lookback Type: {option.lookback_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Payoff = S_T - S_min (always positive)")
     print(f"    - Equivalent to buying at the lowest price")
     print(f"    - No strike price; purely path-dependent")
     print(f"    - Very expensive but guarantees profit if any upward movement")
-    
+
     return option, result
 
 
@@ -199,8 +196,7 @@ def example_floating_strike_put():
     print("\n" + "=" * 80)
     print("FLOATING-STRIKE LOOKBACK PUT")
     print("=" * 80)
-    
-    
+
     # Floating strike lookback put: payoff = S_max - S_T
     # Strike is set to maximum price during option life
     option = LookbackOption.builder(
@@ -216,29 +212,29 @@ def example_floating_strike_put():
         vol_surface="TSLA.VOL",
         div_yield_id="TSLA.DIV",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")  # Will be None
     print(f"  Option Type: {option.option_type}")
     print(f"  Lookback Type: {option.lookback_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Payoff = S_max - S_T (always positive)")
     print(f"    - Equivalent to selling at the highest price")
     print(f"    - Guarantees profit if any downward movement")
-    
+
     return option, result
 
 
@@ -247,15 +243,15 @@ def example_lookback_type_enum():
     print("\n" + "=" * 80)
     print("LOOKBACK TYPE ENUM")
     print("=" * 80)
-    
+
     # Access enum constants
     fixed = LookbackType.FIXED_STRIKE
     floating = LookbackType.FLOATING_STRIKE
-    
+
     print(f"\nLookback Types:")
     print(f"  Fixed Strike: {fixed}")
     print(f"  Floating Strike: {floating}")
-    
+
     # Parse from string
     from_str = LookbackType.from_name("floating_strike")
     print(f"\nParsed from string 'floating_strike': {from_str}")
@@ -267,13 +263,13 @@ def main():
     print("\n" + "=" * 80)
     print("LOOKBACK OPTION EXAMPLES")
     print("=" * 80)
-    
+
     example_fixed_strike_call()
     example_fixed_strike_put()
     example_floating_strike_call()
     example_floating_strike_put()
     example_lookback_type_enum()
-    
+
     print("\n" + "=" * 80)
     print("Examples completed successfully!")
     print("=" * 80 + "\n")
@@ -281,4 +277,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

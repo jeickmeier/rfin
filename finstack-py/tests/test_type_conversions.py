@@ -10,13 +10,7 @@ import pytest
 
 import finstack
 from finstack.core.currency import Currency
-from finstack.core.dates import (
-    BusinessDayConvention,
-    DayCount,
-    Frequency,
-    ScheduleBuilder,
-    get_calendar,
-)
+from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, get_calendar
 from finstack.core.market_data import DiscountCurve
 
 

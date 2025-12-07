@@ -5,8 +5,8 @@ the golden values that are also used by the WASM parity tests.
 This ensures behavioral parity across language bindings.
 """
 
-from datetime import date
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest

@@ -99,9 +99,8 @@ def example_2_portfolio_builder():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond, Deposit, InterestRateSwap
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+    from finstack.valuations.instruments import Bond, Deposit, InterestRateSwap
 
     as_of = date(2024, 1, 2)
 
@@ -204,9 +203,8 @@ def example_3_portfolio_valuation():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond, Deposit
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
+    from finstack.valuations.instruments import Bond, Deposit
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -301,9 +299,8 @@ def example_4_grouping_and_aggregation():
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, value_portfolio
+    from finstack.valuations.instruments import Bond
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -377,9 +374,8 @@ def example_5_multi_entity_portfolio():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond, Deposit, Equity, InterestRateSwap
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
+    from finstack.valuations.instruments import Bond, Deposit, Equity, InterestRateSwap
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -479,9 +475,8 @@ def example_6_portfolio_results():
     from finstack.core.config import FinstackConfig
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
+    from finstack.valuations.instruments import Bond
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -536,9 +531,8 @@ def example_7_position_units():
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond, Equity
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+    from finstack.valuations.instruments import Bond, Equity
 
     as_of = date(2024, 1, 2)
 
@@ -594,8 +588,6 @@ def example_8_scenario_integration():
     try:
         from finstack.core.currency import Currency
         from finstack.core.money import Money
-        from finstack.valuations.instruments import Bond
-
         from finstack.portfolio import (
             Entity,
             PortfolioBuilder,
@@ -605,6 +597,7 @@ def example_8_scenario_integration():
             value_portfolio,
         )
         from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec
+        from finstack.valuations.instruments import Bond
     except ImportError:
         print("  ⚠ Scenarios feature not enabled - skipping")
         return
@@ -674,9 +667,8 @@ def example_9_long_short_positions():
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Bond
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+    from finstack.valuations.instruments import Bond
 
     as_of = date(2024, 1, 2)
 
@@ -723,9 +715,8 @@ def example_10_dummy_entity():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.valuations.instruments import Deposit, InterestRateSwap
-
     from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+    from finstack.valuations.instruments import Deposit, InterestRateSwap
 
     as_of = date(2024, 1, 2)
 

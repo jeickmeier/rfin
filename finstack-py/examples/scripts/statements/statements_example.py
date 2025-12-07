@@ -17,14 +17,9 @@ It shows:
 from finstack.core.dates.periods import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
-from finstack.statements.extensions import (
-    ExtensionRegistry,
-)
+from finstack.statements.extensions import ExtensionRegistry
 from finstack.statements.registry import Registry
-from finstack.statements.types import (
-    AmountOrScalar,
-    ForecastSpec,
-)
+from finstack.statements.types import AmountOrScalar, ForecastSpec
 
 
 def example_1_basic_pl_model():
@@ -149,7 +144,7 @@ def example_3_metric_registry():
     # Note: Built-in metrics have a circular dependency issue, so we demonstrate
     # with custom metrics instead
     registry = Registry.new()
-    
+
     # Load custom metrics instead of builtins
     custom_metrics_json = """
     {
@@ -301,4 +296,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

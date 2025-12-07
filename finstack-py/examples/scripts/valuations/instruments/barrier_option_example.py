@@ -5,6 +5,7 @@ Demonstrates pricing and analysis of barrier options with various barrier types.
 """
 
 from datetime import date
+
 from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
@@ -69,7 +70,7 @@ def example_up_and_out_call():
         div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
@@ -77,16 +78,16 @@ def example_up_and_out_call():
     print(f"  Option Type: {option.option_type}")
     print(f"  Barrier Type: {option.barrier_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     return option, result
 
 
@@ -113,7 +114,7 @@ def example_down_and_in_put():
         div_yield_id="MSFT.DIV",
         use_gobet_miri=True,  # Use Gobet-Miri approximation
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
@@ -121,16 +122,16 @@ def example_down_and_in_put():
     print(f"  Option Type: {option.option_type}")
     print(f"  Barrier Type: {option.barrier_type}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     return option, result
 
 
@@ -139,8 +140,7 @@ def example_down_and_out_put():
     print("\n" + "=" * 80)
     print("DOWN-AND-OUT BARRIER PUT")
     print("=" * 80)
-    
-    
+
     # Down-and-out put: knocks out if spot falls below barrier
     # Provides protection only if market doesn't fall too far
     option = BarrierOption.builder(
@@ -158,23 +158,23 @@ def example_down_and_out_put():
         div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
     print(f"  Barrier: {option.barrier}")
     print(f"  Option Type: {option.option_type}")
     print(f"  Barrier Type: {option.barrier_type}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
-    
+
     return option, result
 
 
@@ -183,8 +183,7 @@ def example_up_and_in_call():
     print("\n" + "=" * 80)
     print("UP-AND-IN BARRIER CALL")
     print("=" * 80)
-    
-    
+
     # Up-and-in call: activates only if spot rises above barrier
     # Bet on strong upward movement
     option = BarrierOption.builder(
@@ -202,23 +201,23 @@ def example_up_and_in_call():
         div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Strike: {option.strike}")
     print(f"  Barrier: {option.barrier}")
     print(f"  Option Type: {option.option_type}")
     print(f"  Barrier Type: {option.barrier_type}")
-    
+
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
-    
+
     return option, result
 
 
@@ -227,19 +226,19 @@ def example_barrier_type_enum():
     print("\n" + "=" * 80)
     print("BARRIER TYPE ENUM")
     print("=" * 80)
-    
+
     # Access enum constants
     up_out = BarrierType.UP_AND_OUT
     up_in = BarrierType.UP_AND_IN
     down_out = BarrierType.DOWN_AND_OUT
     down_in = BarrierType.DOWN_AND_IN
-    
+
     print(f"\nBarrier Types:")
     print(f"  Up-and-Out: {up_out}")
     print(f"  Up-and-In: {up_in}")
     print(f"  Down-and-Out: {down_out}")
     print(f"  Down-and-In: {down_in}")
-    
+
     # Parse from string
     from_str = BarrierType.from_name("down_and_in")
     print(f"\nParsed from string 'down_and_in': {from_str}")
@@ -251,13 +250,13 @@ def main():
     print("\n" + "=" * 80)
     print("BARRIER OPTION EXAMPLES")
     print("=" * 80)
-    
+
     example_up_and_out_call()
     example_down_and_in_put()
     example_down_and_out_put()
     example_up_and_in_call()
     example_barrier_type_enum()
-    
+
     print("\n" + "=" * 80)
     print("Examples completed successfully!")
     print("=" * 80 + "\n")
@@ -265,4 +264,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

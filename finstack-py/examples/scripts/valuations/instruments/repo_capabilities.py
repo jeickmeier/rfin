@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Example for the repo instrument, including collateral specification."""
+
 from datetime import date, timedelta
 
 from finstack import Money

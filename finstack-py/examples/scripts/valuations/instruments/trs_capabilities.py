@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Total return swap examples for equity and fixed-income index underlyings."""
+
 from datetime import date
 
 from finstack import Money

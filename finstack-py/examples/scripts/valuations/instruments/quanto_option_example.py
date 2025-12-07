@@ -5,8 +5,9 @@ Demonstrates pricing and analysis of quanto options (currency-protected foreign 
 """
 
 from datetime import date
+
 from finstack import Money
-from finstack.core.currency import USD, EUR
+from finstack.core.currency import EUR, USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
@@ -93,7 +94,7 @@ def example_quanto_call_positive_correlation():
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Equity Strike: {option.equity_strike}")
@@ -101,22 +102,22 @@ def example_quanto_call_positive_correlation():
     print(f"  Correlation: {option.correlation:.2%}")
     print(f"  Notional: {option.notional}")
     print(f"  Expiry: {option.expiry}")
-    
+
     # Price the quanto option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - US investor gets SAP exposure without FX risk")
     print(f"    - Positive correlation: SAP tends to rise with EUR")
     print(f"    - Quanto adjusts for correlation via drift modification")
     print(f"    - Settlement in USD at fixed FX rate")
-    
+
     return option, result
 
 
@@ -145,28 +146,28 @@ def example_quanto_put_negative_correlation():
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Equity Strike: {option.equity_strike}")
     print(f"  Option Type: {option.option_type}")
     print(f"  Correlation: {option.correlation:.2%}")
     print(f"  Notional: {option.notional}")
-    
+
     # Price the quanto option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Protective put on SAP with FX hedge")
     print(f"    - Negative correlation reduces quanto adjustment")
     print(f"    - Useful when equity and FX move opposite directions")
-    
+
     return option, result
 
 
@@ -195,27 +196,27 @@ def example_quanto_call_zero_correlation():
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )
-    
+
     print(f"\nInstrument: {option}")
     print(f"  Ticker: {option.ticker}")
     print(f"  Equity Strike: {option.equity_strike}")
     print(f"  Correlation: {option.correlation:.2%}")
     print(f"  Notional: {option.notional}")
-    
+
     # Price the quanto option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-    
+
     print(f"\nPricing Results:")
     print(f"  Present Value: {result.value}")
     print(f"  Currency: {result.value.currency}")
-    
+
     print(f"\n  Explanation:")
     print(f"    - Zero correlation simplifies quanto adjustment")
     print(f"    - Still eliminates FX risk for domestic investor")
     print(f"    - Benchmark case for quanto pricing")
-    
+
     return option, result
 
 
@@ -227,11 +228,11 @@ def main():
     print("\nQuanto options provide exposure to foreign equities")
     print("while eliminating FX risk by fixing the exchange rate.")
     print("Correlation between equity and FX affects the quanto adjustment.")
-    
+
     example_quanto_call_positive_correlation()
     example_quanto_put_negative_correlation()
     example_quanto_call_zero_correlation()
-    
+
     print("\n" + "=" * 80)
     print("Examples completed successfully!")
     print("=" * 80 + "\n")
@@ -239,4 +240,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

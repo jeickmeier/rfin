@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Basket instrument example combining equity and bond constituents."""
+
 import json
 from datetime import date
 

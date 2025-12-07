@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Demonstrate inflation-linked bond and zero-coupon inflation swap usage."""
+
 from datetime import date
 
 from finstack import Money

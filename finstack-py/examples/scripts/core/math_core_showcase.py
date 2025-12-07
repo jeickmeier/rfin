@@ -17,11 +17,13 @@ import finstack
 # Integration helpers
 # ---------------------------------------------------------------------------
 
+
 def integrate_standard_normal(func: Callable[[float], float]) -> float:
     """Evaluate E[f(X)] for X ~ N(0, 1) using Gauss-Hermite quadrature."""
 
     quad = finstack.core.math.integration.GaussHermiteQuadrature.order_7()
     return quad.integrate(func)
+
 
 def gauss_legendre_demo() -> float:
     """Approximate ∫ cos(x) dx over [0, π/2] with Gauss-Legendre nodes."""
@@ -32,6 +34,7 @@ def gauss_legendre_demo() -> float:
         math.pi / 2.0,
         order=8,
     )
+
 
 def adaptive_simpson_demo() -> float:
     """Integrate sin(10x)/(1+x^2) over [0, 1] with adaptive Simpson."""
@@ -44,17 +47,18 @@ def adaptive_simpson_demo() -> float:
         max_depth=12,
     )
 
+
 # ---------------------------------------------------------------------------
 # Solver helpers
 # ---------------------------------------------------------------------------
 
+
 def newton_solve_sqrt2() -> float:
     """Find sqrt(2) by solving x^2 - 2 = 0 with Newton's method."""
 
-    solver = finstack.core.math.solver.NewtonSolver(
-        tolerance=1e-12, max_iterations=50, fd_step=1e-8
-    )
+    solver = finstack.core.math.solver.NewtonSolver(tolerance=1e-12, max_iterations=50, fd_step=1e-8)
     return solver.solve(lambda x: x * x - 2.0, initial_guess=1.0)
+
 
 def brent_bisection_cos() -> float:
     """Locate a root of cos(x) - x near zero using Brent's method."""
@@ -83,6 +87,7 @@ def brent_polynomial() -> float:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     print("=== finstack.core.math integration showcases ===")
