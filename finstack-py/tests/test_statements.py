@@ -1,5 +1,7 @@
 """Comprehensive tests for the statements Python bindings."""
 
+import pytest
+
 from finstack.core.currency import Currency
 from finstack.core.dates import PeriodId
 from finstack.statements.builder import ModelBuilder
@@ -19,7 +21,6 @@ from finstack.statements.types import (
     NodeSpec,
     NodeType,
 )
-import pytest
 
 
 class TestNodeTypes:

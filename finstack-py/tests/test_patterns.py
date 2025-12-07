@@ -1,9 +1,10 @@
 """Tests for financial modeling patterns via Python bindings."""
 
+import pytest
+
 from finstack.core.dates import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
-import pytest
 
 
 def test_roll_forward_pattern_python() -> None:

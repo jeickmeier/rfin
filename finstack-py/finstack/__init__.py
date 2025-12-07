@@ -6,9 +6,9 @@ compiled extension underneath provides rich docstrings and type hints so these
 re-exports stay discoverable in IDEs.
 """
 
-from collections.abc import MutableMapping as _MutableMapping
 import sys as _sys
 import types as _types
+from collections.abc import MutableMapping as _MutableMapping
 from typing import Any as _Any
 
 from . import finstack as _finstack
@@ -42,6 +42,7 @@ def _walk_and_register(
     This avoids manual updates when new PyO3 submodules are added under core.
     """
     import sys
+
     if _modules is None:
         _modules = sys.modules
     _seen: set[int] = set()

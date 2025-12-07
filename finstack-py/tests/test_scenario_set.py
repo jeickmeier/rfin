@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from finstack.core.dates import PeriodId
 import pytest
 
+from finstack.core.dates import PeriodId
 from finstack.statements import AmountOrScalar, ModelBuilder, ScenarioDefinition, ScenarioSet
 
 

@@ -6,10 +6,10 @@ provide full parity with the Rust crate across all major features.
 
 from datetime import date
 
-from finstack.core.dates import PeriodId
-from finstack.core.money import Money
 import pytest
 
+from finstack.core.dates import PeriodId
+from finstack.core.money import Money
 from finstack.statements import (
     Alignment,
     AmountOrScalar,
