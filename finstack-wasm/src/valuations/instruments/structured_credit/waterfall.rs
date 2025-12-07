@@ -160,5 +160,3 @@ impl JsWaterfallTier {
         self.inner.divertible
     }
 }
-
-
