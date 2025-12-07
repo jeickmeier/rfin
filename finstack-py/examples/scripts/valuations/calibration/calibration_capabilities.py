@@ -1,14 +1,16 @@
 """Demonstrate full-market calibration including forward and volatility surfaces."""
+
 from __future__ import annotations
 
-from datetime import date, timedelta
-from typing import Dict, List, Sequence, Tuple, Optional
 import math
+from datetime import date, timedelta
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface as MarketVolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData
+
 from finstack.valuations import calibration as cal
 
 RatesPoint = Tuple[str, Dict[str, object]]
@@ -111,9 +113,7 @@ def build_market_quotes(
         expanded: List[cal.RatesQuote] = []
         for kind, info in points:
             if kind == "fra":
-                expanded.append(
-                    cal.RatesQuote.fra(info["start"], info["end"], info["rate"], info["day_count"])
-                )
+                expanded.append(cal.RatesQuote.fra(info["start"], info["end"], info["rate"], info["day_count"]))
             elif kind == "swap":
                 expanded.append(
                     cal.RatesQuote.swap(
@@ -182,8 +182,7 @@ def build_market_quotes(
         (base_date + timedelta(days=365 * 2), base_date + timedelta(days=365 * 8), 0.231),
     ]
     swaption_quotes = [
-        cal.VolQuote.swaption_vol(expiry, tenor, 0.03, vol, "ATM")
-        for expiry, tenor, vol in swaption_specs
+        cal.VolQuote.swaption_vol(expiry, tenor, 0.03, vol, "ATM") for expiry, tenor, vol in swaption_specs
     ]
 
     rates_quotes = discount_quotes + forward_3m_quotes + forward_6m_quotes
@@ -234,10 +233,11 @@ def ensure_swaption_surface(
     for expiry_years in expiries:
         row: List[float] = []
         for tenor_years in tenors:
-            vols = [vol for e, t, vol in points if (
-                (e - base_date).days / 365.0 == expiry_years
-                and (t - e).days / 365.0 == tenor_years
-            )]
+            vols = [
+                vol
+                for e, t, vol in points
+                if ((e - base_date).days / 365.0 == expiry_years and (t - e).days / 365.0 == tenor_years)
+            ]
             row.append(sum(vols) / len(vols) if vols else 0.0)
         grid.append(row)
 
@@ -277,9 +277,7 @@ def calibrate_forward_curves(
 
         calibrator = cal.ForwardCurveCalibrator(curve_id, tenor_years, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
-            cal.CalibrationConfig.multi_curve()
-            .with_solver_kind(cal.SolverKind.BRENT)
-            .with_max_iterations(100)
+            cal.CalibrationConfig.multi_curve().with_solver_kind(cal.SolverKind.BRENT).with_max_iterations(100)
         )
 
         try:
@@ -297,6 +295,7 @@ def calibrate_forward_curves(
 
     return reports
 
+
 def calibrate_credit_index_structures(
     market: MarketContext,
     base_date: date,
@@ -313,9 +312,7 @@ def calibrate_credit_index_structures(
     if index_cds:
         calibrator = cal.HazardCurveCalibrator(index_curve_id, "senior", 0.40, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
-            cal.CalibrationConfig.multi_curve()
-            .with_solver_kind(cal.SolverKind.BRENT)
-            .with_max_iterations(40)
+            cal.CalibrationConfig.multi_curve().with_solver_kind(cal.SolverKind.BRENT).with_max_iterations(40)
         )
         try:
             curve, report = calibrator.calibrate(index_cds, market)
@@ -345,9 +342,6 @@ def calibrate_credit_index_structures(
             reports[index_name] = {"success": False, "error": str(exc)}
 
     return reports
-
-
-
 
 
 def summarize_context(
@@ -443,7 +437,6 @@ def summarize_context(
             print(f"{surface_id} surface missing")
 
 
-
 def main() -> None:
     base_date = date(2024, 1, 2)
     market_quotes, forward_inputs, credit_inputs, swaption_specs = build_market_quotes(base_date)
@@ -455,10 +448,8 @@ def main() -> None:
         .with_verbose(False)
     )
 
-
     print("SimpleCalibration is deprecated. Please use specific calibrators (DiscountCurveCalibrator, etc.)")
     return
-
 
     print("Report type:", report_info["metadata"].get("type"))
     print("Iterations:", report_info["iterations"])
@@ -483,7 +474,6 @@ def main() -> None:
     summarize_context(market, forward_reports, credit_reports)
     if fallback_surface:
         print("Swaption surface: populated from sample ATM grid")
-
 
 
 if __name__ == "__main__":
