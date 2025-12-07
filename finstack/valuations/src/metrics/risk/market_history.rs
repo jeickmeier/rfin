@@ -62,18 +62,12 @@ impl MarketScenario {
 
         for shift in &self.shifts {
             let maybe_bump: Option<(CurveId, BumpSpec)> = match &shift.factor {
-                RiskFactorType::DiscountRate {
-                    curve_id,
-                    tenor_years: _,
-                } => {
+                RiskFactorType::DiscountRate { curve_id, .. } => {
                     // For historical VaR, apply parallel shift to the curve.
                     // The tenor is used for factor identification, not for localized bumping.
                     Some(parallel_bp_bump(curve_id, shift.shift))
                 }
-                RiskFactorType::ForwardRate {
-                    curve_id,
-                    tenor_years: _,
-                } => {
+                RiskFactorType::ForwardRate { curve_id, .. } => {
                     // For historical VaR, apply parallel shift to the curve.
                     Some(parallel_bp_bump(curve_id, shift.shift))
                 }

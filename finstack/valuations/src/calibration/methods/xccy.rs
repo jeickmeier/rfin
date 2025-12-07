@@ -190,7 +190,7 @@ impl XccyBasisCalibrator {
                 reference_freq,
                 primary_dc,
                 reference_dc,
-                currency: _,
+                ..
             } => {
                 use crate::instruments::basis_swap::BasisSwapLeg;
                 use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind};

@@ -308,7 +308,7 @@ mod tests {
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
-            DebtInstrumentSpec::Bond { id, spec: _ } => {
+            DebtInstrumentSpec::Bond { id, .. } => {
                 assert_eq!(id, "BOND-001");
             }
             _ => panic!("Expected Bond variant"),
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
-            DebtInstrumentSpec::Swap { id, spec: _ } => {
+            DebtInstrumentSpec::Swap { id, .. } => {
                 assert_eq!(id, "SWAP-001");
             }
             _ => panic!("Expected Swap variant"),
@@ -406,7 +406,7 @@ mod tests {
         assert_eq!(cs.debt_instruments.len(), 1);
 
         match &cs.debt_instruments[0] {
-            DebtInstrumentSpec::Generic { id, spec: _ } => {
+            DebtInstrumentSpec::Generic { id, .. } => {
                 assert_eq!(id, "TL-A");
             }
             _ => panic!("Expected Generic variant"),

@@ -538,7 +538,7 @@ fn test_parse_ttm_equivalent() {
     // TTM is typically rolling_sum(revenue, 4) for quarterly or 12 for monthly
     let result = parse_formula("rolling_sum(revenue, 4)").unwrap();
     match result {
-        StmtExpr::Call { func, args: _ } => {
+        StmtExpr::Call { func, .. } => {
             assert_eq!(func, "rolling_sum");
             // TTM = Trailing Twelve Months
             // For quarterly data: 4 periods

@@ -907,7 +907,7 @@ impl DiscountCurveCalibrator {
                 float_freq,
                 fixed_dc,
                 float_dc,
-                index: _,
+                ..
             } => {
                 // Create swap instrument
                 use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
@@ -984,7 +984,7 @@ impl DiscountCurveCalibrator {
                 reference_freq,
                 primary_dc,
                 reference_dc,
-                currency: _,
+                ..
             } => {
                 // Import BasisSwap types
                 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
