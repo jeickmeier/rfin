@@ -25,11 +25,12 @@ try:
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
     import pandas as pd
+    from matplotlib.gridspec import GridSpec
+
     from finstack.core.cashflow import xirr
     from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
-    from matplotlib.gridspec import GridSpec
 
     print("All imports successful")  # noqa: T201
 except ImportError as e:
@@ -534,8 +535,8 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
 def analyze_volatility_grid(
     market: MarketContext,
     as_of: date,
-    util_vols: List[float] = [0.10, 0.20, 0.30],
-    cs_vols: List[float] = [0.20, 0.30, 0.40],
+    util_vols: List[float] = None,
+    cs_vols: List[float] = None,
     num_paths: int = 500,
     commitment: float = 100_000_000,
     initial_utilization: float = 0.25,
@@ -545,6 +546,10 @@ def analyze_volatility_grid(
 
     Returns dict mapping (util_vol, cs_vol) tuples to IRR distributions.
     """
+    if util_vols is None:
+        util_vols = [0.10, 0.20, 0.30]
+    if cs_vols is None:
+        cs_vols = [0.20, 0.30, 0.40]
     results = {}
 
     print("\n" + "=" * 80)  # noqa: T201

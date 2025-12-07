@@ -6,9 +6,9 @@ compiled extension underneath provides rich docstrings and type hints so these
 re-exports stay discoverable in IDEs.
 """
 
-from collections.abc import MutableMapping as _MutableMapping
 import sys as _sys
 import types as _types
+from collections.abc import MutableMapping as _MutableMapping
 from typing import Any as _Any
 
 from . import finstack as _finstack
@@ -34,13 +34,15 @@ _sys.modules[f"{__name__}.core"] = _core
 def _walk_and_register(
     _parent_mod: _Any,
     _qualname: str,
-    _modules: _MutableMapping[str, _Any] = _sys.modules,
+    _modules: _MutableMapping[str, _Any] = None,
     _module_type: type = _types.ModuleType,
 ) -> None:
     """Recursively register submodules under sys.modules for import to work.
 
     This avoids manual updates when new PyO3 submodules are added under core.
     """
+    if _modules is None:
+        _modules = _sys.modules
     _seen: set[int] = set()
 
     def _recurse(_mod: object, _qname: str) -> None:
