@@ -9,6 +9,9 @@ pub mod path_dependent;
 pub mod lsmc;
 
 #[cfg(feature = "mc")]
+pub mod basis;
+
+#[cfg(feature = "mc")]
 pub mod swaption_lsmc;
 
 #[cfg(feature = "mc")]

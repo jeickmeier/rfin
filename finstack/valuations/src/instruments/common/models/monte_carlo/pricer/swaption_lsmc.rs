@@ -14,7 +14,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::monte_carlo::pricer::swaption_lsmc::{
-//!     SwaptionLsmcPricer, SwaptionLsmcConfig, SwaptionBasis,
+//!     SwaptionLsmcPricer, SwaptionLsmcConfig, PolynomialBasis,
 //! };
 //! use finstack_valuations::instruments::common::mc::process::ou::{HullWhite1FProcess, HullWhite1FParams};
 //!
@@ -27,7 +27,7 @@
 
 use super::super::payoff::swaption::{BermudanSwaptionPayoff, SwaptionType};
 use super::super::results::MoneyEstimate;
-use super::lsmc::{BasisFunctions, LsmcConfig};
+use super::lsmc::LsmcConfig;
 use super::lsq::regression_with_basis;
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
 use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
@@ -37,6 +37,9 @@ use crate::instruments::common::mc::process::ou::HullWhite1FProcess;
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
+use crate::instruments::common::models::monte_carlo::pricer::basis::{
+    BasisFunctions, PolynomialBasis,
+};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -155,42 +158,6 @@ impl SwaptionLsmcConfig {
 // Swaption-Specific Basis Functions
 // ============================================================================
 
-/// Basis functions optimized for swaption regression.
-///
-/// Uses polynomial basis functions of the swap rate, which is the natural
-/// state variable for swaption exercise decisions.
-///
-/// Basis: {1, S, S², S³, ...} up to degree n
-#[derive(Clone, Debug)]
-pub struct SwaptionBasis {
-    /// Polynomial degree
-    degree: usize,
-}
-
-impl SwaptionBasis {
-    /// Create new swaption basis functions.
-    pub fn new(degree: usize) -> Self {
-        Self { degree }
-    }
-}
-
-impl BasisFunctions for SwaptionBasis {
-    fn num_basis(&self) -> usize {
-        self.degree + 1
-    }
-
-    fn evaluate(&self, swap_rate: f64, out: &mut [f64]) {
-        debug_assert_eq!(out.len(), self.num_basis());
-
-        // Polynomial basis: {1, S, S², S³, ...}
-        let mut power = 1.0;
-        for item in out.iter_mut().take(self.degree + 1) {
-            *item = power;
-            power *= swap_rate;
-        }
-    }
-}
-
 /// Extended basis functions including annuity.
 ///
 /// Basis: {1, S, S², ..., A, S×A}
@@ -243,6 +210,9 @@ impl BasisFunctions for ExtendedSwaptionBasis {
         }
     }
 }
+
+/// Backward-compatible alias for swaption polynomial basis.
+pub type SwaptionBasis = PolynomialBasis;
 
 /// LSMC pricer for Bermudan swaptions.
 ///
@@ -622,7 +592,8 @@ impl SwaptionLsmcPricer {
 
             // Perform regression if we have enough ITM paths
             if regression_x.len() > basis.num_basis() + 10 {
-                let continuation_values = self.regression(&regression_x, &regression_y, basis)?;
+                let continuation_values =
+                    regression_with_basis(&regression_x, &regression_y, basis)?;
 
                 // Exercise decision
                 for (j, &i) in regression_indices.iter().enumerate() {
@@ -686,17 +657,6 @@ impl SwaptionLsmcPricer {
         }
 
         Ok(present_values)
-    }
-
-    /// Perform least-squares regression using robust SVD solver.
-    ///
-    /// Uses the same SVD-based regression as equity LSMC to avoid numerical
-    /// instability from normal equations (X'X) which square the condition number.
-    fn regression<B>(&self, x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
-    where
-        B: BasisFunctions,
-    {
-        regression_with_basis(x, y, basis)
     }
 }
 

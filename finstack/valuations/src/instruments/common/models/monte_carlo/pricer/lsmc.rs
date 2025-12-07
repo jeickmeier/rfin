@@ -14,6 +14,7 @@ use crate::instruments::common::mc::process::gbm::GbmProcess;
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
+use crate::instruments::common::models::monte_carlo::pricer::basis::BasisFunctions;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -48,117 +49,6 @@ pub struct AmericanCall {
 impl ImmediateExercise for AmericanCall {
     fn exercise_value(&self, spot: f64) -> f64 {
         (spot - self.strike).max(0.0)
-    }
-}
-
-/// Basis functions for LSMC regression.
-pub trait BasisFunctions: Send + Sync {
-    /// Number of basis functions.
-    fn num_basis(&self) -> usize;
-
-    /// Evaluate all basis functions at given spot.
-    fn evaluate(&self, spot: f64, out: &mut [f64]);
-}
-
-/// Polynomial basis functions: {1, S, S², ...}.
-#[derive(Clone, Debug)]
-pub struct PolynomialBasis {
-    degree: usize,
-}
-
-impl PolynomialBasis {
-    /// Create polynomial basis of given degree.
-    ///
-    /// degree=2 gives: {1, S, S²}
-    pub fn new(degree: usize) -> Self {
-        assert!(degree > 0, "Degree must be positive");
-        Self { degree }
-    }
-}
-
-impl BasisFunctions for PolynomialBasis {
-    fn num_basis(&self) -> usize {
-        self.degree + 1
-    }
-
-    fn evaluate(&self, spot: f64, out: &mut [f64]) {
-        debug_assert_eq!(
-            out.len(),
-            self.num_basis(),
-            "Buffer size mismatch: expected {}, got {}",
-            self.num_basis(),
-            out.len()
-        );
-        out[0] = 1.0;
-        for i in 1..=self.degree {
-            out[i] = out[i - 1] * spot;
-        }
-    }
-}
-
-/// Laguerre basis functions (better for options).
-///
-/// Uses Laguerre polynomials normalized by strike price for proper scaling
-/// across different strike levels.
-#[derive(Clone, Debug)]
-pub struct LaguerreBasis {
-    degree: usize,
-    strike: f64,
-}
-
-impl LaguerreBasis {
-    /// Create Laguerre basis of given degree with strike normalization.
-    ///
-    /// # Arguments
-    ///
-    /// * `degree` - Polynomial degree (1-4)
-    /// * `strike` - Strike price for normalization (must be > 0)
-    ///
-    /// # Panics
-    ///
-    /// Panics if `degree` is not in [1, 4] or `strike <= 0`.
-    pub fn new(degree: usize, strike: f64) -> Self {
-        assert!(degree > 0 && degree <= 4, "Degree must be 1-4");
-        assert!(strike > 0.0, "Strike must be positive");
-        Self { degree, strike }
-    }
-
-    /// Get the strike price used for normalization.
-    pub fn strike(&self) -> f64 {
-        self.strike
-    }
-}
-
-impl BasisFunctions for LaguerreBasis {
-    fn num_basis(&self) -> usize {
-        self.degree + 1
-    }
-
-    fn evaluate(&self, spot: f64, out: &mut [f64]) {
-        debug_assert_eq!(
-            out.len(),
-            self.num_basis(),
-            "Buffer size mismatch: expected {}, got {}",
-            self.num_basis(),
-            out.len()
-        );
-        // Laguerre polynomials: L_0(x)=1, L_1(x)=1-x, L_2(x)=1-2x+x²/2, ...
-        // Applied to x = S/K (normalized spot by strike)
-        let x = spot / self.strike;
-
-        out[0] = 1.0;
-        if self.degree >= 1 {
-            out[1] = 1.0 - x;
-        }
-        if self.degree >= 2 {
-            out[2] = 1.0 - 2.0 * x + x * x / 2.0;
-        }
-        if self.degree >= 3 {
-            out[3] = 1.0 - 3.0 * x + 3.0 * x * x / 2.0 - x * x * x / 6.0;
-        }
-        if self.degree >= 4 {
-            out[4] = 1.0 - 4.0 * x + 3.0 * x * x - 2.0 * x * x * x / 3.0 + x * x * x * x / 24.0;
-        }
     }
 }
 
@@ -384,7 +274,8 @@ impl LsmcPricer {
 
             // Perform regression if we have enough ITM paths
             if regression_x.len() > basis.num_basis() + 10 {
-                let continuation_values = self.regression(&regression_x, &regression_y, basis)?;
+                let continuation_values =
+                    regression_with_basis(&regression_x, &regression_y, basis)?;
 
                 // Exercise decision
                 for (j, &i) in regression_indices.iter().enumerate() {
@@ -408,17 +299,6 @@ impl LsmcPricer {
         }
 
         Ok(present_values)
-    }
-
-    /// Perform least-squares regression.
-    ///
-    /// Fits continuation value = Σ β_i φ_i(S) using ordinary least squares.
-    /// Uses shared SVD-based regression for robustness.
-    fn regression<B>(&self, x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
-    where
-        B: BasisFunctions,
-    {
-        regression_with_basis(x, y, basis)
     }
 }
 

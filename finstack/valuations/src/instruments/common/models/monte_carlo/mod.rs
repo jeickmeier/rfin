@@ -42,11 +42,11 @@ pub mod prelude {
     };
     pub use super::payoff::vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};
 
+    #[cfg(feature = "mc")]
+    pub use super::pricer::basis::{LaguerreBasis, PolynomialBasis};
     pub use super::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
     #[cfg(feature = "mc")]
-    pub use super::pricer::lsmc::{
-        AmericanCall, AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer, PolynomialBasis,
-    };
+    pub use super::pricer::lsmc::{AmericanCall, AmericanPut, LsmcConfig, LsmcPricer};
     #[cfg(feature = "mc")]
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
 

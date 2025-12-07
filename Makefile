@@ -252,3 +252,7 @@ book-watch: install-mdbook
 book-clean:
 	@echo "Cleaning mdBook build artifacts..."
 	rm -rf book/book
+
+check-dups:
+	@echo "Checking for duplicate code..."
+	npx jscpd --pattern "**/src/**/*.rs" --ignore "**/target/**,**/node_modules/**,**/tests/**"

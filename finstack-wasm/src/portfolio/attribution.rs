@@ -11,129 +11,134 @@ use finstack_valuations::attribution::PnlAttribution;
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
 
+macro_rules! impl_common_attribution {
+    ($type:ident) => {
+        #[wasm_bindgen(js_class = $type)]
+        impl $type {
+            #[wasm_bindgen(getter, js_name = totalPnl)]
+            pub fn total_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.total_pnl)
+            }
+
+            #[wasm_bindgen(getter)]
+            pub fn carry(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.carry)
+            }
+
+            #[wasm_bindgen(getter, js_name = ratesCurvesPnl)]
+            pub fn rates_curves_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.rates_curves_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = creditCurvesPnl)]
+            pub fn credit_curves_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.credit_curves_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = inflationCurvesPnl)]
+            pub fn inflation_curves_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.inflation_curves_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = correlationsPnl)]
+            pub fn correlations_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.correlations_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = fxPnl)]
+            pub fn fx_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.fx_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = volPnl)]
+            pub fn vol_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.vol_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = modelParamsPnl)]
+            pub fn model_params_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.model_params_pnl)
+            }
+
+            #[wasm_bindgen(getter, js_name = marketScalarsPnl)]
+            pub fn market_scalars_pnl(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.market_scalars_pnl)
+            }
+
+            #[wasm_bindgen(getter)]
+            pub fn residual(&self) -> JsMoney {
+                JsMoney::from_inner(self.inner.residual)
+            }
+
+            #[wasm_bindgen(getter, js_name = ratesDetail)]
+            pub fn rates_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.rates_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize rates detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = creditDetail)]
+            pub fn credit_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.credit_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize credit detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = inflationDetail)]
+            pub fn inflation_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.inflation_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize inflation detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = correlationsDetail)]
+            pub fn correlations_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.correlations_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize correlations detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = fxDetail)]
+            pub fn fx_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.fx_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize FX detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = volDetail)]
+            pub fn vol_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.vol_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize vol detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(getter, js_name = scalarsDetail)]
+            pub fn scalars_detail(&self) -> Result<JsValue, JsValue> {
+                serde_wasm_bindgen::to_value(&self.inner.scalars_detail).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize scalars detail: {}", e))
+                })
+            }
+
+            #[wasm_bindgen(js_name = toCsv)]
+            pub fn to_csv(&self) -> String {
+                self.inner.to_csv()
+            }
+
+            #[wasm_bindgen(js_name = explain)]
+            pub fn explain(&self) -> String {
+                self.inner.explain()
+            }
+        }
+    };
+}
+
 /// Position-level P&L attribution result.
 #[wasm_bindgen(js_name = PnlAttribution)]
 pub struct JsPnlAttribution {
     inner: PnlAttribution,
 }
 
-#[wasm_bindgen(js_class = PnlAttribution)]
-impl JsPnlAttribution {
-    #[wasm_bindgen(getter, js_name = totalPnl)]
-    pub fn total_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.total_pnl)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn carry(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.carry)
-    }
-
-    #[wasm_bindgen(getter, js_name = ratesCurvesPnl)]
-    pub fn rates_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.rates_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = creditCurvesPnl)]
-    pub fn credit_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.credit_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = inflationCurvesPnl)]
-    pub fn inflation_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.inflation_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = correlationsPnl)]
-    pub fn correlations_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.correlations_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = fxPnl)]
-    pub fn fx_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.fx_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = volPnl)]
-    pub fn vol_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.vol_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = modelParamsPnl)]
-    pub fn model_params_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.model_params_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = marketScalarsPnl)]
-    pub fn market_scalars_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.market_scalars_pnl)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn residual(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.residual)
-    }
-
-    /// Optional rates detail as a plain object.
-    #[wasm_bindgen(getter, js_name = ratesDetail)]
-    pub fn rates_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.rates_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize rates detail: {}", e)))
-    }
-
-    /// Optional credit detail as a plain object.
-    #[wasm_bindgen(getter, js_name = creditDetail)]
-    pub fn credit_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.credit_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize credit detail: {}", e)))
-    }
-
-    /// Optional inflation detail as a plain object.
-    #[wasm_bindgen(getter, js_name = inflationDetail)]
-    pub fn inflation_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.inflation_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize inflation detail: {}", e)))
-    }
-
-    /// Optional correlations detail as a plain object.
-    #[wasm_bindgen(getter, js_name = correlationsDetail)]
-    pub fn correlations_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.correlations_detail).map_err(|e| {
-            JsValue::from_str(&format!("Failed to serialize correlations detail: {}", e))
-        })
-    }
-
-    /// Optional FX detail as a plain object.
-    #[wasm_bindgen(getter, js_name = fxDetail)]
-    pub fn fx_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.fx_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize FX detail: {}", e)))
-    }
-
-    /// Optional volatility detail as a plain object.
-    #[wasm_bindgen(getter, js_name = volDetail)]
-    pub fn vol_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.vol_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize vol detail: {}", e)))
-    }
-
-    /// Optional scalars detail as a plain object.
-    #[wasm_bindgen(getter, js_name = scalarsDetail)]
-    pub fn scalars_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.scalars_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize scalars detail: {}", e)))
-    }
-
-    #[wasm_bindgen(js_name = toCsv)]
-    pub fn to_csv(&self) -> String {
-        self.inner.to_csv()
-    }
-
-    #[wasm_bindgen(js_name = explain)]
-    pub fn explain(&self) -> String {
-        self.inner.explain()
-    }
-}
+impl_common_attribution!(JsPnlAttribution);
 
 impl JsPnlAttribution {
     pub(crate) fn from_inner(inner: PnlAttribution) -> Self {
@@ -147,66 +152,13 @@ pub struct JsPortfolioAttribution {
     inner: PortfolioAttribution,
 }
 
+impl_common_attribution!(JsPortfolioAttribution);
+
 #[wasm_bindgen(js_class = PortfolioAttribution)]
 impl JsPortfolioAttribution {
-    #[wasm_bindgen(getter, js_name = totalPnl)]
-    pub fn total_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.total_pnl)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn carry(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.carry)
-    }
-
-    #[wasm_bindgen(getter, js_name = ratesCurvesPnl)]
-    pub fn rates_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.rates_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = creditCurvesPnl)]
-    pub fn credit_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.credit_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = inflationCurvesPnl)]
-    pub fn inflation_curves_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.inflation_curves_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = correlationsPnl)]
-    pub fn correlations_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.correlations_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = fxPnl)]
-    pub fn fx_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.fx_pnl)
-    }
-
     #[wasm_bindgen(getter, js_name = fxTranslationPnl)]
     pub fn fx_translation_pnl(&self) -> JsMoney {
         JsMoney::from_inner(self.inner.fx_translation_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = volPnl)]
-    pub fn vol_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.vol_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = modelParamsPnl)]
-    pub fn model_params_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.model_params_pnl)
-    }
-
-    #[wasm_bindgen(getter, js_name = marketScalarsPnl)]
-    pub fn market_scalars_pnl(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.market_scalars_pnl)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn residual(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.residual)
     }
 
     /// Attribution by position as `{ [positionId]: PnlAttribution }`.
@@ -223,62 +175,9 @@ impl JsPortfolioAttribution {
         Ok(JsValue::from(dict))
     }
 
-    #[wasm_bindgen(getter, js_name = ratesDetail)]
-    pub fn rates_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.rates_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize rates detail: {}", e)))
-    }
-
-    #[wasm_bindgen(getter, js_name = creditDetail)]
-    pub fn credit_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.credit_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize credit detail: {}", e)))
-    }
-
-    #[wasm_bindgen(getter, js_name = inflationDetail)]
-    pub fn inflation_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.inflation_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize inflation detail: {}", e)))
-    }
-
-    #[wasm_bindgen(getter, js_name = correlationsDetail)]
-    pub fn correlations_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.correlations_detail).map_err(|e| {
-            JsValue::from_str(&format!("Failed to serialize correlations detail: {}", e))
-        })
-    }
-
-    #[wasm_bindgen(getter, js_name = fxDetail)]
-    pub fn fx_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.fx_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize FX detail: {}", e)))
-    }
-
-    #[wasm_bindgen(getter, js_name = volDetail)]
-    pub fn vol_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.vol_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize vol detail: {}", e)))
-    }
-
-    #[wasm_bindgen(getter, js_name = scalarsDetail)]
-    pub fn scalars_detail(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner.scalars_detail)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize scalars detail: {}", e)))
-    }
-
-    #[wasm_bindgen(js_name = toCsv)]
-    pub fn to_csv(&self) -> String {
-        self.inner.to_csv()
-    }
-
     #[wasm_bindgen(js_name = positionDetailToCsv)]
     pub fn position_detail_to_csv(&self) -> String {
         self.inner.position_detail_to_csv()
-    }
-
-    #[wasm_bindgen(js_name = explain)]
-    pub fn explain(&self) -> String {
-        self.inner.explain()
     }
 }
 

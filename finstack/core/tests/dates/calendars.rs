@@ -366,55 +366,35 @@ fn test_calendar_weekend_behavior() {
     assert!(cal.is_business_day(make_date(2025, 6, 18)));
 }
 
-#[test]
-fn test_all_calendar_constructors() {
-    let _gblo = Gblo;
-    let _target2 = Target2;
-    let _asx = Asx;
-    let _auce = Auce;
-    let _cato = Cato;
-    let _defr = Defr;
-    let _nyse = Nyse;
-    let _usny = Usny;
-    let _sifma = Sifma;
-    let _brbd = Brbd;
-    let _chzh = Chzh;
-    let _cnbe = Cnbe;
-    let _sgsi = Sgsi;
-    let _sse = Sse;
-    let _hkhk = Hkhk;
-    let _hkex = Hkex;
-    let _cme = Cme;
-}
-
 // ============================================
 // Chinese New Year Edge Cases (1970-2150)
 // ============================================
 
-#[test]
-fn test_cny_early_years_1970s() {
-    let cnbe = Cnbe;
-    let hkhk = Hkhk;
-    let sgsi = Sgsi;
+fn check_cny_dates(dates: &[(i32, u8, u8)]) {
+    // Check multiple calendars that observe CNY
+    let calendars = [Cnbe, Hkhk, Sgsi];
 
-    for &(y, m, d) in &[(1970, 2, 6), (1975, 2, 11), (1980, 2, 16), (1989, 2, 6)] {
+    for &(y, m, d) in dates {
         let date = make_date(y, m, d);
-        assert!(cnbe.is_holiday(date));
-        assert!(hkhk.is_holiday(date));
-        assert!(sgsi.is_holiday(date));
+        for cal in &calendars {
+            assert!(
+                cal.is_holiday(date),
+                "Calendar {} should have holiday on {}-{}-{}",
+                cal.metadata().unwrap().id,
+                y,
+                m,
+                d
+            );
+        }
     }
 }
 
 #[test]
-fn test_cny_late_years_2100s() {
-    let cnbe = Cnbe;
-    let hkhk = Hkhk;
-    let sgsi = Sgsi;
+fn test_cny_early_years_1970s() {
+    check_cny_dates(&[(1970, 2, 6), (1975, 2, 11), (1980, 2, 16), (1989, 2, 6)]);
+}
 
-    for &(y, m, d) in &[(2101, 1, 29), (2125, 2, 3), (2150, 1, 28)] {
-        let date = make_date(y, m, d);
-        assert!(cnbe.is_holiday(date));
-        assert!(hkhk.is_holiday(date));
-        assert!(sgsi.is_holiday(date));
-    }
+#[test]
+fn test_cny_late_years_2100s() {
+    check_cny_dates(&[(2101, 1, 29), (2125, 2, 3), (2150, 1, 28)]);
 }

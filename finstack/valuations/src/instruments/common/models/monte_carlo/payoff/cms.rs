@@ -11,12 +11,18 @@ use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
-/// CMS cap payoff (portfolio of CMS caplets).
-///
-/// Each caplet pays max(S_CMS(t) - K, 0) at fixing dates, where S_CMS(t)
-/// is the CMS swap rate computed from the short rate.
+/// CMS payoff type (cap or floor).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CmsType {
+    /// CMS cap (pays max(S - K, 0))
+    Cap,
+    /// CMS floor (pays max(K - S, 0))
+    Floor,
+}
+
+/// CMS cap/floor payoff (portfolio of caplets/floorlets).
 #[derive(Clone, Debug)]
-pub struct CmsCapPayoff {
+pub struct CmsPayoff {
     /// Strike rate (e.g., 0.04 for 4%)
     pub strike_rate: f64,
     /// CMS tenor (e.g., 10.0 for 10Y swap)
@@ -35,26 +41,16 @@ pub struct CmsCapPayoff {
     pub swap_schedule: SwapSchedule,
     /// Hull-White parameters (needed for swap rate calculation)
     pub hw_params: HullWhite1FParams,
+    /// Payoff flavor
+    pub cms_type: CmsType,
 
     // State variables
     accumulated_pv: f64,
     next_fixing_idx: usize,
 }
 
-impl CmsCapPayoff {
-    /// Create a new CMS cap payoff.
-    ///
-    /// # Arguments
-    ///
-    /// * `strike_rate` - Cap strike rate
-    /// * `cms_tenor` - Tenor of the CMS swap (e.g., 10.0 for 10Y)
-    /// * `fixing_dates` - Dates when CMS rate is fixed
-    /// * `accrual_fractions` - Daycount fractions
-    /// * `discount_factors` - Discount factors for payments
-    /// * `notional` - Notional amount
-    /// * `currency` - Currency
-    /// * `swap_schedule` - Schedule for the CMS swap
-    /// * `hw_params` - Hull-White parameters for swap rate calculation
+impl CmsPayoff {
+    /// Create a new CMS payoff with explicit type.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         strike_rate: f64,
@@ -66,6 +62,7 @@ impl CmsCapPayoff {
         currency: Currency,
         swap_schedule: SwapSchedule,
         hw_params: HullWhite1FParams,
+        cms_type: CmsType,
     ) -> Self {
         assert_eq!(
             fixing_dates.len(),
@@ -88,9 +85,64 @@ impl CmsCapPayoff {
             currency,
             swap_schedule,
             hw_params,
+            cms_type,
             accumulated_pv: 0.0,
             next_fixing_idx: 0,
         }
+    }
+
+    /// Convenience constructor for CMS cap.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_cap(
+        strike_rate: f64,
+        cms_tenor: f64,
+        fixing_dates: Vec<f64>,
+        accrual_fractions: Vec<f64>,
+        discount_factors: Vec<f64>,
+        notional: f64,
+        currency: Currency,
+        swap_schedule: SwapSchedule,
+        hw_params: HullWhite1FParams,
+    ) -> Self {
+        Self::new(
+            strike_rate,
+            cms_tenor,
+            fixing_dates,
+            accrual_fractions,
+            discount_factors,
+            notional,
+            currency,
+            swap_schedule,
+            hw_params,
+            CmsType::Cap,
+        )
+    }
+
+    /// Convenience constructor for CMS floor.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_floor(
+        strike_rate: f64,
+        cms_tenor: f64,
+        fixing_dates: Vec<f64>,
+        accrual_fractions: Vec<f64>,
+        discount_factors: Vec<f64>,
+        notional: f64,
+        currency: Currency,
+        swap_schedule: SwapSchedule,
+        hw_params: HullWhite1FParams,
+    ) -> Self {
+        Self::new(
+            strike_rate,
+            cms_tenor,
+            fixing_dates,
+            accrual_fractions,
+            discount_factors,
+            notional,
+            currency,
+            swap_schedule,
+            hw_params,
+            CmsType::Floor,
+        )
     }
 
     /// Compute convexity adjustment (simplified approximation).
@@ -104,7 +156,7 @@ impl CmsCapPayoff {
     }
 }
 
-impl Payoff for CmsCapPayoff {
+impl Payoff for CmsPayoff {
     fn on_event(&mut self, state: &mut PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
@@ -131,13 +183,18 @@ impl Payoff for CmsCapPayoff {
                     discount_fn,
                 );
 
-                // Caplet payoff: max(S_CMS - K, 0) * τ * N * DF
-                let caplet = (cms_rate - self.strike_rate).max(0.0)
+                // Caplet/floorlet payoff: max(±(S_CMS - K), 0) * τ * N * DF
+                let payoff_rate = match self.cms_type {
+                    CmsType::Cap => (cms_rate - self.strike_rate).max(0.0),
+                    CmsType::Floor => (self.strike_rate - cms_rate).max(0.0),
+                };
+
+                let leg_value = payoff_rate
                     * self.accrual_fractions[self.next_fixing_idx]
                     * self.notional
                     * self.discount_factors[self.next_fixing_idx];
 
-                self.accumulated_pv += caplet;
+                self.accumulated_pv += leg_value;
                 self.next_fixing_idx += 1;
             }
         }
@@ -153,119 +210,11 @@ impl Payoff for CmsCapPayoff {
     }
 }
 
-/// CMS floor payoff (portfolio of CMS floorlets).
-///
-/// Each floorlet pays max(K - S_CMS(t), 0) at fixing dates.
-#[derive(Clone, Debug)]
-pub struct CmsFloorPayoff {
-    /// Strike rate
-    pub strike_rate: f64,
-    /// CMS tenor
-    pub cms_tenor: f64,
-    /// Fixing dates
-    pub fixing_dates: Vec<f64>,
-    /// Accrual fractions
-    pub accrual_fractions: Vec<f64>,
-    /// Discount factors
-    pub discount_factors: Vec<f64>,
-    /// Notional amount
-    pub notional: f64,
-    /// Currency
-    pub currency: Currency,
-    /// Swap schedule
-    pub swap_schedule: SwapSchedule,
-    /// Hull-White parameters
-    pub hw_params: HullWhite1FParams,
-
-    // State variables
-    accumulated_pv: f64,
-    next_fixing_idx: usize,
-}
-
-impl CmsFloorPayoff {
-    /// Create a new CMS floor payoff.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        strike_rate: f64,
-        cms_tenor: f64,
-        fixing_dates: Vec<f64>,
-        accrual_fractions: Vec<f64>,
-        discount_factors: Vec<f64>,
-        notional: f64,
-        currency: Currency,
-        swap_schedule: SwapSchedule,
-        hw_params: HullWhite1FParams,
-    ) -> Self {
-        assert_eq!(
-            fixing_dates.len(),
-            accrual_fractions.len(),
-            "Fixing dates and accrual fractions must match"
-        );
-        assert_eq!(
-            fixing_dates.len(),
-            discount_factors.len(),
-            "Fixing dates and discount factors must match"
-        );
-
-        Self {
-            strike_rate,
-            cms_tenor,
-            fixing_dates,
-            accrual_fractions,
-            discount_factors,
-            notional,
-            currency,
-            swap_schedule,
-            hw_params,
-            accumulated_pv: 0.0,
-            next_fixing_idx: 0,
-        }
-    }
-}
-
-impl Payoff for CmsFloorPayoff {
-    fn on_event(&mut self, state: &mut PathState) {
-        if self.next_fixing_idx < self.fixing_dates.len() {
-            let target_time = self.fixing_dates[self.next_fixing_idx];
-
-            if (state.time - target_time).abs() < 1e-6 || state.time >= target_time {
-                let short_rate = state
-                    .vars
-                    .get(crate::instruments::common::mc::traits::state_keys::SHORT_RATE)
-                    .copied()
-                    .unwrap_or(0.0);
-
-                let discount_fn = |t: f64| (-short_rate * t).exp();
-
-                let cms_rate = ForwardSwapRate::compute(
-                    &self.hw_params,
-                    short_rate,
-                    target_time,
-                    &self.swap_schedule,
-                    discount_fn,
-                );
-
-                // Floorlet payoff: max(K - S_CMS, 0) * τ * N * DF
-                let floorlet = (self.strike_rate - cms_rate).max(0.0)
-                    * self.accrual_fractions[self.next_fixing_idx]
-                    * self.notional
-                    * self.discount_factors[self.next_fixing_idx];
-
-                self.accumulated_pv += floorlet;
-                self.next_fixing_idx += 1;
-            }
-        }
-    }
-
-    fn value(&self, currency: Currency) -> Money {
-        Money::new(self.accumulated_pv, currency)
-    }
-
-    fn reset(&mut self) {
-        self.accumulated_pv = 0.0;
-        self.next_fixing_idx = 0;
-    }
-}
+/// Backward compatibility aliases to ease migration for existing call sites.
+/// CMS cap payoff alias.
+pub type CmsCapPayoff = CmsPayoff;
+/// CMS floor payoff alias.
+pub type CmsFloorPayoff = CmsPayoff;
 
 #[cfg(test)]
 mod tests {
@@ -285,7 +234,7 @@ mod tests {
 
         let hw_params = HullWhite1FParams::new(0.1, 0.01, 0.03);
 
-        let cap = CmsCapPayoff::new(
+        let cap = CmsPayoff::new_cap(
             0.04, // Strike
             10.0, // 10Y CMS
             fixing_dates,
@@ -312,7 +261,7 @@ mod tests {
         let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, schedule_accruals);
         let hw_params = HullWhite1FParams::new(0.1, 0.01, 0.03);
 
-        let mut cap = CmsCapPayoff::new(
+        let mut cap = CmsPayoff::new_cap(
             0.04,
             10.0,
             fixing_dates,
