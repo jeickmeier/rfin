@@ -254,7 +254,7 @@ pub struct PySensitivityScenario {
 #[pymethods]
 impl PySensitivityScenario {
     #[getter]
-    fn parameter_values(&self, py: Python<'_>) -> PyObject {
+    fn parameter_values(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.parameter_values {
             dict.set_item(key, value).ok();
@@ -437,7 +437,7 @@ impl PySensitivityAnalyzer {
     ///     Analysis results
     fn run(&self, py: Python<'_>, config: &PySensitivityConfig) -> PyResult<PySensitivityResult> {
         let analyzer = SensitivityAnalyzer::new(&self.model.inner);
-        let result = py.allow_threads(|| analyzer.run(&config.inner).map_err(stmt_to_py))?;
+        let result = py.detach(|| analyzer.run(&config.inner).map_err(stmt_to_py))?;
 
         Ok(PySensitivityResult { inner: result })
     }

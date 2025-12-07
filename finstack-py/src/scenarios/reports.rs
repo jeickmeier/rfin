@@ -137,7 +137,7 @@ impl PyRollForwardReport {
     /// -------
     /// date
     ///     Date before roll.
-    fn old_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn old_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.old_date)
     }
 
@@ -148,7 +148,7 @@ impl PyRollForwardReport {
     /// -------
     /// date
     ///     Date after roll.
-    fn new_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn new_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.new_date)
     }
 
@@ -170,7 +170,7 @@ impl PyRollForwardReport {
     /// -------
     /// list[tuple[str, list[tuple[str, float]]]]
     ///     List of (instrument_id, [(currency_code, amount)]) pairs.
-    fn instrument_carry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn instrument_carry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let outer = PyList::empty(py);
         for (id, per_ccy) in &self.inner.instrument_carry {
             let inner = PyList::empty(py);
@@ -190,7 +190,7 @@ impl PyRollForwardReport {
     /// -------
     /// list[tuple[str, list[tuple[str, float]]]]
     ///     List of (instrument_id, [(currency_code, amount)]) pairs.
-    fn instrument_mv_change(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn instrument_mv_change(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let outer = PyList::empty(py);
         for (id, per_ccy) in &self.inner.instrument_mv_change {
             let inner = PyList::empty(py);
@@ -210,7 +210,7 @@ impl PyRollForwardReport {
     /// -------
     /// dict[str, float]
     ///     Total carry by currency code.
-    fn total_carry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn total_carry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = pyo3::types::PyDict::new(py);
         for (ccy, money) in &self.inner.total_carry {
             let code = format!("{}", ccy);
@@ -226,7 +226,7 @@ impl PyRollForwardReport {
     /// -------
     /// dict[str, float]
     ///     Total market value change by currency code.
-    fn total_mv_change(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn total_mv_change(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = pyo3::types::PyDict::new(py);
         for (ccy, money) in &self.inner.total_mv_change {
             let code = format!("{}", ccy);

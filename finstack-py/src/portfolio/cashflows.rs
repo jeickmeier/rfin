@@ -32,7 +32,7 @@ impl PyPortfolioCashflows {
 #[pymethods]
 impl PyPortfolioCashflows {
     #[getter]
-    fn by_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let outer = PyDict::new(py);
         for (date, per_ccy) in &self.inner.by_date {
             let ccy_map = PyDict::new(py);
@@ -45,17 +45,17 @@ impl PyPortfolioCashflows {
     }
 
     #[getter]
-    fn by_position(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_position(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (pos_id, flows) in &self.inner.by_position {
-            let py_flows: Vec<PyObject> = flows
+            let py_flows: Vec<Py<PyAny>> = flows
                 .iter()
                 .map(|(d, m)| {
                     let date_obj = date_to_py(py, *d)?;
                     let money_obj = Py::new(py, PyMoney::new(*m))?;
                     Ok(PyTuple::new(py, [date_obj, money_obj.into()])?.into())
                 })
-                .collect::<PyResult<Vec<PyObject>>>()?;
+                .collect::<PyResult<Vec<Py<PyAny>>>>()?;
             dict.set_item(pos_id.as_str(), PyList::new(py, py_flows)?)?;
         }
         Ok(dict.into())
@@ -86,7 +86,7 @@ impl PyPortfolioCashflowBuckets {
 #[pymethods]
 impl PyPortfolioCashflowBuckets {
     #[getter]
-    fn by_period(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_period(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (period_id, money) in &self.inner.by_period {
             dict.set_item(period_id.to_string(), PyMoney::new(*money))?;
@@ -143,7 +143,7 @@ fn py_collapse_cashflows_to_base_by_date(
     market_context: &Bound<'_, PyAny>,
     base_ccy: &Bound<'_, PyAny>,
     py: Python<'_>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let ladder_inner = extract_cashflows(ladder)?;
     let market = market_context.extract::<PyRef<PyMarketContext>>()?;
     let currency = parse_currency(base_ccy)?;
@@ -173,7 +173,7 @@ fn py_cashflows_to_base_by_period(
     let currency = parse_currency(base_ccy)?;
 
     let mut rust_periods = Vec::with_capacity(periods.len());
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         for period in periods {
             rust_periods.push(period.extract::<PyRef<PyPeriod>>(py)?.inner.clone());
         }

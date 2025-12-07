@@ -142,8 +142,8 @@ impl PyNormalizationEngine {
     #[staticmethod]
     pub fn normalize(
         py: Python<'_>,
-        results: PyObject,
-        config: PyObject,
+        results: Py<PyAny>,
+        config: Py<PyAny>,
     ) -> PyResult<Vec<PyNormalizationResult>> {
         let results_bound = results.bind(py);
         let config_bound = config.bind(py);
@@ -165,7 +165,7 @@ impl PyNormalizationEngine {
     #[staticmethod]
     pub fn merge_into_results(
         py: Python<'_>,
-        results: PyObject,
+        results: Py<PyAny>,
         normalization_results: Vec<PyRef<'_, PyNormalizationResult>>,
         output_node_id: String,
     ) -> PyResult<()> {

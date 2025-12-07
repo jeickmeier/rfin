@@ -254,7 +254,7 @@ impl PyAsianOption {
     /// Returns:
     ///     datetime.date: Expiry date in calendar form.
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
@@ -263,7 +263,7 @@ impl PyAsianOption {
     /// Returns:
     ///     list: List of :class:`datetime.date` objects.
     #[getter]
-    fn fixing_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn fixing_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dates = PyList::empty(py);
         for d in &self.inner.fixing_dates {
             dates.append(date_to_py(py, *d)?)?;

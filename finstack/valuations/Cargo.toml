@@ -9,25 +9,25 @@ repository.workspace = true
 [dependencies]
 finstack-core = { path = "../core" }
 finstack-valuations-macros = { path = "macros" }
-hashbrown = "0.14"
-indexmap = { version = "2.0", features = ["serde"] }
-smallvec = { version = "1.11", default-features = false, features = ["serde"] }
-rayon = { version = "1.10", optional = true }
-ordered-float = { version = "4.0", features = ["serde"] }
+hashbrown = "0.16"
+indexmap = { version = "2.12", features = ["serde"] }
+smallvec = { version = "1.15", default-features = false, features = ["serde"] }
+rayon = { version = "1.11", optional = true }
+ordered-float = { version = "4.6", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", features = ["raw_value"], optional = true }
 time = { version = "0.3" }
-rust_decimal = { version = "1.36" }
-nalgebra = { version = "0.33", optional = true }
+rust_decimal = { version = "1.39" }
+nalgebra = { version = "0.34", optional = true }
 tracing = { version = "0.1", default-features = false }
-thiserror = "1.0"
+thiserror = "2.0"
 num-complex = "0.4"
-statrs = { version = "0.17", default-features = false }
+statrs = { version = "0.18", default-features = false }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
-proptest = "1.0"
-criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.9"
+criterion = { version = "0.8", features = ["html_reports"] }
 
 
 

@@ -132,7 +132,7 @@ impl PyCliquetOption {
 
     /// Reset dates.
     #[getter]
-    fn reset_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn reset_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dates = PyList::empty(py);
         for d in &self.inner.reset_dates {
             dates.append(date_to_py(py, *d)?)?;

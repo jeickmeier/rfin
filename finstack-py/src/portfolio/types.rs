@@ -150,7 +150,7 @@ impl PyEntity {
 
     #[getter]
     /// Get the entity tags.
-    fn tags(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn tags(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (k, v) in &self.inner.tags {
             dict.set_item(k, v)?;
@@ -160,7 +160,7 @@ impl PyEntity {
 
     #[getter]
     /// Get entity metadata.
-    fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let bound = pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())
@@ -451,7 +451,7 @@ impl PyPosition {
 
     #[getter]
     /// Get position tags.
-    fn tags(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn tags(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (k, v) in &self.inner.tags {
             dict.set_item(k, v)?;
@@ -461,7 +461,7 @@ impl PyPosition {
 
     #[getter]
     /// Get position metadata.
-    fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let bound = pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())

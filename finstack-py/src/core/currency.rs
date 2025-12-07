@@ -152,7 +152,7 @@ impl PyCurrency {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_currency(&other) {
             Ok(value) => Some(value),
             Err(_) => None,

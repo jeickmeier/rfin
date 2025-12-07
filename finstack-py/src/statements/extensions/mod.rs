@@ -212,7 +212,7 @@ impl PyExtensionResult {
     }
 
     #[getter]
-    fn data(&self, py: Python<'_>) -> PyObject {
+    fn data(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.data {
             dict.set_item(key, crate::statements::utils::json_to_py(py, value))
@@ -240,7 +240,7 @@ impl PyExtensionResult {
 pub struct PyExtensionContext {
     model: PyFinancialModelSpec,
     results: PyResults,
-    config: PyObject,
+    config: Py<PyAny>,
 }
 
 #[pymethods]
@@ -256,7 +256,7 @@ impl PyExtensionContext {
     }
 
     #[getter]
-    fn config(&self, py: Python<'_>) -> PyObject {
+    fn config(&self, py: Python<'_>) -> Py<PyAny> {
         self.config.clone_ref(py)
     }
 }
@@ -311,7 +311,7 @@ impl PyExtensionRegistry {
         model: &PyFinancialModelSpec,
         results: &PyResults,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let context = ExtensionContext::new(&model.inner, &results.inner);
         let extension_results = self.inner.execute_all(&context).map_err(stmt_to_py)?;
 

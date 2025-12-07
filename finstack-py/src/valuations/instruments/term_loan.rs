@@ -120,7 +120,7 @@ impl PyTermLoan {
     /// Returns:
     ///     datetime.date: Issue date converted to Python.
     #[getter]
-    fn issue(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.issue)
     }
 
@@ -129,7 +129,7 @@ impl PyTermLoan {
     /// Returns:
     ///     datetime.date: Maturity date converted to Python.
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity)
     }
 

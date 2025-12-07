@@ -35,7 +35,7 @@ fn py_group_by_attribute(
     portfolio: &Bound<'_, PyAny>,
     attribute_key: &str,
     py: Python<'_>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let grouped = group_by_attribute(&portfolio_inner.positions, attribute_key);
 
@@ -79,7 +79,7 @@ fn py_aggregate_by_attribute(
     portfolio: &Bound<'_, PyAny>,
     attribute_key: &str,
     _py: Python<'_>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let py = _py;
     let valuation_inner = extract_portfolio_valuation(valuation)?;
     let portfolio_inner = extract_portfolio(portfolio)?;

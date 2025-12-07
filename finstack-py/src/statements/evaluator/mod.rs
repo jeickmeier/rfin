@@ -130,7 +130,7 @@ impl PyResults {
     /// -------
     /// dict[PeriodId, float] | None
     ///     Period values if node exists
-    fn get_node(&self, node_id: &str, py: Python<'_>) -> Option<PyObject> {
+    fn get_node(&self, node_id: &str, py: Python<'_>) -> Option<Py<PyAny>> {
         self.inner.get_node(node_id).map(|period_map| {
             let dict = PyDict::new(py);
             for (period_id, value) in period_map {
@@ -172,7 +172,7 @@ impl PyResults {
     /// -------
     /// list[tuple[PeriodId, float]]
     ///     List of period-value pairs
-    fn all_periods(&self, node_id: &str, py: Python<'_>) -> PyObject {
+    fn all_periods(&self, node_id: &str, py: Python<'_>) -> Py<PyAny> {
         let list = PyList::empty(py);
         for (period_id, value) in self.inner.all_periods(node_id) {
             let tuple = (PyPeriodId::new(*period_id), value);
@@ -188,7 +188,7 @@ impl PyResults {
     /// -------
     /// dict[str, dict[PeriodId, float]]
     ///     Map of node_id to period values
-    fn nodes(&self, py: Python<'_>) -> PyObject {
+    fn nodes(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (node_id, period_map) in &self.inner.nodes {
             let inner_dict = PyDict::new(py);
@@ -374,7 +374,7 @@ impl PyMonteCarloResults {
     /// -------
     /// dict[PeriodId, float] | None
     ///     Map of period → percentile value or ``None`` if unavailable
-    fn get_percentile(&self, metric: &str, percentile: f64, py: Python<'_>) -> Option<PyObject> {
+    fn get_percentile(&self, metric: &str, percentile: f64, py: Python<'_>) -> Option<Py<PyAny>> {
         if let Some(series) = self.inner.get_percentile_series(metric, percentile) {
             let dict = PyDict::new(py);
             for (period_id, value) in series {
@@ -461,7 +461,7 @@ impl PyEvaluator {
     ///     Evaluation results
     fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
         // Release GIL for compute-heavy statement evaluation
-        let results = py.allow_threads(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
+        let results = py.detach(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
         Ok(PyResults::new(results))
     }
 
@@ -496,7 +496,7 @@ impl PyEvaluator {
         let as_of_date = py_to_date(as_of)?;
 
         // Release GIL for compute-heavy statement evaluation with market context
-        let results = py.allow_threads(|| {
+        let results = py.detach(|| {
             self.inner
                 .evaluate_with_market_context(
                     &model.inner,
@@ -544,7 +544,7 @@ impl PyEvaluator {
             cfg = cfg.with_percentiles(pcts);
         }
 
-        let inner = py.allow_threads(|| {
+        let inner = py.detach(|| {
             self.inner
                 .evaluate_monte_carlo(&model.inner, &cfg)
                 .map_err(stmt_to_py)
@@ -613,7 +613,7 @@ impl PyEvaluatorWithContext {
     /// Results
     ///     Evaluation results
     fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
-        let results = py.allow_threads(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
+        let results = py.detach(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
         Ok(PyResults::new(results))
     }
 }

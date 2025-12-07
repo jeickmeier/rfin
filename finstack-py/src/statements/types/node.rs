@@ -212,7 +212,7 @@ impl PyNodeSpec {
     /// -------
     /// dict[PeriodId, AmountOrScalar] | None
     ///     Period values if set
-    fn values(&self, py: Python<'_>) -> Option<PyObject> {
+    fn values(&self, py: Python<'_>) -> Option<Py<PyAny>> {
         self.inner.values.as_ref().map(|values| {
             let dict = PyDict::new(py);
             for (period_id, amount_or_scalar) in values {
@@ -278,7 +278,7 @@ impl PyNodeSpec {
     /// -------
     /// dict
     ///     Metadata dictionary
-    fn meta(&self, py: Python<'_>) -> PyObject {
+    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
             dict.set_item(key, json_to_py(py, value)).ok();

@@ -197,7 +197,7 @@ impl PyForwardRateAgreement {
     /// Returns:
     ///     datetime.date: Date on which the floating rate is observed.
     #[getter]
-    fn fixing_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn fixing_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.fixing_date)
     }
 
@@ -206,7 +206,7 @@ impl PyForwardRateAgreement {
     /// Returns:
     ///     datetime.date: Accrual start date converted to Python.
     #[getter]
-    fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.start_date)
     }
 
@@ -215,7 +215,7 @@ impl PyForwardRateAgreement {
     /// Returns:
     ///     datetime.date: Accrual end date converted to Python.
     #[getter]
-    fn end_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.end_date)
     }
 

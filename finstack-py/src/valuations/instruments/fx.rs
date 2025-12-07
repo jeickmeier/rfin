@@ -166,7 +166,7 @@ impl PyFxSpot {
     /// Returns:
     ///     datetime.date | None: Explicit settlement date.
     #[getter]
-    fn settlement(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn settlement(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         Ok(match self.inner.settlement {
             Some(date) => Some(date_to_py(py, date)?),
             None => None,
@@ -516,7 +516,7 @@ impl PyFxOption {
     /// Returns:
     ///     datetime.date: Expiry converted to Python.
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
@@ -720,7 +720,7 @@ impl PyFxSwap {
     /// Returns:
     ///     Any: Near leg settlement date.
     #[getter]
-    fn near_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn near_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.near_date)
     }
 
@@ -729,7 +729,7 @@ impl PyFxSwap {
     /// Returns:
     ///     Any: Far leg settlement date.
     #[getter]
-    fn far_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn far_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.far_date)
     }
 

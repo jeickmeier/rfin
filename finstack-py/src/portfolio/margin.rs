@@ -92,7 +92,7 @@ impl PyNettingSetMargin {
     }
 
     #[getter]
-    fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         crate::core::dates::utils::date_to_py(py, self.inner.as_of)
     }
 
@@ -122,7 +122,7 @@ impl PyNettingSetMargin {
     }
 
     #[getter]
-    fn sensitivities(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn sensitivities(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(sens) = &self.inner.sensitivities {
             let obj = pythonize::pythonize(py, sens)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -133,7 +133,7 @@ impl PyNettingSetMargin {
     }
 
     #[getter]
-    fn im_breakdown(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn im_breakdown(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (bucket, money) in &self.inner.im_breakdown {
             dict.set_item(bucket, PyMoney::new(*money))?;
@@ -172,7 +172,7 @@ impl PyPortfolioMarginResult {
 #[pymethods]
 impl PyPortfolioMarginResult {
     #[getter]
-    fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         crate::core::dates::utils::date_to_py(py, self.inner.as_of)
     }
 
@@ -197,7 +197,7 @@ impl PyPortfolioMarginResult {
     }
 
     #[getter]
-    fn by_netting_set(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_netting_set(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, result) in &self.inner.by_netting_set {
             dict.set_item(id.to_string(), PyNettingSetMargin::new(result.clone()))?;

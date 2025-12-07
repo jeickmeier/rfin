@@ -130,7 +130,7 @@ export const StructuredCreditExample: React.FC = () => {
       const wac = totalBalance > 0 ? (weightedCoupon / totalBalance) * 100 : 0;
 
       return { wal, wac };
-    } catch (e) {
+    } catch {
       return { wal: 0, wac: 0 };
     }
   };

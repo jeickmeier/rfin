@@ -272,7 +272,7 @@ impl PyForecastSpec {
     /// -------
     /// dict
     ///     Parameters dictionary
-    fn params(&self, py: Python<'_>) -> PyObject {
+    fn params(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.params {
             let py_value = json_to_py(py, value);

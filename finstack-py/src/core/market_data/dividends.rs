@@ -68,7 +68,7 @@ impl PyDividendEvent {
     /// -------
     /// datetime.date
     ///     Date associated with the dividend.
-    fn date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.date)
     }
 
@@ -230,7 +230,7 @@ impl PyDividendSchedule {
     /// -------
     /// list[tuple[datetime.date, Money]]
     ///     Cash dividend payments.
-    fn cash_events(&self, py: Python<'_>) -> PyResult<Vec<(PyObject, PyMoney)>> {
+    fn cash_events(&self, py: Python<'_>) -> PyResult<Vec<(Py<PyAny>, PyMoney)>> {
         self.inner
             .cash_events()
             .map(|(date, money)| Ok((date_to_py(py, date)?, PyMoney::new(*money))))

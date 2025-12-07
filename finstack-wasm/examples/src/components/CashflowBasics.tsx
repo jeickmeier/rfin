@@ -42,76 +42,85 @@ export const CashflowBasicsExample: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const usdFixedDate = new FsDate(2025, 3, 15);
-      const usdFloatPay = new FsDate(2025, 6, 15);
-      const usdResetDate = new FsDate(2025, 3, 15);
-      const feeDate = new FsDate(2025, 1, 15);
-      const principalDate = new FsDate(2030, 3, 15);
+    const computeState = () => {
+      try {
+        const usdFixedDate = new FsDate(2025, 3, 15);
+        const usdFloatPay = new FsDate(2025, 6, 15);
+        const usdResetDate = new FsDate(2025, 3, 15);
+        const feeDate = new FsDate(2025, 1, 15);
+        const principalDate = new FsDate(2030, 3, 15);
 
-      const fixed = CashFlow.fixed(usdFixedDate, Money.fromCode(12_500.0, 'USD'), 0.25);
-      const floating = CashFlow.floating(
-        usdFloatPay,
-        Money.fromCode(13_750.0, 'USD'),
-        usdResetDate,
-        0.25
-      );
-      const fee = CashFlow.fee(feeDate, Money.fromCode(150_000.0, 'USD'));
-      const principal = CashFlow.principalExchange(
-        principalDate,
-        Money.fromCode(-5_000_000.0, 'USD')
-      );
+        const fixed = CashFlow.fixed(usdFixedDate, Money.fromCode(12_500.0, 'USD'), 0.25);
+        const floating = CashFlow.floating(
+          usdFloatPay,
+          Money.fromCode(13_750.0, 'USD'),
+          usdResetDate,
+          0.25
+        );
+        const fee = CashFlow.fee(feeDate, Money.fromCode(150_000.0, 'USD'));
+        const principal = CashFlow.principalExchange(
+          principalDate,
+          Money.fromCode(-5_000_000.0, 'USD')
+        );
 
-      const flows = [
-        { label: 'Fixed coupon', flow: fixed },
-        { label: 'Floating coupon', flow: floating },
-        { label: 'Up-front fee', flow: fee },
-        { label: 'Principal exchange', flow: principal },
-      ];
+        const flows = [
+          { label: 'Fixed coupon', flow: fixed },
+          { label: 'Floating coupon', flow: floating },
+          { label: 'Up-front fee', flow: fee },
+          { label: 'Principal exchange', flow: principal },
+        ];
 
-      const rows: CashflowRow[] = flows.map(({ label, flow }) => ({
-        label,
-        kind: flow.kind.name,
-        date: toIso(flow.date),
-        amount: asDisplayMoney(flow.amount),
-        accrual: asAccrual(flow.accrualFactor),
-        resetDate: flow.resetDate ? toIso(flow.resetDate) : null,
-      }));
-
-      const tupleView = fixed.toTuple();
-      const tuple: CashflowTupleView = {
-        date: toIso(tupleView[0]),
-        amount: asDisplayMoney(tupleView[1]),
-        kind: tupleView[2].name,
-        accrualFactor: asAccrual(tupleView[3]),
-        resetDate: tupleView[4] ? toIso(tupleView[4]) : '(none)',
-      };
-
-      const schedule: ScheduleRow[] = flows
-        .slice()
-        .sort((lhs, rhs) => {
-          const leftDate = lhs.flow.date;
-          const rightDate = rhs.flow.date;
-          if (leftDate.year !== rightDate.year) {
-            return leftDate.year - rightDate.year;
-          }
-          if (leftDate.month !== rightDate.month) {
-            return leftDate.month - rightDate.month;
-          }
-          return leftDate.day - rightDate.day;
-        })
-        .map(({ flow }) => ({
-          date: toIso(flow.date),
+        const rows: CashflowRow[] = flows.map(({ label, flow }) => ({
+          label,
           kind: flow.kind.name,
-          amount: flow.amount.amount.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }),
+          date: toIso(flow.date),
+          amount: asDisplayMoney(flow.amount),
+          accrual: asAccrual(flow.accrualFactor),
+          resetDate: flow.resetDate ? toIso(flow.resetDate) : null,
         }));
 
-      setState({ rows, tuple, schedule });
-    } catch (err) {
-      setError((err as Error).message);
+        const tupleView = fixed.toTuple();
+        const tuple: CashflowTupleView = {
+          date: toIso(tupleView[0]),
+          amount: asDisplayMoney(tupleView[1]),
+          kind: tupleView[2].name,
+          accrualFactor: asAccrual(tupleView[3]),
+          resetDate: tupleView[4] ? toIso(tupleView[4]) : '(none)',
+        };
+
+        const schedule: ScheduleRow[] = flows
+          .slice()
+          .sort((lhs, rhs) => {
+            const leftDate = lhs.flow.date;
+            const rightDate = rhs.flow.date;
+            if (leftDate.year !== rightDate.year) {
+              return leftDate.year - rightDate.year;
+            }
+            if (leftDate.month !== rightDate.month) {
+              return leftDate.month - rightDate.month;
+            }
+            return leftDate.day - rightDate.day;
+          })
+          .map(({ flow }) => ({
+            date: toIso(flow.date),
+            kind: flow.kind.name,
+            amount: flow.amount.amount.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          }));
+
+        return { rows, tuple, schedule };
+      } catch (err) {
+        setError((err as Error).message);
+        return null;
+      }
+    };
+
+    const state = computeState();
+    if (state) {
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => setState(state), 0);
     }
   }, []);
 

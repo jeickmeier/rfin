@@ -235,7 +235,7 @@ impl PyPathPoint {
     ///         - time_years: time in years
     ///         - amount: cashflow amount
     ///         - cashflow_type: type of cashflow as string
-    fn to_dataframe(&self, py: Python) -> PyResult<PyObject> {
+    fn to_dataframe(&self, py: Python) -> PyResult<Py<PyAny>> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
 
@@ -389,7 +389,7 @@ impl PySimulatedPath {
         &self,
         py: Python,
         base_date: Bound<'_, PyAny>,
-    ) -> PyResult<Vec<(PyObject, f64)>> {
+    ) -> PyResult<Vec<(Py<PyAny>, f64)>> {
         use crate::core::dates::utils::{date_to_py, py_to_date};
 
         let base = py_to_date(&base_date)?;
@@ -417,7 +417,7 @@ impl PySimulatedPath {
     ///         - time_years: time in years
     ///         - amount: cashflow amount
     ///         - cashflow_type: type of cashflow as string
-    fn to_dataframe(&self, py: Python) -> PyResult<PyObject> {
+    fn to_dataframe(&self, py: Python) -> PyResult<Py<PyAny>> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
 
@@ -629,7 +629,7 @@ impl PyPathDataset {
     ///
     /// Returns:
     ///     pd.DataFrame: Long-format DataFrame with all paths and state variables
-    fn to_dataframe(&self, py: Python) -> PyResult<PyObject> {
+    fn to_dataframe(&self, py: Python) -> PyResult<Py<PyAny>> {
         let pd = py.import("pandas")?;
         let dict = self.to_dict(py)?;
         pd.call_method1("DataFrame", (dict,))?.extract()
@@ -644,7 +644,7 @@ impl PyPathDataset {
     ///         - time_years: time in years
     ///         - amount: cashflow amount
     ///         - cashflow_type: type of cashflow as string
-    fn cashflows_to_dataframe(&self, py: Python) -> PyResult<PyObject> {
+    fn cashflows_to_dataframe(&self, py: Python) -> PyResult<Py<PyAny>> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
 

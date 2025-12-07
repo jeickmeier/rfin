@@ -174,7 +174,7 @@ impl PyCdsOption {
     /// Returns:
     ///     datetime.date: Expiry converted to Python.
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
@@ -183,7 +183,7 @@ impl PyCdsOption {
     /// Returns:
     ///     datetime.date: Underlying maturity converted to Python.
     #[getter]
-    fn cds_maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn cds_maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.cds_maturity)
     }
 

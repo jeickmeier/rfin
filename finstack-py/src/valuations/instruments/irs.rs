@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
-    Bound, Py, PyObject, PyRef, PyRefMut,
+    Bound, Py, PyRef, PyRefMut,
 };
 use std::fmt;
 
@@ -86,7 +86,7 @@ impl PyPayReceive {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = if let Ok(value) = other.extract::<PyRef<Self>>() {
             Some(value.inner)
         } else {
@@ -696,7 +696,7 @@ impl PyInterestRateSwap {
         reset_lag_days: Option<i32>,
         calendar: Option<&str>,
         stub: Option<PyStubKind>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         use crate::errors::PyContext;
 
         let py = cls.py();
@@ -904,7 +904,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     Any: Effective start date (from fixed leg spec).
     #[getter]
-    fn start(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.fixed.start)
     }
 
@@ -913,7 +913,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     Any: Effective end date (from fixed leg spec).
     #[getter]
-    fn end(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.fixed.end)
     }
 

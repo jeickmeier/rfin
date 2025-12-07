@@ -6,12 +6,12 @@ to ensure proper error mapping from Rust to Python exceptions.
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, get_calendar
 from finstack.core.market_data import DiscountCurve, MarketContext
+import pytest
+
+import finstack
 
 
 class TestExceptionHierarchy:
@@ -134,7 +134,7 @@ class TestCalibrationErrors:
         # The calibrator may accept a single quote, so we'll skip this test or check for success
         market_ctx = MarketContext()
         try:
-            curve, report = calibrator.calibrate(quotes, market_ctx)
+            curve, _report = calibrator.calibrate(quotes, market_ctx)
             # If it succeeds, that's also valid behavior - single quote creates flat curve
             assert curve is not None
         except (finstack.ParameterError, finstack.ValidationError, ValueError) as e:
@@ -159,7 +159,7 @@ class TestCalibrationErrors:
         # The calibrator may sort quotes automatically, so non-monotonic might not error
         # Try calibration and check if it succeeds or fails appropriately
         try:
-            curve, report = calibrator.calibrate(quotes, market_ctx)
+            curve, _report = calibrator.calibrate(quotes, market_ctx)
             # If it succeeds, quotes were likely sorted automatically
             assert curve is not None
         except (finstack.ParameterError, finstack.CalibrationError, ValueError) as e:
@@ -187,7 +187,7 @@ class TestValidationErrors:
         from finstack.core.market_data import VolSurface
 
         # Grid dimensions don't match strikes/expiries
-        with pytest.raises((finstack.ParameterError, ValueError), match="dimension|row count|must match"):
+        with pytest.raises((finstack.ParameterError, ValueError), match=r"dimension|row count|must match"):
             VolSurface(
                 "INVALID",
                 expiries=[1.0, 2.0],  # 2 expiries
@@ -227,7 +227,7 @@ class TestPricingErrors:
 
         # Pricing with invalid model should raise error
         with pytest.raises(
-            (finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match="Unknown model|invalid"
+            (finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match=r"Unknown model|invalid"
         ):
             registry.price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market)
 

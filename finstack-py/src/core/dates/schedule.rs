@@ -418,7 +418,7 @@ impl PySchedule {
 impl PySchedule {
     #[getter]
     /// Dates contained in the schedule as `datetime.date` objects.
-    fn dates(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+    fn dates(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
         self.dates.iter().map(|d| date_to_py(py, *d)).collect()
     }
 

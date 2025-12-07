@@ -108,7 +108,7 @@ impl PyPricerRegistry {
         };
 
         // Release GIL for compute-heavy Rust pricing operation
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner
                 .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date)
                 .map(PyValuationResult::new)
@@ -151,7 +151,7 @@ impl PyPricerRegistry {
         }
 
         // Release GIL and process in parallel
-        let results: Result<Vec<_>, _> = py.allow_threads(|| {
+        let results: Result<Vec<_>, _> = py.detach(|| {
             handles
                 .par_iter()
                 .map(|handle| {
@@ -220,7 +220,7 @@ impl PyPricerRegistry {
         };
 
         // Release GIL for compute-heavy pricing and metric calculation
-        py.allow_threads(|| {
+        py.detach(|| {
             // Base price via registry to derive as_of deterministically per pricer
             let base = self
                 .inner

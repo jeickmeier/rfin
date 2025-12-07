@@ -3,7 +3,7 @@ use crate::valuations::metrics::ids::{MetricIdArg, PyMetricId};
 use finstack_valuations::metrics::{standard_registry, MetricId, MetricRegistry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
-use pyo3::{Bound, PyObject};
+use pyo3::{Bound, Py, PyAny};
 use std::fmt;
 
 /// Registry of metric calculators with applicability filtering.
@@ -27,7 +27,7 @@ impl PyMetricRegistry {
         Self { inner }
     }
 
-    fn metric_ids_to_list<'py>(&self, py: Python<'py>, ids: Vec<MetricId>) -> PyResult<PyObject> {
+    fn metric_ids_to_list<'py>(&self, py: Python<'py>, ids: Vec<MetricId>) -> PyResult<Py<PyAny>> {
         let wrapped: Vec<PyMetricId> = ids.into_iter().map(PyMetricId::new).collect();
         Ok(PyList::new(py, wrapped)?.into())
     }
@@ -69,7 +69,7 @@ impl PyMetricRegistry {
     ///
     /// Returns:
     ///     list[MetricId]: Wrapped metric identifiers known to the registry.
-    fn available_metrics(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn available_metrics(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let ids = self.inner.available_metrics();
         self.metric_ids_to_list(py, ids)
     }
@@ -89,7 +89,7 @@ impl PyMetricRegistry {
         &self,
         py: Python<'_>,
         instrument_type: Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let InstrumentTypeArg(inst) = instrument_type.extract()?;
         let metrics = self
             .inner

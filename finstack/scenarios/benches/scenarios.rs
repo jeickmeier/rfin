@@ -8,7 +8,8 @@
 //! - Serde serialization/deserialization
 //! - Time roll-forward operations
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::build_periods;
 use finstack_core::market_data::context::MarketContext;

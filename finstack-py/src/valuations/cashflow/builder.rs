@@ -459,7 +459,7 @@ impl PyCashFlowSchedule {
     }
 
     #[pyo3(text_signature = "(self)")]
-    fn flows(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn flows(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let items: Vec<crate::core::cashflow::primitives::PyCashFlow> = self
             .inner
             .flows

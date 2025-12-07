@@ -179,7 +179,7 @@ impl PyPortfolioValuation {
 
     #[getter]
     /// Get values for each position.
-    fn position_values(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn position_values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, pv) in &self.inner.position_values {
             dict.set_item(id.as_str(), PyPositionValue::new(pv.clone()))?;
@@ -195,7 +195,7 @@ impl PyPortfolioValuation {
 
     #[getter]
     /// Get aggregated values by entity.
-    fn by_entity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_entity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, money) in &self.inner.by_entity {
             dict.set_item(id.as_str(), PyMoney::new(*money))?;

@@ -185,7 +185,7 @@ impl PyResultsMeta {
     /// Returns:
     ///     dict: Dictionary containing rounding mode and per-currency scales.
     #[getter]
-    fn rounding<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
+    fn rounding<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
         Ok(self.rounding_to_dict(py)?.into())
     }
 
@@ -198,7 +198,7 @@ impl PyResultsMeta {
     /// Examples:
     ///     >>> meta.to_dict()['numeric_mode']
     ///     'f64'
-    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         dict.set_item("numeric_mode", self.numeric_mode())?;
         dict.set_item("rounding", self.rounding_to_dict(py)?)?;
@@ -264,7 +264,7 @@ impl PyValuationResult {
         Ok(dict)
     }
 
-    fn covenants_dict<'py>(&self, py: Python<'py>) -> PyResult<Option<PyObject>> {
+    fn covenants_dict<'py>(&self, py: Python<'py>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(reports) = &self.inner.covenants {
             let dict = PyDict::new(py);
             for (name, report) in reports {
@@ -293,7 +293,7 @@ impl PyValuationResult {
     /// Returns:
     ///     datetime.date: Effective market date for the valuation.
     #[getter]
-    fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         core_utils::date_to_py(py, self.inner.as_of)
     }
 
@@ -311,7 +311,7 @@ impl PyValuationResult {
     /// Returns:
     ///     dict[str, float]: Calculated risk measures keyed by metric id.
     #[getter]
-    fn measures<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
+    fn measures<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
         Ok(self.measures_dict(py)?.into())
     }
 
@@ -329,7 +329,7 @@ impl PyValuationResult {
     /// Returns:
     ///     dict[str, CovenantReport] | None: Covenant evaluations when available.
     #[getter]
-    fn covenants<'py>(&self, py: Python<'py>) -> PyResult<Option<PyObject>> {
+    fn covenants<'py>(&self, py: Python<'py>) -> PyResult<Option<Py<PyAny>>> {
         self.covenants_dict(py)
     }
 
@@ -344,7 +344,7 @@ impl PyValuationResult {
     ///     ...     print(result.explanation['type'])
     ///     pricing
     #[getter]
-    fn explanation(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn explanation(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         match &self.inner.explanation {
             Some(trace) => {
                 let bound = pythonize(py, trace).map_err(|e| {
@@ -410,7 +410,7 @@ impl PyValuationResult {
     ///     >>> data = result.to_dict()
     ///     >>> sorted(data.keys())
     ///     ['as_of', 'covenants', 'instrument_id', 'measures', 'meta', 'value']
-    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         dict.set_item("instrument_id", &self.inner.instrument_id)?;
         dict.set_item("as_of", self.as_of(py)?)?;

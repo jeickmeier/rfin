@@ -20,7 +20,7 @@ use finstack_valuations::instruments::PricingOverrides;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyObject, PyRef, PyRefMut};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 
 use finstack_valuations::cashflow::builder::specs::{
@@ -725,7 +725,7 @@ impl PyBond {
         float_margin_bp: Option<f64>,
         float_gearing: Option<f64>,
         float_reset_lag_days: Option<i32>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         use crate::errors::PyContext;
 
         let py = cls.py();
@@ -1040,7 +1040,7 @@ impl PyBond {
     /// Returns:
     ///     datetime.date: Issue date converted to Python.
     #[getter]
-    fn issue(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.issue)
     }
 
@@ -1049,7 +1049,7 @@ impl PyBond {
     /// Returns:
     ///     datetime.date: Maturity date converted to Python.
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity)
     }
 

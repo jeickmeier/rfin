@@ -47,7 +47,7 @@ impl PyCapitalStructureSpec {
     ///     Capital structure spec
     fn new_py(
         debt_instruments: Option<Vec<PyDebtInstrumentSpec>>,
-        equity_instruments: Option<Vec<PyObject>>,
+        equity_instruments: Option<Vec<Py<PyAny>>>,
         waterfall: Option<PyWaterfallSpec>,
     ) -> Self {
         let debt_instruments = debt_instruments
@@ -363,7 +363,7 @@ impl PyFinancialModelSpec {
     /// -------
     /// dict[str, NodeSpec]
     ///     Map of node_id to NodeSpec
-    fn nodes(&self, py: Python<'_>) -> PyObject {
+    fn nodes(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (node_id, node_spec) in &self.inner.nodes {
             dict.set_item(node_id, PyNodeSpec::new(node_spec.clone()))
@@ -393,7 +393,7 @@ impl PyFinancialModelSpec {
     /// -------
     /// dict
     ///     Metadata dictionary
-    fn meta(&self, py: Python<'_>) -> PyObject {
+    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
             dict.set_item(key, json_to_py(py, value)).ok();

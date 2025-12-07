@@ -80,7 +80,7 @@ impl CallableAdapter {
 
 impl<'a> CallableProxy<'a> {
     fn invoke(&self, x: f64) -> f64 {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let callable = self.callable.bind(py);
             match callable.call1((x,)) {
                 Ok(result) => match result.extract::<f64>() {
@@ -177,7 +177,7 @@ impl VectorCallableAdapter {
 
 impl<'a> VectorCallableProxy<'a> {
     fn invoke_objective(&self, params: &[f64]) -> f64 {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let callable = self.callable.bind(py);
             let list = match PyList::new(py, params) {
                 Ok(value) => value,
@@ -203,7 +203,7 @@ impl<'a> VectorCallableProxy<'a> {
     }
 
     fn invoke_residual(&self, params: &[f64], output: &mut [f64]) {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let callable = self.callable.bind(py);
             let list = match PyList::new(py, params) {
                 Ok(value) => value,

@@ -7,7 +7,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, PyObject, PyRef};
+use pyo3::{Bound, Py, PyRef};
 use std::fmt;
 
 /// Pay/receive indicator for CDS premium leg.
@@ -89,7 +89,7 @@ impl PyCdsPayReceive {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = other
             .extract::<PyRef<Self>>()
             .ok()
@@ -339,7 +339,7 @@ impl PyCreditDefaultSwap {
     /// Returns:
     ///     datetime.date: Start date converted to Python.
     #[getter]
-    fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.premium.start)
     }
 
@@ -348,7 +348,7 @@ impl PyCreditDefaultSwap {
     /// Returns:
     ///     datetime.date: Maturity converted to Python.
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.premium.end)
     }
 

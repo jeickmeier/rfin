@@ -21,7 +21,7 @@ use time::Month;
 /// datetime.date
 ///     The next IMM date.
 #[pyfunction(name = "next_imm", text_signature = "(date)")]
-fn next_imm_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn next_imm_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_imm(d))
 }
@@ -38,7 +38,7 @@ fn next_imm_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
 /// datetime.date
 ///     Next CDS IMM date.
 #[pyfunction(name = "next_cds_date", text_signature = "(date)")]
-fn next_cds_date_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn next_cds_date_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_cds_date(d))
 }
@@ -55,7 +55,7 @@ fn next_cds_date_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject
 /// datetime.date
 ///     Next IMM option expiry date.
 #[pyfunction(name = "next_imm_option_expiry", text_signature = "(date)")]
-fn next_imm_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn next_imm_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_imm_option_expiry(d))
 }
@@ -74,7 +74,7 @@ fn next_imm_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult
 /// datetime.date
 ///     IMM option expiry date for the month.
 #[pyfunction(name = "imm_option_expiry", text_signature = "(year, month)")]
-fn imm_option_expiry_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObject> {
+fn imm_option_expiry_py(py: Python<'_>, year: i32, month: u8) -> PyResult<Py<PyAny>> {
     let month_enum = Month::try_from(month).map_err(|_| {
         pyo3::exceptions::PyValueError::new_err(format!("Month out of range: {month}"))
     })?;
@@ -94,7 +94,7 @@ fn imm_option_expiry_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObje
 /// datetime.date
 ///     Next monthly equity option expiry.
 #[pyfunction(name = "next_equity_option_expiry", text_signature = "(date)")]
-fn next_equity_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn next_equity_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     date_to_py(py, next_equity_option_expiry(d))
 }
@@ -113,7 +113,7 @@ fn next_equity_option_expiry_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyRes
 /// datetime.date
 ///     Third Friday date.
 #[pyfunction(name = "third_friday", text_signature = "(year, month)")]
-fn third_friday_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObject> {
+fn third_friday_py(py: Python<'_>, year: i32, month: u8) -> PyResult<Py<PyAny>> {
     let month_enum = Month::try_from(month).map_err(|_| {
         pyo3::exceptions::PyValueError::new_err(format!("Month out of range: {month}"))
     })?;
@@ -134,7 +134,7 @@ fn third_friday_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObject> {
 /// datetime.date
 ///     Third Wednesday date.
 #[pyfunction(name = "third_wednesday", text_signature = "(year, month)")]
-fn third_wednesday_py(py: Python<'_>, year: i32, month: u8) -> PyResult<PyObject> {
+fn third_wednesday_py(py: Python<'_>, year: i32, month: u8) -> PyResult<Py<PyAny>> {
     let month_enum = Month::try_from(month).map_err(|_| {
         pyo3::exceptions::PyValueError::new_err(format!("Month out of range: {month}"))
     })?;

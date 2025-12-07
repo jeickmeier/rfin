@@ -110,7 +110,7 @@ impl PyExplanationTrace {
 
     #[getter]
     /// List of trace entries as dictionaries.
-    fn entries(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn entries(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         pythonize(py, &self.inner.entries)
             .map(|b| b.unbind())
             .map_err(|e| {

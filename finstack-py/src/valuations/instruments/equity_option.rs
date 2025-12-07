@@ -256,7 +256,7 @@ impl PyEquityOption {
     /// Returns:
     ///     datetime.date: Expiry date in calendar form.
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 

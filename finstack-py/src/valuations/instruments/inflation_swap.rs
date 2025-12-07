@@ -202,7 +202,7 @@ impl PyInflationSwap {
     /// Returns:
     ///     datetime.date: Maturity converted to Python.
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity)
     }
 

@@ -110,7 +110,7 @@ impl PyPortfolioResults {
 
     #[getter]
     /// Get metadata about the calculation.
-    fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let bound = pythonize::pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())

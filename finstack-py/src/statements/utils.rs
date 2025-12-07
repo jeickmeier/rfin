@@ -3,8 +3,8 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyList, PyString};
 
-/// Helper to convert serde_json::Value to PyObject
-pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyObject {
+/// Helper to convert serde_json::Value to Py<PyAny>
+pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> Py<PyAny> {
     match value {
         serde_json::Value::Null => py.None(),
         serde_json::Value::Bool(b) => PyBool::new(py, *b).as_any().clone().unbind(),
@@ -19,7 +19,7 @@ pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyObject 
         }
         serde_json::Value::String(s) => PyString::new(py, s).into(),
         serde_json::Value::Array(arr) => {
-            let items: Vec<PyObject> = arr.iter().map(|v| json_to_py(py, v)).collect();
+            let items: Vec<Py<PyAny>> = arr.iter().map(|v| json_to_py(py, v)).collect();
             PyList::new(py, items).unwrap().into()
         }
         serde_json::Value::Object(obj) => {

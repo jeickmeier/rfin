@@ -243,7 +243,7 @@ impl PyRateBindingSpec {
     /// -------
     /// dict
     ///     JSON-serializable dictionary.
-    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let json_str = serde_json::to_string(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
@@ -790,7 +790,7 @@ impl PyOperationSpec {
     /// -------
     /// dict
     ///     JSON-serializable dictionary.
-    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let json_str = serde_json::to_string(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
@@ -966,7 +966,7 @@ impl PyScenarioSpec {
     /// -------
     /// dict
     ///     JSON-serializable dictionary.
-    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let json_str = serde_json::to_string(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
         let json_value: serde_json::Value = serde_json::from_str(&json_str)

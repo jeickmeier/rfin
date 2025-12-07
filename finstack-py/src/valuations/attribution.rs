@@ -117,12 +117,12 @@ impl PyAttributionMeta {
     }
 
     #[getter]
-    fn t0(&self, py: Python) -> PyResult<PyObject> {
+    fn t0(&self, py: Python) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.t0)
     }
 
     #[getter]
-    fn t1(&self, py: Python) -> PyResult<PyObject> {
+    fn t1(&self, py: Python) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.t1)
     }
 

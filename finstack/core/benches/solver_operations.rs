@@ -3,7 +3,8 @@
 //! Compares Newton solver with analytic derivatives vs finite differences,
 //! and compares different solver strategies (Newton, Brent, Hybrid).
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use finstack_core::cashflow::{xirr, xirr_with_daycount};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};

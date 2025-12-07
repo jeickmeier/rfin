@@ -8,7 +8,7 @@ pub fn richcmp_eq_ne<T: PartialEq>(
     lhs: &T,
     rhs: Option<T>,
     op: CompareOp,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let ok = match op {
         CompareOp::Eq => rhs.map(|r| r == *lhs).unwrap_or(false),
         CompareOp::Ne => rhs.map(|r| r != *lhs).unwrap_or(true),

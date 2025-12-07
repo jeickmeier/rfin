@@ -83,7 +83,7 @@ impl PyScenarioDefinition {
 
     /// Scalar overrides for this scenario.
     #[getter]
-    fn overrides(&self, py: Python<'_>) -> PyObject {
+    fn overrides(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.overrides {
             dict.set_item(key, value).ok();
@@ -243,7 +243,7 @@ impl PyScenarioSet {
         py: Python<'_>,
         base_model: &PyFinancialModelSpec,
     ) -> PyResult<PyScenarioResults> {
-        let inner = py.allow_threads(|| {
+        let inner = py.detach(|| {
             self.inner
                 .evaluate_all(&base_model.inner)
                 .map_err(stmt_to_py)
@@ -283,7 +283,7 @@ impl PyScenarioSet {
     ) -> PyResult<PyScenarioDiff> {
         let period_ids: Vec<PeriodId> = periods.into_iter().map(|p| p.inner).collect();
 
-        let diff = py.allow_threads(|| {
+        let diff = py.detach(|| {
             self.inner
                 .diff(&results.inner, baseline, comparison, &metrics, &period_ids)
                 .map_err(stmt_to_py)
@@ -351,7 +351,7 @@ impl PyScenarioResults {
     ///     deltas vs the baseline scenario.
     fn to_comparison_df(&self, py: Python<'_>, metrics: Vec<String>) -> PyResult<PyDataFrame> {
         let metric_refs: Vec<&str> = metrics.iter().map(|s| s.as_str()).collect();
-        let df: DataFrame = py.allow_threads(|| {
+        let df: DataFrame = py.detach(|| {
             self.inner
                 .to_comparison_df(&metric_refs)
                 .map_err(stmt_to_py)

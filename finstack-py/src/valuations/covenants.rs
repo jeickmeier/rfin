@@ -299,7 +299,7 @@ impl PyCovenantForecast {
     }
 
     #[getter]
-    fn test_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn test_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let list = PyList::empty(py);
         for d in &self.inner.test_dates {
             list.append(date_to_py(py, *d)?)?;
@@ -325,7 +325,7 @@ impl PyCovenantForecast {
     }
 
     #[getter]
-    fn first_breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn first_breach_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match self.inner.first_breach_date {
             Some(d) => date_to_py(py, d),
             None => Ok(py.None()),
@@ -333,7 +333,7 @@ impl PyCovenantForecast {
     }
 
     #[getter]
-    fn min_headroom_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn min_headroom_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.min_headroom_date)
     }
 
@@ -435,7 +435,7 @@ impl PyFutureBreach {
     }
 
     #[getter]
-    fn breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn breach_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.breach_date)
     }
 

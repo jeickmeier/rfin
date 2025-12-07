@@ -47,7 +47,7 @@ impl PyAggregatedMetric {
 
     #[getter]
     /// Get aggregated values by entity.
-    fn by_entity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_entity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, value) in &self.inner.by_entity {
             dict.set_item(id.as_str(), value)?;
@@ -125,7 +125,7 @@ impl PyPortfolioMetrics {
         &self,
         position_id: &str,
         py: Python<'_>,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         if let Some(metrics_map) = self.inner.get_position_metrics(position_id) {
             let dict = PyDict::new(py);
             for (metric_id, value) in metrics_map {
@@ -156,7 +156,7 @@ impl PyPortfolioMetrics {
 
     #[getter]
     /// Get aggregated metrics (summable only).
-    fn aggregated(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn aggregated(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, metric) in &self.inner.aggregated {
             dict.set_item(id, PyAggregatedMetric::new(metric.clone()))?;
@@ -166,7 +166,7 @@ impl PyPortfolioMetrics {
 
     #[getter]
     /// Get raw metrics by position (all metrics).
-    fn by_position(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_position(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (pos_id, metrics_map) in &self.inner.by_position {
             let inner_dict = PyDict::new(py);

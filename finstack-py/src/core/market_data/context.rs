@@ -40,7 +40,7 @@ pub struct PyMarketContext {
 }
 
 impl PyMarketContext {
-    fn stats_to_dict(py: Python<'_>, stats: ContextStats) -> PyResult<PyObject> {
+    fn stats_to_dict(py: Python<'_>, stats: ContextStats) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         dict.set_item("total_curves", stats.total_curves)?;
         dict.set_item("surface_count", stats.surface_count)?;
@@ -581,7 +581,7 @@ impl PyMarketContext {
     /// -------
     /// dict[str, Any]
     ///     Dictionary containing counts for curves, surfaces, prices, and FX.
-    fn stats(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn stats(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let snapshot = self.inner.stats();
         Self::stats_to_dict(py, snapshot)
     }

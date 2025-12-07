@@ -66,7 +66,7 @@ pub(crate) fn py_to_date(value: &Bound<'_, PyAny>) -> PyResult<Date> {
 /// ------
 /// ValueError
 ///     If the resulting Python date cannot be constructed.
-pub(crate) fn date_to_py(py: Python<'_>, date: Date) -> PyResult<PyObject> {
+pub(crate) fn date_to_py(py: Python<'_>, date: Date) -> PyResult<Py<PyAny>> {
     PyDate::new(py, date.year(), u8::from(date.month()), date.day())
         .map(|obj| obj.into())
         .map_err(|err| PyValueError::new_err(err.to_string()))
@@ -116,7 +116,7 @@ fn build_date(year: i32, month: u8, day: u8) -> PyResult<Date> {
 /// --------
 /// If `date` is January 31st and `months=1`, the result is February's last day.
 #[pyfunction(name = "add_months", text_signature = "(date, months)")]
-fn add_months_py(py: Python<'_>, date: Bound<'_, PyAny>, months: i32) -> PyResult<PyObject> {
+fn add_months_py(py: Python<'_>, date: Bound<'_, PyAny>, months: i32) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date)?;
     let result = d.add_months(months);
     date_to_py(py, result)
@@ -134,7 +134,7 @@ fn add_months_py(py: Python<'_>, date: Bound<'_, PyAny>, months: i32) -> PyResul
 /// datetime.date
 ///     Month-end date for `date`'s month.
 #[pyfunction(name = "last_day_of_month", text_signature = "(date)")]
-fn last_day_of_month_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn last_day_of_month_py(py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date)?;
     let result = d.end_of_month();
     date_to_py(py, result)
@@ -217,7 +217,7 @@ fn fiscal_year_py(date: Bound<'_, PyAny>, config: PyRef<PyFiscalConfig>) -> PyRe
 /// datetime.date
 ///     Adjusted date after skipping weekends.
 #[pyfunction(name = "add_weekdays", text_signature = "(date, n)")]
-fn add_weekdays_py(py: Python<'_>, date: Bound<'_, PyAny>, n: i32) -> PyResult<PyObject> {
+fn add_weekdays_py(py: Python<'_>, date: Bound<'_, PyAny>, n: i32) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date)?;
     let result = d.add_weekdays(n);
     date_to_py(py, result)
@@ -246,7 +246,7 @@ fn add_business_days_py(
     date: Bound<'_, PyAny>,
     n: i32,
     calendar: Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     let cal = extract_calendar(&calendar).context("calendar")?;
     let result = d.add_business_days(n, cal.inner).map_err(core_to_py)?;
@@ -348,7 +348,7 @@ fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
 /// datetime.date
 ///     Date corresponding to the epoch offset.
 #[pyfunction(name = "days_since_epoch_to_date", text_signature = "(days)")]
-fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<PyObject> {
+fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<Py<PyAny>> {
     let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid");
     let date = epoch + Duration::days(days as i64);
     date_to_py(py, date)
@@ -375,7 +375,7 @@ fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<PyObject> 
 /// ValueError
 ///     If the combination does not form a valid calendar date.
 #[pyfunction(name = "create_date", text_signature = "(year, month, day)")]
-fn create_date_py(py: Python<'_>, year: i32, month: u8, day: u8) -> PyResult<PyObject> {
+fn create_date_py(py: Python<'_>, year: i32, month: u8, day: u8) -> PyResult<Py<PyAny>> {
     if !(1..=12).contains(&month) {
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Month out of range: {month}"

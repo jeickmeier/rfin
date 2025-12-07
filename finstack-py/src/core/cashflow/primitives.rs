@@ -133,7 +133,7 @@ impl PyCFKind {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_cf_kind(&other) {
             Ok(value) => Some(value),
             Err(_) => None,
@@ -256,7 +256,7 @@ impl PyCashFlow {
     /// -------
     /// datetime.date
     ///     Cash-flow date.
-    pub fn date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.date)
     }
 
@@ -267,7 +267,7 @@ impl PyCashFlow {
     /// -------
     /// datetime.date or None
     ///     Reset date when available.
-    pub fn reset_date(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    pub fn reset_date(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         match self.inner.reset_date {
             Some(value) => Ok(Some(date_to_py(py, value)?)),
             None => Ok(None),
@@ -317,7 +317,7 @@ impl PyCashFlow {
     pub fn to_tuple(
         &self,
         py: Python<'_>,
-    ) -> PyResult<(PyObject, PyMoney, PyCFKind, f64, Option<PyObject>)> {
+    ) -> PyResult<(Py<PyAny>, PyMoney, PyCFKind, f64, Option<Py<PyAny>>)> {
         let date = date_to_py(py, self.inner.date)?;
         let reset = match self.inner.reset_date {
             Some(value) => Some(date_to_py(py, value)?),

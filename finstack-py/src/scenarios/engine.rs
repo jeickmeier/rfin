@@ -53,7 +53,7 @@ use std::collections::HashMap;
 pub struct PyExecutionContext {
     market: Py<PyMarketContext>,
     model: Py<PyFinancialModelSpec>,
-    instruments: Option<Vec<PyObject>>,
+    instruments: Option<Vec<Py<PyAny>>>,
     rust_instruments: Option<Vec<Box<dyn Instrument>>>,
     rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
     calendar: Option<Py<PyCalendar>>,
@@ -63,7 +63,7 @@ pub struct PyExecutionContext {
 impl PyExecutionContext {
     fn convert_instruments(
         py: Python<'_>,
-        instruments: &Option<Vec<PyObject>>,
+        instruments: &Option<Vec<Py<PyAny>>>,
     ) -> PyResult<Option<Vec<Box<dyn Instrument>>>> {
         if let Some(list) = instruments {
             let mut rust_instruments = Vec::with_capacity(list.len());
@@ -151,7 +151,7 @@ impl PyExecutionContext {
         market: &Bound<'_, PyAny>,
         model: &Bound<'_, PyAny>,
         as_of: &Bound<'_, PyAny>,
-        instruments: Option<Vec<PyObject>>,
+        instruments: Option<Vec<Py<PyAny>>>,
         rate_bindings: Option<&Bound<'_, PyAny>>,
         calendar: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -205,7 +205,7 @@ impl PyExecutionContext {
     /// -------
     /// date
     ///     Valuation date.
-    fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.as_of)
     }
 
@@ -228,7 +228,7 @@ impl PyExecutionContext {
     /// -------
     /// list | None
     ///     Instruments if set.
-    fn instruments(&self, py: Python<'_>) -> Option<Vec<PyObject>> {
+    fn instruments(&self, py: Python<'_>) -> Option<Vec<Py<PyAny>>> {
         self.instruments
             .as_ref()
             .map(|vec| vec.iter().map(|obj| obj.clone_ref(py)).collect())
@@ -241,7 +241,7 @@ impl PyExecutionContext {
     /// ----------
     /// value : list | None
     ///     New instruments list.
-    fn set_instruments(&mut self, py: Python<'_>, value: Option<Vec<PyObject>>) -> PyResult<()> {
+    fn set_instruments(&mut self, py: Python<'_>, value: Option<Vec<Py<PyAny>>>) -> PyResult<()> {
         self.instruments = value;
         self.rust_instruments = Self::convert_instruments(py, &self.instruments)?;
         Ok(())

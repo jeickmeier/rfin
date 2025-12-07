@@ -99,7 +99,7 @@ impl PyPortfolio {
     ///     >>> positions = portfolio.positions_for_entity("ENTITY_A")
     ///     >>> len(positions)
     ///     1
-    fn positions_for_entity(&self, entity_id: &str, py: Python<'_>) -> PyResult<PyObject> {
+    fn positions_for_entity(&self, entity_id: &str, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let entity_id_string = entity_id.to_string();
         let positions = self.inner.positions_for_entity(&entity_id_string);
         let py_positions: Vec<PyPosition> = positions
@@ -121,7 +121,7 @@ impl PyPortfolio {
     ///
     /// Examples:
     ///     >>> positions = portfolio.positions_with_tag("sector", "Technology")
-    fn positions_with_tag(&self, key: &str, value: &str, py: Python<'_>) -> PyResult<PyObject> {
+    fn positions_with_tag(&self, key: &str, value: &str, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let positions = self.inner.positions_with_tag(key, value);
         let py_positions: Vec<PyPosition> = positions
             .into_iter()
@@ -177,13 +177,13 @@ impl PyPortfolio {
 
     #[getter]
     /// Get the valuation date.
-    fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn as_of(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.as_of)
     }
 
     #[getter]
     /// Get the portfolio entities.
-    fn entities(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn entities(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (id, entity) in &self.inner.entities {
             dict.set_item(id.as_str(), PyEntity::new(entity.clone()))?;
@@ -193,7 +193,7 @@ impl PyPortfolio {
 
     #[getter]
     /// Get the portfolio positions.
-    fn positions(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn positions(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let positions: Vec<PyPosition> = self
             .inner
             .positions
@@ -205,7 +205,7 @@ impl PyPortfolio {
 
     #[getter]
     /// Get portfolio tags.
-    fn tags(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn tags(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (k, v) in &self.inner.tags {
             dict.set_item(k, v)?;
@@ -215,7 +215,7 @@ impl PyPortfolio {
 
     #[getter]
     /// Get portfolio metadata.
-    fn meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let bound = pythonize::pythonize(py, &self.inner.meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
         Ok(bound.unbind())

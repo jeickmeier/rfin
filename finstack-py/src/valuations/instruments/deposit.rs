@@ -110,7 +110,7 @@ impl PyDeposit {
     /// Returns:
     ///     datetime.date: Start date for interest accrual.
     #[getter]
-    fn start(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.start)
     }
 
@@ -119,7 +119,7 @@ impl PyDeposit {
     /// Returns:
     ///     datetime.date: Maturity date for the deposit.
     #[getter]
-    fn end(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.end)
     }
 

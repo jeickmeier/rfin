@@ -265,9 +265,9 @@ impl PyVarianceSwap {
         PyMoney::new(self.inner.payoff(realized_variance))
     }
 
-    fn observation_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn observation_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dates = self.inner.observation_dates();
-        let py_dates: PyResult<Vec<PyObject>> =
+        let py_dates: PyResult<Vec<Py<PyAny>>> =
             dates.into_iter().map(|d| date_to_py(py, d)).collect();
         Ok(PyList::new(py, py_dates?)?.into())
     }

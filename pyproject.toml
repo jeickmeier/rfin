@@ -9,11 +9,10 @@ build-backend = "maturin"
 name = "finstack"
 # Let maturin derive version from Cargo.toml
 dynamic = ["version"]
-
 description = "Python bindings for the Finstack financial computation library"
 readme = "finstack-py/README.md"
 requires-python = ">=3.12"
-license = { text = "MIT OR Apache-2.0" }
+license = "MIT OR Apache-2.0"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -25,37 +24,25 @@ classifiers = [
 
 dependencies = [
     "matplotlib>=3.10.7",
-    "numpy>=1.24.4",
-    "pandas>=2.3.2",
-    "polars>=1.8.2",
+    "numpy>=2.3.5",
+    "pandas>=2.3.3",
+    "polars>=1.35.2",
     "pyarrow>=22.0.0",
-    "pydantic>=2.0",
+    "pydantic>=2.12.5",
 ]
-
-[project.optional-dependencies]
-analytics = [
-    "numpy>=1.24.4",
-    "pandas>=2.3.2",
-    "polars>=1.8.2",
-]
-
-[project.urls]
-Homepage = "https://github.com/finstacklabs/rfin"
-Documentation = "https://github.com/finstacklabs/rfin/tree/master/docs"
-Source = "https://github.com/finstacklabs/rfin"
 
 [tool.uv]
 dev-dependencies = [
-    "maturin>=1.0,<2.0",
-    "pytest>=7.0",
-    "pytest-benchmark>=4.0", 
-    "mypy>=1.0",
-    "ruff>=0.1.0",
-    "flake8>=7.0",
+    "maturin>=1.10.2,<2.0",
+    "pytest>=9.0.2",
+    "pytest-benchmark>=5.2.3", 
+    "mypy>=1.19.0",
+    "ruff>=0.14.8",
+    "flake8>=7.3.0",
     "flake8-cognitive-complexity>=0.1.0",
-    "flake8-pyproject>=1.2.3",
-    "ipython>=8.0",
-    "jupyter>=1.0",
+    "flake8-pyproject>=1.2.4",
+    "ipython>=9.8.0",
+    "jupyter>=1.1.1",
 ]
 
 [tool.maturin]
@@ -118,7 +105,7 @@ filterwarnings = [
 ]
 
 [dependency-groups]
-dev = ["pytest-randomly>=3.16.0", "types-python-dateutil>=2.9.0.20250708"]
+dev = ["pytest-randomly>=4.0.1", "types-python-dateutil>=2.9.0.20251115"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["finstack-py"]
@@ -205,6 +192,7 @@ ignore = [
     "PLR2004", #
     "RUF003",  #
     "RUF002",  #
+    "RUF200",  # False positive: classifiers is correctly formatted per PEP 621
     "S311",    #
     "F403",    #
     "F405",    #

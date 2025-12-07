@@ -205,12 +205,12 @@ impl PyRepo {
     }
 
     #[getter]
-    fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.start_date)
     }
 
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity)
     }
 

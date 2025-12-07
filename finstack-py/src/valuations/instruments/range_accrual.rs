@@ -137,7 +137,7 @@ impl PyRangeAccrual {
 
     /// Observation dates.
     #[getter]
-    fn observation_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn observation_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dates = PyList::empty(py);
         for d in &self.inner.observation_dates {
             dates.append(date_to_py(py, *d)?)?;

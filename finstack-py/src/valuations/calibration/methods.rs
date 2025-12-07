@@ -50,7 +50,7 @@ fn parse_surface_interp(name: Option<&str>) -> PyResult<SurfaceInterp> {
 }
 
 fn collect_rates_quotes(quotes: Vec<Py<PyRatesQuote>>) -> PyResult<Vec<RatesQuote>> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let mut result = Vec::with_capacity(quotes.len());
         for quote in quotes {
             let bound = quote.bind(py);
@@ -61,7 +61,7 @@ fn collect_rates_quotes(quotes: Vec<Py<PyRatesQuote>>) -> PyResult<Vec<RatesQuot
 }
 
 fn collect_credit_quotes(quotes: Vec<Py<PyCreditQuote>>) -> PyResult<Vec<CreditQuote>> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let mut result = Vec::with_capacity(quotes.len());
         for quote in quotes {
             let bound = quote.bind(py);
@@ -72,7 +72,7 @@ fn collect_credit_quotes(quotes: Vec<Py<PyCreditQuote>>) -> PyResult<Vec<CreditQ
 }
 
 fn collect_inflation_quotes(quotes: Vec<Py<PyInflationQuote>>) -> PyResult<Vec<InflationQuote>> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let mut result = Vec::with_capacity(quotes.len());
         for quote in quotes {
             let bound = quote.bind(py);
@@ -83,7 +83,7 @@ fn collect_inflation_quotes(quotes: Vec<Py<PyInflationQuote>>) -> PyResult<Vec<I
 }
 
 fn collect_vol_quotes(quotes: Vec<Py<PyVolQuote>>) -> PyResult<Vec<VolQuote>> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let mut result = Vec::with_capacity(quotes.len());
         for quote in quotes {
             let bound = quote.bind(py);
@@ -160,7 +160,7 @@ impl PyDiscountCurveCalibrator {
         let base_context = base_context_from_option(market);
 
         // Release GIL for compute-heavy calibration work
-        let (curve, report) = py.allow_threads(|| {
+        let (curve, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &base_context)
                 .map_err(core_to_py)
@@ -239,7 +239,7 @@ impl PyForwardCurveCalibrator {
         let base_context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
-        let (curve, report) = py.allow_threads(|| {
+        let (curve, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &base_context)
                 .map_err(core_to_py)
@@ -331,7 +331,7 @@ impl PyHazardCurveCalibrator {
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
-        let (curve, report) = py.allow_threads(|| {
+        let (curve, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
@@ -461,7 +461,7 @@ impl PyInflationCurveCalibrator {
         let context = base_context_from_option(market);
 
         // Release GIL for compute-heavy calibration work
-        let (curve, report) = py.allow_threads(|| {
+        let (curve, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
@@ -563,7 +563,7 @@ impl PyVolSurfaceCalibrator {
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
-        let (surface, report) = py.allow_threads(|| {
+        let (surface, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
@@ -750,7 +750,7 @@ impl PyBaseCorrelationCalibrator {
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
-        let (curve, report) = py.allow_threads(|| {
+        let (curve, report) = py.detach(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)

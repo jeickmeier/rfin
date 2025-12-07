@@ -156,7 +156,7 @@ impl PyValidationError {
     /// Returns:
     ///     dict[str, float]: Numerical values related to the error
     #[getter]
-    fn values(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in self.inner.values.iter() {
             dict.set_item(key, value)?;

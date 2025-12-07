@@ -13,7 +13,8 @@
 //! Covers the main public APIs of finstack-statements to track performance
 //! characteristics and regression over time.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use finstack_statements::prelude::*;
 use indexmap::IndexMap;
 

@@ -179,7 +179,7 @@ impl PyFxBarrierOption {
 
     /// Expiry date.
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 

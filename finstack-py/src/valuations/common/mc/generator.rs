@@ -107,8 +107,8 @@ impl PyMonteCarloPathGenerator {
         };
 
         // Generate paths (release GIL for compute-heavy path generation)
-        let paths = Python::with_gil(|py| {
-            py.allow_threads(|| {
+        let paths = Python::attach(|py| {
+            py.detach(|| {
                 self.generate_paths_internal(&gbm, &ExactGbm::new(), &[initial_spot], &config)
             })
         })?;

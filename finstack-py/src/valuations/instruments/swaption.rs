@@ -129,17 +129,17 @@ impl PySwaption {
     }
 
     #[getter]
-    fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn expiry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.expiry)
     }
 
     #[getter]
-    fn swap_start(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn swap_start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.swap_start)
     }
 
     #[getter]
-    fn swap_end(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn swap_end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.swap_end)
     }
 

@@ -10,7 +10,8 @@
 
 #![cfg(feature = "mc")]
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
 use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};

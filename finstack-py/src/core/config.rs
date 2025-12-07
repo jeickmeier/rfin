@@ -410,7 +410,7 @@ impl PyRoundingMode {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_rounding_mode(&other) {
             Ok(value) => Some(value),
             Err(_) => None,

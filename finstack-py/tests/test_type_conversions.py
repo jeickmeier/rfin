@@ -6,12 +6,12 @@ ensuring that both typed objects and string aliases work correctly.
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, get_calendar
 from finstack.core.market_data import DiscountCurve
+import pytest
+
+import finstack
 
 
 class TestCurrencyConversions:
@@ -75,7 +75,7 @@ class TestDayCountConversions:
 
     def test_invalid_daycount_raises_error(self) -> None:
         """Invalid day count string should raise ValueError."""
-        with pytest.raises((ValueError, TypeError), match="Unknown day-count|day_count must be"):
+        with pytest.raises((ValueError, TypeError), match=r"Unknown day-count|day_count must be"):
             DiscountCurve("INVALID", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.97)], day_count="INVALID_DAYCOUNT")
 
 
@@ -210,7 +210,7 @@ class TestDateConversions:
 
         calendar = get_calendar("usny")
 
-        with pytest.raises((TypeError, ValueError), match="Expected datetime.date|Invalid input"):
+        with pytest.raises((TypeError, ValueError), match=r"Expected datetime.date|Invalid input"):
             adjust("2024-06-15", BusinessDayConvention.FOLLOWING, calendar)  # type: ignore
 
 

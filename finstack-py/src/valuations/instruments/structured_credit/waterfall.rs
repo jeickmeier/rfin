@@ -152,7 +152,7 @@ impl PyWaterfallTier {
         let recipient = RustRecipient::new(recipient_id, rust_recipient, rust_calculation);
         inner.recipients.push(recipient);
 
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Add a fixed fee recipient helper.
@@ -180,7 +180,7 @@ impl PyWaterfallTier {
         let recipient =
             RustRecipient::fixed_fee(recipient_id, provider_name, Money::new(amount, curr));
         inner.recipients.push(recipient);
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Add a tranche interest recipient helper.
@@ -200,7 +200,7 @@ impl PyWaterfallTier {
         let mut inner = slf.inner.clone();
         let recipient = RustRecipient::tranche_interest(recipient_id, tranche_id);
         inner.recipients.push(recipient);
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Add a tranche principal recipient helper.
@@ -220,7 +220,7 @@ impl PyWaterfallTier {
         let mut inner = slf.inner.clone();
         let recipient = RustRecipient::tranche_principal(recipient_id, tranche_id, None);
         inner.recipients.push(recipient);
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Set allocation mode for this tier.
@@ -234,7 +234,7 @@ impl PyWaterfallTier {
     fn set_allocation_mode(slf: PyRefMut<'_, Self>, mode: PyAllocationMode) -> PyResult<Py<Self>> {
         let mut inner = slf.inner.clone();
         inner.allocation_mode = mode.into();
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Mark tier as divertible.
@@ -248,7 +248,7 @@ impl PyWaterfallTier {
     fn set_divertible(slf: PyRefMut<'_, Self>, divertible: bool) -> PyResult<Py<Self>> {
         let mut inner = slf.inner.clone();
         inner.divertible = divertible;
-        Python::with_gil(|py| Py::new(py, Self { inner }))
+        Python::attach(|py| Py::new(py, Self { inner }))
     }
 
     /// Get tier ID.

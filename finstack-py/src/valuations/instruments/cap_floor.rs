@@ -236,7 +236,7 @@ impl PyInterestRateOption {
     /// Returns:
     ///     datetime.date: Start date converted to Python.
     #[getter]
-    fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.start_date)
     }
 
@@ -245,7 +245,7 @@ impl PyInterestRateOption {
     /// Returns:
     ///     datetime.date: End date converted to Python.
     #[getter]
-    fn end_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn end_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.end_date)
     }
 

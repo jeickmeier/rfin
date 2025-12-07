@@ -157,7 +157,7 @@ impl PyMetricDefinition {
     }
 
     #[getter]
-    fn meta(&self, py: Python<'_>) -> PyObject {
+    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
             dict.set_item(key, json_to_py(py, value)).ok();
@@ -268,7 +268,7 @@ impl PyMetricRegistry {
     }
 
     #[getter]
-    fn meta(&self, py: Python<'_>) -> PyObject {
+    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
             dict.set_item(key, json_to_py(py, value)).ok();

@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_exception_hierarchy() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Create a test module to register exceptions
             let m = PyModule::new(py, "test_module").unwrap();
             register_exceptions(py, &m).unwrap();

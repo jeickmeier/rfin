@@ -73,8 +73,8 @@ impl PyVolSurface {
                 )));
             }
         }
-        let surface = Python::with_gil(|py| {
-            py.allow_threads(|| {
+        let surface = Python::attach(|py| {
+            py.detach(|| {
                 let mut builder = VolSurface::builder(id)
                     .expiries(&expiries)
                     .strikes(&strikes);

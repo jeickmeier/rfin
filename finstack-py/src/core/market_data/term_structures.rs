@@ -176,7 +176,7 @@ impl PyDiscountCurve {
             builder = builder.allow_non_monotonic();
         }
         let curve =
-            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -198,7 +198,7 @@ impl PyDiscountCurve {
     /// datetime.date
     ///     Curve base date.
     #[getter]
-    fn base_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.base_date())
     }
 
@@ -431,7 +431,7 @@ impl PyForwardCurve {
             builder = builder.set_interp(style);
         }
         let curve =
-            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -464,7 +464,7 @@ impl PyForwardCurve {
     /// datetime.date
     ///     Base date if configured, otherwise the curve's implicit base.
     #[getter]
-    fn base_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.base_date())
     }
 
@@ -621,7 +621,7 @@ impl PyHazardCurve {
             builder = builder.par_spreads(points);
         }
         let curve =
-            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -643,7 +643,7 @@ impl PyHazardCurve {
     /// datetime.date
     ///     Hazard curve base date.
     #[getter]
-    fn base_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.base_date())
     }
 
@@ -794,7 +794,7 @@ impl PyInflationCurve {
             .knots(knots_vec)
             .set_interp(style);
         let curve =
-            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -910,8 +910,8 @@ impl PyBaseCorrelationCurve {
                 "points must contain at least two entries",
             ));
         }
-        let curve = Python::with_gil(|py| {
-            py.allow_threads(|| {
+        let curve = Python::attach(|py| {
+            py.detach(|| {
                 BaseCorrelationCurve::builder(id)
                     .points(points_vec)
                     .build()

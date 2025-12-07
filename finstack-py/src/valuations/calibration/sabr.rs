@@ -263,7 +263,7 @@ impl PySABRMarketData {
     /// Returns:
     ///     list[float]: Strike prices
     #[getter]
-    fn strikes(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn strikes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(PyList::new(py, &self.inner.strikes)?.into())
     }
 
@@ -272,7 +272,7 @@ impl PySABRMarketData {
     /// Returns:
     ///     list[float]: Market volatilities
     #[getter]
-    fn market_vols(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn market_vols(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(PyList::new(py, &self.inner.market_vols)?.into())
     }
 

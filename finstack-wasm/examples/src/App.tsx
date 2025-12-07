@@ -16,7 +16,8 @@ const App: React.FC = () => {
   useEffect(() => {
     // Only initialize WASM once, even across hot module reloads
     if (wasmInitialized) {
-      setWasmReady(true);
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => setWasmReady(true), 0);
       return;
     }
 

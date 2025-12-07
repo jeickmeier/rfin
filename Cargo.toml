@@ -40,10 +40,10 @@ repository = "https://github.com/rustfin/rfin"
 
 [workspace.dependencies]
 # Synchronized enum and macro crates to prevent version mismatches
-strum = "0.25"
-strum_macros = "0.25"
+strum = "0.27"
+strum_macros = "0.27"
 # Fast hash for integer keys in hot paths
-rustc-hash = "2.0"
+rustc-hash = "2.1"
 
 # Build profiles
 [profile.dev]

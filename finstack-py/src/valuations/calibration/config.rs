@@ -79,7 +79,7 @@ impl PySolverKind {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = other.extract::<PySolverKind>().ok();
         richcmp_eq_ne(
             py,

@@ -189,7 +189,7 @@ impl PyCmsOption {
 
     /// Fixing dates.
     #[getter]
-    fn fixing_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn fixing_dates(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dates = PyList::empty(py);
         for d in &self.inner.fixing_dates {
             dates.append(date_to_py(py, *d)?)?;

@@ -1,7 +1,5 @@
 """Comprehensive tests for the statements Python bindings."""
 
-import pytest
-
 from finstack.core.currency import Currency
 from finstack.core.dates import PeriodId
 from finstack.statements.builder import ModelBuilder
@@ -21,6 +19,7 @@ from finstack.statements.types import (
     NodeSpec,
     NodeType,
 )
+import pytest
 
 
 class TestNodeTypes:
@@ -530,7 +529,7 @@ class TestErrorHandling:
         builder.periods("2025Q1..Q2", None)
 
         # This should raise an error for invalid formula syntax
-        with pytest.raises(Exception, match=".*"):
+        with pytest.raises(Exception, match=r".*"):
             builder.compute("bad_node", "revenue + + cogs")
 
     def test_circular_dependency_detection(self) -> None:
@@ -545,7 +544,7 @@ class TestErrorHandling:
         evaluator = Evaluator.new()
 
         # Should raise an error for circular dependencies
-        with pytest.raises(Exception, match=".*"):
+        with pytest.raises(Exception, match=r".*"):
             evaluator.evaluate(model)
 
 

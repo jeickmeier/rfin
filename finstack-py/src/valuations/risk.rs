@@ -463,7 +463,7 @@ fn bucketed_metric(
     as_of: Bound<'_, PyAny>,
     metric_id: MetricId,
     value_key: &str,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let InstrumentHandle {
         instrument: inst, ..
     } = extract_instrument(&instrument)?;
@@ -512,7 +512,7 @@ fn py_krd_dv01_ladder(
     instrument: Bound<'_, PyAny>,
     market: &PyMarketContext,
     as_of: Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     bucketed_metric(
         py,
         instrument,
@@ -534,7 +534,7 @@ fn py_cs01_ladder(
     instrument: Bound<'_, PyAny>,
     market: &PyMarketContext,
     as_of: Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     bucketed_metric(
         py,
         instrument,

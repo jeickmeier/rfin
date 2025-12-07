@@ -310,13 +310,13 @@ impl PyPeriod {
 
     #[getter]
     /// Start date of the period (inclusive).
-    fn start(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.start)
     }
 
     #[getter]
     /// End date of the period (exclusive).
-    fn end(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.end)
     }
 

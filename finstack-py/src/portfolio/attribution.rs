@@ -90,7 +90,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn by_position(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn by_position(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (pos_id, attr) in &self.inner.by_position {
             dict.set_item(
@@ -120,7 +120,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn inflation_detail(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn inflation_detail(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(detail) = &self.inner.inflation_detail {
             let obj = pythonize::pythonize(py, detail)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -131,7 +131,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn correlations_detail(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn correlations_detail(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(detail) = &self.inner.correlations_detail {
             let obj = pythonize::pythonize(py, detail)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -142,7 +142,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn fx_detail(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn fx_detail(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(detail) = &self.inner.fx_detail {
             let obj = pythonize::pythonize(py, detail)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -153,7 +153,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn vol_detail(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn vol_detail(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(detail) = &self.inner.vol_detail {
             let obj = pythonize::pythonize(py, detail)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -164,7 +164,7 @@ impl PyPortfolioAttribution {
     }
 
     #[getter]
-    fn scalars_detail(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn scalars_detail(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(detail) = &self.inner.scalars_detail {
             let obj = pythonize::pythonize(py, detail)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

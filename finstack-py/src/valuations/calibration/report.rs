@@ -85,14 +85,14 @@ impl PyCalibrationReport {
     }
 
     #[getter]
-    fn results_meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn results_meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let bound = pythonize(py, &self.inner.results_meta)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         Ok(bound.unbind())
     }
 
     #[getter]
-    fn explanation(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn explanation(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         match &self.inner.explanation {
             Some(trace) => {
                 let bound = pythonize(py, trace).map_err(|e| {
@@ -116,7 +116,7 @@ impl PyCalibrationReport {
         }
     }
 
-    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         dict.set_item("success", self.inner.success)?;
         dict.set_item("iterations", self.inner.iterations)?;
@@ -148,7 +148,7 @@ impl PyCalibrationReport {
     /// - Values: Sensitivities (∂curve_point/∂instrument_quote)
     ///
     /// Returns None if explainability was not enabled during calibration.
-    fn explain(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn explain(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         // Check if explanation exists
         let trace = match &self.inner.explanation {
             Some(t) => t,

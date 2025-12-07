@@ -4,7 +4,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
-use pyo3::{Bound, PyObject, PyRef};
+use pyo3::{Bound, Py, PyAny, PyRef};
 use std::fmt;
 
 /// Strongly typed metric identifier mirroring ``finstack_valuations::metrics::MetricId``.
@@ -63,7 +63,7 @@ impl PyMetricId {
     /// Examples:
     ///     >>> "pv" in MetricId.standard_names()
     ///     True
-    fn standard_names(_cls: &Bound<'_, PyType>, py: Python<'_>) -> PyResult<PyObject> {
+    fn standard_names(_cls: &Bound<'_, PyType>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let names: Vec<&str> = MetricId::ALL_STANDARD
             .iter()
             .map(MetricId::as_str)
@@ -91,7 +91,7 @@ impl PyMetricId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = if let Ok(value) = other.extract::<PyRef<Self>>() {
             Some(value.inner.clone())
         } else {

@@ -3,7 +3,8 @@
 //! Tests performance of complex expression graphs with shared sub-expressions
 //! and arena-based allocation.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
 /// Build a complex DAG with `n` interdependent nodes.

@@ -1,6 +1,7 @@
 {
   "name": "finstack-wasm",
   "version": "0.1.0",
+  "type": "module",
   "description": "WebAssembly bindings for Finstack - high-performance financial computation library for bonds, derivatives, and portfolio analytics",
   "main": "index.js",
   "types": "index.d.ts",
@@ -10,8 +11,8 @@
     "build:optimized": "wasm-pack build --target web --out-dir pkg && npm run optimize",
     "optimize": "command -v wasm-opt >/dev/null 2>&1 && wasm-opt -Oz -o pkg/finstack_wasm_bg.wasm pkg/finstack_wasm_bg.wasm || echo 'wasm-opt not found, skipping optimization'",
     "test": "wasm-pack test --chrome --firefox --headless",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "examples:install": "cd examples && npm install",
@@ -51,13 +52,15 @@
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.34.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.5.3"
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.5.0",
+    "prettier": "^3.7.4",
+    "react": "^19.2.1",
+    "typescript": "^5.9.3"
   }
 }

@@ -57,7 +57,7 @@ fn parse_observations(
     let mut result = Vec::new();
     for item in iter {
         let tuple = item?;
-        let (date_obj, value): (PyObject, f64) = tuple.extract().map_err(|_| {
+        let (date_obj, value): (Py<PyAny>, f64) = tuple.extract().map_err(|_| {
             PyTypeError::new_err("observations must be iterable of (date, value) pairs")
         })?;
         let bound = date_obj.bind(py);
@@ -250,8 +250,8 @@ impl PyMarketScalar {
     /// float or Money
     ///     Unitless value or money instance depending on the scalar type.
     #[getter]
-    fn value(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| match &self.inner {
+    fn value(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| match &self.inner {
             MarketScalar::Unitless(v) => Ok(PyFloat::new(py, *v).into()),
             MarketScalar::Price(m) => {
                 let obj = Py::new(py, PyMoney::new(*m))?;

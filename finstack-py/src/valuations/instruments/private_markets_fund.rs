@@ -85,9 +85,9 @@ impl PyPrivateMarketsFund {
     }
 
     #[pyo3(text_signature = "(self)")]
-    fn lp_cashflows(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn lp_cashflows(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let flows = self.inner.lp_cashflows().map_err(core_to_py)?;
-        let items: PyResult<Vec<(PyObject, PyMoney)>> = flows
+        let items: PyResult<Vec<(Py<PyAny>, PyMoney)>> = flows
             .into_iter()
             .map(|(date, amt)| {
                 let py_date = date_to_py(py, date)?;

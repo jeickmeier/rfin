@@ -71,7 +71,7 @@ impl PyTenorUnit {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyTenorUnit>>() {
             Ok(v) => Some(v.inner),
             Err(_) => None,
@@ -178,7 +178,7 @@ impl PyTenor {
         date: Bound<'_, PyAny>,
         calendar: Option<Bound<'_, PyAny>>,
         convention: Option<PyRef<PyBusinessDayConvention>>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let base = py_to_date(&date).context("date")?;
         let cal = calendar
             .map(|c| extract_calendar(&c).context("calendar"))
@@ -236,7 +236,7 @@ impl PyTenor {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyTenor>>() {
             Ok(v) => Some(v.inner),
             Err(_) => None,

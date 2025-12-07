@@ -154,7 +154,7 @@ impl PyInstrumentType {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_instrument_type(&other) {
             Ok(value) => Some(value),
             Err(_) => None,
@@ -249,7 +249,7 @@ impl PyModelKey {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_model_key(&other) {
             Ok(value) => Some(value),
             Err(_) => None,
@@ -333,7 +333,7 @@ impl PyPricerKey {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if let Ok(rhs) = other.extract::<PyRef<Self>>() {
             let lhs_key = (self.inner.instrument as u32, self.inner.model as u32);
             let rhs_key = (rhs.inner.instrument as u32, rhs.inner.model as u32);

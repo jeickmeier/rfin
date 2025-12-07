@@ -6,9 +6,6 @@ without loss of information or corruption.
 
 import datetime as dt
 
-import pytest
-
-from finstack.core import get_calendar
 from finstack.core.currency import Currency
 from finstack.core.dates import (
     BusinessDayConvention,
@@ -21,6 +18,9 @@ from finstack.core.dates import (
 )
 from finstack.core.market_data import DiscountCurve, MarketContext
 from finstack.core.money import Money
+import pytest
+
+from finstack.core import get_calendar
 
 
 class TestCurrencyRoundtrips:
@@ -192,8 +192,9 @@ class TestStatementModelRoundtrips:
     def test_simple_model_build_and_evaluate(self) -> None:
         """Statement model should evaluate and return accessible results."""
         from finstack.core.dates import PeriodId
-        from finstack.statements import Evaluator, ModelBuilder
         from finstack.statements.types import AmountOrScalar
+
+        from finstack.statements import Evaluator, ModelBuilder
 
         builder = ModelBuilder.new("Test Model")
         builder.periods("2025Q1..Q2", "2025Q1")

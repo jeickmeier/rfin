@@ -38,7 +38,7 @@ fn py_optimize_max_yield_with_ccc_limit(
     ccc_limit: f64,
     strict_risk: bool,
     config: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
@@ -80,7 +80,7 @@ fn py_optimize_max_yield_with_ccc_limit(
 fn map_weights(
     py: Python<'_>,
     weights: &indexmap::IndexMap<finstack_portfolio::types::PositionId, f64>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     for (pos_id, weight) in weights {
         dict.set_item(pos_id.as_str(), *weight)?;

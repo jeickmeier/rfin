@@ -81,7 +81,7 @@ impl PyCurveId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyCurveId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -135,7 +135,7 @@ impl PyInstrumentId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyInstrumentId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -189,7 +189,7 @@ impl PyIndexId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyIndexId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -243,7 +243,7 @@ impl PyPriceId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyPriceId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -297,7 +297,7 @@ impl PyUnderlyingId {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyUnderlyingId>>() {
             Ok(id) => Some(id.inner.clone()),
             Err(_) => None,
@@ -392,7 +392,7 @@ impl PyRate {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if let Ok(rhs) = other.extract::<PyRef<PyRate>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -504,7 +504,7 @@ impl PyBps {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if let Ok(rhs) = other.extract::<PyRef<PyBps>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -617,7 +617,7 @@ impl PyPercentage {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if let Ok(rhs) = other.extract::<PyRef<PyPercentage>>() {
             let result = match op {
                 CompareOp::Lt => self.inner < rhs.inner,
@@ -723,7 +723,7 @@ impl PyRatingNotch {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyRatingNotch>>() {
             Ok(v) => Some(v.inner),
             Err(_) => None,
@@ -827,7 +827,7 @@ impl PyCreditRating {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyCreditRating>>() {
             Ok(v) => Some(v.inner),
             Err(_) => None,
@@ -929,7 +929,7 @@ impl PyNotchedRating {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyNotchedRating>>() {
             Ok(v) => Some(v.inner),
             Err(_) => None,
@@ -999,7 +999,7 @@ impl PyRatingLabel {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match other.extract::<PyRef<PyRatingLabel>>() {
             Ok(v) => Some(v.inner.as_str().to_string()),
             Err(_) => None,

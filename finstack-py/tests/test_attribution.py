@@ -2,13 +2,13 @@
 
 from datetime import date
 
+from finstack.core.market_data import MarketContext
+from finstack.core.market_data.term_structures import DiscountCurve
+from finstack.valuations.attribution import AttributionMethod, attribute_pnl
 import pytest
 
 from finstack import Money
-from finstack.core.market_data import MarketContext
-from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations import Bond
-from finstack.valuations.attribution import AttributionMethod, attribute_pnl
 
 
 def test_attribution_method_parallel() -> None:

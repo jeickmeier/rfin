@@ -62,7 +62,7 @@ export const CurveKindDemo: React.FC = () => {
       try {
         ctx.getCurve(id, kind);
         lines.push(`   ✓ Found ${name} curve: ${id}`);
-      } catch (e) {
+      } catch {
         lines.push(`   ✗ Missing ${name} curve: ${id}`);
       }
     }

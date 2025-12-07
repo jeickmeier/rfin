@@ -457,12 +457,12 @@ impl PyConvertibleBond {
     }
 
     #[getter]
-    fn issue(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn issue(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.issue)
     }
 
     #[getter]
-    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity)
     }
 

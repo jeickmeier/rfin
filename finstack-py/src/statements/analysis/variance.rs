@@ -331,7 +331,7 @@ impl PyVarianceAnalyzer {
         );
 
         let analyzer = VarianceAnalyzer::new(&self.baseline.inner, &self.comparison.inner);
-        let report = py.allow_threads(|| analyzer.compute(&config).map_err(stmt_to_py))?;
+        let report = py.detach(|| analyzer.compute(&config).map_err(stmt_to_py))?;
 
         Ok(PyVarianceReport { inner: report })
     }
@@ -368,7 +368,7 @@ impl PyVarianceAnalyzer {
         let driver_refs: Vec<&str> = drivers.iter().map(|s| s.as_str()).collect();
 
         let analyzer = VarianceAnalyzer::new(&self.baseline.inner, &self.comparison.inner);
-        let chart = py.allow_threads(|| {
+        let chart = py.detach(|| {
             analyzer
                 .bridge_decomposition(
                     target_metric,

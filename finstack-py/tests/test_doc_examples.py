@@ -10,11 +10,11 @@ a workflow) are skipped with a note.
 
 import ast
 import builtins
+from collections.abc import Callable
 import contextlib
+from pathlib import Path
 import re
 import sys
-from collections.abc import Callable
-from pathlib import Path
 
 import pytest
 

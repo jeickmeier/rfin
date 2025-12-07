@@ -39,7 +39,7 @@ fn evaluate_dcf_py(
     terminal_growth: f64,
     ufcf_node: Option<String>,
     net_debt_override: Option<f64>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let ufcf_node = ufcf_node.unwrap_or_else(|| "ufcf".to_string());
     let terminal = TerminalValueSpec::GordonGrowth {
         growth_rate: terminal_growth,

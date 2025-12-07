@@ -101,7 +101,7 @@ impl PyBusinessDayConvention {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_business_day_convention(&other) {
             Ok(value) => Some(value),
             Err(_) => None,
@@ -217,7 +217,7 @@ impl PyCalendar {
         other: Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let rhs = match extract_calendar(other.as_ref()) {
             Ok(value) => Some(value.code().to_string()),
             Err(_) => None,
@@ -254,7 +254,7 @@ pub(crate) fn adjust_py<'py>(
     date: Bound<'py, PyAny>,
     convention: Bound<'py, PyAny>,
     calendar: Bound<'py, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let d = py_to_date(&date).context("date")?;
     let BusinessDayConventionArg(conv) = convention.extract().context("convention")?;
     let cal = extract_calendar(&calendar).context("calendar")?;

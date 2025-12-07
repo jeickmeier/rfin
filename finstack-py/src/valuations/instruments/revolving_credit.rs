@@ -149,7 +149,7 @@ impl PyRevolvingCredit {
     /// Returns:
     ///     datetime.date: Commitment date converted to Python.
     #[getter]
-    fn commitment_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn commitment_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.commitment_date)
     }
 
@@ -158,7 +158,7 @@ impl PyRevolvingCredit {
     /// Returns:
     ///     datetime.date: Maturity date converted to Python.
     #[getter]
-    fn maturity_date(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn maturity_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.maturity_date)
     }
 
@@ -666,7 +666,7 @@ impl PyThreeFactorPathData {
     /// Returns:
     ///     List[date]: Payment dates.
     #[getter]
-    fn payment_dates(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+    fn payment_dates(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
         self.inner
             .payment_dates
             .iter()
