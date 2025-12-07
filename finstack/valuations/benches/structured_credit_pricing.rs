@@ -11,7 +11,6 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -25,6 +24,7 @@ use finstack_valuations::instruments::structured_credit::{
     StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
+use std::hint::black_box;
 use time::Month;
 
 fn test_date() -> Date {

@@ -7,11 +7,11 @@
 //! - Calendar composite operations
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2, USNY};
 use finstack_core::dates::{
     adjust, BusinessDayConvention, CompositeCalendar, Date, HolidayCalendar,
 };
+use std::hint::black_box;
 use time::Month;
 
 fn bench_holiday_checks(c: &mut Criterion) {

@@ -9,7 +9,6 @@
 //! - Time roll-forward operations
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::build_periods;
 use finstack_core::market_data::context::MarketContext;
@@ -27,6 +26,7 @@ use finstack_scenarios::{
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
+use std::hint::black_box;
 use std::sync::Arc;
 use time::macros::date;
 

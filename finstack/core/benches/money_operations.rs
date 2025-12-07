@@ -7,11 +7,11 @@
 //! - Formatting operations
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
 use finstack_core::money::Money;
+use std::hint::black_box;
 use time::Month;
 
 // Simple FX provider for benchmarking

@@ -4,8 +4,8 @@
 //! and arena-based allocation.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
+use std::hint::black_box;
 
 /// Build a complex DAG with `n` interdependent nodes.
 /// Creates expressions like: x + y, x * 2, (x + y) * x, etc.

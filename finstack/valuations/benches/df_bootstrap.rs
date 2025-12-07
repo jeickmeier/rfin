@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::{Calibrator, RatesQuote};
+use std::hint::black_box;
 use time::Month;
 
 fn bench_df_bootstrap(c: &mut Criterion) {
