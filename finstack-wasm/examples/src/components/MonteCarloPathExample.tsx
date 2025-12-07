@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MonteCarloPathGenerator, SimulatedPath } from 'finstack-wasm';
+import { MonteCarloPathProps, DEFAULT_MONTE_CARLO_PROPS } from './data/monte-carlo';
 
 type PathStats = {
   numPathsTotal: number;
@@ -18,7 +19,12 @@ type PathDataRow = {
   steps: number;
 };
 
-export const MonteCarloPathExample: React.FC = () => {
+export const MonteCarloPathExample: React.FC<MonteCarloPathProps> = (props) => {
+  const {
+    gbmParams = DEFAULT_MONTE_CARLO_PROPS.gbmParams!,
+    maxRowsToDisplay = DEFAULT_MONTE_CARLO_PROPS.maxRowsToDisplay!,
+  } = props;
+
   const [stats, setStats] = useState<PathStats | null>(null);
   const [pathData, setPathData] = useState<PathDataRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -33,16 +39,16 @@ export const MonteCarloPathExample: React.FC = () => {
         // Generate GBM paths
         const generator = new MonteCarloPathGenerator();
         const paths = generator.generateGbmPaths(
-          100.0, // initial_spot
-          0.05, // r (risk-free rate)
-          0.02, // q (dividend yield)
-          0.25, // sigma (volatility)
-          1.0, // time_to_maturity (years)
-          252, // num_steps (daily)
-          1000, // num_paths
-          'sample', // capture_mode
-          50, // sample_count
-          BigInt(42) // seed
+          gbmParams.initialSpot,
+          gbmParams.riskFreeRate,
+          gbmParams.dividendYield,
+          gbmParams.volatility,
+          gbmParams.timeToMaturity,
+          gbmParams.numSteps,
+          gbmParams.numPaths,
+          gbmParams.captureMode,
+          gbmParams.sampleCount,
+          gbmParams.seed
         );
 
         // Extract statistics
@@ -86,9 +92,9 @@ export const MonteCarloPathExample: React.FC = () => {
 
         if (!cancelled) {
           setStats({
-            numPathsTotal: 1000,
+            numPathsTotal: gbmParams.numPaths,
             numPathsCaptured: numPaths,
-            samplingRatio: numPaths / 1000,
+            samplingRatio: numPaths / gbmParams.numPaths,
             meanTerminalValue: meanTerminal,
             stdTerminalValue: stdTerminal,
             minTerminalValue: minTerminal,
@@ -109,7 +115,7 @@ export const MonteCarloPathExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [gbmParams]);
 
   const exportToCSV = () => {
     if (!pathData.length) return;
@@ -158,8 +164,8 @@ export const MonteCarloPathExample: React.FC = () => {
       <h2>Monte Carlo Path Generation</h2>
       <p>
         Generate and analyze Monte Carlo paths using Geometric Brownian Motion (GBM). This example
-        generates 1000 paths but captures only 50 for detailed analysis, demonstrating efficient
-        sampling strategies.
+        generates {gbmParams.numPaths.toLocaleString()} paths but captures only{' '}
+        {gbmParams.sampleCount} for detailed analysis, demonstrating efficient sampling strategies.
       </p>
 
       <div style={{ marginBottom: '2rem' }}>
@@ -172,15 +178,42 @@ export const MonteCarloPathExample: React.FC = () => {
               </td>
               <td>{stats.processParams.processType || 'GBM'}</td>
             </tr>
-            {stats.processParams.parameters &&
-              Object.keys(stats.processParams.parameters).map((key) => (
-                <tr key={key}>
-                  <td>
-                    <strong>{key}:</strong>
-                  </td>
-                  <td>{stats.processParams.parameters[key].toFixed(4)}</td>
-                </tr>
-              ))}
+            <tr>
+              <td>
+                <strong>Initial Spot:</strong>
+              </td>
+              <td>{gbmParams.initialSpot.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Risk-Free Rate:</strong>
+              </td>
+              <td>{(gbmParams.riskFreeRate * 100).toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Dividend Yield:</strong>
+              </td>
+              <td>{(gbmParams.dividendYield * 100).toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Volatility:</strong>
+              </td>
+              <td>{(gbmParams.volatility * 100).toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Time to Maturity:</strong>
+              </td>
+              <td>{gbmParams.timeToMaturity} year(s)</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Steps:</strong>
+              </td>
+              <td>{gbmParams.numSteps}</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -244,17 +277,17 @@ export const MonteCarloPathExample: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {pathData.slice(0, 20).map((row) => (
+            {pathData.slice(0, maxRowsToDisplay).map((row) => (
               <tr key={row.pathId}>
                 <td>{row.pathId}</td>
                 <td>{row.terminalValue.toFixed(4)}</td>
                 <td>{row.steps}</td>
               </tr>
             ))}
-            {pathData.length > 20 && (
+            {pathData.length > maxRowsToDisplay && (
               <tr>
                 <td colSpan={3} style={{ textAlign: 'center', fontStyle: 'italic' }}>
-                  ... and {pathData.length - 20} more paths
+                  ... and {pathData.length - maxRowsToDisplay} more paths
                 </td>
               </tr>
             )}

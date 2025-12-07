@@ -13,6 +13,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { FxInstrumentsProps, DEFAULT_FX_PROPS } from './data/fx';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -28,7 +29,18 @@ type InstrumentRow = {
   keyMetric?: { name: string; value: number };
 };
 
-export const FxInstrumentsExample: React.FC = () => {
+export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_FX_PROPS.valuationDate!,
+    discountCurves = DEFAULT_FX_PROPS.discountCurves!,
+    volSurface = DEFAULT_FX_PROPS.volSurface!,
+    fxQuotes = DEFAULT_FX_PROPS.fxQuotes!,
+    spots = DEFAULT_FX_PROPS.spots!,
+    options = DEFAULT_FX_PROPS.options!,
+    swaps = DEFAULT_FX_PROPS.swaps!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,139 +48,172 @@ export const FxInstrumentsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
-        const usd = new Currency('USD');
-        const eur = new Currency('EUR');
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build market
-        const usdDisc = new DiscountCurve(
-          'USD-OIS',
-          asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9975, 0.9945, 0.972, 0.945]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
-        );
-
-        const eurDisc = new DiscountCurve(
-          'EUR-OIS',
-          asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.998, 0.996, 0.98, 0.955]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
-        );
-
-        const fx = new FxMatrix();
-        fx.setQuote(eur, usd, 1.085);
-
-        // Add FX volatility surface for options (flattened grid: row-major order)
-        const fxVol = new VolSurface(
-          'FX-VOL',
-          new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([1.05, 1.1, 1.15]),
-          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.1, 0.11, 0.1, 0.095])
-        );
-
+        // Build market context
         const market = new MarketContext();
-        market.insertDiscount(usdDisc);
-        market.insertDiscount(eurDisc);
+
+        // Build discount curves from props
+        for (const curveData of discountCurves) {
+          const curveBaseDate = new FsDate(
+            curveData.baseDate.year,
+            curveData.baseDate.month,
+            curveData.baseDate.day
+          );
+          const curve = new DiscountCurve(
+            curveData.id,
+            curveBaseDate,
+            new Float64Array(curveData.tenors),
+            new Float64Array(curveData.discountFactors),
+            curveData.dayCount,
+            curveData.interpolation,
+            curveData.extrapolation,
+            curveData.continuous
+          );
+          market.insertDiscount(curve);
+        }
+
+        // Build FX matrix from props
+        const fx = new FxMatrix();
+        for (const quote of fxQuotes) {
+          const base = new Currency(quote.base);
+          const quoteCcy = new Currency(quote.quote);
+          fx.setQuote(base, quoteCcy, quote.rate);
+        }
         market.insertFx(fx);
+
+        // Build volatility surface from props
+        const fxVol = new VolSurface(
+          volSurface.id,
+          new Float64Array(volSurface.expiries),
+          new Float64Array(volSurface.strikes),
+          new Float64Array(volSurface.vols)
+        );
         market.insertSurface(fxVol);
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // FX Spot
-        const spot = new FxSpot(
-          'eurusd_spot',
-          eur,
-          usd,
-          new FsDate(2024, 1, 4), // T+2 settlement
-          1.086,
-          Money.fromCode(1_000_000, 'EUR')
-        );
-        const spotResult = registry.priceFxSpot(spot, 'discounting', market, asOf);
-        results.push({
-          name: 'EUR/USD Spot',
-          type: 'FxSpot',
-          pair: 'EURUSD',
-          presentValue: spotResult.presentValue.amount,
-        });
+        // Process FX spots
+        for (const spot of spots) {
+          const baseCcy = new Currency(spot.baseCurrency);
+          const quoteCcy = new Currency(spot.quoteCurrency);
+          const settlementDate = new FsDate(
+            spot.settlementDate.year,
+            spot.settlementDate.month,
+            spot.settlementDate.day
+          );
+          const notional = Money.fromCode(spot.notional.amount, spot.notional.currency);
 
-        // FX Option - Call
-        const call = FxOption.europeanCall(
-          'eurusd_call',
-          eur,
-          usd,
-          1.1,
-          new FsDate(2025, 1, 2),
-          Money.fromCode(2_000_000, 'EUR'),
-          'USD-OIS',
-          'EUR-OIS',
-          'FX-VOL'
-        );
-        const callOpts = new PricingRequest().withMetrics(['delta']);
-        const callResult = registry.priceFxOption(call, 'discounting', market, asOf, callOpts);
-        results.push({
-          name: '1Y Call @ 1.10',
-          type: 'FxOption',
-          pair: 'EURUSD',
-          presentValue: callResult.presentValue.amount,
-          keyMetric: {
-            name: 'Delta',
-            // Normalize delta to per-unit if it comes back as notional-adjusted
-            value:
-              Math.abs(callResult.metric('delta') ?? 0) > 100
-                ? (callResult.metric('delta') ?? 0) / 2_000_000 // Normalize by notional
-                : (callResult.metric('delta') ?? 0),
-          },
-        });
+          const fxSpot = new FxSpot(
+            spot.id,
+            baseCcy,
+            quoteCcy,
+            settlementDate,
+            spot.rate,
+            notional
+          );
+          const spotResult = registry.priceFxSpot(fxSpot, 'discounting', market, asOf);
+          results.push({
+            name: `${spot.baseCurrency}/${spot.quoteCurrency} Spot`,
+            type: 'FxSpot',
+            pair: `${spot.baseCurrency}${spot.quoteCurrency}`,
+            presentValue: spotResult.presentValue.amount,
+          });
+        }
 
-        // FX Option - Put
-        const put = FxOption.europeanPut(
-          'eurusd_put',
-          eur,
-          usd,
-          1.06,
-          new FsDate(2024, 7, 2),
-          Money.fromCode(1_500_000, 'EUR'),
-          'USD-OIS',
-          'EUR-OIS',
-          'FX-VOL'
-        );
-        const putResult = registry.priceFxOption(put, 'discounting', market, asOf, null);
-        results.push({
-          name: '6M Put @ 1.06',
-          type: 'FxOption',
-          pair: 'EURUSD',
-          presentValue: putResult.presentValue.amount,
-        });
+        // Process FX options
+        for (const opt of options) {
+          const baseCcy = new Currency(opt.baseCurrency);
+          const quoteCcy = new Currency(opt.quoteCurrency);
+          const expiryDate = new FsDate(opt.expiryDate.year, opt.expiryDate.month, opt.expiryDate.day);
+          const notional = Money.fromCode(opt.notional.amount, opt.notional.currency);
 
-        // FX Swap
-        const fxSwap = new FxSwap(
-          'eurusd_swap',
-          eur,
-          usd,
-          Money.fromCode(5_000_000, 'EUR'),
-          new FsDate(2024, 1, 4),
-          new FsDate(2024, 7, 4),
-          'USD-OIS',
-          'EUR-OIS',
-          1.0865,
-          1.092
-        );
-        const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market, asOf);
-        results.push({
-          name: '6M FX Swap',
-          type: 'FxSwap',
-          pair: 'EURUSD',
-          presentValue: swapResult.presentValue.amount,
-        });
+          const option =
+            opt.optionType === 'call'
+              ? FxOption.europeanCall(
+                  opt.id,
+                  baseCcy,
+                  quoteCcy,
+                  opt.strike,
+                  expiryDate,
+                  notional,
+                  opt.domesticCurveId,
+                  opt.foreignCurveId,
+                  opt.volSurfaceId
+                )
+              : FxOption.europeanPut(
+                  opt.id,
+                  baseCcy,
+                  quoteCcy,
+                  opt.strike,
+                  expiryDate,
+                  notional,
+                  opt.domesticCurveId,
+                  opt.foreignCurveId,
+                  opt.volSurfaceId
+                );
+
+          const isCall = opt.optionType === 'call';
+          const optReq = isCall ? new PricingRequest().withMetrics(['delta']) : null;
+          const optResult = registry.priceFxOption(option, 'discounting', market, asOf, optReq);
+
+          const tenorMonths =
+            (opt.expiryDate.year - valuationDate.year) * 12 +
+            (opt.expiryDate.month - valuationDate.month);
+          const tenorDesc = tenorMonths >= 12 ? `${tenorMonths / 12}Y` : `${tenorMonths}M`;
+
+          results.push({
+            name: `${tenorDesc} ${opt.optionType === 'call' ? 'Call' : 'Put'} @ ${opt.strike.toFixed(2)}`,
+            type: 'FxOption',
+            pair: `${opt.baseCurrency}${opt.quoteCurrency}`,
+            presentValue: optResult.presentValue.amount,
+            keyMetric: isCall
+              ? {
+                  name: 'Delta',
+                  // Normalize delta to per-unit if it comes back as notional-adjusted
+                  value:
+                    Math.abs(optResult.metric('delta') ?? 0) > 100
+                      ? (optResult.metric('delta') ?? 0) / opt.notional.amount
+                      : (optResult.metric('delta') ?? 0),
+                }
+              : undefined,
+          });
+        }
+
+        // Process FX swaps
+        for (const swap of swaps) {
+          const baseCcy = new Currency(swap.baseCurrency);
+          const quoteCcy = new Currency(swap.quoteCurrency);
+          const notional = Money.fromCode(swap.notional.amount, swap.notional.currency);
+          const nearDate = new FsDate(swap.nearDate.year, swap.nearDate.month, swap.nearDate.day);
+          const farDate = new FsDate(swap.farDate.year, swap.farDate.month, swap.farDate.day);
+
+          const fxSwap = new FxSwap(
+            swap.id,
+            baseCcy,
+            quoteCcy,
+            notional,
+            nearDate,
+            farDate,
+            swap.domesticCurveId,
+            swap.foreignCurveId,
+            swap.nearRate,
+            swap.farRate
+          );
+          const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market, asOf);
+
+          const tenorMonths =
+            (swap.farDate.year - swap.nearDate.year) * 12 +
+            (swap.farDate.month - swap.nearDate.month);
+
+          results.push({
+            name: `${tenorMonths}M FX Swap`,
+            type: 'FxSwap',
+            pair: `${swap.baseCurrency}${swap.quoteCurrency}`,
+            presentValue: swapResult.presentValue.amount,
+          });
+        }
 
         if (!cancelled) {
           setRows(results);
@@ -183,7 +228,7 @@ export const FxInstrumentsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, discountCurves, volSurface, fxQuotes, spots, options, swaps]);
 
   if (error) {
     return <p className="error">{error}</p>;

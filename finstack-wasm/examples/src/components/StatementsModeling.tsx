@@ -464,92 +464,76 @@ export default function StatementsModeling() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-2xl font-bold mb-4">Financial Statements Modeling</h2>
-        <p className="text-gray-600 mb-6">
+    <div className="statements-container">
+      <div className="statements-panel">
+        <h2>Financial Statements Modeling</h2>
+        <p>
           Build and evaluate financial statement models with formulas, forecasts, and dynamic
           metrics. Supports period-by-period evaluation with deterministic results.
         </p>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={runBasicModel}
-              disabled={loading}
-              className="px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Basic P&L Model
-            </button>
+        <div className="statements-button-grid">
+          <button
+            onClick={runBasicModel}
+            disabled={loading}
+            className="statements-btn statements-btn--blue"
+          >
+            Basic P&L Model
+          </button>
 
-            <button
-              onClick={runForecastModel}
-              disabled={loading}
-              className="px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Model with Forecasts
-            </button>
+          <button
+            onClick={runForecastModel}
+            disabled={loading}
+            className="statements-btn statements-btn--green"
+          >
+            Model with Forecasts
+          </button>
 
-            <button
-              onClick={runRegistryDemo}
-              disabled={loading}
-              className="px-4 py-3 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Metric Registry
-            </button>
+          <button
+            onClick={runRegistryDemo}
+            disabled={loading}
+            className="statements-btn statements-btn--purple"
+          >
+            Metric Registry
+          </button>
 
-            <button
-              onClick={runCompleteExample}
-              disabled={loading}
-              className="px-4 py-3 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Complete Example
-            </button>
-          </div>
+          <button
+            onClick={runCompleteExample}
+            disabled={loading}
+            className="statements-btn statements-btn--indigo"
+          >
+            Complete Example
+          </button>
         </div>
       </div>
 
       {output && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">Output</h3>
-          <pre className="bg-gray-50 p-4 rounded overflow-x-auto text-sm font-mono whitespace-pre-wrap">
-            {output}
-          </pre>
+        <div className="statements-panel">
+          <h3>Output</h3>
+          <pre className="statements-output">{output}</pre>
         </div>
       )}
 
       {results.length > 0 && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">Results Table</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+        <div className="statements-panel">
+          <h3>Results Table</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="statements-table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Metric
-                  </th>
+                  <th>Metric</th>
                   {results[0] &&
                     Object.keys(results[0].periods).map((period) => (
-                      <th
-                        key={period}
-                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        {period}
-                      </th>
+                      <th key={period}>{period}</th>
                     ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {results.map((result) => (
                   <tr key={result.nodeId}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {result.nodeId}
-                    </td>
+                    <td>{result.nodeId}</td>
                     {Object.entries(result.periods).map(([period, value]) => (
-                      <td
-                        key={period}
-                        className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500"
-                      >
+                      <td key={period}>
                         {result.nodeId.includes('margin')
                           ? `${(value * 100).toFixed(1)}%`
                           : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
@@ -563,9 +547,9 @@ export default function StatementsModeling() {
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-2 text-blue-900">Features Demonstrated</h3>
-        <ul className="space-y-2 text-blue-800">
+      <div className="statements-features">
+        <h3>Features Demonstrated</h3>
+        <ul>
           <li>
             ✓ <strong>Builder Pattern:</strong> Fluent API for model construction
           </li>

@@ -136,7 +136,6 @@ export const CalibrationExample: React.FC = () => {
             const [curve, report] = calibratorWithConfig.calibrate(quotes, null) as any;
             const market = new MarketContext();
             market.insertDiscount(curve);
-            const stats = market.stats();
 
             if (!cancelled) {
               allResults.push({

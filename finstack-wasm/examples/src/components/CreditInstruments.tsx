@@ -16,6 +16,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { CreditInstrumentsProps, DEFAULT_CREDIT_PROPS } from './data/credit';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -30,7 +31,22 @@ type InstrumentRow = {
   keyMetric?: { name: string; value: number };
 };
 
-export const CreditInstrumentsExample: React.FC = () => {
+export const CreditInstrumentsExample: React.FC<CreditInstrumentsProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_CREDIT_PROPS.valuationDate!,
+    discountCurve = DEFAULT_CREDIT_PROPS.discountCurve!,
+    hazardCurves = DEFAULT_CREDIT_PROPS.hazardCurves!,
+    baseCorrelation = DEFAULT_CREDIT_PROPS.baseCorrelation!,
+    cdsVolSurface = DEFAULT_CREDIT_PROPS.cdsVolSurface!,
+    creditIndexData = DEFAULT_CREDIT_PROPS.creditIndexData!,
+    cdsSwaps = DEFAULT_CREDIT_PROPS.cdsSwaps!,
+    cdsIndices = DEFAULT_CREDIT_PROPS.cdsIndices!,
+    cdsTranches = DEFAULT_CREDIT_PROPS.cdsTranches!,
+    cdsOptions = DEFAULT_CREDIT_PROPS.cdsOptions!,
+    revolvingCredits = DEFAULT_CREDIT_PROPS.revolvingCredits!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,323 +54,297 @@ export const CreditInstrumentsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build market
-        const discountCurve = new DiscountCurve(
-          'USD-OIS',
-          asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.998, 0.996, 0.985, 0.96]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+        // Build discount curve from props
+        const curveBaseDate = new FsDate(
+          discountCurve.baseDate.year,
+          discountCurve.baseDate.month,
+          discountCurve.baseDate.day
         );
-
-        const acmeHazard = new HazardCurve(
-          'ACME-HZD',
-          asOf,
-          new Float64Array([0.0, 3.0, 5.0]),
-          new Float64Array([0.012, 0.018, 0.022]),
-          0.4,
-          'act_365f',
-          null,
-          null,
-          null,
-          null,
-          null
-        );
-
-        const indexHazard = new HazardCurve(
-          'CDX-IG-HZD',
-          asOf,
-          new Float64Array([0.0, 3.0, 5.0, 7.0]),
-          new Float64Array([0.01, 0.016, 0.019, 0.021]),
-          0.4,
-          'act_365f',
-          null,
-          null,
-          null,
-          null,
-          null
-        );
-
-        const baseCorr = new BaseCorrelationCurve(
-          'CDX-IG-BC',
-          new Float64Array([0.03, 0.06, 0.1, 0.3, 0.7, 1.0]),
-          new Float64Array([0.1, 0.12, 0.15, 0.2, 0.23, 0.25])
-        );
-
-        const indexData = new CreditIndexData(125, 0.4, indexHazard, baseCorr, null, null);
-
-        // Add CDS volatility surface for options (flattened grid: row-major order)
-        const cdsVol = new VolSurface(
-          'CDS-VOL',
-          new Float64Array([0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([0.01, 0.02, 0.04]),
-          new Float64Array([0.45, 0.4, 0.35, 0.42, 0.38, 0.33, 0.38, 0.35, 0.3, 0.35, 0.32, 0.28])
+        const discCurve = new DiscountCurve(
+          discountCurve.id,
+          curveBaseDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
         const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertHazard(acmeHazard);
-        market.insertHazard(indexHazard);
-        market.insertCreditIndex('CDX.NA.IG', indexData);
+        market.insertDiscount(discCurve);
+
+        // Build hazard curves from props
+        const hazardCurveMap = new Map<string, HazardCurve>();
+        for (const hzData of hazardCurves) {
+          const hzBaseDate = new FsDate(hzData.baseDate.year, hzData.baseDate.month, hzData.baseDate.day);
+          const hzCurve = new HazardCurve(
+            hzData.id,
+            hzBaseDate,
+            new Float64Array(hzData.tenors),
+            new Float64Array(hzData.hazardRates),
+            hzData.recoveryRate,
+            hzData.dayCount,
+            null,
+            null,
+            null,
+            null,
+            null
+          );
+          market.insertHazard(hzCurve);
+          hazardCurveMap.set(hzData.id, hzCurve);
+        }
+
+        // Build base correlation curve
+        const baseCorr = new BaseCorrelationCurve(
+          baseCorrelation.id,
+          new Float64Array(baseCorrelation.attachmentPoints),
+          new Float64Array(baseCorrelation.correlations)
+        );
+
+        // Build credit index data
+        const indexHazard = hazardCurveMap.get(creditIndexData.hazardCurveId);
+        if (indexHazard) {
+          const indexData = new CreditIndexData(
+            creditIndexData.constituents,
+            creditIndexData.recoveryRate,
+            indexHazard,
+            baseCorr,
+            null,
+            null
+          );
+          market.insertCreditIndex(creditIndexData.indexFamily, indexData);
+        }
+
+        // Build CDS volatility surface
+        const cdsVol = new VolSurface(
+          cdsVolSurface.id,
+          new Float64Array(cdsVolSurface.expiries),
+          new Float64Array(cdsVolSurface.strikes),
+          new Float64Array(cdsVolSurface.vols)
+        );
         market.insertSurface(cdsVol);
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Credit Default Swap
-        const cds = CreditDefaultSwap.buyProtection(
-          'acme_cds',
-          Money.fromCode(10_000_000, 'USD'),
-          120.0,
-          new FsDate(2024, 1, 3),
-          new FsDate(2029, 1, 2),
-          'USD-OIS',
-          'ACME-HZD',
-          null
-        );
-        const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
-        try {
-          const cdsResult = registry.priceCreditDefaultSwap(
-            cds,
-            'discounting',
-            market,
-            asOf,
-            cdsOpts
-          );
-          results.push({
-            name: 'ACME 5Y CDS',
-            type: 'CreditDefaultSwap',
-            presentValue: cdsResult.presentValue.amount,
-            keyMetric: {
-              name: 'Par Spread',
-              // Check if already in bps or decimal - if > 10, assume already in bps
-              value: (() => {
-                const raw = cdsResult.metric('par_spread') ?? 0;
-                return Math.abs(raw) > 10 ? raw : raw * 10000;
-              })(),
-            },
-          });
-        } catch (err) {
-          console.warn('CDS pricing failed, skipping', err);
-        }
+        // Process CDS Swaps
+        for (const cdsData of cdsSwaps) {
+          const notional = Money.fromCode(cdsData.notional.amount, cdsData.notional.currency);
+          const effectiveDate = new FsDate(cdsData.effectiveDate.year, cdsData.effectiveDate.month, cdsData.effectiveDate.day);
+          const maturityDate = new FsDate(cdsData.maturityDate.year, cdsData.maturityDate.month, cdsData.maturityDate.day);
 
-        // CDS Index
-        const index = new CDSIndex(
-          'cdx_trad',
-          'CDX.NA.IG',
-          42,
-          1,
-          Money.fromCode(25_000_000, 'USD'),
-          100.0,
-          new FsDate(2024, 1, 3),
-          new FsDate(2029, 1, 2),
-          'USD-OIS',
-          'CDX-IG-HZD',
-          'pay_protection',
-          0.4,
-          null
-        );
-        const indexOpts = new PricingRequest().withMetrics(['par_spread']);
-        try {
-          const indexResult = registry.priceCDSIndex(
-            index,
-            'discounting',
-            market,
-            asOf,
-            indexOpts
-          );
-          results.push({
-            name: 'CDX.NA.IG S42 V1',
-            type: 'CDSIndex',
-            presentValue: indexResult.presentValue.amount,
-            keyMetric: {
-              name: 'Par Spread',
-              // Check if already in bps or decimal - if > 10, assume already in bps
-              value: (() => {
-                const raw = indexResult.metric('par_spread') ?? 0;
-                return Math.abs(raw) > 10 ? raw : raw * 10000;
-              })(),
-            },
-          });
-        } catch (err) {
-          console.warn('CDS index pricing failed, skipping', err);
-        }
+          const cds = cdsData.direction === 'buy_protection'
+            ? CreditDefaultSwap.buyProtection(
+                cdsData.id,
+                notional,
+                cdsData.spreadBps,
+                effectiveDate,
+                maturityDate,
+                cdsData.discountCurveId,
+                cdsData.hazardCurveId,
+                null
+              )
+            : CreditDefaultSwap.sellProtection(
+                cdsData.id,
+                notional,
+                cdsData.spreadBps,
+                effectiveDate,
+                maturityDate,
+                cdsData.discountCurveId,
+                cdsData.hazardCurveId,
+                null
+              );
 
-        // CDS Tranche
-        try {
-          const tranche = new CdsTranche(
-            'cdx_mez_tranche',
-            'CDX.NA.IG',
-            42,
-            3.0,
-            7.0,
-            Money.fromCode(10_000_000, 'USD'),
-            new FsDate(2029, 1, 2),
-            500.0,
-            'USD-OIS',
-            'CDX-IG-HZD',
-            'buy_protection',
-            4,
-            null
-          );
-          const trancheResult = registry.priceCdsTranche(
-            tranche,
-            'discounting',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'CDX Mezzanine (3-7%)',
-            type: 'CdsTranche',
-            presentValue: trancheResult.presentValue.amount,
-          });
-        } catch (err) {
-          console.warn('CDS tranche pricing failed, skipping', err);
-        }
-
-        // CDS Option
-        try {
-          const option = new CdsOption(
-            'acme_cdsopt',
-            Money.fromCode(5_000_000, 'USD'),
-            150.0,
-            new FsDate(2025, 1, 2),
-            new FsDate(2029, 1, 2),
-            'USD-OIS',
-            'ACME-HZD',
-            'CDS-VOL',
-            'call',
-            0.4,
-            false,
-            null
-          );
-          const optionResult = registry.priceCdsOption(option, 'discounting', market, asOf, null);
-          results.push({
-            name: 'CDS Option @ 150bp',
-            type: 'CdsOption',
-            presentValue: optionResult.presentValue.amount,
-          });
-        } catch (err) {
-          console.warn('CDS option pricing failed, skipping', err);
-        }
-
-        // Revolving Credit Facility - Deterministic
-        try {
-          const revolvingCreditDetJson = JSON.stringify({
-          id: 'rc_facility_det',
-          commitment_amount: { amount: 10_000_000.0, currency: 'USD' },
-          drawn_amount: { amount: 5_000_000.0, currency: 'USD' },
-          commitment_date: '2024-01-02',
-          maturity_date: '2026-01-02',
-          base_rate_spec: {
-            Fixed: { rate: 0.05 },
-          },
-          day_count: 'act360',
-          payment_frequency: { Months: 3 },
-          fees: {
-            upfront_fee: { amount: 50_000.0, currency: 'USD' },
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 10.0,
-            facility_fee_bp: 5.0,
-          },
-          draw_repay_spec: {
-            Deterministic: [
-              {
-                date: '2024-07-01',
-                amount: { amount: 2_000_000.0, currency: 'USD' },
-                is_draw: true,
+          const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
+          try {
+            const cdsResult = registry.priceCreditDefaultSwap(
+              cds,
+              'discounting',
+              market,
+              asOf,
+              cdsOpts
+            );
+            const tenorYears = cdsData.maturityDate.year - cdsData.effectiveDate.year;
+            results.push({
+              name: `${tenorYears}Y CDS`,
+              type: 'CreditDefaultSwap',
+              presentValue: cdsResult.presentValue.amount,
+              keyMetric: {
+                name: 'Par Spread',
+                value: (() => {
+                  const raw = cdsResult.metric('par_spread') ?? 0;
+                  return Math.abs(raw) > 10 ? raw : raw * 10000;
+                })(),
               },
-              {
-                date: '2025-01-01',
-                amount: { amount: 1_000_000.0, currency: 'USD' },
-                is_draw: false,
-              },
-            ],
-          },
-          disc_id: 'USD-OIS',
-          attributes: { tags: [], meta: {} },
-          });
-          const revolvingCreditDet = RevolvingCredit.fromJson(revolvingCreditDetJson);
-          const rcDetResult = registry.priceRevolvingCredit(
-            revolvingCreditDet,
-            'discounting',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Revolving Credit (Deterministic)',
-            type: 'RevolvingCredit',
-            presentValue: rcDetResult.presentValue.amount,
-            keyMetric: {
-              name: 'Utilization',
-              value: (5_000_000 / 10_000_000) * 100, // Initial utilization %
-            },
-          });
-        } catch (err) {
-          console.warn('Revolving credit deterministic failed, skipping', err);
+            });
+          } catch (err) {
+            console.warn('CDS pricing failed, skipping', err);
+          }
         }
 
-        // Revolving Credit Facility - Stochastic (Monte Carlo)
-        try {
-          const revolvingCreditStochJson = JSON.stringify({
-            id: 'rc_facility_stoch',
-            commitment_amount: { amount: 10_000_000.0, currency: 'USD' },
-            drawn_amount: { amount: 4_000_000.0, currency: 'USD' },
-            commitment_date: '2024-01-02',
-            maturity_date: '2026-01-02',
-            base_rate_spec: {
-              Fixed: { rate: 0.055 },
-            },
-            day_count: 'act360',
-            payment_frequency: { Months: 3 },
-            fees: {
-              upfront_fee: null,
-              commitment_fee_bp: 30.0,
-              usage_fee_bp: 15.0,
-              facility_fee_bp: 10.0,
-            },
-            draw_repay_spec: {
-              Stochastic: {
-                utilization_process: {
-                  MeanReverting: {
-                    target_rate: 0.6, // Target 60% utilization
-                    speed: 2.0, // Mean reversion speed
-                    volatility: 0.15, // 15% volatility
-                  },
-                },
-                num_paths: 1000,
-                seed: 42,
-              },
-            },
-            disc_id: 'USD-OIS',
-            attributes: { tags: [], meta: {} },
-          });
-          const revolvingCreditStoch = RevolvingCredit.fromJson(revolvingCreditStochJson);
-          const rcStochResult = registry.priceRevolvingCredit(
-            revolvingCreditStoch,
-            'monte_carlo_gbm',
-            market,
-            asOf,
+        // Process CDS Indices
+        for (const indexInstrData of cdsIndices) {
+          const notional = Money.fromCode(indexInstrData.notional.amount, indexInstrData.notional.currency);
+          const effectiveDate = new FsDate(indexInstrData.effectiveDate.year, indexInstrData.effectiveDate.month, indexInstrData.effectiveDate.day);
+          const maturityDate = new FsDate(indexInstrData.maturityDate.year, indexInstrData.maturityDate.month, indexInstrData.maturityDate.day);
+
+          const index = new CDSIndex(
+            indexInstrData.id,
+            indexInstrData.indexFamily,
+            indexInstrData.series,
+            indexInstrData.version,
+            notional,
+            indexInstrData.spreadBps,
+            effectiveDate,
+            maturityDate,
+            indexInstrData.discountCurveId,
+            indexInstrData.hazardCurveId,
+            indexInstrData.direction,
+            indexInstrData.recoveryRate,
             null
           );
-          results.push({
-            name: 'Revolving Credit (Stochastic MC)',
-            type: 'RevolvingCredit',
-            presentValue: rcStochResult.presentValue.amount,
-            keyMetric: {
-              name: 'Initial Util',
-              value: (4_000_000 / 10_000_000) * 100, // Initial utilization %
-            },
-          });
-        } catch (err) {
-          console.warn('Revolving credit stochastic failed, skipping', err);
+          const indexOpts = new PricingRequest().withMetrics(['par_spread']);
+          try {
+            const indexResult = registry.priceCDSIndex(
+              index,
+              'discounting',
+              market,
+              asOf,
+              indexOpts
+            );
+            results.push({
+              name: `${indexInstrData.indexFamily} S${indexInstrData.series} V${indexInstrData.version}`,
+              type: 'CDSIndex',
+              presentValue: indexResult.presentValue.amount,
+              keyMetric: {
+                name: 'Par Spread',
+                value: (() => {
+                  const raw = indexResult.metric('par_spread') ?? 0;
+                  return Math.abs(raw) > 10 ? raw : raw * 10000;
+                })(),
+              },
+            });
+          } catch (err) {
+            console.warn('CDS index pricing failed, skipping', err);
+          }
+        }
+
+        // Process CDS Tranches
+        for (const trancheData of cdsTranches) {
+          const notional = Money.fromCode(trancheData.notional.amount, trancheData.notional.currency);
+          const maturityDate = new FsDate(trancheData.maturityDate.year, trancheData.maturityDate.month, trancheData.maturityDate.day);
+
+          try {
+            const tranche = new CdsTranche(
+              trancheData.id,
+              trancheData.indexFamily,
+              trancheData.series,
+              trancheData.attachmentPoint,
+              trancheData.detachmentPoint,
+              notional,
+              maturityDate,
+              trancheData.spreadBps,
+              trancheData.discountCurveId,
+              trancheData.hazardCurveId,
+              trancheData.direction,
+              trancheData.frequency,
+              null
+            );
+            const trancheResult = registry.priceCdsTranche(
+              tranche,
+              'discounting',
+              market,
+              asOf,
+              null
+            );
+            results.push({
+              name: `CDX Mezzanine (${trancheData.attachmentPoint}-${trancheData.detachmentPoint}%)`,
+              type: 'CdsTranche',
+              presentValue: trancheResult.presentValue.amount,
+            });
+          } catch (err) {
+            console.warn('CDS tranche pricing failed, skipping', err);
+          }
+        }
+
+        // Process CDS Options
+        for (const optionData of cdsOptions) {
+          const notional = Money.fromCode(optionData.notional.amount, optionData.notional.currency);
+          const expiryDate = new FsDate(optionData.expiryDate.year, optionData.expiryDate.month, optionData.expiryDate.day);
+          const underlyingMaturity = new FsDate(optionData.underlyingMaturity.year, optionData.underlyingMaturity.month, optionData.underlyingMaturity.day);
+
+          try {
+            const option = new CdsOption(
+              optionData.id,
+              notional,
+              optionData.strikeBps,
+              expiryDate,
+              underlyingMaturity,
+              optionData.discountCurveId,
+              optionData.hazardCurveId,
+              optionData.volSurfaceId,
+              optionData.optionType,
+              optionData.recoveryRate,
+              optionData.knockedOut,
+              null
+            );
+            const optionResult = registry.priceCdsOption(option, 'discounting', market, asOf, null);
+            results.push({
+              name: `CDS Option @ ${optionData.strikeBps}bp`,
+              type: 'CdsOption',
+              presentValue: optionResult.presentValue.amount,
+            });
+          } catch (err) {
+            console.warn('CDS option pricing failed, skipping', err);
+          }
+        }
+
+        // Process Revolving Credits
+        for (const rcData of revolvingCredits) {
+          try {
+            const revolvingCreditJson = JSON.stringify({
+              id: rcData.id,
+              commitment_amount: { amount: rcData.commitmentAmount.amount, currency: rcData.commitmentAmount.currency },
+              drawn_amount: { amount: rcData.drawnAmount.amount, currency: rcData.drawnAmount.currency },
+              commitment_date: rcData.commitmentDate,
+              maturity_date: rcData.maturityDate,
+              base_rate_spec: rcData.baseRateSpec,
+              day_count: rcData.dayCount,
+              payment_frequency: rcData.paymentFrequency,
+              fees: {
+                upfront_fee: rcData.fees.upfrontFee,
+                commitment_fee_bp: rcData.fees.commitmentFeeBp,
+                usage_fee_bp: rcData.fees.usageFeeBp,
+                facility_fee_bp: rcData.fees.facilityFeeBp,
+              },
+              draw_repay_spec: rcData.drawRepaySpec,
+              disc_id: rcData.discountCurveId,
+              attributes: { tags: [], meta: {} },
+            });
+            const revolvingCredit = RevolvingCredit.fromJson(revolvingCreditJson);
+            const rcResult = registry.priceRevolvingCredit(
+              revolvingCredit,
+              'discounting',
+              market,
+              asOf,
+              null
+            );
+            const utilization = (rcData.drawnAmount.amount / rcData.commitmentAmount.amount) * 100;
+            results.push({
+              name: 'Revolving Credit (Deterministic)',
+              type: 'RevolvingCredit',
+              presentValue: rcResult.presentValue.amount,
+              keyMetric: {
+                name: 'Utilization',
+                value: utilization,
+              },
+            });
+          } catch (err) {
+            console.warn('Revolving credit failed, skipping', err);
+          }
         }
 
         if (!cancelled) {
@@ -374,7 +364,7 @@ export const CreditInstrumentsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, discountCurve, hazardCurves, baseCorrelation, cdsVolSurface, creditIndexData, cdsSwaps, cdsIndices, cdsTranches, cdsOptions, revolvingCredits]);
 
   if (error) {
     return <p className="error">{error}</p>;

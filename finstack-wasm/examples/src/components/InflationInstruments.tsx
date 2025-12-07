@@ -9,6 +9,7 @@ import {
   Money,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { InflationInstrumentsProps, DEFAULT_INFLATION_PROPS } from './data/inflation';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -23,7 +24,16 @@ type InstrumentRow = {
   keyMetric?: { name: string; value: string };
 };
 
-export const InflationInstrumentsExample: React.FC = () => {
+export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_INFLATION_PROPS.valuationDate!,
+    discountCurve = DEFAULT_INFLATION_PROPS.discountCurve!,
+    inflationCurve = DEFAULT_INFLATION_PROPS.inflationCurve!,
+    bonds = DEFAULT_INFLATION_PROPS.bonds!,
+    swaps = DEFAULT_INFLATION_PROPS.swaps!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,77 +41,101 @@ export const InflationInstrumentsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build market
-        const discountCurve = new DiscountCurve(
-          'USD-OIS',
-          asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.998, 0.996, 0.982, 0.96]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+        // Build discount curve from props
+        const curveBaseDate = new FsDate(
+          discountCurve.baseDate.year,
+          discountCurve.baseDate.month,
+          discountCurve.baseDate.day
+        );
+        const curve = new DiscountCurve(
+          discountCurve.id,
+          curveBaseDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
-        const inflationCurve = new InflationCurve(
-          'US-CPI',
-          300.0,
-          new Float64Array([0.0, 1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([300.0, 303.0, 306.5, 320.0, 345.0]),
-          'log_linear'
+        // Build inflation curve from props
+        const infCurve = new InflationCurve(
+          inflationCurve.id,
+          inflationCurve.baseIndex,
+          new Float64Array(inflationCurve.tenors),
+          new Float64Array(inflationCurve.indexLevels),
+          inflationCurve.interpolation
         );
 
         const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertInflation(inflationCurve);
+        market.insertDiscount(curve);
+        market.insertInflation(infCurve);
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Inflation-Linked Bond (TIPS)
-        const ilb = new InflationLinkedBond(
-          'tips_2033',
-          Money.fromCode(1_000_000, 'USD'),
-          0.0125,
-          asOf,
-          new FsDate(2034, 1, 15),
-          300.0,
-          'USD-OIS',
-          'US-CPI',
-          'tips',
-          'semi_annual',
-          null,
-          null
-        );
-        const ilbResult = registry.priceInflationLinkedBond(ilb, 'discounting', market, asOf);
-        results.push({
-          name: 'US TIPS 2034',
-          type: 'InflationLinkedBond',
-          presentValue: ilbResult.presentValue.amount,
-          keyMetric: { name: 'Real Coupon', value: '1.25%' },
-        });
+        // Process inflation-linked bonds
+        for (const bond of bonds) {
+          const issueDate = new FsDate(bond.issueDate.year, bond.issueDate.month, bond.issueDate.day);
+          const maturityDate = new FsDate(
+            bond.maturityDate.year,
+            bond.maturityDate.month,
+            bond.maturityDate.day
+          );
+          const notional = Money.fromCode(bond.notional.amount, bond.notional.currency);
 
-        // Inflation Swap
-        const infSwap = new InflationSwap(
-          'zc_inflation_swap',
-          Money.fromCode(5_000_000, 'USD'),
-          0.025,
-          asOf,
-          new FsDate(2030, 1, 2),
-          'USD-OIS',
-          'US-CPI',
-          'pay_fixed',
-          'act_act'
-        );
-        const swapResult = registry.priceInflationSwap(infSwap, 'discounting', market, asOf);
-        results.push({
-          name: 'ZC Inflation Swap (6Y)',
-          type: 'InflationSwap',
-          presentValue: swapResult.presentValue.amount,
-          keyMetric: { name: 'Fixed Rate', value: '2.50%' },
-        });
+          const ilb = new InflationLinkedBond(
+            bond.id,
+            notional,
+            bond.realCoupon,
+            issueDate,
+            maturityDate,
+            bond.baseIndex,
+            bond.discountCurveId,
+            bond.inflationCurveId,
+            bond.bondType,
+            bond.frequency,
+            null,
+            null
+          );
+          const ilbResult = registry.priceInflationLinkedBond(ilb, 'discounting', market, asOf);
+          results.push({
+            name: `US TIPS ${bond.maturityDate.year}`,
+            type: 'InflationLinkedBond',
+            presentValue: ilbResult.presentValue.amount,
+            keyMetric: { name: 'Real Coupon', value: `${(bond.realCoupon * 100).toFixed(2)}%` },
+          });
+        }
+
+        // Process inflation swaps
+        for (const swap of swaps) {
+          const startDate = new FsDate(swap.startDate.year, swap.startDate.month, swap.startDate.day);
+          const endDate = new FsDate(swap.endDate.year, swap.endDate.month, swap.endDate.day);
+          const notional = Money.fromCode(swap.notional.amount, swap.notional.currency);
+
+          const tenorYears = swap.endDate.year - swap.startDate.year;
+
+          const infSwap = new InflationSwap(
+            swap.id,
+            notional,
+            swap.fixedRate,
+            startDate,
+            endDate,
+            swap.discountCurveId,
+            swap.inflationCurveId,
+            swap.direction,
+            swap.dayCount
+          );
+          const swapResult = registry.priceInflationSwap(infSwap, 'discounting', market, asOf);
+          results.push({
+            name: `ZC Inflation Swap (${tenorYears}Y)`,
+            type: 'InflationSwap',
+            presentValue: swapResult.presentValue.amount,
+            keyMetric: { name: 'Fixed Rate', value: `${(swap.fixedRate * 100).toFixed(2)}%` },
+          });
+        }
 
         if (!cancelled) {
           setRows(results);
@@ -116,7 +150,7 @@ export const InflationInstrumentsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, discountCurve, inflationCurve, bonds, swaps]);
 
   if (error) {
     return <p className="error">{error}</p>;

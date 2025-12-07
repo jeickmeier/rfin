@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CashFlow, Money, FsDate } from 'finstack-wasm';
+import { CashflowBasicsProps, DEFAULT_CASHFLOW_PROPS } from './data/cashflows';
 
 interface CashflowRow {
   label: string;
@@ -37,38 +38,46 @@ const asDisplayMoney = (money: Money): string => money.format();
 
 const asAccrual = (value: number): string => `${value.toFixed(4)}`;
 
-export const CashflowBasicsExample: React.FC = () => {
+export const CashflowBasicsExample: React.FC<CashflowBasicsProps> = (props) => {
+  // Merge with defaults
+  const { cashflows = DEFAULT_CASHFLOW_PROPS.cashflows! } = props;
+
   const [state, setState] = useState<CashflowState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const computeState = () => {
       try {
-        const usdFixedDate = new FsDate(2025, 3, 15);
-        const usdFloatPay = new FsDate(2025, 6, 15);
-        const usdResetDate = new FsDate(2025, 3, 15);
-        const feeDate = new FsDate(2025, 1, 15);
-        const principalDate = new FsDate(2030, 3, 15);
+        // Build cashflows from props
+        const flows: Array<{ label: string; flow: CashFlow }> = [];
 
-        const fixed = CashFlow.fixed(usdFixedDate, Money.fromCode(12_500.0, 'USD'), 0.25);
-        const floating = CashFlow.floating(
-          usdFloatPay,
-          Money.fromCode(13_750.0, 'USD'),
-          usdResetDate,
-          0.25
-        );
-        const fee = CashFlow.fee(feeDate, Money.fromCode(150_000.0, 'USD'));
-        const principal = CashFlow.principalExchange(
-          principalDate,
-          Money.fromCode(-5_000_000.0, 'USD')
-        );
+        for (const cfData of cashflows) {
+          const date = new FsDate(cfData.date.year, cfData.date.month, cfData.date.day);
+          const money = Money.fromCode(cfData.amount.amount, cfData.amount.currency);
 
-        const flows = [
-          { label: 'Fixed coupon', flow: fixed },
-          { label: 'Floating coupon', flow: floating },
-          { label: 'Up-front fee', flow: fee },
-          { label: 'Principal exchange', flow: principal },
-        ];
+          let flow: CashFlow;
+          switch (cfData.type) {
+            case 'fixed':
+              flow = CashFlow.fixed(date, money, cfData.accrualFactor ?? 0.25);
+              break;
+            case 'floating':
+              const resetDate = cfData.resetDate
+                ? new FsDate(cfData.resetDate.year, cfData.resetDate.month, cfData.resetDate.day)
+                : date;
+              flow = CashFlow.floating(date, money, resetDate, cfData.accrualFactor ?? 0.25);
+              break;
+            case 'fee':
+              flow = CashFlow.fee(date, money);
+              break;
+            case 'principalExchange':
+              flow = CashFlow.principalExchange(date, money);
+              break;
+            default:
+              throw new Error(`Unknown cashflow type: ${cfData.type}`);
+          }
+
+          flows.push({ label: cfData.label, flow });
+        }
 
         const rows: CashflowRow[] = flows.map(({ label, flow }) => ({
           label,
@@ -79,7 +88,9 @@ export const CashflowBasicsExample: React.FC = () => {
           resetDate: flow.resetDate ? toIso(flow.resetDate) : null,
         }));
 
-        const tupleView = fixed.toTuple();
+        // Get tuple view from first fixed cashflow
+        const firstFixed = flows.find((f) => f.flow.kind.name === 'Fixed');
+        const tupleView = firstFixed ? firstFixed.flow.toTuple() : flows[0].flow.toTuple();
         const tuple: CashflowTupleView = {
           date: toIso(tupleView[0]),
           amount: asDisplayMoney(tupleView[1]),
@@ -117,12 +128,12 @@ export const CashflowBasicsExample: React.FC = () => {
       }
     };
 
-    const state = computeState();
-    if (state) {
+    const computedState = computeState();
+    if (computedState) {
       // Use setTimeout to avoid synchronous setState in effect
-      setTimeout(() => setState(state), 0);
+      setTimeout(() => setState(computedState), 0);
     }
-  }, []);
+  }, [cashflows]);
 
   if (error) {
     return <p className="error">{error}</p>;

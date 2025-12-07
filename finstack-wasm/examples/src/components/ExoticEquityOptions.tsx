@@ -13,6 +13,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { ExoticEquityOptionsProps, DEFAULT_EXOTIC_EQUITY_PROPS } from './data/exotic-equity';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -28,7 +29,16 @@ type InstrumentRow = {
   details?: string;
 };
 
-export const ExoticEquityOptionsExample: React.FC = () => {
+export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (props) => {
+  const {
+    valuationDate = DEFAULT_EXOTIC_EQUITY_PROPS.valuationDate!,
+    market = DEFAULT_EXOTIC_EQUITY_PROPS.market!,
+    barrierOptions = DEFAULT_EXOTIC_EQUITY_PROPS.barrierOptions!,
+    asianOptions = DEFAULT_EXOTIC_EQUITY_PROPS.asianOptions!,
+    lookbackOptions = DEFAULT_EXOTIC_EQUITY_PROPS.lookbackOptions!,
+    cliquetOptions = DEFAULT_EXOTIC_EQUITY_PROPS.cliquetOptions!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,284 +46,229 @@ export const ExoticEquityOptionsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
+        // Build discount curve
         const discountCurve = new DiscountCurve(
-          'USD-OIS',
+          market.discountCurve.id,
           asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.997, 0.994, 0.9725, 0.948]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+          new Float64Array(market.discountCurve.tenors),
+          new Float64Array(market.discountCurve.discountFactors),
+          market.discountCurve.dayCount,
+          market.discountCurve.interpolation,
+          market.discountCurve.extrapolation,
+          market.discountCurve.continuous
         );
 
-        // Add equity market data (flattened grid: row-major order)
+        // Build vol surface
         const equityVol = new VolSurface(
-          'EQUITY-VOL',
-          new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([120.0, 140.0, 160.0, 180.0]),
-          new Float64Array([
-            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
-            0.22, 0.21,
-          ])
+          market.volSurface.id,
+          new Float64Array(market.volSurface.expiries),
+          new Float64Array(market.volSurface.strikes),
+          new Float64Array(market.volSurface.vols)
         );
 
-        const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertPrice('AAPL', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('AAPL-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('EQUITY-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('AAPL-DIVYIELD', MarketScalar.unitless(0.015));
-        market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(0.015));
-        market.insertSurface(equityVol);
+        // Build market context
+        const marketCtx = new MarketContext();
+        marketCtx.insertDiscount(discountCurve);
+        marketCtx.insertSurface(equityVol);
+
+        // Add spot prices
+        for (const spot of market.spotPrices) {
+          marketCtx.insertPrice(spot.id, MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency)));
+        }
+
+        // Add dividend yields
+        for (const divYield of market.divYields) {
+          marketCtx.insertPrice(divYield.id, MarketScalar.unitless(divYield.value));
+        }
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Barrier Options - Up-and-Out Call
-        try {
-          const barrierOption1 = new BarrierOption(
-            'barrier_up_out_call',
-            'AAPL',
-            150.0, // strike
-            180.0, // barrier
-            'call',
-            'up_and_out',
-            new FsDate(2024, 12, 31),
-            Money.fromCode(150.0, 'USD'),
-            'USD-OIS',
-            'AAPL-SPOT',
-            'EQUITY-VOL',
-            'AAPL-DIVYIELD', // dividend_yield_id
-            false // use_gobet_miri
-          );
-          const barrierOpts1 = new PricingRequest().withMetrics(['delta', 'gamma']);
-          const barrierResult1 = registry.priceBarrierOption(
-            barrierOption1,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            barrierOpts1
-          );
-          results.push({
-            name: 'Barrier Up-and-Out Call',
-            type: 'BarrierOption',
-            presentValue: barrierResult1.presentValue.amount,
-            keyMetric: { name: 'Delta', value: barrierResult1.metric('delta') ?? 0 },
-            details: 'Strike: $150, Barrier: $180',
-          });
-        } catch (barrierErr) {
-          console.error('Barrier option 1 error:', barrierErr);
-          // Skip this option if construction fails
+        // Process barrier options
+        for (const opt of barrierOptions) {
+          try {
+            const expiry = new FsDate(opt.expiry.year, opt.expiry.month, opt.expiry.day);
+            const barrierOption = new BarrierOption(
+              opt.id,
+              opt.underlyingTicker,
+              opt.strike,
+              opt.barrier,
+              opt.optionType,
+              opt.barrierType,
+              expiry,
+              Money.fromCode(opt.notional.amount, opt.notional.currency),
+              opt.discountCurveId,
+              opt.spotId,
+              opt.volId,
+              opt.divYieldId,
+              opt.useGobetMiri ?? false
+            );
+            const pricingOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
+            const result = registry.priceBarrierOption(
+              barrierOption,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              pricingOpts
+            );
+
+            const barrierTypeName = opt.barrierType.replace(/_/g, '-').replace(/and/g, '&');
+            results.push({
+              name: `Barrier ${barrierTypeName} ${opt.optionType.charAt(0).toUpperCase() + opt.optionType.slice(1)}`,
+              type: 'BarrierOption',
+              presentValue: result.presentValue.amount,
+              keyMetric: { name: 'Delta', value: result.metric('delta') ?? 0 },
+              details: `Strike: $${opt.strike}, Barrier: $${opt.barrier}`,
+            });
+          } catch (err) {
+            console.error(`Barrier option ${opt.id} error:`, err);
+          }
         }
 
-        // Barrier Options - Down-and-In Put
-        try {
-          const barrierOption2 = new BarrierOption(
-            'barrier_down_in_put',
-            'AAPL',
-            140.0, // strike
-            130.0, // barrier
-            'put',
-            'down_and_in',
-            new FsDate(2024, 12, 31),
-            Money.fromCode(140.0, 'USD'),
-            'USD-OIS',
-            'AAPL-SPOT',
-            'EQUITY-VOL',
-            'AAPL-DIVYIELD',
-            false
-          );
-          const barrierResult2 = registry.priceBarrierOption(
-            barrierOption2,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Barrier Down-and-In Put',
-            type: 'BarrierOption',
-            presentValue: barrierResult2.presentValue.amount,
-            details: 'Strike: $140, Barrier: $130',
-          });
-        } catch (barrierErr) {
-          console.error('Barrier option 2 error:', barrierErr);
-          // Skip this option if construction fails
+        // Process Asian options
+        for (const opt of asianOptions) {
+          try {
+            const expiry = new FsDate(opt.expiry.year, opt.expiry.month, opt.expiry.day);
+            const fixingDates = opt.fixingDates.map(
+              (d) =>
+                `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`
+            );
+
+            const asianOption = new AsianOption(
+              opt.id,
+              opt.underlyingTicker,
+              opt.strike,
+              expiry,
+              fixingDates,
+              Money.fromCode(opt.notional.amount, opt.notional.currency),
+              opt.discountCurveId,
+              opt.spotId,
+              opt.volId,
+              opt.averagingMethod,
+              opt.optionType,
+              opt.divYieldId
+            );
+            const result = registry.priceAsianOption(
+              asianOption,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              null
+            );
+
+            const avgMethod = opt.averagingMethod.charAt(0).toUpperCase() + opt.averagingMethod.slice(1);
+            results.push({
+              name: `Asian ${avgMethod} ${opt.optionType.charAt(0).toUpperCase() + opt.optionType.slice(1)}`,
+              type: 'AsianOption',
+              presentValue: result.presentValue.amount,
+              details: `Strike: $${opt.strike}, ${fixingDates.length} monthly fixings`,
+            });
+          } catch (err) {
+            console.error(`Asian option ${opt.id} error:`, err);
+          }
         }
 
-        // Asian Option - Arithmetic Average Call
-        const fixingDates: string[] = [];
-        for (let i = 1; i <= 12; i++) {
-          const date = new FsDate(2024, i, 15);
-          fixingDates.push(
-            `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
-          );
-        }
-        try {
-          const asianOption1 = new AsianOption(
-            'asian_arithmetic_call',
-            'AAPL',
-            150.0, // strike
-            new FsDate(2024, 12, 31),
-            fixingDates,
-            Money.fromCode(150.0, 'USD'),
-            'USD-OIS',
-            'AAPL-SPOT',
-            'EQUITY-VOL',
-            'arithmetic', // averaging_method
-            'call', // option_type
-            'AAPL-DIVYIELD'
-          );
-          const asianResult1 = registry.priceAsianOption(
-            asianOption1,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Asian Arithmetic Call',
-            type: 'AsianOption',
-            presentValue: asianResult1.presentValue.amount,
-            details: 'Strike: $150, 12 monthly fixings',
-          });
-        } catch (asianErr) {
-          console.error('Asian option 1 error:', asianErr);
-          // Skip this option if construction fails
+        // Process Lookback options
+        for (const opt of lookbackOptions) {
+          try {
+            const lookbackJson = JSON.stringify({
+              id: opt.id,
+              underlying_ticker: opt.underlying_ticker,
+              strike: { amount: opt.strike.amount, currency: opt.strike.currency },
+              expiry: opt.expiry,
+              lookback_type: opt.lookback_type,
+              option_type: opt.option_type,
+              notional: { amount: opt.notional.amount, currency: opt.notional.currency },
+              day_count: opt.day_count,
+              discount_curve_id: opt.discount_curve_id,
+              spot_id: opt.spot_id,
+              vol_id: opt.vol_id,
+              div_yield_id: opt.div_yield_id,
+              pricing_overrides: {
+                quoted_clean_price: null,
+                implied_volatility: null,
+                quoted_spread_bp: null,
+                upfront_payment: null,
+                ytm_bump_bp: null,
+                theta_period: null,
+                mc_seed_scenario: null,
+                adaptive_bumps: false,
+                spot_bump_pct: null,
+                vol_bump_pct: null,
+                rate_bump_bp: null,
+              },
+              attributes: { tags: [], meta: {} },
+            });
+            const lookbackOption = LookbackOption.fromJson(lookbackJson);
+            const result = registry.priceLookbackOption(
+              lookbackOption,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              null
+            );
+
+            results.push({
+              name: `Lookback ${opt.lookback_type.replace(/([A-Z])/g, ' $1').trim()} ${opt.option_type.charAt(0).toUpperCase() + opt.option_type.slice(1)}`,
+              type: 'LookbackOption',
+              presentValue: result.presentValue.amount,
+              details: `Strike: $${opt.strike.amount}`,
+            });
+          } catch (err) {
+            console.error(`Lookback option ${opt.id} error:`, err);
+          }
         }
 
-        // Asian Option - Geometric Average Put
-        try {
-          const asianOption2 = new AsianOption(
-            'asian_geometric_put',
-            'AAPL',
-            145.0,
-            new FsDate(2024, 12, 31),
-            fixingDates,
-            Money.fromCode(145.0, 'USD'),
-            'USD-OIS',
-            'AAPL-SPOT',
-            'EQUITY-VOL',
-            'geometric',
-            'put',
-            'AAPL-DIVYIELD'
-          );
-          const asianResult2 = registry.priceAsianOption(
-            asianOption2,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Asian Geometric Put',
-            type: 'AsianOption',
-            presentValue: asianResult2.presentValue.amount,
-            details: 'Strike: $145, 12 monthly fixings',
-          });
-        } catch (asianErr) {
-          console.error('Asian option 2 error:', asianErr);
-          // Skip this option if construction fails
-        }
+        // Process Cliquet options
+        for (const opt of cliquetOptions) {
+          try {
+            const cliquetJson = JSON.stringify({
+              id: opt.id,
+              underlying_ticker: opt.underlying_ticker,
+              reset_dates: opt.reset_dates,
+              local_cap: opt.local_cap,
+              global_cap: opt.global_cap,
+              notional: { amount: opt.notional.amount, currency: opt.notional.currency },
+              day_count: opt.day_count,
+              discount_curve_id: opt.discount_curve_id,
+              spot_id: opt.spot_id,
+              vol_id: opt.vol_id,
+              div_yield_id: opt.div_yield_id,
+              pricing_overrides: {
+                quoted_clean_price: null,
+                implied_volatility: null,
+                quoted_spread_bp: null,
+                upfront_payment: null,
+                ytm_bump_bp: null,
+                theta_period: null,
+                mc_seed_scenario: null,
+                adaptive_bumps: false,
+                spot_bump_pct: null,
+                vol_bump_pct: null,
+                rate_bump_bp: null,
+              },
+              attributes: { tags: [], meta: {} },
+            });
+            const cliquetOption = CliquetOption.fromJson(cliquetJson);
+            const result = registry.priceCliquetOption(
+              cliquetOption,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              null
+            );
 
-        // Lookback Option - Fixed Strike (uses JSON construction)
-        try {
-          const lookbackJson = JSON.stringify({
-            id: 'lookback_fixed_strike',
-            underlying_ticker: 'AAPL',
-            strike: { amount: 150.0, currency: 'USD' },
-            expiry: '2024-12-31',
-            lookback_type: 'FixedStrike',
-            option_type: 'call',
-            notional: { amount: 1.0, currency: 'USD' },
-            day_count: 'act_365f',
-            discount_curve_id: 'USD-OIS',
-            spot_id: 'AAPL-SPOT',
-            vol_id: 'EQUITY-VOL',
-            div_yield_id: 'AAPL-DIVYIELD',
-            pricing_overrides: {
-              quoted_clean_price: null,
-              implied_volatility: null,
-              quoted_spread_bp: null,
-              upfront_payment: null,
-              ytm_bump_bp: null,
-              theta_period: null,
-              mc_seed_scenario: null,
-              adaptive_bumps: false,
-              spot_bump_pct: null,
-              vol_bump_pct: null,
-              rate_bump_bp: null,
-            },
-            attributes: { tags: [], meta: {} },
-          });
-          const lookbackOption = LookbackOption.fromJson(lookbackJson);
-          const lookbackResult = registry.priceLookbackOption(
-            lookbackOption,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Lookback Fixed Strike Call',
-            type: 'LookbackOption',
-            presentValue: lookbackResult.presentValue.amount,
-            details: 'Strike: $150',
-          });
-        } catch (lookbackErr) {
-          console.error('Lookback option error:', lookbackErr);
-          // Skip this option if construction fails
-        }
-
-        // Cliquet Option (uses JSON construction)
-        try {
-          const cliquetJson = JSON.stringify({
-            id: 'cliquet_local_floor',
-            underlying_ticker: 'AAPL',
-            reset_dates: ['2024-04-01', '2024-07-01', '2024-10-01', '2024-12-31'],
-            local_cap: 0.15,
-            global_cap: 0.3,
-            notional: { amount: 1_000_000.0, currency: 'USD' },
-            day_count: 'act_365f',
-            discount_curve_id: 'USD-OIS',
-            spot_id: 'AAPL-SPOT',
-            vol_id: 'EQUITY-VOL',
-            div_yield_id: 'AAPL-DIVYIELD',
-            pricing_overrides: {
-              quoted_clean_price: null,
-              implied_volatility: null,
-              quoted_spread_bp: null,
-              upfront_payment: null,
-              ytm_bump_bp: null,
-              theta_period: null,
-              mc_seed_scenario: null,
-              adaptive_bumps: false,
-              spot_bump_pct: null,
-              vol_bump_pct: null,
-              rate_bump_bp: null,
-            },
-            attributes: { tags: [], meta: {} },
-          });
-          const cliquetOption = CliquetOption.fromJson(cliquetJson);
-          const cliquetResult = registry.priceCliquetOption(
-            cliquetOption,
-            'monte_carlo_gbm',
-            market,
-            asOf,
-            null
-          );
-          results.push({
-            name: 'Cliquet Option',
-            type: 'CliquetOption',
-            presentValue: cliquetResult.presentValue.amount,
-            details: 'Local cap: 15%, Global cap: 30%',
-          });
-        } catch (cliquetErr) {
-          console.error('Cliquet option error:', cliquetErr);
-          // Skip this option if construction fails
+            results.push({
+              name: 'Cliquet Option',
+              type: 'CliquetOption',
+              presentValue: result.presentValue.amount,
+              details: `Local cap: ${(opt.local_cap * 100).toFixed(0)}%, Global cap: ${(opt.global_cap * 100).toFixed(0)}%`,
+            });
+          } catch (err) {
+            console.error(`Cliquet option ${opt.id} error:`, err);
+          }
         }
 
         if (!cancelled) {
@@ -323,7 +278,7 @@ export const ExoticEquityOptionsExample: React.FC = () => {
         // Cleanup
         discountCurve.free();
         equityVol.free();
-        market.free();
+        marketCtx.free();
       } catch (err) {
         if (!cancelled) {
           console.error('Exotic equity options error:', err);
@@ -335,7 +290,7 @@ export const ExoticEquityOptionsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, market, barrierOptions, asianOptions, lookbackOptions, cliquetOptions]);
 
   if (error) {
     return <p className="error">{error}</p>;

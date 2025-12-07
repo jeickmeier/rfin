@@ -8,6 +8,10 @@ import {
   Money,
   createStandardRegistry,
 } from 'finstack-wasm';
+import {
+  DepositValuationProps,
+  DEFAULT_DEPOSIT_PROPS,
+} from './data/deposits';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -37,7 +41,14 @@ type DepositMetrics = {
   tenorDescription: string;
 };
 
-export const DepositValuationExample: React.FC = () => {
+export const DepositValuationExample: React.FC<DepositValuationProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_DEPOSIT_PROPS.valuationDate!,
+    deposit = DEFAULT_DEPOSIT_PROPS.deposit!,
+    discountCurve = DEFAULT_DEPOSIT_PROPS.discountCurve!,
+  } = props;
+
   const [metrics, setMetrics] = useState<DepositMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,50 +56,55 @@ export const DepositValuationExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const start = new FsDate(2024, 1, 15);
-        const end = new FsDate(2024, 4, 15);
-        const valuationDate = new FsDate(2024, 2, 15);
-        const quoteRate = 0.0525;
+        const start = new FsDate(deposit.startDate.year, deposit.startDate.month, deposit.startDate.day);
+        const end = new FsDate(deposit.endDate.year, deposit.endDate.month, deposit.endDate.day);
+        const valDate = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
+        const quoteRate = deposit.quoteRate;
 
         // Debug type checks to ensure FsDate instances are from the same WASM module
         console.debug(
           'FsDate checks (deposit)',
           start instanceof FsDate,
           end instanceof FsDate,
-          valuationDate instanceof FsDate
+          valDate instanceof FsDate
         );
 
-        // Set curve base date to start to avoid date range errors
-        const discountCurve = new DiscountCurve(
-          'USD-OIS',
-          start,
-          new Float64Array([0.0, 0.25, 0.5, 1.0]),
-          new Float64Array([1.0, 0.998, 0.9945, 0.9875]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+        // Build discount curve from props
+        const curveBaseDate = new FsDate(
+          discountCurve.baseDate.year,
+          discountCurve.baseDate.month,
+          discountCurve.baseDate.day
+        );
+        const curve = new DiscountCurve(
+          discountCurve.id,
+          curveBaseDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
         const market = new MarketContext();
-        market.insertDiscount(discountCurve);
+        market.insertDiscount(curve);
 
-        const notional = Money.fromCode(5_000_000, 'USD');
+        const notional = Money.fromCode(deposit.notional.amount, deposit.notional.currency);
 
-        const deposit = new Deposit(
-          'usd_deposit_3m',
+        const depositInst = new Deposit(
+          deposit.id,
           notional,
           start,
           end,
           DayCount.act360(),
-          'USD-OIS',
+          deposit.discountCurveId,
           quoteRate
         );
 
         const registry = createStandardRegistry();
         let result;
         try {
-          result = registry.priceDeposit(deposit, 'discounting', market, valuationDate, null);
+          result = registry.priceDeposit(depositInst, 'discounting', market, valDate, null);
         } catch (err) {
           console.error('priceDeposit failed', err);
           throw err;
@@ -102,8 +118,8 @@ export const DepositValuationExample: React.FC = () => {
         let accrualFraction = 0;
         let elapsed = 0;
         try {
-          accrualFraction = dayCount.yearFraction(start, end, undefined);
-          elapsed = dayCount.yearFraction(start, valuationDate, undefined);
+          accrualFraction = dayCount.yearFraction(start, end);
+          elapsed = dayCount.yearFraction(start, valDate);
         } catch (err) {
           console.error('yearFraction failed', err);
           throw err;
@@ -115,8 +131,8 @@ export const DepositValuationExample: React.FC = () => {
         let dfEnd = 0;
         let dfStart = 0;
         try {
-          dfEnd = discountCurve.dfOnDate(end, null);
-          dfStart = discountCurve.dfOnDate(start, null);
+          dfEnd = curve.dfOnDate(end, null);
+          dfStart = curve.dfOnDate(start, null);
         } catch (err) {
           console.error('dfOnDate failed', err);
           throw err;
@@ -148,7 +164,7 @@ export const DepositValuationExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, deposit, discountCurve]);
 
   if (error) {
     return <p className="error">{error}</p>;

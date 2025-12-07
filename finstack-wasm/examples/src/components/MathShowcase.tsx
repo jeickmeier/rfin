@@ -9,6 +9,7 @@ import {
   NewtonSolver,
   BrentSolver,
 } from 'finstack-wasm';
+import { MathShowcaseProps, DEFAULT_MATH_SHOWCASE_PROPS } from './data/math-showcase';
 
 interface IntegrationRow {
   label: string;
@@ -44,88 +45,135 @@ const formatNumber = (value: number): string => {
   return value.toFixed(10);
 };
 
-export const MathShowcaseExample: React.FC = () => {
+export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
+  const {
+    integrationExamples = DEFAULT_MATH_SHOWCASE_PROPS.integrationExamples!,
+    solverExamples = DEFAULT_MATH_SHOWCASE_PROPS.solverExamples!,
+    distributionExamples = DEFAULT_MATH_SHOWCASE_PROPS.distributionExamples!,
+  } = props;
+
   const [state, setState] = useState<MathShowcaseState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    let quad: GaussHermiteQuadrature | null = null;
-    let newton: NewtonSolver | null = null;
-    let brent: BrentSolver | null = null;
-    let brent2: BrentSolver | null = null;
+    const solversToFree: Array<NewtonSolver | BrentSolver | GaussHermiteQuadrature> = [];
 
     try {
-      quad = GaussHermiteQuadrature.order7();
-      const normalMoment = quad.integrate((x: number) => x * x);
-      const legendre = gaussLegendreIntegrate((x: number) => Math.cos(x), 0.0, Math.PI / 2.0, 8);
-      const adaptive = adaptiveSimpson(
-        (x: number) => Math.sin(10.0 * x) / (1.0 + x * x),
-        0.0,
-        1.0,
-        1e-8,
-        12
-      );
+      // Process integration examples
+      const integrals: IntegrationRow[] = [];
+      for (const example of integrationExamples) {
+        let value = 0;
 
-      newton = new NewtonSolver(1e-12, 50, 1e-8);
-      const sqrtTwo = newton.solve((x: number) => x * x - 2.0, 1.0);
+        switch (example.type) {
+          case 'gauss_hermite': {
+            const quad = GaussHermiteQuadrature.order7();
+            solversToFree.push(quad);
+            value = quad.integrate((x: number) => x * x);
+            break;
+          }
+          case 'gauss_legendre': {
+            value = gaussLegendreIntegrate(
+              (x: number) => Math.cos(x),
+              example.lowerBound ?? 0,
+              example.upperBound ?? Math.PI / 2,
+              example.order ?? 8
+            );
+            break;
+          }
+          case 'adaptive_simpson': {
+            value = adaptiveSimpson(
+              (x: number) => Math.sin(10 * x) / (1 + x * x),
+              example.lowerBound ?? 0,
+              example.upperBound ?? 1,
+              example.tolerance ?? 1e-8,
+              example.maxIterations ?? 12
+            );
+            break;
+          }
+        }
 
-      brent = new BrentSolver(1e-12, 100, 2.0, null);
-      const cosMinusX = brent.solve((x: number) => Math.cos(x) - x, 0.5);
+        integrals.push({
+          label: example.label,
+          value,
+          reference: example.reference,
+        });
+      }
 
-      brent2 = new BrentSolver(1e-12, 100, 2.0, null);
-      const cubicRoot = brent2.solve((x: number) => x * x * x - x - 1.0, 1.0);
+      // Process solver examples
+      const solvers: SolverRow[] = [];
+      for (const example of solverExamples) {
+        let root = 0;
 
-      const integrals: IntegrationRow[] = [
-        {
-          label: 'E[X²] under N(0,1) (Gauss-Hermite order 7)',
-          value: normalMoment,
-          reference: '≈ 1.0',
-        },
-        {
-          label: '∫₀^{π/2} cos(x) dx (Gauss-Legendre order 8)',
-          value: legendre,
-          reference: '= 1.0',
-        },
-        {
-          label: 'Adaptive Simpson ∫ sin(10x)/(1+x²) dx on [0,1]',
-          value: adaptive,
-          reference: '≈ 0.4363',
-        },
-      ];
+        switch (example.type) {
+          case 'newton': {
+            const newton = new NewtonSolver(
+              example.tolerance,
+              example.maxIterations,
+              1e-8 // derivative step
+            );
+            solversToFree.push(newton);
 
-      const solvers: SolverRow[] = [
-        {
-          label: 'Newton solve x² − 2 = 0',
-          root: sqrtTwo,
-          reference: '√2 ≈ 1.4142',
-        },
-        {
-          label: 'Brent solve cos(x) − x = 0',
-          root: cosMinusX,
-          reference: '≈ 0.7391',
-        },
-        {
-          label: 'Brent solve x³ − x − 1 = 0',
-          root: cubicRoot,
-          reference: '≈ 1.3247',
-        },
-      ];
+            // Determine which equation based on label
+            if (example.label.includes('x² − 2')) {
+              root = newton.solve((x: number) => x * x - 2, example.initialGuess);
+            }
+            break;
+          }
+          case 'brent': {
+            const brent = new BrentSolver(
+              example.tolerance,
+              example.maxIterations,
+              example.bracketSize ?? 2,
+              null
+            );
+            solversToFree.push(brent);
 
-      const distributions: DistributionRow[] = [
-        {
-          label: 'Binomial P(X=3; n=10, p=0.5)',
-          value: binomialProbability(10, 3, 0.5),
-        },
-        {
-          label: 'log C(5, 2)',
-          value: logBinomialCoefficient(5, 2),
-        },
-        {
-          label: 'log(10!)',
-          value: logFactorial(10),
-        },
-      ];
+            // Determine which equation based on label
+            if (example.label.includes('cos(x) − x')) {
+              root = brent.solve((x: number) => Math.cos(x) - x, example.initialGuess);
+            } else if (example.label.includes('x³ − x − 1')) {
+              root = brent.solve((x: number) => x * x * x - x - 1, example.initialGuess);
+            }
+            break;
+          }
+        }
+
+        solvers.push({
+          label: example.label,
+          root,
+          reference: example.reference,
+        });
+      }
+
+      // Process distribution examples
+      const distributions: DistributionRow[] = [];
+      for (const example of distributionExamples) {
+        let value = 0;
+
+        switch (example.type) {
+          case 'binomial_probability': {
+            const [n, k, p] = example.params;
+            value = binomialProbability(n, k, p);
+            break;
+          }
+          case 'log_binomial_coefficient': {
+            const [n, k] = example.params;
+            value = logBinomialCoefficient(n, k);
+            break;
+          }
+          case 'log_factorial': {
+            const [n] = example.params;
+            value = logFactorial(n);
+            break;
+          }
+        }
+
+        distributions.push({
+          label: example.label,
+          value,
+        });
+      }
 
       if (mounted) {
         setState({ integrals, solvers, distributions });
@@ -135,16 +183,16 @@ export const MathShowcaseExample: React.FC = () => {
         setError((err as Error).message);
       }
     } finally {
-      quad?.free();
-      newton?.free();
-      brent?.free();
-      brent2?.free();
+      // Free all solvers
+      for (const solver of solversToFree) {
+        solver.free();
+      }
     }
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [integrationExamples, solverExamples, distributionExamples]);
 
   if (error) {
     return <p className="error">{error}</p>;

@@ -11,6 +11,10 @@ import {
   FxConversionPolicy,
   FxMatrix,
 } from 'finstack-wasm';
+import {
+  MarketDataExampleProps,
+  DEFAULT_MARKET_DATA_EXAMPLE_PROPS,
+} from './data/market-data-example';
 
 type MarketSnapshot = {
   discountFactor: number;
@@ -19,7 +23,16 @@ type MarketSnapshot = {
   equitySpot: number;
 };
 
-export const MarketDataExample: React.FC = () => {
+export const MarketDataExample: React.FC<MarketDataExampleProps> = (props) => {
+  const {
+    baseDate = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.baseDate!,
+    discountCurve = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.discountCurve!,
+    cpiSeries = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.cpiSeries!,
+    fxQuote = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.fxQuote!,
+    equityPrice = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.equityPrice!,
+    cpiLookupDate = DEFAULT_MARKET_DATA_EXAMPLE_PROPS.cpiLookupDate!,
+  } = props;
+
   const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,40 +41,46 @@ export const MarketDataExample: React.FC = () => {
     (async () => {
       try {
         // Create currencies and base date
-        const usd = new Currency('USD');
-        const eur = new Currency('EUR');
-        const baseDate = new FsDate(2024, 1, 2);
+        const baseCurrency = new Currency(fxQuote.baseCurrency);
+        const quoteCurrency = new Currency(fxQuote.quoteCurrency);
+        const baseDateObj = new FsDate(baseDate.year, baseDate.month, baseDate.day);
 
         // Create discount curve
+        const curveBaseDate = new FsDate(
+          discountCurve.baseDate.year,
+          discountCurve.baseDate.month,
+          discountCurve.baseDate.day
+        );
         const curve = new DiscountCurve(
-          'USD-OIS',
-          baseDate,
-          new Float64Array([0.0, 0.5, 1.0, 2.0]),
-          new Float64Array([1.0, 0.9905, 0.979, 0.955]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+          discountCurve.id,
+          curveBaseDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
         // Create CPI time series
-        const cpiDates = [new FsDate(2023, 12, 31), new FsDate(2024, 3, 31)];
+        const cpiDates = cpiSeries.dates.map((d) => new FsDate(d.year, d.month, d.day));
+        const cpiCurrency = new Currency(cpiSeries.currency);
         const series = new ScalarTimeSeries(
-          'US-CPI',
+          cpiSeries.id,
           cpiDates,
-          new Float64Array([300.1, 302.8]),
-          usd,
+          new Float64Array(cpiSeries.values),
+          cpiCurrency,
           SeriesInterpolation.Linear()
         );
 
         // Create FX matrix and set quote
         const fx = new FxMatrix();
-        fx.setQuote(usd, eur, 0.92);
+        fx.setQuote(baseCurrency, quoteCurrency, fxQuote.rate);
 
         // Query FX rate
         const policy = FxConversionPolicy.CashflowDate();
-        const fxQuote = fx.rate(usd, eur, baseDate, policy);
-        const fxRate = fxQuote.rate;
+        const fxQuoteResult = fx.rate(baseCurrency, quoteCurrency, baseDateObj, policy);
+        const fxRate = fxQuoteResult.rate;
 
         // Create market context and insert data
         const context = new MarketContext();
@@ -70,19 +89,23 @@ export const MarketDataExample: React.FC = () => {
         context.insertSeries(series);
 
         // Add equity price
-        const priceMoney = Money.fromCode(102.45, 'USD');
+        const priceMoney = Money.fromCode(equityPrice.price.amount, equityPrice.price.currency);
         const equitySpot = MarketScalar.price(priceMoney);
-        context.insertPrice('AAPL', equitySpot);
+        context.insertPrice(equityPrice.symbol, equitySpot);
 
         // Query data from context
-        const fetchedCurve = context.discount('USD-OIS');
+        const fetchedCurve = context.discount(discountCurve.id);
         const discountFactor = fetchedCurve.df(1.0);
 
-        const fetchedSeries = context.series('US-CPI');
-        const lookThroughDate = new FsDate(2024, 2, 15);
+        const fetchedSeries = context.series(cpiSeries.id);
+        const lookThroughDate = new FsDate(
+          cpiLookupDate.year,
+          cpiLookupDate.month,
+          cpiLookupDate.day
+        );
         const cpiLevel = fetchedSeries.valueOn(lookThroughDate);
 
-        const storedSpot = context.price('AAPL');
+        const storedSpot = context.price(equityPrice.symbol);
         const moneyValue = storedSpot.value as Money;
         const equitySpotAmount = moneyValue.amount;
 
@@ -103,7 +126,7 @@ export const MarketDataExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [baseDate, discountCurve, cpiSeries, fxQuote, equityPrice, cpiLookupDate]);
 
   if (error) {
     return <p className="error">{error}</p>;
@@ -119,11 +142,13 @@ export const MarketDataExample: React.FC = () => {
       <dl className="data-list">
         <dt>1Y Discount Factor</dt>
         <dd>{snapshot.discountFactor.toFixed(6)}</dd>
-        <dt>USD/EUR Spot</dt>
+        <dt>
+          {fxQuote.baseCurrency}/{fxQuote.quoteCurrency} Spot
+        </dt>
         <dd>{snapshot.fxRate.toFixed(4)}</dd>
         <dt>CPI Interpolated</dt>
         <dd>{snapshot.cpiLevel.toFixed(2)}</dd>
-        <dt>Equity Spot (USD)</dt>
+        <dt>Equity Spot ({equityPrice.price.currency})</dt>
         <dd>{snapshot.equitySpot.toFixed(2)}</dd>
       </dl>
     </section>

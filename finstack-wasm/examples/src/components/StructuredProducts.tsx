@@ -11,6 +11,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { StructuredProductsProps, DEFAULT_STRUCTURED_PRODUCTS_PROPS } from './data/structured-products';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -25,7 +26,15 @@ type InstrumentRow = {
   complexity: string;
 };
 
-export const StructuredProductsExample: React.FC = () => {
+export const StructuredProductsExample: React.FC<StructuredProductsProps> = (props) => {
+  const {
+    valuationDate = DEFAULT_STRUCTURED_PRODUCTS_PROPS.valuationDate!,
+    market = DEFAULT_STRUCTURED_PRODUCTS_PROPS.market!,
+    baskets = DEFAULT_STRUCTURED_PRODUCTS_PROPS.baskets!,
+    privateMarketsFunds = DEFAULT_STRUCTURED_PRODUCTS_PROPS.privateMarketsFunds!,
+    autocallables = DEFAULT_STRUCTURED_PRODUCTS_PROPS.autocallables!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,160 +42,176 @@ export const StructuredProductsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build market
-
+        // Build discount curve
         const discountCurve = new DiscountCurve(
-          'USD-OIS',
+          market.discountCurve.id,
           asOf,
-          new Float64Array([0.0, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.995, 0.98, 0.96]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+          new Float64Array(market.discountCurve.tenors),
+          new Float64Array(market.discountCurve.discountFactors),
+          market.discountCurve.dayCount,
+          market.discountCurve.interpolation,
+          market.discountCurve.extrapolation,
+          market.discountCurve.continuous
         );
 
-        const market = new MarketContext();
-        market.insertDiscount(discountCurve);
+        // Build market context
+        const marketCtx = new MarketContext();
+        marketCtx.insertDiscount(discountCurve);
 
-        // Add spot prices for basket constituents
-        market.insertPrice('AAPL-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('MSFT-SPOT', MarketScalar.price(Money.fromCode(380.0, 'USD')));
+        // Add spot prices
+        for (const spot of market.spotPrices) {
+          marketCtx.insertPrice(
+            spot.id,
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
+          );
+        }
 
-        // Add volatility surface for autocallables
+        // Build vol surface
         const equityVol = new VolSurface(
-          'EQUITY-VOL',
-          new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([120.0, 140.0, 160.0, 180.0]),
-          new Float64Array([
-            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
-            0.22, 0.21,
-          ])
+          market.volSurface.id,
+          new Float64Array(market.volSurface.expiries),
+          new Float64Array(market.volSurface.strikes),
+          new Float64Array(market.volSurface.vols)
         );
-        market.insertSurface(equityVol);
+        marketCtx.insertSurface(equityVol);
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Basket - Simple multi-asset basket
-        const basketJson = JSON.stringify({
-          id: 'multi_asset_basket',
-          currency: 'USD',
-          discount_curve_id: 'USD-OIS',
-          expense_ratio: 0.0025,
-          constituents: [
-            {
-              id: 'AAPL',
-              reference: { price_id: 'AAPL-SPOT', asset_type: 'equity' },
-              weight: 0.5,
-              ticker: 'AAPL',
-            },
-            {
-              id: 'MSFT',
-              reference: { price_id: 'MSFT-SPOT', asset_type: 'equity' },
-              weight: 0.5,
-              ticker: 'MSFT',
-            },
-          ],
-          pricing_config: {
-            days_in_year: 365.25,
-            fx_policy: 'cashflow_date',
-          },
-        });
-        const basket = Basket.fromJson(basketJson);
-        const basketResult = registry.priceBasket(basket, 'discounting', market, asOf, null);
-        results.push({
-          name: 'Tech Stock Basket',
-          type: 'Basket',
-          presentValue: basketResult.presentValue.amount,
-          complexity: '2 constituents',
-        });
+        // Process baskets
+        for (const basketData of baskets) {
+          try {
+            const basketJson = JSON.stringify({
+              id: basketData.id,
+              currency: basketData.currency,
+              discount_curve_id: basketData.discount_curve_id,
+              expense_ratio: basketData.expense_ratio,
+              constituents: basketData.constituents.map((c) => ({
+                id: c.id,
+                reference: { price_id: c.priceId, asset_type: c.assetType },
+                weight: c.weight,
+                ticker: c.ticker,
+              })),
+              pricing_config: {
+                days_in_year: 365.25,
+                fx_policy: 'cashflow_date',
+              },
+            });
+            const basket = Basket.fromJson(basketJson);
+            const result = registry.priceBasket(basket, 'discounting', marketCtx, asOf, null);
 
-        // Private Markets Fund - Simplified
-        const fundJson = JSON.stringify({
-          id: 'pe_fund_1',
-          currency: 'USD',
-          discount_curve_id: 'USD-OIS',
-          spec: {
-            style: 'european',
-            catchup_mode: 'full',
-            irr_basis: 'act_365f',
-            tranches: ['return_of_capital', { preferred_irr: { irr: 0.08 } }],
-          },
-          events: [
-            {
-              date: '2024-01-02',
-              amount: { amount: 2_000_000.0, currency: 'USD' },
-              kind: 'contribution',
-            },
-            {
-              date: '2028-12-31',
-              amount: { amount: 3_000_000.0, currency: 'USD' },
-              kind: 'distribution',
-            },
-          ],
-        });
-        const fund = PrivateMarketsFund.fromJson(fundJson);
-        const fundResult = registry.pricePrivateMarketsFund(fund, 'discounting', market, asOf, null);
-        results.push({
-          name: 'PE Fund (8% Pref)',
-          type: 'PrivateMarketsFund',
-          presentValue: fundResult.presentValue.amount,
-          complexity: '2 events, waterfall',
-        });
+            results.push({
+              name: 'Tech Stock Basket',
+              type: 'Basket',
+              presentValue: result.presentValue.amount,
+              complexity: `${basketData.constituents.length} constituents`,
+            });
+          } catch (err) {
+            console.error(`Basket ${basketData.id} error:`, err);
+          }
+        }
 
-        // Autocallable - Simple autocall with barrier
-        const autocallableJson = JSON.stringify({
-          id: 'autocallable_simple',
-          underlying_ticker: 'AAPL',
-          notional: { amount: 1_000_000.0, currency: 'USD' },
-          observation_dates: ['2025-01-02', '2026-01-02'],
-          autocall_barriers: [1.2, 1.2],
-          coupons: [0.08, 0.1],
-          final_barrier: 0.75,
-          final_payoff_type: {
-            CapitalProtection: { floor: 0.9 },
-          },
-          participation_rate: 1.0,
-          cap_level: 2.0,
-          day_count: 'act_365f',
-          discount_curve_id: 'USD-OIS',
-          spot_id: 'AAPL-SPOT',
-          vol_surface_id: 'EQUITY-VOL',
-          div_yield_id: null,
-          pricing_overrides: {
-            quoted_clean_price: null,
-            implied_volatility: null,
-            quoted_spread_bp: null,
-            upfront_payment: null,
-            ytm_bump_decimal: null,
-            theta_period: null,
-            mc_seed_scenario: null,
-            adaptive_bumps: false,
-            spot_bump_pct: null,
-            vol_bump_pct: null,
-            rate_bump_bp: null,
-            rho_bump_decimal: null,
-            vega_bump_decimal: null,
-          },
-          attributes: { tags: [], meta: {} },
-        });
-        const autocallable = Autocallable.fromJson(autocallableJson);
-        const autocallableResult = registry.priceAutocallable(
-          autocallable,
-          'monte_carlo_gbm',
-          market,
-          asOf,
-          null
-        );
-        results.push({
-          name: 'Autocallable Note',
-          type: 'Autocallable',
-          presentValue: autocallableResult.presentValue.amount,
-          complexity: '8% coupon, 120% barrier',
-        });
+        // Process private markets funds
+        for (const fundData of privateMarketsFunds) {
+          try {
+            const fundJson = JSON.stringify({
+              id: fundData.id,
+              currency: fundData.currency,
+              discount_curve_id: fundData.discount_curve_id,
+              spec: fundData.spec,
+              events: fundData.events.map((e) => ({
+                date: e.date,
+                amount: { amount: e.amount.amount, currency: e.amount.currency },
+                kind: e.kind,
+              })),
+            });
+            const fund = PrivateMarketsFund.fromJson(fundJson);
+            const result = registry.pricePrivateMarketsFund(
+              fund,
+              'discounting',
+              marketCtx,
+              asOf,
+              null
+            );
+
+            // Find preferred IRR from spec
+            const prefIrr = fundData.spec.tranches.find(
+              (t): t is { preferred_irr: { irr: number } } =>
+                typeof t === 'object' && 'preferred_irr' in t
+            );
+            const irrStr = prefIrr ? `${(prefIrr.preferred_irr.irr * 100).toFixed(0)}% Pref` : '';
+
+            results.push({
+              name: `PE Fund (${irrStr})`,
+              type: 'PrivateMarketsFund',
+              presentValue: result.presentValue.amount,
+              complexity: `${fundData.events.length} events, waterfall`,
+            });
+          } catch (err) {
+            console.error(`Private markets fund ${fundData.id} error:`, err);
+          }
+        }
+
+        // Process autocallables
+        for (const autoData of autocallables) {
+          try {
+            const autocallableJson = JSON.stringify({
+              id: autoData.id,
+              underlying_ticker: autoData.underlying_ticker,
+              notional: { amount: autoData.notional.amount, currency: autoData.notional.currency },
+              observation_dates: autoData.observation_dates,
+              autocall_barriers: autoData.autocall_barriers,
+              coupons: autoData.coupons,
+              final_barrier: autoData.final_barrier,
+              final_payoff_type: autoData.final_payoff_type,
+              participation_rate: autoData.participation_rate,
+              cap_level: autoData.cap_level,
+              day_count: autoData.day_count,
+              discount_curve_id: autoData.discount_curve_id,
+              spot_id: autoData.spot_id,
+              vol_surface_id: autoData.vol_surface_id,
+              div_yield_id: null,
+              pricing_overrides: {
+                quoted_clean_price: null,
+                implied_volatility: null,
+                quoted_spread_bp: null,
+                upfront_payment: null,
+                ytm_bump_decimal: null,
+                theta_period: null,
+                mc_seed_scenario: null,
+                adaptive_bumps: false,
+                spot_bump_pct: null,
+                vol_bump_pct: null,
+                rate_bump_bp: null,
+                rho_bump_decimal: null,
+                vega_bump_decimal: null,
+              },
+              attributes: { tags: [], meta: {} },
+            });
+            const autocallable = Autocallable.fromJson(autocallableJson);
+            const result = registry.priceAutocallable(
+              autocallable,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              null
+            );
+
+            const couponPct = autoData.coupons[0] * 100;
+            const barrierPct = autoData.autocall_barriers[0] * 100;
+
+            results.push({
+              name: 'Autocallable Note',
+              type: 'Autocallable',
+              presentValue: result.presentValue.amount,
+              complexity: `${couponPct.toFixed(0)}% coupon, ${barrierPct.toFixed(0)}% barrier`,
+            });
+          } catch (err) {
+            console.error(`Autocallable ${autoData.id} error:`, err);
+          }
+        }
 
         if (!cancelled) {
           setRows(results);
@@ -204,7 +229,7 @@ export const StructuredProductsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, market, baskets, privateMarketsFunds, autocallables]);
 
   if (error) {
     return <p className="error">{error}</p>;

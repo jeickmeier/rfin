@@ -13,6 +13,10 @@ import {
   DiscountCurve,
   ForwardCurve,
 } from 'finstack-wasm';
+import {
+  CashflowBuilderProps,
+  DEFAULT_CASHFLOW_BUILDER_PROPS,
+} from './data/cashflow-builder';
 
 interface ExampleSchedule {
   title: string;
@@ -28,7 +32,37 @@ interface ExampleSchedule {
   }>;
 }
 
-export const CashflowBuilderExample: React.FC = () => {
+// Helper to build schedule params from data
+function buildScheduleParams(data: { type: string }): ScheduleParams {
+  switch (data.type) {
+    case 'quarterlyAct360':
+      return ScheduleParams.quarterlyAct360();
+    case 'semiannual30360':
+      return ScheduleParams.semiannual30360();
+    case 'annualActAct':
+      return ScheduleParams.annualActAct();
+    default:
+      return ScheduleParams.quarterlyAct360();
+  }
+}
+
+// Helper to build coupon type from data
+function buildCouponType(data: { type: string; cashPct?: number; pikPct?: number }): CouponType {
+  switch (data.type) {
+    case 'cash':
+      return CouponType.Cash();
+    case 'pik':
+      return CouponType.PIK();
+    case 'split':
+      return CouponType.split(data.cashPct ?? 0.5, data.pikPct ?? 0.5);
+    default:
+      return CouponType.Cash();
+  }
+}
+
+export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) => {
+  const { examples = DEFAULT_CASHFLOW_BUILDER_PROPS.examples! } = props;
+
   const [schedules, setSchedules] = useState<ExampleSchedule[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,28 +70,115 @@ export const CashflowBuilderExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const notional = Money.fromCode(1_000_000, 'USD');
-        const issue = new FsDate(2025, 1, 15);
-        const maturity = new FsDate(2030, 1, 15);
-        const examples: ExampleSchedule[] = [];
+        const results: ExampleSchedule[] = [];
 
-        // Example 1: Simple Fixed Coupon Bond (5% quarterly)
-        {
-          const schedule = ScheduleParams.quarterlyAct360();
-          const fixedSpec = new FixedCouponSpec(
-            0.05, // 5% annual rate
-            schedule,
-            CouponType.Cash()
+        for (const example of examples) {
+          const notional = Money.fromCode(example.notional.amount, example.notional.currency);
+          const issue = new FsDate(
+            example.issueDate.year,
+            example.issueDate.month,
+            example.issueDate.day
+          );
+          const maturity = new FsDate(
+            example.maturityDate.year,
+            example.maturityDate.month,
+            example.maturityDate.day
           );
 
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .fixedCf(fixedSpec)
-            .build();
+          let builder = new CashflowBuilder().principal(notional, issue, maturity);
 
+          // Handle fixed coupon
+          if (example.fixedCoupon) {
+            const schedule = buildScheduleParams(example.fixedCoupon.schedule);
+            const couponType = buildCouponType(example.fixedCoupon.couponType);
+            const fixedSpec = new FixedCouponSpec(example.fixedCoupon.rate, schedule, couponType);
+            builder = builder.fixedCf(fixedSpec);
+          }
+
+          // Handle floating coupon
+          if (example.floatingCoupon) {
+            const schedule = buildScheduleParams(example.floatingCoupon.schedule);
+            const couponType = buildCouponType(example.floatingCoupon.couponType);
+            const floatParams = new FloatCouponParams(
+              example.floatingCoupon.indexId,
+              example.floatingCoupon.marginBps,
+              example.floatingCoupon.gearing,
+              example.floatingCoupon.resetLagDays
+            );
+            const floatSpec = new FloatingCouponSpec(floatParams, schedule, couponType);
+            builder = builder.floatingCf(floatSpec);
+          }
+
+          // Handle amortization
+          if (example.amortization) {
+            const finalNotional = Money.fromCode(
+              example.amortization.finalNotional.amount,
+              example.amortization.finalNotional.currency
+            );
+            const amortSpec = AmortizationSpec.linearTo(finalNotional);
+            builder = builder.amortization(amortSpec);
+          }
+
+          // Handle step-up program
+          if (example.stepUpProgram) {
+            const schedule = ScheduleParams.semiannual30360();
+            builder = builder.fixedStepup(example.stepUpProgram, schedule, CouponType.Cash());
+          }
+
+          // Handle payment split program
+          if (example.paymentSplitProgram) {
+            builder = builder.paymentSplitProgram(example.paymentSplitProgram);
+          }
+
+          // Build with or without market curves
+          let cfSchedule;
+          if (example.useMarketCurves && example.marketData) {
+            const baseDate = new FsDate(
+              example.marketData.discountCurve.baseDate.year,
+              example.marketData.discountCurve.baseDate.month,
+              example.marketData.discountCurve.baseDate.day
+            );
+            const market = new MarketContext();
+
+            const discountCurve = new DiscountCurve(
+              example.marketData.discountCurve.id,
+              baseDate,
+              new Float64Array(example.marketData.discountCurve.tenors),
+              new Float64Array(example.marketData.discountCurve.discountFactors),
+              example.marketData.discountCurve.dayCount,
+              example.marketData.discountCurve.interpolation,
+              example.marketData.discountCurve.extrapolation,
+              example.marketData.discountCurve.continuous
+            );
+            market.insertDiscount(discountCurve);
+
+            const fwdBaseDate = new FsDate(
+              example.marketData.forwardCurve.baseDate.year,
+              example.marketData.forwardCurve.baseDate.month,
+              example.marketData.forwardCurve.baseDate.day
+            );
+            const forwardCurve = new ForwardCurve(
+              example.marketData.forwardCurve.id,
+              fwdBaseDate,
+              example.marketData.forwardCurve.tenor,
+              new Float64Array(example.marketData.forwardCurve.tenors),
+              new Float64Array(example.marketData.forwardCurve.rates),
+              example.marketData.forwardCurve.dayCount,
+              example.marketData.forwardCurve.compounding,
+              example.marketData.forwardCurve.interpolation
+            );
+            market.insertForward(forwardCurve);
+
+            cfSchedule = builder.buildWithCurves(market);
+          } else {
+            cfSchedule = builder.build();
+          }
+
+          // Extract flows
           const flows = cfSchedule.flows();
+          const maxFlows = example.floatingCoupon ? 6 : example.amortization ? 12 : 8;
           const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 8); i++) {
+          for (let i = 0; i < Math.min(flows.length, maxFlows); i++) {
             const cf = flows[i] as any;
             flowData.push({
               date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
@@ -67,267 +188,9 @@ export const CashflowBuilderExample: React.FC = () => {
             });
           }
 
-          examples.push({
-            title: 'Simple Fixed Coupon (5% Quarterly)',
-            description: 'Standard quarterly coupons paid in cash with Act/360 day count',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 2: PIK Toggle Bond (70% Cash / 30% PIK)
-        {
-          const schedule = ScheduleParams.semiannual30360();
-          const fixedSpec = new FixedCouponSpec(
-            0.08, // 8% annual rate
-            schedule,
-            CouponType.split(0.7, 0.3) // 70% cash, 30% PIK
-          );
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .fixedCf(fixedSpec)
-            .build();
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 8); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'PIK Toggle Bond (70% Cash / 30% PIK)',
-            description: 'Semi-annual coupons split between cash payment and capitalization',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 3: Floating Rate Note - Without Curves (Margin Only)
-        {
-          const schedule = ScheduleParams.quarterlyAct360();
-          const floatParams = new FloatCouponParams(
-            'USD-SOFR-3M', // index
-            150.0, // margin in bps
-            1.0, // gearing
-            2 // reset lag days
-          );
-          const floatSpec = new FloatingCouponSpec(floatParams, schedule, CouponType.Cash());
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .floatingCf(floatSpec)
-            .build(); // No market curves - uses margin only
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 6); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'Floating Rate Note - Margin Only (No Curves)',
-            description:
-              'Uses only margin (150 bps): coupon = outstanding × 0.0150 × year_fraction',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 3b: Floating Rate Note - With Market Curves (Forward Rate + Margin)
-        {
-          // Create market context with forward curve
-          const baseDate = new FsDate(2025, 1, 2);
-          const market = new MarketContext();
-
-          const discountCurve = new DiscountCurve(
-            'USD-OIS',
-            baseDate,
-            new Float64Array([0.0, 1.0, 2.0, 3.0]),
-            new Float64Array([1.0, 0.995, 0.988, 0.98]),
-            'act_365f',
-            'monotone_convex',
-            'flat_forward',
-            true
-          );
-          market.insertDiscount(discountCurve);
-
-          // Forward curve: rates increase over time (3% → 3.5% → 4%)
-          const forwardCurve = new ForwardCurve(
-            'USD-SOFR-3M',
-            baseDate,
-            0.25, // 3-month tenor
-            new Float64Array([0.0, 0.5, 1.0, 2.0]),
-            new Float64Array([0.03, 0.0325, 0.035, 0.04]),
-            'act_360',
-            2,
-            'linear'
-          );
-          market.insertForward(forwardCurve);
-
-          const schedule = ScheduleParams.quarterlyAct360();
-          const floatParams = new FloatCouponParams('USD-SOFR-3M', 150.0, 1.0, 2);
-          const floatSpec = new FloatingCouponSpec(floatParams, schedule, CouponType.Cash());
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .floatingCf(floatSpec)
-            .buildWithCurves(market); // WITH market curves - uses forward rates
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 6); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'Floating Rate Note - With Forward Rates (Market Curves)',
-            description:
-              'Uses forward_rate × gearing + margin: coupon = outstanding × (fwd_rate + 0.0150) × yf',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 4: Amortizing Loan (Linear Amortization)
-        {
-          const schedule = ScheduleParams.quarterlyAct360();
-          const fixedSpec = new FixedCouponSpec(
-            0.06, // 6% annual rate
-            schedule,
-            CouponType.Cash()
-          );
-
-          const finalNotional = Money.fromCode(200_000, 'USD');
-          const amortSpec = AmortizationSpec.linearTo(finalNotional);
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .amortization(amortSpec)
-            .fixedCf(fixedSpec)
-            .build();
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 12); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'Amortizing Loan (Linear to $200K)',
-            description: 'Quarterly coupons with linear amortization from $1M to $200K',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 5: Step-Up Coupon Structure
-        {
-          const schedule = ScheduleParams.semiannual30360();
-          const stepProgram = [
-            ['2027-01-15', 0.04], // 4% until 2027
-            ['2029-01-15', 0.05], // 5% until 2029
-            ['2030-01-15', 0.06], // 6% until maturity
-          ];
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .fixedStepup(stepProgram, schedule, CouponType.Cash())
-            .build();
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 12); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'Step-Up Coupon Structure (4% → 5% → 6%)',
-            description: 'Semi-annual coupons with step-up rates: 4% for 2 years, then 5%, then 6%',
-            flowCount: flows.length,
-            notional: cfSchedule.notional.amount,
-            dayCount: cfSchedule.dayCount.name,
-            flows: flowData,
-          });
-        }
-
-        // Example 6: Payment Split Program (Cash → PIK Transition)
-        {
-          const schedule = ScheduleParams.quarterlyAct360();
-          const fixedSpec = new FixedCouponSpec(
-            0.07, // 7% annual rate
-            schedule,
-            CouponType.Cash() // Initial default
-          );
-
-          const splitProgram = [
-            ['2027-01-15', 'cash'], // 100% cash until 2027
-            ['2028-01-15', 'split:0.5:0.5'], // 50/50 split from 2027-2028
-            ['2030-01-15', 'pik'], // 100% PIK thereafter
-          ];
-
-          const cfSchedule = new CashflowBuilder()
-            .principal(notional, issue, maturity)
-            .fixedCf(fixedSpec)
-            .paymentSplitProgram(splitProgram)
-            .build();
-
-          const flows = cfSchedule.flows();
-          const flowData = [];
-          for (let i = 0; i < Math.min(flows.length, 15); i++) {
-            const cf = flows[i] as any;
-            flowData.push({
-              date: `${cf.date.year}-${String(cf.date.month).padStart(2, '0')}-${String(cf.date.day).padStart(2, '0')}`,
-              kind: cf.kind.name,
-              amount: cf.amount.amount,
-              accrualFactor: cf.accrualFactor,
-            });
-          }
-
-          examples.push({
-            title: 'Payment Split Program (Cash → PIK Transition)',
-            description:
-              'Quarterly coupons transitioning from 100% cash to 50/50 split to 100% PIK',
+          results.push({
+            title: example.title,
+            description: example.description,
             flowCount: flows.length,
             notional: cfSchedule.notional.amount,
             dayCount: cfSchedule.dayCount.name,
@@ -336,7 +199,7 @@ export const CashflowBuilderExample: React.FC = () => {
         }
 
         if (!cancelled) {
-          setSchedules(examples);
+          setSchedules(results);
         }
       } catch (err) {
         if (!cancelled) {
@@ -348,7 +211,7 @@ export const CashflowBuilderExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [examples]);
 
   if (error) {
     return <p className="error">{error}</p>;
@@ -486,7 +349,7 @@ export const CashflowBuilderExample: React.FC = () => {
             margin_bp × 0.0001) × year_fraction
           </p>
           <p style={{ margin: '0.5rem 0', color: '#bbb', fontSize: '0.9rem', fontStyle: 'italic' }}>
-            Example 3 shows margin-only vs. Example 3b shows forward rate + margin
+            Example 3 shows margin-only vs. Example 4 shows forward rate + margin
           </p>
         </div>
       </div>

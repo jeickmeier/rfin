@@ -12,6 +12,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { EquityInstrumentsProps, DEFAULT_EQUITY_PROPS } from './data/equity';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -27,7 +28,17 @@ type InstrumentRow = {
   keyMetric?: { name: string; value: number };
 };
 
-export const EquityInstrumentsExample: React.FC = () => {
+export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_EQUITY_PROPS.valuationDate!,
+    discountCurve = DEFAULT_EQUITY_PROPS.discountCurve!,
+    volSurface = DEFAULT_EQUITY_PROPS.volSurface!,
+    marketData = DEFAULT_EQUITY_PROPS.marketData!,
+    positions = DEFAULT_EQUITY_PROPS.positions!,
+    options = DEFAULT_EQUITY_PROPS.options!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,89 +46,106 @@ export const EquityInstrumentsExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
         const usd = new Currency('USD');
 
-        // Build market
-        const discountCurve = new DiscountCurve(
-          'USD-OIS',
-          asOf,
-          new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.997, 0.994, 0.9725, 0.948]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+        // Build discount curve from props
+        const curveBaseDate = new FsDate(
+          discountCurve.baseDate.year,
+          discountCurve.baseDate.month,
+          discountCurve.baseDate.day
+        );
+        const curve = new DiscountCurve(
+          discountCurve.id,
+          curveBaseDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
-        // Add equity market data (flattened grid: row-major order)
+        // Build volatility surface from props
         const equityVol = new VolSurface(
-          'EQUITY-VOL',
-          new Float64Array([0.25, 0.5, 1.0, 2.0]),
-          new Float64Array([120.0, 140.0, 160.0, 180.0]),
-          new Float64Array([
-            0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23,
-            0.22, 0.21,
-          ])
+          volSurface.id,
+          new Float64Array(volSurface.expiries),
+          new Float64Array(volSurface.strikes),
+          new Float64Array(volSurface.vols)
         );
 
         const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertPrice('AAPL', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('AAPL-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('EQUITY-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-        market.insertPrice('AAPL-DIVYIELD', MarketScalar.unitless(0.015));
-        market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(0.015));
+        market.insertDiscount(curve);
         market.insertSurface(equityVol);
+
+        // Insert market data for each ticker
+        for (const data of marketData) {
+          const spotPrice = Money.fromCode(data.spotPrice.amount, data.spotPrice.currency);
+          market.insertPrice(data.ticker, MarketScalar.price(spotPrice));
+          market.insertPrice(`${data.ticker}-SPOT`, MarketScalar.price(spotPrice));
+          market.insertPrice('EQUITY-SPOT', MarketScalar.price(spotPrice));
+          market.insertPrice(`${data.ticker}-DIVYIELD`, MarketScalar.unitless(data.dividendYield));
+          market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(data.dividendYield));
+        }
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Equity Spot
-        const equity = new Equity('aapl_position', 'AAPL', usd, 1000.0, null);
-        const equityResult = registry.priceEquity(equity, 'discounting', market, asOf);
-        results.push({
-          name: 'AAPL Stock (1000 shares)',
-          type: 'Equity',
-          ticker: 'AAPL',
-          presentValue: equityResult.presentValue.amount,
-        });
+        // Process equity positions
+        for (const pos of positions) {
+          const equity = new Equity(pos.id, pos.ticker, usd, pos.quantity, pos.costBasis);
+          const equityResult = registry.priceEquity(equity, 'discounting', market, asOf);
+          results.push({
+            name: `${pos.ticker} Stock (${pos.quantity} shares)`,
+            type: 'Equity',
+            ticker: pos.ticker,
+            presentValue: equityResult.presentValue.amount,
+          });
+        }
 
-        // Equity Call Option
-        const call = EquityOption.europeanCall(
-          'aapl_call_150',
-          'AAPL',
-          150.0,
-          new FsDate(2024, 12, 31),
-          Money.fromCode(150.0, 'USD'),
-          100.0
-        );
-        const callOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
-        const callResult = registry.priceEquityOption(call, 'discounting', market, asOf, callOpts);
-        results.push({
-          name: 'AAPL Call @ $150 (1Y)',
-          type: 'EquityOption',
-          ticker: 'AAPL',
-          presentValue: callResult.presentValue.amount,
-          keyMetric: { name: 'Delta', value: callResult.metric('delta') ?? 0 },
-        });
+        // Process options
+        for (const opt of options) {
+          const expiryDate = new FsDate(opt.expiryDate.year, opt.expiryDate.month, opt.expiryDate.day);
+          const spotPrice = Money.fromCode(opt.spotPrice.amount, opt.spotPrice.currency);
 
-        // Equity Put Option
-        const put = EquityOption.europeanPut(
-          'aapl_put_140',
-          'AAPL',
-          140.0,
-          new FsDate(2024, 9, 30),
-          Money.fromCode(140.0, 'USD'),
-          100.0
-        );
-        const putResult = registry.priceEquityOption(put, 'discounting', market, asOf, null);
-        results.push({
-          name: 'AAPL Put @ $140 (9M)',
-          type: 'EquityOption',
-          ticker: 'AAPL',
-          presentValue: putResult.presentValue.amount,
-        });
+          const option =
+            opt.optionType === 'call'
+              ? EquityOption.europeanCall(
+                  opt.id,
+                  opt.ticker,
+                  opt.strike,
+                  expiryDate,
+                  spotPrice,
+                  opt.quantity
+                )
+              : EquityOption.europeanPut(
+                  opt.id,
+                  opt.ticker,
+                  opt.strike,
+                  expiryDate,
+                  spotPrice,
+                  opt.quantity
+                );
+
+          const isCall = opt.optionType === 'call';
+          const opts = isCall ? new PricingRequest().withMetrics(['delta', 'gamma']) : null;
+          const optResult = registry.priceEquityOption(option, 'discounting', market, asOf, opts);
+
+          const tenorDesc =
+            opt.expiryDate.month === 12
+              ? '1Y'
+              : `${opt.expiryDate.month - valuationDate.month}M`;
+
+          results.push({
+            name: `${opt.ticker} ${opt.optionType === 'call' ? 'Call' : 'Put'} @ $${opt.strike} (${tenorDesc})`,
+            type: 'EquityOption',
+            ticker: opt.ticker,
+            presentValue: optResult.presentValue.amount,
+            keyMetric: isCall
+              ? { name: 'Delta', value: optResult.metric('delta') ?? 0 }
+              : undefined,
+          });
+        }
 
         if (!cancelled) {
           setRows(results);
@@ -132,7 +160,7 @@ export const EquityInstrumentsExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, discountCurve, volSurface, marketData, positions, options]);
 
   if (error) {
     return <p className="error">{error}</p>;

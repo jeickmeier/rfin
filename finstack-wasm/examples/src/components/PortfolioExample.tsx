@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as finstack from 'finstack-wasm';
+import { PortfolioExampleProps, DEFAULT_PORTFOLIO_PROPS } from './data/portfolio';
 
 /**
  * Portfolio Example Component
@@ -11,7 +12,17 @@ import * as finstack from 'finstack-wasm';
  * - Aggregating metrics across positions
  * - Grouping by attributes
  */
-export const PortfolioExample: React.FC = () => {
+export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
+  const {
+    valuationDate = DEFAULT_PORTFOLIO_PROPS.valuationDate!,
+    entities = DEFAULT_PORTFOLIO_PROPS.entities!,
+    bonds = DEFAULT_PORTFOLIO_PROPS.bonds!,
+    deposits = DEFAULT_PORTFOLIO_PROPS.deposits!,
+    positions = DEFAULT_PORTFOLIO_PROPS.positions!,
+    portfolio = DEFAULT_PORTFOLIO_PROPS.portfolio!,
+    discountCurve = DEFAULT_PORTFOLIO_PROPS.discountCurve!,
+  } = props;
+
   const [output, setOutput] = useState<string>('Click "Run Example" to execute');
 
   const runExample = () => {
@@ -26,117 +37,152 @@ export const PortfolioExample: React.FC = () => {
       addLog('Portfolio Example: Creating and Valuing a Multi-Asset Portfolio');
       addLog('='.repeat(80));
 
-      // 1. Create entities
+      // 1. Create entities from props
       addLog('\n1. Creating Entities');
-      const entityCorp = new finstack.JsEntity('CORP_A')
-        .withName('Corporate A')
-        .withTag('sector', 'Finance');
+      const entityMap = new Map<string, finstack.JsEntity>();
+      for (const entityData of entities) {
+        let entity = new finstack.JsEntity(entityData.id).withName(entityData.name);
+        for (const [key, value] of Object.entries(entityData.tags)) {
+          entity = entity.withTag(key, value);
+        }
+        entityMap.set(entityData.id, entity);
+        addLog(`  Created entity: ${entityData.id} - ${entityData.name}`);
+      }
 
-      const entityFund = new finstack.JsEntity('FUND_B')
-        .withName('Fund B')
-        .withTag('sector', 'Technology');
-
-      addLog(`  Created entity: ${entityCorp.id} - ${entityCorp.name}`);
-      addLog(`  Created entity: ${entityFund.id} - ${entityFund.name}`);
-
-      // 2. Create instruments
+      // 2. Create instruments from props
       addLog('\n2. Creating Instruments');
-      const asOf = new finstack.FsDate(2024, 1, 2);
-      const usd = new finstack.Currency('USD');
+      const asOf = new finstack.FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
+      const usd = new finstack.Currency(portfolio.baseCurrency);
 
-      // Corporate bond
-      const bond = finstack.Bond.fixedSemiannual(
-        'BOND_CORP_A',
-        new finstack.Money(5_000_000, usd),
-        0.045, // 4.5% coupon
-        new finstack.FsDate(2024, 1, 15),
-        new finstack.FsDate(2029, 1, 15),
-        'USD-OIS'
-      );
+      // Create bonds
+      const bondMap = new Map<string, finstack.Bond>();
+      for (const bondData of bonds) {
+        const bond = finstack.Bond.fixedSemiannual(
+          bondData.id,
+          new finstack.Money(bondData.notional.amount, new finstack.Currency(bondData.notional.currency)),
+          bondData.couponRate,
+          new finstack.FsDate(bondData.issueDate.year, bondData.issueDate.month, bondData.issueDate.day),
+          new finstack.FsDate(bondData.maturityDate.year, bondData.maturityDate.month, bondData.maturityDate.day),
+          bondData.discountCurveId
+        );
+        bondMap.set(bondData.id, bond);
+        addLog(`  Created bond: ${bondData.id}`);
+      }
 
-      // Money market deposit
-      const deposit = new finstack.Deposit(
-        'DEPOSIT_MM',
-        new finstack.Money(2_000_000, usd),
-        asOf,
-        new finstack.FsDate(2024, 7, 2),
-        finstack.DayCount.act360(),
-        'USD-OIS',
-        0.0525 // quote rate
-      );
+      // Create deposits
+      const depositMap = new Map<string, finstack.Deposit>();
+      for (const depositData of deposits) {
+        const deposit = new finstack.Deposit(
+          depositData.id,
+          new finstack.Money(depositData.notional.amount, new finstack.Currency(depositData.notional.currency)),
+          new finstack.FsDate(depositData.startDate.year, depositData.startDate.month, depositData.startDate.day),
+          new finstack.FsDate(depositData.endDate.year, depositData.endDate.month, depositData.endDate.day),
+          finstack.DayCount.act360(),
+          depositData.discountCurveId,
+          depositData.quoteRate
+        );
+        depositMap.set(depositData.id, deposit);
+        addLog(`  Created deposit: ${depositData.id}`);
+      }
 
-      addLog(`  Created bond: ${bond.instrumentId}`);
-      addLog(`  Created deposit: ${deposit.instrumentId}`);
-
-      // 3. Create positions
+      // 3. Create positions from props
       addLog('\n3. Creating Positions');
+      const positionList: finstack.JsPosition[] = [];
 
-      const posBond = finstack.createPositionFromBond(
-        'POS_BOND_001',
-        entityCorp.id,
-        bond,
-        1.0, // quantity
-        finstack.JsPositionUnit.UNITS
-      );
+      for (const posData of positions) {
+        let position: finstack.JsPosition;
 
-      const posDeposit = finstack.createPositionFromDeposit(
-        'POS_DEP_001',
-        entityFund.id,
-        deposit,
-        1.0, // quantity
-        finstack.JsPositionUnit.UNITS
-      );
+        if (posData.instrumentType === 'bond') {
+          const bond = bondMap.get(posData.instrumentRef);
+          if (!bond) {
+            throw new Error(`Bond ${posData.instrumentRef} not found`);
+          }
+          position = finstack.createPositionFromBond(
+            posData.positionId,
+            posData.entityId,
+            bond,
+            posData.quantity,
+            posData.unit === 'units' ? finstack.JsPositionUnit.UNITS : finstack.JsPositionUnit.notional()
+          );
+        } else {
+          const deposit = depositMap.get(posData.instrumentRef);
+          if (!deposit) {
+            throw new Error(`Deposit ${posData.instrumentRef} not found`);
+          }
+          position = finstack.createPositionFromDeposit(
+            posData.positionId,
+            posData.entityId,
+            deposit,
+            posData.quantity,
+            posData.unit === 'units' ? finstack.JsPositionUnit.UNITS : finstack.JsPositionUnit.notional()
+          );
+        }
 
-      addLog(`  Created position: ${posBond.positionId} (${posBond.instrumentId})`);
-      addLog(`  Created position: ${posDeposit.positionId} (${posDeposit.instrumentId})`);
+        positionList.push(position);
+        addLog(`  Created position: ${posData.positionId} (${posData.instrumentRef})`);
+      }
 
-      // 4. Build market data
+      // 4. Build market data from props
       addLog('\n4. Building Market Data');
       const market = new finstack.MarketContext();
 
-      // Add discount curve
+      const curveBaseDate = new finstack.FsDate(
+        discountCurve.baseDate.year,
+        discountCurve.baseDate.month,
+        discountCurve.baseDate.day
+      );
       const discCurve = new finstack.DiscountCurve(
-        'USD-OIS',
-        asOf,
-        new Float64Array([0.0, 0.5, 1.0, 3.0, 5.0, 10.0]), // times in years
-        new Float64Array([1.0, 0.9975, 0.995, 0.975, 0.95, 0.9]), // discount factors
-        'act_365f', // day count
-        'linear', // interpolation
-        'flat_forward', // extrapolation
-        true // require monotonic
+        discountCurve.id,
+        curveBaseDate,
+        new Float64Array(discountCurve.tenors),
+        new Float64Array(discountCurve.discountFactors),
+        discountCurve.dayCount,
+        discountCurve.interpolation,
+        discountCurve.extrapolation,
+        discountCurve.continuous
       );
       market.insertDiscount(discCurve);
 
-      addLog('Created market data with USD discount curve');
+      addLog(`Created market data with ${discountCurve.id} discount curve`);
 
       // 5. Build portfolio with positions
       addLog('\n5. Building Portfolio');
-      const portfolio = new finstack.JsPortfolioBuilder('MULTI_ASSET_FUND')
-        .name('Multi-Asset Investment Fund')
+      let portfolioBuilder = new finstack.JsPortfolioBuilder(portfolio.id)
+        .name(portfolio.name)
         .baseCcy(usd)
-        .asOf(asOf)
-        .entity(entityCorp)
-        .entity(entityFund)
-        .position(posBond)
-        .position(posDeposit)
-        .tag('strategy', 'balanced')
-        .tag('risk_profile', 'moderate')
-        .build();
+        .asOf(asOf);
+
+      // Add entities
+      for (const entity of entityMap.values()) {
+        portfolioBuilder = portfolioBuilder.entity(entity);
+      }
+
+      // Add positions
+      for (const position of positionList) {
+        portfolioBuilder = portfolioBuilder.position(position);
+      }
+
+      // Add tags
+      for (const [key, value] of Object.entries(portfolio.tags)) {
+        portfolioBuilder = portfolioBuilder.tag(key, value);
+      }
+
+      const builtPortfolio = portfolioBuilder.build();
 
       addLog(`  Portfolio built successfully:`);
-      addLog(`    ID: ${portfolio.id}`);
-      addLog(`    Name: ${portfolio.name}`);
-      addLog(`    Base Currency: ${portfolio.baseCcy.code}`);
-      addLog(`    Positions: 2`);
+      addLog(`    ID: ${builtPortfolio.id}`);
+      addLog(`    Name: ${builtPortfolio.name}`);
+      addLog(`    Base Currency: ${builtPortfolio.baseCcy.code}`);
+      addLog(`    Positions: ${positions.length}`);
 
       // Validate portfolio
-      portfolio.validate();
+      builtPortfolio.validate();
       addLog('    ✓ Portfolio validation passed');
 
       // 6. Value the portfolio
       addLog('\n6. Valuing Portfolio');
       const config = new finstack.FinstackConfig();
-      const valuation = finstack.valuePortfolio(portfolio, market, config);
+      const valuation = finstack.valuePortfolio(builtPortfolio, market, config);
 
       const totalValue = valuation.totalBaseCcy.amount;
       addLog(
@@ -145,39 +191,27 @@ export const PortfolioExample: React.FC = () => {
 
       // Show position-level values
       addLog('\n  Position-Level Values:');
-      const bondValue = valuation.getPositionValue('POS_BOND_001');
-      if (bondValue) {
-        addLog(`    ${bondValue.positionId}:`);
-        addLog(`      Entity: ${bondValue.entityId}`);
-        addLog(
-          `      Native: ${bondValue.valueNative.amount.toFixed(2)} ${bondValue.valueNative.currency.code}`
-        );
-        addLog(
-          `      Base:   ${bondValue.valueBase.amount.toFixed(2)} ${bondValue.valueBase.currency.code}`
-        );
-      }
-
-      const depositValue = valuation.getPositionValue('POS_DEP_001');
-      if (depositValue) {
-        addLog(`    ${depositValue.positionId}:`);
-        addLog(`      Entity: ${depositValue.entityId}`);
-        addLog(
-          `      Native: ${depositValue.valueNative.amount.toFixed(2)} ${depositValue.valueNative.currency.code}`
-        );
-        addLog(
-          `      Base:   ${depositValue.valueBase.amount.toFixed(2)} ${depositValue.valueBase.currency.code}`
-        );
+      for (const posData of positions) {
+        const posValue = valuation.getPositionValue(posData.positionId);
+        if (posValue) {
+          addLog(`    ${posValue.positionId}:`);
+          addLog(`      Entity: ${posValue.entityId}`);
+          addLog(
+            `      Native: ${posValue.valueNative.amount.toFixed(2)} ${posValue.valueNative.currency.code}`
+          );
+          addLog(
+            `      Base:   ${posValue.valueBase.amount.toFixed(2)} ${posValue.valueBase.currency.code}`
+          );
+        }
       }
 
       // Show entity-level aggregation
       addLog('\n  Entity-Level Aggregation:');
-      const corpValue = valuation.getEntityValue(entityCorp.id);
-      if (corpValue) {
-        addLog(`    ${entityCorp.name}: ${corpValue.amount.toFixed(2)} ${corpValue.currency.code}`);
-      }
-      const fundValue = valuation.getEntityValue(entityFund.id);
-      if (fundValue) {
-        addLog(`    ${entityFund.name}: ${fundValue.amount.toFixed(2)} ${fundValue.currency.code}`);
+      for (const entityData of entities) {
+        const entityValue = valuation.getEntityValue(entityData.id);
+        if (entityValue) {
+          addLog(`    ${entityData.name}: ${entityValue.amount.toFixed(2)} ${entityValue.currency.code}`);
+        }
       }
 
       // 7. Aggregate metrics

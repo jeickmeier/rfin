@@ -25,6 +25,22 @@ import {
   thirdFriday,
   thirdWednesday,
 } from 'finstack-wasm';
+import {
+  DateConstructionProps,
+  DateUtilitiesProps,
+  CalendarExampleProps,
+  DayCountExampleProps,
+  ScheduleBuilderExampleProps,
+  PeriodPlansExampleProps,
+  IMMDatesExampleProps,
+  DEFAULT_DATE_CONSTRUCTION,
+  DEFAULT_DATE_UTILITIES,
+  DEFAULT_CALENDAR_EXAMPLE,
+  DEFAULT_DAY_COUNT_EXAMPLE,
+  DEFAULT_SCHEDULE_BUILDER,
+  DEFAULT_PERIOD_PLANS,
+  DEFAULT_IMM_DATES,
+} from './data/dates-showcase';
 
 const toIso = (date: FsDate) => {
   const month = String(date.month).padStart(2, '0');
@@ -33,7 +49,12 @@ const toIso = (date: FsDate) => {
 };
 
 // 1. Date Construction & Manipulation Example
-export const DateConstructionExample: React.FC = () => {
+export const DateConstructionExample: React.FC<DateConstructionProps> = (props) => {
+  const {
+    exampleDate = DEFAULT_DATE_CONSTRUCTION.exampleDate!,
+    weekdaysToAdd = DEFAULT_DATE_CONSTRUCTION.weekdaysToAdd!,
+  } = props;
+
   const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +62,7 @@ export const DateConstructionExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const date = new FsDate(2024, 9, 30); // September 30, 2024
+        const date = new FsDate(exampleDate.year, exampleDate.month, exampleDate.day);
         const results: { [key: string]: string | number | boolean } = {
           Date: toIso(date),
           Year: date.year,
@@ -50,7 +71,7 @@ export const DateConstructionExample: React.FC = () => {
           Quarter: date.quarter(),
           'Is Weekend': date.isWeekend(),
           'Fiscal Year': date.fiscalYear(),
-          'Add 5 weekdays': toIso(date.addWeekdays(5)),
+          [`Add ${weekdaysToAdd} weekdays`]: toIso(date.addWeekdays(weekdaysToAdd)),
         };
 
         if (!cancelled) {
@@ -65,7 +86,7 @@ export const DateConstructionExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [exampleDate, weekdaysToAdd]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(data).length === 0) return <p>Loading...</p>;
@@ -86,7 +107,12 @@ export const DateConstructionExample: React.FC = () => {
 };
 
 // 2. Date Utilities Example
-export const DateUtilitiesExample: React.FC = () => {
+export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
+  const {
+    baseDate = DEFAULT_DATE_UTILITIES.baseDate!,
+    monthsToAdd = DEFAULT_DATE_UTILITIES.monthsToAdd!,
+  } = props;
+
   const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -94,22 +120,31 @@ export const DateUtilitiesExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const base = new FsDate(2025, 1, 31); // January 31, 2025
+        const base = new FsDate(baseDate.year, baseDate.month, baseDate.day);
         const epochDays = dateToDaysSinceEpoch(base);
 
         const results: { [key: string]: string | number | boolean } = {
           'Base Date': toIso(base),
-          'Add 1 month': toIso(addMonths(base, 1)),
-          'Add 3 months': toIso(addMonths(base, 3)),
+        };
+
+        // Add months dynamically
+        for (const months of monthsToAdd) {
+          results[`Add ${months} month${months > 1 ? 's' : ''}`] = toIso(addMonths(base, months));
+        }
+
+        Object.assign(results, {
           'Last day of month': toIso(lastDayOfMonth(base)),
-          'Days in Jan 2025': daysInMonth(2025, 1),
+          [`Days in ${base.month === 1 ? 'Jan' : 'Feb'} ${base.year}`]: daysInMonth(
+            base.year,
+            base.month
+          ),
           'Days in Feb 2024': daysInMonth(2024, 2),
           'Days in Feb 2025': daysInMonth(2025, 2),
           'Is 2024 leap year': isLeapYear(2024),
           'Is 2025 leap year': isLeapYear(2025),
           'Days since epoch': epochDays,
           'Epoch round-trip': toIso(daysSinceEpochToDate(epochDays)),
-        };
+        });
 
         if (!cancelled) {
           setData(results);
@@ -123,7 +158,7 @@ export const DateUtilitiesExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [baseDate, monthsToAdd]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(data).length === 0) return <p>Loading...</p>;
@@ -144,7 +179,13 @@ export const DateUtilitiesExample: React.FC = () => {
 };
 
 // 3. Calendar & Business Day Adjustments
-export const CalendarExample: React.FC = () => {
+export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
+  const {
+    saturdayDate = DEFAULT_CALENDAR_EXAMPLE.saturdayDate!,
+    holidayDate = DEFAULT_CALENDAR_EXAMPLE.holidayDate!,
+    calendarCodes = DEFAULT_CALENDAR_EXAMPLE.calendarCodes!,
+  } = props;
+
   const [data, setData] = useState<{ [key: string]: string | boolean }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -153,27 +194,41 @@ export const CalendarExample: React.FC = () => {
     (async () => {
       try {
         const codes = availableCalendarCodes();
-        const usny = getCalendar('usny');
-        const gblo = getCalendar('gblo');
+        const calendars = calendarCodes.map((code) => getCalendar(code));
+        const [primaryCal, secondaryCal] = calendars;
 
-        const saturday = new FsDate(2025, 1, 4); // Saturday
-        const christmas = new FsDate(2024, 12, 25); // Christmas
+        const saturday = new FsDate(saturdayDate.year, saturdayDate.month, saturdayDate.day);
+        const holiday = new FsDate(holidayDate.year, holidayDate.month, holidayDate.day);
 
         const results: { [key: string]: string | boolean } = {
           'Available Calendars': codes.length.toString(),
           'Sample Calendars': codes.slice(0, 5).join(', '),
-          'US NY Name': usny.name,
-          'US NY Ignores Weekends': usny.ignoreWeekends,
-          'GB LO Name': gblo.name,
-          'Saturday is weekend': saturday.isWeekend(),
-          'Saturday is US business day': usny.isBusinessDay(saturday),
-          'Christmas is US holiday': usny.isHoliday(christmas),
-          'Adjusted (Following)': toIso(adjust(saturday, BusinessDayConvention.Following, usny)),
-          'Adjusted (Preceding)': toIso(adjust(saturday, BusinessDayConvention.Preceding, usny)),
-          'Adjusted (Modified Following)': toIso(
-            adjust(saturday, BusinessDayConvention.ModifiedFollowing, usny)
-          ),
         };
+
+        if (primaryCal) {
+          results[`${calendarCodes[0].toUpperCase()} Name`] = primaryCal.name;
+          results[`${calendarCodes[0].toUpperCase()} Ignores Weekends`] = primaryCal.ignoreWeekends;
+        }
+        if (secondaryCal) {
+          results[`${calendarCodes[1].toUpperCase()} Name`] = secondaryCal.name;
+        }
+
+        results['Saturday is weekend'] = saturday.isWeekend();
+        if (primaryCal) {
+          results[`Saturday is ${calendarCodes[0].toUpperCase()} business day`] =
+            primaryCal.isBusinessDay(saturday);
+          results[`Holiday is ${calendarCodes[0].toUpperCase()} holiday`] =
+            primaryCal.isHoliday(holiday);
+          results['Adjusted (Following)'] = toIso(
+            adjust(saturday, BusinessDayConvention.Following, primaryCal)
+          );
+          results['Adjusted (Preceding)'] = toIso(
+            adjust(saturday, BusinessDayConvention.Preceding, primaryCal)
+          );
+          results['Adjusted (Modified Following)'] = toIso(
+            adjust(saturday, BusinessDayConvention.ModifiedFollowing, primaryCal)
+          );
+        }
 
         if (!cancelled) {
           setData(results);
@@ -187,7 +242,7 @@ export const CalendarExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [saturdayDate, holidayDate, calendarCodes]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(data).length === 0) return <p>Loading...</p>;
@@ -208,7 +263,13 @@ export const CalendarExample: React.FC = () => {
 };
 
 // 4. Day Count Conventions
-export const DayCountExample: React.FC = () => {
+export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
+  const {
+    startDate = DEFAULT_DAY_COUNT_EXAMPLE.startDate!,
+    endDate = DEFAULT_DAY_COUNT_EXAMPLE.endDate!,
+    calendarCode = DEFAULT_DAY_COUNT_EXAMPLE.calendarCode!,
+  } = props;
+
   const [data, setData] = useState<{ [key: string]: string }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -216,9 +277,9 @@ export const DayCountExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const start = new FsDate(2024, 1, 15);
-        const end = new FsDate(2024, 7, 15);
-        const calendar = getCalendar('usny');
+        const start = new FsDate(startDate.year, startDate.month, startDate.day);
+        const end = new FsDate(endDate.year, endDate.month, endDate.day);
+        const calendar = getCalendar(calendarCode);
 
         // Different day count conventions
         const act360 = DayCount.act360();
@@ -260,7 +321,7 @@ export const DayCountExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [startDate, endDate, calendarCode]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(data).length === 0) return <p>Loading...</p>;
@@ -281,7 +342,15 @@ export const DayCountExample: React.FC = () => {
 };
 
 // 5. Schedule Builder Examples
-export const ScheduleBuilderExample: React.FC = () => {
+export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (props) => {
+  const {
+    startDate = DEFAULT_SCHEDULE_BUILDER.startDate!,
+    endDate = DEFAULT_SCHEDULE_BUILDER.endDate!,
+    cdsStartDate = DEFAULT_SCHEDULE_BUILDER.cdsStartDate!,
+    cdsEndDate = DEFAULT_SCHEDULE_BUILDER.cdsEndDate!,
+    calendarCode = DEFAULT_SCHEDULE_BUILDER.calendarCode!,
+  } = props;
+
   const [schedules, setSchedules] = useState<{ [key: string]: string[] }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -289,9 +358,9 @@ export const ScheduleBuilderExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const start = new FsDate(2024, 1, 15);
-        const end = new FsDate(2024, 12, 15);
-        const calendar = getCalendar('usny');
+        const start = new FsDate(startDate.year, startDate.month, startDate.day);
+        const end = new FsDate(endDate.year, endDate.month, endDate.day);
+        const calendar = getCalendar(calendarCode);
 
         // Monthly schedule with modified following and EOM
         const monthly = new ScheduleBuilder(start, end)
@@ -316,8 +385,8 @@ export const ScheduleBuilderExample: React.FC = () => {
           .build();
 
         // CDS IMM schedule
-        const cdsStart = new FsDate(2024, 3, 20); // Standard CDS date
-        const cdsEnd = new FsDate(2029, 3, 20); // 5-year CDS
+        const cdsStart = new FsDate(cdsStartDate.year, cdsStartDate.month, cdsStartDate.day);
+        const cdsEnd = new FsDate(cdsEndDate.year, cdsEndDate.month, cdsEndDate.day);
         const cdsSchedule = new ScheduleBuilder(cdsStart, cdsEnd)
           .frequency(Frequency.quarterly())
           .cdsImm()
@@ -343,7 +412,7 @@ export const ScheduleBuilderExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [startDate, endDate, cdsStartDate, cdsEndDate, calendarCode]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(schedules).length === 0) return <p>Loading...</p>;
@@ -376,7 +445,13 @@ export const ScheduleBuilderExample: React.FC = () => {
 };
 
 // 6. Period Plans (Calendar & Fiscal)
-export const PeriodPlansExample: React.FC = () => {
+export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => {
+  const {
+    calendarPeriodRange = DEFAULT_PERIOD_PLANS.calendarPeriodRange!,
+    calendarActualsThrough = DEFAULT_PERIOD_PLANS.calendarActualsThrough!,
+    fiscalPeriodRange = DEFAULT_PERIOD_PLANS.fiscalPeriodRange!,
+  } = props;
+
   const [data, setData] = useState<{
     calendar: Array<{ id: string; start: string; end: string; actual: boolean }>;
     fiscal: Array<{ id: string; start: string; end: string }>;
@@ -387,8 +462,8 @@ export const PeriodPlansExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        // Calendar periods with actuals until Q2
-        const calendarPlan = buildPeriods('2024Q1..Q4', '2024Q2');
+        // Calendar periods with actuals
+        const calendarPlan = buildPeriods(calendarPeriodRange, calendarActualsThrough);
         const calendarPeriods = calendarPlan.toArray().map((p) => ({
           id: p.id.code,
           start: toIso(p.start),
@@ -397,7 +472,7 @@ export const PeriodPlansExample: React.FC = () => {
         }));
 
         // Fiscal periods (US Federal: Oct 1 - Sep 30)
-        const fiscalPlan = buildFiscalPeriods('2024Q1..2025Q2', FiscalConfig.usFederal(), null);
+        const fiscalPlan = buildFiscalPeriods(fiscalPeriodRange, FiscalConfig.usFederal(), null);
         const fiscalPeriods = fiscalPlan.toArray().map((p) => ({
           id: p.id.code,
           start: toIso(p.start),
@@ -419,7 +494,7 @@ export const PeriodPlansExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [calendarPeriodRange, calendarActualsThrough, fiscalPeriodRange]);
 
   if (error) return <p className="error">{error}</p>;
   if (data.calendar.length === 0) return <p>Loading...</p>;
@@ -478,7 +553,13 @@ export const PeriodPlansExample: React.FC = () => {
 };
 
 // 7. IMM Dates & Option Expiries
-export const IMMDatesExample: React.FC = () => {
+export const IMMDatesExample: React.FC<IMMDatesExampleProps> = (props) => {
+  const {
+    referenceDate = DEFAULT_IMM_DATES.referenceDate!,
+    immYears = DEFAULT_IMM_DATES.immYears!,
+    immMonths = DEFAULT_IMM_DATES.immMonths!,
+  } = props;
+
   const [data, setData] = useState<{ [key: string]: string }>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -486,19 +567,58 @@ export const IMMDatesExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const today = new FsDate(2024, 9, 30);
+        const today = new FsDate(referenceDate.year, referenceDate.month, referenceDate.day);
 
         const results: { [key: string]: string } = {
           'Reference Date': toIso(today),
           'Next IMM': toIso(nextImm(today)),
           'Next CDS Date': toIso(nextCdsDate(today)),
           'Next Equity Option Expiry': toIso(nextEquityOptionExpiry(today)),
-          'Third Friday Mar 2025': toIso(thirdFriday(2025, 3)),
-          'Third Wednesday Mar 2025': toIso(thirdWednesday(2025, 3)),
-          'Third Friday Jun 2025': toIso(thirdFriday(2025, 6)),
-          'Third Friday Sep 2025': toIso(thirdFriday(2025, 9)),
-          'Third Friday Dec 2025': toIso(thirdFriday(2025, 12)),
         };
+
+        // Add third Friday/Wednesday for specified years and months
+        for (const year of immYears) {
+          for (const month of immMonths) {
+            const monthNames = [
+              '',
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ];
+            results[`Third Friday ${monthNames[month]} ${year}`] = toIso(thirdFriday(year, month));
+          }
+        }
+
+        // Add third Wednesday for first year/month
+        if (immYears.length > 0 && immMonths.length > 0) {
+          const monthNames = [
+            '',
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ];
+          results[`Third Wednesday ${monthNames[immMonths[0]]} ${immYears[0]}`] = toIso(
+            thirdWednesday(immYears[0], immMonths[0])
+          );
+        }
 
         if (!cancelled) {
           setData(results);
@@ -512,7 +632,7 @@ export const IMMDatesExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [referenceDate, immYears, immMonths]);
 
   if (error) return <p className="error">{error}</p>;
   if (Object.keys(data).length === 0) return <p>Loading...</p>;
@@ -532,7 +652,7 @@ export const IMMDatesExample: React.FC = () => {
   );
 };
 
-// 8. Frequency Examples
+// 8. Frequency Examples - no data needed
 export const FrequencyExample: React.FC = () => {
   const [data, setData] = useState<{ [key: string]: string }>({});
   const [error, setError] = useState<string | null>(null);

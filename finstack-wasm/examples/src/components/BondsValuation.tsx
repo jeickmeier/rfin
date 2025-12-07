@@ -14,6 +14,7 @@ import {
   StubKind,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { BondsValuationProps, DEFAULT_BONDS_PROPS, BondData } from './data/bonds';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -48,7 +49,15 @@ type CashflowRow = {
 
 const metricKeys = ['accrued', 'clean_price', 'duration_mod', 'ytm', 'z_spread'];
 
-export const BondsValuationExample: React.FC = () => {
+export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
+  // Merge with defaults
+  const {
+    valuationDate = DEFAULT_BONDS_PROPS.valuationDate!,
+    discountCurve = DEFAULT_BONDS_PROPS.discountCurve!,
+    forwardCurve = DEFAULT_BONDS_PROPS.forwardCurve!,
+    bonds = DEFAULT_BONDS_PROPS.bonds!,
+  } = props;
+
   const [rows, setRows] = useState<BondRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedBondId, setExpandedBondId] = useState<string | null>(null);
@@ -59,42 +68,35 @@ export const BondsValuationExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const notional = Money.fromCode(1_000_000, 'USD');
-        const issue = new FsDate(2024, 1, 15);
-        const valuationDate = new FsDate(2024, 3, 15);
+        const valDate = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Debug type checks to ensure FsDate instances are from the same WASM module
-        console.debug(
-          'FsDate checks (bonds)',
-          issue instanceof FsDate,
-          valuationDate instanceof FsDate
+        // Build discount curve from props
+        const discCurve = new DiscountCurve(
+          discountCurve.id,
+          valDate,
+          new Float64Array(discountCurve.tenors),
+          new Float64Array(discountCurve.discountFactors),
+          discountCurve.dayCount,
+          discountCurve.interpolation,
+          discountCurve.extrapolation,
+          discountCurve.continuous
         );
 
-        const discountCurve = new DiscountCurve(
-          'USD-OIS',
-          valuationDate,
-          new Float64Array([0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0]),
-          new Float64Array([1.0, 0.9975, 0.994, 0.985, 0.965, 0.945, 0.915]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
-        );
-
-        const forwardCurve = new ForwardCurve(
-          'USD-SOFR-3M',
-          valuationDate,
-          0.25, // Tenor in years (3 months = 0.25)
-          new Float64Array([0.25, 0.5, 1.0, 2.0, 3.0]),
-          new Float64Array([0.053, 0.054, 0.055, 0.056, 0.057]),
-          'act_360',
-          2,
-          'linear'
+        // Build forward curve from props
+        const fwdCurve = new ForwardCurve(
+          forwardCurve.id,
+          valDate,
+          forwardCurve.tenor,
+          new Float64Array(forwardCurve.tenors),
+          new Float64Array(forwardCurve.rates),
+          forwardCurve.dayCount,
+          forwardCurve.compounding,
+          forwardCurve.interpolation
         );
 
         const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertForward(forwardCurve);
+        market.insertDiscount(discCurve);
+        market.insertForward(fwdCurve);
 
         const registry = createStandardRegistry();
 
@@ -105,7 +107,7 @@ export const BondsValuationExample: React.FC = () => {
 
         const evaluateBond = (bond: Bond, bondName: string): BondRow => {
           const opts = new PricingRequest().withMetrics(metricKeys);
-          const result = registry.priceBond(bond, 'discounting', market, valuationDate, opts);
+          const result = registry.priceBond(bond, 'discounting', market, valDate, opts);
 
           // Extract primitives immediately to avoid GC issues
           const presentValue = result.presentValue.amount;
@@ -137,227 +139,216 @@ export const BondsValuationExample: React.FC = () => {
           };
         };
 
-        // Create bonds with quoted clean prices
-        // IMPORTANT: quoted_clean_price expects a percentage of par (e.g., 99.5 for 99.5% of par),
-        // NOT an absolute dollar amount.
-        const quotedPricePct = 99.5; // 99.5% of par
-        let fixedRow: BondRow;
-        try {
-          const fixedBond = Bond.fixedSemiannual(
-            'corp_fixed_2029',
-            notional,
-            0.045,
-            issue,
-            new FsDate(2029, 1, 15),
-            'USD-OIS',
-            quotedPricePct
-          );
-          fixedRow = evaluateBond(fixedBond, '5Y Corporate Fixed');
-        } catch (err) {
-          console.error('Fixed bond failed:', err);
-          throw err; // Re-throw to show error
-        }
-        fixedRow.kind = 'Fixed Coupon';
-        fixedRow.couponLabel = '4.50% semi-annual';
-        fixedRow.notes = [
-          'Constructed with Bond.fixedSemiannual helper',
-          `Quoted at ${quotedPricePct}% of par`,
-        ];
+        const buildBond = (bondData: BondData): { bond: Bond; row: BondRow } | null => {
+          const notional = Money.fromCode(bondData.notional.amount, bondData.notional.currency);
+          const issue = new FsDate(bondData.issueDate.year, bondData.issueDate.month, bondData.issueDate.day);
+          const maturity = new FsDate(bondData.maturityDate.year, bondData.maturityDate.month, bondData.maturityDate.day);
 
-        const zeroQuotedPricePct = 95.0; // 95.0% of par
-        const zeroBond = Bond.zeroCoupon(
-          'corp_zero_2027',
-          notional,
-          issue,
-          new FsDate(2027, 1, 15),
-          'USD-OIS',
-          zeroQuotedPricePct
-        );
-        const zeroRow = evaluateBond(zeroBond, '3Y Discount Note');
-        zeroRow.kind = 'Zero Coupon';
-        zeroRow.couponLabel = '0.00% (discount)';
-        zeroRow.notes = ['Created via Bond.zeroCoupon', `Quoted at ${zeroQuotedPricePct}% of par`];
+          let bond: Bond;
+          let row: BondRow;
 
-        // Floating rate bond
-        const floatQuotedPricePct = 100.25;
-        let floatingBond: Bond;
-        try {
-          floatingBond = Bond.floating(
-            'corp_frn_2027',
-            notional,
-            issue,
-            new FsDate(2027, 1, 15),
-            'USD-OIS',
-            'USD-SOFR-3M',
-            150.0, // 150 bps margin
-            floatQuotedPricePct
-          );
-        } catch (err) {
-          console.error('Floating bond construction error:', err);
-          throw err; // Re-throw to be caught by outer try-catch
-        }
-        const floatingRow = evaluateBond(floatingBond, '3Y Floating Rate Note');
-        floatingRow.kind = 'Floating Rate';
-        floatingRow.couponLabel = 'SOFR 3M';
-        floatingRow.marginLabel = '+150 bps';
-        floatingRow.notes = [
-          'Created via Bond.floating',
-          'Quarterly resets tied to USD-SOFR-3M',
-          `Quoted at ${floatQuotedPricePct}% of par`,
-        ];
+          try {
+            switch (bondData.bondType.type) {
+              case 'fixed': {
+                bond = Bond.fixedSemiannual(
+                  bondData.id,
+                  notional,
+                  bondData.bondType.couponRate,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.quotedCleanPrice
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Fixed Coupon';
+                row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% semi-annual`;
+                row.notes = [
+                  'Constructed with Bond.fixedSemiannual helper',
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'zero': {
+                bond = Bond.zeroCoupon(
+                  bondData.id,
+                  notional,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.quotedCleanPrice
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Zero Coupon';
+                row.couponLabel = '0.00% (discount)';
+                row.notes = [
+                  'Created via Bond.zeroCoupon',
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'floating': {
+                bond = Bond.floating(
+                  bondData.id,
+                  notional,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.bondType.forwardCurveId,
+                  bondData.bondType.marginBps,
+                  bondData.quotedCleanPrice
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Floating Rate';
+                row.couponLabel = 'SOFR 3M';
+                row.marginLabel = `+${bondData.bondType.marginBps} bps`;
+                row.notes = [
+                  'Created via Bond.floating',
+                  `Quarterly resets tied to ${bondData.bondType.forwardCurveId}`,
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'amortizing': {
+                const finalNotional = Money.fromCode(
+                  bondData.bondType.finalNotional.amount,
+                  bondData.bondType.finalNotional.currency
+                );
+                const amortSpec = AmortizationSpec.linearTo(finalNotional);
+                bond = new Bond(
+                  bondData.id,
+                  notional,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.bondType.couponRate,
+                  Frequency.semiAnnual(),
+                  DayCount.thirty360(),
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  amortSpec,
+                  undefined,
+                  undefined,
+                  bondData.quotedCleanPrice
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Amortizing';
+                row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% semi-annual`;
+                row.notes = [
+                  'Built using full Bond constructor (all parameters explicit)',
+                  `Linear amortization from $${(bondData.notional.amount / 1000).toFixed(0)}K to $${(bondData.bondType.finalNotional.amount / 1000).toFixed(0)}K`,
+                  'Principal payments reduce outstanding balance',
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'callable': {
+                bond = new Bond(
+                  bondData.id,
+                  notional,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.bondType.couponRate,
+                  Frequency.semiAnnual(),
+                  DayCount.thirty360(),
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  bondData.bondType.callSchedule,
+                  undefined,
+                  bondData.quotedCleanPrice
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Callable';
+                row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% semi-annual`;
+                const firstCall = bondData.bondType.callSchedule[0];
+                row.notes = [
+                  `Callable starting ${firstCall[0]} at ${firstCall[1]}%`,
+                  `Call prices step down: ${bondData.bondType.callSchedule.map(([, p]) => `${p}%`).join(' → ')}`,
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'fixedToFloating': {
+                const switchDate = new FsDate(
+                  bondData.bondType.switchDate.year,
+                  bondData.bondType.switchDate.month,
+                  bondData.bondType.switchDate.day
+                );
+                bond = Bond.fixedToFloating(
+                  bondData.id,
+                  notional,
+                  bondData.bondType.fixedRate,
+                  switchDate,
+                  bondData.bondType.forwardCurveId,
+                  bondData.bondType.marginBps,
+                  issue,
+                  maturity,
+                  Frequency.quarterly(),
+                  DayCount.act360(),
+                  bondData.discountCurveId,
+                  bondData.quotedCleanPrice,
+                  market
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'Fixed-to-Floating';
+                row.couponLabel = `${(bondData.bondType.fixedRate * 100).toFixed(2)}% → SOFR 3M + ${bondData.bondType.marginBps}bps`;
+                row.notes = [
+                  'Created via Bond.fixedToFloating helper',
+                  `Fixed at ${(bondData.bondType.fixedRate * 100).toFixed(0)}% until ${bondData.bondType.switchDate.year}-${String(bondData.bondType.switchDate.month).padStart(2, '0')}-${String(bondData.bondType.switchDate.day).padStart(2, '0')}`,
+                  `Then floats at SOFR 3M + ${bondData.bondType.marginBps} bps (discount margin)`,
+                  'Cashflows show Fixed column, then Float column',
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              case 'pikToggle': {
+                bond = Bond.pikToggle(
+                  bondData.id,
+                  notional,
+                  bondData.bondType.couponRate,
+                  bondData.bondType.cashPct,
+                  bondData.bondType.pikPct,
+                  issue,
+                  maturity,
+                  bondData.discountCurveId,
+                  bondData.quotedCleanPrice,
+                  market
+                );
+                row = evaluateBond(bond, bondData.name);
+                row.kind = 'PIK Toggle';
+                row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% (${bondData.bondType.cashPct * 100}/${bondData.bondType.pikPct * 100} Cash/PIK)`;
+                row.notes = [
+                  'Created via Bond.pikToggle helper',
+                  `${bondData.bondType.cashPct * 100}% of each coupon paid in cash (Fixed column)`,
+                  `${bondData.bondType.pikPct * 100}% of each coupon capitalized into principal (PIK column)`,
+                  'Outstanding balance increases as PIK interest compounds',
+                  bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
+                ].filter(Boolean);
+                break;
+              }
+              default:
+                return null;
+            }
+            return { bond, row };
+          } catch (err) {
+            console.warn(`Bond ${bondData.id} creation failed, skipping:`, err);
+            return null;
+          }
+        };
 
-        // Amortizing bond with linear amortization
-        // EXAMPLE: Using the full Bond constructor (builder pattern) for maximum control
-        const amortQuotedPricePct = 98.5;
-        const finalNotional = Money.fromCode(200_000, 'USD'); // Amortize down to 200k
-        const amortSpec = AmortizationSpec.linearTo(finalNotional);
-
-        const amortBond = new Bond(
-          'corp_amort_2029', // instrumentId
-          notional, // notional
-          issue, // issue date
-          new FsDate(2029, 1, 15), // maturity date
-          'USD-OIS', // discount curve
-          0.055, // coupon rate
-          Frequency.semiAnnual(), // frequency
-          DayCount.thirty360(), // day count
-          BusinessDayConvention.ModifiedFollowing, // business day convention
-          undefined, // calendar (optional)
-          StubKind.none(), // stub kind
-          amortSpec, // amortization spec
-          undefined, // call schedule (optional)
-          undefined, // put schedule (optional)
-          amortQuotedPricePct // quoted clean price (optional)
-        );
-        const amortRow = evaluateBond(amortBond, '5Y Amortizing Bond');
-        amortRow.kind = 'Amortizing';
-        amortRow.couponLabel = '5.50% semi-annual';
-        amortRow.notes = [
-          'Built using full Bond constructor (all parameters explicit)',
-          'Linear amortization from $1M to $200K',
-          'Principal payments reduce outstanding balance',
-          `Quoted at ${amortQuotedPricePct}% of par`,
-        ];
-
-        // Callable bond with call schedule
-        let callableRow: BondRow | null = null;
-        try {
-          const callQuotedPricePct = 102.0;
-          const callSchedule = [
-            ['2026-01-15', 103.0], // Callable after 2 years at 103%
-            ['2027-01-15', 102.0], // After 3 years at 102%
-            ['2028-01-15', 101.0], // After 4 years at 101%
-          ];
-
-          const callableBond = new Bond(
-            'corp_call_2029',
-            notional,
-            issue,
-            new FsDate(2029, 1, 15),
-            'USD-OIS',
-            0.06, // 6.0% coupon
-            Frequency.semiAnnual(),
-            DayCount.thirty360(),
-            BusinessDayConvention.ModifiedFollowing,
-            undefined, // calendar
-            StubKind.none(),
-            undefined, // amortization
-            callSchedule,
-            undefined, // put schedule
-            callQuotedPricePct
-          );
-          callableRow = evaluateBond(callableBond, '5Y Callable Bond');
-          callableRow.kind = 'Callable';
-          callableRow.couponLabel = '6.00% semi-annual';
-          callableRow.notes = [
-            'Callable starting 2026-01-15 at 103%',
-            'Call prices step down: 103% → 102% → 101%',
-            `Quoted at ${callQuotedPricePct}% of par`,
-          ];
-        } catch (err) {
-          console.warn('Callable bond creation failed, skipping:', err);
-        }
-
-        // Fixed-to-Floating bond
-        // EXAMPLE: Using Bond.fixedToFloating() helper for windowed cashflows
-        const fixToFloatQuotedPricePct = 99.75;
-        const switchDate = new FsDate(2026, 1, 15); // Switch after 2 years
-        let fixToFloatRow: BondRow | null = null;
-        try {
-          const fixToFloatBond = Bond.fixedToFloating(
-            'corp_fix2flt_2029',
-            notional,
-            0.05, // 5% fixed rate for first 2 years
-            switchDate, // Switch date
-            'USD-SOFR-3M', // Forward curve after switch
-            100.0, // 100 bps margin (DM) over SOFR
-            issue,
-            new FsDate(2029, 1, 15),
-            Frequency.quarterly(),
-            DayCount.act360(),
-            'USD-OIS',
-            fixToFloatQuotedPricePct,
-            market // Market context for forward rate lookup
-          );
-          fixToFloatRow = evaluateBond(fixToFloatBond, '5Y Fixed-to-Floating');
-          fixToFloatRow.kind = 'Fixed-to-Floating';
-          fixToFloatRow.couponLabel = '5.00% → SOFR 3M + 100bps';
-          fixToFloatRow.notes = [
-            'Created via Bond.fixedToFloating helper',
-            'Fixed at 5% until 2026-01-15',
-            'Then floats at SOFR 3M + 100 bps (discount margin)',
-            'Cashflows show Fixed column, then Float column',
-            `Quoted at ${fixToFloatQuotedPricePct}% of par`,
-          ];
-        } catch (err) {
-          console.warn('Fixed-to-floating bond creation failed, skipping:', err);
-        }
-
-        // PIK Toggle bond (50/50 Cash/PIK)
-        // EXAMPLE: Using Bond.pikToggle() helper method
-        const pikQuotedPricePct = 97.0;
-        let pikRow: BondRow | null = null;
-        try {
-          const pikBond = Bond.pikToggle(
-            'corp_pik_2029',
-            notional,
-            0.08, // 8% coupon
-            0.5, // 50% cash
-            0.5, // 50% PIK
-            issue,
-            new FsDate(2029, 1, 15),
-            'USD-OIS',
-            pikQuotedPricePct,
-            market // Market context (not used for fixed PIK, but required)
-          );
-          pikRow = evaluateBond(pikBond, '5Y PIK-Toggle Bond');
-          pikRow.kind = 'PIK Toggle';
-          pikRow.couponLabel = '8.00% (50/50 Cash/PIK)';
-          pikRow.notes = [
-            'Created via Bond.pikToggle helper',
-            '50% of each coupon paid in cash (Fixed column)',
-            '50% of each coupon capitalized into principal (PIK column)',
-            'Outstanding balance increases as PIK interest compounds',
-            `Quoted at ${pikQuotedPricePct}% of par`,
-          ];
-        } catch (err) {
-          console.warn('PIK toggle bond creation failed, skipping:', err);
+        // Build all bonds
+        const allRows: BondRow[] = [];
+        for (const bondData of bonds) {
+          const result = buildBond(bondData);
+          if (result) {
+            allRows.push(result.row);
+          }
         }
 
         if (!cancelled) {
-          const allRows = [fixedRow, zeroRow, amortRow];
-          if (callableRow) {
-            allRows.push(callableRow);
-          }
-          if (floatingRow) {
-            allRows.splice(2, 0, floatingRow); // Insert floating row at position 2
-          }
-          if (fixToFloatRow) {
-            allRows.push(fixToFloatRow);
-          }
-          if (pikRow) {
-            allRows.push(pikRow);
-          }
           setRows(allRows);
         }
       } catch (err) {
@@ -370,7 +361,7 @@ export const BondsValuationExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, discountCurve, forwardCurve, bonds]);
 
   const loadCashflows = (bondId: string, bond: Bond) => {
     if (!marketContext) {
@@ -391,7 +382,7 @@ export const BondsValuationExample: React.FC = () => {
         const flowData: CashflowRow[] = [];
 
         for (let i = 0; i < rawCashflows.length; i++) {
-          const entry = rawCashflows[i] as any;
+          const entry = rawCashflows[i] as [FsDate, Money, string, number];
           const date = entry[0];
           const money = entry[1];
           const kind = entry[2] as string;

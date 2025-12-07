@@ -11,6 +11,7 @@ import {
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
+import { ExoticRatesDerivativesProps, DEFAULT_EXOTIC_RATES_PROPS } from './data/exotic-rates';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -26,7 +27,15 @@ type InstrumentRow = {
   details?: string;
 };
 
-export const ExoticRatesDerivativesExample: React.FC = () => {
+export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps> = (props) => {
+  const {
+    valuationDate = DEFAULT_EXOTIC_RATES_PROPS.valuationDate!,
+    notional = DEFAULT_EXOTIC_RATES_PROPS.notional!,
+    market = DEFAULT_EXOTIC_RATES_PROPS.market!,
+    cmsOptions = DEFAULT_EXOTIC_RATES_PROPS.cmsOptions!,
+    rangeAccruals = DEFAULT_EXOTIC_RATES_PROPS.rangeAccruals!,
+  } = props;
+
   const [rows, setRows] = useState<InstrumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,165 +43,144 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const asOf = new FsDate(2024, 1, 2);
-        const notional = Money.fromCode(10_000_000, 'USD');
+        const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build market
+        // Build discount curve
         const discountCurve = new DiscountCurve(
-          'USD-OIS',
+          market.discountCurve.id,
           asOf,
-          new Float64Array([0.0, 0.5, 1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([1.0, 0.995, 0.99, 0.975, 0.94, 0.87]),
-          'act_365f',
-          'monotone_convex',
-          'flat_forward',
-          true
+          new Float64Array(market.discountCurve.tenors),
+          new Float64Array(market.discountCurve.discountFactors),
+          market.discountCurve.dayCount,
+          market.discountCurve.interpolation,
+          market.discountCurve.extrapolation,
+          market.discountCurve.continuous
         );
 
+        // Build forward curve
+        const fwdBaseDate = new FsDate(
+          market.forwardCurve.baseDate.year,
+          market.forwardCurve.baseDate.month,
+          market.forwardCurve.baseDate.day
+        );
         const forwardCurve = new ForwardCurve(
-          'USD-SOFR-3M',
-          asOf,
-          0.25,
-          new Float64Array([0.0, 1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([0.03, 0.032, 0.034, 0.036, 0.038]),
-          'act_360',
-          2,
-          'linear'
+          market.forwardCurve.id,
+          fwdBaseDate,
+          market.forwardCurve.tenor,
+          new Float64Array(market.forwardCurve.tenors),
+          new Float64Array(market.forwardCurve.rates),
+          market.forwardCurve.dayCount,
+          market.forwardCurve.compounding,
+          market.forwardCurve.interpolation
         );
 
-        // Add volatility surfaces for options
+        // Build vol surface
         const swaptionVol = new VolSurface(
-          'SWAPTION-VOL',
-          new Float64Array([1.0, 2.0, 5.0, 10.0]),
-          new Float64Array([0.02, 0.03, 0.04, 0.05]),
-          new Float64Array([
-            0.3, 0.29, 0.28, 0.27, 0.28, 0.27, 0.26, 0.25, 0.26, 0.25, 0.24, 0.23, 0.24, 0.23, 0.22,
-            0.21,
-          ])
+          market.volSurface.id,
+          new Float64Array(market.volSurface.expiries),
+          new Float64Array(market.volSurface.strikes),
+          new Float64Array(market.volSurface.vols)
         );
 
-        const market = new MarketContext();
-        market.insertDiscount(discountCurve);
-        market.insertForward(forwardCurve);
-        market.insertSurface(swaptionVol);
-        // Add spot price for range accrual
-        market.insertPrice('USD-SOFR-3M-SPOT', MarketScalar.price(Money.fromCode(0.032, 'USD')));
+        // Build market context
+        const marketCtx = new MarketContext();
+        marketCtx.insertDiscount(discountCurve);
+        marketCtx.insertForward(forwardCurve);
+        marketCtx.insertSurface(swaptionVol);
+
+        // Add spot prices
+        for (const spot of market.spotPrices) {
+          marketCtx.insertPrice(
+            spot.id,
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
+          );
+        }
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // CMS Option - Call on 10Y swap rate
-        const cmsCallJson = JSON.stringify({
-          id: 'cms_call_10y',
-          cms_tenor: 10.0,
-          strike_rate: 0.035,
-          fixing_dates: ['2025-01-02'],
-          payment_dates: ['2025-01-02'],
-          accrual_fractions: [1.0],
-          option_type: 'call',
-          notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'Act365F',
-          swap_fixed_freq: { Months: 6 },
-          swap_float_freq: { Months: 3 },
-          swap_day_count: 'Act360',
-          discount_curve_id: 'USD-OIS',
-          forward_curve_id: 'USD-SOFR-3M',
-          vol_surface_id: 'SWAPTION-VOL',
-          pricing_overrides: {
-            adaptive_bumps: false,
-          },
-          attributes: { tags: [], meta: {} },
-        });
-        const cmsCall = CmsOption.fromJson(cmsCallJson);
-        // CMS options use monte_carlo_hull_white_1f model
-        const cmsCallResult = registry.priceCmsOption(cmsCall, 'monte_carlo_hull_white_1f', market, asOf, null);
-        results.push({
-          name: 'CMS Call (10Y Swap Rate)',
-          type: 'CmsOption',
-          notional: notional.amount,
-          presentValue: cmsCallResult.presentValue.amount,
-          details: 'Strike: 3.5%, 1Y expiry',
-        });
+        // Process CMS options
+        for (const opt of cmsOptions) {
+          try {
+            const cmsJson = JSON.stringify({
+              id: opt.id,
+              cms_tenor: opt.cms_tenor,
+              strike_rate: opt.strike_rate,
+              fixing_dates: opt.fixing_dates,
+              payment_dates: opt.payment_dates,
+              accrual_fractions: opt.accrual_fractions,
+              option_type: opt.option_type,
+              notional: { amount: opt.notional.amount, currency: opt.notional.currency },
+              day_count: opt.day_count,
+              swap_fixed_freq: opt.swap_fixed_freq,
+              swap_float_freq: opt.swap_float_freq,
+              swap_day_count: opt.swap_day_count,
+              discount_curve_id: opt.discount_curve_id,
+              forward_curve_id: opt.forward_curve_id,
+              vol_surface_id: opt.vol_surface_id,
+              pricing_overrides: { adaptive_bumps: false },
+              attributes: { tags: [], meta: {} },
+            });
+            const cmsOption = CmsOption.fromJson(cmsJson);
+            const result = registry.priceCmsOption(
+              cmsOption,
+              'monte_carlo_hull_white_1f',
+              marketCtx,
+              asOf,
+              null
+            );
 
-        // CMS Option - Put on 5Y swap rate
-        const cmsPutJson = JSON.stringify({
-          id: 'cms_put_5y',
-          cms_tenor: 5.0,
-          strike_rate: 0.03,
-          fixing_dates: ['2025-01-02'],
-          payment_dates: ['2025-01-02'],
-          accrual_fractions: [1.0],
-          option_type: 'put',
-          notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'Act365F',
-          swap_fixed_freq: { Months: 6 },
-          swap_float_freq: { Months: 3 },
-          swap_day_count: 'Act360',
-          discount_curve_id: 'USD-OIS',
-          forward_curve_id: 'USD-SOFR-3M',
-          vol_surface_id: 'SWAPTION-VOL',
-          pricing_overrides: {
-            adaptive_bumps: false,
-          },
-          attributes: { tags: [], meta: {} },
-        });
-        const cmsPut = CmsOption.fromJson(cmsPutJson);
-        const cmsPutResult = registry.priceCmsOption(cmsPut, 'monte_carlo_hull_white_1f', market, asOf, null);
-        results.push({
-          name: 'CMS Put (5Y Swap Rate)',
-          type: 'CmsOption',
-          notional: notional.amount,
-          presentValue: cmsPutResult.presentValue.amount,
-          details: 'Strike: 3.0%, 1Y expiry',
-        });
-
-        // Range Accrual Note
-        // Generate monthly observation dates from start to end
-        const observationDates: string[] = [];
-        const startDate = new Date(2024, 0, 2); // 2024-01-02
-        const endDate = new Date(2025, 0, 2); // 2025-01-02
-        const currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-          observationDates.push(
-            `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
-          );
-          currentDate.setMonth(currentDate.getMonth() + 1);
+            results.push({
+              name: `CMS ${opt.option_type.charAt(0).toUpperCase() + opt.option_type.slice(1)} (${opt.cms_tenor}Y Swap Rate)`,
+              type: 'CmsOption',
+              notional: notional.amount,
+              presentValue: result.presentValue.amount,
+              details: `Strike: ${(opt.strike_rate * 100).toFixed(1)}%, 1Y expiry`,
+            });
+          } catch (err) {
+            console.error(`CMS option ${opt.id} error:`, err);
+          }
         }
 
-        const rangeAccrualJson = JSON.stringify({
-          id: 'range_accrual_1',
-          underlying_ticker: 'USD-SOFR-3M',
-          observation_dates: observationDates,
-          lower_bound: 0.02,
-          upper_bound: 0.05,
-          coupon_rate: 0.06,
-          notional: { amount: 10_000_000.0, currency: 'USD' },
-          day_count: 'Act365F',
-          discount_curve_id: 'USD-OIS',
-          spot_id: 'USD-SOFR-3M-SPOT',
-          vol_surface_id: 'SWAPTION-VOL',
-          div_yield_id: null,
-          pricing_overrides: {
-            adaptive_bumps: false,
-          },
-          attributes: { tags: [], meta: {} },
-        });
-        const rangeAccrual = RangeAccrual.fromJson(rangeAccrualJson);
-        // Range accruals use monte_carlo_gbm model
-        const rangeAccrualResult = registry.priceRangeAccrual(
-          rangeAccrual,
-          'monte_carlo_gbm',
-          market,
-          asOf,
-          null
-        );
-        results.push({
-          name: 'Range Accrual Note',
-          type: 'RangeAccrual',
-          notional: notional.amount,
-          presentValue: rangeAccrualResult.presentValue.amount,
-          details: '6% coupon, range: 2%-5%',
-        });
+        // Process range accruals
+        for (const opt of rangeAccruals) {
+          try {
+            const rangeAccrualJson = JSON.stringify({
+              id: opt.id,
+              underlying_ticker: opt.underlying_ticker,
+              observation_dates: opt.observation_dates,
+              lower_bound: opt.lower_bound,
+              upper_bound: opt.upper_bound,
+              coupon_rate: opt.coupon_rate,
+              notional: { amount: opt.notional.amount, currency: opt.notional.currency },
+              day_count: opt.day_count,
+              discount_curve_id: opt.discount_curve_id,
+              spot_id: opt.spot_id,
+              vol_surface_id: opt.vol_surface_id,
+              div_yield_id: null,
+              pricing_overrides: { adaptive_bumps: false },
+              attributes: { tags: [], meta: {} },
+            });
+            const rangeAccrual = RangeAccrual.fromJson(rangeAccrualJson);
+            const result = registry.priceRangeAccrual(
+              rangeAccrual,
+              'monte_carlo_gbm',
+              marketCtx,
+              asOf,
+              null
+            );
+
+            results.push({
+              name: 'Range Accrual Note',
+              type: 'RangeAccrual',
+              notional: notional.amount,
+              presentValue: result.presentValue.amount,
+              details: `${(opt.coupon_rate * 100).toFixed(0)}% coupon, range: ${(opt.lower_bound * 100).toFixed(0)}%-${(opt.upper_bound * 100).toFixed(0)}%`,
+            });
+          } catch (err) {
+            console.error(`Range accrual ${opt.id} error:`, err);
+          }
+        }
 
         if (!cancelled) {
           setRows(results);
@@ -202,7 +190,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
         discountCurve.free();
         forwardCurve.free();
         swaptionVol.free();
-        market.free();
+        marketCtx.free();
       } catch (err) {
         if (!cancelled) {
           console.error('Exotic rates derivatives error:', err);
@@ -213,7 +201,7 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [valuationDate, notional, market, cmsOptions, rangeAccruals]);
 
   if (error) {
     return <p className="error">{error}</p>;
@@ -243,11 +231,11 @@ export const ExoticRatesDerivativesExample: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ name, type, notional, presentValue, details }) => (
+          {rows.map(({ name, type, notional: rowNotional, presentValue, details }) => (
             <tr key={name}>
               <td>{name}</td>
               <td>{type}</td>
-              <td>{currencyFormatter.format(notional)}</td>
+              <td>{currencyFormatter.format(rowNotional)}</td>
               <td>{currencyFormatter.format(presentValue)}</td>
               <td>{details ?? '—'}</td>
             </tr>

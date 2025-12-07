@@ -66,7 +66,7 @@ export default function ScenariosExample() {
       if (!model) throw new Error('Failed to build model');
 
       // 3. Create execution context
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
       log.push('\n✓ Created execution context');
 
       // 4. Define scenario with +50bp parallel shift
@@ -171,7 +171,7 @@ export default function ScenariosExample() {
       const model = builder.periods('2025Q1..Q4', null)?.build();
       if (!model) throw new Error('Failed to build model');
 
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
 
       // 3. Define comprehensive scenario
       const operations = [
@@ -283,7 +283,7 @@ export default function ScenariosExample() {
       });
 
       // 3. Create context and apply shock
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
 
       const operations = [
         JsOperationSpec.stmtForecastPercent('revenue', -20.0).toJSON(), // -20% shock
@@ -360,7 +360,7 @@ export default function ScenariosExample() {
       const model = builder.periods('2025Q1..Q4', null)?.build();
       if (!model) throw new Error('Failed to build model');
 
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
 
       log.push(`Initial date: ${baseDate.toString()}`);
       log.push('Rolling forward 1 month...\n');
@@ -431,7 +431,7 @@ export default function ScenariosExample() {
       const model = builder.periods('2025Q1..Q4', null)?.build();
       if (!model) throw new Error('Failed to build model');
 
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
 
       // Create two scenarios with different priorities
       const baseCase = JsScenarioSpec.fromJSON({
@@ -545,7 +545,7 @@ export default function ScenariosExample() {
       log.push('  - Revenue Q1: $10M (actual)');
       log.push('  - Forecast: 8% growth\n');
 
-      const context = new JsExecutionContext(market, model, baseDate);
+      const context = new JsExecutionContext(market, model, baseDate, undefined, {}, undefined);
 
       // 3. Define comprehensive scenario
       const operations = [
