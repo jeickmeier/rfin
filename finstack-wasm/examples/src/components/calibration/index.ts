@@ -70,3 +70,36 @@ export type {
   VolQuoteData,
   TrancheQuoteData,
 } from './QuoteEditor';
+
+// JSON state types for LLM chat control
+export type {
+  DateJson,
+  SolverKindJson,
+  CalibrationConfigJson,
+  DiscountCurveCalibrationState,
+  ForwardCurveCalibrationState,
+  HazardCurveCalibrationState,
+  InflationCurveCalibrationState,
+  VolSurfaceCalibrationState,
+  BaseCorrelationCalibrationState,
+  CalibrationSuiteState,
+  DeepPartial,
+  CalibrationCommand,
+  CalibrationCommandResult,
+} from './state-types';
+
+// State factories and utilities
+export {
+  DEFAULT_CALIBRATION_CONFIG,
+  createDefaultDiscountCurveState,
+  createDefaultForwardCurveState,
+  createDefaultHazardCurveState,
+  createDefaultInflationCurveState,
+  createDefaultVolSurfaceState,
+  createDefaultBaseCorrelationState,
+  createDefaultCalibrationSuiteState,
+  serializeCalibrationState,
+  deserializeCalibrationState,
+  applyStateUpdate,
+  EXAMPLE_LLM_COMMAND,
+} from './state-types';

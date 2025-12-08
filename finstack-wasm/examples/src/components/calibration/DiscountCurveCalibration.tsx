@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
   DiscountCurveCalibrator,
@@ -16,6 +16,11 @@ import {
 } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
 import type { FrequencyType } from './CurrencyConventions';
+import type {
+  DiscountCurveCalibrationState,
+  CalibrationConfigJson,
+  DateJson,
+} from './state-types';
 
 interface CalibratedCurve {
   df: (t: number) => number;
@@ -23,15 +28,32 @@ interface CalibratedCurve {
   id: string;
 }
 
+/**
+ * Props for DiscountCurveCalibration component.
+ * Supports both controlled (via state prop) and uncontrolled modes.
+ */
 interface DiscountCurveCalibrationProps {
-  baseDate: FsDate;
-  curveId: string;
-  currency: string;
-  config?: CalibrationConfig;
+  /** Complete JSON state for controlled mode */
+  state?: DiscountCurveCalibrationState;
+  /** Callback when state changes (for controlled mode) */
+  onStateChange?: (state: DiscountCurveCalibrationState) => void;
+  /** Callback when calibration completes */
   onCalibrated?: (result: CalibrationResult) => void;
-  showChart?: boolean;
+  /** Additional CSS class name */
   className?: string;
-  /** Initial quotes - if not provided, generates dynamic defaults from baseDate */
+
+  // Legacy props for backward compatibility (used when state is not provided)
+  /** @deprecated Use state.baseDate instead */
+  baseDate?: FsDate;
+  /** @deprecated Use state.curveId instead */
+  curveId?: string;
+  /** @deprecated Use state.currency instead */
+  currency?: string;
+  /** @deprecated Use state.config instead */
+  config?: CalibrationConfig;
+  /** @deprecated Use state.showChart instead */
+  showChart?: boolean;
+  /** @deprecated Use state.quotes instead */
   initialQuotes?: DiscountQuoteData[];
 }
 
@@ -51,6 +73,30 @@ const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> 
   }
 };
 
+/** Convert JSON config to WASM CalibrationConfig */
+const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
+  let wasmConfig = CalibrationConfig.multiCurve();
+
+  switch (config.solverKind) {
+    case 'Brent':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
+      break;
+    case 'Newton':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
+      break;
+  }
+
+  return wasmConfig
+    .withMaxIterations(config.maxIterations)
+    .withTolerance(config.tolerance)
+    .withVerbose(config.verbose);
+};
+
+/** Convert DateJson to FsDate */
+const toFsDate = (date: DateJson): FsDate => {
+  return new FsDate(date.year, date.month, date.day);
+};
+
 /** Convert quote data to WASM RatesQuote objects using quote frequencies */
 const buildWasmQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
@@ -61,7 +107,6 @@ const buildWasmQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
         q.dayCount
       );
     } else {
-      // Use the frequency from the quote data
       return RatesQuote.swap(
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
         q.rate,
@@ -76,28 +121,61 @@ const buildWasmQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
 };
 
 export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> = ({
-  baseDate,
-  curveId,
-  currency,
-  config,
+  state,
+  onStateChange,
   onCalibrated,
-  showChart = true,
   className,
-  initialQuotes,
+  // Legacy props
+  baseDate: legacyBaseDate,
+  curveId: legacyCurveId,
+  currency: legacyCurrency,
+  config: legacyConfig,
+  showChart: legacyShowChart,
+  initialQuotes: legacyInitialQuotes,
 }) => {
+  // Determine if we're in controlled mode
+  const isControlled = state !== undefined;
+
+  // Extract values from state or legacy props
+  const baseDate = useMemo(() => {
+    if (state) return toFsDate(state.baseDate);
+    if (legacyBaseDate) return legacyBaseDate;
+    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+  }, [state, legacyBaseDate]);
+
+  const curveId = state?.curveId ?? legacyCurveId ?? 'USD-OIS';
+  const currency = state?.currency ?? legacyCurrency ?? 'USD';
+  const showChart = state?.showChart ?? legacyShowChart ?? true;
+
   // Generate dynamic defaults from baseDate and currency
   const defaultQuotes = useMemo(() => {
-    return generateDefaultDiscountQuotes(
-      baseDate.year,
-      baseDate.month,
-      baseDate.day,
-      currency
-    );
+    return generateDefaultDiscountQuotes(baseDate.year, baseDate.month, baseDate.day, currency);
   }, [baseDate, currency]);
 
-  // Local state for editable quotes
-  const [quotes, setQuotes] = useState<DiscountQuoteData[]>(
-    initialQuotes ?? defaultQuotes
+  // Quote state - controlled or local
+  const [localQuotes, setLocalQuotes] = useState<DiscountQuoteData[]>(
+    legacyInitialQuotes ?? defaultQuotes
+  );
+
+  // Sync quotes from state prop in controlled mode
+  useEffect(() => {
+    if (isControlled && state.quotes.length > 0) {
+      setLocalQuotes(state.quotes);
+    }
+  }, [isControlled, state?.quotes]);
+
+  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+
+  // Handle quote changes
+  const handleQuotesChange = useCallback(
+    (newQuotes: DiscountQuoteData[]) => {
+      if (isControlled && onStateChange && state) {
+        onStateChange({ ...state, quotes: newQuotes });
+      } else {
+        setLocalQuotes(newQuotes);
+      }
+    },
+    [isControlled, onStateChange, state]
   );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
@@ -115,12 +193,14 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
     setError(null);
 
     try {
-      const calibrationConfig =
-        config ||
-        CalibrationConfig.multiCurve()
-          .withSolverKind(SolverKind.Brent())
-          .withMaxIterations(40)
-          .withVerbose(false);
+      // Build calibration config
+      const calibrationConfig = state?.config
+        ? buildWasmConfig(state.config)
+        : legacyConfig ||
+          CalibrationConfig.multiCurve()
+            .withSolverKind(SolverKind.Brent())
+            .withMaxIterations(40)
+            .withVerbose(false);
 
       // Build fresh WASM quotes from the editable data
       const wasmQuotes = buildWasmQuotes(quotes);
@@ -177,7 +257,7 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, config, onCalibrated]);
+  }, [baseDate, curveId, currency, quotes, state?.config, legacyConfig, onCalibrated]);
 
   // Format quote for display
   const quotesSummary = useMemo(() => {
@@ -185,6 +265,23 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
     const swaps = quotes.filter((q) => q.type === 'swap').length;
     return `${deposits} deposits, ${swaps} swaps`;
   }, [quotes]);
+
+  // Export current state as JSON (for debugging/LLM integration)
+  const exportState = useCallback((): DiscountCurveCalibrationState => {
+    return {
+      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
+      curveId,
+      currency,
+      quotes,
+      config: state?.config ?? {
+        solverKind: 'Brent',
+        maxIterations: 40,
+        tolerance: 1e-8,
+        verbose: false,
+      },
+      showChart,
+    };
+  }, [baseDate, curveId, currency, quotes, state?.config, showChart]);
 
   return (
     <Card className={className}>
@@ -205,7 +302,7 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
         {/* Editable Quote Table */}
         <DiscountQuoteEditor
           quotes={quotes}
-          onChange={setQuotes}
+          onChange={handleQuotesChange}
           onCalibrate={runCalibration}
           disabled={status === 'running'}
           currency={currency}
@@ -252,6 +349,16 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
             </div>
           </div>
         )}
+
+        {/* JSON State Export (for debugging/LLM integration) */}
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            View JSON State
+          </summary>
+          <pre className="mt-2 p-2 bg-muted/50 rounded overflow-x-auto text-[10px]">
+            {JSON.stringify(exportState(), null, 2)}
+          </pre>
+        </details>
       </CardContent>
     </Card>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
   FsDate,
@@ -13,41 +13,88 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
 import { VolQuoteEditor, DEFAULT_VOL_QUOTES, type VolQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
+import type {
+  VolSurfaceCalibrationState,
+  CalibrationConfigJson,
+  DateJson,
+} from './state-types';
 
 interface CalibratedVolSurface {
   value: (t: number, k: number) => number;
   id: string;
 }
 
-interface VolSurfaceCalibrationProps {
-  baseDate: FsDate;
-  curveId: string;
-  currency: string;
-  underlying: string;
-  spotPrice: number;
-  expiries: number[];
-  strikes: number[];
-  discountCurveId: string;
-  config?: CalibrationConfig;
-  market: MarketContext | null;
-  onCalibrated?: (result: CalibrationResult) => void;
-  showChart?: boolean;
-  className?: string;
-  /** Initial quotes - if not provided, uses DEFAULT_VOL_QUOTES */
-  initialQuotes?: VolQuoteData[];
-  /**
-   * Calibration tolerance for SABR fit residuals.
-   * SABR model fitting typically has larger residuals than rate curve bootstrapping.
-   * Minimum enforced is 0.01 (1%); default is 0.5 (50bp vol error).
-   * Tighter tolerances may cause calibration failure.
-   */
-  tolerance?: number;
-}
-
 /** Minimum tolerance for SABR calibration (SABR residuals are larger than rate bootstraps) */
 const MIN_VOL_TOLERANCE = 0.01;
 /** Default tolerance for vol surface calibration */
 const DEFAULT_VOL_TOLERANCE = 0.5;
+
+/**
+ * Props for VolSurfaceCalibration component.
+ * Supports both controlled (via state prop) and uncontrolled modes.
+ */
+interface VolSurfaceCalibrationProps {
+  /** Complete JSON state for controlled mode */
+  state?: VolSurfaceCalibrationState;
+  /** Callback when state changes (for controlled mode) */
+  onStateChange?: (state: VolSurfaceCalibrationState) => void;
+  /** Market context containing discount curve */
+  market: MarketContext | null;
+  /** Callback when calibration completes */
+  onCalibrated?: (result: CalibrationResult) => void;
+  /** Additional CSS class name */
+  className?: string;
+
+  // Legacy props for backward compatibility
+  /** @deprecated Use state.baseDate instead */
+  baseDate?: FsDate;
+  /** @deprecated Use state.curveId instead */
+  curveId?: string;
+  /** @deprecated Use state.currency instead */
+  currency?: string;
+  /** @deprecated Use state.underlying instead */
+  underlying?: string;
+  /** @deprecated Use state.spotPrice instead */
+  spotPrice?: number;
+  /** @deprecated Use state.expiries instead */
+  expiries?: number[];
+  /** @deprecated Use state.strikes instead */
+  strikes?: number[];
+  /** @deprecated Use state.discountCurveId instead */
+  discountCurveId?: string;
+  /** @deprecated Use state.config instead */
+  config?: CalibrationConfig;
+  /** @deprecated Use state.showChart instead */
+  showChart?: boolean;
+  /** @deprecated Use state.quotes instead */
+  initialQuotes?: VolQuoteData[];
+  /** @deprecated Use state.tolerance instead */
+  tolerance?: number;
+}
+
+/** Convert JSON config to WASM CalibrationConfig */
+const buildWasmConfig = (config: CalibrationConfigJson, tolerance: number): CalibrationConfig => {
+  let wasmConfig = CalibrationConfig.multiCurve();
+
+  switch (config.solverKind) {
+    case 'Brent':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
+      break;
+    case 'Newton':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
+      break;
+  }
+
+  return wasmConfig
+    .withMaxIterations(config.maxIterations)
+    .withTolerance(tolerance)
+    .withVerbose(config.verbose);
+};
+
+/** Convert DateJson to FsDate */
+const toFsDate = (date: DateJson): FsDate => {
+  return new FsDate(date.year, date.month, date.day);
+};
 
 /** Convert quote data to WASM VolQuote objects */
 const buildWasmQuotes = (quotes: VolQuoteData[]): VolQuote[] => {
@@ -63,24 +110,70 @@ const buildWasmQuotes = (quotes: VolQuoteData[]): VolQuote[] => {
 };
 
 export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
-  baseDate,
-  curveId,
-  currency,
-  underlying,
-  spotPrice,
-  expiries,
-  strikes,
-  discountCurveId,
-  config,
+  state,
+  onStateChange,
   market,
   onCalibrated,
-  showChart = true,
   className,
-  initialQuotes,
-  tolerance = DEFAULT_VOL_TOLERANCE,
+  // Legacy props
+  baseDate: legacyBaseDate,
+  curveId: legacyCurveId,
+  currency: legacyCurrency,
+  underlying: legacyUnderlying,
+  spotPrice: legacySpotPrice,
+  expiries: legacyExpiries,
+  strikes: legacyStrikes,
+  discountCurveId: legacyDiscountCurveId,
+  config: legacyConfig,
+  showChart: legacyShowChart,
+  initialQuotes: legacyInitialQuotes,
+  tolerance: legacyTolerance,
 }) => {
-  // Local state for editable quotes
-  const [quotes, setQuotes] = useState<VolQuoteData[]>(initialQuotes ?? DEFAULT_VOL_QUOTES);
+  // Determine if we're in controlled mode
+  const isControlled = state !== undefined;
+
+  // Extract values from state or legacy props
+  const baseDate = useMemo(() => {
+    if (state) return toFsDate(state.baseDate);
+    if (legacyBaseDate) return legacyBaseDate;
+    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+  }, [state, legacyBaseDate]);
+
+  const curveId = state?.curveId ?? legacyCurveId ?? 'SPY-VOL';
+  const currency = state?.currency ?? legacyCurrency ?? 'USD';
+  const underlying = state?.underlying ?? legacyUnderlying ?? 'SPY';
+  const spotPrice = state?.spotPrice ?? legacySpotPrice ?? 100;
+  const expiries = state?.expiries ?? legacyExpiries ?? [0.5, 1];
+  const strikes = state?.strikes ?? legacyStrikes ?? [90, 100, 110];
+  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
+  const showChart = state?.showChart ?? legacyShowChart ?? true;
+  const tolerance = state?.tolerance ?? legacyTolerance ?? DEFAULT_VOL_TOLERANCE;
+
+  // Quote state - controlled or local
+  const [localQuotes, setLocalQuotes] = useState<VolQuoteData[]>(
+    legacyInitialQuotes ?? DEFAULT_VOL_QUOTES
+  );
+
+  // Sync quotes from state prop in controlled mode
+  useEffect(() => {
+    if (isControlled && state.quotes.length > 0) {
+      setLocalQuotes(state.quotes);
+    }
+  }, [isControlled, state?.quotes]);
+
+  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+
+  // Handle quote changes
+  const handleQuotesChange = useCallback(
+    (newQuotes: VolQuoteData[]) => {
+      if (isControlled && onStateChange && state) {
+        onStateChange({ ...state, quotes: newQuotes });
+      } else {
+        setLocalQuotes(newQuotes);
+      }
+    },
+    [isControlled, onStateChange, state]
+  );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -110,11 +203,13 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
       market.insertPrice(`${underlying}-DIVYIELD`, MarketScalar.unitless(0.015));
 
       // Use user-provided tolerance (floored to MIN_VOL_TOLERANCE for SABR stability)
-      const calibrationConfig = CalibrationConfig.multiCurve()
-        .withSolverKind(SolverKind.Brent())
-        .withMaxIterations(config?.maxIterations ?? 100)
-        .withTolerance(effectiveTolerance)
-        .withVerbose(false);
+      const calibrationConfig = state?.config
+        ? buildWasmConfig(state.config, effectiveTolerance)
+        : CalibrationConfig.multiCurve()
+            .withSolverKind(SolverKind.Brent())
+            .withMaxIterations(legacyConfig?.maxIterations ?? 100)
+            .withTolerance(effectiveTolerance)
+            .withVerbose(false);
 
       // Build fresh WASM quotes from the editable data
       const wasmQuotes = buildWasmQuotes(quotes);
@@ -189,7 +284,8 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
     expiries,
     strikes,
     discountCurveId,
-    config,
+    state?.config,
+    legacyConfig,
     market,
     onCalibrated,
     effectiveTolerance,
@@ -199,6 +295,29 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
   const quotesSummary = useMemo(() => {
     return `${quotes.length} vol quotes`;
   }, [quotes]);
+
+  // Export current state as JSON (for debugging/LLM integration)
+  const exportState = useCallback((): VolSurfaceCalibrationState => {
+    return {
+      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
+      curveId,
+      currency,
+      underlying,
+      spotPrice,
+      expiries,
+      strikes,
+      discountCurveId,
+      quotes,
+      config: state?.config ?? {
+        solverKind: 'Brent',
+        maxIterations: 100,
+        tolerance: 1e-8,
+        verbose: false,
+      },
+      tolerance,
+      showChart,
+    };
+  }, [baseDate, curveId, currency, underlying, spotPrice, expiries, strikes, discountCurveId, quotes, state?.config, tolerance, showChart]);
 
   return (
     <Card className={className}>
@@ -220,7 +339,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
         {/* Editable Quote Table */}
         <VolQuoteEditor
           quotes={quotes}
-          onChange={setQuotes}
+          onChange={handleQuotesChange}
           onCalibrate={runCalibration}
           disabled={status === 'running' || !market}
           underlying={underlying}
@@ -292,6 +411,16 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
             </div>
           </>
         )}
+
+        {/* JSON State Export (for debugging/LLM integration) */}
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            View JSON State
+          </summary>
+          <pre className="mt-2 p-2 bg-muted/50 rounded overflow-x-auto text-[10px]">
+            {JSON.stringify(exportState(), null, 2)}
+          </pre>
+        </details>
       </CardContent>
     </Card>
   );

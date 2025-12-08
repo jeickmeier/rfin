@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
   ForwardCurveCalibrator,
@@ -13,24 +13,49 @@ import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
 import { ForwardQuoteEditor, generateDefaultForwardQuotes, type ForwardQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
 import type { FrequencyType } from './CurrencyConventions';
+import type {
+  ForwardCurveCalibrationState,
+  CalibrationConfigJson,
+  DateJson,
+} from './state-types';
 
 interface CalibratedForwardCurve {
   rate: (t: number) => number;
   id: string;
 }
 
+/**
+ * Props for ForwardCurveCalibration component.
+ * Supports both controlled (via state prop) and uncontrolled modes.
+ */
 interface ForwardCurveCalibrationProps {
-  baseDate: FsDate;
-  curveId: string;
-  currency: string;
-  tenor: number;
-  discountCurveId: string;
-  config?: CalibrationConfig;
+  /** Complete JSON state for controlled mode */
+  state?: ForwardCurveCalibrationState;
+  /** Callback when state changes (for controlled mode) */
+  onStateChange?: (state: ForwardCurveCalibrationState) => void;
+  /** Market context containing discount curve */
   market: MarketContext | null;
+  /** Callback when calibration completes */
   onCalibrated?: (result: CalibrationResult) => void;
-  showChart?: boolean;
+  /** Additional CSS class name */
   className?: string;
-  /** Initial quotes - if not provided, generates dynamic defaults from baseDate */
+
+  // Legacy props for backward compatibility
+  /** @deprecated Use state.baseDate instead */
+  baseDate?: FsDate;
+  /** @deprecated Use state.curveId instead */
+  curveId?: string;
+  /** @deprecated Use state.currency instead */
+  currency?: string;
+  /** @deprecated Use state.tenor instead */
+  tenor?: number;
+  /** @deprecated Use state.discountCurveId instead */
+  discountCurveId?: string;
+  /** @deprecated Use state.config instead */
+  config?: CalibrationConfig;
+  /** @deprecated Use state.showChart instead */
+  showChart?: boolean;
+  /** @deprecated Use state.quotes instead */
   initialQuotes?: ForwardQuoteData[];
 }
 
@@ -50,6 +75,30 @@ const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> 
   }
 };
 
+/** Convert JSON config to WASM CalibrationConfig */
+const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
+  let wasmConfig = CalibrationConfig.multiCurve();
+
+  switch (config.solverKind) {
+    case 'Brent':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
+      break;
+    case 'Newton':
+      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
+      break;
+  }
+
+  return wasmConfig
+    .withMaxIterations(config.maxIterations)
+    .withTolerance(config.tolerance)
+    .withVerbose(config.verbose);
+};
+
+/** Convert DateJson to FsDate */
+const toFsDate = (date: DateJson): FsDate => {
+  return new FsDate(date.year, date.month, date.day);
+};
+
 /** Convert quote data to WASM RatesQuote objects (supports deposits, FRAs, and swaps) */
 const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
@@ -60,7 +109,6 @@ const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
         q.dayCount
       );
     } else if (q.type === 'swap') {
-      // Use the frequency from the quote data
       return RatesQuote.swap(
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
         q.rate,
@@ -83,30 +131,67 @@ const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
 };
 
 export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = ({
-  baseDate,
-  curveId,
-  currency,
-  tenor,
-  discountCurveId,
-  config,
+  state,
+  onStateChange,
   market,
   onCalibrated,
-  showChart = true,
   className,
-  initialQuotes,
+  // Legacy props
+  baseDate: legacyBaseDate,
+  curveId: legacyCurveId,
+  currency: legacyCurrency,
+  tenor: legacyTenor,
+  discountCurveId: legacyDiscountCurveId,
+  config: legacyConfig,
+  showChart: legacyShowChart,
+  initialQuotes: legacyInitialQuotes,
 }) => {
+  // Determine if we're in controlled mode
+  const isControlled = state !== undefined;
+
+  // Extract values from state or legacy props
+  const baseDate = useMemo(() => {
+    if (state) return toFsDate(state.baseDate);
+    if (legacyBaseDate) return legacyBaseDate;
+    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+  }, [state, legacyBaseDate]);
+
+  const curveId = state?.curveId ?? legacyCurveId ?? 'USD-SOFR-3M';
+  const currency = state?.currency ?? legacyCurrency ?? 'USD';
+  const tenor = state?.tenor ?? legacyTenor ?? 0.25;
+  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
+  const showChart = state?.showChart ?? legacyShowChart ?? true;
+
   // Generate dynamic defaults from baseDate and currency
   const defaultQuotes = useMemo(() => {
-    return generateDefaultForwardQuotes(
-      baseDate.year,
-      baseDate.month,
-      baseDate.day,
-      currency
-    );
+    return generateDefaultForwardQuotes(baseDate.year, baseDate.month, baseDate.day, currency);
   }, [baseDate, currency]);
 
-  // Local state for editable quotes
-  const [quotes, setQuotes] = useState<ForwardQuoteData[]>(initialQuotes ?? defaultQuotes);
+  // Quote state - controlled or local
+  const [localQuotes, setLocalQuotes] = useState<ForwardQuoteData[]>(
+    legacyInitialQuotes ?? defaultQuotes
+  );
+
+  // Sync quotes from state prop in controlled mode
+  useEffect(() => {
+    if (isControlled && state.quotes.length > 0) {
+      setLocalQuotes(state.quotes);
+    }
+  }, [isControlled, state?.quotes]);
+
+  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+
+  // Handle quote changes
+  const handleQuotesChange = useCallback(
+    (newQuotes: ForwardQuoteData[]) => {
+      if (isControlled && onStateChange && state) {
+        onStateChange({ ...state, quotes: newQuotes });
+      } else {
+        setLocalQuotes(newQuotes);
+      }
+    },
+    [isControlled, onStateChange, state]
+  );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -128,12 +213,13 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
     setError(null);
 
     try {
-      const calibrationConfig =
-        config ||
-        CalibrationConfig.multiCurve()
-          .withSolverKind(SolverKind.Brent())
-          .withMaxIterations(30)
-          .withVerbose(false);
+      const calibrationConfig = state?.config
+        ? buildWasmConfig(state.config)
+        : legacyConfig ||
+          CalibrationConfig.multiCurve()
+            .withSolverKind(SolverKind.Brent())
+            .withMaxIterations(30)
+            .withVerbose(false);
 
       // Build fresh WASM quotes from the editable data
       const wasmQuotes = buildWasmQuotes(quotes);
@@ -195,7 +281,7 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, tenor, discountCurveId, config, market, onCalibrated]);
+  }, [baseDate, curveId, currency, quotes, tenor, discountCurveId, state?.config, legacyConfig, market, onCalibrated]);
 
   // Format quote summary for display
   const quotesSummary = useMemo(() => {
@@ -208,6 +294,25 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
     if (swaps > 0) parts.push(`${swaps} swaps`);
     return parts.join(', ') || 'No quotes';
   }, [quotes]);
+
+  // Export current state as JSON (for debugging/LLM integration)
+  const exportState = useCallback((): ForwardCurveCalibrationState => {
+    return {
+      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
+      curveId,
+      currency,
+      tenor,
+      discountCurveId,
+      quotes,
+      config: state?.config ?? {
+        solverKind: 'Brent',
+        maxIterations: 30,
+        tolerance: 1e-8,
+        verbose: false,
+      },
+      showChart,
+    };
+  }, [baseDate, curveId, currency, tenor, discountCurveId, quotes, state?.config, showChart]);
 
   return (
     <Card className={className}>
@@ -229,7 +334,7 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
         <ForwardQuoteEditor
           currency={currency}
           quotes={quotes}
-          onChange={setQuotes}
+          onChange={handleQuotesChange}
           onCalibrate={runCalibration}
           disabled={status === 'running' || !market}
         />
@@ -283,6 +388,16 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
             </div>
           </div>
         )}
+
+        {/* JSON State Export (for debugging/LLM integration) */}
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            View JSON State
+          </summary>
+          <pre className="mt-2 p-2 bg-muted/50 rounded overflow-x-auto text-[10px]">
+            {JSON.stringify(exportState(), null, 2)}
+          </pre>
+        </details>
       </CardContent>
     </Card>
   );
