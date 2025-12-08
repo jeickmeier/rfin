@@ -41,6 +41,17 @@ import {
   DEFAULT_PERIOD_PLANS,
   DEFAULT_IMM_DATES,
 } from './data/dates-showcase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type RequiredDateConstructionProps = Required<DateConstructionProps>;
 type RequiredDateUtilitiesProps = Required<DateUtilitiesProps>;
@@ -56,12 +67,34 @@ const toIso = (date: FsDate) => {
   return `${date.year}-${month}-${day}`;
 };
 
+// Shared loading component
+const Loading = ({ text = 'Loading...' }: { text?: string }) => (
+  <div className="flex items-center justify-center py-8">
+    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    <span className="ml-3 text-muted-foreground">{text}</span>
+  </div>
+);
+
+// Shared data list component
+const DataList = ({ data }: { data: Record<string, string | number | boolean> }) => (
+  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    {Object.entries(data).map(([key, value]) => (
+      <div key={key} className="rounded-lg border bg-muted/50 p-3">
+        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {key}
+        </div>
+        <div className="mt-1 font-mono text-sm">{String(value)}</div>
+      </div>
+    ))}
+  </div>
+);
+
 // 1. Date Construction & Manipulation Example
 export const DateConstructionExample: React.FC<DateConstructionProps> = (props) => {
   const defaults = DEFAULT_DATE_CONSTRUCTION as RequiredDateConstructionProps;
   const { exampleDate = defaults.exampleDate, weekdaysToAdd = defaults.weekdaysToAdd } = props;
 
-  const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
+  const [data, setData] = useState<Record<string, string | number | boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +102,7 @@ export const DateConstructionExample: React.FC<DateConstructionProps> = (props) 
     (async () => {
       try {
         const date = new FsDate(exampleDate.year, exampleDate.month, exampleDate.day);
-        const results: { [key: string]: string | number | boolean } = {
+        const results = {
           Date: toIso(date),
           Year: date.year,
           Month: date.month,
@@ -79,14 +112,9 @@ export const DateConstructionExample: React.FC<DateConstructionProps> = (props) 
           'Fiscal Year': date.fiscalYear(),
           [`Add ${weekdaysToAdd} weekdays`]: toIso(date.addWeekdays(weekdaysToAdd)),
         };
-
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -94,21 +122,26 @@ export const DateConstructionExample: React.FC<DateConstructionProps> = (props) 
     };
   }, [exampleDate, weekdaysToAdd]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Date Construction & Properties</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{String(value)}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Date Construction & Properties</CardTitle>
+        <CardDescription>
+          Create finstack dates and inspect fiscal, quarter, and weekday metadata.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };
 
@@ -117,7 +150,7 @@ export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
   const defaults = DEFAULT_DATE_UTILITIES as RequiredDateUtilitiesProps;
   const { baseDate = defaults.baseDate, monthsToAdd = defaults.monthsToAdd } = props;
 
-  const [data, setData] = useState<{ [key: string]: string | number | boolean }>({});
+  const [data, setData] = useState<Record<string, string | number | boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,15 +160,10 @@ export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
         const base = new FsDate(baseDate.year, baseDate.month, baseDate.day);
         const epochDays = dateToDaysSinceEpoch(base);
 
-        const results: { [key: string]: string | number | boolean } = {
-          'Base Date': toIso(base),
-        };
-
-        // Add months dynamically
+        const results: Record<string, string | number | boolean> = { 'Base Date': toIso(base) };
         for (const months of monthsToAdd) {
           results[`Add ${months} month${months > 1 ? 's' : ''}`] = toIso(addMonths(base, months));
         }
-
         Object.assign(results, {
           'Last day of month': toIso(lastDayOfMonth(base)),
           [`Days in ${base.month === 1 ? 'Jan' : 'Feb'} ${base.year}`]: daysInMonth(
@@ -149,14 +177,9 @@ export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
           'Days since epoch': epochDays,
           'Epoch round-trip': toIso(daysSinceEpochToDate(epochDays)),
         });
-
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -164,21 +187,26 @@ export const DateUtilitiesExample: React.FC<DateUtilitiesProps> = (props) => {
     };
   }, [baseDate, monthsToAdd]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Date Utilities</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{String(value)}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Date Utilities</CardTitle>
+        <CardDescription>
+          Apply month arithmetic, leap-year checks, and epoch conversions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };
 
@@ -191,7 +219,7 @@ export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
     calendarCodes = defaults.calendarCodes,
   } = props;
 
-  const [data, setData] = useState<{ [key: string]: string | boolean }>({});
+  const [data, setData] = useState<Record<string, string | boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -201,11 +229,10 @@ export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
         const codes = availableCalendarCodes();
         const calendars = calendarCodes.map((code) => getCalendar(code));
         const [primaryCal, secondaryCal] = calendars;
-
         const saturday = new FsDate(saturdayDate.year, saturdayDate.month, saturdayDate.day);
         const holiday = new FsDate(holidayDate.year, holidayDate.month, holidayDate.day);
 
-        const results: { [key: string]: string | boolean } = {
+        const results: Record<string, string | boolean> = {
           'Available Calendars': codes.length.toString(),
           'Sample Calendars': codes.slice(0, 5).join(', '),
         };
@@ -235,13 +262,9 @@ export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
           );
         }
 
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -249,21 +272,26 @@ export const CalendarExample: React.FC<CalendarExampleProps> = (props) => {
     };
   }, [saturdayDate, holidayDate, calendarCodes]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Calendars & Business Day Adjustments</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{String(value)}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Calendars & Business Day Adjustments</CardTitle>
+        <CardDescription>
+          Browse calendar codes and adjust dates with different conventions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };
 
@@ -276,7 +304,7 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
     calendarCode = defaults.calendarCode,
   } = props;
 
-  const [data, setData] = useState<{ [key: string]: string }>({});
+  const [data, setData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -287,7 +315,6 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
         const end = new FsDate(endDate.year, endDate.month, endDate.day);
         const calendar = getCalendar(calendarCode);
 
-        // Different day count conventions
         const act360 = DayCount.act360();
         const act365f = DayCount.act365f();
         const thirty360 = DayCount.thirty360();
@@ -295,16 +322,14 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
         const actActIsma = DayCount.actActIsma();
         const bus252 = DayCount.bus252();
 
-        // Context with calendar and frequency for ISMA
         const ctxIsma = new DayCountContext();
         ctxIsma.setCalendar(calendar);
         ctxIsma.setFrequency(Frequency.semiAnnual());
 
-        // Context for BUS/252
         const ctxBus = new DayCountContext();
         ctxBus.setCalendar(calendar);
 
-        const results: { [key: string]: string } = {
+        const results = {
           'Start Date': toIso(start),
           'End Date': toIso(end),
           'Act/360': act360.yearFraction(start, end, null).toFixed(6),
@@ -315,13 +340,9 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
           'BUS/252': bus252.yearFraction(start, end, ctxBus).toFixed(6),
         };
 
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -329,21 +350,26 @@ export const DayCountExample: React.FC<DayCountExampleProps> = (props) => {
     };
   }, [startDate, endDate, calendarCode]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Day Count Conventions</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{value}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Day Count Conventions</CardTitle>
+        <CardDescription>
+          Compare ACT/365F, 30/360, and other day count calculations.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };
 
@@ -358,7 +384,7 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
     calendarCode = defaults.calendarCode,
   } = props;
 
-  const [schedules, setSchedules] = useState<{ [key: string]: string[] }>({});
+  const [schedules, setSchedules] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -369,7 +395,6 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
         const end = new FsDate(endDate.year, endDate.month, endDate.day);
         const calendar = getCalendar(calendarCode);
 
-        // Monthly schedule with modified following and EOM
         const monthly = new ScheduleBuilder(start, end)
           .frequency(Frequency.monthly())
           .stubRule(StubKind.none())
@@ -377,21 +402,18 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
           .endOfMonth(false)
           .build();
 
-        // Quarterly schedule
         const quarterly = new ScheduleBuilder(start, end)
           .frequency(Frequency.quarterly())
           .stubRule(StubKind.shortBack())
           .adjustWith(BusinessDayConvention.Following, calendar)
           .build();
 
-        // Semi-annual schedule
         const semiAnnual = new ScheduleBuilder(start, end)
           .frequency(Frequency.semiAnnual())
           .stubRule(StubKind.none())
           .adjustWith(BusinessDayConvention.ModifiedFollowing, calendar)
           .build();
 
-        // CDS IMM schedule
         const cdsStart = new FsDate(cdsStartDate.year, cdsStartDate.month, cdsStartDate.day);
         const cdsEnd = new FsDate(cdsEndDate.year, cdsEndDate.month, cdsEndDate.day);
         const cdsSchedule = new ScheduleBuilder(cdsStart, cdsEnd)
@@ -407,13 +429,9 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
           'CDS IMM (5Y)': cdsSchedule.toArray().map((d) => toIso(d as FsDate)),
         };
 
-        if (!cancelled) {
-          setSchedules(results);
-        }
+        if (!cancelled) setSchedules(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -421,33 +439,37 @@ export const ScheduleBuilderExample: React.FC<ScheduleBuilderExampleProps> = (pr
     };
   }, [startDate, endDate, cdsStartDate, cdsEndDate, calendarCode]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(schedules).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(schedules).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Schedule Builder</h2>
-      {Object.entries(schedules).map(([title, dates]) => (
-        <div key={title} style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>{title}</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {dates.map((date, idx) => (
-              <span
-                key={idx}
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: 'rgba(100, 108, 255, 0.1)',
-                  borderRadius: '4px',
-                  fontSize: '0.9rem',
-                }}
-              >
-                {date}
-              </span>
-            ))}
+    <Card>
+      <CardHeader>
+        <CardTitle>Schedule Builder</CardTitle>
+        <CardDescription>
+          Generate coupon schedules using stub rules and business-day conventions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {Object.entries(schedules).map(([title, dates]) => (
+          <div key={title} className="space-y-2">
+            <h3 className="font-semibold">{title}</h3>
+            <div className="flex flex-wrap gap-2">
+              {dates.map((date, idx) => (
+                <Badge key={idx} variant="secondary" className="font-mono">
+                  {date}
+                </Badge>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </section>
+        ))}
+      </CardContent>
+    </Card>
   );
 };
 
@@ -470,7 +492,6 @@ export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => 
     let cancelled = false;
     (async () => {
       try {
-        // Calendar periods with actuals
         const calendarPlan = buildPeriods(calendarPeriodRange, calendarActualsThrough);
         const calendarPeriods = calendarPlan.toArray().map((p) => ({
           id: p.id.code,
@@ -479,7 +500,6 @@ export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => 
           actual: p.isActual,
         }));
 
-        // Fiscal periods (US Federal: Oct 1 - Sep 30)
         const fiscalPlan = buildFiscalPeriods(fiscalPeriodRange, FiscalConfig.usFederal(), null);
         const fiscalPeriods = fiscalPlan.toArray().map((p) => ({
           id: p.id.code,
@@ -487,16 +507,9 @@ export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => 
           end: toIso(p.end),
         }));
 
-        if (!cancelled) {
-          setData({
-            calendar: calendarPeriods,
-            fiscal: fiscalPeriods,
-          });
-        }
+        if (!cancelled) setData({ calendar: calendarPeriods, fiscal: fiscalPeriods });
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -504,59 +517,78 @@ export const PeriodPlansExample: React.FC<PeriodPlansExampleProps> = (props) => 
     };
   }, [calendarPeriodRange, calendarActualsThrough, fiscalPeriodRange]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (data.calendar.length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (data.calendar.length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Period Plans</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Period Plans</CardTitle>
+        <CardDescription>
+          Build fiscal periods and custom accrual plans for reporting.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <h3 className="font-semibold">Calendar Periods (with Actuals)</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Start</TableHead>
+                  <TableHead>End</TableHead>
+                  <TableHead>Actual?</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.calendar.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.id}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.start}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.end}</TableCell>
+                    <TableCell>
+                      <Badge variant={row.actual ? 'default' : 'secondary'}>
+                        {row.actual ? 'Yes' : 'No'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
 
-      <h3 style={{ fontSize: '1.2rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
-        Calendar Periods (with Actuals)
-      </h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Actual?</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.calendar.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.start}</td>
-              <td>{row.end}</td>
-              <td>{row.actual ? 'yes' : 'no'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h3 style={{ fontSize: '1.2rem', marginTop: '2rem', marginBottom: '0.5rem' }}>
-        Fiscal Periods (US Federal)
-      </h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th>Start</th>
-            <th>End</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.fiscal.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.start}</td>
-              <td>{row.end}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+        <div className="space-y-3">
+          <h3 className="font-semibold">Fiscal Periods (US Federal)</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Start</TableHead>
+                  <TableHead>End</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.fiscal.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.id}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.start}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.end}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -569,7 +601,7 @@ export const IMMDatesExample: React.FC<IMMDatesExampleProps> = (props) => {
     immMonths = defaults.immMonths,
   } = props;
 
-  const [data, setData] = useState<{ [key: string]: string }>({});
+  const [data, setData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -577,65 +609,44 @@ export const IMMDatesExample: React.FC<IMMDatesExampleProps> = (props) => {
     (async () => {
       try {
         const today = new FsDate(referenceDate.year, referenceDate.month, referenceDate.day);
+        const monthNames = [
+          '',
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
 
-        const results: { [key: string]: string } = {
+        const results: Record<string, string> = {
           'Reference Date': toIso(today),
           'Next IMM': toIso(nextImm(today)),
           'Next CDS Date': toIso(nextCdsDate(today)),
           'Next Equity Option Expiry': toIso(nextEquityOptionExpiry(today)),
         };
 
-        // Add third Friday/Wednesday for specified years and months
         for (const year of immYears) {
           for (const month of immMonths) {
-            const monthNames = [
-              '',
-              'Jan',
-              'Feb',
-              'Mar',
-              'Apr',
-              'May',
-              'Jun',
-              'Jul',
-              'Aug',
-              'Sep',
-              'Oct',
-              'Nov',
-              'Dec',
-            ];
             results[`Third Friday ${monthNames[month]} ${year}`] = toIso(thirdFriday(year, month));
           }
         }
 
-        // Add third Wednesday for first year/month
         if (immYears.length > 0 && immMonths.length > 0) {
-          const monthNames = [
-            '',
-            'Jan',
-            'Feb',
-            'Mar',
-            'Apr',
-            'May',
-            'Jun',
-            'Jul',
-            'Aug',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Dec',
-          ];
           results[`Third Wednesday ${monthNames[immMonths[0]]} ${immYears[0]}`] = toIso(
             thirdWednesday(immYears[0], immMonths[0])
           );
         }
 
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -643,27 +654,32 @@ export const IMMDatesExample: React.FC<IMMDatesExampleProps> = (props) => {
     };
   }, [referenceDate, immYears, immMonths]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>IMM Dates & Option Expiries</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{value}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>IMM Dates & Option Expiries</CardTitle>
+        <CardDescription>
+          Produce IMM, CDS, and options expiry dates from core utilities.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };
 
-// 8. Frequency Examples - no data needed
+// 8. Frequency Examples
 export const FrequencyExample: React.FC = () => {
-  const [data, setData] = useState<{ [key: string]: string }>({});
+  const [data, setData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -678,11 +694,10 @@ export const FrequencyExample: React.FC = () => {
         const weekly = Frequency.weekly();
         const biWeekly = Frequency.biWeekly();
         const daily = Frequency.daily();
-
         const customMonths = Frequency.fromMonths(3);
         const customDays = Frequency.fromDays(91);
 
-        const results: { [key: string]: string } = {
+        const results = {
           Annual: `${annual.months} months`,
           'Semi-Annual': `${semiAnnual.months} months`,
           Quarterly: `${quarterly.months} months`,
@@ -695,13 +710,9 @@ export const FrequencyExample: React.FC = () => {
           'Custom (91 days)': `${customDays.days} days`,
         };
 
-        if (!cancelled) {
-          setData(results);
-        }
+        if (!cancelled) setData(results);
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
@@ -709,20 +720,25 @@ export const FrequencyExample: React.FC = () => {
     };
   }, []);
 
-  if (error) return <p className="error">{error}</p>;
-  if (Object.keys(data).length === 0) return <p>Loading...</p>;
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (Object.keys(data).length === 0) return <Loading />;
 
   return (
-    <section className="example-section">
-      <h2>Frequency Conventions</h2>
-      <dl className="data-list">
-        {Object.entries(data).map(([key, value]) => (
-          <React.Fragment key={key}>
-            <dt>{key}</dt>
-            <dd>{value}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Frequency Conventions</CardTitle>
+        <CardDescription>
+          Translate frequency codes into periods and payment intervals.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataList data={data} />
+      </CardContent>
+    </Card>
   );
 };

@@ -5,6 +5,28 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { CdsTranche, FsDate, MarketContext, Money, createStandardRegistry } from 'finstack-wasm';
 import type { CdsTrancheData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calculator, X, TrendingDown, TrendingUp, Layers } from 'lucide-react';
 
 export interface CDSTrancheInstrumentProps {
   cdsTranches: CdsTrancheData[];
@@ -85,7 +107,6 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
   // Calculate when form is visible and form state changes
   useEffect(() => {
     if (showForm) {
-      // Use setTimeout to avoid React compiler warning about setState in effect
       const timer = setTimeout(() => {
         calculateTranche();
       }, 0);
@@ -173,146 +194,231 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
   };
 
   if (error && !showForm) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0 && !showForm) {
-    return <p>Loading CDS tranches...</p>;
+    return <p className="text-muted-foreground animate-pulse">Loading CDS tranches...</p>;
   }
 
   return (
-    <div className="instrument-group">
-      <h3>
-        CDS Tranches{' '}
-        <button
-          className="toggle-form-btn"
-          onClick={() => setShowForm(!showForm)}
-          style={{ marginLeft: '1rem', fontSize: '0.8rem' }}
-        >
-          {showForm ? '✕ Hide Calculator' : '⚙ Interactive Calculator'}
-        </button>
-      </h3>
-      <p>
-        Synthetic CDO tranches with attachment and detachment points. Uses base correlation curves
-        for correlated default modeling. Equity tranches absorb first losses, while senior tranches
-        are protected by subordination.
-      </p>
-
-      {showForm && (
-        <div
-          className="instrument-form"
-          style={{
-            background: 'var(--surface-2, #1a1a2e)',
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div className="form-field">
-            <label htmlFor="tranche-notional">Notional</label>
-            <input
-              id="tranche-notional"
-              type="number"
-              value={formState.notional}
-              onChange={(e) =>
-                handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1000000}
-            />
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              CDS Tranches
+              <Badge variant="outline" className="font-mono text-xs">
+                CDO
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Synthetic CDO tranches with attachment and detachment points for correlated default
+              modeling
+            </CardDescription>
           </div>
-          <div className="form-field">
-            <label htmlFor="tranche-attach">Attachment Point (%)</label>
-            <input
-              id="tranche-attach"
-              type="number"
-              value={formState.attachmentPoint}
-              onChange={(e) =>
-                handleInputChange('attachmentPoint', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1}
-              min={0}
-              max={100}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="tranche-detach">Detachment Point (%)</label>
-            <input
-              id="tranche-detach"
-              type="number"
-              value={formState.detachmentPoint}
-              onChange={(e) =>
-                handleInputChange('detachmentPoint', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1}
-              min={0}
-              max={100}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="tranche-spread">Spread (bps)</label>
-            <input
-              id="tranche-spread"
-              type="number"
-              value={formState.spreadBps}
-              onChange={(e) =>
-                handleInputChange('spreadBps', Number.parseFloat(e.target.value) || 0)
-              }
-              step={10}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="tranche-series">Series</label>
-            <input
-              id="tranche-series"
-              type="number"
-              value={formState.series}
-              onChange={(e) =>
-                handleInputChange('series', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="tranche-direction">Direction</label>
-            <select
-              id="tranche-direction"
-              value={formState.direction}
-              onChange={(e) => handleInputChange('direction', e.target.value)}
-            >
-              <option value="buy_protection">Buy Protection</option>
-              <option value="sell_protection">Sell Protection</option>
-            </select>
-          </div>
+          <Button
+            variant={showForm ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowForm(!showForm)}
+            className="gap-2"
+          >
+            {showForm ? (
+              <>
+                <X className="h-4 w-4" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Calculator className="h-4 w-4" />
+                Calculator
+              </>
+            )}
+          </Button>
         </div>
-      )}
+      </CardHeader>
 
-      {error && showForm && <p className="error">{error}</p>}
+      <CardContent className="space-y-4">
+        {showForm && (
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tranche-notional">Notional</Label>
+                <Input
+                  id="tranche-notional"
+                  type="number"
+                  value={formState.notional}
+                  onChange={(e) =>
+                    handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1000000}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tranche-attach">Attachment (%)</Label>
+                <Input
+                  id="tranche-attach"
+                  type="number"
+                  value={formState.attachmentPoint}
+                  onChange={(e) =>
+                    handleInputChange('attachmentPoint', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1}
+                  min={0}
+                  max={100}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tranche-detach">Detachment (%)</Label>
+                <Input
+                  id="tranche-detach"
+                  type="number"
+                  value={formState.detachmentPoint}
+                  onChange={(e) =>
+                    handleInputChange('detachmentPoint', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1}
+                  min={0}
+                  max={100}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tranche-spread">Spread (bps)</Label>
+                <Input
+                  id="tranche-spread"
+                  type="number"
+                  value={formState.spreadBps}
+                  onChange={(e) =>
+                    handleInputChange('spreadBps', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={10}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tranche-series">Series</Label>
+                <Input
+                  id="tranche-series"
+                  type="number"
+                  value={formState.series}
+                  onChange={(e) =>
+                    handleInputChange('series', Number.parseInt(e.target.value, 10) || 1)
+                  }
+                  min={1}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tranche-direction">Direction</Label>
+                <Select
+                  value={formState.direction}
+                  onValueChange={(value) => handleInputChange('direction', value)}
+                >
+                  <SelectTrigger id="tranche-direction">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buy_protection">
+                      <span className="flex items-center gap-2">
+                        <TrendingDown className="h-3 w-3 text-destructive" />
+                        Buy Protection
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="sell_protection">
+                      <span className="flex items-center gap-2">
+                        <TrendingUp className="h-3 w-3 text-success" />
+                        Sell Protection
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-      {rows.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Instrument</th>
-              <th>Type</th>
-              <th>Present Value</th>
-              <th>Key Metric</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ name, type, presentValue, keyMetric }) => (
-              <tr key={name}>
-                <td>{name}</td>
-                <td>{type}</td>
-                <td>{currencyFormatter.format(presentValue)}</td>
-                <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}` : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+            {/* Visual representation of tranche structure */}
+            <div className="mt-4 space-y-2">
+              <Label className="text-xs text-muted-foreground">Tranche Structure</Label>
+              <div className="relative h-8 rounded-md overflow-hidden bg-muted">
+                <div
+                  className="absolute h-full bg-gradient-to-r from-destructive/60 to-destructive/40"
+                  style={{
+                    left: 0,
+                    width: `${formState.attachmentPoint}%`,
+                  }}
+                />
+                <div
+                  className="absolute h-full bg-gradient-to-r from-primary to-primary/80"
+                  style={{
+                    left: `${formState.attachmentPoint}%`,
+                    width: `${formState.detachmentPoint - formState.attachmentPoint}%`,
+                  }}
+                />
+                <div
+                  className="absolute h-full bg-gradient-to-r from-success/40 to-success/20"
+                  style={{
+                    left: `${formState.detachmentPoint}%`,
+                    right: 0,
+                  }}
+                />
+                {/* Labels */}
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-mono text-white/90">
+                  {formState.attachmentPoint}% - {formState.detachmentPoint}%
+                </div>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Equity (First Loss)</span>
+                <span>Mezzanine</span>
+                <span>Senior</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && showForm && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {rows.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Instrument</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Present Value</TableHead>
+                <TableHead className="text-right">Key Metric</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(({ name, type, presentValue, keyMetric }) => (
+                <TableRow key={name}>
+                  <TableCell className="font-medium">{name}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {currencyFormatter.format(presentValue)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 };

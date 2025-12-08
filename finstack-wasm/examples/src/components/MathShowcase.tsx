@@ -10,6 +10,16 @@ import {
   BrentSolver,
 } from 'finstack-wasm';
 import { MathShowcaseProps, DEFAULT_MATH_SHOWCASE_PROPS } from './data/math-showcase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type RequiredMathShowcaseProps = Required<MathShowcaseProps>;
 
@@ -37,9 +47,7 @@ interface MathShowcaseState {
 }
 
 const formatNumber = (value: number): string => {
-  if (!Number.isFinite(value)) {
-    return 'NaN';
-  }
+  if (!Number.isFinite(value)) return 'NaN';
   const abs = Math.abs(value);
   if (abs !== 0 && (abs >= 1e4 || abs <= 1e-6)) {
     return value.toExponential(6);
@@ -63,7 +71,6 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
     const solversToFree: Array<NewtonSolver | BrentSolver | GaussHermiteQuadrature> = [];
 
     try {
-      // Process integration examples
       const integrals: IntegrationRow[] = [];
       for (const example of integrationExamples) {
         let value = 0;
@@ -96,28 +103,17 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
           }
         }
 
-        integrals.push({
-          label: example.label,
-          value,
-          reference: example.reference,
-        });
+        integrals.push({ label: example.label, value, reference: example.reference });
       }
 
-      // Process solver examples
       const solvers: SolverRow[] = [];
       for (const example of solverExamples) {
         let root = 0;
 
         switch (example.type) {
           case 'newton': {
-            const newton = new NewtonSolver(
-              example.tolerance,
-              example.maxIterations,
-              1e-8 // derivative step
-            );
+            const newton = new NewtonSolver(example.tolerance, example.maxIterations, 1e-8);
             solversToFree.push(newton);
-
-            // Determine which equation based on label
             if (example.label.includes('x² − 2')) {
               root = newton.solve((x: number) => x * x - 2, example.initialGuess);
             }
@@ -131,8 +127,6 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
               null
             );
             solversToFree.push(brent);
-
-            // Determine which equation based on label
             if (example.label.includes('cos(x) − x')) {
               root = brent.solve((x: number) => Math.cos(x) - x, example.initialGuess);
             } else if (example.label.includes('x³ − x − 1')) {
@@ -142,14 +136,9 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
           }
         }
 
-        solvers.push({
-          label: example.label,
-          root,
-          reference: example.reference,
-        });
+        solvers.push({ label: example.label, root, reference: example.reference });
       }
 
-      // Process distribution examples
       const distributions: DistributionRow[] = [];
       for (const example of distributionExamples) {
         let value = 0;
@@ -172,10 +161,7 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
           }
         }
 
-        distributions.push({
-          label: example.label,
-          value,
-        });
+        distributions.push({ label: example.label, value });
       }
 
       if (mounted) {
@@ -186,7 +172,6 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
         setError((err as Error).message);
       }
     } finally {
-      // Free all solvers
       for (const solver of solversToFree) {
         solver.free();
       }
@@ -198,79 +183,114 @@ export const MathShowcaseExample: React.FC<MathShowcaseProps> = (props) => {
   }, [integrationExamples, solverExamples, distributionExamples]);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (!state) {
-    return <p>Computing math showcases…</p>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="ml-3 text-muted-foreground">Computing math showcases…</span>
+      </div>
+    );
   }
 
   return (
-    <section className="example-section">
-      <h2>Math Utilities</h2>
-      <p>
-        Demonstrates numerical integration, probability helpers, and root-finding solvers exposed
-        via the WASM bindings. These mirror the Python examples for consistent parity across
-        runtimes.
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Math Utilities</CardTitle>
+        <CardDescription>
+          Demonstrates numerical integration, probability helpers, and root-finding solvers exposed
+          via the WASM bindings. These mirror the Python examples for consistent parity across
+          runtimes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        {/* Integration */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Integration</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Scenario</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                  <TableHead className="text-right">Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {state.integrals.map((row) => (
+                  <TableRow key={row.label}>
+                    <TableCell className="font-medium">{row.label}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatNumber(row.value)}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {row.reference ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
 
-      <h3>Integration</h3>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Scenario</th>
-            <th>Value</th>
-            <th>Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.integrals.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{formatNumber(row.value)}</td>
-              <td>{row.reference ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        {/* Solvers */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Solvers</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Problem</TableHead>
+                  <TableHead className="text-right">Root</TableHead>
+                  <TableHead className="text-right">Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {state.solvers.map((row) => (
+                  <TableRow key={row.label}>
+                    <TableCell className="font-medium">{row.label}</TableCell>
+                    <TableCell className="text-right font-mono">{formatNumber(row.root)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {row.reference ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
 
-      <h3>Solvers</h3>
-      <table className="data-table compact">
-        <thead>
-          <tr>
-            <th>Problem</th>
-            <th>Root</th>
-            <th>Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.solvers.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{formatNumber(row.root)}</td>
-              <td>{row.reference ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h3>Distribution Helpers</h3>
-      <table className="data-table compact">
-        <thead>
-          <tr>
-            <th>Metric</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.distributions.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{formatNumber(row.value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+        {/* Distribution Helpers */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Distribution Helpers</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Metric</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {state.distributions.map((row) => (
+                  <TableRow key={row.label}>
+                    <TableCell className="font-medium">{row.label}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatNumber(row.value)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

@@ -10,8 +10,30 @@ import {
   PricingRequest,
   createStandardRegistry,
 } from 'finstack-wasm';
-import type { CdsIndexInstrumentData } from '../data/credit';
+import type { CdsIndexInstrumentData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calculator, X, TrendingDown, TrendingUp, BarChart3 } from 'lucide-react';
 
 export interface CDSIndexInstrumentProps {
   cdsIndices: CdsIndexInstrumentData[];
@@ -102,7 +124,6 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
   // Calculate when form is visible and form state changes
   useEffect(() => {
     if (showForm) {
-      // Use setTimeout to avoid React compiler warning about setState in effect
       const timer = setTimeout(() => {
         calculateIndex();
       }, 0);
@@ -203,141 +224,198 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
   };
 
   if (error && !showForm) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0 && !showForm) {
-    return <p>Loading CDS indices...</p>;
+    return <p className="text-muted-foreground animate-pulse">Loading CDS indices...</p>;
   }
 
   return (
-    <div className="instrument-group">
-      <h3>
-        CDS Indices{' '}
-        <button
-          className="toggle-form-btn"
-          onClick={() => setShowForm(!showForm)}
-          style={{ marginLeft: '1rem', fontSize: '0.8rem' }}
-        >
-          {showForm ? '✕ Hide Calculator' : '⚙ Interactive Calculator'}
-        </button>
-      </h3>
-      <p>
-        Standardized credit index contracts (e.g., CDX, iTraxx) representing a basket of credit
-        default swaps. Provides diversified credit exposure with standardized terms.
-      </p>
-
-      {showForm && (
-        <div
-          className="instrument-form"
-          style={{
-            background: 'var(--surface-2, #1a1a2e)',
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div className="form-field">
-            <label htmlFor="idx-notional">Notional</label>
-            <input
-              id="idx-notional"
-              type="number"
-              value={formState.notional}
-              onChange={(e) =>
-                handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1000000}
-            />
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              CDS Indices
+              <Badge variant="outline" className="font-mono text-xs">
+                CDX/iTraxx
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Standardized credit index contracts representing a basket of credit default swaps
+            </CardDescription>
           </div>
-          <div className="form-field">
-            <label htmlFor="idx-spread">Spread (bps)</label>
-            <input
-              id="idx-spread"
-              type="number"
-              value={formState.spreadBps}
-              onChange={(e) =>
-                handleInputChange('spreadBps', Number.parseFloat(e.target.value) || 0)
-              }
-              step={5}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="idx-series">Series</label>
-            <input
-              id="idx-series"
-              type="number"
-              value={formState.series}
-              onChange={(e) =>
-                handleInputChange('series', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="idx-version">Version</label>
-            <input
-              id="idx-version"
-              type="number"
-              value={formState.version}
-              onChange={(e) =>
-                handleInputChange('version', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="idx-recovery">Recovery Rate</label>
-            <input
-              id="idx-recovery"
-              type="number"
-              value={formState.recoveryRate}
-              onChange={(e) =>
-                handleInputChange('recoveryRate', Number.parseFloat(e.target.value) || 0)
-              }
-              step={0.05}
-              min={0}
-              max={1}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="idx-direction">Direction</label>
-            <select
-              id="idx-direction"
-              value={formState.direction}
-              onChange={(e) => handleInputChange('direction', e.target.value)}
-            >
-              <option value="pay_protection">Pay Protection</option>
-              <option value="receive_protection">Receive Protection</option>
-            </select>
-          </div>
+          <Button
+            variant={showForm ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowForm(!showForm)}
+            className="gap-2"
+          >
+            {showForm ? (
+              <>
+                <X className="h-4 w-4" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Calculator className="h-4 w-4" />
+                Calculator
+              </>
+            )}
+          </Button>
         </div>
-      )}
+      </CardHeader>
 
-      {error && showForm && <p className="error">{error}</p>}
+      <CardContent className="space-y-4">
+        {showForm && (
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="idx-notional">Notional</Label>
+                <Input
+                  id="idx-notional"
+                  type="number"
+                  value={formState.notional}
+                  onChange={(e) =>
+                    handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1000000}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idx-spread">Spread (bps)</Label>
+                <Input
+                  id="idx-spread"
+                  type="number"
+                  value={formState.spreadBps}
+                  onChange={(e) =>
+                    handleInputChange('spreadBps', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={5}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idx-series">Series</Label>
+                <Input
+                  id="idx-series"
+                  type="number"
+                  value={formState.series}
+                  onChange={(e) =>
+                    handleInputChange('series', Number.parseInt(e.target.value, 10) || 1)
+                  }
+                  min={1}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idx-version">Version</Label>
+                <Input
+                  id="idx-version"
+                  type="number"
+                  value={formState.version}
+                  onChange={(e) =>
+                    handleInputChange('version', Number.parseInt(e.target.value, 10) || 1)
+                  }
+                  min={1}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idx-recovery">Recovery Rate</Label>
+                <Input
+                  id="idx-recovery"
+                  type="number"
+                  value={formState.recoveryRate}
+                  onChange={(e) =>
+                    handleInputChange('recoveryRate', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={0.05}
+                  min={0}
+                  max={1}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idx-direction">Direction</Label>
+                <Select
+                  value={formState.direction}
+                  onValueChange={(value) => handleInputChange('direction', value)}
+                >
+                  <SelectTrigger id="idx-direction">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pay_protection">
+                      <span className="flex items-center gap-2">
+                        <TrendingDown className="h-3 w-3 text-destructive" />
+                        Pay Protection
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="receive_protection">
+                      <span className="flex items-center gap-2">
+                        <TrendingUp className="h-3 w-3 text-success" />
+                        Receive Protection
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)} bps` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        {error && showForm && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instrument</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Present Value</TableHead>
+              <TableHead className="text-right">Key Metric</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ name, type, presentValue, keyMetric }) => (
+              <TableRow key={name}>
+                <TableCell className="font-medium">{name}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {type}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {currencyFormatter.format(presentValue)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {keyMetric ? (
+                    <span className="text-muted-foreground">
+                      {keyMetric.name}:{' '}
+                      <span className="text-foreground font-semibold">
+                        {keyMetric.value.toFixed(2)} bps
+                      </span>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };

@@ -21,8 +21,10 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Path mapping */
+    "baseUrl": ".",
     "paths": {
-      "finstack-wasm": ["../pkg"]
+      "finstack-wasm": ["../pkg"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"],

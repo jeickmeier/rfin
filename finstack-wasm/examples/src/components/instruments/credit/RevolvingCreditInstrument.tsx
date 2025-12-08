@@ -3,8 +3,23 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { FsDate, MarketContext, RevolvingCredit, createStandardRegistry } from 'finstack-wasm';
-import type { RevolvingCreditData } from '../data/credit';
+import type { RevolvingCreditData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calculator, X, Building2, Percent } from 'lucide-react';
 
 export interface RevolvingCreditInstrumentProps {
   revolvingCredits: RevolvingCreditData[];
@@ -102,7 +117,6 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
   // Calculate when form is visible and form state changes
   useEffect(() => {
     if (showForm) {
-      // Use setTimeout to avoid React compiler warning about setState in effect
       const timer = setTimeout(() => {
         calculateRevolvingCredit();
       }, 0);
@@ -197,160 +211,251 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Calculate utilization percentage
+  const utilization = (formState.drawnAmount / formState.commitmentAmount) * 100;
+
   if (error && !showForm) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0 && !showForm) {
-    return <p>Loading revolving credits...</p>;
+    return <p className="text-muted-foreground animate-pulse">Loading revolving credits...</p>;
   }
 
   return (
-    <div className="instrument-group">
-      <h3>
-        Revolving Credit Facilities{' '}
-        <button
-          className="toggle-form-btn"
-          onClick={() => setShowForm(!showForm)}
-          style={{ marginLeft: '1rem', fontSize: '0.8rem' }}
-        >
-          {showForm ? '✕ Hide Calculator' : '⚙ Interactive Calculator'}
-        </button>
-      </h3>
-      <p>
-        Bank credit facilities with flexible draw/repay schedules. Supports both deterministic
-        utilization scenarios and stochastic mean-reverting utilization processes for Monte Carlo
-        valuation. Includes commitment fees, usage fees, and facility fees.
-      </p>
-
-      {showForm && (
-        <div
-          className="instrument-form"
-          style={{
-            background: 'var(--surface-2, #1a1a2e)',
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div className="form-field">
-            <label htmlFor="rc-commitment">Commitment Amount</label>
-            <input
-              id="rc-commitment"
-              type="number"
-              value={formState.commitmentAmount}
-              onChange={(e) =>
-                handleInputChange('commitmentAmount', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1000000}
-            />
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              Revolving Credit Facilities
+              <Badge variant="outline" className="font-mono text-xs">
+                RCF
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Bank credit facilities with flexible draw/repay schedules and fee structures
+            </CardDescription>
           </div>
-          <div className="form-field">
-            <label htmlFor="rc-drawn">Drawn Amount</label>
-            <input
-              id="rc-drawn"
-              type="number"
-              value={formState.drawnAmount}
-              onChange={(e) =>
-                handleInputChange('drawnAmount', Number.parseFloat(e.target.value) || 0)
-              }
-              step={500000}
-              max={formState.commitmentAmount}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="rc-tenor">Tenor (years)</label>
-            <input
-              id="rc-tenor"
-              type="number"
-              value={formState.tenorYears}
-              onChange={(e) =>
-                handleInputChange('tenorYears', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-              max={10}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="rc-rate">Fixed Rate (%)</label>
-            <input
-              id="rc-rate"
-              type="number"
-              value={(formState.fixedRate * 100).toFixed(2)}
-              onChange={(e) =>
-                handleInputChange('fixedRate', (Number.parseFloat(e.target.value) || 0) / 100)
-              }
-              step={0.25}
-              min={0}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="rc-commit-fee">Commitment Fee (bps)</label>
-            <input
-              id="rc-commit-fee"
-              type="number"
-              value={formState.commitmentFeeBp}
-              onChange={(e) =>
-                handleInputChange('commitmentFeeBp', Number.parseFloat(e.target.value) || 0)
-              }
-              step={5}
-              min={0}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="rc-usage-fee">Usage Fee (bps)</label>
-            <input
-              id="rc-usage-fee"
-              type="number"
-              value={formState.usageFeeBp}
-              onChange={(e) =>
-                handleInputChange('usageFeeBp', Number.parseFloat(e.target.value) || 0)
-              }
-              step={5}
-              min={0}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="rc-facility-fee">Facility Fee (bps)</label>
-            <input
-              id="rc-facility-fee"
-              type="number"
-              value={formState.facilityFeeBp}
-              onChange={(e) =>
-                handleInputChange('facilityFeeBp', Number.parseFloat(e.target.value) || 0)
-              }
-              step={5}
-              min={0}
-            />
-          </div>
+          <Button
+            variant={showForm ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowForm(!showForm)}
+            className="gap-2"
+          >
+            {showForm ? (
+              <>
+                <X className="h-4 w-4" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Calculator className="h-4 w-4" />
+                Calculator
+              </>
+            )}
+          </Button>
         </div>
-      )}
+      </CardHeader>
 
-      {error && showForm && <p className="error">{error}</p>}
+      <CardContent className="space-y-4">
+        {showForm && (
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-4">
+            {/* Utilization bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <Label className="text-muted-foreground">Utilization</Label>
+                <span className="font-mono font-semibold flex items-center gap-1">
+                  <Percent className="h-3 w-3" />
+                  {utilization.toFixed(1)}%
+                </span>
+              </div>
+              <div className="h-3 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    utilization > 80
+                      ? 'bg-destructive'
+                      : utilization > 50
+                        ? 'bg-warning'
+                        : 'bg-success'
+                  }`}
+                  style={{ width: `${Math.min(utilization, 100)}%` }}
+                />
+              </div>
+            </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(1)}%` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="rc-commitment">Commitment</Label>
+                <Input
+                  id="rc-commitment"
+                  type="number"
+                  value={formState.commitmentAmount}
+                  onChange={(e) =>
+                    handleInputChange('commitmentAmount', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1000000}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rc-drawn">Drawn Amount</Label>
+                <Input
+                  id="rc-drawn"
+                  type="number"
+                  value={formState.drawnAmount}
+                  onChange={(e) =>
+                    handleInputChange('drawnAmount', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={500000}
+                  max={formState.commitmentAmount}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rc-tenor">Tenor (years)</Label>
+                <Input
+                  id="rc-tenor"
+                  type="number"
+                  value={formState.tenorYears}
+                  onChange={(e) =>
+                    handleInputChange('tenorYears', Number.parseInt(e.target.value, 10) || 1)
+                  }
+                  min={1}
+                  max={10}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rc-rate">Fixed Rate (%)</Label>
+                <Input
+                  id="rc-rate"
+                  type="number"
+                  value={(formState.fixedRate * 100).toFixed(2)}
+                  onChange={(e) =>
+                    handleInputChange('fixedRate', (Number.parseFloat(e.target.value) || 0) / 100)
+                  }
+                  step={0.25}
+                  min={0}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Fee structure */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Fee Structure (bps)</Label>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rc-commit-fee" className="text-xs">
+                    Commitment
+                  </Label>
+                  <Input
+                    id="rc-commit-fee"
+                    type="number"
+                    value={formState.commitmentFeeBp}
+                    onChange={(e) =>
+                      handleInputChange('commitmentFeeBp', Number.parseFloat(e.target.value) || 0)
+                    }
+                    step={5}
+                    min={0}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rc-usage-fee" className="text-xs">
+                    Usage
+                  </Label>
+                  <Input
+                    id="rc-usage-fee"
+                    type="number"
+                    value={formState.usageFeeBp}
+                    onChange={(e) =>
+                      handleInputChange('usageFeeBp', Number.parseFloat(e.target.value) || 0)
+                    }
+                    step={5}
+                    min={0}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rc-facility-fee" className="text-xs">
+                    Facility
+                  </Label>
+                  <Input
+                    id="rc-facility-fee"
+                    type="number"
+                    value={formState.facilityFeeBp}
+                    onChange={(e) =>
+                      handleInputChange('facilityFeeBp', Number.parseFloat(e.target.value) || 0)
+                    }
+                    step={5}
+                    min={0}
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && showForm && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instrument</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Present Value</TableHead>
+              <TableHead className="text-right">Key Metric</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ name, type, presentValue, keyMetric }) => (
+              <TableRow key={name}>
+                <TableCell className="font-medium">{name}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {type}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {currencyFormatter.format(presentValue)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {keyMetric ? (
+                    <span className="text-muted-foreground">
+                      {keyMetric.name}:{' '}
+                      <span
+                        className={`font-semibold ${
+                          keyMetric.value > 80
+                            ? 'text-destructive'
+                            : keyMetric.value > 50
+                              ? 'text-warning'
+                              : 'text-success'
+                        }`}
+                      >
+                        {keyMetric.value.toFixed(1)}%
+                      </span>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };

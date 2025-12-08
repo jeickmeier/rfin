@@ -1,648 +1,358 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
+  BaseCorrelationCurve,
   CalibrationConfig,
-  CreditQuote,
-  FsDate,
+  CreditIndexData,
+  DiscountCurve,
   DiscountCurveCalibrator,
-  ForwardCurveCalibrator,
+  FsDate,
   Frequency,
-  HazardCurveCalibrator,
-  InflationCurveCalibrator,
-  InflationQuote,
+  HazardCurve,
   MarketContext,
-  MarketScalar,
-  Money,
   RatesQuote,
   SolverKind,
-  VolQuote,
-  VolSurfaceCalibrator,
 } from 'finstack-wasm';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  DiscountCurveCalibration,
+  ForwardCurveCalibration,
+  HazardCurveCalibration,
+  InflationCurveCalibration,
+  VolSurfaceCalibration,
+  BaseCorrelationCalibration,
+  type CalibrationResult,
+} from './calibration';
 
-type CalibrationResult = {
-  curveId: string;
-  curveType: string;
-  success: boolean;
-  iterations: number;
-  maxResidual: number;
-  sampleValues: { time: number; value: number }[];
-};
+/** Create default calibration configuration - must be called after WASM init */
+const createDefaultConfig = () =>
+  CalibrationConfig.multiCurve()
+    .withSolverKind(SolverKind.Brent())
+    .withMaxIterations(40)
+    .withVerbose(false);
+
+/** Quote factory for initial market setup */
+const createDiscountQuotesForMarket = () => [
+  RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
+  RatesQuote.deposit(new FsDate(2024, 4, 2), 0.0465, 'act_360'),
+  RatesQuote.swap(
+    new FsDate(2025, 1, 2),
+    0.0475,
+    Frequency.annual(),
+    Frequency.quarterly(),
+    '30_360',
+    'act_360',
+    'USD-SOFR'
+  ),
+  RatesQuote.swap(
+    new FsDate(2027, 1, 2),
+    0.0485,
+    Frequency.annual(),
+    Frequency.quarterly(),
+    '30_360',
+    'act_360',
+    'USD-SOFR'
+  ),
+];
 
 export const CalibrationExample: React.FC = () => {
-  const [results, setResults] = useState<CalibrationResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<Map<string, CalibrationResult>>(new Map());
+  const [market, setMarket] = useState<MarketContext | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [config, setConfig] = useState<CalibrationConfig | null>(null);
 
+  const baseDate = useMemo(() => new FsDate(2024, 1, 2), []);
+
+  // Initialize the base market with a discount curve and credit index for other calibrators to use
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const initializeMarket = async () => {
       try {
-        const baseDate = new FsDate(2024, 1, 2);
-        const allResults: CalibrationResult[] = [];
+        const defaultConfig = createDefaultConfig();
+        setConfig(defaultConfig);
 
-        // Example 1: Calibrate discount curve using deposits and swaps
-        {
-          const quotes = [
-            RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-            RatesQuote.deposit(new FsDate(2024, 4, 2), 0.0465, 'act_360'),
-            RatesQuote.swap(
-              new FsDate(2025, 1, 2),
-              0.0475,
-              Frequency.annual(),
-              Frequency.quarterly(),
-              '30_360',
-              'act_360',
-              'USD-SOFR'
-            ),
-            RatesQuote.swap(
-              new FsDate(2027, 1, 2),
-              0.0485,
-              Frequency.annual(),
-              Frequency.quarterly(),
-              '30_360',
-              'act_360',
-              'USD-SOFR'
-            ),
-          ];
+        // Create fresh quotes for initial market calibration
+        const quotesForInit = createDiscountQuotesForMarket();
 
-          const config = CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(40)
-            .withVerbose(false);
+        const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
+        const calibratorWithConfig = calibrator.withConfig(defaultConfig);
+        const [curve] = calibratorWithConfig.calibrate(quotesForInit, null) as [
+          DiscountCurve,
+          unknown,
+        ];
 
-          const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-          const calibratorWithConfig = calibrator.withConfig(config);
+        const marketCtx = new MarketContext();
+        marketCtx.insertDiscount(curve);
 
-          try {
-            const [curve, report] = calibratorWithConfig.calibrate(quotes, null) as any;
+        // Create credit index data for base correlation calibration
+        // Create index hazard curve (representing the underlying CDX spread curve)
+        const indexHazardCurve = new HazardCurve(
+          'CDX.NA.IG.42',
+          baseDate,
+          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]),
+          new Float64Array([0.01, 0.012, 0.015, 0.018, 0.02]), // hazard rates
+          0.4, // recovery rate
+          'act_360',
+          null, // issuer
+          null, // seniority
+          'USD',
+          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]), // par tenors
+          new Float64Array([50, 60, 75, 90, 110]) // par spreads in bp
+        );
 
-            // PROOF: These values come from actual curve.df() method calls on the calibrated curve
-            const sampleValues = [
-              { time: 0.25, value: curve.df(0.25) },
-              { time: 0.5, value: curve.df(0.5) },
-              { time: 1.0, value: curve.df(1.0) },
-              { time: 2.0, value: curve.df(2.0) },
-              { time: 3.0, value: curve.df(3.0) },
-            ];
+        // Create a placeholder base correlation curve (will be replaced by calibration)
+        const placeholderBaseCorr = new BaseCorrelationCurve(
+          'CDX.NA.IG.42_5Y',
+          new Float64Array([3.0, 7.0, 10.0, 15.0, 30.0]),
+          new Float64Array([0.2, 0.35, 0.45, 0.55, 0.7]) // initial placeholder correlations
+        );
 
-            // Log actual calibrated values to prove they're real
-            console.log('✅ Discount curve calibrated successfully!');
-            console.log('  Curve ID:', curve.id);
-            console.log('  DF(1Y) from calibrated curve:', curve.df(1.0));
-            console.log('  DF(2Y) from calibrated curve:', curve.df(2.0));
-            console.log('  Zero rate(1Y):', curve.zero(1.0));
-            console.log('  Convergence:', report.success, 'after', report.iterations, 'iterations');
+        // Create and insert credit index data
+        const creditIndexData = new CreditIndexData(
+          125, // num constituents
+          0.4, // recovery rate
+          indexHazardCurve,
+          placeholderBaseCorr,
+          null, // issuer_ids
+          null // issuer_curves
+        );
+        marketCtx.insertCreditIndex('CDX.NA.IG.42', creditIndexData);
 
-            if (!cancelled) {
-              allResults.push({
-                curveId: 'USD-OIS',
-                curveType: 'Discount',
-                success: report.success,
-                iterations: report.iterations,
-                maxResidual: report.maxResidual,
-                sampleValues,
-              });
-            }
-          } catch (err) {
-            console.warn('Discount curve calibration failed (expected with minimal quotes):', err);
-            if (!cancelled) {
-              allResults.push({
-                curveId: 'USD-OIS',
-                curveType: 'Discount',
-                success: false,
-                iterations: 0,
-                maxResidual: 0,
-                sampleValues: [],
-              });
-            }
-          }
-        }
+        setMarket(marketCtx);
+        setIsReady(true);
 
-        // Example 2: Multi-curve calibration workflow
-        // Note: This demonstrates building a market context with multiple curves
-        // For production use, use CalibrationSpec for complex multi-step workflows
-        {
-          const quotes = [
-            RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-            RatesQuote.deposit(new FsDate(2024, 4, 1), 0.046, 'act_360'),
-          ];
-
-          const config = CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(20);
-
-          const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-          const calibratorWithConfig = calibrator.withConfig(config);
-
-          try {
-            const [curve, report] = calibratorWithConfig.calibrate(quotes, null) as any;
-            const market = new MarketContext();
-            market.insertDiscount(curve);
-
-            if (!cancelled) {
-              allResults.push({
-                curveId: 'USD-OIS (Multi-curve)',
-                curveType: 'Discount',
-                success: report.success,
-                iterations: report.iterations,
-                maxResidual: report.maxResidual,
-                sampleValues: [
-                  { time: 0.25, value: curve.df(0.25) },
-                  { time: 0.5, value: curve.df(0.5) },
-                ],
-              });
-            }
-          } catch (err) {
-            console.warn('Multi-curve calibration failed (expected with minimal quotes):', err);
-            if (!cancelled) {
-              allResults.push({
-                curveId: 'USD-OIS (Multi-curve)',
-                curveType: 'Discount',
-                success: false,
-                iterations: 0,
-                maxResidual: 0,
-                sampleValues: [],
-              });
-            }
-          }
-        }
-
-        // Example 3: Forward curve calibration (requires discount curve)
-        {
-          // First create a discount curve for the market
-          const discCurve = await (async () => {
-            try {
-              const discQuotes = [
-                RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(
-                  new FsDate(2025, 1, 2),
-                  0.047,
-                  Frequency.annual(),
-                  Frequency.quarterly(),
-                  '30_360',
-                  'act_360',
-                  'USD-SOFR'
-                ),
-              ];
-              const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-              const [curve] = discCal.calibrate(discQuotes, null) as any;
-              return curve;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (discCurve) {
-            const market = new MarketContext();
-            market.insertDiscount(discCurve);
-
-            const fwdQuotes = [
-              RatesQuote.fra(new FsDate(2024, 4, 1), new FsDate(2024, 7, 1), 0.048, 'act_360'),
-              RatesQuote.fra(new FsDate(2024, 7, 1), new FsDate(2024, 10, 1), 0.049, 'act_360'),
-            ];
-
-            const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Brent())
-              .withMaxIterations(30);
-
-            const calibrator = new ForwardCurveCalibrator(
-              'USD-SOFR-3M',
-              0.25,
-              baseDate,
-              'USD',
-              'USD-OIS'
-            );
-            const calibratorWithConfig = calibrator.withConfig(config);
-
-            try {
-              const [curve, report] = calibratorWithConfig.calibrate(fwdQuotes, market) as any;
-
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'USD-SOFR-3M',
-                  curveType: 'Forward',
-                  success: report.success,
-                  iterations: report.iterations,
-                  maxResidual: report.maxResidual,
-                  sampleValues: [
-                    { time: 0.5, value: curve.rate(0.5) },
-                    { time: 1.0, value: curve.rate(1.0) },
-                  ],
-                });
-              }
-            } catch (err) {
-              console.warn('Forward curve calibration failed:', err);
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'USD-SOFR-3M',
-                  curveType: 'Forward',
-                  success: false,
-                  iterations: 0,
-                  maxResidual: 0,
-                  sampleValues: [],
-                });
-              }
-            }
-          }
-        }
-
-        // Example 4: Hazard curve calibration
-        {
-          // Create market with discount curve
-          const discCurve = await (async () => {
-            try {
-              const discQuotes = [
-                RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(
-                  new FsDate(2025, 1, 2),
-                  0.047,
-                  Frequency.annual(),
-                  Frequency.quarterly(),
-                  '30_360',
-                  'act_360',
-                  'USD-SOFR'
-                ),
-              ];
-              const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-              const [curve] = discCal.calibrate(discQuotes, null) as any;
-              return curve;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (discCurve) {
-            const market = new MarketContext();
-            market.insertDiscount(discCurve);
-
-            const cdsQuotes = [
-              CreditQuote.cds('ACME', new FsDate(2027, 1, 2), 120.0, 0.4, 'USD'),
-              CreditQuote.cds('ACME', new FsDate(2029, 1, 2), 135.0, 0.4, 'USD'),
-            ];
-
-            const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Brent())
-              .withMaxIterations(25);
-
-            const calibrator = new HazardCurveCalibrator(
-              'ACME',
-              'senior',
-              0.4,
-              baseDate,
-              'USD',
-              'USD-OIS'
-            );
-            const calibratorWithConfig = calibrator.withConfig(config);
-
-            try {
-              const [curve, report] = calibratorWithConfig.calibrate(cdsQuotes, market) as any;
-
-              // PROOF: These are real survival probabilities from the calibrated hazard curve
-              console.log('✅ Hazard curve calibrated successfully!');
-              console.log('  Entity:', 'ACME');
-              console.log('  Survival(1Y) from calibrated curve:', curve.sp(1.0));
-              console.log('  Survival(3Y) from calibrated curve:', curve.sp(3.0));
-              console.log('  Survival(5Y) from calibrated curve:', curve.sp(5.0));
-              console.log('  Default prob(0-5Y):', curve.defaultProb(0, 5.0));
-
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'ACME-Senior',
-                  curveType: 'Hazard (Credit)',
-                  success: report.success,
-                  iterations: report.iterations,
-                  maxResidual: report.maxResidual,
-                  sampleValues: [
-                    { time: 1.0, value: curve.sp(1.0) },
-                    { time: 3.0, value: curve.sp(3.0) },
-                    { time: 5.0, value: curve.sp(5.0) },
-                  ],
-                });
-              }
-            } catch (err) {
-              console.warn('Hazard curve calibration failed:', err);
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'ACME-Senior',
-                  curveType: 'Hazard (Credit)',
-                  success: false,
-                  iterations: 0,
-                  maxResidual: 0,
-                  sampleValues: [],
-                });
-              }
-            }
-          }
-        }
-
-        // Example 5: Inflation curve calibration
-        {
-          // Create market with discount curve
-          const discCurve = await (async () => {
-            try {
-              const discQuotes = [
-                RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(
-                  new FsDate(2025, 1, 2),
-                  0.047,
-                  Frequency.annual(),
-                  Frequency.quarterly(),
-                  '30_360',
-                  'act_360',
-                  'USD-SOFR'
-                ),
-              ];
-              const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-              const [curve] = discCal.calibrate(discQuotes, null) as any;
-              return curve;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (discCurve) {
-            const market = new MarketContext();
-            market.insertDiscount(discCurve);
-
-            const inflQuotes = [
-              InflationQuote.inflationSwap(new FsDate(2026, 1, 2), 0.021, 'US-CPI-U'),
-              InflationQuote.inflationSwap(new FsDate(2029, 1, 2), 0.023, 'US-CPI-U'),
-            ];
-
-            const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Brent())
-              .withMaxIterations(25);
-
-            const calibrator = new InflationCurveCalibrator(
-              'US-CPI-U',
-              baseDate,
-              'USD',
-              300.0,
-              'USD-OIS'
-            );
-            const calibratorWithConfig = calibrator.withConfig(config);
-
-            try {
-              const [curve, report] = calibratorWithConfig.calibrate(inflQuotes, market) as any;
-
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'US-CPI-U',
-                  curveType: 'Inflation',
-                  success: report.success,
-                  iterations: report.iterations,
-                  maxResidual: report.maxResidual,
-                  sampleValues: [
-                    { time: 1.0, value: curve.cpi(1.0) },
-                    { time: 3.0, value: curve.cpi(3.0) },
-                    { time: 5.0, value: curve.cpi(5.0) },
-                  ],
-                });
-              }
-            } catch (err) {
-              console.warn('Inflation curve calibration failed:', err);
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'US-CPI-U',
-                  curveType: 'Inflation',
-                  success: false,
-                  iterations: 0,
-                  maxResidual: 0,
-                  sampleValues: [],
-                });
-              }
-            }
-          }
-        }
-
-        // Example 6: Vol surface calibration
-        {
-          // Create market with discount curve and spot prices
-          const discCurve = await (async () => {
-            try {
-              const discQuotes = [
-                RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-                RatesQuote.swap(
-                  new FsDate(2025, 1, 2),
-                  0.047,
-                  Frequency.annual(),
-                  Frequency.quarterly(),
-                  '30_360',
-                  'act_360',
-                  'USD-SOFR'
-                ),
-              ];
-              const discCal = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-              const [curve] = discCal.calibrate(discQuotes, null) as any;
-              return curve;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (discCurve) {
-            const market = new MarketContext();
-            market.insertDiscount(discCurve);
-            market.insertPrice('AAPL', MarketScalar.price(Money.fromCode(150.0, 'USD')));
-            market.insertPrice('AAPL-DIVYIELD', MarketScalar.unitless(0.015));
-
-            const volQuotes = [
-              VolQuote.optionVol('AAPL', new FsDate(2024, 7, 1), 90.0, 0.24, 'Call'),
-              VolQuote.optionVol('AAPL', new FsDate(2024, 7, 1), 100.0, 0.22, 'Call'),
-              VolQuote.optionVol('AAPL', new FsDate(2024, 7, 1), 110.0, 0.23, 'Call'),
-              VolQuote.optionVol('AAPL', new FsDate(2025, 1, 2), 90.0, 0.26, 'Call'),
-              VolQuote.optionVol('AAPL', new FsDate(2025, 1, 2), 100.0, 0.24, 'Call'),
-              VolQuote.optionVol('AAPL', new FsDate(2025, 1, 2), 110.0, 0.25, 'Call'),
-            ];
-
-            const config = CalibrationConfig.multiCurve()
-              .withSolverKind(SolverKind.Brent())
-              .withMaxIterations(50);
-
-            const calibrator = new VolSurfaceCalibrator(
-              'AAPL-VOL',
-              1.0,
-              new Float64Array([0.5, 1.0]),
-              new Float64Array([90.0, 100.0, 110.0])
-            )
-              .withBaseDate(baseDate)
-              .withConfig(config)
-              .withDiscountId('USD-OIS');
-
-            try {
-              const [surface, report] = calibrator.calibrate(volQuotes, market) as any;
-
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'AAPL-VOL',
-                  curveType: 'Vol Surface',
-                  success: report.success,
-                  iterations: report.iterations,
-                  maxResidual: report.maxResidual,
-                  sampleValues: [
-                    { time: 0.5, value: surface.value(0.5, 100.0) },
-                    { time: 1.0, value: surface.value(1.0, 100.0) },
-                  ],
-                });
-              }
-            } catch (err) {
-              console.warn('Vol surface calibration failed:', err);
-              if (!cancelled) {
-                allResults.push({
-                  curveId: 'AAPL-VOL',
-                  curveType: 'Vol Surface',
-                  success: false,
-                  iterations: 0,
-                  maxResidual: 0,
-                  sampleValues: [],
-                });
-              }
-            }
-          }
-        }
-
-        if (!cancelled) {
-          setResults(allResults);
-        }
+        console.log('Base market initialized with discount curve and credit index');
       } catch (err) {
-        if (!cancelled) {
-          console.error('Calibration error:', err);
-          setError((err as Error).message);
-        }
+        console.warn('Failed to initialize base market:', err);
+        // Still allow showing the discount calibrator
+        setIsReady(true);
+        setConfig(createDefaultConfig());
       }
-    })();
-    return () => {
-      cancelled = true;
     };
+
+    initializeMarket();
+  }, [baseDate]);
+
+  const handleCalibrated = useCallback((result: CalibrationResult) => {
+    setResults((prev) => {
+      const next = new Map(prev);
+      next.set(result.curveId, result);
+      return next;
+    });
   }, []);
 
-  if (error) {
-    return <p className="error">{error}</p>;
-  }
+  // Summary statistics
+  const summaryStats = useMemo(() => {
+    const all = Array.from(results.values());
+    const successful = all.filter((r) => r.success).length;
+    const failed = all.filter((r) => !r.success).length;
+    const totalIterations = all.reduce((sum, r) => sum + r.iterations, 0);
+    return { total: all.length, successful, failed, totalIterations };
+  }, [results]);
 
-  if (results.length === 0) {
-    return <p>Running calibration examples…</p>;
+  if (!isReady || !config) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-muted-foreground">Initializing market context...</div>
+      </div>
+    );
   }
 
   return (
-    <section className="example-section">
-      <h2>Curve Calibration - All 5 Calibrators</h2>
-      <p>
-        Demonstrates all calibration types: discount curves, forward curves, credit hazard curves,
-        inflation curves, and volatility surfaces. Each calibrator fits curves to market prices
-        using numerical optimization with configurable solvers (Newton, Brent, Hybrid, etc.).
-      </p>
-      <p style={{ color: '#888', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-        Note: Examples use minimal quotes (2-4 instruments) for demonstration. Production
-        calibration requires 5-10+ quotes for reliable convergence. Failed calibrations with minimal
-        data are expected and demonstrate the validation logic.
-      </p>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Curve ID</th>
-            <th>Type</th>
-            <th>Success</th>
-            <th>Iterations</th>
-            <th>Max Residual</th>
-          </tr>
-        </thead>
-        <tbody>
-          {results.map(({ curveId, curveType, success, iterations, maxResidual }) => (
-            <tr key={curveId}>
-              <td>{curveId}</td>
-              <td>{curveType}</td>
-              <td style={{ color: success ? '#4ade80' : '#f87171' }}>
-                {success ? '✓ Converged' : '✗ Failed'}
-              </td>
-              <td>{iterations}</td>
-              <td>{maxResidual.toExponential(3)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div
-        style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          backgroundColor: 'rgba(100, 108, 255, 0.05)',
-          borderRadius: '6px',
-        }}
-      >
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Calibration API</h3>
-        <p style={{ color: '#aaa', margin: 0 }}>The calibration module provides:</p>
-        <ul
-          style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: '#aaa', lineHeight: '1.8' }}
-        >
-          <li>
-            <strong>DiscountCurveCalibrator</strong> - Bootstrap OIS/Treasury curves from
-            deposits/swaps
-          </li>
-          <li>
-            <strong>ForwardCurveCalibrator</strong> - Calibrate LIBOR/SOFR forward curves from
-            FRAs/swaps
-          </li>
-          <li>
-            <strong>HazardCurveCalibrator</strong> - Calibrate credit default probability curves
-            from CDS spreads
-          </li>
-          <li>
-            <strong>InflationCurveCalibrator</strong> - Calibrate CPI projection curves from
-            inflation swap quotes
-          </li>
-          <li>
-            <strong>VolSurfaceCalibrator</strong> - Calibrate implied volatility surfaces from
-            option/swaption quotes
-          </li>
-          <li>
-            <strong>SolverKind</strong> - Choose optimization strategy (Newton, Brent,
-            LevenbergMarquardt, DE)
-          </li>
-          <li>
-            <strong>CalibrationConfig</strong> - Configure tolerance, iterations, parallel
-            execution, verbose logging
-          </li>
-        </ul>
-
-        <div
-          style={{
-            marginTop: '1.5rem',
-            padding: '1rem',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '6px',
-            borderLeft: '3px solid #646cff',
-          }}
-        >
-          <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
-            100% Feature Parity with Python
-          </h4>
-          <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
-            All 5 calibrators from finstack-py are now available in WASM with identical APIs:
-          </p>
-          <ul
-            style={{
-              marginTop: '0.5rem',
-              paddingLeft: '1.5rem',
-              color: '#bbb',
-              fontSize: '0.9rem',
-            }}
-          >
-            <li>
-              Same solver strategies (Newton, Brent, Hybrid, Levenberg-Marquardt, Differential
-              Evolution)
-            </li>
-            <li>Same configuration options (tolerance, max iterations, verbose, parallel)</li>
-            <li>Same quote types (RatesQuote, CreditQuote, VolQuote, InflationQuote)</li>
-            <li>Same detailed calibration reports with convergence diagnostics</li>
-          </ul>
-        </div>
-
-        <p style={{ marginTop: '1rem', color: '#888', fontSize: '0.9rem', fontStyle: 'italic' }}>
-          Production Note: These minimal examples (2-4 quotes) demonstrate the API. Real-world
-          calibration requires sufficient market quotes (typically 5-10+ instruments across the
-          curve maturity spectrum) for reliable convergence and accurate interpolation.
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-primary mb-2">Curve Calibration Suite</h2>
+        <p className="text-muted-foreground">
+          Demonstrates all calibration types: discount curves, forward curves, credit hazard curves,
+          inflation curves, and volatility surfaces. Each calibrator fits curves to market prices
+          using numerical optimization with configurable solvers.
         </p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Calibration Summary</CardTitle>
+          <CardDescription>Base Date: {baseDate.toString()} - Currency: USD</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">{summaryStats.total}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Total Curves
+              </div>
+            </div>
+            <div className="text-center p-3 bg-success/10 rounded-lg">
+              <div className="text-2xl font-bold text-success">{summaryStats.successful}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Converged</div>
+            </div>
+            <div className="text-center p-3 bg-destructive/10 rounded-lg">
+              <div className="text-2xl font-bold text-destructive">{summaryStats.failed}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Failed</div>
+            </div>
+            <div className="text-center p-3 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">{summaryStats.totalIterations}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Total Iterations
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="discount" className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="discount">Discount</TabsTrigger>
+          <TabsTrigger value="forward">Forward</TabsTrigger>
+          <TabsTrigger value="hazard">Credit</TabsTrigger>
+          <TabsTrigger value="inflation">Inflation</TabsTrigger>
+          <TabsTrigger value="vol">Vol Surface</TabsTrigger>
+          <TabsTrigger value="correlation">Correlation</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="discount" className="mt-4">
+          <DiscountCurveCalibration
+            baseDate={baseDate}
+            curveId="USD-OIS"
+            currency="USD"
+            config={config}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+
+        <TabsContent value="forward" className="mt-4">
+          <ForwardCurveCalibration
+            baseDate={baseDate}
+            curveId="USD-SOFR-3M"
+            currency="USD"
+            tenor={0.25}
+            discountCurveId="USD-OIS"
+            config={config}
+            market={market}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+
+        <TabsContent value="hazard" className="mt-4">
+          <HazardCurveCalibration
+            baseDate={baseDate}
+            curveId="ACME-Senior"
+            currency="USD"
+            entity="ACME"
+            seniority="senior"
+            recoveryRate={0.4}
+            discountCurveId="USD-OIS"
+            config={config}
+            market={market}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+
+        <TabsContent value="inflation" className="mt-4">
+          <InflationCurveCalibration
+            baseDate={baseDate}
+            curveId="US-CPI-U"
+            currency="USD"
+            indexName="US-CPI-U"
+            baseCpi={300}
+            discountCurveId="USD-OIS"
+            config={config}
+            market={market}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+
+        <TabsContent value="vol" className="mt-4">
+          <VolSurfaceCalibration
+            baseDate={baseDate}
+            curveId="AAPL-VOL"
+            currency="USD"
+            underlying="AAPL"
+            spotPrice={100}
+            expiries={[0.5, 1]}
+            strikes={[90, 100, 110]}
+            discountCurveId="USD-OIS"
+            config={config}
+            market={market}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+
+        <TabsContent value="correlation" className="mt-4">
+          <BaseCorrelationCalibration
+            baseDate={baseDate}
+            curveId="CDX-IG-BASECORR"
+            indexId="CDX.NA.IG.42"
+            series={42}
+            maturityYears={5.0}
+            discountCurveId="USD-OIS"
+            config={config}
+            market={market}
+            onCalibrated={handleCalibrated}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <Card className="bg-primary/5 border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-lg">Calibration API</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground text-sm">
+            The calibration module provides specialized calibrators for different market data types:
+          </p>
+          <ul className="space-y-2 text-sm">
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                DiscountCurveCalibrator
+              </code>
+              <span className="text-muted-foreground">
+                Bootstrap OIS/Treasury curves from deposits and swaps
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">ForwardCurveCalibrator</code>
+              <span className="text-muted-foreground">
+                Calibrate LIBOR/SOFR forward curves from FRAs and swaps
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">HazardCurveCalibrator</code>
+              <span className="text-muted-foreground">
+                Calibrate credit default probability curves from CDS spreads
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                InflationCurveCalibrator
+              </code>
+              <span className="text-muted-foreground">
+                Calibrate CPI projection curves from inflation swap quotes
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">VolSurfaceCalibrator</code>
+              <span className="text-muted-foreground">
+                Calibrate implied volatility surfaces from option quotes
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                BaseCorrelationCalibrator
+              </code>
+              <span className="text-muted-foreground">
+                Calibrate base correlation curves from CDO tranche quotes
+              </span>
+            </li>
+          </ul>
+          <div className="bg-muted/50 border-l-2 border-primary p-3 rounded-r text-sm">
+            <strong>Note:</strong> Use the editable quote tables to modify market inputs and
+            re-calibrate curves. Production calibration requires 5-10+ quotes for reliable
+            convergence.
+          </div>
+        </CardContent>
+      </Card>
     </section>
   );
 };
+
+export default CalibrationExample;

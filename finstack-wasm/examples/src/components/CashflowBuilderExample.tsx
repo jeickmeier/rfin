@@ -14,6 +14,17 @@ import {
   ForwardCurve,
 } from 'finstack-wasm';
 import { CashflowBuilderProps, DEFAULT_CASHFLOW_BUILDER_PROPS } from './data/cashflow-builder';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type RequiredCashflowBuilderProps = Required<CashflowBuilderProps>;
 
@@ -31,7 +42,6 @@ interface ExampleSchedule {
   }>;
 }
 
-// Helper to build schedule params from data
 function buildScheduleParams(data: { type: string }): ScheduleParams {
   switch (data.type) {
     case 'quarterlyAct360':
@@ -45,7 +55,6 @@ function buildScheduleParams(data: { type: string }): ScheduleParams {
   }
 }
 
-// Helper to build coupon type from data
 function buildCouponType(data: { type: string; cashPct?: number; pikPct?: number }): CouponType {
   switch (data.type) {
     case 'cash':
@@ -59,8 +68,13 @@ function buildCouponType(data: { type: string; cashPct?: number; pikPct?: number
   }
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+
 export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) => {
-  // Merge with defaults - DEFAULT_CASHFLOW_BUILDER_PROPS always has these values defined
   const defaults = DEFAULT_CASHFLOW_BUILDER_PROPS as RequiredCashflowBuilderProps;
   const { examples = defaults.examples } = props;
 
@@ -88,7 +102,6 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
 
           let builder = new CashflowBuilder().principal(notional, issue, maturity);
 
-          // Handle fixed coupon
           if (example.fixedCoupon) {
             const schedule = buildScheduleParams(example.fixedCoupon.schedule);
             const couponType = buildCouponType(example.fixedCoupon.couponType);
@@ -96,7 +109,6 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
             builder = builder.fixedCf(fixedSpec);
           }
 
-          // Handle floating coupon
           if (example.floatingCoupon) {
             const schedule = buildScheduleParams(example.floatingCoupon.schedule);
             const couponType = buildCouponType(example.floatingCoupon.couponType);
@@ -110,7 +122,6 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
             builder = builder.floatingCf(floatSpec);
           }
 
-          // Handle amortization
           if (example.amortization) {
             const finalNotional = Money.fromCode(
               example.amortization.finalNotional.amount,
@@ -120,18 +131,15 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
             builder = builder.amortization(amortSpec);
           }
 
-          // Handle step-up program
           if (example.stepUpProgram) {
             const schedule = ScheduleParams.semiannual30360();
             builder = builder.fixedStepup(example.stepUpProgram, schedule, CouponType.Cash());
           }
 
-          // Handle payment split program
           if (example.paymentSplitProgram) {
             builder = builder.paymentSplitProgram(example.paymentSplitProgram);
           }
 
-          // Build with or without market curves
           let cfSchedule;
           if (example.useMarketCurves && example.marketData) {
             const baseDate = new FsDate(
@@ -175,7 +183,6 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
             cfSchedule = builder.build();
           }
 
-          // Extract flows
           const flows = cfSchedule.flows();
           const maxFlows = example.floatingCoupon ? 6 : example.amortization ? 12 : 8;
           const flowData = [];
@@ -215,145 +222,158 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
   }, [examples]);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (schedules.length === 0) {
-    return <p>Building cashflow examples…</p>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="ml-3 text-muted-foreground">Building cashflow examples…</span>
+      </div>
+    );
   }
 
-  const currencyFormatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  });
-
   return (
-    <section className="example-section">
-      <h2>Cashflow Builder</h2>
-      <p>
-        The <code>CashflowBuilder</code> provides a composable interface for creating complex coupon
-        structures with fixed/floating rates, Cash/PIK/split payment types, amortization, step-up
-        programs, and payment split transitions. This mirrors the Python bindings for full feature
-        parity.
-      </p>
-
-      {schedules.map((example, idx) => (
-        <div key={idx} style={{ marginTop: idx > 0 ? '3rem' : '1rem' }}>
-          <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>{example.title}</h3>
-          <p style={{ color: '#999', marginBottom: '1rem' }}>{example.description}</p>
-
-          <div className="inline-cards">
-            <div className="card">
-              <strong>Total Flows</strong>
-              <span>{example.flowCount}</span>
+    <Card>
+      <CardHeader>
+        <CardTitle>Cashflow Builder</CardTitle>
+        <CardDescription>
+          The{' '}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-sm">CashflowBuilder</code>{' '}
+          provides a composable interface for creating complex coupon structures with fixed/floating
+          rates, Cash/PIK/split payment types, amortization, step-up programs, and payment split
+          transitions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        {schedules.map((example, idx) => (
+          <div key={idx} className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">{example.title}</h3>
+              <p className="text-sm text-muted-foreground">{example.description}</p>
             </div>
-            <div className="card">
-              <strong>Notional</strong>
-              <span>{currencyFormatter.format(example.notional)}</span>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="px-3 py-1">
+                <span className="text-muted-foreground">Flows:</span>
+                <span className="ml-1.5 font-mono">{example.flowCount}</span>
+              </Badge>
+              <Badge variant="secondary" className="px-3 py-1">
+                <span className="text-muted-foreground">Notional:</span>
+                <span className="ml-1.5 font-mono">
+                  {currencyFormatter.format(example.notional)}
+                </span>
+              </Badge>
+              <Badge variant="secondary" className="px-3 py-1">
+                <span className="text-muted-foreground">Day Count:</span>
+                <span className="ml-1.5 font-mono">{example.dayCount}</span>
+              </Badge>
             </div>
-            <div className="card">
-              <strong>Day Count</strong>
-              <span>{example.dayCount}</span>
+
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Kind</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Accrual Factor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {example.flows.map((flow, flowIdx) => (
+                    <TableRow key={flowIdx}>
+                      <TableCell className="font-mono text-sm">{flow.date}</TableCell>
+                      <TableCell>
+                        <Badge variant={flow.kind === 'Fixed' ? 'default' : 'secondary'}>
+                          {flow.kind}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {currencyFormatter.format(flow.amount)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground">
+                        {flow.accrualFactor.toFixed(6)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {example.flowCount > example.flows.length && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground italic">
+                        … and {example.flowCount - example.flows.length} more flows
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </div>
+        ))}
 
-          <table style={{ marginTop: '1rem' }}>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Kind</th>
-                <th style={{ textAlign: 'right' }}>Amount</th>
-                <th style={{ textAlign: 'right' }}>Accrual Factor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {example.flows.map((flow, flowIdx) => (
-                <tr key={flowIdx}>
-                  <td>{flow.date}</td>
-                  <td>{flow.kind}</td>
-                  <td style={{ textAlign: 'right' }}>{currencyFormatter.format(flow.amount)}</td>
-                  <td style={{ textAlign: 'right' }}>{flow.accrualFactor.toFixed(6)}</td>
-                </tr>
-              ))}
-              {example.flowCount > example.flows.length && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    style={{ textAlign: 'center', color: '#888', fontStyle: 'italic' }}
-                  >
-                    … and {example.flowCount - example.flows.length} more flows
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* Key Features */}
+        <div className="rounded-lg border bg-muted/50 p-6 space-y-4">
+          <h3 className="text-lg font-semibold">Key Features</h3>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+              <span>
+                <strong>Fixed and Floating Coupons:</strong> Support for both fixed rates and
+                floating indices (e.g., SOFR + margin)
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+              <span>
+                <strong>Forward Rate Incorporation:</strong> Use{' '}
+                <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">
+                  buildWithCurves(market)
+                </code>{' '}
+                to include forward rates in floating cashflows
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+              <span>
+                <strong>Payment Types:</strong> Cash, PIK (payment-in-kind), or split percentages
+                between cash and PIK
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+              <span>
+                <strong>Amortization:</strong> Linear amortization, step schedules, or custom
+                principal repayment
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+              <span>
+                <strong>Step-Up Programs:</strong> Coupon rates that change over time based on date
+                boundaries
+              </span>
+            </li>
+          </ul>
+
+          <div className="rounded-md border-l-4 border-primary bg-background p-4 mt-4">
+            <h4 className="font-semibold mb-2">Floating Rate Calculation</h4>
+            <div className="space-y-1 text-sm text-muted-foreground font-mono">
+              <p>
+                <span className="text-foreground font-medium">build():</span> coupon = outstanding ×
+                (margin_bp × 0.0001 × gearing) × year_fraction
+              </p>
+              <p>
+                <span className="text-foreground font-medium">buildWithCurves():</span> coupon =
+                outstanding × (forward_rate × gearing + margin_bp × 0.0001) × year_fraction
+              </p>
+            </div>
+          </div>
         </div>
-      ))}
-
-      <div
-        style={{
-          marginTop: '3rem',
-          padding: '1.5rem',
-          backgroundColor: 'rgba(100, 108, 255, 0.05)',
-          borderRadius: '8px',
-        }}
-      >
-        <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Key Features</h3>
-        <ul style={{ paddingLeft: '1.5rem', lineHeight: '1.8' }}>
-          <li>
-            <strong>Fixed and Floating Coupons:</strong> Support for both fixed rates and floating
-            indices (e.g., SOFR + margin)
-          </li>
-          <li>
-            <strong>Forward Rate Incorporation:</strong> Use <code>buildWithCurves(market)</code> to
-            include forward rates in floating cashflows, or <code>build()</code> for margin-only
-            calculation
-          </li>
-          <li>
-            <strong>Payment Types:</strong> Cash, PIK (payment-in-kind), or split percentages
-            between cash and PIK
-          </li>
-          <li>
-            <strong>Amortization:</strong> Linear amortization, step schedules, or custom principal
-            repayment
-          </li>
-          <li>
-            <strong>Step-Up Programs:</strong> Coupon rates that change over time based on date
-            boundaries
-          </li>
-          <li>
-            <strong>Payment Split Programs:</strong> Transition between cash and PIK payment types
-            (e.g., cash → 50/50 → PIK)
-          </li>
-          <li>
-            <strong>Builder Pattern:</strong> Fluent chainable API matching Python bindings
-          </li>
-        </ul>
-
-        <div
-          style={{
-            marginTop: '1.5rem',
-            padding: '1rem',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '6px',
-            borderLeft: '3px solid #646cff',
-          }}
-        >
-          <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Floating Rate Calculation</h4>
-          <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
-            <strong>build():</strong> coupon = outstanding × (margin_bp × 0.0001 × gearing) ×
-            year_fraction
-          </p>
-          <p style={{ margin: '0.5rem 0', color: '#aaa', fontSize: '0.95rem' }}>
-            <strong>buildWithCurves():</strong> coupon = outstanding × (forward_rate × gearing +
-            margin_bp × 0.0001) × year_fraction
-          </p>
-          <p style={{ margin: '0.5rem 0', color: '#bbb', fontSize: '0.9rem', fontStyle: 'italic' }}>
-            Example 3 shows margin-only vs. Example 4 shows forward rate + margin
-          </p>
-        </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 };

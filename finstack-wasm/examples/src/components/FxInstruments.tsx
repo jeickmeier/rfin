@@ -14,6 +14,17 @@ import {
   createStandardRegistry,
 } from 'finstack-wasm';
 import { FxInstrumentsProps, DEFAULT_FX_PROPS } from './data/fx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type RequiredFxInstrumentsProps = Required<FxInstrumentsProps>;
 
@@ -32,7 +43,6 @@ type InstrumentRow = {
 };
 
 export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
-  // Merge with defaults - DEFAULT_FX_PROPS always has these values defined
   const defaults = DEFAULT_FX_PROPS as RequiredFxInstrumentsProps;
   const {
     valuationDate = defaults.valuationDate,
@@ -52,11 +62,8 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
     (async () => {
       try {
         const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
-
-        // Build market context
         const market = new MarketContext();
 
-        // Build discount curves from props
         for (const curveData of discountCurves) {
           const curveBaseDate = new FsDate(
             curveData.baseDate.year,
@@ -76,7 +83,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           market.insertDiscount(curve);
         }
 
-        // Build FX matrix from props
         const fx = new FxMatrix();
         for (const quote of fxQuotes) {
           const base = new Currency(quote.base);
@@ -85,7 +91,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
         }
         market.insertFx(fx);
 
-        // Build volatility surface from props
         const fxVol = new VolSurface(
           volSurface.id,
           new Float64Array(volSurface.expiries),
@@ -97,7 +102,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Process FX spots
         for (const spot of spots) {
           const baseCcy = new Currency(spot.baseCurrency);
           const quoteCcy = new Currency(spot.quoteCurrency);
@@ -125,7 +129,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           });
         }
 
-        // Process FX options
         for (const opt of options) {
           const baseCcy = new Currency(opt.baseCurrency);
           const quoteCcy = new Currency(opt.quoteCurrency);
@@ -178,7 +181,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
             keyMetric: isCall
               ? {
                   name: 'Delta',
-                  // Normalize delta to per-unit if it comes back as notional-adjusted
                   value:
                     Math.abs(optResult.metric('delta') ?? 0) > 100
                       ? (optResult.metric('delta') ?? 0) / opt.notional.amount
@@ -188,7 +190,6 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           });
         }
 
-        // Process FX swaps
         for (const swap of swaps) {
           const baseCcy = new Currency(swap.baseCurrency);
           const quoteCcy = new Currency(swap.quoteCurrency);
@@ -222,9 +223,7 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           });
         }
 
-        if (!cancelled) {
-          setRows(results);
-        }
+        if (!cancelled) setRows(results);
       } catch (err) {
         if (!cancelled) {
           console.error('FX instruments error:', err);
@@ -238,43 +237,73 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
   }, [valuationDate, discountCurves, volSurface, fxQuotes, spots, options, swaps]);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0) {
-    return <p>Building FX instruments…</p>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="ml-3 text-muted-foreground">Building FX instruments…</span>
+      </div>
+    );
   }
 
   return (
-    <section className="example-section">
-      <h2>FX Instruments</h2>
-      <p>
-        Foreign exchange instruments including spot transactions, European options (calls/puts), and
-        FX swaps with near and far legs.
-      </p>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Pair</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, pair, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{pair}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>FX Instruments</CardTitle>
+        <CardDescription>
+          Foreign exchange instruments including spot transactions, European options (calls/puts),
+          and FX swaps with near and far legs.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Instrument</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Pair</TableHead>
+                <TableHead className="text-right">Present Value</TableHead>
+                <TableHead className="text-right">Key Metric</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(({ name, type, pair, presentValue, keyMetric }) => (
+                <TableRow key={name}>
+                  <TableCell className="font-medium">{name}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        type === 'FxSpot'
+                          ? 'default'
+                          : type === 'FxOption'
+                            ? 'secondary'
+                            : 'outline'
+                      }
+                    >
+                      {type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-mono">{pair}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {currencyFormatter.format(presentValue)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

@@ -3,8 +3,31 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { CdsOption, FsDate, MarketContext, Money, createStandardRegistry } from 'finstack-wasm';
-import type { CdsOptionData } from '../data/credit';
+import type { CdsOptionData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { Calculator, X, ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
 
 export interface CDSOptionInstrumentProps {
   cdsOptions: CdsOptionData[];
@@ -98,7 +121,6 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
   // Calculate when form is visible and form state changes
   useEffect(() => {
     if (showForm) {
-      // Use setTimeout to avoid React compiler warning about setState in effect
       const timer = setTimeout(() => {
         calculateOption();
       }, 0);
@@ -180,157 +202,215 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
   };
 
   if (error && !showForm) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0 && !showForm) {
-    return <p>Loading CDS options...</p>;
+    return <p className="text-muted-foreground animate-pulse">Loading CDS options...</p>;
   }
 
   return (
-    <div className="instrument-group">
-      <h3>
-        CDS Options{' '}
-        <button
-          className="toggle-form-btn"
-          onClick={() => setShowForm(!showForm)}
-          style={{ marginLeft: '1rem', fontSize: '0.8rem' }}
-        >
-          {showForm ? '✕ Hide Calculator' : '⚙ Interactive Calculator'}
-        </button>
-      </h3>
-      <p>
-        Options on credit default swaps (payer/receiver swaptions). Uses CDS volatility surfaces for
-        Black-style pricing. Includes knockout feature support for credit events before expiry.
-      </p>
-
-      {showForm && (
-        <div
-          className="instrument-form"
-          style={{
-            background: 'var(--surface-2, #1a1a2e)',
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div className="form-field">
-            <label htmlFor="opt-notional">Notional</label>
-            <input
-              id="opt-notional"
-              type="number"
-              value={formState.notional}
-              onChange={(e) =>
-                handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
-              }
-              step={1000000}
-            />
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              CDS Options
+              <Badge variant="outline" className="font-mono text-xs">
+                Swaptions
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Options on credit default swaps with Black-style pricing and knockout feature support
+            </CardDescription>
           </div>
-          <div className="form-field">
-            <label htmlFor="opt-strike">Strike (bps)</label>
-            <input
-              id="opt-strike"
-              type="number"
-              value={formState.strikeBps}
-              onChange={(e) =>
-                handleInputChange('strikeBps', Number.parseFloat(e.target.value) || 0)
-              }
-              step={10}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="opt-expiry">Expiry (months)</label>
-            <input
-              id="opt-expiry"
-              type="number"
-              value={formState.expiryMonths}
-              onChange={(e) =>
-                handleInputChange('expiryMonths', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-              max={60}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="opt-tenor">Underlying Tenor (years)</label>
-            <input
-              id="opt-tenor"
-              type="number"
-              value={formState.underlyingTenorYears}
-              onChange={(e) =>
-                handleInputChange('underlyingTenorYears', Number.parseInt(e.target.value, 10) || 1)
-              }
-              min={1}
-              max={10}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="opt-type">Option Type</label>
-            <select
-              id="opt-type"
-              value={formState.optionType}
-              onChange={(e) => handleInputChange('optionType', e.target.value)}
-            >
-              <option value="call">Call (Payer)</option>
-              <option value="put">Put (Receiver)</option>
-            </select>
-          </div>
-          <div className="form-field">
-            <label htmlFor="opt-recovery">Recovery Rate</label>
-            <input
-              id="opt-recovery"
-              type="number"
-              value={formState.recoveryRate}
-              onChange={(e) =>
-                handleInputChange('recoveryRate', Number.parseFloat(e.target.value) || 0)
-              }
-              step={0.05}
-              min={0}
-              max={1}
-            />
-          </div>
-          <div className="form-field">
-            <label
-              htmlFor="opt-knockout"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <input
-                id="opt-knockout"
-                type="checkbox"
-                checked={formState.knockedOut}
-                onChange={(e) => handleInputChange('knockedOut', e.target.checked)}
-              />{' '}
-              Knocked Out
-            </label>
-          </div>
+          <Button
+            variant={showForm ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowForm(!showForm)}
+            className="gap-2"
+          >
+            {showForm ? (
+              <>
+                <X className="h-4 w-4" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Calculator className="h-4 w-4" />
+                Calculator
+              </>
+            )}
+          </Button>
         </div>
-      )}
+      </CardHeader>
 
-      {error && showForm && <p className="error">{error}</p>}
+      <CardContent className="space-y-4">
+        {showForm && (
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="opt-notional">Notional</Label>
+                <Input
+                  id="opt-notional"
+                  type="number"
+                  value={formState.notional}
+                  onChange={(e) =>
+                    handleInputChange('notional', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={1000000}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opt-strike">Strike (bps)</Label>
+                <Input
+                  id="opt-strike"
+                  type="number"
+                  value={formState.strikeBps}
+                  onChange={(e) =>
+                    handleInputChange('strikeBps', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={10}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opt-expiry">Expiry (months)</Label>
+                <Input
+                  id="opt-expiry"
+                  type="number"
+                  value={formState.expiryMonths}
+                  onChange={(e) =>
+                    handleInputChange('expiryMonths', Number.parseInt(e.target.value, 10) || 1)
+                  }
+                  min={1}
+                  max={60}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opt-tenor">Underlying Tenor (yrs)</Label>
+                <Input
+                  id="opt-tenor"
+                  type="number"
+                  value={formState.underlyingTenorYears}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'underlyingTenorYears',
+                      Number.parseInt(e.target.value, 10) || 1
+                    )
+                  }
+                  min={1}
+                  max={10}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opt-type">Option Type</Label>
+                <Select
+                  value={formState.optionType}
+                  onValueChange={(value) => handleInputChange('optionType', value)}
+                >
+                  <SelectTrigger id="opt-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="call">
+                      <span className="flex items-center gap-2">
+                        <ArrowUpRight className="h-3 w-3 text-success" />
+                        Call (Payer)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="put">
+                      <span className="flex items-center gap-2">
+                        <ArrowDownRight className="h-3 w-3 text-destructive" />
+                        Put (Receiver)
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opt-recovery">Recovery Rate</Label>
+                <Input
+                  id="opt-recovery"
+                  type="number"
+                  value={formState.recoveryRate}
+                  onChange={(e) =>
+                    handleInputChange('recoveryRate', Number.parseFloat(e.target.value) || 0)
+                  }
+                  step={0.05}
+                  min={0}
+                  max={1}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2 col-span-2 md:col-span-1">
+                <Label htmlFor="opt-knockout">Knockout Feature</Label>
+                <div className="flex items-center gap-3 h-10">
+                  <Switch
+                    id="opt-knockout"
+                    checked={formState.knockedOut}
+                    onCheckedChange={(checked) => handleInputChange('knockedOut', checked)}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {formState.knockedOut ? 'Knocked Out' : 'Active'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            {formState.knockedOut && (
+              <Alert>
+                <AlertDescription className="text-sm">
+                  Option is knocked out — will be worthless if a credit event occurs before expiry.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {error && showForm && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instrument</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Present Value</TableHead>
+              <TableHead className="text-right">Key Metric</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ name, type, presentValue, keyMetric }) => (
+              <TableRow key={name}>
+                <TableCell className="font-medium">{name}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {type}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {currencyFormatter.format(presentValue)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(2)}` : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };

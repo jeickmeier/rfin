@@ -13,6 +13,17 @@ import {
   createStandardRegistry,
 } from 'finstack-wasm';
 import { EquityInstrumentsProps, DEFAULT_EQUITY_PROPS } from './data/equity';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type RequiredEquityInstrumentsProps = Required<EquityInstrumentsProps>;
 
@@ -31,7 +42,6 @@ type InstrumentRow = {
 };
 
 export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props) => {
-  // Merge with defaults - DEFAULT_EQUITY_PROPS always has these values defined
   const defaults = DEFAULT_EQUITY_PROPS as RequiredEquityInstrumentsProps;
   const {
     valuationDate = defaults.valuationDate,
@@ -52,7 +62,6 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
         const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
         const usd = new Currency('USD');
 
-        // Build discount curve from props
         const curveBaseDate = new FsDate(
           discountCurve.baseDate.year,
           discountCurve.baseDate.month,
@@ -69,7 +78,6 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           discountCurve.continuous
         );
 
-        // Build volatility surface from props
         const equityVol = new VolSurface(
           volSurface.id,
           new Float64Array(volSurface.expiries),
@@ -81,7 +89,6 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
         market.insertDiscount(curve);
         market.insertSurface(equityVol);
 
-        // Insert market data for each ticker
         for (const data of marketData) {
           const spotPrice = Money.fromCode(data.spotPrice.amount, data.spotPrice.currency);
           market.insertPrice(data.ticker, MarketScalar.price(spotPrice));
@@ -94,7 +101,6 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Process equity positions
         for (const pos of positions) {
           const equity = new Equity(pos.id, pos.ticker, usd, pos.quantity, pos.costBasis);
           const equityResult = registry.priceEquity(equity, 'discounting', market, asOf);
@@ -106,7 +112,6 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           });
         }
 
-        // Process options
         for (const opt of options) {
           const expiryDate = new FsDate(
             opt.expiryDate.year,
@@ -152,9 +157,7 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           });
         }
 
-        if (!cancelled) {
-          setRows(results);
-        }
+        if (!cancelled) setRows(results);
       } catch (err) {
         if (!cancelled) {
           console.error('Equity instruments error:', err);
@@ -168,43 +171,63 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
   }, [valuationDate, discountCurve, volSurface, marketData, positions, options]);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0) {
-    return <p>Building equity instruments…</p>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="ml-3 text-muted-foreground">Building equity instruments…</span>
+      </div>
+    );
   }
 
   return (
-    <section className="example-section">
-      <h2>Equity Instruments</h2>
-      <p>
-        Equity spot positions and European-style equity options (calls and puts). Options are priced
-        using market data for spot prices and dividend yields.
-      </p>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Ticker</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, ticker, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{ticker}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Equity Instruments</CardTitle>
+        <CardDescription>
+          Equity spot positions and European-style equity options (calls and puts). Options are
+          priced using market data for spot prices and dividend yields.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Instrument</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Ticker</TableHead>
+                <TableHead className="text-right">Present Value</TableHead>
+                <TableHead className="text-right">Key Metric</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(({ name, type, ticker, presentValue, keyMetric }) => (
+                <TableRow key={name}>
+                  <TableCell className="font-medium">{name}</TableCell>
+                  <TableCell>
+                    <Badge variant={type === 'Equity' ? 'default' : 'secondary'}>{type}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono">{ticker}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {currencyFormatter.format(presentValue)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {keyMetric ? `${keyMetric.name}: ${keyMetric.value.toFixed(4)}` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

@@ -189,6 +189,48 @@ impl JsCreditQuote {
         })
     }
 
+    /// Create a CDS tranche quote for base correlation calibration.
+    ///
+    /// @param {string} index - Index identifier (e.g., "CDX.NA.IG.42", "iTraxx.Europe.40")
+    /// @param {number} attachment - Attachment point (% of notional, e.g., 0.0 for equity tranche)
+    /// @param {number} detachment - Detachment point (% of notional, e.g., 3.0 for 0-3% tranche)
+    /// @param {FsDate} maturity - Tranche maturity date
+    /// @param {number} upfront_pct - Upfront payment (% of notional)
+    /// @param {number} running_spread_bp - Running spread in basis points
+    /// @returns {CreditQuote} CDS tranche quote for calibration
+    ///
+    /// @example
+    /// ```javascript
+    /// // 0-3% equity tranche
+    /// const equityTranche = CreditQuote.cdsTranche(
+    ///   "CDX.NA.IG.42", 0.0, 3.0, new FsDate(2029, 6, 20), 35.0, 500.0
+    /// );
+    /// // 3-7% mezzanine tranche
+    /// const mezzTranche = CreditQuote.cdsTranche(
+    ///   "CDX.NA.IG.42", 3.0, 7.0, new FsDate(2029, 6, 20), 8.0, 500.0
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = cdsTranche)]
+    pub fn cds_tranche(
+        index: &str,
+        attachment: f64,
+        detachment: f64,
+        maturity: &FsDate,
+        upfront_pct: f64,
+        running_spread_bp: f64,
+    ) -> JsCreditQuote {
+        Self {
+            inner: CreditQuote::CDSTranche {
+                index: index.to_string(),
+                attachment,
+                detachment,
+                maturity: maturity.inner(),
+                upfront_pct,
+                running_spread_bp,
+            },
+        }
+    }
+
     /// Convert to MarketQuote.
     #[wasm_bindgen(js_name = toMarketQuote)]
     pub fn to_market_quote(&self) -> JsMarketQuote {

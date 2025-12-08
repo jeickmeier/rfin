@@ -10,6 +10,17 @@ import {
   createStandardRegistry,
 } from 'finstack-wasm';
 import { InflationInstrumentsProps, DEFAULT_INFLATION_PROPS } from './data/inflation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type RequiredInflationInstrumentsProps = Required<InflationInstrumentsProps>;
 
@@ -27,7 +38,6 @@ type InstrumentRow = {
 };
 
 export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = (props) => {
-  // Merge with defaults - DEFAULT_INFLATION_PROPS always has these values defined
   const defaults = DEFAULT_INFLATION_PROPS as RequiredInflationInstrumentsProps;
   const {
     valuationDate = defaults.valuationDate,
@@ -46,7 +56,6 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
       try {
         const asOf = new FsDate(valuationDate.year, valuationDate.month, valuationDate.day);
 
-        // Build discount curve from props
         const curveBaseDate = new FsDate(
           discountCurve.baseDate.year,
           discountCurve.baseDate.month,
@@ -63,7 +72,6 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
           discountCurve.continuous
         );
 
-        // Build inflation curve from props
         const infCurve = new InflationCurve(
           inflationCurve.id,
           inflationCurve.baseIndex,
@@ -79,7 +87,6 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
 
-        // Process inflation-linked bonds
         for (const bond of bonds) {
           const issueDate = new FsDate(
             bond.issueDate.year,
@@ -116,7 +123,6 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
           });
         }
 
-        // Process inflation swaps
         for (const swap of swaps) {
           const startDate = new FsDate(
             swap.startDate.year,
@@ -148,9 +154,7 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
           });
         }
 
-        if (!cancelled) {
-          setRows(results);
-        }
+        if (!cancelled) setRows(results);
       } catch (err) {
         if (!cancelled) {
           console.error('Inflation instruments error:', err);
@@ -164,41 +168,63 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
   }, [valuationDate, discountCurve, inflationCurve, bonds, swaps]);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (rows.length === 0) {
-    return <p>Building inflation instruments…</p>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="ml-3 text-muted-foreground">Building inflation instruments…</span>
+      </div>
+    );
   }
 
   return (
-    <section className="example-section">
-      <h2>Inflation Instruments</h2>
-      <p>
-        Inflation-linked bonds (TIPS-style) and zero-coupon inflation swaps. These instruments use
-        inflation curves to project CPI levels and adjust cashflows accordingly.
-      </p>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Type</th>
-            <th>Present Value</th>
-            <th>Key Metric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ name, type, presentValue, keyMetric }) => (
-            <tr key={name}>
-              <td>{name}</td>
-              <td>{type}</td>
-              <td>{currencyFormatter.format(presentValue)}</td>
-              <td>{keyMetric ? `${keyMetric.name}: ${keyMetric.value}` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Inflation Instruments</CardTitle>
+        <CardDescription>
+          Inflation-linked bonds (TIPS-style) and zero-coupon inflation swaps. These instruments use
+          inflation curves to project CPI levels and adjust cashflows accordingly.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Instrument</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Present Value</TableHead>
+                <TableHead className="text-right">Key Metric</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(({ name, type, presentValue, keyMetric }) => (
+                <TableRow key={name}>
+                  <TableCell className="font-medium">{name}</TableCell>
+                  <TableCell>
+                    <Badge variant={type === 'InflationLinkedBond' ? 'default' : 'secondary'}>
+                      {type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {currencyFormatter.format(presentValue)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {keyMetric ? `${keyMetric.name}: ${keyMetric.value}` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
