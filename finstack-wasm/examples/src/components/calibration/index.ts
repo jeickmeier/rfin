@@ -17,8 +17,6 @@ export {
   InflationQuoteEditor,
   VolQuoteEditor,
   TrancheQuoteEditor,
-  DEFAULT_DISCOUNT_QUOTES,
-  DEFAULT_FORWARD_QUOTES,
   DEFAULT_CREDIT_QUOTES,
   DEFAULT_INFLATION_QUOTES,
   DEFAULT_VOL_QUOTES,

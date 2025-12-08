@@ -23,6 +23,7 @@ tracing = { version = "0.1", default-features = false }
 thiserror = "2.0"
 num-complex = "0.4"
 statrs = { version = "0.18", default-features = false }
+ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
@@ -38,6 +39,7 @@ parallel = ["dep:rayon", "finstack-core/parallel"]
 mc = ["dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 strict_validation = []  # Enforce no-arbitrage checks as hard errors in validators
+ts_export = ["dep:ts-rs"]
 
 [[bench]]
 name = "bond_pricing"

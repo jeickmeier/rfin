@@ -5,6 +5,7 @@ use crate::core::dates::{Frequency, FsDate};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
+use crate::utils::json::{from_js_value, to_js_value};
 use wasm_bindgen::prelude::*;
 
 /// Future contract specifications.
@@ -54,6 +55,18 @@ impl JsFutureSpecs {
         let mut next = self.inner.clone();
         next.convexity_adjustment = Some(adjustment);
         Self::from_inner(next)
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsFutureSpecs, JsValue> {
+        from_js_value(value).map(JsFutureSpecs::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -143,6 +156,18 @@ impl JsRatesQuote {
     #[wasm_bindgen(js_name = toMarketQuote)]
     pub fn to_market_quote(&self) -> JsMarketQuote {
         JsMarketQuote::from_inner(MarketQuote::Rates(self.inner.clone()))
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsRatesQuote, JsValue> {
+        from_js_value(value).map(JsRatesQuote::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -236,6 +261,18 @@ impl JsCreditQuote {
     pub fn to_market_quote(&self) -> JsMarketQuote {
         JsMarketQuote::from_inner(MarketQuote::Credit(self.inner.clone()))
     }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsCreditQuote, JsValue> {
+        from_js_value(value).map(JsCreditQuote::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 /// Volatility quote.
@@ -303,6 +340,18 @@ impl JsVolQuote {
     pub fn to_market_quote(&self) -> JsMarketQuote {
         JsMarketQuote::from_inner(MarketQuote::Vol(self.inner.clone()))
     }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsVolQuote, JsValue> {
+        from_js_value(value).map(JsVolQuote::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 /// Inflation quote.
@@ -342,6 +391,18 @@ impl JsInflationQuote {
     pub fn to_market_quote(&self) -> JsMarketQuote {
         JsMarketQuote::from_inner(MarketQuote::Inflation(self.inner.clone()))
     }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsInflationQuote, JsValue> {
+        from_js_value(value).map(JsInflationQuote::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 /// Polymorphic market quote.
@@ -368,5 +429,17 @@ impl JsMarketQuote {
             MarketQuote::Vol(_) => "vol".to_string(),
             MarketQuote::Inflation(_) => "inflation".to_string(),
         }
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsMarketQuote, JsValue> {
+        from_js_value(value).map(JsMarketQuote::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }

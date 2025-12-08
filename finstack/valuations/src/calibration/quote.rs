@@ -3,34 +3,45 @@
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::prelude::*;
 use finstack_core::types::{IndexId, UnderlyingId};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 /// Interest rate instrument quotes for yield curve calibration.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RatesQuote {
     /// Deposit rate quote
     Deposit {
         /// Maturity date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Quoted rate (decimal)
         rate: f64,
         /// Day count convention
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         day_count: DayCount,
     },
     /// Forward Rate Agreement quote
     FRA {
         /// Start date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         start: Date,
         /// End date  
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         end: Date,
         /// Quoted rate (decimal)
         rate: f64,
         /// Day count convention
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         day_count: DayCount,
     },
     /// Interest Rate Future quote
     Future {
         /// Expiry date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
         /// Contract price (e.g., 99.25 for 0.75% implied rate)
         price: f64,
@@ -40,23 +51,30 @@ pub enum RatesQuote {
     /// Interest Rate Swap quote
     Swap {
         /// Swap maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Par rate (decimal)
         rate: f64,
         /// Fixed leg frequency
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         fixed_freq: Frequency,
         /// Float leg frequency  
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         float_freq: Frequency,
         /// Fixed leg day count
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         fixed_dc: DayCount,
         /// Float leg day count
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         float_dc: DayCount,
         /// Float leg index (e.g., "3M-LIBOR")
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         index: IndexId,
     },
     /// Basis Swap quote for multi-curve construction
     BasisSwap {
         /// Swap maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
         primary_index: String,
@@ -65,14 +83,19 @@ pub enum RatesQuote {
         /// Basis spread in basis points (primary pays reference + spread)
         spread_bp: f64,
         /// Primary leg frequency
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         primary_freq: Frequency,
         /// Reference leg frequency  
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         reference_freq: Frequency,
         /// Primary leg day count
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         primary_dc: DayCount,
         /// Reference leg day count
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         reference_dc: DayCount,
         /// Currency for both legs
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
     },
 }
@@ -205,6 +228,9 @@ impl RatesQuote {
 }
 
 /// Credit instrument quotes for hazard curve and correlation calibration.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum CreditQuote {
@@ -213,12 +239,14 @@ pub enum CreditQuote {
         /// Reference entity
         entity: String,
         /// CDS maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Par spread in basis points
         spread_bp: f64,
         /// Recovery rate assumption
         recovery_rate: f64,
         /// Currency
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
     },
     /// CDS upfront quote (for distressed credits or non-standard contracts)
@@ -226,6 +254,7 @@ pub enum CreditQuote {
         /// Reference entity
         entity: String,
         /// CDS maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Upfront payment (% of notional, positive = protection buyer pays)
         upfront_pct: f64,
@@ -234,6 +263,7 @@ pub enum CreditQuote {
         /// Recovery rate assumption
         recovery_rate: f64,
         /// Currency
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
     },
     /// CDS Tranche quote
@@ -245,6 +275,7 @@ pub enum CreditQuote {
         /// Detachment point (%)
         detachment: f64,
         /// Maturity date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Upfront payment (% of notional)
         upfront_pct: f64,
@@ -254,14 +285,19 @@ pub enum CreditQuote {
 }
 
 /// Volatility quotes for surface calibration.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum VolQuote {
     /// Option implied volatility quote
     OptionVol {
         /// Underlying identifier
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         underlying: UnderlyingId,
         /// Option expiry
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
         /// Strike (rate for swaptions, price for equity/FX)
         strike: f64,
@@ -273,8 +309,10 @@ pub enum VolQuote {
     /// Swaption implied volatility
     SwaptionVol {
         /// Option expiry
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
         /// Underlying swap tenor
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         tenor: Date,
         /// Strike rate
         strike: f64,
@@ -286,12 +324,16 @@ pub enum VolQuote {
 }
 
 /// Inflation instrument quotes.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum InflationQuote {
     /// Zero-coupon inflation swap quote
     InflationSwap {
         /// Swap maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Fixed rate (decimal)
         rate: f64,
@@ -301,18 +343,23 @@ pub enum InflationQuote {
     /// Year-on-year inflation swap
     YoYInflationSwap {
         /// Swap maturity
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Fixed rate (decimal)
         rate: f64,
         /// Inflation index identifier  
         index: String,
         /// Payment frequency
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         frequency: Frequency,
     },
 }
 
 /// Unified market quote that can be any instrument type.
 /// Used when multiple quote types need to be handled together.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum MarketQuote {
@@ -327,6 +374,8 @@ pub enum MarketQuote {
 }
 
 /// Specifications for interest rate futures contracts.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FutureSpecs {
@@ -337,6 +386,7 @@ pub struct FutureSpecs {
     /// Number of delivery months
     pub delivery_months: u8,
     /// Day count convention
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub day_count: DayCount,
     /// Convexity adjustment (for long-dated futures)
     pub convexity_adjustment: Option<f64>,

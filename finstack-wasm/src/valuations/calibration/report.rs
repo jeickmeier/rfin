@@ -1,6 +1,7 @@
 //! Calibration report bindings for WASM.
 
 use crate::core::explain::WasmExplanationTrace;
+use crate::utils::json::{from_js_value, to_js_value};
 use finstack_valuations::calibration::CalibrationReport;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -98,6 +99,12 @@ impl JsCalibrationReport {
             .and_then(|trace| trace.to_json_pretty().ok())
     }
 
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsCalibrationReport, JsValue> {
+        from_js_value(value).map(JsCalibrationReport::from_inner)
+    }
+
     /// Convert report to JSON object.
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
@@ -124,8 +131,7 @@ impl JsCalibrationReport {
             metadata: self.inner.metadata.clone(),
         };
 
-        serde_wasm_bindgen::to_value(&data)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+        to_js_value(&data)
     }
 
     /// Get residual for a specific instrument.

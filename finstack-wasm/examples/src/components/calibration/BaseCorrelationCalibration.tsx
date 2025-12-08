@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   BaseCorrelationCalibrator,
   CalibrationConfig,
@@ -22,14 +22,10 @@ interface CalibratedBaseCorrelationCurve {
   id: string;
 }
 
-/**
- * Props for BaseCorrelationCalibration component.
- * Supports both controlled (via state prop) and uncontrolled modes.
- */
 interface BaseCorrelationCalibrationProps {
-  /** Complete JSON state for controlled mode */
-  state?: BaseCorrelationCalibrationState;
-  /** Callback when state changes (for controlled mode) */
+  /** Complete JSON state */
+  state: BaseCorrelationCalibrationState;
+  /** Callback when state changes */
   onStateChange?: (state: BaseCorrelationCalibrationState) => void;
   /** Market context containing discount curve and credit index */
   market: MarketContext | null;
@@ -37,32 +33,11 @@ interface BaseCorrelationCalibrationProps {
   onCalibrated?: (result: CalibrationResult) => void;
   /** Additional CSS class name */
   className?: string;
-
-  // Legacy props for backward compatibility
-  /** @deprecated Use state.baseDate instead */
-  baseDate?: FsDate;
-  /** @deprecated Use state.curveId instead */
-  curveId?: string;
-  /** @deprecated Use state.indexId instead */
-  indexId?: string;
-  /** @deprecated Use state.series instead */
-  series?: number;
-  /** @deprecated Use state.maturityYears instead */
-  maturityYears?: number;
-  /** @deprecated Use state.discountCurveId instead */
-  discountCurveId?: string;
-  /** @deprecated Use state.config instead */
-  config?: CalibrationConfig;
-  /** @deprecated Use state.showChart instead */
-  showChart?: boolean;
-  /** @deprecated Use state.quotes instead */
-  initialQuotes?: TrancheQuoteData[];
 }
 
 /** Convert JSON config to WASM CalibrationConfig */
 const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
   let wasmConfig = CalibrationConfig.multiCurve();
-
   switch (config.solverKind) {
     case 'Brent':
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
@@ -71,7 +46,6 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
       break;
   }
-
   return wasmConfig
     .withMaxIterations(config.maxIterations)
     .withTolerance(config.tolerance)
@@ -79,9 +53,7 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 };
 
 /** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => {
-  return new FsDate(date.year, date.month, date.day);
-};
+const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
 
 /** Convert quote data to WASM CreditQuote objects */
 const buildWasmQuotes = (quotes: TrancheQuoteData[]): CreditQuote[] => {
@@ -103,58 +75,31 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
   market,
   onCalibrated,
   className,
-  // Legacy props
-  baseDate: legacyBaseDate,
-  curveId: legacyCurveId,
-  indexId: legacyIndexId,
-  series: legacySeries,
-  maturityYears: legacyMaturityYears,
-  discountCurveId: legacyDiscountCurveId,
-  config: legacyConfig,
-  showChart: legacyShowChart,
-  initialQuotes: legacyInitialQuotes,
 }) => {
-  // Determine if we're in controlled mode
-  const isControlled = state !== undefined;
+  const { curveId, indexId, series, maturityYears, discountCurveId, showChart, config } = state;
+  const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  // Extract values from state or legacy props
-  const baseDate = React.useMemo(() => {
-    if (state) return toFsDate(state.baseDate);
-    if (legacyBaseDate) return legacyBaseDate;
-    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-  }, [state, legacyBaseDate]);
-
-  const curveId = state?.curveId ?? legacyCurveId ?? 'CDX-IG-BASECORR';
-  const indexId = state?.indexId ?? legacyIndexId ?? 'CDX.NA.IG.42';
-  const series = state?.series ?? legacySeries ?? 42;
-  const maturityYears = state?.maturityYears ?? legacyMaturityYears ?? 5.0;
-  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
-  const showChart = state?.showChart ?? legacyShowChart ?? true;
-
-  // Quote state - controlled or local
   const [localQuotes, setLocalQuotes] = useState<TrancheQuoteData[]>(
-    legacyInitialQuotes ?? DEFAULT_TRANCHE_QUOTES
+    state.quotes.length > 0 ? state.quotes : DEFAULT_TRANCHE_QUOTES
   );
 
-  // Sync quotes from state prop in controlled mode
   useEffect(() => {
-    if (isControlled && state.quotes.length > 0) {
+    if (state.quotes.length > 0) {
       setLocalQuotes(state.quotes);
     }
-  }, [isControlled, state?.quotes]);
+  }, [state.quotes]);
 
-  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
 
-  // Handle quote changes
   const handleQuotesChange = useCallback(
     (newQuotes: TrancheQuoteData[]) => {
-      if (isControlled && onStateChange && state) {
+      if (onStateChange) {
         onStateChange({ ...state, quotes: newQuotes });
       } else {
         setLocalQuotes(newQuotes);
       }
     },
-    [isControlled, onStateChange, state]
+    [onStateChange, state]
   );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
@@ -167,7 +112,6 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       setError('At least 2 tranche quotes required');
       return;
     }
-
     if (!market) {
       setError('Market context with discount curve required');
       return;
@@ -177,35 +121,20 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
     setError(null);
 
     try {
-      const calibrationConfig = state?.config
-        ? buildWasmConfig(state.config)
-        : legacyConfig ||
-          CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(50)
-            .withVerbose(false);
-
-      // Build WASM quotes from the editable data
+      const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
       const calibrator = new BaseCorrelationCalibrator(indexId, series, maturityYears, baseDate);
+      const calibratorWithConfig = calibrator.withConfig(calibrationConfig).withDiscountCurveId(discountCurveId);
 
-      const calibratorWithConfig = calibrator
-        .withConfig(calibrationConfig)
-        .withDiscountCurveId(discountCurveId);
-
-      // Set detachment points from quotes
       const detachmentPoints = quotes.map((q) => q.detachment).sort((a, b) => a - b);
-      const calibratorWithPoints = calibratorWithConfig.withDetachmentPoints(
-        new Float64Array(detachmentPoints)
-      );
+      const calibratorWithPoints = calibratorWithConfig.withDetachmentPoints(new Float64Array(detachmentPoints));
 
       const [calibratedCurve, report] = calibratorWithPoints.calibrate(wasmQuotes, market) as [
         CalibratedBaseCorrelationCurve,
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      // Generate sample values across the detachment spectrum
       const sampleDetachments = [3, 7, 10, 15, 30];
       const sampleValues: CurveDataPoint[] = sampleDetachments.map((d) => ({
         time: d,
@@ -213,13 +142,9 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
         label: `ρ(${d}%)`,
       }));
 
-      // Check if correlations are valid (between 0 and 1, and not NaN)
       const correlationsValid = sampleValues.every(
         (sv) => sv.value >= 0 && sv.value <= 1 && !Number.isNaN(sv.value)
       );
-
-      // Consider calibration successful if we got valid correlations,
-      // even if the solver didn't fully converge within tolerance
       const effectiveSuccess = correlationsValid && sampleValues.length > 0;
 
       const calibrationResult: CalibrationResult = {
@@ -235,21 +160,10 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       setResult(calibrationResult);
       setStatus(effectiveSuccess ? 'success' : 'failed');
       onCalibrated?.(calibrationResult);
-
-      console.log(`✅ Base correlation '${curveId}' calibrated:`, {
-        corr3pct: calibratedCurve.correlation(3),
-        corr7pct: calibratedCurve.correlation(7),
-        corr15pct: calibratedCurve.correlation(15),
-        iterations: report.iterations,
-        reportSuccess: report.success,
-        effectiveSuccess,
-      });
     } catch (err) {
-      const errorMsg =
-        err instanceof Error ? err.message : String(err) || 'Unknown calibration error';
+      const errorMsg = err instanceof Error ? err.message : String(err) || 'Unknown calibration error';
       setError(errorMsg);
       setStatus('failed');
-      console.warn(`Base correlation calibration failed:`, err);
 
       const failedResult: CalibrationResult = {
         curveId,
@@ -262,39 +176,9 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [
-    baseDate,
-    curveId,
-    indexId,
-    series,
-    maturityYears,
-    quotes,
-    discountCurveId,
-    state?.config,
-    legacyConfig,
-    market,
-    onCalibrated,
-  ]);
+  }, [baseDate, curveId, indexId, series, maturityYears, quotes, discountCurveId, config, market, onCalibrated]);
 
-  // Export current state as JSON (for debugging/LLM integration)
-  const exportState = useCallback((): BaseCorrelationCalibrationState => {
-    return {
-      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
-      curveId,
-      indexId,
-      series,
-      maturityYears,
-      discountCurveId,
-      quotes,
-      config: state?.config ?? {
-        solverKind: 'Brent',
-        maxIterations: 50,
-        tolerance: 1e-8,
-        verbose: false,
-      },
-      showChart,
-    };
-  }, [baseDate, curveId, indexId, series, maturityYears, discountCurveId, quotes, state?.config, showChart]);
+  const exportState = useCallback((): BaseCorrelationCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -312,7 +196,6 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Editable Quote Table */}
         <TrancheQuoteEditor
           quotes={quotes}
           onChange={handleQuotesChange}
@@ -391,12 +274,10 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
           <p className="text-amber-600">
             <strong>Note:</strong> This is an advanced calibration requiring properly configured
             credit index data (hazard curve, recovery rate, num constituents) and consistent equity
-            sub-tranche quotes [0, D] for each detachment point D. The demo quotes are synthetic
-            placeholders.
+            sub-tranche quotes [0, D] for each detachment point D.
           </p>
         </div>
 
-        {/* JSON State Export (for debugging/LLM integration) */}
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
             View JSON State

@@ -12,6 +12,8 @@ use finstack_core::market_data::term_structures::Seniority;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 /// Configurable bounds for forward/zero rates during calibration.
 ///
@@ -34,6 +36,8 @@ use serde::{Deserialize, Serialize};
 /// let em_bounds = RateBounds::emerging_markets();
 /// assert!(em_bounds.max_rate > 1.0);
 /// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RateBounds {
     /// Minimum allowed rate (decimal, e.g., -0.02 for -2%)
@@ -128,6 +132,8 @@ impl RateBounds {
     }
 }
 /// Runtime validation behavior for arbitrage/consistency checks.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ValidationMode {
     /// Emit warnings (non-fatal) when validations fail
@@ -141,6 +147,8 @@ pub enum ValidationMode {
 /// For 1D problems (most curve calibrations), Newton or Brent are used directly.
 /// For multi-dimensional problems, use `create_lm_solver()` method on `CalibrationConfig`.
 /// Note that LevenbergMarquardt variant automatically falls back to Brent for 1D solve_1d() calls.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 /// Solver Kind enumeration.
 pub enum SolverKind {
@@ -155,6 +163,8 @@ pub enum SolverKind {
 }
 
 /// Multi-curve calibration configuration
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// Multi Curve Config structure.
 pub struct MultiCurveConfig {
@@ -182,6 +192,8 @@ impl MultiCurveConfig {
 }
 
 /// Configuration for calibration processes.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationConfig {
     /// Solver tolerance for convergence checks
@@ -197,6 +209,7 @@ pub struct CalibrationConfig {
     /// Solver type selection
     pub solver_kind: SolverKind,
     /// Entity-specific seniority mappings for credit calibration
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, string>"))]
     pub entity_seniority: HashMap<String, Seniority>,
     /// Multi-curve framework configuration
     pub multi_curve: MultiCurveConfig,
@@ -206,11 +219,13 @@ pub struct CalibrationConfig {
     pub use_fd_sabr_gradients: bool,
     /// Explanation options (opt-in detailed trace)
     #[serde(skip)]
+    #[cfg_attr(feature = "ts_export", ts(skip))]
     pub explain: ExplainOpts,
     /// Runtime validation mode (warnings vs errors). Feature `strict_validation` may still harden checks.
     pub validation_mode: ValidationMode,
     /// Validation configuration with thresholds and checks
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
     pub validation: crate::calibration::validation::ValidationConfig,
     /// Rate bounds for forward/zero rate calibration.
     /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.

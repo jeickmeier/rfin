@@ -150,14 +150,6 @@ export function generateDefaultDiscountQuotes(
   ];
 }
 
-/** Default discount quotes for demonstration (uses current date) */
-const now = new Date();
-export const DEFAULT_DISCOUNT_QUOTES: DiscountQuoteData[] = generateDefaultDiscountQuotes(
-  now.getFullYear(),
-  now.getMonth() + 1,
-  now.getDate(),
-  'USD'
-);
 
 /**
  * Generate default forward quotes relative to a base date.
@@ -251,13 +243,6 @@ export function generateDefaultForwardQuotes(
     },
   ];
 }
-
-export const DEFAULT_FORWARD_QUOTES: ForwardQuoteData[] = generateDefaultForwardQuotes(
-  now.getFullYear(),
-  now.getMonth() + 1,
-  now.getDate(),
-  'USD'
-);
 
 export const DEFAULT_CREDIT_QUOTES: CdsQuoteData[] = [
   {

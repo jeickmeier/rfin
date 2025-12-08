@@ -13,6 +13,7 @@ use finstack_valuations::calibration::{
 };
 use js_sys::{Array, Map};
 use serde::Serialize;
+use crate::utils::json::{from_js_value, to_js_value};
 use wasm_bindgen::prelude::*;
 
 /// Validation error details.
@@ -223,6 +224,18 @@ impl JsValidationConfig {
     #[wasm_bindgen(getter)]
     pub fn tolerance(&self) -> f64 {
         self.inner.tolerance
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsValidationConfig, JsValue> {
+        from_js_value(value).map(JsValidationConfig::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 

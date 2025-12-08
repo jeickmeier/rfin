@@ -24,14 +24,10 @@ interface CalibratedForwardCurve {
   id: string;
 }
 
-/**
- * Props for ForwardCurveCalibration component.
- * Supports both controlled (via state prop) and uncontrolled modes.
- */
 interface ForwardCurveCalibrationProps {
-  /** Complete JSON state for controlled mode */
-  state?: ForwardCurveCalibrationState;
-  /** Callback when state changes (for controlled mode) */
+  /** Complete JSON state */
+  state: ForwardCurveCalibrationState;
+  /** Callback when state changes */
   onStateChange?: (state: ForwardCurveCalibrationState) => void;
   /** Market context containing discount curve */
   market: MarketContext | null;
@@ -39,24 +35,6 @@ interface ForwardCurveCalibrationProps {
   onCalibrated?: (result: CalibrationResult) => void;
   /** Additional CSS class name */
   className?: string;
-
-  // Legacy props for backward compatibility
-  /** @deprecated Use state.baseDate instead */
-  baseDate?: FsDate;
-  /** @deprecated Use state.curveId instead */
-  curveId?: string;
-  /** @deprecated Use state.currency instead */
-  currency?: string;
-  /** @deprecated Use state.tenor instead */
-  tenor?: number;
-  /** @deprecated Use state.discountCurveId instead */
-  discountCurveId?: string;
-  /** @deprecated Use state.config instead */
-  config?: CalibrationConfig;
-  /** @deprecated Use state.showChart instead */
-  showChart?: boolean;
-  /** @deprecated Use state.quotes instead */
-  initialQuotes?: ForwardQuoteData[];
 }
 
 /** Map frequency type string to WASM Frequency object */
@@ -78,7 +56,6 @@ const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> 
 /** Convert JSON config to WASM CalibrationConfig */
 const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
   let wasmConfig = CalibrationConfig.multiCurve();
-
   switch (config.solverKind) {
     case 'Brent':
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
@@ -87,7 +64,6 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
       break;
   }
-
   return wasmConfig
     .withMaxIterations(config.maxIterations)
     .withTolerance(config.tolerance)
@@ -95,11 +71,9 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 };
 
 /** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => {
-  return new FsDate(date.year, date.month, date.day);
-};
+const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
 
-/** Convert quote data to WASM RatesQuote objects (supports deposits, FRAs, and swaps) */
+/** Convert quote data to WASM RatesQuote objects */
 const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
     if (q.type === 'deposit') {
@@ -119,7 +93,6 @@ const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
         q.index
       );
     } else {
-      // FRA quote
       return RatesQuote.fra(
         new FsDate(q.startYear, q.startMonth, q.startDay),
         new FsDate(q.endYear, q.endMonth, q.endDay),
@@ -136,61 +109,36 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
   market,
   onCalibrated,
   className,
-  // Legacy props
-  baseDate: legacyBaseDate,
-  curveId: legacyCurveId,
-  currency: legacyCurrency,
-  tenor: legacyTenor,
-  discountCurveId: legacyDiscountCurveId,
-  config: legacyConfig,
-  showChart: legacyShowChart,
-  initialQuotes: legacyInitialQuotes,
 }) => {
-  // Determine if we're in controlled mode
-  const isControlled = state !== undefined;
+  const { curveId, currency, tenor, discountCurveId, showChart, config } = state;
+  const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  // Extract values from state or legacy props
-  const baseDate = useMemo(() => {
-    if (state) return toFsDate(state.baseDate);
-    if (legacyBaseDate) return legacyBaseDate;
-    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-  }, [state, legacyBaseDate]);
-
-  const curveId = state?.curveId ?? legacyCurveId ?? 'USD-SOFR-3M';
-  const currency = state?.currency ?? legacyCurrency ?? 'USD';
-  const tenor = state?.tenor ?? legacyTenor ?? 0.25;
-  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
-  const showChart = state?.showChart ?? legacyShowChart ?? true;
-
-  // Generate dynamic defaults from baseDate and currency
-  const defaultQuotes = useMemo(() => {
-    return generateDefaultForwardQuotes(baseDate.year, baseDate.month, baseDate.day, currency);
-  }, [baseDate, currency]);
-
-  // Quote state - controlled or local
-  const [localQuotes, setLocalQuotes] = useState<ForwardQuoteData[]>(
-    legacyInitialQuotes ?? defaultQuotes
+  const defaultQuotes = useMemo(
+    () => generateDefaultForwardQuotes(baseDate.year, baseDate.month, baseDate.day, currency),
+    [baseDate, currency]
   );
 
-  // Sync quotes from state prop in controlled mode
+  const [localQuotes, setLocalQuotes] = useState<ForwardQuoteData[]>(
+    state.quotes.length > 0 ? state.quotes : defaultQuotes
+  );
+
   useEffect(() => {
-    if (isControlled && state.quotes.length > 0) {
+    if (state.quotes.length > 0) {
       setLocalQuotes(state.quotes);
     }
-  }, [isControlled, state?.quotes]);
+  }, [state.quotes]);
 
-  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
 
-  // Handle quote changes
   const handleQuotesChange = useCallback(
     (newQuotes: ForwardQuoteData[]) => {
-      if (isControlled && onStateChange && state) {
+      if (onStateChange) {
         onStateChange({ ...state, quotes: newQuotes });
       } else {
         setLocalQuotes(newQuotes);
       }
     },
-    [isControlled, onStateChange, state]
+    [onStateChange, state]
   );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
@@ -203,7 +151,6 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       setError('No quotes provided');
       return;
     }
-
     if (!market) {
       setError('Market context with discount curve required');
       return;
@@ -213,24 +160,10 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
     setError(null);
 
     try {
-      const calibrationConfig = state?.config
-        ? buildWasmConfig(state.config)
-        : legacyConfig ||
-          CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(30)
-            .withVerbose(false);
-
-      // Build fresh WASM quotes from the editable data
+      const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new ForwardCurveCalibrator(
-        curveId,
-        tenor,
-        baseDate,
-        currency,
-        discountCurveId
-      );
+      const calibrator = new ForwardCurveCalibrator(curveId, tenor, baseDate, currency, discountCurveId);
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
@@ -238,7 +171,6 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      // Generate sample values
       const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
         time: t,
@@ -259,16 +191,10 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       setResult(calibrationResult);
       setStatus(report.success ? 'success' : 'failed');
       onCalibrated?.(calibrationResult);
-
-      console.log(`Forward curve '${curveId}' calibrated:`, {
-        rate1y: calibratedCurve.rate(1),
-        iterations: report.iterations,
-      });
     } catch (err) {
       const errorMsg = (err as Error).message;
       setError(errorMsg);
       setStatus('failed');
-      console.warn(`Forward curve calibration failed: ${errorMsg}`);
 
       const failedResult: CalibrationResult = {
         curveId,
@@ -281,9 +207,8 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, tenor, discountCurveId, state?.config, legacyConfig, market, onCalibrated]);
+  }, [baseDate, curveId, currency, quotes, tenor, discountCurveId, config, market, onCalibrated]);
 
-  // Format quote summary for display
   const quotesSummary = useMemo(() => {
     const deposits = quotes.filter((q) => q.type === 'deposit').length;
     const fras = quotes.filter((q) => q.type === 'fra').length;
@@ -295,24 +220,7 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
     return parts.join(', ') || 'No quotes';
   }, [quotes]);
 
-  // Export current state as JSON (for debugging/LLM integration)
-  const exportState = useCallback((): ForwardCurveCalibrationState => {
-    return {
-      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
-      curveId,
-      currency,
-      tenor,
-      discountCurveId,
-      quotes,
-      config: state?.config ?? {
-        solverKind: 'Brent',
-        maxIterations: 30,
-        tolerance: 1e-8,
-        verbose: false,
-      },
-      showChart,
-    };
-  }, [baseDate, curveId, currency, tenor, discountCurveId, quotes, state?.config, showChart]);
+  const exportState = useCallback((): ForwardCurveCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -330,7 +238,6 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Editable Quote Table */}
         <ForwardQuoteEditor
           currency={currency}
           quotes={quotes}
@@ -389,7 +296,6 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
           </div>
         )}
 
-        {/* JSON State Export (for debugging/LLM integration) */}
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
             View JSON State

@@ -23,14 +23,10 @@ interface CalibratedHazardCurve {
   id: string;
 }
 
-/**
- * Props for HazardCurveCalibration component.
- * Supports both controlled (via state prop) and uncontrolled modes.
- */
 interface HazardCurveCalibrationProps {
-  /** Complete JSON state for controlled mode */
-  state?: HazardCurveCalibrationState;
-  /** Callback when state changes (for controlled mode) */
+  /** Complete JSON state */
+  state: HazardCurveCalibrationState;
+  /** Callback when state changes */
   onStateChange?: (state: HazardCurveCalibrationState) => void;
   /** Market context containing discount curve */
   market: MarketContext | null;
@@ -38,34 +34,11 @@ interface HazardCurveCalibrationProps {
   onCalibrated?: (result: CalibrationResult) => void;
   /** Additional CSS class name */
   className?: string;
-
-  // Legacy props for backward compatibility
-  /** @deprecated Use state.baseDate instead */
-  baseDate?: FsDate;
-  /** @deprecated Use state.curveId instead */
-  curveId?: string;
-  /** @deprecated Use state.currency instead */
-  currency?: string;
-  /** @deprecated Use state.entity instead */
-  entity?: string;
-  /** @deprecated Use state.seniority instead */
-  seniority?: string;
-  /** @deprecated Use state.recoveryRate instead */
-  recoveryRate?: number;
-  /** @deprecated Use state.discountCurveId instead */
-  discountCurveId?: string;
-  /** @deprecated Use state.config instead */
-  config?: CalibrationConfig;
-  /** @deprecated Use state.showChart instead */
-  showChart?: boolean;
-  /** @deprecated Use state.quotes instead */
-  initialQuotes?: CdsQuoteData[];
 }
 
 /** Convert JSON config to WASM CalibrationConfig */
 const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
   let wasmConfig = CalibrationConfig.multiCurve();
-
   switch (config.solverKind) {
     case 'Brent':
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
@@ -74,7 +47,6 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
       break;
   }
-
   return wasmConfig
     .withMaxIterations(config.maxIterations)
     .withTolerance(config.tolerance)
@@ -82,9 +54,7 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 };
 
 /** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => {
-  return new FsDate(date.year, date.month, date.day);
-};
+const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
 
 /** Convert quote data to WASM CreditQuote objects */
 const buildWasmQuotes = (quotes: CdsQuoteData[]): CreditQuote[] => {
@@ -105,60 +75,31 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
   market,
   onCalibrated,
   className,
-  // Legacy props
-  baseDate: legacyBaseDate,
-  curveId: legacyCurveId,
-  currency: legacyCurrency,
-  entity: legacyEntity,
-  seniority: legacySeniority,
-  recoveryRate: legacyRecoveryRate,
-  discountCurveId: legacyDiscountCurveId,
-  config: legacyConfig,
-  showChart: legacyShowChart,
-  initialQuotes: legacyInitialQuotes,
 }) => {
-  // Determine if we're in controlled mode
-  const isControlled = state !== undefined;
+  const { curveId, currency, entity, seniority, recoveryRate, discountCurveId, showChart, config } = state;
+  const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  // Extract values from state or legacy props
-  const baseDate = useMemo(() => {
-    if (state) return toFsDate(state.baseDate);
-    if (legacyBaseDate) return legacyBaseDate;
-    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-  }, [state, legacyBaseDate]);
-
-  const curveId = state?.curveId ?? legacyCurveId ?? 'ACME-Senior';
-  const currency = state?.currency ?? legacyCurrency ?? 'USD';
-  const entity = state?.entity ?? legacyEntity ?? 'ACME';
-  const seniority = state?.seniority ?? legacySeniority ?? 'senior';
-  const recoveryRate = state?.recoveryRate ?? legacyRecoveryRate ?? 0.4;
-  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
-  const showChart = state?.showChart ?? legacyShowChart ?? true;
-
-  // Quote state - controlled or local
   const [localQuotes, setLocalQuotes] = useState<CdsQuoteData[]>(
-    legacyInitialQuotes ?? DEFAULT_CREDIT_QUOTES
+    state.quotes.length > 0 ? state.quotes : DEFAULT_CREDIT_QUOTES
   );
 
-  // Sync quotes from state prop in controlled mode
   useEffect(() => {
-    if (isControlled && state.quotes.length > 0) {
+    if (state.quotes.length > 0) {
       setLocalQuotes(state.quotes);
     }
-  }, [isControlled, state?.quotes]);
+  }, [state.quotes]);
 
-  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
 
-  // Handle quote changes
   const handleQuotesChange = useCallback(
     (newQuotes: CdsQuoteData[]) => {
-      if (isControlled && onStateChange && state) {
+      if (onStateChange) {
         onStateChange({ ...state, quotes: newQuotes });
       } else {
         setLocalQuotes(newQuotes);
       }
     },
-    [isControlled, onStateChange, state]
+    [onStateChange, state]
   );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
@@ -171,7 +112,6 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       setError('No CDS quotes provided');
       return;
     }
-
     if (!market) {
       setError('Market context with discount curve required');
       return;
@@ -181,25 +121,10 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
     setError(null);
 
     try {
-      const calibrationConfig = state?.config
-        ? buildWasmConfig(state.config)
-        : legacyConfig ||
-          CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(25)
-            .withVerbose(false);
-
-      // Build fresh WASM quotes from the editable data
+      const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new HazardCurveCalibrator(
-        entity,
-        seniority,
-        recoveryRate,
-        baseDate,
-        currency,
-        discountCurveId
-      );
+      const calibrator = new HazardCurveCalibrator(entity, seniority, recoveryRate, baseDate, currency, discountCurveId);
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
@@ -207,7 +132,6 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      // Generate survival probability curve
       const sampleTimes = [0.5, 1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
         time: t,
@@ -228,18 +152,10 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       setResult(calibrationResult);
       setStatus(report.success ? 'success' : 'failed');
       onCalibrated?.(calibrationResult);
-
-      console.log(`Hazard curve '${entity}' calibrated:`, {
-        sp1y: calibratedCurve.sp(1),
-        sp5y: calibratedCurve.sp(5),
-        defaultProb5y: calibratedCurve.defaultProb(0, 5),
-        iterations: report.iterations,
-      });
     } catch (err) {
       const errorMsg = (err as Error).message;
       setError(errorMsg);
       setStatus('failed');
-      console.warn(`Hazard curve calibration failed: ${errorMsg}`);
 
       const failedResult: CalibrationResult = {
         curveId: `${entity}-${seniority}`,
@@ -252,46 +168,11 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [
-    baseDate,
-    curveId,
-    currency,
-    quotes,
-    entity,
-    seniority,
-    recoveryRate,
-    discountCurveId,
-    state?.config,
-    legacyConfig,
-    market,
-    onCalibrated,
-  ]);
+  }, [baseDate, curveId, currency, quotes, entity, seniority, recoveryRate, discountCurveId, config, market, onCalibrated]);
 
-  // Format quote summary for display
-  const quotesSummary = useMemo(() => {
-    return `${quotes.length} CDS quotes`;
-  }, [quotes]);
+  const quotesSummary = useMemo(() => `${quotes.length} CDS quotes`, [quotes]);
 
-  // Export current state as JSON (for debugging/LLM integration)
-  const exportState = useCallback((): HazardCurveCalibrationState => {
-    return {
-      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
-      curveId,
-      currency,
-      entity,
-      seniority,
-      recoveryRate,
-      discountCurveId,
-      quotes,
-      config: state?.config ?? {
-        solverKind: 'Brent',
-        maxIterations: 25,
-        tolerance: 1e-8,
-        verbose: false,
-      },
-      showChart,
-    };
-  }, [baseDate, curveId, currency, entity, seniority, recoveryRate, discountCurveId, quotes, state?.config, showChart]);
+  const exportState = useCallback((): HazardCurveCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -303,14 +184,12 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
               <StatusBadge status={status} />
             </CardTitle>
             <CardDescription>
-              {entity} - {seniority} - Recovery: {(recoveryRate * 100).toFixed(0)}% -{' '}
-              {quotesSummary}
+              {entity} - {seniority} - Recovery: {(recoveryRate * 100).toFixed(0)}% - {quotesSummary}
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Editable Quote Table */}
         <CreditQuoteEditor
           quotes={quotes}
           onChange={handleQuotesChange}
@@ -373,14 +252,11 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
             </div>
             <div className="p-2 bg-muted/50 rounded">
               <span className="text-muted-foreground text-xs block">PD(0-5Y)</span>
-              <span className="font-mono text-destructive">
-                {(curve.defaultProb(0, 5) * 100).toFixed(2)}%
-              </span>
+              <span className="font-mono text-destructive">{(curve.defaultProb(0, 5) * 100).toFixed(2)}%</span>
             </div>
           </div>
         )}
 
-        {/* JSON State Export (for debugging/LLM integration) */}
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
             View JSON State

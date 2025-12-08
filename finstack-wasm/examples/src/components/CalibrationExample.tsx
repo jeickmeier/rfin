@@ -86,7 +86,6 @@ export const CalibrationExample: React.FC = () => {
 
   // Initialize the centralized state for all calibration components
   const [suiteState, setSuiteState] = useState<CalibrationSuiteState>(() => {
-    const now = new Date();
     const baseDateJson = { year: 2024, month: 1, day: 2 };
 
     return createDefaultCalibrationSuiteState({

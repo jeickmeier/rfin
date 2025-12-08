@@ -6,6 +6,7 @@ mod core;
 mod portfolio;
 mod scenarios;
 mod statements;
+mod utils;
 mod valuations;
 
 pub use core::cashflow::{JsCFKind as CFKind, JsCashFlow as CashFlow};

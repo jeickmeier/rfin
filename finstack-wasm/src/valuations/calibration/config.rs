@@ -1,6 +1,7 @@
 //! Calibration configuration types for WASM bindings.
 
 use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverKind};
+use crate::utils::json::{from_js_value, to_js_value};
 use wasm_bindgen::prelude::*;
 
 /// Solver strategy enumeration for calibration routines.
@@ -134,6 +135,18 @@ impl JsMultiCurveConfig {
         next.enforce_separation = value;
         Self::from_inner(next)
     }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsMultiCurveConfig, JsValue> {
+        from_js_value(value).map(JsMultiCurveConfig::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 /// Calibration configuration with solver settings and tolerances.
@@ -247,5 +260,17 @@ impl JsCalibrationConfig {
         let mut next = self.inner.clone();
         next.multi_curve = config.inner();
         Self::from_inner(next)
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsCalibrationConfig, JsValue> {
+        from_js_value(value).map(JsCalibrationConfig::from_inner)
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }

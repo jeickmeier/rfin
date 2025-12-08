@@ -26,14 +26,10 @@ interface CalibratedInflationCurve {
   id: string;
 }
 
-/**
- * Props for InflationCurveCalibration component.
- * Supports both controlled (via state prop) and uncontrolled modes.
- */
 interface InflationCurveCalibrationProps {
-  /** Complete JSON state for controlled mode */
-  state?: InflationCurveCalibrationState;
-  /** Callback when state changes (for controlled mode) */
+  /** Complete JSON state */
+  state: InflationCurveCalibrationState;
+  /** Callback when state changes */
   onStateChange?: (state: InflationCurveCalibrationState) => void;
   /** Market context containing discount curve */
   market: MarketContext | null;
@@ -41,32 +37,11 @@ interface InflationCurveCalibrationProps {
   onCalibrated?: (result: CalibrationResult) => void;
   /** Additional CSS class name */
   className?: string;
-
-  // Legacy props for backward compatibility
-  /** @deprecated Use state.baseDate instead */
-  baseDate?: FsDate;
-  /** @deprecated Use state.curveId instead */
-  curveId?: string;
-  /** @deprecated Use state.currency instead */
-  currency?: string;
-  /** @deprecated Use state.indexName instead */
-  indexName?: string;
-  /** @deprecated Use state.baseCpi instead */
-  baseCpi?: number;
-  /** @deprecated Use state.discountCurveId instead */
-  discountCurveId?: string;
-  /** @deprecated Use state.config instead */
-  config?: CalibrationConfig;
-  /** @deprecated Use state.showChart instead */
-  showChart?: boolean;
-  /** @deprecated Use state.quotes instead */
-  initialQuotes?: InflationSwapQuoteData[];
 }
 
 /** Convert JSON config to WASM CalibrationConfig */
 const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
   let wasmConfig = CalibrationConfig.multiCurve();
-
   switch (config.solverKind) {
     case 'Brent':
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
@@ -75,7 +50,6 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
       break;
   }
-
   return wasmConfig
     .withMaxIterations(config.maxIterations)
     .withTolerance(config.tolerance)
@@ -83,9 +57,7 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 };
 
 /** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => {
-  return new FsDate(date.year, date.month, date.day);
-};
+const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
 
 /** Convert quote data to WASM InflationQuote objects */
 const buildWasmQuotes = (quotes: InflationSwapQuoteData[]): InflationQuote[] => {
@@ -104,58 +76,31 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   market,
   onCalibrated,
   className,
-  // Legacy props
-  baseDate: legacyBaseDate,
-  curveId: legacyCurveId,
-  currency: legacyCurrency,
-  indexName: legacyIndexName,
-  baseCpi: legacyBaseCpi,
-  discountCurveId: legacyDiscountCurveId,
-  config: legacyConfig,
-  showChart: legacyShowChart,
-  initialQuotes: legacyInitialQuotes,
 }) => {
-  // Determine if we're in controlled mode
-  const isControlled = state !== undefined;
+  const { curveId, currency, indexName, baseCpi, discountCurveId, showChart, config } = state;
+  const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  // Extract values from state or legacy props
-  const baseDate = useMemo(() => {
-    if (state) return toFsDate(state.baseDate);
-    if (legacyBaseDate) return legacyBaseDate;
-    return new FsDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-  }, [state, legacyBaseDate]);
-
-  const curveId = state?.curveId ?? legacyCurveId ?? 'US-CPI-U';
-  const currency = state?.currency ?? legacyCurrency ?? 'USD';
-  const indexName = state?.indexName ?? legacyIndexName ?? 'US-CPI-U';
-  const baseCpi = state?.baseCpi ?? legacyBaseCpi ?? 300;
-  const discountCurveId = state?.discountCurveId ?? legacyDiscountCurveId ?? 'USD-OIS';
-  const showChart = state?.showChart ?? legacyShowChart ?? true;
-
-  // Quote state - controlled or local
   const [localQuotes, setLocalQuotes] = useState<InflationSwapQuoteData[]>(
-    legacyInitialQuotes ?? DEFAULT_INFLATION_QUOTES
+    state.quotes.length > 0 ? state.quotes : DEFAULT_INFLATION_QUOTES
   );
 
-  // Sync quotes from state prop in controlled mode
   useEffect(() => {
-    if (isControlled && state.quotes.length > 0) {
+    if (state.quotes.length > 0) {
       setLocalQuotes(state.quotes);
     }
-  }, [isControlled, state?.quotes]);
+  }, [state.quotes]);
 
-  const quotes = isControlled && state.quotes.length > 0 ? state.quotes : localQuotes;
+  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
 
-  // Handle quote changes
   const handleQuotesChange = useCallback(
     (newQuotes: InflationSwapQuoteData[]) => {
-      if (isControlled && onStateChange && state) {
+      if (onStateChange) {
         onStateChange({ ...state, quotes: newQuotes });
       } else {
         setLocalQuotes(newQuotes);
       }
     },
-    [isControlled, onStateChange, state]
+    [onStateChange, state]
   );
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
@@ -168,7 +113,6 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setError('No inflation quotes provided');
       return;
     }
-
     if (!market) {
       setError('Market context with discount curve required');
       return;
@@ -178,24 +122,10 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
     setError(null);
 
     try {
-      const calibrationConfig = state?.config
-        ? buildWasmConfig(state.config)
-        : legacyConfig ||
-          CalibrationConfig.multiCurve()
-            .withSolverKind(SolverKind.Brent())
-            .withMaxIterations(25)
-            .withVerbose(false);
-
-      // Build fresh WASM quotes from the editable data
+      const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new InflationCurveCalibrator(
-        indexName,
-        baseDate,
-        currency,
-        baseCpi,
-        discountCurveId
-      );
+      const calibrator = new InflationCurveCalibrator(indexName, baseDate, currency, baseCpi, discountCurveId);
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
@@ -203,7 +133,6 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      // Generate CPI projection curve
       const sampleTimes = [1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
         time: t,
@@ -224,17 +153,10 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setResult(calibrationResult);
       setStatus(report.success ? 'success' : 'failed');
       onCalibrated?.(calibrationResult);
-
-      console.log(`Inflation curve '${indexName}' calibrated:`, {
-        cpi1y: calibratedCurve.cpi(1),
-        cpi5y: calibratedCurve.cpi(5),
-        iterations: report.iterations,
-      });
     } catch (err) {
       const errorMsg = (err as Error).message;
       setError(errorMsg);
       setStatus('failed');
-      console.warn(`Inflation curve calibration failed: ${errorMsg}`);
 
       const failedResult: CalibrationResult = {
         curveId: indexName,
@@ -247,51 +169,17 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [
-    baseDate,
-    curveId,
-    currency,
-    quotes,
-    indexName,
-    baseCpi,
-    discountCurveId,
-    state?.config,
-    legacyConfig,
-    market,
-    onCalibrated,
-  ]);
+  }, [baseDate, curveId, currency, quotes, indexName, baseCpi, discountCurveId, config, market, onCalibrated]);
 
-  // Calculate implied inflation rates
   const getImpliedInflation = (t: number) => {
     if (!curve) return 0;
     const futureCpi = curve.cpi(t);
     return Math.pow(futureCpi / baseCpi, 1 / t) - 1;
   };
 
-  // Format quote summary for display
-  const quotesSummary = useMemo(() => {
-    return `${quotes.length} inflation swaps`;
-  }, [quotes]);
+  const quotesSummary = useMemo(() => `${quotes.length} inflation swaps`, [quotes]);
 
-  // Export current state as JSON (for debugging/LLM integration)
-  const exportState = useCallback((): InflationCurveCalibrationState => {
-    return {
-      baseDate: { year: baseDate.year, month: baseDate.month, day: baseDate.day },
-      curveId,
-      currency,
-      indexName,
-      baseCpi,
-      discountCurveId,
-      quotes,
-      config: state?.config ?? {
-        solverKind: 'Brent',
-        maxIterations: 25,
-        tolerance: 1e-8,
-        verbose: false,
-      },
-      showChart,
-    };
-  }, [baseDate, curveId, currency, indexName, baseCpi, discountCurveId, quotes, state?.config, showChart]);
+  const exportState = useCallback((): InflationCurveCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -309,7 +197,6 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Editable Quote Table */}
         <InflationQuoteEditor
           quotes={quotes}
           onChange={handleQuotesChange}
@@ -348,9 +235,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
               color: 'hsl(var(--chart-3))',
               yFormatter: (v) => v.toFixed(1),
             }}
-            referenceLines={[
-              { y: baseCpi, label: `Base: ${baseCpi}`, stroke: 'hsl(var(--muted-foreground))' },
-            ]}
+            referenceLines={[{ y: baseCpi, label: `Base: ${baseCpi}`, stroke: 'hsl(var(--muted-foreground))' }]}
           />
         )}
 
@@ -387,7 +272,6 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
           </>
         )}
 
-        {/* JSON State Export (for debugging/LLM integration) */}
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
             View JSON State
