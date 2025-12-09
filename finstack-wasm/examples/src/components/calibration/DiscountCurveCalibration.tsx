@@ -164,7 +164,7 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10];
+      const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
         time: t,
         value: calibratedCurve.df(t),

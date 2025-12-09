@@ -31,6 +31,7 @@ import { MonteCarloPathExample } from './MonteCarloPathExample';
 import StatementsModeling from './StatementsModeling';
 import ScenariosExample from './ScenariosExample';
 import PortfolioExample from './PortfolioExample';
+import { CreditCalibrationExample } from './CreditCalibrationExample';
 
 // Import default props for components that support them
 import { DEFAULT_DEPOSIT_PROPS } from './data/deposits';
@@ -278,6 +279,14 @@ export const EXAMPLES: ExampleDefinition[] = [
       'Calibrate discount and forward curves from market quotes using numerical optimization.',
     group: 'Calibration',
     Component: CalibrationExample,
+  },
+  {
+    slug: 'credit-calibration',
+    title: 'Credit Market Calibration',
+    description:
+      'Build credit market data: discount curves, hazard curves, base correlation, and CDS vol surfaces for credit derivatives pricing.',
+    group: 'Calibration',
+    Component: CreditCalibrationExample,
   },
   {
     slug: 'statements-modeling',

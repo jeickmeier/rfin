@@ -6,6 +6,15 @@ export { InflationCurveCalibration } from './InflationCurveCalibration';
 export { VolSurfaceCalibration } from './VolSurfaceCalibration';
 export { BaseCorrelationCalibration } from './BaseCorrelationCalibration';
 
+// Credit calibration suite - unified workflow for credit instruments
+export {
+  CreditCalibrationSuite,
+  createDefaultCreditCalibrationState,
+  type CreditCalibrationSuiteState,
+  type CreditCalibrationSuiteProps,
+  type CreditMarketInfo,
+} from './CreditCalibrationSuite';
+
 // Chart components
 export { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
 
@@ -17,6 +26,7 @@ export {
   InflationQuoteEditor,
   VolQuoteEditor,
   TrancheQuoteEditor,
+  CdsVolQuoteEditor,
   DEFAULT_CREDIT_QUOTES,
   DEFAULT_INFLATION_QUOTES,
   DEFAULT_VOL_QUOTES,
@@ -67,6 +77,7 @@ export type {
   InflationSwapQuoteData,
   VolQuoteData,
   TrancheQuoteData,
+  CdsVolQuoteData,
 } from './QuoteEditor';
 
 // JSON state types for LLM chat control
