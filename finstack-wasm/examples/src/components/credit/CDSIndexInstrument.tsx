@@ -101,6 +101,7 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
 
   useEffect(() => {
     if (showForm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       calculateIndex();
     }
   }, [showForm, calculateIndex]);

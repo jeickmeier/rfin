@@ -75,7 +75,12 @@ pub use quanto_option::JsQuantoOption as QuantoOption;
 pub use range_accrual::JsRangeAccrual as RangeAccrual;
 pub use repo::JsRepo as Repo;
 pub use revolving_credit::JsRevolvingCredit as RevolvingCredit;
-pub use structured_credit::{JsBasket as Basket, JsStructuredCredit as StructuredCredit};
+pub use structured_credit::{
+    JsBasket as Basket, JsCoverageTestRules as CoverageTestRules,
+    JsCoverageTrigger as CoverageTrigger, JsPool as Pool, JsStructuredCredit as StructuredCredit,
+    JsTrancheStructure as TrancheStructure, JsWaterfall as WaterfallEngine,
+    JsWaterfallDistribution as WaterfallDistribution,
+};
 pub use swaption::JsSwaption as Swaption;
 pub use term_loan::JsTermLoan as TermLoan;
 pub use trs::{

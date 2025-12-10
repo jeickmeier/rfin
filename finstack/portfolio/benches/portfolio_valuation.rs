@@ -17,7 +17,6 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
@@ -67,6 +66,7 @@ use finstack_valuations::instruments::structured_credit::{
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
 use finstack_valuations::instruments::variance_swap::{RealizedVarMethod, VarianceSwap};
+use std::hint::black_box;
 use std::sync::Arc;
 use time::Month;
 

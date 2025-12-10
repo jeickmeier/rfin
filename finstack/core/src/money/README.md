@@ -375,3 +375,4 @@ When extending this module, keep in mind the core invariants from the `core` rul
   - Keep public APIs stable and easily mirrored in Python/WASM bindings (avoid complex generics or non‑serde‑friendly shapes for surface types).
 
 By following these patterns, new features in `core::money` will remain **deterministic, currency‑safe, and binding‑friendly** while fitting cleanly into the rest of the Finstack core.
+

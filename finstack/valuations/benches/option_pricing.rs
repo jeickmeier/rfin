@@ -8,7 +8,6 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -20,6 +19,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::metrics::MetricId;
+use std::hint::black_box;
 use time::Month;
 
 fn create_call_option(expiry_months: i64) -> EquityOption {

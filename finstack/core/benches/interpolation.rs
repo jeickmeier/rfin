@@ -8,10 +8,10 @@
 //! - Batch interpolation operations
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::math::interp::{
     CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
+use std::hint::black_box;
 
 fn create_test_curve(num_points: usize) -> (Box<[f64]>, Box<[f64]>) {
     let knots: Vec<f64> = (0..num_points)

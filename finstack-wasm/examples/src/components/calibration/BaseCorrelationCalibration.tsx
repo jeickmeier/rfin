@@ -85,6 +85,7 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
 
   useEffect(() => {
     if (state.quotes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalQuotes(state.quotes);
     }
   }, [state.quotes]);

@@ -10,11 +10,11 @@ mod bench_utils;
 
 use bench_utils::bench_iter;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::dates::rate_conversions::{
     continuous_to_periodic, continuous_to_simple, periodic_to_continuous, periodic_to_simple,
     simple_to_continuous, simple_to_periodic,
 };
+use std::hint::black_box;
 
 fn bench_simple_to_periodic(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_to_periodic");

@@ -14,9 +14,9 @@
 //! characteristics and regression over time.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use finstack_statements::prelude::*;
 use indexmap::IndexMap;
+use std::hint::black_box;
 
 // ============================================================================
 // Model Building Benchmarks

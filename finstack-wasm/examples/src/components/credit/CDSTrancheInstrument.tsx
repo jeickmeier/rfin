@@ -84,6 +84,7 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
 
   useEffect(() => {
     if (showForm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       calculateTranche();
     }
   }, [showForm, calculateTranche]);

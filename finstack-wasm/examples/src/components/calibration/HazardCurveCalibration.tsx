@@ -76,7 +76,7 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
   onCalibrated,
   className,
 }) => {
-  const { curveId, currency, entity, seniority, recoveryRate, discountCurveId, showChart, config } = state;
+  const { curveId: _curveId, currency, entity, seniority, recoveryRate, discountCurveId, showChart, config } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<CdsQuoteData[]>(
@@ -85,6 +85,7 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
 
   useEffect(() => {
     if (state.quotes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalQuotes(state.quotes);
     }
   }, [state.quotes]);
@@ -168,11 +169,14 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, entity, seniority, recoveryRate, discountCurveId, config, market, onCalibrated]);
+  }, [baseDate, currency, quotes, entity, seniority, recoveryRate, discountCurveId, config, market, onCalibrated]);
 
   const quotesSummary = useMemo(() => `${quotes.length} CDS quotes`, [quotes]);
 
-  const exportState = useCallback((): HazardCurveCalibrationState => state, [state]);
+  const exportState = useCallback(
+    (): HazardCurveCalibrationState => state,
+    [state],
+  );
 
   return (
     <Card className={className}>

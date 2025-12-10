@@ -9,7 +9,6 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
@@ -21,6 +20,7 @@ use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, Fixed
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::irs::InterestRateSwap;
+use std::hint::black_box;
 use time::Month;
 
 fn create_market() -> MarketContext {

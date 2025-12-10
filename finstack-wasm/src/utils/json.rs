@@ -11,4 +11,3 @@ pub fn from_js_value<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> 
     serde_wasm_bindgen::from_value(value)
         .map_err(|e| JsValue::from_str(&format!("Failed to deserialize: {}", e)))
 }
-

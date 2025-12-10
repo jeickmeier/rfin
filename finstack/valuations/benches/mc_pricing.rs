@@ -11,7 +11,6 @@
 #![cfg(feature = "mc")]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
 use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
@@ -34,6 +33,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_
     PathDependentPricer, PathDependentPricerConfig,
 };
 use finstack_valuations::instruments::OptionType;
+use std::hint::black_box;
 
 fn bench_european_gbm(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_european_gbm");

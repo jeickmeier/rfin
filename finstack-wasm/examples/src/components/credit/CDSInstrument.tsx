@@ -100,6 +100,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
   // Calculate on form state change when form is visible
   useEffect(() => {
     if (showForm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       calculateCDS();
     }
   }, [showForm, calculateCDS]);

@@ -3,8 +3,8 @@
 //! Tests performance of rolling window functions with optimized scratch buffer usage.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
+use std::hint::black_box;
 
 fn bench_rolling_median(c: &mut Criterion) {
     let mut group = c.benchmark_group("rolling_median");

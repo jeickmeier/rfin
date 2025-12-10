@@ -7,10 +7,10 @@
 //! - Curve building and bumping
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
 use finstack_core::math::interp::InterpStyle;
+use std::hint::black_box;
 use time::Month;
 
 fn base_date() -> Date {

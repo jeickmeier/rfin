@@ -1,7 +1,7 @@
 //! Calibration configuration types for WASM bindings.
 
-use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverKind};
 use crate::utils::json::{from_js_value, to_js_value};
+use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverKind};
 use wasm_bindgen::prelude::*;
 
 /// Solver strategy enumeration for calibration routines.

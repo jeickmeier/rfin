@@ -6,8 +6,10 @@ use finstack_valuations::calibration::{
 };
 use ts_rs::TS;
 
-const OUT_DIR: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../finstack-wasm/examples/src/types/generated");
+const OUT_DIR: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../finstack-wasm/examples/src/types/generated"
+);
 
 #[test]
 fn export_calibration_types() {
@@ -27,4 +29,3 @@ fn export_calibration_types() {
     MarketQuote::export().expect("export MarketQuote");
     FutureSpecs::export().expect("export FutureSpecs");
 }
-

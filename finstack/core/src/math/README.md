@@ -387,3 +387,4 @@ The `math` module is **shared numerical infrastructure** across the workspace. W
   - You need domain‑specific semantics (cashflows, term structures, statements) on top of these numerical primitives.
 
 Keeping this separation clear helps ensure that `core::math` remains **small, deterministic, and reusable** across Rust, Python, and WASM bindings.
+

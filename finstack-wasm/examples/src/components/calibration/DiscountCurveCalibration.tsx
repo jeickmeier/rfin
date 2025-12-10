@@ -121,6 +121,7 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
   // Sync quotes from state prop
   useEffect(() => {
     if (state.quotes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalQuotes(state.quotes);
     }
   }, [state.quotes]);

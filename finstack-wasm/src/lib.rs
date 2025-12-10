@@ -38,6 +38,11 @@ pub use core::dates::{
     imm_option_expiry as immOptionExpiry, third_friday as thirdFriday,
     third_wednesday as thirdWednesday,
 };
+pub use core::expr::{
+    JsBinOp as BinOp, JsCompiledExpr as CompiledExpr, JsEvalOpts as EvalOpts,
+    JsEvaluationResult as EvaluationResult, JsExecutionPlan as ExecutionPlan, JsExpr as Expr,
+    JsFunction as Function, JsUnaryOp as UnaryOp,
+};
 pub use core::market_data::{
     BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
     DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
@@ -50,6 +55,14 @@ pub use core::math::{
     trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
+pub use core::types::{
+    CurveId, IndexId, InstrumentId, JsBps as Bps, JsCreditRating as CreditRating,
+    JsNotchedRating as NotchedRating, JsPercentage as Percentage, JsRate as Rate,
+    JsRatingNotch as RatingNotch, PriceId, UnderlyingId,
+};
+pub use core::volatility::{
+    convert_volatility_js as convertVolatility, JsVolatilityConvention as VolatilityConvention,
+};
 pub use valuations::calibration::{
     JsBaseCorrelationCalibrator as BaseCorrelationCalibrator,
     JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
@@ -80,11 +93,13 @@ pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as Metric
 pub use valuations::instruments::{
     evaluate_dcf_wasm as evaluateDcf, AsianOption, Autocallable, AveragingMethod, BarrierOption,
     BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, CliquetOption, CmsOption,
-    ConvertibleBond, CreditDefaultSwap, Deposit, Equity, EquityOption, EquityTotalReturnSwap,
-    FiIndexTotalReturnSwap, ForwardRateAgreement, FxBarrierOption, FxOption, FxSpot, FxSwap,
-    InflationLinkedBond, InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap,
-    LookbackOption, LookbackType, PrivateMarketsFund, QuantoOption, RangeAccrual,
-    RealizedVarMethod, Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan, VarianceSwap,
+    ConvertibleBond, CoverageTestRules, CoverageTrigger, CreditDefaultSwap, Deposit, Equity,
+    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
+    FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
+    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, LookbackType, Pool,
+    PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod, Repo, RevolvingCredit,
+    StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap, WaterfallDistribution,
+    WaterfallEngine,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,

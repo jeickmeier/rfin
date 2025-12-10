@@ -616,10 +616,13 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
   // Auto-advance to next step after successful calibration
   useEffect(() => {
     if (stepStatus.discount === 'success' && stepStatus.hazard === 'idle') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveStep('hazard');
     } else if (stepStatus.hazard === 'success' && stepStatus.correlation === 'idle') {
+       
       setActiveStep('correlation');
     } else if (stepStatus.correlation === 'success' && stepStatus.vol === 'idle') {
+       
       setActiveStep('vol');
     }
   }, [stepStatus]);

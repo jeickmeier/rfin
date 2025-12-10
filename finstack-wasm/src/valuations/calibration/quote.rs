@@ -2,10 +2,10 @@
 
 use crate::core::common::parse::ParseFromString;
 use crate::core::dates::{Frequency, FsDate};
+use crate::utils::json::{from_js_value, to_js_value};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
-use crate::utils::json::{from_js_value, to_js_value};
 use wasm_bindgen::prelude::*;
 
 /// Future contract specifications.

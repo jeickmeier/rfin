@@ -77,7 +77,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   onCalibrated,
   className,
 }) => {
-  const { curveId, currency, indexName, baseCpi, discountCurveId, showChart, config } = state;
+  const { curveId: _curveId, currency, indexName, baseCpi, discountCurveId, showChart, config } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<InflationSwapQuoteData[]>(
@@ -86,6 +86,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
 
   useEffect(() => {
     if (state.quotes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalQuotes(state.quotes);
     }
   }, [state.quotes]);
@@ -169,7 +170,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, indexName, baseCpi, discountCurveId, config, market, onCalibrated]);
+  }, [baseDate, currency, quotes, indexName, baseCpi, discountCurveId, config, market, onCalibrated]);
 
   const getImpliedInflation = (t: number) => {
     if (!curve) return 0;
@@ -179,7 +180,10 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
 
   const quotesSummary = useMemo(() => `${quotes.length} inflation swaps`, [quotes]);
 
-  const exportState = useCallback((): InflationCurveCalibrationState => state, [state]);
+  const exportState = useCallback(
+    (): InflationCurveCalibrationState => state,
+    [state],
+  );
 
   return (
     <Card className={className}>

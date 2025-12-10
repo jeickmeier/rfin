@@ -4,10 +4,10 @@
 //! and compares different solver strategies (Newton, Brent, Hybrid).
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::cashflow::{xirr, xirr_with_daycount};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
+use std::hint::black_box;
 use time::Month;
 
 fn benchmark_newton_analytic_vs_fd(c: &mut Criterion) {

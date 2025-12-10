@@ -1,10 +1,12 @@
 use crate::core::error::js_error;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::basket::Basket;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
+use finstack_valuations::instruments::structured_credit::{Pool, StructuredCredit, TrancheStructure};
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
 use wasm_bindgen::prelude::*;
+
+pub mod waterfall;
 
 // ===========================
 // Basket
@@ -134,3 +136,54 @@ impl JsStructuredCredit {
         self.inner.tranches.tranches.len()
     }
 }
+
+// ===========================
+// Waterfall / Pool helpers
+// ===========================
+
+/// Tranche structure wrapper (JSON-based).
+#[wasm_bindgen(js_name = TrancheStructure)]
+#[derive(Clone, Debug)]
+pub struct JsTrancheStructure {
+    pub(crate) inner: TrancheStructure,
+}
+
+#[wasm_bindgen(js_class = TrancheStructure)]
+impl JsTrancheStructure {
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json_str: &str) -> Result<JsTrancheStructure, JsValue> {
+        serde_json::from_str(json_str)
+            .map(|inner| JsTrancheStructure { inner })
+            .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+    }
+}
+
+/// Pool wrapper (JSON-based).
+#[wasm_bindgen(js_name = Pool)]
+#[derive(Clone, Debug)]
+pub struct JsPool {
+    pub(crate) inner: Pool,
+}
+
+#[wasm_bindgen(js_class = Pool)]
+impl JsPool {
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json_str: &str) -> Result<JsPool, JsValue> {
+        serde_json::from_str(json_str)
+            .map(|inner| JsPool { inner })
+            .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+    }
+}
+
+// Re-export waterfall helpers from sibling module
+pub use waterfall::{JsCoverageTestRules, JsCoverageTrigger, JsWaterfall, JsWaterfallDistribution};

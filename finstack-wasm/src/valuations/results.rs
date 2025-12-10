@@ -20,6 +20,10 @@ impl JsResultsMeta {
     pub(crate) fn new(inner: ResultsMeta) -> Self {
         Self { inner }
     }
+
+    pub(crate) fn inner(&self) -> &ResultsMeta {
+        &self.inner
+    }
 }
 
 #[wasm_bindgen(js_class = ResultsMeta)]

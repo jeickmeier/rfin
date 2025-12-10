@@ -101,6 +101,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
 
   useEffect(() => {
     if (showForm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       calculateRevolvingCredit();
     }
   }, [showForm, calculateRevolvingCredit]);

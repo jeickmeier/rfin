@@ -74,8 +74,8 @@ impl JsCdsTranche {
             .discount_curve_id(curve_id_from_str(discount_curve))
             .credit_index_id(curve_id_from_str(credit_index_curve))
             .side(side_value)
-            .accumulated_loss(0.0)       // Default: no accumulated losses
-            .standard_imm_dates(false)   // Default: not using IMM dates
+            .accumulated_loss(0.0) // Default: no accumulated losses
+            .standard_imm_dates(false) // Default: not using IMM dates
             .attributes(Default::default());
 
         builder

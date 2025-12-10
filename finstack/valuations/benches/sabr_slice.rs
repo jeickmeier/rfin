@@ -1,5 +1,4 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -7,6 +6,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_valuations::calibration::methods::sabr_surface::VolSurfaceCalibrator;
 use finstack_valuations::calibration::Calibrator;
 use finstack_valuations::calibration::VolQuote;
+use std::hint::black_box;
 use time::Month;
 
 fn bench_sabr_slice(c: &mut Criterion) {

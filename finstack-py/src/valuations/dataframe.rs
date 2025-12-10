@@ -42,7 +42,10 @@ use crate::valuations::results::PyValuationResult;
 /// ```
 #[pyfunction]
 #[pyo3(name = "results_to_polars")]
-pub fn py_results_to_polars(py: Python<'_>, results: Vec<PyValuationResult>) -> PyResult<Py<PyAny>> {
+pub fn py_results_to_polars(
+    py: Python<'_>,
+    results: Vec<PyValuationResult>,
+) -> PyResult<Py<PyAny>> {
     // Extract inner Rust ValuationResults
     let rust_results: Vec<ValuationResult> = results.into_iter().map(|r| r.inner).collect();
 
@@ -87,7 +90,10 @@ pub fn py_results_to_polars(py: Python<'_>, results: Vec<PyValuationResult>) -> 
 /// ```
 #[pyfunction]
 #[pyo3(name = "results_to_pandas")]
-pub fn py_results_to_pandas(py: Python<'_>, results: Vec<PyValuationResult>) -> PyResult<Py<PyAny>> {
+pub fn py_results_to_pandas(
+    py: Python<'_>,
+    results: Vec<PyValuationResult>,
+) -> PyResult<Py<PyAny>> {
     // Convert to Polars first
     let polars_df = py_results_to_polars(py, results)?;
 

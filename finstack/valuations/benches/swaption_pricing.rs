@@ -9,7 +9,6 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
@@ -23,6 +22,7 @@ use finstack_valuations::instruments::irs::PayReceive;
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
 use finstack_valuations::metrics::MetricId;
+use std::hint::black_box;
 use time::Month;
 
 fn create_swaption(expiry_months: i64, swap_tenor_years: i32) -> Swaption {

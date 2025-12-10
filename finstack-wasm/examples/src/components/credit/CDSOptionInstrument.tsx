@@ -97,6 +97,7 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
 
   useEffect(() => {
     if (showForm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       calculateOption();
     }
   }, [showForm, calculateOption]);

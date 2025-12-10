@@ -142,14 +142,7 @@ export function buildCreditMarket(config: CreditMarketConfig): CreditMarketResul
 export function useCreditMarket(config: CreditMarketConfig): CreditMarketResult | null {
   return useMemo(
     () => buildCreditMarket(config),
-    [
-      config.valuationDate,
-      config.discountCurve,
-      config.hazardCurves,
-      config.baseCorrelation,
-      config.cdsVolSurface,
-      config.creditIndexData,
-    ]
+    [config]
   );
 }
 

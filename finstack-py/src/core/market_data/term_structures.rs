@@ -175,8 +175,7 @@ impl PyDiscountCurve {
         if !require_monotonic {
             builder = builder.allow_non_monotonic();
         }
-        let curve =
-            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -430,8 +429,7 @@ impl PyForwardCurve {
             };
             builder = builder.set_interp(style);
         }
-        let curve =
-            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -620,8 +618,7 @@ impl PyHazardCurve {
         if let Some(points) = par_points {
             builder = builder.par_spreads(points);
         }
-        let curve =
-            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -793,8 +790,7 @@ impl PyInflationCurve {
             .base_cpi(base_cpi)
             .knots(knots_vec)
             .set_interp(style);
-        let curve =
-            Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 

@@ -79,6 +79,12 @@ test-python:
 test-wasm:
 	cd finstack-wasm && npm run test
 
+test-ui:
+	cd packages/finstack-ui && npm run test
+
+test-ui-coverage:
+	cd packages/finstack-ui && npm run test:coverage
+
 fmt-rust:
 	cargo fmt --all
 
@@ -88,10 +94,14 @@ fmt-python:
 fmt-wasm:
 	cd finstack-wasm && npm run format .
 
+fmt-ui:
+	cd packages/finstack-ui && npm run format .
+
 lint:
 	make lint-rust
 	make lint-python
 	make lint-wasm
+	make lint-ui
 
 lint-rust:
 	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -117,8 +127,14 @@ lint-python-fix:
 lint-wasm:
 	cd finstack-wasm && npm run lint
 
+lint-ui:
+	cd packages/finstack-ui && npm run lint
+
 lint-wasm-fix:
 	cd finstack-wasm && npm run lint:fix
+
+lint-ui-fix:
+	cd packages/finstack-ui && npm run lint:fix
 
 clean:
 	cargo clean
