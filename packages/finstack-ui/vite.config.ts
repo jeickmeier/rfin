@@ -32,6 +32,15 @@ export default defineConfig({
       "@/store": path.resolve(__dirname, "src/store"),
     },
   },
+  server: {
+    fs: {
+      allow: [
+        // allow loading wasm bundle from the workspace pkg dir
+        path.resolve(__dirname),
+        path.resolve(__dirname, "../../finstack-wasm/pkg"),
+      ],
+    },
+  },
   worker: {
     format: "es",
   },

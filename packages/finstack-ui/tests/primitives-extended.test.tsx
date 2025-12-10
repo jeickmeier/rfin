@@ -38,7 +38,7 @@ vi.mock("../src/components/ui/select", () => {
         disabled={disabled}
         aria-label="currency-select-hidden"
       >
-        {React.Children.map(children, (child) => {
+        {React.Children.map(children, (_child) => {
           // This is a bit of a hack to extract options from SelectContent -> SelectItem
           return null;
         })}
@@ -87,16 +87,14 @@ describe("CurrencySelect", () => {
 
     render(<CurrencySelect value="USD" onChange={handleChange} />);
 
-    const select = screen.getByRole("combobox", {
-      name: "currency-select",
-    });
+    screen.getByRole("combobox", { name: "currency-select" });
     // For the test simplicity with our mock, we manually trigger the change
     // Since we changed the mock structure, we need to adapt the test interaction
     // Simulating change via the hidden select or just calling the prop directly would be easier in a real unit test
     // but here we are testing the wrapper.
-    
+
     // Let's trigger the change handler directly since we mocked the component structure significantly
-    handleChange("EUR"); 
+    handleChange("EUR");
     expect(handleChange).toHaveBeenCalledWith("EUR");
   });
 

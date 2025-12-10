@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1",
+  "id": "33333333-3333-4333-8333-333333333333",
+  "name": "Calibration Dashboard",
+  "layout": {
+    "kind": "two_column",
+    "left": [
+      "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    ],
+    "right": ["99999999-9999-4999-8999-999999999999"]
+  },
+  "components": [
+    {
+      "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      "type": "DiscountCurveCalibration",
+      "props": {},
+      "mode": "editor"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      "type": "CurveChart",
+      "props": {
+        "title": "Discount Curve",
+        "series": [
+          {
+            "label": "Zero",
+            "points": [
+              { "tenor": "1M", "rate": "0.052" },
+              { "tenor": "3M", "rate": "0.053" },
+              { "tenor": "6M", "rate": "0.054" }
+            ]
+          }
+        ]
+      },
+      "mode": "viewer"
+    },
+    {
+      "id": "99999999-9999-4999-8999-999999999999",
+      "type": "ForwardCurveCalibration",
+      "props": {},
+      "mode": "editor"
+    }
+  ],
+  "bindings": {},
+  "userIntent": "Calibrate discount and forward curves",
+  "createdAt": "2024-01-03",
+  "updatedAt": "2024-01-03"
+}

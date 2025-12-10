@@ -6,6 +6,7 @@ import {
   defaultRegistry,
 } from "../src/engine/ComponentRegistry";
 import { DynamicRenderer } from "../src/engine/DynamicRenderer";
+import { FinstackContext } from "../src/hooks/useFinstack";
 
 const validDashboard = {
   schemaVersion: "1" as const,
@@ -20,13 +21,24 @@ const validDashboard = {
     {
       id: "11111111-1111-4111-8111-111111111111",
       type: "CurveChart",
-      props: { title: "USD OIS", curveId: "USD-OIS" },
+      props: {
+        title: "USD OIS",
+        series: [
+          {
+            label: "Zero",
+            points: [
+              { tenor: "1M", rate: "0.05" },
+              { tenor: "3M", rate: "0.052" },
+            ],
+          },
+        ],
+      },
       mode: "viewer" as const,
     },
     {
       id: "22222222-2222-4222-8222-222222222222",
       type: "BondPanel",
-      props: { bondId: "US912828XG33", showCashflows: true },
+      props: { title: "USD Bond" },
       mode: "viewer" as const,
     },
   ],
@@ -35,10 +47,27 @@ const validDashboard = {
   updatedAt: "2024-01-02",
 };
 
+const mockContextValue = {
+  isReady: false,
+  isLoading: false,
+  error: null,
+  config: null,
+  market: null,
+  marketHandle: null,
+  roundingContext: { label: "default", scale: 2 },
+  worker: null,
+  setMarket: async () => null,
+};
+
 describe("DynamicRenderer", () => {
   it("renders dashboard components from the registry", () => {
     render(
-      <DynamicRenderer dashboard={validDashboard} registry={defaultRegistry} />,
+      <FinstackContext.Provider value={mockContextValue}>
+        <DynamicRenderer
+          dashboard={validDashboard}
+          registry={defaultRegistry}
+        />
+      </FinstackContext.Provider>,
     );
 
     expect(screen.getByTestId("curve-chart")).toBeInTheDocument();
@@ -50,11 +79,13 @@ describe("DynamicRenderer", () => {
     const onError = vi.fn();
 
     render(
-      <DynamicRenderer
-        dashboard={validDashboard}
-        registry={registry}
-        onError={onError}
-      />,
+      <FinstackContext.Provider value={mockContextValue}>
+        <DynamicRenderer
+          dashboard={validDashboard}
+          registry={registry}
+          onError={onError}
+        />
+      </FinstackContext.Provider>,
     );
 
     expect(screen.getAllByTestId("component-error").length).toBeGreaterThan(0);
