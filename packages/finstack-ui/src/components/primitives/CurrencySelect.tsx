@@ -17,6 +17,8 @@ export interface CurrencySelectProps {
   className?: string;
 }
 
+// SelectContent will wrap children in options, so we need to be careful with structure.
+// This primitive is a higher-level abstraction over the base Select component.
 export function CurrencySelect({
   value,
   onChange,

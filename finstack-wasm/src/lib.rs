@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod core;
+mod genui;
 mod portfolio;
 mod scenarios;
 mod statements;
@@ -148,6 +149,8 @@ pub use valuations::risk::{
     JsRiskFactorType as RiskFactorType, JsVarConfig as VarConfig, JsVarMethod as VarMethod,
     JsVarResult as VarResult,
 };
+
+pub use genui::*;
 
 // Statements exports
 pub use statements::{

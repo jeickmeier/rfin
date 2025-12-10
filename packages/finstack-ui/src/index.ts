@@ -11,3 +11,5 @@ export * from "./hooks/useFinstackEngine";
 export * from "./lib/wasmSingleton";
 export type { FinstackEngineWorkerApi } from "./workers/finstackEngine";
 export * from "./types/rounding";
+export * from "./schemas";
+export * from "./engine";

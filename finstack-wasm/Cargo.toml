@@ -24,6 +24,7 @@ serde_json = "1"
 js-sys = "0.3"
 strum = { workspace = true }
 indexmap = "2.12"
+ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
 
 # Month enum required by Date bindings
 time = { version = "0.3", default-features = false }
@@ -43,6 +44,7 @@ wasm-bindgen-test = "0.3"
 default = ["console_error_panic_hook", "scenarios"]
 scenarios = ["finstack-portfolio/scenarios"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
+ts_export = ["dep:ts-rs", "finstack-valuations/ts_export"]
 
 [dependencies.console_error_panic_hook]
 version = "0.1"
