@@ -272,4 +272,12 @@ const api = {
 
 export type FinstackEngineWorkerApi = typeof api;
 
+// Expose internals for unit testing without altering worker surface.
+export const __test__ = {
+  ensureWorkerWasmInit,
+  extractRounding,
+  parseJsonSafe,
+  api,
+};
+
 expose(api);
