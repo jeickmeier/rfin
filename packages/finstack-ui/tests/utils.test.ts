@@ -19,9 +19,12 @@ describe("amount utils", () => {
 
   it("rounds and formats with grouping", () => {
     expect(roundAmountString("1234.567", 2)).toBe("1,234.57");
-    expect(formatAmount("1234.567", { currency: "USD", roundingContext: { scale: 2 } })).toBe(
-      "USD 1,234.57",
-    );
+    expect(
+      formatAmount("1234.567", {
+        currency: "USD",
+        roundingContext: { scale: 2 },
+      }),
+    ).toBe("USD 1,234.57");
   });
 
   it("normalizes free-form numeric input safely", () => {

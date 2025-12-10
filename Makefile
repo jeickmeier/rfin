@@ -95,7 +95,7 @@ fmt-wasm:
 	cd finstack-wasm && npm run format .
 
 fmt-ui:
-	cd packages/finstack-ui && npm run format .
+	cd packages/finstack-ui && npm run format:fix .
 
 lint:
 	make lint-rust

@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/components/ui/select", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
   const Select = ({
     value,
@@ -57,22 +59,22 @@ vi.mock("../src/components/ui/select", () => {
 describe("CurrencySelect", () => {
   it("renders options and calls onChange", async () => {
     const handleChange = vi.fn();
-    const { CurrencySelect } = await import(
-      "../src/components/primitives/CurrencySelect"
-    );
+    const { CurrencySelect } =
+      await import("../src/components/primitives/CurrencySelect");
 
     render(<CurrencySelect value="USD" onChange={handleChange} />);
 
-    const select = screen.getByLabelText("currency-select") as HTMLSelectElement;
+    const select = screen.getByLabelText(
+      "currency-select",
+    ) as HTMLSelectElement;
     expect(select.value).toBe("USD");
     fireEvent.change(select, { target: { value: "EUR" } });
     expect(handleChange).toHaveBeenCalledWith("EUR");
   });
 
   it("respects custom currency list and disabled state", async () => {
-    const { CurrencySelect } = await import(
-      "../src/components/primitives/CurrencySelect"
-    );
+    const { CurrencySelect } =
+      await import("../src/components/primitives/CurrencySelect");
     render(
       <CurrencySelect
         value="JPY"
@@ -81,7 +83,9 @@ describe("CurrencySelect", () => {
         disabled
       />,
     );
-    const select = screen.getByLabelText("currency-select") as HTMLSelectElement;
+    const select = screen.getByLabelText(
+      "currency-select",
+    ) as HTMLSelectElement;
     expect(select.querySelectorAll("option")).toHaveLength(2);
     expect(select.disabled).toBe(true);
   });
@@ -89,9 +93,8 @@ describe("CurrencySelect", () => {
 
 describe("DatePicker", () => {
   it("renders date input and forwards changes", async () => {
-    const { DatePicker } = await import(
-      "../src/components/primitives/DatePicker"
-    );
+    const { DatePicker } =
+      await import("../src/components/primitives/DatePicker");
     const handleChange = vi.fn();
     render(<DatePicker value="2024-01-01" onChange={handleChange} />);
     const input = screen.getByLabelText("date-picker") as HTMLInputElement;
@@ -101,9 +104,8 @@ describe("DatePicker", () => {
   });
 
   it("respects min/max and placeholder", async () => {
-    const { DatePicker } = await import(
-      "../src/components/primitives/DatePicker"
-    );
+    const { DatePicker } =
+      await import("../src/components/primitives/DatePicker");
     render(
       <DatePicker
         value=""

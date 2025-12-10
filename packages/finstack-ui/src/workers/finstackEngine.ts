@@ -210,7 +210,9 @@ const api = {
       }
 
       if (!instrument) {
-        throw new Error("Unsupported instrument payload for finstack-wasm pricing");
+        throw new Error(
+          "Unsupported instrument payload for finstack-wasm pricing",
+        );
       }
 
       const wasmWithRegistry = wasm as {
@@ -222,9 +224,11 @@ const api = {
           ? wasmWithRegistry.createStandardRegistry()
           : new wasmWithRegistry.PricerRegistry();
       const today = new Date();
-      const FsDateCtor = (wasm as unknown as {
-        FsDate: new (year: number, month: number, day: number) => unknown;
-      }).FsDate;
+      const FsDateCtor = (
+        wasm as unknown as {
+          FsDate: new (year: number, month: number, day: number) => unknown;
+        }
+      ).FsDate;
       const asOf = new FsDateCtor(
         today.getFullYear(),
         today.getMonth() + 1,
@@ -237,12 +241,15 @@ const api = {
         asOf,
         null,
       );
-      const pvMoney = (result as {
-        presentValue?: {
-          amount?: number;
-          currency?: { code?: string };
-        };
-      }).presentValue ?? {};
+      const pvMoney =
+        (
+          result as {
+            presentValue?: {
+              amount?: number;
+              currency?: { code?: string };
+            };
+          }
+        ).presentValue ?? {};
       const amount =
         typeof pvMoney.amount === "number" ? pvMoney.amount.toString() : "0";
 

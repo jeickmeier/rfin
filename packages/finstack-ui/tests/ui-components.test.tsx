@@ -1,16 +1,22 @@
 import { render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@radix-ui/react-select", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
-  const make = (tag: string) =>
-    React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<"div">>(
-      ({ children, ...props }, ref) => (
-        <div data-testid={tag} ref={ref} {...props}>
-          {children}
-        </div>
-      ),
-    );
+  const make = (tag: string) => {
+    const Component = React.forwardRef<
+      HTMLDivElement,
+      React.ComponentPropsWithoutRef<"div">
+    >(({ children, ...props }, ref) => (
+      <div data-testid={tag} ref={ref} {...props}>
+        {children}
+      </div>
+    ));
+    Component.displayName = `Mock(${tag})`;
+    return Component;
+  };
 
   return {
     Root: ({ children }: { children: React.ReactNode }) => (

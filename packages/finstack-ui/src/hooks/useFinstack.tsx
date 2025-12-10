@@ -155,13 +155,7 @@ export function FinstackProvider({
 
   // Optional Suspense integration – throw the initialization promise while
   // loading so that callers can wrap the provider in <Suspense>.
-  if (
-    autoInit &&
-    suspense &&
-    !isReady &&
-    !error &&
-    initPromiseRef.current
-  ) {
+  if (autoInit && suspense && !isReady && !error && initPromiseRef.current) {
     throw initPromiseRef.current;
   }
 

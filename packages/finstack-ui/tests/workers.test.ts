@@ -61,8 +61,9 @@ async function loadWorker(mock: WasmMock) {
 beforeEach(() => {
   // Make worker globals available in the jsdom test environment.
   (globalThis as unknown as { self: unknown }).self = globalThis;
-  (globalThis as unknown as { __finstackWasmInit?: Promise<void> }).__finstackWasmInit =
-    undefined;
+  (
+    globalThis as unknown as { __finstackWasmInit?: Promise<void> }
+  ).__finstackWasmInit = undefined;
 });
 
 describe("finstackEngine worker", () => {
@@ -127,9 +128,9 @@ describe("finstackEngine worker", () => {
 
   it("parses JSON safely", async () => {
     const testApi = await loadWorker(createWasmMock().mock);
-    expect(
-      testApi.parseJsonSafe<{ ok: boolean }>('{ "ok": true }')?.ok,
-    ).toBe(true);
+    expect(testApi.parseJsonSafe<{ ok: boolean }>('{ "ok": true }')?.ok).toBe(
+      true,
+    );
     expect(testApi.parseJsonSafe("not-json")).toBeNull();
   });
 });
