@@ -17,6 +17,9 @@ function createWasmMock() {
 
   const mock: WasmMock = {
     default: initFn,
+    Currency: class {
+      constructor(public code: string) {}
+    },
     FinstackConfig: class {
       roundingMode = "nearest";
       setOutputScale() {}
@@ -32,6 +35,26 @@ function createWasmMock() {
     },
     Bond: {
       fromJson: vi.fn((json: string) => ({ bondJson: json })),
+      fixedSemiannual: vi.fn(
+        (
+          id: string,
+          notional: unknown,
+          couponRate: number,
+          issue: unknown,
+          maturity: unknown,
+          discountCurve: string,
+        ) => ({
+          id,
+          notional,
+          couponRate,
+          issue,
+          maturity,
+          discountCurve,
+        }),
+      ),
+    },
+    Money: {
+      fromCode: (amount: number, currency: string) => ({ amount, currency }),
     },
     createStandardRegistry: vi.fn(() => ({
       priceBond: priceBondFn,
@@ -78,7 +101,12 @@ describe("finstackEngine worker", () => {
     expect(initResult).toEqual({ configApplied: true, marketApplied: true });
 
     const result = await testApi.api.priceInstrument(
-      JSON.stringify({ instrumentId: "bond-1", type: "Bond" }),
+      JSON.stringify({
+        instrumentId: "bond-1",
+        type: "Bond",
+        issue: "2024-01-01",
+        maturity: "2029-01-01",
+      }),
     );
 
     expect(initFn).toHaveBeenCalledTimes(1);

@@ -104,6 +104,13 @@ pub struct FixedLegSpec {
     pub par_method: Option<ParRateMethod>,
     /// If true, use simple interest on accrual fraction
     pub compounding_simple: bool,
+    /// Payment delay in business days after period end (default: 0).
+    ///
+    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// The actual payment date is adjusted from the period end date by
+    /// this many business days using the leg's calendar.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub payment_delay_days: i32,
 }
 
 /// Specification for floating rate legs in interest rate swaps
@@ -148,6 +155,13 @@ pub struct FloatLegSpec {
     /// Full compounded-in-arrears support will be added in a future release.
     #[cfg_attr(feature = "serde", serde(default))]
     pub compounding: crate::instruments::irs::FloatingLegCompounding,
+    /// Payment delay in business days after period end (default: 0).
+    ///
+    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// The actual payment date is adjusted from the period end date by
+    /// this many business days using the leg's calendar.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub payment_delay_days: i32,
 }
 
 /// Specification for basis swap legs (floating vs floating)

@@ -6,6 +6,18 @@ export interface CashflowWaterfallProps {
   cashflows: CashflowWire[];
 }
 
+export function normalizeCashflows(raw: unknown): CashflowWire[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as Array<Record<string, unknown>>).map((row, idx) => ({
+    period: Number.isFinite(Number(row.period)) ? Number(row.period) : idx + 1,
+    leg: String(row.leg ?? ""),
+    rate: String(row.rate ?? ""),
+    notional: String(row.notional ?? ""),
+    discount_factor: String(row.discount_factor ?? ""),
+    present_value: String(row.present_value ?? ""),
+  }));
+}
+
 export function CashflowWaterfall({ cashflows }: CashflowWaterfallProps) {
   const columns: ColumnDef<CashflowWire>[] = [
     { header: "Period", accessorKey: "period" },

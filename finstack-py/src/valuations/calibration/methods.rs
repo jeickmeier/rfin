@@ -1,7 +1,7 @@
 use super::config::{PyCalibrationConfig, PyMultiCurveConfig};
 use super::quote::{PyCreditQuote, PyInflationQuote, PyRatesQuote, PyVolQuote};
 use super::report::PyCalibrationReport;
-use crate::core::common::args::{CurrencyArg, DayCountArg, InterpStyleArg};
+use crate::core::common::args::{CurrencyArg, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg};
 use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::surfaces::PyVolSurface;
@@ -146,6 +146,106 @@ impl PyDiscountCurveCalibrator {
     fn with_solve_interp(&self, interp: Bound<'_, PyAny>) -> PyResult<Self> {
         let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
         let inner = self.inner.clone().with_solve_interp(style);
+        Ok(Self::new(inner))
+    }
+
+    /// Set the extrapolation policy for the final curve.
+    ///
+    /// Parameters
+    /// ----------
+    /// policy : str or ExtrapolationPolicy
+    ///     Extrapolation policy ("flat_forward" or "flat_zero").
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurveCalibrator
+    ///     New calibrator with updated extrapolation policy.
+    #[pyo3(text_signature = "(self, policy)")]
+    fn with_extrapolation(&self, policy: Bound<'_, PyAny>) -> PyResult<Self> {
+        let ExtrapolationPolicyArg(extrap) = ExtrapolationPolicyArg::extract_bound(&policy)?;
+        let inner = self.inner.clone().with_extrapolation(extrap);
+        Ok(Self::new(inner))
+    }
+
+    /// Set the calendar identifier for schedule generation and business day adjustments.
+    ///
+    /// Parameters
+    /// ----------
+    /// calendar_id : str
+    ///     Calendar identifier (e.g., "usny" for US Federal Reserve holidays,
+    ///     "gblo" for London, "target2" for ECB).
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurveCalibrator
+    ///     New calibrator with updated calendar.
+    #[pyo3(text_signature = "(self, calendar_id)")]
+    fn with_calendar_id(&self, calendar_id: &str) -> Self {
+        let inner = self.inner.clone().with_calendar_id(calendar_id);
+        Self::new(inner)
+    }
+
+    /// Set settlement lag in business days.
+    ///
+    /// Market conventions:
+    /// - USD/EUR/JPY/CHF: 2 days (T+2)
+    /// - GBP: 0 days (T+0, same-day settlement)
+    /// - AUD/CAD: 1 day (T+1)
+    ///
+    /// Parameters
+    /// ----------
+    /// days : int
+    ///     Number of business days for settlement.
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurveCalibrator
+    ///     New calibrator with updated settlement days.
+    #[pyo3(text_signature = "(self, days)")]
+    fn with_settlement_days(&self, days: i32) -> Self {
+        let inner = self.inner.clone().with_settlement_days(days);
+        Self::new(inner)
+    }
+
+    /// Set payment delay in business days after period end.
+    ///
+    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// Set to 2 for accurate Bloomberg curve matching.
+    ///
+    /// Parameters
+    /// ----------
+    /// days : int
+    ///     Number of business days delay for payments.
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurveCalibrator
+    ///     New calibrator with updated payment delay.
+    #[pyo3(text_signature = "(self, days)")]
+    fn with_payment_delay(&self, days: i32) -> Self {
+        let inner = self.inner.clone().with_payment_delay(days);
+        Self::new(inner)
+    }
+
+    /// Set day count convention for curve time calculation.
+    ///
+    /// Market conventions:
+    /// - USD/EUR/CHF: ACT/360
+    /// - GBP/JPY/AUD/CAD: ACT/365F
+    ///
+    /// Parameters
+    /// ----------
+    /// day_count : str or DayCount
+    ///     Day count convention (e.g., "ACT/360", "ACT/365F").
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurveCalibrator
+    ///     New calibrator with updated day count.
+    #[pyo3(text_signature = "(self, day_count)")]
+    fn with_curve_day_count(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
+        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
+        let inner = self.inner.clone().with_curve_day_count(dc);
         Ok(Self::new(inner))
     }
 

@@ -104,6 +104,7 @@ proptest! {
                 end,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -119,6 +120,7 @@ proptest! {
                 start,
                 end,
                 compounding: Default::default(),
+                payment_delay_days: 0,
             })
             .build()?;
 
@@ -138,6 +140,7 @@ proptest! {
                 end,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -153,6 +156,7 @@ proptest! {
                 start,
                 end,
                 compounding: Default::default(),
+                payment_delay_days: 0,
             })
             .build()?;
 
@@ -204,6 +208,7 @@ proptest! {
                 end,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -219,6 +224,7 @@ proptest! {
                 start,
                 end,
                 compounding: Default::default(),
+                payment_delay_days: 0,
             })
             .build()?;
 
@@ -238,6 +244,7 @@ proptest! {
                 end,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -253,6 +260,7 @@ proptest! {
                 start,
                 end,
                 compounding: Default::default(),
+                payment_delay_days: 0,
             })
             .build()?;
 
@@ -331,6 +339,7 @@ proptest! {
                 end,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -346,6 +355,7 @@ proptest! {
                 start,
                 end,
                 compounding: Default::default(),
+                payment_delay_days: 0,
             })
             .build()?;
 

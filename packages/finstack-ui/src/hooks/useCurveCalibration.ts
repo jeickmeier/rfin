@@ -12,6 +12,7 @@ export interface CalibrationResult {
   points: { tenor: string; rate: string }[];
   diagnostics?: string[];
   error?: string;
+  simulated?: boolean;
 }
 
 export function useCurveCalibration(kind: "discount" | "forward") {
@@ -43,6 +44,7 @@ export function useCurveCalibration(kind: "discount" | "forward") {
           points: res.points ?? [],
           diagnostics: res.diagnostics ?? [],
           error: res.error?.message,
+          simulated: res.simulated,
         };
         setResult(normalized);
         setStatus(res.error ? "error" : "success");

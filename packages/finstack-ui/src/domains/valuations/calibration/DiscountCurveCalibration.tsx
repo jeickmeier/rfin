@@ -190,6 +190,11 @@ export function DiscountCurveCalibration() {
         </Button>
         {error ? <span className="text-xs text-red-500">{error}</span> : null}
         <p className="text-xs text-muted-foreground">Status: {status}</p>
+        {result?.simulated ? (
+          <p className="text-xs text-amber-600">
+            Simulation only — WASM calibration not yet wired.
+          </p>
+        ) : null}
       </form>
 
       {result ? (
@@ -200,11 +205,14 @@ export function DiscountCurveCalibration() {
             series={[{ label: "Zero", points: result.points }]}
           />
           {result.diagnostics?.length ? (
-            <ul className="list-disc pl-5 text-sm text-muted-foreground">
-              {result.diagnostics.map((d, idx) => (
-                <li key={idx}>{d}</li>
-              ))}
-            </ul>
+            <div className="rounded border p-2 bg-muted/40">
+              <p className="text-xs font-semibold">Diagnostics</p>
+              <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                {result.diagnostics.map((d, idx) => (
+                  <li key={idx}>{d}</li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </section>
       ) : null}

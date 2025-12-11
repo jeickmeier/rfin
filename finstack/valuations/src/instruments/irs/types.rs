@@ -297,6 +297,7 @@ impl InterestRateSwap {
                 })?,
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             })
             .float(crate::instruments::common::parameters::FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -322,6 +323,7 @@ impl InterestRateSwap {
                 })?,
                 compounding: Default::default(),
                 fixing_calendar_id: None,
+                payment_delay_days: 0,
             })
             .build()?;
 
@@ -355,6 +357,7 @@ impl InterestRateSwap {
             end,
             par_method: None,
             compounding_simple: true,
+            payment_delay_days: 0,
         };
         let float = FloatLegSpec {
             discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
@@ -370,6 +373,7 @@ impl InterestRateSwap {
             end,
             compounding: Default::default(),
             fixing_calendar_id: None,
+            payment_delay_days: 0,
         };
         let swap = Self::builder()
             .id(id)

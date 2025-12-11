@@ -10,9 +10,16 @@ import {
 } from "../../../components/primitives";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { CashflowWaterfall } from "../views/CashflowWaterfall";
+import {
+  CashflowWaterfall,
+  normalizeCashflows,
+} from "../views/CashflowWaterfall";
 import { SwapSpecSchema, type CashflowWire } from "../../../schemas/valuations";
 import { useValuation } from "../../../hooks/useValuation";
+
+const IsoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "must be an ISO date (YYYY-MM-DD)");
 
 export const SwapFormSchema = z.object({
   id: z.string().min(1),
@@ -20,8 +27,8 @@ export const SwapFormSchema = z.object({
   notional: z.number().positive(),
   pay_fixed_rate: z.number().finite(),
   receive_float_spread: z.number().finite(),
-  effective_date: z.string().min(4),
-  maturity: z.string().min(4),
+  effective_date: IsoDate,
+  maturity: IsoDate,
   tenor: z.string().min(1),
   discount_curve_id: z.string().min(1),
   forward_curve_id: z.string().min(1),
@@ -52,17 +59,9 @@ export function InterestRateSwapPanel({
   title = "Interest Rate Swap",
 }: InterestRateSwapPanelProps) {
   const { priceInstrument, result, status, error } = useValuation();
-  const cashflows: CashflowWire[] = (
-    Array.isArray((result?.raw as { cashflows?: unknown })?.cashflows)
-      ? ((result?.raw as { cashflows?: CashflowWire[] }).cashflows ?? [])
-      : []
-  ).map((row) => ({
-    ...row,
-    rate: String((row as CashflowWire).rate ?? ""),
-    notional: String((row as CashflowWire).notional ?? ""),
-    discount_factor: String((row as CashflowWire).discount_factor ?? ""),
-    present_value: String((row as CashflowWire).present_value ?? ""),
-  }));
+  const cashflows: CashflowWire[] = normalizeCashflows(
+    (result?.raw as { cashflows?: unknown })?.cashflows,
+  );
 
   const form = useForm<SwapFormValues>({
     resolver: zodResolver(SwapFormSchema),
@@ -74,7 +73,10 @@ export function InterestRateSwapPanel({
     <div className="grid grid-cols-2 gap-2 text-sm">
       <div className="font-medium">Present Value</div>
       <div data-testid="swap-pv">
-        {result?.presentValue ?? result?.error?.message ?? "—"}
+        {result?.presentValue ??
+          result?.error?.message ??
+          error?.message ??
+          "—"}
       </div>
       <div className="font-medium">Status</div>
       <div>{status}</div>
@@ -346,6 +348,10 @@ export function InterestRateSwapPanel({
             <span className="text-xs text-red-500" data-testid="swap-error">
               {error.message}
             </span>
+          ) : result?.error ? (
+            <span className="text-xs text-red-500" data-testid="swap-error">
+              {result.error.message ?? "Swap pricing unavailable"}
+            </span>
           ) : null}
         </div>
       </form>
@@ -353,6 +359,16 @@ export function InterestRateSwapPanel({
       <section className="rounded-md border p-3" data-testid="swap-metrics">
         <h4 className="text-sm font-semibold mb-2">Metrics</h4>
         {metrics}
+        {result?.diagnostics?.length ? (
+          <div className="mt-2 rounded border p-2 bg-muted/40">
+            <p className="text-xs font-semibold">Diagnostics</p>
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
+              {result.diagnostics.map((d, idx) => (
+                <li key={idx}>{d}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {cashflows.length ? (

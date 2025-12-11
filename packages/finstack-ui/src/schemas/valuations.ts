@@ -1,13 +1,17 @@
 import { z } from "zod";
 
+const IsoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "must be an ISO date (YYYY-MM-DD)");
+
 export const BondSpecSchema = z
   .object({
     id: z.string().min(1, "id is required"),
     currency: z.string().min(3, "currency code required"),
     notional: z.number().finite(),
     coupon_rate: z.number().finite(),
-    issue: z.string().min(4, "issue date required"),
-    maturity: z.string().min(4, "maturity date required"),
+    issue: IsoDate,
+    maturity: IsoDate,
     discount_curve_id: z.string().min(1, "discount curve id required"),
     credit_curve_id: z.string().nullable().optional(),
   })
@@ -30,8 +34,8 @@ export const SwapLegSchema = z
     payment_frequency: z.string().optional(),
     discount_curve_id: z.string().min(1),
     forward_curve_id: z.string().nullable().optional(),
-    start: z.string().optional(),
-    maturity: z.string().optional(),
+    start: IsoDate.optional(),
+    maturity: IsoDate.optional(),
   })
   .strict();
 
@@ -41,8 +45,8 @@ export const SwapSpecSchema = z
   .object({
     id: z.string().min(1),
     legs: z.array(SwapLegSchema).min(2, "at least two legs"),
-    effective_date: z.string().min(4),
-    maturity: z.string().min(4),
+    effective_date: IsoDate,
+    maturity: IsoDate,
     currency: z.string().min(3).optional(),
     discounting_curve_id: z.string().optional(),
   })
@@ -84,8 +88,8 @@ export const CalibrationConfigSchema = z
       .optional(),
     solver: z
       .object({
-        tolerance: z.number().optional(),
-        max_iter: z.number().int().optional(),
+        tolerance: z.number().positive().max(1).optional(),
+        max_iter: z.number().int().positive().max(10000).optional(),
       })
       .default({})
       .optional(),

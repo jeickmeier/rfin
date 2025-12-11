@@ -16,6 +16,7 @@ export * from "./hooks/useValuation";
 export * from "./hooks/useCurveCalibration";
 export * from "./lib/wasmSingleton";
 export * from "./examples/BasicRatesApp";
+export * from "./examples/InterestRateApp";
 export type { FinstackEngineWorkerApi } from "./workers/finstackEngine";
 export * from "./types/rounding";
 export * from "./schemas";

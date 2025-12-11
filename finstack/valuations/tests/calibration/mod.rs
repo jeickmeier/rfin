@@ -10,7 +10,9 @@
 //! - test_explainability: Jacobian computation and explanation tracing
 //! - test_curve_monotonicity: Property-based tests for discount curve properties
 //! - test_forward_parity: Property-based tests for forward rate parity
+//! - test_bloomberg_calibration_accuracy: Validates calibration against Bloomberg reference data
 
+mod test_bloomberg_calibration_accuracy;
 mod test_calibration;
 mod test_calibration_repricing;
 mod test_calibration_serialization;

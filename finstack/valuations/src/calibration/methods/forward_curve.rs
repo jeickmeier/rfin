@@ -856,6 +856,7 @@ impl ForwardCurveCalibrator {
                     compounding_simple: true,
                     start: self.base_date,
                     end: *maturity,
+                    payment_delay_days: 0,
                 };
 
                 let float_spec = FloatLegSpec {
@@ -872,6 +873,7 @@ impl ForwardCurveCalibrator {
                     reset_lag_days: self.reset_lag,
                     start: self.base_date,
                     end: *maturity,
+                    payment_delay_days: 0,
                 };
 
                 let swap = InterestRateSwap {

@@ -107,6 +107,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
                 end: date!(2025 - 01 - 01),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -122,6 +123,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 01),
                 end: date!(2025 - 01 - 01),
             },
@@ -161,6 +163,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
                 end: date!(2026 - 01 - 01),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -176,6 +179,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 01),
                 end: date!(2026 - 01 - 01),
             },
@@ -236,6 +240,7 @@ fn test_irs_stub_front() {
                 end: date!(2026 - 01 - 01),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -251,6 +256,7 @@ fn test_irs_stub_front() {
                 stub: StubKind::ShortFront,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 15),
                 end: date!(2026 - 01 - 01),
             },
@@ -286,6 +292,7 @@ fn test_irs_stub_back() {
                 end: date!(2026 - 06 - 15),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -301,6 +308,7 @@ fn test_irs_stub_back() {
                 stub: StubKind::ShortBack,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 01),
                 end: date!(2026 - 06 - 15),
             },
@@ -418,6 +426,7 @@ fn test_irs_different_frequencies() {
                 end: date!(2026 - 01 - 01),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -433,6 +442,7 @@ fn test_irs_different_frequencies() {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 01),
                 end: date!(2026 - 01 - 01),
             },
@@ -469,6 +479,7 @@ fn test_irs_calendar_adjustments() {
                 end: date!(2026 - 01 - 01),
                 par_method: None,
                 compounding_simple: true,
+                payment_delay_days: 0,
             },
         )
         .float(
@@ -484,6 +495,7 @@ fn test_irs_calendar_adjustments() {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
+                payment_delay_days: 0,
                 start: date!(2024 - 01 - 01),
                 end: date!(2026 - 01 - 01),
             },

@@ -243,12 +243,84 @@ impl DiscountCurve {
     }
 
     /// Continuously-compounded zero rate.
+    ///
+    /// Formula: `r_cc = -ln(DF) / t`
     #[inline]
     pub fn zero(&self, t: f64) -> f64 {
         if t == 0.0 {
             return 0.0;
         }
         -self.df(t).ln() / t
+    }
+
+    /// Annually-compounded zero rate (bond equivalent yield convention).
+    ///
+    /// This is the rate quoted for most bonds and is commonly used by
+    /// Bloomberg for displaying zero rates.
+    ///
+    /// Formula: `r_annual = DF^(-1/t) - 1`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
+    ///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+    ///     .build()
+    ///     .expect("DiscountCurve should build");
+    ///
+    /// // At 1Y, DF = 0.95, so annual rate = 0.95^(-1) - 1 ≈ 5.26%
+    /// let annual_rate = curve.zero_annual(1.0);
+    /// assert!((annual_rate - 0.0526).abs() < 0.001);
+    /// ```
+    #[inline]
+    pub fn zero_annual(&self, t: f64) -> f64 {
+        if t == 0.0 {
+            return 0.0;
+        }
+        self.df(t).powf(-1.0 / t) - 1.0
+    }
+
+    /// Periodically-compounded zero rate with `n` compounding periods per year.
+    ///
+    /// Common values for `n`:
+    /// - 1: Annual (same as `zero_annual`)
+    /// - 2: Semi-annual (US Treasury convention)
+    /// - 4: Quarterly
+    /// - 12: Monthly
+    ///
+    /// Formula: `r_periodic = n * (DF^(-1/(n*t)) - 1)`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
+    ///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+    ///     .build()
+    ///     .expect("DiscountCurve should build");
+    ///
+    /// // Semi-annual compounded rate at 1Y
+    /// let semi_annual_rate = curve.zero_periodic(1.0, 2);
+    /// // Annual rate should equal periodic with n=1
+    /// let annual_via_periodic = curve.zero_periodic(1.0, 1);
+    /// assert!((curve.zero_annual(1.0) - annual_via_periodic).abs() < 1e-12);
+    /// ```
+    #[inline]
+    pub fn zero_periodic(&self, t: f64, n: u32) -> f64 {
+        if t == 0.0 || n == 0 {
+            return 0.0;
+        }
+        let n_f = n as f64;
+        n_f * (self.df(t).powf(-1.0 / (n_f * t)) - 1.0)
     }
 
     /// Simple forward rate between `t1` and `t2`.
@@ -317,6 +389,65 @@ impl DiscountCurve {
             }
         };
         self.df(t)
+    }
+
+    /// Continuously-compounded zero rate on a specific date using the curve's day-count.
+    ///
+    /// This is equivalent to `curve.zero(t)` where `t` is the year fraction from
+    /// base date to `date` using the curve's day-count convention.
+    #[inline]
+    pub fn zero_on_date(&self, date: Date) -> f64 {
+        let t = self.year_fraction_to(date);
+        self.zero(t)
+    }
+
+    /// Annually-compounded zero rate on a specific date using the curve's day-count.
+    ///
+    /// This is equivalent to `curve.zero_annual(t)` where `t` is the year fraction
+    /// from base date to `date` using the curve's day-count convention.
+    ///
+    /// This convention is commonly used by Bloomberg for displaying zero rates.
+    #[inline]
+    pub fn zero_annual_on_date(&self, date: Date) -> f64 {
+        let t = self.year_fraction_to(date);
+        self.zero_annual(t)
+    }
+
+    /// Periodically-compounded zero rate on a specific date using the curve's day-count.
+    ///
+    /// This is equivalent to `curve.zero_periodic(t, n)` where `t` is the year fraction
+    /// from base date to `date` using the curve's day-count convention.
+    #[inline]
+    pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> f64 {
+        let t = self.year_fraction_to(date);
+        self.zero_periodic(t, n)
+    }
+
+    /// Simple forward rate between two dates using the curve's day-count.
+    ///
+    /// This is equivalent to `curve.forward(t1, t2)` where `t1` and `t2` are
+    /// year fractions from base date using the curve's day-count convention.
+    ///
+    /// # Panics
+    ///
+    /// Debug-asserts that `d2 > d1`.
+    #[inline]
+    pub fn forward_on_dates(&self, d1: Date, d2: Date) -> f64 {
+        let t1 = self.year_fraction_to(d1);
+        let t2 = self.year_fraction_to(d2);
+        self.forward(t1, t2)
+    }
+
+    /// Helper: compute year fraction from base date to target date using curve's day-count.
+    #[inline]
+    fn year_fraction_to(&self, date: Date) -> f64 {
+        if date == self.base {
+            0.0
+        } else {
+            self.day_count
+                .year_fraction(self.base, date, DayCountCtx::default())
+                .unwrap_or(0.0)
+        }
     }
 
     /// Create a new curve with a parallel rate bump applied in basis points (fallible).

@@ -14,9 +14,18 @@ function createWasmMock() {
       currency: { code: "USD" },
     },
   }));
+  const priceSwapFn = vi.fn(() => ({
+    presentValue: {
+      amount: 456.78,
+      currency: { code: "USD" },
+    },
+  }));
 
   const mock: WasmMock = {
     default: initFn,
+    Currency: class {
+      constructor(public code: string) {}
+    },
     FinstackConfig: class {
       roundingMode = "nearest";
       setOutputScale() {}
@@ -32,12 +41,39 @@ function createWasmMock() {
     },
     Bond: {
       fromJson: vi.fn((json: string) => ({ bondJson: json })),
+      fixedSemiannual: vi.fn(
+        (
+          id: string,
+          notional: unknown,
+          couponRate: number,
+          issue: unknown,
+          maturity: unknown,
+          discountCurve: string,
+        ) => ({
+          id,
+          notional,
+          couponRate,
+          issue,
+          maturity,
+          discountCurve,
+        }),
+      ),
+    },
+    InterestRateSwap: class {
+      constructor(...args: unknown[]) {
+        this.args = args;
+      }
+    },
+    Money: {
+      fromCode: (amt: number, currency: string) => ({ amount: amt, currency }),
     },
     createStandardRegistry: vi.fn(() => ({
       priceBond: priceBondFn,
+      priceInterestRateSwap: priceSwapFn,
     })),
     PricerRegistry: class {
       priceBond = priceBondFn;
+      priceInterestRateSwap = priceSwapFn;
     },
     FsDate: class {
       constructor(
@@ -76,7 +112,12 @@ describe("basic rates golden flows", () => {
     );
 
     const result = await testApi.api.priceInstrument(
-      JSON.stringify({ instrumentId: "bond-golden", type: "Bond" }),
+      JSON.stringify({
+        instrumentId: "bond-golden",
+        type: "Bond",
+        issue: "2024-01-01",
+        maturity: "2029-01-01",
+      }),
     );
 
     expect(priceBondFn).toHaveBeenCalled();
@@ -85,7 +126,8 @@ describe("basic rates golden flows", () => {
   });
 
   it("prices swap using stubbed path", async () => {
-    const testApi = await loadWorker(createWasmMock().mock);
+    const { mock, initFn } = createWasmMock();
+    const testApi = await loadWorker(mock);
     await testApi.api.initialize(null, null);
     const result = await testApi.api.priceInstrument(
       JSON.stringify({
@@ -115,10 +157,13 @@ describe("basic rates golden flows", () => {
             forward_curve_id: "USD-LIBOR",
           },
         ],
+        effective_date: "2024-01-01",
+        maturity: "2029-01-01",
       }),
     );
-    expect(result.presentValue).toBeDefined();
-    expect(result.cashflows?.length).toBeGreaterThan(0);
+    expect(result.presentValue).toBe("456.78");
+    expect(result.diagnostics).toBeUndefined();
+    expect(initFn).toHaveBeenCalled();
   });
 
   it("calibrates discount and forward curves", async () => {
@@ -138,5 +183,8 @@ describe("basic rates golden flows", () => {
     expect(discount.curveId).toBe("USD-OIS");
     expect(discount.points[0]?.rate).toBe("0.05");
     expect(forward.curveId).toBe("USD-LIBOR");
+    expect(discount.simulated).toBe(true);
+    expect(forward.simulated).toBe(true);
+    expect(discount.diagnostics?.length).toBeGreaterThan(0);
   });
 });

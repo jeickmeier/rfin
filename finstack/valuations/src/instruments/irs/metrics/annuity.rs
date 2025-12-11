@@ -7,13 +7,14 @@
 //! # Definition
 //!
 //! ```text
-//! Annuity = Σ α_i × DF(T_i)
+//! Annuity = Σ α_i × DF(T_i + payment_delay)
 //! ```
 //!
 //! where:
 //! - `α_i` = accrual factor for period i (from day count convention)
-//! - `DF(T_i)` = discount factor to payment date i (relative to valuation date)
+//! - `DF(T_i + payment_delay)` = discount factor to actual payment date (relative to valuation date)
 //! - Sum includes only future cashflows (T_i > as_of)
+//! - `payment_delay` = payment delay in business days (typically 2 for OIS swaps)
 //!
 //! # Applications
 //!
@@ -29,6 +30,10 @@
 //! compounding configuration affects coupon accrual (handled in cashflow
 //! builders), not the annuity weight calculation itself.
 //!
+//! Payment delay is applied using weekday-only business day adjustment
+//! (skipping weekends). For precise holiday-aware adjustments, use a full
+//! calendar-based schedule builder.
+//!
 //! # Numerical Stability
 //!
 //! Uses Kahan compensated summation to minimize floating-point rounding errors,
@@ -43,7 +48,7 @@
 
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DateExt};
 use finstack_core::math::kahan_sum;
 
 /// Fixed-leg annuity calculator for interest rate swaps.
@@ -78,6 +83,9 @@ impl MetricCalculator for AnnuityCalculator {
         let mut terms = Vec::with_capacity(dates.len());
         let mut prev = dates[0];
 
+        // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
+        let payment_delay = irs.fixed.payment_delay_days;
+
         for &d in &dates[1..] {
             // Only include future cashflows
             if d <= as_of {
@@ -91,8 +99,12 @@ impl MetricCalculator for AnnuityCalculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?;
 
+            // Apply payment delay: actual payment occurs payment_delay_days after period end
+            // Use add_weekdays for weekday-only business day adjustment (skips weekends)
+            let payment_date = d.add_weekdays(payment_delay);
+
             // Use shared helper - handles epsilon validation and relative DF calculation
-            let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
+            let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, payment_date)?;
 
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity

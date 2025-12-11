@@ -107,6 +107,7 @@ fn main() -> finstack_core::Result<()> {
             end: maturity_5y,
             par_method: None,
             compounding_simple: true,
+            payment_delay_days: 0,
         })
         .float(finstack_valuations::instruments::irs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
@@ -122,6 +123,7 @@ fn main() -> finstack_core::Result<()> {
             start: issue,
             end: maturity_5y,
             compounding: Default::default(),
+            payment_delay_days: 0,
         })
         .build()?;
     println!(

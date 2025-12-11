@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import { GenericInstrumentPanel } from "../../../components/genui";
-import { CashflowWaterfall } from "../views/CashflowWaterfall";
+import {
+  CashflowWaterfall,
+  normalizeCashflows,
+} from "../views/CashflowWaterfall";
 import {
   BondSpecSchema,
   type BondSpecInput,
-  type CashflowWire,
 } from "../../../schemas/valuations";
 import { useValuation } from "../../../hooks/useValuation";
 
@@ -27,17 +29,9 @@ export interface BondPanelProps {
 export function BondPanel({ preset, title = "Bond" }: BondPanelProps) {
   const { priceInstrument, result, status, error } = useValuation();
 
-  const cashflows: CashflowWire[] = (
-    Array.isArray((result?.raw as { cashflows?: unknown })?.cashflows)
-      ? ((result?.raw as { cashflows?: CashflowWire[] }).cashflows ?? [])
-      : []
-  ).map((row) => ({
-    ...row,
-    rate: String((row as CashflowWire).rate ?? ""),
-    notional: String((row as CashflowWire).notional ?? ""),
-    discount_factor: String((row as CashflowWire).discount_factor ?? ""),
-    present_value: String((row as CashflowWire).present_value ?? ""),
-  }));
+  const cashflows = normalizeCashflows(
+    (result?.raw as { cashflows?: unknown })?.cashflows,
+  );
 
   const metrics: ReactNode = (
     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -97,7 +91,6 @@ export function BondPanel({ preset, title = "Bond" }: BondPanelProps) {
           },
         ]}
         onSubmit={async (values) => {
-          console.log("[BondPanel] onSubmit values:", values);
           await priceInstrument({
             ...values,
             type: "Bond",

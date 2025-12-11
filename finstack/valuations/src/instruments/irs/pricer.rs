@@ -168,9 +168,17 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
     ) -> Result<Money> {
+        use finstack_core::dates::DateExt;
+
+        // Apply payment delay to payment dates (typically 2 business days for OIS swaps)
+        let payment_delay = self.float.payment_delay_days;
+
         // Start and end discount factors for the OIS leg (relative to as_of)
+        // Note: For OIS, the start "payment" is notional exchange at settlement,
+        // and the end payment (principal + compounded interest) is delayed by payment_delay_days
         let df_start = relative_df(disc, as_of, self.float.start)?;
-        let df_end = relative_df(disc, as_of, self.float.end)?;
+        let end_payment_date = self.float.end.add_weekdays(payment_delay);
+        let df_end = relative_df(disc, as_of, end_payment_date)?;
 
         let mut pv = self.notional.amount() * (df_start - df_end);
 
@@ -262,7 +270,12 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
+        use finstack_core::dates::DateExt;
+
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
+
+        // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
+        let payment_delay = self.fixed.payment_delay_days;
 
         // Collect discounted flows for Kahan summation
         let mut terms = Vec::with_capacity(sched.flows.len());
@@ -276,8 +289,11 @@ impl InterestRateSwap {
                     continue;
                 }
 
+                // Apply payment delay: actual payment occurs payment_delay_days after period end
+                let payment_date = cf.date.add_weekdays(payment_delay);
+
                 // Discount from as_of for correct theta
-                let df = relative_df(disc, as_of, cf.date)?;
+                let df = relative_df(disc, as_of, payment_date)?;
                 terms.push(cf.amount.amount() * df);
             }
         }

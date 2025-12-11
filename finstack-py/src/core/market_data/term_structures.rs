@@ -278,6 +278,66 @@ impl PyDiscountCurve {
         self.inner.forward(t1, t2)
     }
 
+    /// Annually compounded zero rate for maturity ``t`` (years).
+    ///
+    /// This is the bond equivalent yield convention commonly used by
+    /// Bloomberg for displaying zero rates.
+    ///
+    /// Formula: ``r_annual = DF^(-1/t) - 1``
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years from the base date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Zero rate with annual compounding, expressed in decimal form.
+    ///
+    /// Examples
+    /// --------
+    /// >>> curve = DiscountCurve("USD", base_date, [(0.0, 1.0), (1.0, 0.95)])
+    /// >>> curve.zero_annual(1.0)  # ~5.26% for DF=0.95
+    /// 0.05263157894736842
+    #[pyo3(text_signature = "(self, t)")]
+    fn zero_annual(&self, t: f64) -> f64 {
+        self.inner.zero_annual(t)
+    }
+
+    /// Periodically compounded zero rate with ``n`` compounding periods per year.
+    ///
+    /// Common values for ``n``:
+    ///
+    /// - 1: Annual (same as ``zero_annual``)
+    /// - 2: Semi-annual (US Treasury convention)
+    /// - 4: Quarterly
+    /// - 12: Monthly
+    ///
+    /// Formula: ``r_periodic = n * (DF^(-1/(n*t)) - 1)``
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years from the base date.
+    /// n : int
+    ///     Number of compounding periods per year.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Zero rate with periodic compounding, expressed in decimal form.
+    ///
+    /// Examples
+    /// --------
+    /// >>> curve = DiscountCurve("USD", base_date, [(0.0, 1.0), (1.0, 0.95)])
+    /// >>> curve.zero_periodic(1.0, 2)  # Semi-annual compounding
+    /// 0.05195190528383289
+    #[pyo3(text_signature = "(self, t, n)")]
+    fn zero_periodic(&self, t: f64, n: u32) -> f64 {
+        self.inner.zero_periodic(t, n)
+    }
+
     /// Discount factor on a calendar date using the curve's base date.
     ///
     /// Parameters
@@ -293,6 +353,103 @@ impl PyDiscountCurve {
     fn df_on_date(&self, _py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
         Ok(self.inner.df_on_date_curve(d))
+    }
+
+    /// Continuously compounded zero rate on a calendar date.
+    ///
+    /// Uses the curve's day-count convention to compute the year fraction
+    /// from base date to the target date, ensuring consistency.
+    ///
+    /// Parameters
+    /// ----------
+    /// date : datetime.date
+    ///     Calendar date to evaluate.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Continuously compounded zero rate at the supplied date.
+    #[pyo3(text_signature = "(self, date)")]
+    fn zero_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        Ok(self.inner.zero_on_date(d))
+    }
+
+    /// Annually compounded zero rate on a calendar date.
+    ///
+    /// Uses the curve's day-count convention to compute the year fraction
+    /// from base date to the target date. This is the convention commonly
+    /// used by Bloomberg for displaying zero rates.
+    ///
+    /// Parameters
+    /// ----------
+    /// date : datetime.date
+    ///     Calendar date to evaluate.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annually compounded zero rate at the supplied date.
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> curve.zero_annual_on_date(date(2026, 12, 14))
+    /// 0.0342  # ~3.42% annual rate
+    #[pyo3(text_signature = "(self, date)")]
+    fn zero_annual_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        Ok(self.inner.zero_annual_on_date(d))
+    }
+
+    /// Periodically compounded zero rate on a calendar date.
+    ///
+    /// Uses the curve's day-count convention to compute the year fraction.
+    ///
+    /// Parameters
+    /// ----------
+    /// date : datetime.date
+    ///     Calendar date to evaluate.
+    /// n : int
+    ///     Number of compounding periods per year (1=annual, 2=semi-annual, etc.).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Periodically compounded zero rate at the supplied date.
+    #[pyo3(text_signature = "(self, date, n)")]
+    fn zero_periodic_on_date(&self, date: Bound<'_, PyAny>, n: u32) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        Ok(self.inner.zero_periodic_on_date(d, n))
+    }
+
+    /// Forward rate between two calendar dates.
+    ///
+    /// Uses the curve's day-count convention to compute year fractions,
+    /// ensuring consistency with curve construction.
+    ///
+    /// Parameters
+    /// ----------
+    /// d1 : datetime.date
+    ///     Start date.
+    /// d2 : datetime.date
+    ///     End date (must be after d1).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward rate for the interval ``(d1, d2)``.
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> curve.forward_on_dates(date(2025, 12, 12), date(2026, 12, 14))
+    /// 0.0365  # ~3.65% forward rate
+    #[pyo3(text_signature = "(self, d1, d2)")]
+    fn forward_on_dates(&self, d1: Bound<'_, PyAny>, d2: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date1 = py_to_date(&d1).context("d1")?;
+        let date2 = py_to_date(&d2).context("d2")?;
+        Ok(self.inner.forward_on_dates(date1, date2))
     }
 
     #[pyo3(text_signature = "(self, cash_flows, day_count=None)")]

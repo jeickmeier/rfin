@@ -85,6 +85,12 @@ pub struct DiscountCurveCalibrator {
     /// Day count for curve time (None = use currency default)
     #[serde(default)]
     pub curve_day_count: Option<DayCount>,
+    /// Payment delay in business days after period end (default: 0).
+    ///
+    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// Set to 2 for accurate Bloomberg curve matching.
+    #[serde(default)]
+    pub payment_delay_days: i32,
 }
 
 fn default_extrapolation() -> ExtrapolationPolicy {
@@ -99,6 +105,7 @@ impl DiscountCurveCalibrator {
     /// - Extrapolation: FlatForward (standard for risk)
     /// - Settlement: Currency-specific (T+2 for USD/EUR, T+0 for GBP)
     /// - Day count: Currency-specific (ACT/360 for USD/EUR, ACT/365 for GBP)
+    /// - Payment delay: 0 (set to 2 for Bloomberg OIS matching)
     pub fn new(curve_id: impl Into<CurveId>, base_date: Date, currency: Currency) -> Self {
         Self {
             curve_id: curve_id.into(),
@@ -108,8 +115,9 @@ impl DiscountCurveCalibrator {
             config: CalibrationConfig::default(), // Defaults to multi-curve mode
             currency,
             calendar_id: None,
-            settlement_days: None, // Will use currency default
-            curve_day_count: None, // Will use currency default
+            settlement_days: None,   // Will use currency default
+            curve_day_count: None,   // Will use currency default
+            payment_delay_days: 0,   // Default 0; set to 2 for Bloomberg OIS
         }
     }
 
@@ -160,6 +168,22 @@ impl DiscountCurveCalibrator {
     /// Set explicit day count for curve time (overrides currency default).
     pub fn with_curve_day_count(mut self, day_count: DayCount) -> Self {
         self.curve_day_count = Some(day_count);
+        self
+    }
+
+    /// Set payment delay in business days after period end.
+    ///
+    /// Bloomberg OIS swaps typically use 2 business days payment delay.
+    /// Set to 2 for accurate Bloomberg curve matching.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+    ///     .with_payment_delay(2);  // Match Bloomberg OIS convention
+    /// ```
+    pub fn with_payment_delay(mut self, days: i32) -> Self {
+        self.payment_delay_days = days;
         self
     }
 
@@ -910,8 +934,11 @@ impl DiscountCurveCalibrator {
                 ..
             } => {
                 // Create swap instrument
+                // Swaps start at settlement date (T+2), not at base_date
                 use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
+
+                let settlement = self.settlement_date()?;
 
                 let fixed_spec = FixedLegSpec {
                     discount_curve_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
@@ -923,8 +950,9 @@ impl DiscountCurveCalibrator {
                     stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
-                    start: self.base_date,
+                    start: settlement, // Use settlement date (T+2), not base_date
                     end: *maturity,
+                    payment_delay_days: self.payment_delay_days,
                 };
 
                 // For OIS quotes, configure the floating leg as an overnight-indexed
@@ -956,9 +984,10 @@ impl DiscountCurveCalibrator {
                     fixing_calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     reset_lag_days: 2,
-                    start: self.base_date,
+                    start: settlement, // Use settlement date (T+2), not base_date
                     end: *maturity,
                     compounding,
+                    payment_delay_days: self.payment_delay_days,
                 };
 
                 let swap = InterestRateSwap {
@@ -1261,6 +1290,7 @@ pub fn create_ois_swap_from_quote(
         compounding_simple: true,
         start: base_date,
         end: maturity,
+        payment_delay_days: 0, // Default; caller can modify swap.fixed.payment_delay_days if needed
     };
 
     let float_spec = FloatLegSpec {
@@ -1277,6 +1307,7 @@ pub fn create_ois_swap_from_quote(
         start: base_date,
         end: maturity,
         compounding: FloatingLegCompounding::sofr(),
+        payment_delay_days: 0, // Default; caller can modify swap.float.payment_delay_days if needed
     };
 
     InterestRateSwap::builder()
@@ -1668,6 +1699,7 @@ mod tests {
                 compounding_simple: true,
                 start,
                 end,
+                payment_delay_days: 0,
             })
             .float(crate::instruments::irs::FloatLegSpec {
                 discount_curve_id: "USD-OIS".into(),
@@ -1683,6 +1715,7 @@ mod tests {
                 start,
                 end,
                 compounding: FloatingLegCompounding::sofr(),
+                payment_delay_days: 0,
             })
             .build()
             .expect("IRS builder should succeed with valid test data");

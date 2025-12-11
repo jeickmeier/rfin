@@ -82,6 +82,7 @@ impl JsInterestRateSwap {
             end: end.inner(),
             par_method: None,
             compounding_simple: true,
+            payment_delay_days: 0,
         };
         let float = FloatLegSpec {
             discount_curve_id: curve_id_from_str(discount_curve),
@@ -97,6 +98,7 @@ impl JsInterestRateSwap {
             start: start.inner(),
             end: end.inner(),
             compounding: Default::default(),
+            payment_delay_days: 0,
         };
         let swap = InterestRateSwap::builder()
             .id(instrument_id_from_str(instrument_id))
