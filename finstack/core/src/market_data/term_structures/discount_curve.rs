@@ -323,6 +323,45 @@ impl DiscountCurve {
         n_f * (self.df(t).powf(-1.0 / (n_f * t)) - 1.0)
     }
 
+    /// Simple interest (money market) zero rate.
+    ///
+    /// This is the rate used in money market instruments (LIBOR, SOFR for tenors < 1Y)
+    /// where interest accrues linearly without compounding.
+    ///
+    /// Formula: `r_simple = (1/DF - 1) / t`
+    ///
+    /// Derived from: `DF(t) = 1 / (1 + r × t)`
+    ///
+    /// # Bloomberg Equivalent
+    ///
+    /// This matches Bloomberg's simple interest zero rate output when compounding
+    /// is set to "Simple" in curve display screens.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
+    ///     .knots([(0.0, 1.0), (0.25, 0.99), (1.0, 0.95)])
+    ///     .build()
+    ///     .expect("DiscountCurve should build");
+    ///
+    /// // At 3M (0.25Y), DF = 0.99, so simple rate = (1/0.99 - 1) / 0.25 ≈ 4.04%
+    /// let simple_rate = curve.zero_simple(0.25);
+    /// assert!((simple_rate - 0.0404).abs() < 0.001);
+    /// ```
+    #[inline]
+    pub fn zero_simple(&self, t: f64) -> f64 {
+        if t == 0.0 {
+            return 0.0;
+        }
+        (1.0 / self.df(t) - 1.0) / t
+    }
+
     /// Simple forward rate between `t1` and `t2`.
     ///
     /// The forward rate `f(t1, t2)` satisfies: `DF(t2) = DF(t1) * exp(-f * (t2-t1))`
@@ -421,6 +460,19 @@ impl DiscountCurve {
     pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> f64 {
         let t = self.year_fraction_to(date);
         self.zero_periodic(t, n)
+    }
+
+    /// Simple interest zero rate on a specific date using the curve's day-count.
+    ///
+    /// This is equivalent to `curve.zero_simple(t)` where `t` is the year fraction
+    /// from base date to `date` using the curve's day-count convention.
+    ///
+    /// This convention is commonly used for money market instruments with
+    /// tenors less than one year.
+    #[inline]
+    pub fn zero_simple_on_date(&self, date: Date) -> f64 {
+        let t = self.year_fraction_to(date);
+        self.zero_simple(t)
     }
 
     /// Simple forward rate between two dates using the curve's day-count.
@@ -1292,6 +1344,138 @@ mod tests {
             rates[0] >= 0.0 && rates[0] < 0.001,
             "First forward should be near 0.02%: actual {:.4}%",
             rates[0] * 100.0
+        );
+    }
+
+    #[test]
+    fn zero_simple_matches_bloomberg_formula() {
+        // Test the simple interest zero rate formula: r = (1/DF - 1) / t
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let curve = DiscountCurve::builder("USD-MM")
+            .base_date(base)
+            .knots([
+                (0.0, 1.0),
+                (0.25, 0.99),  // 3M: DF = 0.99
+                (0.5, 0.975),  // 6M: DF = 0.975
+                (1.0, 0.95),   // 1Y: DF = 0.95
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+
+        // At 3M (0.25Y), DF = 0.99
+        // Simple rate = (1/0.99 - 1) / 0.25 = 0.01010101... / 0.25 ≈ 4.04%
+        let simple_3m = curve.zero_simple(0.25);
+        let expected_3m = (1.0 / 0.99 - 1.0) / 0.25;
+        assert!(
+            (simple_3m - expected_3m).abs() < 1e-12,
+            "3M simple rate mismatch: {} vs {}",
+            simple_3m,
+            expected_3m
+        );
+
+        // At 6M (0.5Y), DF = 0.975
+        // Simple rate = (1/0.975 - 1) / 0.5 ≈ 5.13%
+        let simple_6m = curve.zero_simple(0.5);
+        let expected_6m = (1.0 / 0.975 - 1.0) / 0.5;
+        assert!(
+            (simple_6m - expected_6m).abs() < 1e-12,
+            "6M simple rate mismatch: {} vs {}",
+            simple_6m,
+            expected_6m
+        );
+
+        // At 1Y, DF = 0.95
+        // Simple rate = (1/0.95 - 1) / 1.0 ≈ 5.26%
+        let simple_1y = curve.zero_simple(1.0);
+        let expected_1y = (1.0 / 0.95 - 1.0) / 1.0;
+        assert!(
+            (simple_1y - expected_1y).abs() < 1e-12,
+            "1Y simple rate mismatch: {} vs {}",
+            simple_1y,
+            expected_1y
+        );
+
+        // Test edge case: t = 0 should return 0
+        assert!(
+            curve.zero_simple(0.0).abs() < 1e-15,
+            "Simple rate at t=0 should be 0"
+        );
+    }
+
+    #[test]
+    fn zero_simple_vs_other_compounding_conventions() {
+        // For typical market rates, simple > annual > continuous for positive rates
+        // This is because more frequent compounding yields more interest
+        //
+        // Note: At t=1, simple and annual rates are mathematically identical:
+        //   simple:  r = (1/DF - 1) / t  →  at t=1: r = 1/DF - 1
+        //   annual:  r = DF^(-1/t) - 1   →  at t=1: r = 1/DF - 1
+        // So we test at t=2 where they differ.
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let curve = DiscountCurve::builder("USD-TEST")
+            .base_date(base)
+            .knots([
+                (0.0, 1.0),
+                (1.0, 0.95),
+                (2.0, 0.90),  // DF at 2Y
+                (5.0, 0.75),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+
+        // At 2Y maturity (where simple ≠ annual)
+        let t = 2.0;
+        let simple = curve.zero_simple(t);
+        let annual = curve.zero_annual(t);
+        let continuous = curve.zero(t);
+
+        // For positive rates and t > 1: simple > annual > continuous
+        // (less compounding means higher quoted rate for same DF)
+        assert!(
+            simple > annual,
+            "Simple rate ({:.6}) should be > annual rate ({:.6}) at t={}",
+            simple,
+            annual,
+            t
+        );
+        assert!(
+            annual > continuous,
+            "Annual rate ({:.6}) should be > continuous rate ({:.6})",
+            annual,
+            continuous
+        );
+
+        // Verify round-trip: all rates should produce the same DF
+        let df = curve.df(t);
+        let df_from_simple = 1.0 / (1.0 + simple * t);
+        let df_from_annual = (1.0 + annual).powf(-t);
+        let df_from_continuous = (-continuous * t).exp();
+
+        assert!(
+            (df - df_from_simple).abs() < 1e-12,
+            "Simple rate should reproduce DF"
+        );
+        assert!(
+            (df - df_from_annual).abs() < 1e-12,
+            "Annual rate should reproduce DF"
+        );
+        assert!(
+            (df - df_from_continuous).abs() < 1e-12,
+            "Continuous rate should reproduce DF"
+        );
+
+        // Also verify at t=1 that simple equals annual (mathematical identity)
+        let simple_1y = curve.zero_simple(1.0);
+        let annual_1y = curve.zero_annual(1.0);
+        assert!(
+            (simple_1y - annual_1y).abs() < 1e-12,
+            "At t=1, simple ({:.6}) should equal annual ({:.6})",
+            simple_1y,
+            annual_1y
         );
     }
 }
