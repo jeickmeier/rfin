@@ -162,6 +162,22 @@ pub enum SolverKind {
     LevenbergMarquardt,
 }
 
+/// Calibration method selection (bootstrap vs global solve).
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum CalibrationMethod {
+    /// Traditional sequential bootstrap (default).
+    #[default]
+    Bootstrap,
+    /// Global solve of all knots simultaneously (Newton/LM).
+    GlobalSolve {
+        /// Use analytical Jacobian if available (otherwise finite-difference).
+        #[serde(default)]
+        use_analytical_jacobian: bool,
+    },
+}
+
 /// Multi-curve calibration configuration
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -231,6 +247,9 @@ pub struct CalibrationConfig {
     /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.
     #[serde(default)]
     pub rate_bounds: RateBounds,
+    /// Calibration method (bootstrap vs global solve).
+    #[serde(default)]
+    pub calibration_method: CalibrationMethod,
 }
 
 impl Default for CalibrationConfig {
@@ -249,6 +268,7 @@ impl Default for CalibrationConfig {
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds: RateBounds::default(),
+            calibration_method: CalibrationMethod::default(),
         }
     }
 }
@@ -294,6 +314,13 @@ impl CalibrationConfig {
     #[must_use]
     pub fn with_rate_bounds(mut self, bounds: RateBounds) -> Self {
         self.rate_bounds = bounds;
+        self
+    }
+
+    /// Set the calibration method (bootstrap vs global solve).
+    #[must_use]
+    pub fn with_calibration_method(mut self, method: CalibrationMethod) -> Self {
+        self.calibration_method = method;
         self
     }
 
@@ -379,6 +406,7 @@ impl CalibrationConfig {
                 min_rate: -0.05,
                 max_rate: 1.00, // Allow up to 100% for conservative edge cases
             },
+            calibration_method: CalibrationMethod::default(),
         }
     }
 
@@ -418,6 +446,7 @@ impl CalibrationConfig {
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds: RateBounds::default(),
+            calibration_method: CalibrationMethod::default(),
         }
     }
 
@@ -457,6 +486,7 @@ impl CalibrationConfig {
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds: RateBounds::default(),
+            calibration_method: CalibrationMethod::default(),
         }
     }
 

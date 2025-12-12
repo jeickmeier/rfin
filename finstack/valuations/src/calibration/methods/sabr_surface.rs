@@ -67,6 +67,17 @@ pub struct VolSurfaceCalibrator {
     pub surface_interp: SurfaceInterp,
     /// Optional discount curve id for risk-free rates used in forward extraction
     pub discount_id: Option<CurveId>,
+    /// Optional spot override used for forward construction.
+    ///
+    /// When set, this value is used instead of reading spot from `MarketContext`.
+    #[serde(default)]
+    pub spot_override: Option<f64>,
+    /// Optional dividend yield override used for forward construction.
+    ///
+    /// When set, this value is used instead of reading dividend yield from `MarketContext`.
+    /// Dividend yield is expected in decimal terms (e.g. 0.02 for 2%).
+    #[serde(default)]
+    pub dividend_yield_override: Option<f64>,
 }
 
 impl VolSurfaceCalibrator {
@@ -89,6 +100,8 @@ impl VolSurfaceCalibrator {
             base_currency: Currency::USD,
             surface_interp: SurfaceInterp::Bilinear,
             discount_id: None,
+            spot_override: None,
+            dividend_yield_override: None,
         }
     }
 
@@ -125,6 +138,23 @@ impl VolSurfaceCalibrator {
     /// Set the discount curve id to use for risk-free rates when extracting forwards.
     pub fn with_discount_id(mut self, discount_id: impl Into<CurveId>) -> Self {
         self.discount_id = Some(discount_id.into());
+        self
+    }
+
+    /// Set a spot override for forward construction.
+    ///
+    /// This is useful when spot is not present in `MarketContext`, or when you want
+    /// to explicitly control the forward construction inputs.
+    pub fn with_spot_override(mut self, spot: f64) -> Self {
+        self.spot_override = Some(spot);
+        self
+    }
+
+    /// Set a dividend yield override for forward construction.
+    ///
+    /// Yield is expected in decimal terms (e.g. 0.02 for 2%).
+    pub fn with_dividend_yield_override(mut self, dividend_yield: f64) -> Self {
+        self.dividend_yield_override = Some(dividend_yield);
         self
     }
 
@@ -169,8 +199,12 @@ impl VolSurfaceCalibrator {
             .with_max_iterations(self.config.max_iterations)
             .with_fd_gradients(self.config.use_fd_sabr_gradients);
 
+        let mut skipped_insufficient_quotes: Vec<f64> = Vec::new();
+        let mut skipped_failed_calibration: Vec<f64> = Vec::new();
+
         for (t_key, expiry_quotes) in &quotes_by_expiry {
             if expiry_quotes.len() < 3 {
+                skipped_insufficient_quotes.push(t_key.into_inner());
                 continue; // Need at least 3 points for SABR (alpha, nu, rho)
             }
 
@@ -239,6 +273,7 @@ impl VolSurfaceCalibrator {
                 }
                 Err(_) => {
                     // Failed to calibrate this expiry - skip
+                    skipped_failed_calibration.push(time_to_expiry);
                     continue;
                 }
             }
@@ -263,10 +298,10 @@ impl VolSurfaceCalibrator {
             &vol_grid,
         )?;
 
-        // Validate the calibrated volatility surface
-        use crate::calibration::validation::{SurfaceValidator, ValidationConfig};
+        // Validate the calibrated volatility surface using configured thresholds/policies.
+        use crate::calibration::validation::SurfaceValidator;
         surface
-            .validate(&ValidationConfig::default())
+            .validate(&self.config.validation)
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated volatility surface {} failed validation: {}",
@@ -285,6 +320,38 @@ impl VolSurfaceCalibrator {
         .with_metadata(
             "calibrated_expiries",
             sabr_params_by_expiry.len().to_string(),
+        )
+        .with_metadata(
+            "skipped_expiries_insufficient_quotes",
+            skipped_insufficient_quotes.len().to_string(),
+        )
+        .with_metadata(
+            "skipped_expiries_failed_calibration",
+            skipped_failed_calibration.len().to_string(),
+        )
+        .with_metadata(
+            "skipped_expiries_insufficient_quotes_t",
+            format!(
+                "[{}]",
+                skipped_insufficient_quotes
+                    .iter()
+                    .take(10)
+                    .map(|t| format!("{:.6}", t))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        )
+        .with_metadata(
+            "skipped_expiries_failed_calibration_t",
+            format!(
+                "[{}]",
+                skipped_failed_calibration
+                    .iter()
+                    .take(10)
+                    .map(|t| format!("{:.6}", t))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         )
         .with_metadata("surface_interp", format!("{:?}", self.surface_interp))
         .with_metadata("time_dc", format!("{:?}", self.time_dc))
@@ -455,38 +522,67 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
         // For equity-like underlyings, calculate F(t) = S₀ × exp((r - q) × t)
         use finstack_core::market_data::scalars::MarketScalar;
 
-        let spot = base_context
-            .price(underlying.as_ref())
-            .map(|scalar| match scalar {
-                MarketScalar::Price(money) => money.amount(),
-                MarketScalar::Unitless(value) => *value,
-            })
-            .unwrap_or(100.0);
+        let spot = match self.spot_override {
+            Some(val) => val,
+            None => base_context
+                .price(underlying.as_ref())
+                .map(|scalar| match scalar {
+                    MarketScalar::Price(money) => money.amount(),
+                    MarketScalar::Unitless(value) => *value,
+                })
+                .map_err(|_| {
+                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        id: format!("spot price for {}", underlying.as_ref()),
+                    })
+                })?,
+        };
+        if !spot.is_finite() || spot <= 0.0 {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
+        }
 
         let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = base_context
-            .price(&div_yield_key)
-            .map(|scalar| match scalar {
-                MarketScalar::Unitless(yield_val) => *yield_val,
-                _ => 0.0,
-            })
-            .unwrap_or(0.0);
+        let dividend_yield = match self.dividend_yield_override {
+            Some(val) => val,
+            None => {
+                let scalar = base_context.price(&div_yield_key).map_err(|_| {
+                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        id: format!("dividend yield {}", div_yield_key),
+                    })
+                })?;
+                match scalar {
+                    MarketScalar::Unitless(yield_val) => *yield_val,
+                    _ => {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::Invalid,
+                        ))
+                    }
+                }
+            }
+        };
+        if !dividend_yield.is_finite() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
+        }
 
         // Resolve a discount curve from the context
         // Preference order: explicit id via self.discount_id → inferred "<CCY>-OIS" → first discount in context
         // For production use, always specify an explicit discount_id to avoid ambiguity in multi-currency contexts.
-        let disc: std::sync::Arc<
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        > = {
+        let (disc, used_discount_id): (
+            std::sync::Arc<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>,
+            String,
+        ) = {
             if let Some(ref id) = self.discount_id {
-                base_context.get_discount(id.as_str())?
+                (base_context.get_discount(id.as_str())?, id.as_str().to_string())
             } else {
                 // If there is exactly one discount in context, use it; otherwise require explicit id
                 let mut iter = base_context.curves_of_type("Discount");
                 let first = iter.next();
                 if let Some((id, _)) = first {
                     if iter.next().is_none() {
-                        base_context.get_discount(id.as_str())?
+                        (base_context.get_discount(id.as_str())?, id.as_str().to_string())
                     } else {
                         return Err(finstack_core::Error::Input(
                             finstack_core::error::InputError::NotFound {
@@ -509,7 +605,13 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             spot * ((risk_free_rate - dividend_yield) * t).exp()
         };
 
-        self.calibrate_internal(instruments, &forward_fn)
+        let (surface, mut report) = self.calibrate_internal(instruments, &forward_fn)?;
+        report.update_metadata("underlying", underlying.as_ref().to_string());
+        report.update_metadata("spot", format!("{:.10}", spot));
+        report.update_metadata("dividend_yield", format!("{:.10}", dividend_yield));
+        report.update_metadata("discount_id", used_discount_id);
+        report.update_metadata("forward_model", "equity_forward_exp(r-q)t".to_string());
+        Ok((surface, report))
     }
 }
 

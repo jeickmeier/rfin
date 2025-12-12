@@ -419,6 +419,12 @@ impl BrentSolver {
         self
     }
 
+    /// Set maximum iterations.
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
     /// Find bracket around the root starting from initial guess.
     fn find_bracket<Func>(&self, f: &Func, initial_guess: f64) -> Result<(f64, f64)>
     where

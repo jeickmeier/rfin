@@ -16,6 +16,7 @@ class InterpStyle:
     - LOG_LINEAR: Logarithmic linear interpolation (for discount factors)
     - MONOTONE_CONVEX: Monotone convex interpolation (preserves monotonicity)
     - CUBIC_HERMITE: Cubic Hermite spline (smooth, may overshoot)
+    - PIECEWISE_QUADRATIC_FORWARD: Smooth forward curve (C² forwards)
     - FLAT_FWD: Flat forward interpolation (for forward rates)
 
     Examples
@@ -36,6 +37,7 @@ class InterpStyle:
     - LOG_LINEAR is standard for discount curves
     - MONOTONE_CONVEX preserves monotonicity (important for yield curves)
     - CUBIC_HERMITE provides smoothness but may overshoot
+    - PIECEWISE_QUADRATIC_FORWARD produces smooth (C²) forwards in log-DF space
     - FLAT_FWD is used for forward rate curves
 
     See Also
@@ -47,6 +49,7 @@ class InterpStyle:
     LOG_LINEAR: InterpStyle
     MONOTONE_CONVEX: InterpStyle
     CUBIC_HERMITE: InterpStyle
+    PIECEWISE_QUADRATIC_FORWARD: InterpStyle
     FLAT_FWD: InterpStyle
 
     @classmethod
@@ -57,7 +60,8 @@ class InterpStyle:
         ----------
         name : str
             One of "linear", "log_linear", "monotone_convex",
-            "cubic_hermite", or "flat_fwd" (kebab-case forms also accepted).
+            "cubic_hermite", "piecewise_quadratic_forward", or "flat_fwd"
+            (kebab-case forms also accepted).
 
         Returns
         -------

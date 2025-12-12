@@ -1,6 +1,10 @@
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
+use super::validation::PyValidationConfig;
 use finstack_core::market_data::term_structures::Seniority;
-use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverKind};
+use finstack_core::explain::ExplainOpts;
+use finstack_valuations::calibration::{
+    CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
+};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
@@ -86,6 +90,208 @@ impl PySolverKind {
             &self.discriminant(),
             rhs.as_ref().map(PySolverKind::discriminant),
             op,
+        )
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "CalibrationMethod",
+    frozen
+)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PyCalibrationMethod {
+    pub(crate) inner: CalibrationMethod,
+}
+
+impl PyCalibrationMethod {
+    pub(crate) const fn new(inner: CalibrationMethod) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCalibrationMethod {
+    #[classattr]
+    const BOOTSTRAP: Self = Self::new(CalibrationMethod::Bootstrap);
+    #[classattr]
+    const GLOBAL_SOLVE: Self = Self::new(CalibrationMethod::GlobalSolve {
+        use_analytical_jacobian: false,
+    });
+
+    #[classmethod]
+    #[pyo3(signature = (name, use_analytical_jacobian = false))]
+    #[pyo3(text_signature = "(cls, name, use_analytical_jacobian=False)")]
+    fn from_name(
+        _cls: &Bound<'_, PyType>,
+        name: &str,
+        use_analytical_jacobian: bool,
+    ) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "bootstrap" => Ok(Self::new(CalibrationMethod::Bootstrap)),
+            "global_solve" => Ok(Self::new(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            })),
+            other => Err(PyKeyError::new_err(format!("Unknown calibration method: {other}"))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            CalibrationMethod::Bootstrap => "bootstrap",
+            CalibrationMethod::GlobalSolve { .. } => "global_solve",
+        }
+    }
+
+    #[getter]
+    fn use_analytical_jacobian(&self) -> bool {
+        match self.inner {
+            CalibrationMethod::Bootstrap => false,
+            CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            } => use_analytical_jacobian,
+        }
+    }
+
+    fn with_use_analytical_jacobian(&self, value: bool) -> Self {
+        match self.inner {
+            CalibrationMethod::Bootstrap => Self::new(CalibrationMethod::Bootstrap),
+            CalibrationMethod::GlobalSolve { .. } => Self::new(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: value,
+            }),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            CalibrationMethod::Bootstrap => "CalibrationMethod('bootstrap')".to_string(),
+            CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            } => format!(
+                "CalibrationMethod('global_solve', use_analytical_jacobian={})",
+                use_analytical_jacobian
+            ),
+        }
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "ValidationMode",
+    frozen
+)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PyValidationMode {
+    pub(crate) inner: ValidationMode,
+}
+
+impl PyValidationMode {
+    pub(crate) const fn new(inner: ValidationMode) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyValidationMode {
+    #[classattr]
+    const WARN: Self = Self::new(ValidationMode::Warn);
+    #[classattr]
+    const ERROR: Self = Self::new(ValidationMode::Error);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "warn" | "warning" => Ok(Self::new(ValidationMode::Warn)),
+            "error" | "strict" => Ok(Self::new(ValidationMode::Error)),
+            other => Err(PyKeyError::new_err(format!("Unknown validation mode: {other}"))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            ValidationMode::Warn => "warn",
+            ValidationMode::Error => "error",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ValidationMode('{}')", self.name())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "RateBounds",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyRateBounds {
+    pub(crate) inner: RateBounds,
+}
+
+impl PyRateBounds {
+    pub(crate) fn new(inner: RateBounds) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRateBounds {
+    #[new]
+    #[pyo3(text_signature = "(min_rate=-0.02, max_rate=0.50)")]
+    fn ctor(min_rate: Option<f64>, max_rate: Option<f64>) -> PyResult<Self> {
+        let mut inner = RateBounds::default();
+        if let Some(v) = min_rate {
+            inner.min_rate = v;
+        }
+        if let Some(v) = max_rate {
+            inner.max_rate = v;
+        }
+        if inner.min_rate > inner.max_rate {
+            return Err(PyValueError::new_err("min_rate must be <= max_rate"));
+        }
+        Ok(Self::new(inner))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn emerging_markets(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(RateBounds::emerging_markets())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn negative_rate_environment(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(RateBounds::negative_rate_environment())
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    fn stress_test(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(RateBounds::stress_test())
+    }
+
+    #[getter]
+    fn min_rate(&self) -> f64 {
+        self.inner.min_rate
+    }
+
+    #[getter]
+    fn max_rate(&self) -> f64 {
+        self.inner.max_rate
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RateBounds(min_rate={:.6}, max_rate={:.6})",
+            self.inner.min_rate, self.inner.max_rate
         )
     }
 }
@@ -192,17 +398,39 @@ impl PyCalibrationConfig {
 impl PyCalibrationConfig {
     #[new]
     #[pyo3(
-        text_signature = "(*, tolerance=1e-10, max_iterations=100, use_parallel=False, random_seed=42, verbose=False, solver_kind=None, multi_curve=None, entity_seniority=None)"
+        signature = (
+            tolerance=None,
+            max_iterations=None,
+            use_parallel=None,
+            random_seed=42,
+            verbose=None,
+            solver_kind=None,
+            multi_curve=None,
+            entity_seniority=None,
+            calibration_method=None,
+            use_fd_sabr_gradients=None,
+            validation_mode=None,
+            validation=None,
+            rate_bounds=None,
+            explain=None
+        ),
+        text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, random_seed=42, verbose=None, solver_kind=None, multi_curve=None, entity_seniority=None, calibration_method=None, use_fd_sabr_gradients=None, validation_mode=None, validation=None, rate_bounds=None, explain=None)"
     )]
     fn ctor(
         tolerance: Option<f64>,
         max_iterations: Option<usize>,
         use_parallel: Option<bool>,
-        random_seed: Option<Option<u64>>,
+        random_seed: Option<u64>,
         verbose: Option<bool>,
         solver_kind: Option<PyRef<PySolverKind>>,
         multi_curve: Option<PyRef<PyMultiCurveConfig>>,
         entity_seniority: Option<Bound<'_, PyDict>>,
+        calibration_method: Option<PyRef<PyCalibrationMethod>>,
+        use_fd_sabr_gradients: Option<bool>,
+        validation_mode: Option<PyRef<PyValidationMode>>,
+        validation: Option<PyRef<PyValidationConfig>>,
+        rate_bounds: Option<PyRef<PyRateBounds>>,
+        explain: Option<bool>,
     ) -> PyResult<Self> {
         let mut inner = CalibrationConfig::default();
         if let Some(val) = tolerance {
@@ -214,11 +442,10 @@ impl PyCalibrationConfig {
         if let Some(flag) = use_parallel {
             inner.use_parallel = flag;
         }
-        match random_seed {
-            Some(Some(seed)) => inner.random_seed = Some(seed),
-            Some(None) => inner.random_seed = None,
-            None => {}
-        }
+        // IMPORTANT:
+        // - Omitted in Python => uses default (random_seed=42) which arrives as Some(42)
+        // - Explicit None in Python => should clear the seed (None), not silently keep default
+        inner.random_seed = random_seed;
         if let Some(flag) = verbose {
             inner.verbose = flag;
         }
@@ -231,6 +458,24 @@ impl PyCalibrationConfig {
         inner.entity_seniority.clear();
         for (entity, seniority) in Self::map_seniority(entity_seniority)? {
             inner.entity_seniority.insert(entity, seniority);
+        }
+        if let Some(method) = calibration_method {
+            inner.calibration_method = method.inner.clone();
+        }
+        if let Some(flag) = use_fd_sabr_gradients {
+            inner.use_fd_sabr_gradients = flag;
+        }
+        if let Some(mode) = validation_mode {
+            inner.validation_mode = mode.inner.clone();
+        }
+        if let Some(cfg) = validation {
+            inner.validation = cfg.inner.clone();
+        }
+        if let Some(bounds) = rate_bounds {
+            inner.rate_bounds = bounds.inner.clone();
+        }
+        if explain.unwrap_or(false) {
+            inner.explain = ExplainOpts::enabled();
         }
         Ok(Self::new(inner))
     }
@@ -272,8 +517,38 @@ impl PyCalibrationConfig {
     }
 
     #[getter]
+    fn calibration_method(&self) -> PyCalibrationMethod {
+        PyCalibrationMethod::new(self.inner.calibration_method.clone())
+    }
+
+    #[getter]
     fn multi_curve_config(&self) -> PyMultiCurveConfig {
         PyMultiCurveConfig::new(self.inner.multi_curve.clone())
+    }
+
+    #[getter]
+    fn use_fd_sabr_gradients(&self) -> bool {
+        self.inner.use_fd_sabr_gradients
+    }
+
+    #[getter]
+    fn validation_mode(&self) -> PyValidationMode {
+        PyValidationMode::new(self.inner.validation_mode.clone())
+    }
+
+    #[getter]
+    fn validation_config(&self) -> PyValidationConfig {
+        PyValidationConfig::new(self.inner.validation.clone())
+    }
+
+    #[getter]
+    fn rate_bounds(&self) -> PyRateBounds {
+        PyRateBounds::new(self.inner.rate_bounds.clone())
+    }
+
+    #[getter]
+    fn explain_enabled(&self) -> bool {
+        self.inner.explain.enabled
     }
 
     #[getter]
@@ -321,9 +596,45 @@ impl PyCalibrationConfig {
         Self::new(next)
     }
 
+    fn with_calibration_method(&self, method: PyRef<PyCalibrationMethod>) -> Self {
+        let mut next = self.inner.clone();
+        next.calibration_method = method.inner.clone();
+        Self::new(next)
+    }
+
     fn with_multi_curve_config(&self, config: PyRef<PyMultiCurveConfig>) -> Self {
         let mut next = self.inner.clone();
         next.multi_curve = config.inner.clone();
+        Self::new(next)
+    }
+
+    fn with_use_fd_sabr_gradients(&self, flag: bool) -> Self {
+        let mut next = self.inner.clone();
+        next.use_fd_sabr_gradients = flag;
+        Self::new(next)
+    }
+
+    fn with_validation_mode(&self, mode: PyRef<PyValidationMode>) -> Self {
+        let mut next = self.inner.clone();
+        next.validation_mode = mode.inner.clone();
+        Self::new(next)
+    }
+
+    fn with_validation_config(&self, config: PyRef<PyValidationConfig>) -> Self {
+        let mut next = self.inner.clone();
+        next.validation = config.inner.clone();
+        Self::new(next)
+    }
+
+    fn with_rate_bounds(&self, bounds: PyRef<PyRateBounds>) -> Self {
+        let mut next = self.inner.clone();
+        next.rate_bounds = bounds.inner.clone();
+        Self::new(next)
+    }
+
+    fn with_explain(&self) -> Self {
+        let mut next = self.inner.clone();
+        next.explain = ExplainOpts::enabled();
         Self::new(next)
     }
 
@@ -346,6 +657,17 @@ impl PyCalibrationConfig {
                 "solver_kind='{}'",
                 PySolverKind::new(self.inner.solver_kind.clone()).name()
             ),
+            format!(
+                "calibration_method='{}'",
+                PyCalibrationMethod::new(self.inner.calibration_method.clone()).name()
+            ),
+            format!("use_fd_sabr_gradients={}", self.inner.use_fd_sabr_gradients),
+            format!("validation_mode='{}'", PyValidationMode::new(self.inner.validation_mode.clone()).name()),
+            format!(
+                "rate_bounds=RateBounds(min_rate={:.6}, max_rate={:.6})",
+                self.inner.rate_bounds.min_rate, self.inner.rate_bounds.max_rate
+            ),
+            format!("explain={}", self.inner.explain.enabled),
         ];
         match self.inner.random_seed {
             Some(seed) => parts.push(format!("random_seed={}", seed)),
@@ -364,7 +686,17 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PySolverKind>()?;
+    module.add_class::<PyCalibrationMethod>()?;
+    module.add_class::<PyValidationMode>()?;
+    module.add_class::<PyRateBounds>()?;
     module.add_class::<PyMultiCurveConfig>()?;
     module.add_class::<PyCalibrationConfig>()?;
-    Ok(vec!["SolverKind", "MultiCurveConfig", "CalibrationConfig"])
+    Ok(vec![
+        "SolverKind",
+        "CalibrationMethod",
+        "ValidationMode",
+        "RateBounds",
+        "MultiCurveConfig",
+        "CalibrationConfig",
+    ])
 }

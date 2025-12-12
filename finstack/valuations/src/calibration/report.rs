@@ -78,7 +78,11 @@ impl CalibrationReport {
             success,
             residuals,
             iterations,
-            objective_value: max_residual,
+            // Default objective value is RMSE of residuals (penalty residuals excluded).
+            // This is a generic, comparable scalar objective across calibrators. Individual
+            // calibrators may overwrite this with a domain-specific objective via
+            // `with_metadata(...)` or a future explicit objective setter.
+            objective_value: rmse,
             max_residual,
             rmse,
             convergence_reason: convergence_reason.into(),

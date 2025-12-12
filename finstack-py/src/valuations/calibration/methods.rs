@@ -1,4 +1,4 @@
-use super::config::{PyCalibrationConfig, PyMultiCurveConfig};
+use super::config::{PyCalibrationConfig, PyCalibrationMethod, PyMultiCurveConfig};
 use super::quote::{PyCreditQuote, PyInflationQuote, PyRatesQuote, PyVolQuote};
 use super::report::PyCalibrationReport;
 use crate::core::common::args::{CurrencyArg, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg};
@@ -147,6 +147,15 @@ impl PyDiscountCurveCalibrator {
         let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
         let inner = self.inner.clone().with_solve_interp(style);
         Ok(Self::new(inner))
+    }
+
+    #[pyo3(text_signature = "(self, method)")]
+    fn with_calibration_method(&self, method: PyRef<PyCalibrationMethod>) -> Self {
+        let inner = self
+            .inner
+            .clone()
+            .with_calibration_method(method.inner.clone());
+        Self::new(inner)
     }
 
     /// Set the extrapolation policy for the final curve.
@@ -650,6 +659,28 @@ impl PyVolSurfaceCalibrator {
     #[pyo3(text_signature = "(self, discount_curve_id)")]
     fn with_discount_id(&self, discount_curve_id: &str) -> Self {
         Self::new(self.inner.clone().with_discount_id(discount_curve_id))
+    }
+
+    /// Override spot used for forward construction.
+    ///
+    /// If not provided, calibration requires the spot to be present in the market context.
+    #[pyo3(text_signature = "(self, spot)")]
+    fn with_spot_override(&self, spot: f64) -> Self {
+        Self::new(self.inner.clone().with_spot_override(spot))
+    }
+
+    /// Override dividend yield used for forward construction.
+    ///
+    /// Yield is expected in decimal terms (e.g., 0.02 for 2%).
+    /// If not provided, calibration requires `<UNDERLYING>-DIVYIELD` to be present
+    /// in the market context as a unitless scalar.
+    #[pyo3(text_signature = "(self, dividend_yield)")]
+    fn with_dividend_yield_override(&self, dividend_yield: f64) -> Self {
+        Self::new(
+            self.inner
+                .clone()
+                .with_dividend_yield_override(dividend_yield),
+        )
     }
 
     #[pyo3(signature = (quotes, market))]

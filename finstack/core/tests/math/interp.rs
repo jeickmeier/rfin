@@ -156,6 +156,10 @@ interp_basic_tests!(log_linear_df_basic, LogLinearDf::new);
 interp_basic_tests!(flat_fwd_basic, LogLinearDf::new);
 interp_basic_tests!(cubic_hermite_basic, CubicHermite::new);
 interp_basic_tests!(monotone_convex_basic, MonotoneConvex::new);
+interp_basic_tests!(
+    piecewise_quadratic_forward_basic,
+    PiecewiseQuadraticForward::new
+);
 
 // ============================================================================
 // InterpStyle::build Tests
@@ -217,6 +221,20 @@ mod interp_style_build {
                 ExtrapolationPolicy::FlatZero,
             )
             .expect("Should build cubic hermite interpolator");
+
+        assert!(approx_eq(interp.interp(0.0), 1.0, 1e-12));
+        assert!(approx_eq(interp.interp(1.0), 0.95, 1e-12));
+    }
+
+    #[test]
+    fn build_piecewise_quadratic_forward() {
+        let interp = InterpStyle::PiecewiseQuadraticForward
+            .build(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatForward,
+            )
+            .expect("Should build piecewise quadratic forward interpolator");
 
         assert!(approx_eq(interp.interp(0.0), 1.0, 1e-12));
         assert!(approx_eq(interp.interp(1.0), 0.95, 1e-12));

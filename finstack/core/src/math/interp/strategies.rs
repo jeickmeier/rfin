@@ -6,7 +6,7 @@
 use super::{
     traits::InterpolationStrategy,
     types::ExtrapolationPolicy,
-    utils::{locate_segment, validate_monotone_nonincreasing},
+    utils::{locate_segment, validate_monotone_nonincreasing, validate_positive_series},
 };
 use std::vec::Vec;
 
@@ -285,6 +285,215 @@ fn log_segment_slope(
     let y0 = log_values[left_index];
     let y1 = log_values[right_index];
     (y1 - y0) / (x1 - x0)
+}
+
+// -----------------------------------------------------------------------------
+// PiecewiseQuadraticForwardStrategy
+// -----------------------------------------------------------------------------
+
+/// Strategy for piecewise quadratic forward interpolation (smooth forwards).
+///
+/// Builds a natural cubic spline in log-discount space so that the resulting
+/// instantaneous forward curve is piecewise quadratic and C²-continuous.
+/// This matches the “smooth forward” construction commonly used by Bloomberg.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct PiecewiseQuadraticForwardStrategy {
+    /// Knot locations (copied for boundary evaluation).
+    knots: Box<[f64]>,
+    /// Cubic spline coefficients for log discount factor: y = a + b s + c s² + d s³.
+    a: Box<[f64]>,
+    b: Box<[f64]>,
+    c: Box<[f64]>,
+    d: Box<[f64]>,
+}
+
+impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
+    fn from_raw(
+        knots: &[f64],
+        values: &[f64],
+        _extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Self> {
+        // Enforce positivity (log transform requires DF > 0)
+        validate_positive_series(values)?;
+
+        let n = knots.len();
+        debug_assert!(n >= 2);
+
+        // Convert to log discount factors (y = -ln(P))
+        let y: Vec<f64> = values.iter().map(|&p| -p.ln()).collect();
+
+        // Segment widths
+        let mut h = Vec::with_capacity(n - 1);
+        for w in knots.windows(2) {
+            let width = w[1] - w[0];
+            if width <= 0.0 {
+                return Err(crate::error::InputError::NonMonotonicKnots.into());
+            }
+            h.push(width);
+        }
+
+        // Natural cubic spline second derivatives (m)
+        let mut alpha = vec![0.0; n];
+        for i in 1..n - 1 {
+            alpha[i] =
+                (3.0 / h[i]) * (y[i + 1] - y[i]) - (3.0 / h[i - 1]) * (y[i] - y[i - 1]);
+        }
+
+        let mut l = vec![0.0; n];
+        let mut mu = vec![0.0; n];
+        let mut z = vec![0.0; n];
+
+        l[0] = 1.0;
+        for i in 1..n - 1 {
+            l[i] = 2.0 * (knots[i + 1] - knots[i - 1]) - h[i - 1] * mu[i - 1];
+            if l[i].abs() < f64::EPSILON {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+            mu[i] = h[i] / l[i];
+            z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+        }
+        l[n - 1] = 1.0;
+
+        let mut m = vec![0.0; n];
+        for j in (0..n - 1).rev() {
+            m[j] = z[j] - mu[j] * m[j + 1];
+        }
+
+        // Build cubic coefficients for each segment
+        let mut a_coeff = Vec::with_capacity(n - 1);
+        let mut b_coeff = Vec::with_capacity(n - 1);
+        let mut c_coeff = Vec::with_capacity(n - 1);
+        let mut d_coeff = Vec::with_capacity(n - 1);
+
+        for i in 0..n - 1 {
+            let hi = h[i];
+            let ai = y[i];
+            let bi = (y[i + 1] - y[i]) / hi - hi * (2.0 * m[i] + m[i + 1]) / 6.0;
+            let ci = m[i] / 2.0;
+            let di = (m[i + 1] - m[i]) / (6.0 * hi);
+            a_coeff.push(ai);
+            b_coeff.push(bi);
+            c_coeff.push(ci);
+            d_coeff.push(di);
+        }
+
+        Ok(Self {
+            knots: knots.to_vec().into_boxed_slice(),
+            a: a_coeff.into_boxed_slice(),
+            b: b_coeff.into_boxed_slice(),
+            c: c_coeff.into_boxed_slice(),
+            d: d_coeff.into_boxed_slice(),
+        })
+    }
+
+    fn interp(
+        &self,
+        x: f64,
+        knots: &[f64],
+        _values: &[f64],
+        extrapolation: ExtrapolationPolicy,
+    ) -> f64 {
+        use super::utils::check_extrapolation;
+
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => self.boundary_df(0),
+                ExtrapolationPolicy::FlatForward => self.flat_forward_df(x, 0),
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => self.boundary_df(knots.len() - 1),
+                ExtrapolationPolicy::FlatForward => self.flat_forward_df(x, knots.len() - 1),
+            },
+        ) {
+            return val;
+        }
+
+        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let s = x - knots[idx];
+        let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
+        (-y).exp()
+    }
+
+    fn interp_prime(
+        &self,
+        x: f64,
+        knots: &[f64],
+        _values: &[f64],
+        extrapolation: ExtrapolationPolicy,
+    ) -> f64 {
+        use super::utils::check_extrapolation;
+
+        if let Some(val) = check_extrapolation(
+            x,
+            knots,
+            extrapolation,
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => self.flat_forward_df_prime(x, 0),
+            },
+            |policy| match policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => self.flat_forward_df_prime(x, knots.len() - 1),
+            },
+        ) {
+            return val;
+        }
+
+        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let s = x - knots[idx];
+
+        let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
+        let y_prime = self.b[idx] + 2.0 * self.c[idx] * s + 3.0 * self.d[idx] * s * s;
+        let df = (-y).exp();
+        -y_prime * df
+    }
+}
+
+impl PiecewiseQuadraticForwardStrategy {
+    #[inline]
+    fn boundary_df(&self, boundary_index: usize) -> f64 {
+        if boundary_index == 0 {
+            (-self.a[0]).exp()
+        } else {
+            let last_seg = self.a.len() - 1;
+            let h = self.knots[boundary_index] - self.knots[boundary_index - 1];
+            let y =
+                self.a[last_seg] + self.b[last_seg] * h + self.c[last_seg] * h * h
+                    + self.d[last_seg] * h * h * h;
+            (-y).exp()
+        }
+    }
+
+    #[inline]
+    fn boundary_slope(&self, boundary_index: usize) -> f64 {
+        if boundary_index == 0 {
+            self.b[0]
+        } else {
+            let last_seg = self.a.len() - 1;
+            let h = self.knots[boundary_index] - self.knots[boundary_index - 1];
+            self.b[last_seg] + 2.0 * self.c[last_seg] * h + 3.0 * self.d[last_seg] * h * h
+        }
+    }
+
+    #[inline]
+    fn flat_forward_df(&self, x: f64, boundary_index: usize) -> f64 {
+        let t0 = self.knots[boundary_index];
+        let y0 = -self.boundary_df(boundary_index).ln();
+        let slope = self.boundary_slope(boundary_index);
+        let y = y0 + slope * (x - t0);
+        (-y).exp()
+    }
+
+    #[inline]
+    fn flat_forward_df_prime(&self, x: f64, boundary_index: usize) -> f64 {
+        let df = self.flat_forward_df(x, boundary_index);
+        let slope = self.boundary_slope(boundary_index);
+        -slope * df
+    }
 }
 
 // -----------------------------------------------------------------------------

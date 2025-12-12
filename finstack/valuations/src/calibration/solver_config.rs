@@ -54,6 +54,15 @@ pub enum SolverConfig {
         /// Initial bracket size (None = adaptive)
         initial_bracket_size: Option<f64>,
     },
+    /// Global Newton-style solve (with optional LM damping for robustness).
+    GlobalNewton {
+        /// Convergence tolerance
+        tolerance: f64,
+        /// Maximum iterations
+        max_iterations: usize,
+        /// Apply LM-style damping to improve robustness
+        use_lm_damping: bool,
+    },
 }
 
 impl SolverConfig {
@@ -76,6 +85,16 @@ impl SolverConfig {
             max_iterations: solver.max_iterations,
             bracket_expansion: solver.bracket_expansion,
             initial_bracket_size: solver.initial_bracket_size,
+        }
+    }
+
+    /// Create a Global Newton config with Newton defaults and LM damping enabled.
+    pub fn global_newton_default() -> Self {
+        let solver = NewtonSolver::default();
+        Self::GlobalNewton {
+            tolerance: solver.tolerance,
+            max_iterations: solver.max_iterations,
+            use_lm_damping: true,
         }
     }
 

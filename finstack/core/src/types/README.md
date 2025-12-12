@@ -348,3 +348,4 @@ Before adding a new re‑export, prefer importing from the original module insid
 
 Keeping this separation clean ensures the `core` crate remains **small, deterministic, and reusable**, while higher‑level crates compose these primitives into full financial models.
 
+

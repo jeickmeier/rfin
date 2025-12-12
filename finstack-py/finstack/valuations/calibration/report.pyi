@@ -1,65 +1,45 @@
-"""Calibration report classes."""
+"""Calibration report types exposed by :mod:`finstack.valuations.calibration`."""
 
-from typing import Dict, List, Optional, Any
-from datetime import date
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
 
 class CalibrationReport:
-    """Calibration report."""
-
-    def __init__(
-        self,
-        success: bool,
-        iterations: int,
-        final_error: float,
-        parameters: Dict[str, float],
-        quotes: List[Any],
-        as_of: date,
-    ) -> None:
-        """Create a calibration report.
-
-        Args:
-            success: Whether calibration succeeded
-            iterations: Number of iterations
-            final_error: Final error value
-            parameters: Calibrated parameters
-            quotes: Input quotes
-            as_of: Calibration date
-        """
-        ...
+    @property
+    def success(self) -> bool: ...
 
     @property
-    def success(self) -> bool:
-        """Whether calibration succeeded."""
-        ...
+    def residuals(self) -> Dict[str, float]: ...
 
     @property
-    def iterations(self) -> int:
-        """Number of iterations."""
-        ...
+    def iterations(self) -> int: ...
 
     @property
-    def final_error(self) -> float:
-        """Final error value."""
-        ...
+    def objective_value(self) -> float: ...
 
     @property
-    def parameters(self) -> Dict[str, float]:
-        """Calibrated parameters."""
-        ...
+    def max_residual(self) -> float: ...
 
     @property
-    def quotes(self) -> List[Any]:
-        """Input quotes."""
-        ...
+    def rmse(self) -> float: ...
 
     @property
-    def as_of(self) -> date:
-        """Calibration date."""
-        ...
+    def convergence_reason(self) -> str: ...
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        ...
+    @property
+    def metadata(self) -> Dict[str, str]: ...
+
+    @property
+    def results_meta(self) -> Any: ...
+
+    @property
+    def explanation(self) -> Optional[Any]: ...
+
+    def explain_json(self) -> Optional[str]: ...
+
+    def to_dict(self) -> Any: ...
+
+    def explain(self) -> Optional[Any]: ...
 
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...

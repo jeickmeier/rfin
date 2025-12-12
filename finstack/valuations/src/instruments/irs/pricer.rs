@@ -25,6 +25,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::instruments::irs::FloatingLegCompounding;
+use finstack_core::dates::calendar::registry::CalendarRegistry;
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
@@ -36,6 +37,31 @@ const DF_EPSILON: f64 = 1e-10;
 
 /// Basis points to decimal conversion factor.
 const BP_TO_DECIMAL: f64 = 1e-4;
+
+/// Apply a payment-delay in business days using an optional holiday calendar.
+///
+/// Bloomberg/ISDA conventions define payment delay in **business days**, not just weekdays.
+/// If a calendar is provided and found in the registry, we apply holiday-aware business day
+/// addition; otherwise we fall back to weekday-only addition.
+#[inline]
+fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>) -> Date {
+    use finstack_core::dates::DateExt;
+
+    if delay_days <= 0 {
+        return date;
+    }
+
+    if let Some(id) = calendar_id {
+        if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
+            if let Ok(d) = date.add_business_days(delay_days, cal) {
+                return d;
+            }
+        }
+    }
+
+    // Fallback: weekday-only (Mon-Fri), ignores holidays.
+    date.add_weekdays(delay_days)
+}
 
 /// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
 ///
@@ -168,8 +194,6 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
     ) -> Result<Money> {
-        use finstack_core::dates::DateExt;
-
         // Apply payment delay to payment dates (typically 2 business days for OIS swaps)
         let payment_delay = self.float.payment_delay_days;
 
@@ -177,7 +201,8 @@ impl InterestRateSwap {
         // Note: For OIS, the start "payment" is notional exchange at settlement,
         // and the end payment (principal + compounded interest) is delayed by payment_delay_days
         let df_start = relative_df(disc, as_of, self.float.start)?;
-        let end_payment_date = self.float.end.add_weekdays(payment_delay);
+        let end_payment_date =
+            add_payment_delay(self.float.end, payment_delay, self.float.calendar_id.as_deref());
         let df_end = relative_df(disc, as_of, end_payment_date)?;
 
         let mut pv = self.notional.amount() * (df_start - df_end);
@@ -270,8 +295,6 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        use finstack_core::dates::DateExt;
-
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
 
         // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
@@ -289,8 +312,10 @@ impl InterestRateSwap {
                     continue;
                 }
 
-                // Apply payment delay: actual payment occurs payment_delay_days after period end
-                let payment_date = cf.date.add_weekdays(payment_delay);
+                // Apply payment delay: actual payment occurs payment_delay_days after period end.
+                // Use holiday-aware business days when a calendar is available.
+                let payment_date =
+                    add_payment_delay(cf.date, payment_delay, self.fixed.calendar_id.as_deref());
 
                 // Discount from as_of for correct theta
                 let df = relative_df(disc, as_of, payment_date)?;

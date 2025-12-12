@@ -1,32 +1,63 @@
-"""SABR calibrator classes."""
+"""SABR-related types exposed by :mod:`finstack.valuations.calibration`."""
 
-from typing import List, Optional, Any
-from .config import CalibrationConfig
-from .quote import Quote
-from .report import CalibrationReport
+from __future__ import annotations
 
-class SabrCalibrator:
-    """SABR calibrator."""
+from typing import Any
 
-    def __init__(self, config: Optional[CalibrationConfig] = None) -> None:
-        """Create a SABR calibrator.
 
-        Args:
-            config: Optional calibration configuration
-        """
-        ...
+class SABRModelParams:
+    def __init__(self, alpha: float, nu: float, rho: float, beta: float) -> None: ...
 
-    def calibrate(self, quotes: List[Quote], instruments: List[Any]) -> CalibrationReport:
-        """Calibrate using quotes and instruments.
+    @classmethod
+    def equity_standard(cls, alpha: float, nu: float, rho: float) -> SABRModelParams: ...
 
-        Args:
-            quotes: List of quotes
-            instruments: List of instruments
+    @classmethod
+    def rates_standard(cls, alpha: float, nu: float, rho: float) -> SABRModelParams: ...
 
-        Returns:
-            CalibrationReport: Calibration results
-        """
-        ...
+    @property
+    def alpha(self) -> float: ...
+
+    @property
+    def nu(self) -> float: ...
+
+    @property
+    def rho(self) -> float: ...
+
+    @property
+    def beta(self) -> float: ...
 
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
+
+
+class SABRMarketData:
+    def __init__(
+        self,
+        forward: float,
+        time_to_expiry: float,
+        strikes: list[float],
+        market_vols: list[float],
+        beta: float,
+    ) -> None: ...
+
+    @property
+    def forward(self) -> float: ...
+
+    @property
+    def time_to_expiry(self) -> float: ...
+
+    @property
+    def strikes(self) -> Any: ...
+
+    @property
+    def market_vols(self) -> Any: ...
+
+    @property
+    def beta(self) -> float: ...
+
+    def __repr__(self) -> str: ...
+
+
+class SABRCalibrationDerivatives:
+    def __init__(self, market_data: SABRMarketData) -> None: ...
+
+    def __repr__(self) -> str: ...

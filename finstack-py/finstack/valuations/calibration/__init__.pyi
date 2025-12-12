@@ -1,22 +1,71 @@
-"""Calibration helpers mirroring finstack-valuations calibration interfaces."""
+"""Typing stubs for :mod:`finstack.valuations.calibration` (Rust extension module)."""
 
-from .config import SolverKind, MultiCurveConfig, CalibrationConfig
-from .quote import Quote, QuoteType
+from __future__ import annotations
+
+from .config import (
+    CalibrationConfig,
+    CalibrationMethod,
+    MultiCurveConfig,
+    RateBounds,
+    SolverKind,
+    ValidationMode,
+)
+from .methods import (
+    BaseCorrelationCalibrator,
+    DiscountCurveCalibrator,
+    ForwardCurveCalibrator,
+    HazardCurveCalibrator,
+    InflationCurveCalibrator,
+    VolSurfaceCalibrator,
+)
 from .report import CalibrationReport
-from .simple import SimpleCalibrator
-from .methods import CalibrationMethod
-from .validation import ValidationResult
-from .sabr import SabrCalibrator
+from .sabr import SABRCalibrationDerivatives, SABRMarketData, SABRModelParams
+from .validation import (
+    ValidationConfig,
+    ValidationError,
+    validate_discount_curve,
+    validate_forward_curve,
+    validate_hazard_curve,
+    validate_inflation_curve,
+    validate_vol_surface,
+)
+from .quote import (
+    CreditQuote,
+    FutureSpecs,
+    InflationQuote,
+    MarketQuote,
+    RatesQuote,
+    VolQuote,
+)
 
 __all__ = [
     "SolverKind",
+    "CalibrationMethod",
+    "ValidationMode",
+    "RateBounds",
     "MultiCurveConfig",
     "CalibrationConfig",
-    "Quote",
-    "QuoteType",
+    "FutureSpecs",
+    "RatesQuote",
+    "CreditQuote",
+    "VolQuote",
+    "InflationQuote",
+    "MarketQuote",
     "CalibrationReport",
-    "SimpleCalibrator",
-    "CalibrationMethod",
-    "ValidationResult",
-    "SabrCalibrator",
+    "DiscountCurveCalibrator",
+    "ForwardCurveCalibrator",
+    "HazardCurveCalibrator",
+    "InflationCurveCalibrator",
+    "VolSurfaceCalibrator",
+    "BaseCorrelationCalibrator",
+    "ValidationError",
+    "ValidationConfig",
+    "validate_discount_curve",
+    "validate_forward_curve",
+    "validate_hazard_curve",
+    "validate_inflation_curve",
+    "validate_vol_surface",
+    "SABRModelParams",
+    "SABRMarketData",
+    "SABRCalibrationDerivatives",
 ]

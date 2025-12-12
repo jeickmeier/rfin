@@ -1,45 +1,107 @@
-"""Validation classes for calibration."""
+"""Validation API exposed by :mod:`finstack.valuations.calibration`."""
 
-from typing import List, Optional, Any, Dict
-from datetime import date
+from __future__ import annotations
 
-class ValidationResult:
-    """Validation result."""
+from typing import Any, Dict, Optional
 
-    def __init__(self, valid: bool, errors: List[str], warnings: List[str], as_of: date) -> None:
-        """Create a validation result.
 
-        Args:
-            valid: Whether validation passed
-            errors: List of errors
-            warnings: List of warnings
-            as_of: Validation date
-        """
-        ...
+class ValidationError:
+    def __init__(
+        self,
+        constraint: str,
+        location: str,
+        details: str,
+        values: Optional[Dict[str, float]] = None,
+    ) -> None: ...
 
     @property
-    def valid(self) -> bool:
-        """Whether validation passed."""
-        ...
+    def constraint(self) -> str: ...
 
     @property
-    def errors(self) -> List[str]:
-        """List of errors."""
-        ...
+    def location(self) -> str: ...
 
     @property
-    def warnings(self) -> List[str]:
-        """List of warnings."""
-        ...
+    def details(self) -> str: ...
 
     @property
-    def as_of(self) -> date:
-        """Validation date."""
-        ...
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        ...
+    def values(self) -> Dict[str, float]: ...
 
     def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
+
+
+class ValidationConfig:
+    def __init__(
+        self,
+        check_forward_positivity: bool = True,
+        min_forward_rate: float = -0.01,
+        max_forward_rate: float = 0.50,
+        check_monotonicity: bool = True,
+        check_arbitrage: bool = True,
+        tolerance: float = 1e-10,
+        max_hazard_rate: float = 0.50,
+        min_cpi_growth: float = -0.10,
+        max_cpi_growth: float = 0.50,
+        min_fwd_inflation: float = -0.20,
+        max_fwd_inflation: float = 0.50,
+        max_volatility: float = 5.0,
+        allow_negative_rates: bool = False,
+        lenient_arbitrage: bool = False,
+    ) -> None: ...
+
+    @classmethod
+    def standard(cls) -> ValidationConfig: ...
+
+    @property
+    def check_forward_positivity(self) -> bool: ...
+
+    @property
+    def min_forward_rate(self) -> float: ...
+
+    @property
+    def max_forward_rate(self) -> float: ...
+
+    @property
+    def check_monotonicity(self) -> bool: ...
+
+    @property
+    def check_arbitrage(self) -> bool: ...
+
+    @property
+    def tolerance(self) -> float: ...
+
+    @property
+    def max_hazard_rate(self) -> float: ...
+
+    @property
+    def min_cpi_growth(self) -> float: ...
+
+    @property
+    def max_cpi_growth(self) -> float: ...
+
+    @property
+    def min_fwd_inflation(self) -> float: ...
+
+    @property
+    def max_fwd_inflation(self) -> float: ...
+
+    @property
+    def max_volatility(self) -> float: ...
+
+    @property
+    def allow_negative_rates(self) -> bool: ...
+
+    @property
+    def lenient_arbitrage(self) -> bool: ...
+
+    def __repr__(self) -> str: ...
+
+
+def validate_discount_curve(curve: Any, config: Optional[ValidationConfig] = None) -> None: ...
+
+def validate_forward_curve(curve: Any, config: Optional[ValidationConfig] = None) -> None: ...
+
+def validate_hazard_curve(curve: Any, config: Optional[ValidationConfig] = None) -> None: ...
+
+def validate_inflation_curve(curve: Any, config: Optional[ValidationConfig] = None) -> None: ...
+
+def validate_vol_surface(surface: Any, config: Optional[ValidationConfig] = None) -> None: ...

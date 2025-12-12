@@ -62,7 +62,9 @@ mod traits;
 mod validation;
 
 // Re-exports
-pub use config::{CalibrationConfig, MultiCurveConfig, RateBounds, SolverKind, ValidationMode};
+pub use config::{
+    CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
+};
 pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
 pub use derivatives::sabr_model_params::SABRModelParams;
 pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
@@ -109,13 +111,16 @@ where
             solver.solve(f, init)
         }
         SolverKind::Brent => {
-            let solver = BrentSolver::new().with_tolerance(tol);
-            // BrentSolver currently does not expose a max-iteration builder; keep defaults
+            let solver = BrentSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(iters);
             solver.solve(f, init)
         }
         // For multi-dimensional kinds, fall back to Brent for 1D problems
         SolverKind::LevenbergMarquardt => {
-            let solver = BrentSolver::new().with_tolerance(tol);
+            let solver = BrentSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(iters);
             solver.solve(f, init)
         }
     }

@@ -1,4 +1,39 @@
-//! Python bindings for performance measurement utilities: IRR, XIRR, and NPV.
+//! Performance measurement utilities: IRR and NPV calculations.
+//!
+//! This module provides time-value-of-money analytics for investment performance
+//! measurement, including Net Present Value (NPV) and Internal Rate of Return (IRR)
+//! calculations.
+//!
+//! # Features
+//!
+//! - **NPV**: Net Present Value with configurable day-count conventions
+//! - **IRR**: Internal Rate of Return for evenly-spaced periodic cashflows
+//! - **Flexible dates**: Accept `date` objects or ISO-format strings
+//!
+//! # Mathematical Foundation
+//!
+//! ## Net Present Value (NPV)
+//!
+//! ```text
+//! NPV = Σ CF_i / (1 + r)^(t_i)
+//! ```
+//!
+//! where `CF_i` is the cashflow at time `t_i` and `r` is the discount rate.
+//!
+//! ## Internal Rate of Return (IRR)
+//!
+//! The IRR is the rate `r` that satisfies:
+//!
+//! ```text
+//! Σ CF_i / (1 + r)^i = 0
+//! ```
+//!
+//! where `i` is the period number (0, 1, 2, ...).
+//!
+//! # See Also
+//!
+//! - `finstack.core.cashflow.xirr` for irregular cashflows
+//! - `finstack.core.cashflow.npv_static` for curve-based discounting
 
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
@@ -7,29 +42,70 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
 
-/// Calculate NPV (Net Present Value) for a series of cash flows at a given discount rate.
+/// Calculate NPV (Net Present Value) for a series of cashflows at a given discount rate.
 ///
-/// Args:
-///     cash_flows: List of (date, amount) tuples. Dates can be date objects or ISO strings.
-///     discount_rate: Annual discount rate as a decimal (e.g., 0.1 for 10%).
-///     base_date: Optional base date for discounting (defaults to first cash flow date).
-///     day_count: Optional day count convention string (defaults to 'act365f').
+/// Computes the present value of future cashflows discounted at a constant annual
+/// rate. This is useful for simple investment analysis and comparing alternatives.
 ///
-/// Returns:
-///     float: The net present value
+/// Parameters
+/// ----------
+/// cash_flows : list[tuple[date, float]]
+///     List of (date, amount) pairs. Dates can be `date` objects or ISO-format
+///     strings (e.g., "2024-01-01"). Negative amounts represent outflows
+///     (investments), positive amounts represent inflows (returns).
+/// discount_rate : float
+///     Annual discount rate as a decimal (e.g., 0.10 for 10%).
+/// base_date : date or str, optional
+///     Valuation date from which time fractions are measured. Defaults to the
+///     first cashflow date if not provided.
+/// day_count : str, optional
+///     Day-count convention for computing year fractions. Supported values:
+///     - "act365f" / "365f" (default): Actual/365 Fixed
+///     - "act360" / "360": Actual/360
+///     - "thirty360" / "30/360" / "30_360": 30/360
 ///
-/// Raises:
-///     ValueError: If cash flows are empty or date calculations fail.
+/// Returns
+/// -------
+/// float
+///     The net present value of the cashflows.
 ///
-/// Examples:
-///     >>> from finstack.core import dates
-///     >>> from datetime import date
-///     >>> flows = [
-///     ...     (date(2024, 1, 1), -100000),
-///     ...     (date(2025, 1, 1), 110000)
-///     ... ]
-///     >>> npv(flows, 0.05)
-///     4761.90...
+/// Raises
+/// ------
+/// ValueError
+///     If cashflows are empty or date calculations fail.
+///
+/// Examples
+/// --------
+/// >>> from datetime import date
+/// >>> from finstack.core.cashflow import npv
+///
+/// >>> # Simple investment: pay $100k today, receive $110k in one year
+/// >>> cash_flows = [
+/// ...     (date(2024, 1, 1), -100000),
+/// ...     (date(2025, 1, 1), 110000)
+/// ... ]
+/// >>> npv(cash_flows, 0.05)
+/// 4761.90...
+///
+/// >>> # Multi-year investment with interim cashflows
+/// >>> cash_flows = [
+/// ...     (date(2024, 1, 1), -100000),
+/// ...     (date(2024, 7, 1), 5000),
+/// ...     (date(2025, 1, 1), 5000),
+/// ...     (date(2025, 7, 1), 105000)
+/// ... ]
+/// >>> npv(cash_flows, 0.08, day_count="act360")
+///
+/// Notes
+/// -----
+/// - For curve-based discounting, use `npv_static` or `npv_using_curve_dc`
+/// - For irregular cashflows requiring XIRR, use `xirr`
+///
+/// See Also
+/// --------
+/// xirr : Extended IRR for irregular cashflows
+/// irr_periodic : IRR for evenly-spaced cashflows
+/// npv_static : Curve-based NPV with explicit day-count
 #[pyfunction(name = "npv")]
 #[pyo3(
     signature = (cash_flows, discount_rate, base_date=None, day_count=None),
@@ -70,27 +146,67 @@ pub fn py_npv(
     npv_performance(&flows, discount_rate, base, Some(dc)).map_err(core_to_py)
 }
 
-/// Calculate IRR (Internal Rate of Return) for evenly-spaced periodic cash flows.
+/// Calculate IRR (Internal Rate of Return) for evenly-spaced periodic cashflows.
 ///
-/// This is a simplified version of XIRR for cash flows that occur at regular intervals
-/// (e.g., monthly, quarterly, or annual).
+/// Finds the discount rate that makes the net present value of all periodic
+/// cashflows equal to zero. This is a simplified version of XIRR for cashflows
+/// that occur at regular intervals (e.g., monthly, quarterly, or annual).
 ///
-/// Args:
-///     amounts: List of cash flow amounts (negative for outflows, positive for inflows).
-///     guess: Optional initial guess for the IRR (defaults to 0.1 = 10%).
+/// Parameters
+/// ----------
+/// amounts : list[float]
+///     List of cashflow amounts in chronological order. Negative amounts
+///     represent outflows (investments), positive amounts represent inflows
+///     (returns). Must have at least 2 cashflows with a sign change.
+/// guess : float, optional
+///     Initial guess for the IRR (default: 0.1 = 10%). Providing a reasonable
+///     guess can help convergence for difficult cases.
 ///
-/// Returns:
-///     float: The IRR as a decimal per period
+/// Returns
+/// -------
+/// float
+///     The IRR as a decimal **per period**. For annual periods, this is the
+///     annual IRR. For quarterly periods, this is the quarterly rate.
 ///
-/// Raises:
-///     ValueError: If less than 2 cash flows, no sign change, or cannot converge.
+/// Raises
+/// ------
+/// ValueError
+///     If less than 2 cashflows provided, no sign change in cashflows,
+///     or the solver cannot converge to a solution.
 ///
-/// Examples:
-///     >>> # Quarterly cash flows over 2 years
-///     >>> amounts = [-100000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 90000]
-///     >>> quarterly_irr = irr_periodic(amounts, None)
-///     >>> # Annual IRR = (1 + quarterly_irr)^4 - 1
-///     >>> annual_irr = (1 + quarterly_irr) ** 4 - 1
+/// Examples
+/// --------
+/// >>> from finstack.core.cashflow import irr_periodic
+///
+/// >>> # Annual cashflows: invest $100k, receive $110k after 1 year
+/// >>> amounts = [-100000, 110000]
+/// >>> irr = irr_periodic(amounts)
+/// >>> print(f"Annual IRR: {irr * 100:.2f}%")
+/// Annual IRR: 10.00%
+///
+/// >>> # Quarterly cashflows over 2 years
+/// >>> amounts = [-100000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 90000]
+/// >>> quarterly_irr = irr_periodic(amounts)
+/// >>> # Convert to annual: (1 + quarterly_irr)^4 - 1
+/// >>> annual_irr = (1 + quarterly_irr) ** 4 - 1
+/// >>> print(f"Annualized IRR: {annual_irr * 100:.2f}%")
+///
+/// >>> # Monthly cashflows (e.g., lease payments)
+/// >>> amounts = [-50000] + [1000] * 59 + [1000]  # 5-year lease
+/// >>> monthly_irr = irr_periodic(amounts)
+/// >>> annual_irr = (1 + monthly_irr) ** 12 - 1
+///
+/// Notes
+/// -----
+/// - The IRR is computed using Newton-Raphson iteration
+/// - For irregular cashflows, use `xirr` instead
+/// - To convert periodic IRR to annual: `annual = (1 + periodic)^n - 1`
+///   where `n` is the number of periods per year
+///
+/// See Also
+/// --------
+/// xirr : Extended IRR for irregular (non-periodic) cashflows
+/// npv : Net Present Value calculation
 #[pyfunction(name = "irr_periodic")]
 #[pyo3(
     signature = (amounts, guess=None),
@@ -100,6 +216,7 @@ pub fn py_irr_periodic(amounts: Vec<f64>, guess: Option<f64>) -> PyResult<f64> {
     irr_periodic(&amounts, guess).map_err(core_to_py)
 }
 
+/// Register performance functions with the Python module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,

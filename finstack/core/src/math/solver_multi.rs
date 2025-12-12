@@ -670,12 +670,19 @@ impl MultiSolver for LevenbergMarquardtSolver {
         }
 
         // Determine number of residuals
-        let mut test_residuals = vec![0.0; initial.len() * 2]; // Assume at most 2x params
+        //
+        // We cannot reliably use `0.0` as a sentinel (a valid residual may be exactly zero).
+        // Instead, initialize the probe buffer with NaNs and require the residual function to
+        // write a contiguous prefix. The first remaining NaN indicates the residual dimension.
+        let mut test_residuals = vec![f64::NAN; initial.len() * 2]; // Assume at most 2x params
         residuals(initial, &mut test_residuals);
         let n_residuals = test_residuals
             .iter()
-            .position(|&r| r == 0.0)
+            .position(|r| r.is_nan())
             .unwrap_or(test_residuals.len());
+        if n_residuals == 0 {
+            return Err(InputError::Invalid.into());
+        }
         let mut resid_vec = vec![0.0; n_residuals];
 
         let mut params = initial.to_vec();

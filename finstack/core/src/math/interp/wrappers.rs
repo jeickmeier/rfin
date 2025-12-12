@@ -5,7 +5,10 @@
 
 use super::{
     generic::Interpolator,
-    strategies::{CubicHermiteStrategy, LinearStrategy, LogLinearStrategy, MonotoneConvexStrategy},
+    strategies::{
+        CubicHermiteStrategy, LinearStrategy, LogLinearStrategy, MonotoneConvexStrategy,
+        PiecewiseQuadraticForwardStrategy,
+    },
 };
 
 /// Piecewise linear interpolation on discount factors.
@@ -110,3 +113,9 @@ pub type CubicHermite = Interpolator<CubicHermiteStrategy>;
 /// let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
 /// ```
 pub type MonotoneConvex = Interpolator<MonotoneConvexStrategy>;
+
+/// Piecewise quadratic forward interpolation (smooth forward curve).
+///
+/// Builds a natural cubic spline in log-discount space, producing C² continuous
+/// forward rates with flat-forward extrapolation behavior.
+pub type PiecewiseQuadraticForward = Interpolator<PiecewiseQuadraticForwardStrategy>;

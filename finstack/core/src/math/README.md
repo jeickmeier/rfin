@@ -388,3 +388,4 @@ The `math` module is **shared numerical infrastructure** across the workspace. W
 
 Keeping this separation clear helps ensure that `core::math` remains **small, deterministic, and reusable** across Rust, Python, and WASM bindings.
 
+

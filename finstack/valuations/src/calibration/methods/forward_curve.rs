@@ -79,7 +79,10 @@
 //! ```
 
 use crate::calibration::{
-    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
+    config::{CalibrationConfig, ValidationMode},
+    quote::{default_calendar_for_currency, RatesQuote},
+    report::CalibrationReport,
+    traits::Calibrator,
 };
 use crate::instruments::{
     fra::ForwardRateAgreement,
@@ -1275,8 +1278,16 @@ impl ForwardCurveCalibrator {
 
     /// Calculate the fixing date for an FRA given the period start date.
     ///
-    /// Uses business day convention when a calendar is available via the global
-    /// CalendarRegistry, otherwise falls back to calendar day approximation.
+    /// Uses a business-day calendar when available via the global `CalendarRegistry`.
+    ///
+    /// Calendar selection:
+    /// - If `calendar_id` is set: uses that calendar
+    /// - Otherwise: uses a currency-appropriate default calendar
+    ///
+    /// If no calendar can be resolved, falls back to calendar-day approximation.
+    /// In `ValidationMode::Warn` (default), this is treated as a warning; in
+    /// `ValidationMode::Error`, downstream consumers should treat this as a hard failure
+    /// for market-standard builds.
     ///
     /// # ISDA Convention
     ///
@@ -1285,44 +1296,54 @@ impl ForwardCurveCalibrator {
     fn calculate_fixing_date(&self, start: Date, _context: &MarketContext) -> Date {
         use finstack_core::dates::calendar::registry::CalendarRegistry;
 
-        // If calendar is set, try to use proper business day adjustment
-        if let Some(cal_id) = &self.calendar_id {
-            // Try to get calendar from global registry
-            let registry = CalendarRegistry::global();
-            if let Some(calendar) = registry.resolve_str(cal_id) {
-                // Shift back by reset_lag business days using preceding convention
-                let mut fixing = start;
-                let mut days_shifted = 0;
+        let registry = CalendarRegistry::global();
 
-                while days_shifted < self.reset_lag {
-                    fixing -= time::Duration::days(1);
-                    // Skip weekends and holidays
-                    if !calendar.is_holiday(fixing)
-                        && fixing.weekday() != time::Weekday::Saturday
-                        && fixing.weekday() != time::Weekday::Sunday
-                    {
-                        days_shifted += 1;
-                    }
+        let effective_calendar_id: &str = self
+            .calendar_id
+            .as_deref()
+            .unwrap_or_else(|| default_calendar_for_currency(self.currency));
+
+        if let Some(calendar) = registry.resolve_str(effective_calendar_id) {
+            // Shift back by reset_lag business days using preceding convention
+            let mut fixing = start;
+            let mut days_shifted = 0;
+
+            while days_shifted < self.reset_lag {
+                fixing -= time::Duration::days(1);
+                // Skip weekends and holidays
+                if !calendar.is_holiday(fixing)
+                    && fixing.weekday() != time::Weekday::Saturday
+                    && fixing.weekday() != time::Weekday::Sunday
+                {
+                    days_shifted += 1;
                 }
-
-                if self.config.verbose {
-                    tracing::debug!(
-                        start = %start,
-                        fixing = %fixing,
-                        calendar_id = %cal_id,
-                        reset_lag = self.reset_lag,
-                        "FRA fixing date calculated using business day convention"
-                    );
-                }
-
-                return fixing;
             }
 
-            // Calendar lookup failed, log and fall through to approximation
             if self.config.verbose {
+                tracing::debug!(
+                    start = %start,
+                    fixing = %fixing,
+                    calendar_id = %effective_calendar_id,
+                    reset_lag = self.reset_lag,
+                    "FRA fixing date calculated using business day convention"
+                );
+            }
+
+            return fixing;
+        }
+
+        // Calendar lookup failed, log and fall through to approximation
+        match self.config.validation_mode {
+            ValidationMode::Warn => {
                 tracing::warn!(
-                    calendar_id = %cal_id,
+                    calendar_id = %effective_calendar_id,
                     "Calendar not found in registry; using calendar-day approximation for FRA fixing"
+                );
+            }
+            ValidationMode::Error => {
+                tracing::warn!(
+                    calendar_id = %effective_calendar_id,
+                    "Calendar not found in registry; strict validation requested, falling back to calendar-day approximation (non-market-standard)"
                 );
             }
         }
@@ -1812,13 +1833,14 @@ mod tests {
             "USD-OIS-DISC",
         );
 
-        // Thursday start -> Tuesday fixing (2 calendar days back)
-        let thursday = Date::from_calendar_date(2025, Month::January, 9).expect("Valid test date"); // Thursday
-        let fixing = calibrator.calculate_fixing_date(thursday, &context);
-        let expected = thursday - time::Duration::days(2);
+        // Monday start -> Thursday fixing (2 business days back, skipping weekend)
+        // This verifies that even with no explicit calendar_id, we still use a currency-default calendar.
+        let monday = Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date"); // Monday
+        let fixing = calibrator.calculate_fixing_date(monday, &context);
+        let expected = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date"); // Thursday
         assert_eq!(
             fixing, expected,
-            "Without calendar, should subtract calendar days"
+            "Without explicit calendar_id, should subtract business days using currency default calendar"
         );
     }
 

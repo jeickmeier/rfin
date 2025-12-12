@@ -5,12 +5,13 @@
 //! calibration quality against market standards.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
-use finstack_valuations::calibration::{Calibrator, CreditQuote};
+use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
+use finstack_valuations::calibration::{Calibrator, CalibrationMethod, CreditQuote, RatesQuote};
 use time::Month;
 
 fn create_test_quotes() -> Vec<CreditQuote> {
@@ -207,7 +208,7 @@ fn test_calibration_report_determinism() {
     // Correctness: Verify residuals are small (successful calibration)
     // Use the pre-computed max_residual from the report
     assert!(
-        reports[0].max_residual < 1e-6,
+        reports[0].max_residual < 1e-8,
         "Calibration max residual {} exceeds tolerance 1e-6",
         reports[0].max_residual
     );
@@ -217,5 +218,49 @@ fn test_calibration_report_determinism() {
         reports[0].iterations > 0 && reports[0].iterations < 100,
         "Iteration count {} outside reasonable range [1, 100)",
         reports[0].iterations
+    );
+}
+
+#[test]
+fn test_discount_curve_global_solve_smoke() {
+    let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let quotes = vec![
+        RatesQuote::Deposit {
+            maturity: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
+            rate: 0.03,
+            day_count: DayCount::Act360,
+        },
+        RatesQuote::Deposit {
+            maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
+            rate: 0.031,
+            day_count: DayCount::Act360,
+        },
+        RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
+            rate: 0.0325,
+            fixed_freq: Frequency::annual(),
+            float_freq: Frequency::annual(),
+            fixed_dc: DayCount::Act360,
+            float_dc: DayCount::Act360,
+            index: "USD-SOFR".into(),
+        },
+    ];
+
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base, Currency::USD)
+        .with_calibration_method(CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: false,
+        })
+        .with_solve_interp(InterpStyle::PiecewiseQuadraticForward);
+
+    let market = MarketContext::new();
+    let (curve, report) = calibrator
+        .calibrate(&quotes, &market)
+        .expect("Global solve should succeed");
+
+    // Expect knots for each quote plus t=0
+    assert_eq!(curve.knots().len(), quotes.len() + 1);
+    assert!(
+        report.residuals.len() >= quotes.len(),
+        "Residuals should track each instrument"
     );
 }

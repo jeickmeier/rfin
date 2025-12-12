@@ -25,6 +25,7 @@ use crate::calibration::quote::{
     default_calendar_for_currency, settlement_days_for_currency, RatesQuote,
 };
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
+use crate::calibration::config::CalibrationMethod;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
@@ -38,7 +39,7 @@ use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use finstack_core::math::Solver;
+use finstack_core::math::{MultiSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -75,6 +76,9 @@ pub struct DiscountCurveCalibrator {
     pub extrapolation: ExtrapolationPolicy,
     /// Calibration configuration (includes multi-curve settings)
     pub config: CalibrationConfig,
+    /// Calibration method (bootstrap vs global solve)
+    #[serde(default)]
+    pub calibration_method: CalibrationMethod,
     /// Currency for the curve
     pub currency: Currency,
     /// Optional calendar identifier for schedule generation
@@ -113,6 +117,7 @@ impl DiscountCurveCalibrator {
             solve_interp: InterpStyle::MonotoneConvex, // Default; arbitrage-free
             extrapolation: ExtrapolationPolicy::FlatForward,
             config: CalibrationConfig::default(), // Defaults to multi-curve mode
+            calibration_method: CalibrationMethod::default(),
             currency,
             calendar_id: None,
             settlement_days: None,   // Will use currency default
@@ -124,6 +129,12 @@ impl DiscountCurveCalibrator {
     /// Set the interpolation used both during solving and for the final curve.
     pub fn with_solve_interp(mut self, interpolation: InterpStyle) -> Self {
         self.solve_interp = interpolation;
+        self
+    }
+
+    /// Select calibration method (bootstrap vs global solve).
+    pub fn with_calibration_method(mut self, method: CalibrationMethod) -> Self {
+        self.calibration_method = method;
         self
     }
 
@@ -774,6 +785,258 @@ impl DiscountCurveCalibrator {
         Ok((curve, report))
     }
 
+    /// Global solve for discount factors using multi-dimensional solver.
+    ///
+    /// Uses Levenberg-Marquardt to minimize pricing residuals across all instruments
+    /// simultaneously. This provides an optional alternative to sequential bootstrap.
+    fn calibrate_global(
+        &self,
+        quotes: &[RatesQuote],
+        base_context: &MarketContext,
+        _use_analytical_jacobian: bool,
+    ) -> Result<(DiscountCurve, CalibrationReport)> {
+        use finstack_core::error::InputError;
+
+        // Sort quotes by maturity and validate dependencies
+        let mut sorted_quotes = quotes.to_vec();
+        sorted_quotes.sort_by(|a, b| {
+            a.maturity_date()
+                .partial_cmp(&b.maturity_date())
+                .expect("Date comparison should always be comparable")
+        });
+        self.validate_quotes(&sorted_quotes)?;
+        self.validate_curve_dependencies(&sorted_quotes, base_context)?;
+
+        let curve_dc = self.effective_curve_day_count();
+        let settlement = self.settlement_date()?;
+
+        // Build time grid and initial guesses
+        let mut times: Vec<f64> = Vec::new();
+        let mut initials: Vec<f64> = Vec::new();
+        let mut active_quotes: Vec<RatesQuote> = Vec::new();
+
+        for quote in sorted_quotes {
+            let time_to_maturity = curve_dc
+                .year_fraction(
+                    self.base_date,
+                    quote.maturity_date(),
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            if time_to_maturity <= 0.0 {
+                continue;
+            }
+
+            let init_df = match &quote {
+                RatesQuote::Deposit { maturity, day_count, .. } => {
+                    // Deposits are quoted on the accrual from *settlement* → maturity.
+                    // Use the quote's day-count to build a better initial guess.
+                    let r = self.get_rate(&quote);
+                    let yf = day_count
+                        .year_fraction(
+                            settlement,
+                            *maturity,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(time_to_maturity)
+                        .max(1e-6);
+                    1.0 / (1.0 + r * yf)
+                }
+                _ => {
+                    let r = self.get_rate(&quote);
+                    (-r * time_to_maturity).exp()
+                }
+            };
+
+            times.push(time_to_maturity);
+            initials.push(init_df.clamp(1e-6, 1.5));
+            active_quotes.push(quote);
+        }
+
+        if active_quotes.is_empty() {
+            return Err(InputError::TooFewPoints.into());
+        }
+
+        // Seed the global solve with a high-quality initial guess.
+        //
+        // Using the bootstrapped curve as the starting point dramatically improves
+        // convergence and typically yields the same (or near-identical) curve when
+        // the instrument set is exactly solvable (par instruments).
+        let bootstrap_solver = crate::calibration::create_simple_solver(&self.config);
+        if let Ok((boot_curve, _)) =
+            self.bootstrap_curve_with_solver(&active_quotes, &bootstrap_solver, base_context)
+        {
+            for (i, t) in times.iter().enumerate() {
+                initials[i] = boot_curve.df(*t).clamp(1e-6, 1.5);
+            }
+        }
+
+        let solver = self.config.create_lm_solver();
+        let base_context_clone = base_context.clone();
+        let solve_interp = self.solve_interp;
+        let curve_day_count = curve_dc;
+        let base_date = self.base_date;
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            // Build curve once per parameter vector.
+            //
+            // For interpolation styles like MonotoneConvex we must ensure a monotone
+            // discount-factor sequence; otherwise the interpolator construction fails
+            // and the residuals become constant penalties.
+            let mut knots = Vec::with_capacity(params.len() + 1);
+            knots.push((0.0, 1.0));
+
+            let mut prev = 1.0;
+            for (t, &raw_df) in times.iter().zip(params.iter()) {
+                // Keep DF positive; for some interpolators we also project onto a
+                // (weakly) non-increasing sequence to avoid builder failures.
+                let mut df = raw_df.clamp(1e-8, 1.5);
+                match solve_interp {
+                    finstack_core::math::interp::InterpStyle::MonotoneConvex
+                    | finstack_core::math::interp::InterpStyle::CubicHermite => {
+                        if df > prev {
+                            df = prev;
+                        }
+                        prev = df;
+                    }
+                    _ => {
+                        // No monotonic projection for other styles.
+                        prev = df;
+                    }
+                }
+                knots.push((*t, df));
+            }
+
+            let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
+                .base_date(base_date)
+                .day_count(curve_day_count)
+                .knots(knots)
+                .set_interp(solve_interp)
+                .allow_non_monotonic()
+                .build()
+            {
+                Ok(curve) => curve,
+                Err(_) => {
+                    for r in resid.iter_mut() {
+                        *r = crate::calibration::PENALTY;
+                    }
+                    return;
+                }
+            };
+
+            let temp_context = base_context_clone.clone().insert_discount(temp_curve);
+
+            for (i, quote) in active_quotes.iter().enumerate() {
+                resid[i] = self
+                    .price_instrument(quote, &temp_context)
+                    .unwrap_or(crate::calibration::PENALTY);
+            }
+        };
+
+        let solved = solver.solve_system(residuals, &initials)?;
+
+        // Build final knots and curve
+        let mut final_knots = Vec::with_capacity(solved.len() + 1);
+        final_knots.push((0.0, 1.0));
+        for (t, df) in times.iter().zip(solved.iter()) {
+            final_knots.push((*t, df.clamp(1e-8, 1.5)));
+        }
+
+        let curve = self
+            .apply_solve_interpolation(
+                DiscountCurve::builder(self.curve_id.to_owned())
+                    .base_date(self.base_date)
+                    .day_count(curve_dc)
+                    .extrapolation(self.extrapolation)
+                    .allow_non_monotonic()
+                    .knots(final_knots.clone()),
+            )
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("global DiscountCurve build failed for {}: {}", self.curve_id, e),
+                category: "yield_curve_global_solve".to_string(),
+            })?;
+
+        // Validate calibrated curve (reuse monotonicity rules)
+        use crate::calibration::validation::{CurveValidator, ValidationConfig};
+        let short_rate = curve.zero(0.25);
+        let validation_config = if short_rate < 0.0 {
+            ValidationConfig::negative_rates()
+        } else {
+            ValidationConfig::default()
+        };
+        curve
+            .validate(&validation_config)
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated discount curve {} failed validation: {}",
+                    self.curve_id, e
+                ),
+                category: "yield_curve_validation".to_string(),
+            })?;
+
+        // Compute residuals for report
+        let mut residuals_map = BTreeMap::new();
+        let mut total_iterations = 0;
+        // NOTE: `price_instrument` uses internal CALIB_* curve ids for repricing.
+        // The global solver produces the final curve with the user-facing id
+        // (`self.curve_id`), so we also build an equivalent curve under the
+        // calibration id for residual reporting.
+        let pricing_curve = self
+            .apply_solve_interpolation(
+                DiscountCurve::builder("CALIB_CURVE")
+                    .base_date(self.base_date)
+                    .day_count(curve_dc)
+                    .extrapolation(self.extrapolation)
+                    .allow_non_monotonic()
+                    .knots(final_knots.clone()),
+            )
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("global pricing DiscountCurve build failed: {}", e),
+                category: "yield_curve_global_solve_pricing_curve".to_string(),
+            })?;
+
+        let final_context = base_context.clone().insert_discount(pricing_curve);
+        for (idx, quote) in active_quotes.iter().enumerate() {
+            let mut ctx = final_context.clone();
+            if quote.requires_forward_curve() && !quote.is_ois_suitable() {
+                if let Ok(disc_ref) = ctx.get_discount_ref("CALIB_CURVE") {
+                    if let Ok(fwd) = disc_ref.to_forward_curve_with_interp(
+                        "CALIB_FWD",
+                        0.25,
+                        self.solve_interp,
+                    ) {
+                        ctx = ctx.insert_forward(fwd);
+                    }
+                }
+            }
+            let residual = self
+                .price_instrument(quote, &ctx)
+                .unwrap_or(crate::calibration::PENALTY)
+                .abs();
+            residuals_map.insert(format!("GLOBAL-{:06}", idx), residual);
+            total_iterations += 1;
+        }
+
+        let report = CalibrationReport::for_type_with_tolerance(
+            "yield_curve_global",
+            residuals_map,
+            total_iterations,
+            self.config.tolerance,
+        )
+        .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+        .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
+        .with_metadata("currency", self.currency.to_string())
+        .with_metadata(
+            "curve_day_count",
+            format!("{:?}", self.effective_curve_day_count()),
+        )
+        .with_metadata("method", "global_solve");
+
+        Ok((curve, report))
+    }
+
     /// Price an instrument using the given market context.
     ///
     /// Returns the pricing error (PV for par instruments) that should be zero
@@ -1188,8 +1451,15 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
             }
         }
 
-        let solver = crate::calibration::create_simple_solver(&self.config);
-        self.bootstrap_curve_with_solver(instruments, &solver, base_context)
+        match self.calibration_method {
+            CalibrationMethod::Bootstrap => {
+                let solver = crate::calibration::create_simple_solver(&self.config);
+                self.bootstrap_curve_with_solver(instruments, &solver, base_context)
+            }
+            CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            } => self.calibrate_global(instruments, base_context, use_analytical_jacobian),
+        }
     }
 }
 

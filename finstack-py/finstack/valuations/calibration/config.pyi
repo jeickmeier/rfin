@@ -1,86 +1,110 @@
-"""Calibration configuration classes."""
+"""Calibration configuration types exposed by :mod:`finstack.valuations.calibration`."""
 
-from typing import Optional, Dict, Any
+from __future__ import annotations
+
+from typing import Dict, Optional
+
 
 class SolverKind:
-    """Solver kind enumeration for calibration."""
+    """Solver kind enumeration."""
 
-    # Class attributes
     NEWTON: SolverKind
     BRENT: SolverKind
-    HYBRID: SolverKind
     LEVENBERG_MARQUARDT: SolverKind
-    DIFFERENTIAL_EVOLUTION: SolverKind
 
     @classmethod
-    def from_name(cls, name: str) -> SolverKind:
-        """Create solver kind from name.
-
-        Args:
-            name: Solver name (e.g., "newton", "brent")
-
-        Returns:
-            SolverKind: Corresponding solver kind
-
-        Raises:
-            KeyError: If name is unknown
-        """
-        ...
+    def from_name(cls, name: str) -> SolverKind: ...
 
     @property
-    def name(self) -> str:
-        """Solver name.
-
-        Returns:
-            str: Solver name
-        """
-        ...
+    def name(self) -> str: ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...
     def __richcmp__(self, other: object, op: int) -> object: ...
 
+
+class CalibrationMethod:
+    """Calibration method selection."""
+
+    BOOTSTRAP: CalibrationMethod
+    GLOBAL_SOLVE: CalibrationMethod
+
+    @classmethod
+    def from_name(
+        cls, name: str, use_analytical_jacobian: bool = False
+    ) -> CalibrationMethod: ...
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def use_analytical_jacobian(self) -> bool: ...
+
+    def with_use_analytical_jacobian(self, value: bool) -> CalibrationMethod: ...
+
+    def __repr__(self) -> str: ...
+
+
+class ValidationMode:
+    """Runtime validation behavior for arbitrage/consistency checks."""
+
+    WARN: ValidationMode
+    ERROR: ValidationMode
+
+    @classmethod
+    def from_name(cls, name: str) -> ValidationMode: ...
+
+    @property
+    def name(self) -> str: ...
+
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+
+class RateBounds:
+    """Bounds for forward/zero rates during calibration."""
+
+    def __init__(self, min_rate: float = -0.02, max_rate: float = 0.50) -> None: ...
+
+    @classmethod
+    def emerging_markets(cls) -> RateBounds: ...
+
+    @classmethod
+    def negative_rate_environment(cls) -> RateBounds: ...
+
+    @classmethod
+    def stress_test(cls) -> RateBounds: ...
+
+    @property
+    def min_rate(self) -> float: ...
+
+    @property
+    def max_rate(self) -> float: ...
+
+    def __repr__(self) -> str: ...
+
+
 class MultiCurveConfig:
     """Multi-curve calibration configuration."""
 
-    def __init__(self, calibrate_basis: bool = True, enforce_separation: bool = True) -> None:
-        """Create multi-curve configuration.
-
-        Args:
-            calibrate_basis: Whether to calibrate basis
-            enforce_separation: Whether to enforce separation
-        """
-        ...
+    def __init__(self, calibrate_basis: bool = True, enforce_separation: bool = True) -> None: ...
 
     @classmethod
-    def new_standard(cls) -> MultiCurveConfig:
-        """Create standard multi-curve configuration.
-
-        Returns:
-            MultiCurveConfig: Standard configuration
-        """
-        ...
+    def new_standard(cls) -> MultiCurveConfig: ...
 
     @property
-    def calibrate_basis(self) -> bool:
-        """Whether to calibrate basis."""
-        ...
+    def calibrate_basis(self) -> bool: ...
 
     @property
-    def enforce_separation(self) -> bool:
-        """Whether to enforce separation."""
-        ...
+    def enforce_separation(self) -> bool: ...
 
-    def with_calibrate_basis(self, value: bool) -> MultiCurveConfig:
-        """Create new config with updated calibrate_basis."""
-        ...
+    def with_calibrate_basis(self, value: bool) -> MultiCurveConfig: ...
 
-    def with_enforce_separation(self, value: bool) -> MultiCurveConfig:
-        """Create new config with updated enforce_separation."""
-        ...
+    def with_enforce_separation(self, value: bool) -> MultiCurveConfig: ...
 
     def __repr__(self) -> str: ...
+
 
 class CalibrationConfig:
     """Calibration configuration."""
@@ -96,100 +120,88 @@ class CalibrationConfig:
         solver_kind: Optional[SolverKind] = None,
         multi_curve: Optional[MultiCurveConfig] = None,
         entity_seniority: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """Create calibration configuration.
-
-        Args:
-            tolerance: Convergence tolerance
-            max_iterations: Maximum iterations
-            use_parallel: Whether to use parallel processing
-            random_seed: Random seed for reproducibility
-            verbose: Whether to enable verbose output
-            solver_kind: Solver kind to use
-            multi_curve: Multi-curve configuration
-            entity_seniority: Entity seniority mapping
-        """
-        ...
+        calibration_method: Optional[CalibrationMethod] = None,
+        use_fd_sabr_gradients: Optional[bool] = None,
+        validation_mode: Optional[ValidationMode] = None,
+        validation: Optional["ValidationConfig"] = None,
+        rate_bounds: Optional[RateBounds] = None,
+        explain: Optional[bool] = None,
+    ) -> None: ...
 
     @classmethod
-    def multi_curve(cls) -> CalibrationConfig:
-        """Create multi-curve calibration configuration.
-
-        Returns:
-            CalibrationConfig: Multi-curve configuration
-        """
-        ...
+    def multi_curve(cls) -> CalibrationConfig: ...
 
     @property
-    def tolerance(self) -> float:
-        """Convergence tolerance."""
-        ...
+    def tolerance(self) -> float: ...
 
     @property
-    def max_iterations(self) -> int:
-        """Maximum iterations."""
-        ...
+    def max_iterations(self) -> int: ...
 
     @property
-    def use_parallel(self) -> bool:
-        """Whether to use parallel processing."""
-        ...
+    def use_parallel(self) -> bool: ...
 
     @property
-    def random_seed(self) -> Optional[int]:
-        """Random seed for reproducibility."""
-        ...
+    def random_seed(self) -> Optional[int]: ...
 
     @property
-    def verbose(self) -> bool:
-        """Whether to enable verbose output."""
-        ...
+    def verbose(self) -> bool: ...
 
     @property
-    def solver_kind(self) -> SolverKind:
-        """Solver kind to use."""
-        ...
+    def solver_kind(self) -> SolverKind: ...
 
     @property
-    def multi_curve_config(self) -> MultiCurveConfig:
-        """Multi-curve configuration."""
-        ...
+    def calibration_method(self) -> CalibrationMethod: ...
 
     @property
-    def entity_seniority(self) -> Dict[str, str]:
-        """Entity seniority mapping."""
-        ...
+    def multi_curve_config(self) -> MultiCurveConfig: ...
 
-    def with_tolerance(self, tolerance: float) -> CalibrationConfig:
-        """Create new config with updated tolerance."""
-        ...
+    @property
+    def entity_seniority(self) -> Dict[str, str]: ...
 
-    def with_max_iterations(self, max_iterations: int) -> CalibrationConfig:
-        """Create new config with updated max_iterations."""
-        ...
+    @property
+    def use_fd_sabr_gradients(self) -> bool: ...
 
-    def with_parallel(self, flag: bool) -> CalibrationConfig:
-        """Create new config with updated use_parallel."""
-        ...
+    @property
+    def validation_mode(self) -> ValidationMode: ...
 
-    def with_random_seed(self, seed: Optional[int]) -> CalibrationConfig:
-        """Create new config with updated random_seed."""
-        ...
+    @property
+    def validation_config(self) -> "ValidationConfig": ...
 
-    def with_verbose(self, verbose: bool) -> CalibrationConfig:
-        """Create new config with updated verbose."""
-        ...
+    @property
+    def rate_bounds(self) -> RateBounds: ...
 
-    def with_solver_kind(self, kind: SolverKind) -> CalibrationConfig:
-        """Create new config with updated solver_kind."""
-        ...
+    @property
+    def explain_enabled(self) -> bool: ...
 
-    def with_multi_curve_config(self, config: MultiCurveConfig) -> CalibrationConfig:
-        """Create new config with updated multi_curve."""
-        ...
+    def with_tolerance(self, tolerance: float) -> CalibrationConfig: ...
 
-    def with_entity_seniority(self, mapping: Dict[str, str]) -> CalibrationConfig:
-        """Create new config with updated entity_seniority."""
-        ...
+    def with_max_iterations(self, max_iterations: int) -> CalibrationConfig: ...
+
+    def with_parallel(self, flag: bool) -> CalibrationConfig: ...
+
+    def with_random_seed(self, seed: Optional[int]) -> CalibrationConfig: ...
+
+    def with_verbose(self, verbose: bool) -> CalibrationConfig: ...
+
+    def with_solver_kind(self, kind: SolverKind) -> CalibrationConfig: ...
+
+    def with_calibration_method(self, method: CalibrationMethod) -> CalibrationConfig: ...
+
+    def with_multi_curve_config(self, config: MultiCurveConfig) -> CalibrationConfig: ...
+
+    def with_entity_seniority(self, mapping: Dict[str, str]) -> CalibrationConfig: ...
+
+    def with_use_fd_sabr_gradients(self, flag: bool) -> CalibrationConfig: ...
+
+    def with_validation_mode(self, mode: ValidationMode) -> CalibrationConfig: ...
+
+    def with_validation_config(self, config: "ValidationConfig") -> CalibrationConfig: ...
+
+    def with_rate_bounds(self, bounds: RateBounds) -> CalibrationConfig: ...
+
+    def with_explain(self) -> CalibrationConfig: ...
 
     def __repr__(self) -> str: ...
+
+
+from .validation import ValidationConfig  # noqa: E402

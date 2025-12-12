@@ -1,3 +1,38 @@
+//! Core cashflow primitives: types and classification.
+//!
+//! This module provides the fundamental types for representing cashflows in
+//! financial computations:
+//!
+//! - [`PyCFKind`]: Enumeration of cashflow categories (fixed, floating, fees, etc.)
+//! - [`PyCashFlow`]: A dated monetary amount with classification and metadata
+//!
+//! # Features
+//!
+//! - **Classification**: Rich taxonomy of cashflow types for proper categorization
+//! - **Currency-safe**: Cashflows use `Money` for currency-tagged amounts
+//! - **Flexible parsing**: Accept strings or enum values for cashflow kinds
+//! - **Validation**: Built-in validation for cashflow integrity
+//!
+//! # Cashflow Categories
+//!
+//! | Category | Description |
+//! |----------|-------------|
+//! | Fixed | Fixed-rate interest payments |
+//! | FloatReset | Floating-rate payments with index reset |
+//! | Notional | Principal exchanges |
+//! | Amortization | Principal repayments |
+//! | Fee | Generic fee payments |
+//! | CommitmentFee | Fees on undrawn commitments |
+//! | UsageFee | Fees on utilized amounts |
+//! | FacilityFee | Facility maintenance fees |
+//! | PIK | Payment-in-kind (capitalized interest) |
+//! | Stub | Irregular period interest |
+//!
+//! # See Also
+//!
+//! - `finstack.core.cashflow.xirr` for return calculations
+//! - `finstack.core.cashflow.npv` for present value calculations
+
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -11,15 +46,55 @@ use pyo3::Bound;
 
 /// Enumeration of cash-flow categories used across finstack-core.
 ///
+/// `CFKind` classifies cashflows by their economic nature, enabling proper
+/// aggregation, reporting, and analytics. Use class attributes to access
+/// predefined categories.
+///
 /// Parameters
 /// ----------
 /// None
 ///     Use class attributes such as :attr:`CFKind.FIXED` instead of instantiating directly.
 ///
-/// Returns
-/// -------
-/// CFKind
-///     Enum value describing the cash-flow classification.
+/// Attributes
+/// ----------
+/// FIXED : CFKind
+///     Fixed-rate interest payments with predetermined amounts.
+/// FLOAT_RESET : CFKind
+///     Floating-rate payments that reset to an index (e.g., SOFR, EURIBOR).
+/// COMMITMENT_FEE : CFKind
+///     Fees charged on undrawn portions of credit facilities.
+/// USAGE_FEE : CFKind
+///     Fees charged on utilized portions of credit facilities.
+/// FACILITY_FEE : CFKind
+///     Flat fees for maintaining a credit facility.
+/// NOTIONAL : CFKind
+///     Principal exchanges (e.g., bond notional, swap notional).
+/// PIK : CFKind
+///     Payment-in-kind: interest capitalized rather than paid in cash.
+/// AMORTIZATION : CFKind
+///     Scheduled principal repayments.
+/// FEE : CFKind
+///     Generic fee category for uncategorized fees.
+/// STUB : CFKind
+///     Irregular period interest (short or long first/last coupon).
+///
+/// Examples
+/// --------
+/// >>> from finstack.core.cashflow import CFKind
+///
+/// >>> # Access predefined categories
+/// >>> kind = CFKind.FIXED
+/// >>> print(kind.name)
+/// 'fixed'
+///
+/// >>> # Parse from string
+/// >>> kind = CFKind.from_name("float_reset")
+/// >>> kind == CFKind.FLOAT_RESET
+/// True
+///
+/// See Also
+/// --------
+/// CashFlow : Dated cashflow with classification
 #[pyclass(name = "CFKind", module = "finstack.core.cashflow", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCFKind {
@@ -142,6 +217,78 @@ impl PyCFKind {
     }
 }
 
+/// A dated monetary amount with classification and metadata.
+///
+/// `CashFlow` represents a single cash movement at a specific date, tagged with
+/// its economic classification (`CFKind`), optional accrual information, and
+/// reset date for floating-rate instruments.
+///
+/// Parameters
+/// ----------
+/// date : date or str
+///     Payment or event date when the cashflow occurs.
+/// amount : Money
+///     Monetary amount of the cashflow (currency-tagged).
+/// kind : CFKind or str
+///     Classification of the cashflow type.
+/// accrual_factor : float, optional
+///     Year fraction for accrual calculations (default: 0.0).
+/// reset_date : date or str, optional
+///     Index fixing date for floating-rate cashflows (default: None).
+///
+/// Attributes
+/// ----------
+/// date : datetime.date
+///     The payment or event date.
+/// amount : Money
+///     The monetary amount with currency.
+/// kind : CFKind
+///     The cashflow classification.
+/// accrual_factor : float
+///     Year fraction used for accrual calculations.
+/// reset_date : datetime.date or None
+///     Index reset date for floating cashflows.
+///
+/// Examples
+/// --------
+/// >>> from datetime import date
+/// >>> from finstack import Money
+/// >>> from finstack.core.cashflow import CashFlow, CFKind
+///
+/// >>> # Fixed interest payment
+/// >>> cf_fixed = CashFlow(
+/// ...     date=date(2025, 6, 15),
+/// ...     amount=Money(25000, "USD"),
+/// ...     kind=CFKind.FIXED,
+/// ...     accrual_factor=0.25  # Quarterly
+/// ... )
+///
+/// >>> # Floating-rate payment with reset
+/// >>> cf_float = CashFlow(
+/// ...     date=date(2025, 6, 15),
+/// ...     amount=Money(27500, "USD"),
+/// ...     kind=CFKind.FLOAT_RESET,
+/// ...     accrual_factor=0.25,
+/// ...     reset_date=date(2025, 3, 15)  # Reset 3 months prior
+/// ... )
+///
+/// >>> # Principal repayment
+/// >>> cf_amort = CashFlow(
+/// ...     date=date(2025, 6, 15),
+/// ...     amount=Money(100000, "USD"),
+/// ...     kind=CFKind.AMORTIZATION
+/// ... )
+///
+/// Notes
+/// -----
+/// - Use `validate()` to check cashflow integrity
+/// - Negative amounts represent outflows (payments to counterparty)
+/// - Positive amounts represent inflows (receipts from counterparty)
+///
+/// See Also
+/// --------
+/// CFKind : Cashflow classification enumeration
+/// Money : Currency-tagged monetary amounts
 #[pyclass(name = "CashFlow", module = "finstack.core.cashflow")]
 #[derive(Clone, Debug)]
 pub struct PyCashFlow {
@@ -356,6 +503,7 @@ impl PyCashFlow {
     }
 }
 
+/// Register primitive types with the Python module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,

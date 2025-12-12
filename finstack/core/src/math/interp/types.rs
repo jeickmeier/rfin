@@ -4,7 +4,9 @@
 //! the internal `Interp` enum for static dispatch in hot paths.
 
 use super::traits::InterpFn;
-use super::wrappers::{CubicHermite, LinearDf, LogLinearDf, MonotoneConvex};
+use super::wrappers::{
+    CubicHermite, LinearDf, LogLinearDf, MonotoneConvex, PiecewiseQuadraticForward,
+};
 
 /// Epsilon for finite difference derivative calculations.
 pub const DERIVATIVE_EPSILON: f64 = 1e-6;
@@ -37,6 +39,8 @@ pub enum InterpStyle {
     MonotoneConvex,
     /// Cubic Hermite interpolation (monotone-preserving slopes).
     CubicHermite,
+    /// Piecewise quadratic forwards (smooth forward curve, C²).
+    PiecewiseQuadraticForward,
 }
 
 /// Crate-private enum enabling static dispatch for interpolation in hot loops.
@@ -51,6 +55,7 @@ pub(crate) enum Interp {
     LogLinear(LogLinearDf),
     MonotoneConvex(MonotoneConvex),
     CubicHermite(CubicHermite),
+    PiecewiseQuadraticForward(PiecewiseQuadraticForward),
 }
 
 impl Interp {
@@ -61,6 +66,7 @@ impl Interp {
             Interp::LogLinear(i) => i.interp(x),
             Interp::MonotoneConvex(i) => i.interp(x),
             Interp::CubicHermite(i) => i.interp(x),
+            Interp::PiecewiseQuadraticForward(i) => i.interp(x),
         }
     }
 
@@ -72,6 +78,7 @@ impl Interp {
             Interp::LogLinear(_) => InterpStyle::LogLinear,
             Interp::MonotoneConvex(_) => InterpStyle::MonotoneConvex,
             Interp::CubicHermite(_) => InterpStyle::CubicHermite,
+            Interp::PiecewiseQuadraticForward(_) => InterpStyle::PiecewiseQuadraticForward,
         }
     }
 
@@ -83,6 +90,7 @@ impl Interp {
             Interp::LogLinear(i) => i.extrapolation(),
             Interp::MonotoneConvex(i) => i.extrapolation(),
             Interp::CubicHermite(i) => i.extrapolation(),
+            Interp::PiecewiseQuadraticForward(i) => i.extrapolation(),
         }
     }
 }
@@ -104,6 +112,9 @@ impl InterpStyle {
             InterpStyle::CubicHermite => {
                 Ok(Box::new(CubicHermite::new(knots, values, extrapolation)?))
             }
+            InterpStyle::PiecewiseQuadraticForward => Ok(Box::new(
+                PiecewiseQuadraticForward::new(knots, values, extrapolation)?,
+            )),
         }
     }
 
@@ -126,6 +137,9 @@ impl InterpStyle {
             InterpStyle::CubicHermite => {
                 Interp::CubicHermite(CubicHermite::new(knots, values, extrapolation)?)
             }
+            InterpStyle::PiecewiseQuadraticForward => Interp::PiecewiseQuadraticForward(
+                PiecewiseQuadraticForward::new(knots, values, extrapolation)?,
+            ),
         };
         Ok(interp)
     }
@@ -161,6 +175,9 @@ impl InterpStyle {
                 }
                 InterpStyle::CubicHermite => Interp::CubicHermite(
                     CubicHermite::new_allow_any_values(knots, values, extrapolation)?,
+                ),
+                InterpStyle::PiecewiseQuadraticForward => Interp::PiecewiseQuadraticForward(
+                    PiecewiseQuadraticForward::new(knots, values, extrapolation)?,
                 ),
             };
         Ok(interp)

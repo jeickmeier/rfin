@@ -10,6 +10,7 @@
 //! - [`LogLinearDf`]: Linear in log(DF), constant zero rates
 //! - [`MonotoneConvex`]: Hagan-West smooth, monotone, no-arbitrage
 //! - [`CubicHermite`]: PCHIP shape-preserving cubic
+//! - [`PiecewiseQuadraticForward`]: Natural cubic in log DF (C² forwards)
 //!
 //! # Arbitrage Considerations
 //!
@@ -43,4 +44,6 @@ pub mod wrappers;
 pub use generic::Interpolator;
 pub use traits::{InterpFn, InterpolationStrategy};
 pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
-pub use wrappers::{CubicHermite, LinearDf, LogLinearDf, MonotoneConvex};
+pub use wrappers::{
+    CubicHermite, LinearDf, LogLinearDf, MonotoneConvex, PiecewiseQuadraticForward,
+};
