@@ -3,6 +3,26 @@
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
+/// Policy for evaluating volatility surfaces outside their calibrated grid.
+///
+/// Market-standard production systems typically make this choice explicit because
+/// extrapolation can materially affect PV and greeks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum VolSurfaceExtrapolation {
+    /// Fail fast if `(expiry, strike)` is out of bounds.
+    Error,
+    /// Flat extrapolation to the nearest edge (clamp to grid).
+    Clamp,
+}
+
+impl Default for VolSurfaceExtrapolation {
+    fn default() -> Self {
+        Self::Error
+    }
+}
+
 /// Optional parameters that override model pricing with market quotes.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -16,6 +36,9 @@ pub struct PricingOverrides {
     pub vega_bump_decimal: Option<f64>,
     /// Implied volatility (overrides vol surface)
     pub implied_volatility: Option<f64>,
+    /// Volatility surface extrapolation policy when `implied_volatility` is not set.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub vol_surface_extrapolation: VolSurfaceExtrapolation,
     /// Quoted spread (for credit instruments)
     pub quoted_spread_bp: Option<f64>,
     /// Upfront payment (for CDS, convertibles)
@@ -93,6 +116,12 @@ impl PricingOverrides {
     /// Set implied volatility
     pub fn with_implied_vol(mut self, vol: f64) -> Self {
         self.implied_volatility = Some(vol);
+        self
+    }
+
+    /// Set volatility surface extrapolation policy.
+    pub fn with_vol_surface_extrapolation(mut self, policy: VolSurfaceExtrapolation) -> Self {
+        self.vol_surface_extrapolation = policy;
         self
     }
 

@@ -237,7 +237,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns
-        let period_schedule = self.schedule.period_schedule();
+        let period_schedule = self.schedule.period_schedule()?;
 
         let mut flows = Vec::new();
         for date in period_schedule.dates.iter().skip(1) {

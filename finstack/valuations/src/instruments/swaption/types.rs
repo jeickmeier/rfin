@@ -10,6 +10,7 @@
 use crate::instruments::common::models::{SABRModel, SABRParameters};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -415,7 +416,14 @@ impl Swaption {
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            vol_surface.value_clamped(time_to_expiry, self.strike_rate)
+            match self.pricing_overrides.vol_surface_extrapolation {
+                VolSurfaceExtrapolation::Clamp => {
+                    vol_surface.value_clamped(time_to_expiry, self.strike_rate)
+                }
+                VolSurfaceExtrapolation::Error => {
+                    vol_surface.value_checked(time_to_expiry, self.strike_rate)?
+                }
+            }
         };
 
         match self.vol_model {
@@ -643,7 +651,14 @@ impl Swaption {
 
         // 3. Volatility surface
         let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
-        Ok(vol_surface.value_clamped(time_to_expiry, self.strike_rate))
+        match self.pricing_overrides.vol_surface_extrapolation {
+            VolSurfaceExtrapolation::Clamp => {
+                Ok(vol_surface.value_clamped(time_to_expiry, self.strike_rate))
+            }
+            VolSurfaceExtrapolation::Error => {
+                Ok(vol_surface.value_checked(time_to_expiry, self.strike_rate)?)
+            }
+        }
     }
 
     /// Pre-compute common Greek calculation inputs.

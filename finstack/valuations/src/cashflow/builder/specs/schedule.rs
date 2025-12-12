@@ -59,7 +59,8 @@ impl ScheduleParams {
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USD".to_string()),
+            // Use a real calendar identifier (currency codes are not calendar IDs).
+            calendar_id: Some("usny".to_string()),
             stub: StubKind::None,
         }
     }
@@ -70,7 +71,7 @@ impl ScheduleParams {
             freq: Frequency::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("EUR".to_string()),
+            calendar_id: Some("target2".to_string()),
             stub: StubKind::None,
         }
     }
@@ -81,7 +82,7 @@ impl ScheduleParams {
             freq: Frequency::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("GBP".to_string()),
+            calendar_id: Some("gblo".to_string()),
             stub: StubKind::None,
         }
     }
@@ -92,7 +93,7 @@ impl ScheduleParams {
             freq: Frequency::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("JPY".to_string()),
+            calendar_id: Some("jpto".to_string()),
             stub: StubKind::None,
         }
     }

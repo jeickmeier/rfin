@@ -5,6 +5,7 @@
 //! that capture the smile and skew observed in market prices.
 
 use finstack_core::{Error, Result};
+use statrs::distribution::{ContinuousCDF, Normal};
 
 /// SABR model parameters
 #[derive(Clone, Debug)]
@@ -1008,44 +1009,23 @@ impl SABRSmile {
     }
 }
 
-/// Helper function for normal CDF inverse (simplified)
+/// Helper function for normal CDF inverse using high-precision implementation.
+///
+/// Uses the `statrs` crate's implementation which provides market-standard
+/// precision for tail probabilities, critical for accurate delta-to-strike
+/// conversions in FX and equity volatility surfaces.
 fn normal_inverse_cdf(p: f64) -> f64 {
-    // Simplified approximation - in production use a proper implementation
-    if p <= 0.0 || p >= 1.0 {
-        return if p <= 0.0 { -3.0 } else { 3.0 };
+    // Handle boundary cases explicitly
+    if p <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    if p >= 1.0 {
+        return f64::INFINITY;
     }
 
-    // Rational approximation
-    let a = [
-        2.50662823884,
-        -18.61500062529,
-        41.39119773534,
-        -25.44106049637,
-    ];
-    let b = [
-        -8.47351093090,
-        23.08336743743,
-        -21.06224101826,
-        3.13082909833,
-    ];
-
-    let x = p - 0.5;
-    if x.abs() < 0.42 {
-        let x2 = x * x;
-        let num = x * (((a[3] * x2 + a[2]) * x2 + a[1]) * x2 + a[0]);
-        let den = (((b[3] * x2 + b[2]) * x2 + b[1]) * x2 + b[0]) * x2 + 1.0;
-        num / den
-    } else {
-        let y = if x > 0.0 { 1.0 - p } else { p };
-        let z = (-y.ln()).sqrt();
-        let num = ((a[3] * z + a[2]) * z + a[1]) * z + a[0];
-        let den = ((b[3] * z + b[2]) * z + b[1]) * z + b[0];
-        if x > 0.0 {
-            num / den
-        } else {
-            -(num / den)
-        }
-    }
+    // Use statrs high-precision implementation
+    let normal = Normal::new(0.0, 1.0).expect("Standard normal distribution should always be valid");
+    normal.inverse_cdf(p)
 }
 
 #[cfg(test)]
@@ -1469,5 +1449,71 @@ mod tests {
         assert!(SABRParameters::new(1e-10, 0.0, 0.0, -1.0).is_ok());
         assert!(SABRParameters::new(1e-10, 1.0, 0.0, 1.0).is_ok());
         assert!(SABRParameters::new(0.001, 0.5, 0.0, 0.0).is_ok());
+    }
+
+    // ===================================================================
+    // Inverse Normal CDF Precision Tests
+    // ===================================================================
+
+    #[test]
+    fn test_normal_inverse_cdf_precision() {
+        // Test that the inverse CDF has high precision for tail probabilities.
+        // These golden values are from high-precision statistical tables.
+
+        // Standard values
+        assert!((normal_inverse_cdf(0.5) - 0.0).abs() < 1e-12, "CDF^-1(0.5) should be 0");
+        assert!(
+            (normal_inverse_cdf(0.84134474606854) - 1.0).abs() < 1e-8,
+            "CDF^-1(0.84134...) should be ~1.0"
+        );
+        assert!(
+            (normal_inverse_cdf(0.97724986805182) - 2.0).abs() < 1e-8,
+            "CDF^-1(0.97724...) should be ~2.0"
+        );
+
+        // Tail precision test: p = 1e-8 should give approximately -5.6120
+        // (from scipy.stats.norm.ppf(1e-8) = -5.612001244174965)
+        let tail_result = normal_inverse_cdf(1e-8);
+        assert!(
+            (tail_result - (-5.612001244174965)).abs() < 1e-6,
+            "Tail precision: CDF^-1(1e-8) = {} should be ~-5.612",
+            tail_result
+        );
+
+        // Upper tail: p = 1 - 1e-8 should give approximately +5.6120
+        let upper_tail_result = normal_inverse_cdf(1.0 - 1e-8);
+        assert!(
+            (upper_tail_result - 5.612001244174965).abs() < 1e-6,
+            "Upper tail precision: CDF^-1(1-1e-8) = {} should be ~5.612",
+            upper_tail_result
+        );
+
+        // Extreme tail: p = 1e-15 should give approximately -7.941
+        let extreme_tail = normal_inverse_cdf(1e-15);
+        assert!(
+            (extreme_tail - (-7.941397804)).abs() < 1e-4,
+            "Extreme tail: CDF^-1(1e-15) = {} should be ~-7.941",
+            extreme_tail
+        );
+    }
+
+    #[test]
+    fn test_normal_inverse_cdf_boundary_behavior() {
+        // Edge cases: boundaries should return appropriate infinity values
+        assert!(
+            normal_inverse_cdf(0.0).is_infinite() && normal_inverse_cdf(0.0) < 0.0,
+            "CDF^-1(0) should be -infinity"
+        );
+        assert!(
+            normal_inverse_cdf(1.0).is_infinite() && normal_inverse_cdf(1.0) > 0.0,
+            "CDF^-1(1) should be +infinity"
+        );
+
+        // Values very close to boundaries
+        let near_zero = normal_inverse_cdf(1e-300);
+        assert!(near_zero < -30.0, "CDF^-1(1e-300) should be very negative");
+
+        let near_one = normal_inverse_cdf(1.0 - 1e-300);
+        assert!(near_one > 30.0, "CDF^-1(1-1e-300) should be very positive");
     }
 }

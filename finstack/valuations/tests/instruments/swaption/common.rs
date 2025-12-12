@@ -10,6 +10,7 @@ use finstack_valuations::instruments::common::parameters::market::OptionType;
 use finstack_valuations::instruments::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
+use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::PricingOverrides;
 use time::macros::date;
 
@@ -87,7 +88,10 @@ pub fn create_standard_payer_swaption(
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_SWAPTION_VOL".into(),
-        pricing_overrides: PricingOverrides::default(),
+        // Tests intentionally exercise OTM/ITM strikes; opt in to flat extrapolation
+        // to avoid making results depend on the surface strike grid.
+        pricing_overrides: PricingOverrides::default()
+            .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp),
         sabr_params: None,
         attributes: Default::default(),
     }

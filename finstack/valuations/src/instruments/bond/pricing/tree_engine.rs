@@ -116,10 +116,11 @@ use finstack_core::money::Money;
 /// };
 ///
 /// // Normal vol (100 bps) at 5% rate → lognormal vol (20%)
-/// let lognormal = normal_to_lognormal_vol(0.01, 0.05);
+/// let lognormal = normal_to_lognormal_vol(0.01, 0.05)?;
 ///
 /// // Lognormal vol (20%) at 5% rate → normal vol (100 bps)
-/// let normal = lognormal_to_normal_vol(0.20, 0.05);
+/// let normal = lognormal_to_normal_vol(0.20, 0.05)?;
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # Tree Resolution

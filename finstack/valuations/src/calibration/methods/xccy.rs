@@ -7,18 +7,33 @@
 //!
 //! This calibrator solves for the spreads $s_i$ at each knot point that reprice the
 //! basis swaps to zero, given the domestic discount curve and foreign projection curves.
+//!
+//! # Status
+//!
+//! This module is currently **disabled** by design.
+//!
+//! The existing implementation treated XCCY basis swaps as if they were a single-currency
+//! `BasisSwap` and relied on implicit/hardcoded assumptions (domestic curve ID, FX=1.0) and
+//! schedule fallbacks that could silently produce empty schedules. That is not market-standard
+//! and can yield materially wrong results.
+//!
+//! A market-standard implementation requires:
+//! - explicit domestic/foreign discounting conventions,
+//! - explicit FX spot/forward usage and conversion policy,
+//! - multi-currency cashflow modelling (legs in different currencies),
+//! - spot/settlement calendars and date conventions.
+//!
+//! Until the instrument layer supports multi-currency legs (or a dedicated XCCY instrument),
+//! we fail fast to avoid providing misleading results.
 
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
-use crate::instruments::basis_swap::BasisSwap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
 use finstack_core::prelude::*;
 use finstack_core::types::{Currency, CurveId};
-use std::collections::BTreeMap;
 
 /// XCCY Basis Calibrator.
 #[derive(Clone, Debug)]
@@ -67,250 +82,14 @@ impl XccyBasisCalibrator {
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Sort quotes by maturity
-        let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by_key(|a| a.maturity_date());
-
-        let mut knots = Vec::with_capacity(sorted_quotes.len() + 1);
-        knots.push((0.0, 1.0)); // DF(0) = 1.0
-
-        let mut residuals = BTreeMap::new();
-        let mut total_iterations = 0;
-
-        for (idx, quote) in sorted_quotes.iter().enumerate() {
-            let maturity = quote.maturity_date();
-
-            // Calculate time to maturity
-            // Use Act365F as default for curve time if not specified
-            // Ideally use the instrument's day count
-            let time_to_maturity = match quote {
-                RatesQuote::BasisSwap { primary_dc, .. } => {
-                    primary_dc.year_fraction(self.base_date, maturity, Default::default())?
-                }
-                _ => {
-                    return Err(finstack_core::Error::Validation(
-                        "Only BasisSwap quotes supported for XCCY calibration".into(),
-                    ))
-                }
-            };
-
-            if time_to_maturity <= 0.0 {
-                continue;
-            }
-
-            // Objective function: Find DF(t) such that PV(Swap) = 0
-            // Note: XCCY swap has two legs.
-            // PV = PV_domestic + PV_foreign * FX_spot
-            // We assume we are calibrating the Foreign Discount Curve used to discount the Foreign Leg.
-            // The Domestic Leg is priced using the existing Domestic Discount Curve in base_context.
-
-            // Clone context for the closure
-            let ctx_ref = base_context;
-            let curve_id = self.curve_id.clone();
-            let base_date = self.base_date;
-            let knots_clone = knots.clone();
-            let quote_clone = quote.clone();
-
-            let objective = move |df: f64| -> f64 {
-                let mut temp_knots = knots_clone.clone();
-                temp_knots.push((time_to_maturity, df));
-
-                let temp_curve = match DiscountCurve::builder(curve_id.clone())
-                    .base_date(base_date)
-                    .knots(temp_knots)
-                    .set_interp(InterpStyle::LogLinear) // Standard for discount factors
-                    .build()
-                {
-                    Ok(c) => c,
-                    Err(_) => return 1e9, // Penalty
-                };
-
-                let temp_ctx = ctx_ref.clone().insert_discount(temp_curve);
-
-                // Price the instrument
-                Self::price_basis_swap(&quote_clone, &temp_ctx, base_date, &curve_id).unwrap_or(1e9)
-            };
-
-            // Initial guess: extrapolate
-            let initial_df = if let Some((last_t, last_df)) = knots.last() {
-                if *last_t > 0.0 {
-                    let r = -last_df.ln() / last_t;
-                    (-r * time_to_maturity).exp()
-                } else {
-                    0.95
-                }
-            } else {
-                0.95
-            };
-
-            // Solve
-            let solved_df = solver.solve(objective, initial_df).map_err(|e| {
-                finstack_core::Error::Calibration {
-                    message: format!("Solver failed for XCCY bootstrap at {}: {}", maturity, e),
-                    category: "xccy_bootstrap".into(),
-                }
-            })?;
-
-            knots.push((time_to_maturity, solved_df));
-
-            // Record residual
-            residuals.insert(format!("XCCY-{}", idx), 0.0); // Assuming perfect solve for now
-            total_iterations += 1;
-        }
-
-        let final_curve = DiscountCurve::builder(self.curve_id.clone())
-            .base_date(self.base_date)
-            .knots(knots)
-            .set_interp(InterpStyle::LogLinear)
-            .build()?;
-
-        let report = CalibrationReport::for_type_with_tolerance(
-            "xccy_basis",
-            residuals,
-            total_iterations,
-            self.config.tolerance,
-        );
-
-        Ok((final_curve, report))
+        let _ = (quotes, solver, base_context);
+        Err(finstack_core::Error::Calibration {
+            category: "xccy_not_implemented".to_string(),
+            message: "XCCY basis calibration is disabled: current implementation was not market-standard (single-currency basis swap proxy, hardcoded curve/FX assumptions, and potential silent schedule fallbacks). Use/implement a dedicated multi-currency XCCY instrument + explicit FX/discounting conventions before enabling."
+                .to_string(),
+        })
     }
 
-    fn price_basis_swap(
-        quote: &RatesQuote,
-        context: &MarketContext,
-        as_of: Date,
-        foreign_curve_id: &CurveId,
-    ) -> Result<f64> {
-        match quote {
-            RatesQuote::BasisSwap {
-                maturity,
-                primary_index,
-                reference_index,
-                spread_bp,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                ..
-            } => {
-                use crate::instruments::basis_swap::BasisSwapLeg;
-                use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind};
-                use finstack_core::money::Money;
-
-                // Assume Primary Leg is the Foreign Leg (with spread) and Reference Leg is Domestic (USD).
-                // Primary Leg uses `foreign_curve_id`.
-                // Reference Leg uses whatever is in context (e.g. "OIS" or implicit).
-                // Since we don't know the domestic curve ID, we assume the context has a default discount curve
-                // or we need to find it.
-                // For now, let's assume the Reference Leg is discounted by the curve matching its currency/index.
-                // But `BasisSwap` logic usually takes explicit curve IDs.
-
-                let primary_fwd_id = format!("FWD_{}", primary_index);
-                let reference_fwd_id = format!("FWD_{}", reference_index);
-
-                let primary_leg = BasisSwapLeg {
-                    forward_curve_id: primary_fwd_id.into(),
-                    frequency: *primary_freq,
-                    day_count: *primary_dc,
-                    bdc: BusinessDayConvention::ModifiedFollowing,
-                    payment_lag_days: 2,
-                    reset_lag_days: 2,
-                    spread: *spread_bp / 10_000.0,
-                };
-
-                let reference_leg = BasisSwapLeg {
-                    forward_curve_id: reference_fwd_id.into(),
-                    frequency: *reference_freq,
-                    day_count: *reference_dc,
-                    bdc: BusinessDayConvention::ModifiedFollowing,
-                    payment_lag_days: 2,
-                    reset_lag_days: 2,
-                    spread: 0.0,
-                };
-
-                // Build schedules
-                let start_date = as_of; // Should be spot date
-
-                let primary_schedule = ScheduleBuilder::new(start_date, *maturity)
-                    .frequency(primary_leg.frequency)
-                    .stub_rule(StubKind::None)
-                    .graceful_fallback(true)
-                    .build()
-                    .unwrap_or(finstack_core::dates::Schedule { dates: vec![] });
-                let reference_schedule = ScheduleBuilder::new(start_date, *maturity)
-                    .frequency(reference_leg.frequency)
-                    .stub_rule(StubKind::None)
-                    .graceful_fallback(true)
-                    .build()
-                    .unwrap_or(finstack_core::dates::Schedule { dates: vec![] });
-
-                // Value Primary Leg (Foreign)
-                // We use the `foreign_curve_id` passed in.
-                // We construct a temporary BasisSwap just to reuse `pv_float_leg`?
-                // Or we implement `pv_float_leg` logic here?
-                // `BasisSwap` has `pv_float_leg` as a method. We can instantiate a dummy BasisSwap.
-
-                // We need a dummy BasisSwap to call `pv_float_leg`.
-                let dummy_swap = BasisSwap::new(
-                    "DUMMY",
-                    Money::new(1.0, finstack_core::types::Currency::USD), // Currency doesn't matter for float leg calc usually if we ignore FX
-                    start_date,
-                    *maturity,
-                    primary_leg.clone(),
-                    reference_leg.clone(),
-                    foreign_curve_id.clone(), // Use foreign curve for primary leg?
-                );
-
-                // Calculate PV of Primary Leg using Foreign Curve
-                // Note: `pv_float_leg` uses `self.discount_curve_id`.
-                // So `dummy_swap` with `foreign_curve_id` will discount using that curve.
-                let primary_pv =
-                    dummy_swap.pv_float_leg(&primary_leg, &primary_schedule, context, as_of)?;
-
-                // Calculate PV of Reference Leg using Domestic Curve
-                // We need the domestic curve ID.
-                // If we don't have it, we can't price it accurately if there are multiple curves.
-                // However, usually `context` has a "default" discount curve or we can guess.
-                // Let's assume "OIS" for USD reference leg if not specified.
-                // Or better, we assume the Reference Leg is the "base" and its curve is already in context.
-                // Let's try to find a curve that is NOT the foreign one?
-                // Or just assume "OIS".
-                let domestic_curve_id = CurveId::new("OIS"); // Hardcoded assumption for now
-
-                let dummy_swap_domestic = BasisSwap::new(
-                    "DUMMY_DOM",
-                    Money::new(1.0, finstack_core::types::Currency::USD),
-                    start_date,
-                    *maturity,
-                    primary_leg.clone(),
-                    reference_leg.clone(),
-                    domestic_curve_id,
-                );
-
-                let reference_pv = dummy_swap_domestic.pv_float_leg(
-                    &reference_leg,
-                    &reference_schedule,
-                    context,
-                    as_of,
-                )?;
-
-                // Total PV = Primary_PV (Foreign) * FX - Reference_PV (Domestic)
-                // Assuming FX = 1.0 for basis spread calibration (we calibrate to make them equal in value)
-                // Or rather, we calibrate the foreign curve such that the basis swap is fair.
-                // If we assume spot FX is 1.0 (normalized), then we just need PVs to match.
-                // Real XCCY involves FX spot.
-                // Let's assume FX Spot is 1.0 or available in context.
-                // Context doesn't have FX spot easily accessible as a simple rate usually, it has FX curves?
-                // `MarketContext` has `fx_spots`.
-
-                // Let's assume FX = 1.0 for now as we are just finding the spread curve shape.
-                // The absolute level depends on FX but the spread mainly drives the difference.
-
-                let npv = primary_pv.amount() - reference_pv.amount();
-                Ok(npv)
-            }
-            _ => Err(finstack_core::Error::Validation(
-                "Unsupported quote type".into(),
-            )),
-        }
-    }
+    // NOTE: Previously this module included a single-currency proxy pricer using `BasisSwap`.
+    // That approach cannot represent multi-currency legs and is intentionally removed.
 }

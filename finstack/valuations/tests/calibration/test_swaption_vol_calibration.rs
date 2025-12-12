@@ -334,6 +334,7 @@ fn test_normal_vs_lognormal_conventions() {
 
 #[test]
 fn test_swaption_pricing_with_calibrated_surface() {
+    use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Set up full market context
@@ -374,13 +375,14 @@ fn test_swaption_pricing_with_calibrated_surface() {
         Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         Date::from_calendar_date(2027, Month::January, 1).unwrap(),
     );
-    let swaption = Swaption::new_payer(
+    let mut swaption = Swaption::new_payer(
         "TEST-SWAPTION",
         &params,
         discount_curve_id,
         forward_curve_id,
         vol_surface_id,
     );
+    swaption.pricing_overrides.vol_surface_extrapolation = VolSurfaceExtrapolation::Clamp;
 
     // Price should work with calibrated surface
     let price_result = swaption.value(&context, base_date);

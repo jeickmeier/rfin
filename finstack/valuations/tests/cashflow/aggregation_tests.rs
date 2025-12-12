@@ -461,7 +461,7 @@ fn pv_plain_and_credit_variants_match_without_hazard() {
     )
     .expect("plain PV aggregation should succeed");
 
-    let credit = pv_by_period_credit_adjusted_with_ctx(
+    let err = pv_by_period_credit_adjusted_with_ctx(
         &flows,
         &periods,
         &curve,
@@ -470,7 +470,25 @@ fn pv_plain_and_credit_variants_match_without_hazard() {
         DayCount::Act365F,
         DayCountCtx::default(),
     )
-    .expect("credit PV aggregation without hazard should succeed");
+    .expect_err("credit PV aggregation should require a hazard curve");
+
+    assert!(
+        err.to_string().contains("hazard"),
+        "Error should mention hazard: {err}"
+    );
+
+    // With an explicit zero-hazard curve, the credit-adjusted result matches plain PV.
+    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", base, 0.0);
+    let credit = pv_by_period_credit_adjusted_with_ctx(
+        &flows,
+        &periods,
+        &curve,
+        Some(&hazard_curve),
+        base,
+        DayCount::Act365F,
+        DayCountCtx::default(),
+    )
+    .expect("credit PV aggregation with explicit hazard should succeed");
 
     assert_eq!(plain, credit);
 }
@@ -546,12 +564,13 @@ fn credit_detailed_matches_plain_when_no_recovery() {
 
     let dated: Vec<_> = cashflows.iter().map(|cf| (cf.date, cf.amount)).collect();
     let curve = FlatRateCurve::new("USD-OIS", base, 0.0);
+    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", base, 0.0);
 
     let plain_credit = pv_by_period_credit_adjusted_with_ctx(
         &dated,
         &periods,
         &curve,
-        None,
+        Some(&hazard_curve),
         base,
         DayCount::Act365F,
         DayCountCtx::default(),
@@ -562,7 +581,7 @@ fn credit_detailed_matches_plain_when_no_recovery() {
         &cashflows,
         &periods,
         &curve,
-        None,
+        Some(&hazard_curve),
         None,
         DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
     )

@@ -85,6 +85,7 @@ pub fn standard_deposit(base: Date) -> Deposit {
             base.day(),
         ))
         .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.0))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap()
@@ -109,7 +110,7 @@ impl DepositBuilder {
             start: base,
             end: date(base.year(), (base.month() as u8 + 6).min(12), base.day()),
             day_count: DayCount::Act360,
-            quote_rate: None,
+            quote_rate: Some(0.0),
             discount_curve_id: "USD-OIS".to_string(),
         }
     }

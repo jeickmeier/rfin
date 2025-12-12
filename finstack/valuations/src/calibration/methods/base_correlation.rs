@@ -77,9 +77,8 @@ const MAX_BRACKET_CORRELATION: f64 = 0.98;
 
 /// Finite penalty value for objective function failures.
 ///
-/// Using a large finite value helps solvers behave predictably
-/// and provides meaningful diagnostics when calibration fails.
-const CALIBRATION_PENALTY: f64 = 1e12;
+/// Use the library-wide calibration penalty to keep objective scaling consistent.
+const CALIBRATION_PENALTY: f64 = crate::calibration::PENALTY;
 
 /// Base correlation curve calibrator.
 ///

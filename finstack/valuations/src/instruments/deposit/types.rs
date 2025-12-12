@@ -56,6 +56,10 @@ pub struct Deposit {
     pub day_count: DayCount,
 
     /// Optional quoted simple rate r (annualised) for the deposit.
+    ///
+    /// Note: `build_schedule()` requires `quote_rate` to be set. Leaving it as `None`
+    /// is only appropriate if the caller never requests cashflow generation/PV from
+    /// this instrument (e.g., constructing placeholders).
     #[builder(optional)]
     pub quote_rate: Option<f64>,
     /// Discount curve id used for valuation and par extraction.
@@ -376,7 +380,11 @@ impl CashflowProvider for Deposit {
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
-        let r = self.quote_rate.unwrap_or(0.0);
+        let r = self.quote_rate.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "deposit quote_rate".to_string(),
+            })
+        })?;
         let redemption = self.notional * (1.0 + r * yf);
         Ok(vec![
             (effective_start, self.notional * -1.0),

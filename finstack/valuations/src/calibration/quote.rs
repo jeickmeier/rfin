@@ -18,7 +18,7 @@ use ts_rs::TS;
 /// ```ignore
 /// let conventions = InstrumentConventions {
 ///     settlement_days: Some(0),  // T+0 for this instrument
-///     calendar_id: Some("GBP".to_string()),
+///     calendar_id: Some("gblo".to_string()),
 ///     ..Default::default()
 /// };
 /// ```

@@ -141,7 +141,7 @@ fn test_trs_schedule_spec_period_schedule_quarterly() {
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
     // Act
-    let schedule = spec.period_schedule();
+    let schedule = spec.period_schedule().expect("Schedule should build");
 
     // Assert
     // 1 year quarterly = 4 periods, so 5 dates (start + 4 ends)
@@ -169,7 +169,7 @@ fn test_trs_schedule_spec_period_schedule_semiannual() {
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
     // Act
-    let schedule = spec.period_schedule();
+    let schedule = spec.period_schedule().expect("Schedule should build");
 
     // Assert
     // 1 year semiannual = 2 periods, so 3 dates
@@ -197,7 +197,7 @@ fn test_trs_schedule_spec_period_schedule_monthly() {
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
     // Act
-    let schedule = spec.period_schedule();
+    let schedule = spec.period_schedule().expect("Schedule should build");
 
     // Assert
     // 6 months monthly = 6 periods, so 7 dates
@@ -234,8 +234,8 @@ fn test_trs_schedule_spec_different_day_counts() {
     assert_eq!(spec_30_360.params.dc, DayCount::Thirty360);
 
     // Both should produce same number of dates (different year fractions though)
-    let sched1 = spec_act360.period_schedule();
-    let sched2 = spec_30_360.period_schedule();
+    let sched1 = spec_act360.period_schedule().expect("Schedule should build");
+    let sched2 = spec_30_360.period_schedule().expect("Schedule should build");
     assert_eq!(sched1.dates.len(), sched2.dates.len());
 }
 
@@ -248,7 +248,7 @@ fn test_trs_schedule_spec_short_tenor() {
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
     // Act
-    let schedule = spec.period_schedule();
+    let schedule = spec.period_schedule().expect("Schedule should build");
 
     // Assert
     // 3 months with quarterly frequency = 1 period, so 2 dates
@@ -270,7 +270,7 @@ fn test_trs_schedule_spec_long_tenor() {
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
     // Act
-    let schedule = spec.period_schedule();
+    let schedule = spec.period_schedule().expect("Schedule should build");
 
     // Assert
     // 5 years quarterly = 20 periods, so 21 dates

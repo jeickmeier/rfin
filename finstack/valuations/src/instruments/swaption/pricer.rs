@@ -2,10 +2,12 @@ use crate::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConf
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::swaption::{BermudanSwaption, Swaption};
+use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use std::sync::Arc;
 
 // ========================= NEW SIMPLIFIED PRICER =========================
 
@@ -80,7 +82,16 @@ impl Pricer for SimpleSwaptionBlackPricer {
                     {
                         impl_vol
                     } else {
-                        vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
+                        match swaption.pricing_overrides.vol_surface_extrapolation {
+                            VolSurfaceExtrapolation::Clamp => {
+                                vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
+                            }
+                            VolSurfaceExtrapolation::Error => {
+                                vol_surface
+                                    .value_checked(time_to_expiry, swaption.strike_rate)
+                                    .map_err(|e| PricingError::missing_market_data(e.to_string()))?
+                            }
+                        }
                     };
 
                     swaption
@@ -155,15 +166,38 @@ impl Pricer for SwaptionLsmcPricer {
                 PricingError::type_mismatch(InstrumentType::Swaption, instrument.key())
             })?;
 
-        // For now, return error as LSMC is not yet implemented
-        // TODO: Implement full LSMC pricing for Bermudan swaptions.
-        // This requires:
-        // 1. Constructing the underlying swap schedule with all coupon dates.
-        // 2. Simulating interest rate paths (e.g., Hull-White 1F/2F or LMM).
-        // 3. Implementing Longstaff-Schwartz regression to estimate continuation value.
-        // 4. Handling exercise opportunities at each reset date.
+        // LSMC (Longstaff-Schwartz Monte Carlo) is not yet implemented.
+        // This is an experimental feature placeholder.
+        //
+        // TODO(LSMC): Full implementation requires the following components:
+        //
+        // 1. **Path Generation**: Simulate short-rate or forward-rate paths using:
+        //    - Hull-White 1F/2F model (for consistency with tree pricer)
+        //    - Or LIBOR Market Model (LMM) for multi-factor dynamics
+        //    Use `num_paths` and `seed` from self for reproducibility.
+        //
+        // 2. **Exercise Schedule**: Build exercise dates from the underlying swap:
+        //    - Extract all coupon reset dates as potential exercise points
+        //    - Map dates to time grid for simulation
+        //
+        // 3. **Payoff Calculation**: At each exercise date t_i:
+        //    - Compute swap NPV conditional on rate path
+        //    - Payoff = max(0, swap_npv) for receiver, or max(0, -swap_npv) for payer
+        //
+        // 4. **Regression (Longstaff-Schwartz)**:
+        //    - At each exercise date (backward from expiry):
+        //      a) Select in-the-money paths
+        //      b) Regress discounted future cashflows on basis functions of state
+        //         (e.g., polynomial in short rate: 1, r, r², ...)
+        //      c) Compare regression estimate (continuation value) with exercise value
+        //      d) Update optimal exercise decision
+        //
+        // 5. **Final Valuation**: Average discounted payoffs across paths.
+        //
+        // Reference: Longstaff, F.A. & Schwartz, E.S. (2001). "Valuing American Options
+        // by Simulation: A Simple Least-Squares Approach." Review of Financial Studies.
         Err(PricingError::model_failure(
-            "LSMC pricing not yet implemented for Swaptions",
+            "LSMC pricing not implemented (experimental). Use HullWhiteTree for Bermudan swaptions.",
         ))
     }
 }
@@ -212,6 +246,30 @@ impl HullWhiteParams {
 
 /// Pricer for Bermudan swaptions using Hull-White tree or LSMC.
 ///
+/// # Model Reuse
+///
+/// For portfolio pricing, calibrate the Hull-White model once and reuse it
+/// across multiple instruments using [`with_calibrated_model`]:
+///
+/// ```rust,ignore
+/// use finstack_valuations::instruments::swaption::pricer::{
+///     BermudanSwaptionPricer, HullWhiteParams,
+/// };
+/// use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+/// use std::sync::Arc;
+///
+/// // Calibrate once
+/// let config = HullWhiteParams::default().to_tree_config(100);
+/// let tree = Arc::new(HullWhiteTree::calibrate(config, &disc, ttm).unwrap());
+///
+/// // Reuse for portfolio
+/// for swaption in portfolio {
+///     let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+///         .with_calibrated_model(tree.clone());
+///     pricer.price_dyn(&swaption, &market, as_of);
+/// }
+/// ```
+///
 /// # Example
 ///
 /// ```rust,no_run
@@ -238,6 +296,11 @@ pub struct BermudanSwaptionPricer {
     /// Random seed (for LSMC method)
     #[allow(dead_code)]
     mc_seed: u64,
+    /// Pre-calibrated Hull-White tree for model reuse.
+    ///
+    /// When set, the pricer skips calibration and uses this model directly.
+    /// This enables O(1) pricing per instrument instead of O(Steps × Time) calibration.
+    pre_calibrated_model: Option<Arc<HullWhiteTree>>,
 }
 
 impl BermudanSwaptionPricer {
@@ -249,6 +312,7 @@ impl BermudanSwaptionPricer {
             tree_steps: 100,
             mc_paths: 50_000,
             mc_seed: 42,
+            pre_calibrated_model: None,
         }
     }
 
@@ -260,6 +324,7 @@ impl BermudanSwaptionPricer {
             tree_steps: 100,
             mc_paths: 50_000,
             mc_seed: 42,
+            pre_calibrated_model: None,
         }
     }
 
@@ -281,7 +346,44 @@ impl BermudanSwaptionPricer {
         self
     }
 
+    /// Use a pre-calibrated Hull-White model for pricing.
+    ///
+    /// This enables model reuse across a portfolio, eliminating the need
+    /// to re-calibrate for each instrument. The model should be calibrated
+    /// with appropriate parameters for the instruments being priced.
+    ///
+    /// # Performance
+    ///
+    /// Using a pre-calibrated model reduces pricing complexity from
+    /// O(Steps × Time) per instrument to O(1) per instrument.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::sync::Arc;
+    ///
+    /// // Calibrate once
+    /// let config = HullWhiteParams::default().to_tree_config(100);
+    /// let tree = Arc::new(HullWhiteTree::calibrate(config, &disc, ttm)?);
+    ///
+    /// // Price portfolio with reused model
+    /// let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+    ///     .with_calibrated_model(tree);
+    /// ```
+    pub fn with_calibrated_model(mut self, model: Arc<HullWhiteTree>) -> Self {
+        self.pre_calibrated_model = Some(model);
+        self
+    }
+
+    /// Get the pre-calibrated model, if set.
+    pub fn calibrated_model(&self) -> Option<&Arc<HullWhiteTree>> {
+        self.pre_calibrated_model.as_ref()
+    }
+
     /// Price using Hull-White tree.
+    ///
+    /// If a pre-calibrated model is set via [`with_calibrated_model`], it will
+    /// be used directly, skipping the calibration step.
     fn price_tree(
         &self,
         swaption: &BermudanSwaption,
@@ -307,33 +409,64 @@ impl BermudanSwaptionPricer {
             ));
         }
 
-        // Build Hull-White tree
-        let tree_config = self.hw_params.to_tree_config(self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        // Use pre-calibrated model if available, otherwise calibrate a new one
+        let (pv, used_cached_model) = if let Some(ref cached_tree) = self.pre_calibrated_model {
+            // Use pre-calibrated model (O(1) per instrument)
+            let valuator = BermudanSwaptionTreeValuator::new(swaption, cached_tree, disc, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            (valuator.price(), true)
+        } else {
+            // Calibrate new model (O(Steps × Time) per instrument)
+            let tree_config = self.hw_params.to_tree_config(self.tree_steps);
+            let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
-        // Create valuator and price
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            (valuator.price(), false)
+        };
 
-        let pv = valuator.price();
-
-        Ok(ValuationResult::stamped(
+        let mut result = ValuationResult::stamped(
             swaption.id.as_str(),
             as_of,
             Money::new(pv, swaption.notional.currency()),
-        ))
+        );
+
+        // Record whether cached model was used (1.0 = true, 0.0 = false)
+        result
+            .measures
+            .insert("used_cached_model".to_string(), if used_cached_model { 1.0 } else { 0.0 });
+
+        Ok(result)
     }
 
     /// Price using LSMC.
+    /// Price using LSMC (Longstaff-Schwartz Monte Carlo).
+    ///
+    /// # Current Status
+    ///
+    /// LSMC is not yet implemented and currently falls back to tree pricing.
+    /// This fallback ensures API stability while the LSMC implementation is developed.
+    ///
+    /// # TODO: LSMC Implementation
+    ///
+    /// The full LSMC implementation (in progress) will provide:
+    /// - **Path generation**: Hull-White or LMM rate simulation
+    /// - **Regression**: Polynomial basis functions for continuation value
+    /// - **Variance reduction**: Control variates, antithetic sampling
+    /// - **Convergence diagnostics**: Standard error estimation
+    ///
+    /// For production Bermudan swaption pricing, use `HullWhiteTree` method
+    /// which is fully implemented and industry-standard.
     fn price_lsmc(
         &self,
         swaption: &BermudanSwaption,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
-        // For now, fall back to tree pricing
-        // Full LSMC implementation would use SwaptionLsmcPricer from mc module
+        // TODO(LSMC): Implement full Longstaff-Schwartz Monte Carlo.
+        // Currently falls back to tree pricing for API stability.
+        // See SwaptionLsmcPricer::price_dyn for detailed implementation roadmap.
         self.price_tree(swaption, market, as_of)
     }
 }

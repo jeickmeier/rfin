@@ -82,9 +82,18 @@ fn build_dates_impl(
     calendar_id: Option<&str>,
     strict: bool,
 ) -> Result<PeriodSchedule, ScheduleError> {
-    let mut builder = ScheduleBuilder::new(start, end)
-        .frequency(freq)
-        .stub_rule(stub);
+    let mut builder = match ScheduleBuilder::try_new(start, end) {
+        Ok(b) => b.frequency(freq).stub_rule(stub),
+        Err(e) => {
+            // In non-strict mode, return an empty schedule rather than bubbling up.
+            // This matches the "graceful fallback" contract and avoids panicking on
+            // invalid ranges (e.g., start > end).
+            if strict {
+                return Err(ScheduleError::Core(e));
+            }
+            return Ok(PeriodSchedule::from_dates(vec![]));
+        }
+    };
 
     // Configure calendar adjustment if provided
     if let Some(id) = calendar_id {
@@ -136,8 +145,10 @@ pub fn build_dates(
     calendar_id: Option<&str>,
 ) -> PeriodSchedule {
     // Never panics - uses graceful fallback on errors
-    build_dates_impl(start, end, freq, stub, bdc, calendar_id, false)
-        .expect("build_dates_impl with strict=false should never fail")
+    match build_dates_impl(start, end, freq, stub, bdc, calendar_id, false) {
+        Ok(s) => s,
+        Err(_) => PeriodSchedule::from_dates(vec![]),
+    }
 }
 
 /// Build a schedule between start/end with strict error handling.

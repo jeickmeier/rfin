@@ -2,12 +2,27 @@
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DateExt, Frequency};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
+
+/// Compute the index maturity date based on reset date and index tenor.
+///
+/// For a floating rate index (e.g., 3M LIBOR), the forward rate should be projected
+/// from the reset (fixing) date to the index maturity date, not the payment date.
+/// This ensures correct rate projection for instruments where the payment date
+/// differs from the index tenor end.
+fn compute_index_maturity(reset_date: Date, index_tenor: Frequency) -> Date {
+    match index_tenor {
+        Frequency::Months(m) => reset_date.add_months(m as i32),
+        Frequency::Days(d) => reset_date + time::Duration::days(d as i64),
+        // Frequency is non-exhaustive; fallback to quarterly (3M) for unknown variants
+        _ => reset_date.add_months(3),
+    }
+}
 
 /// Emit fixed coupon cashflows on a specific date.
 ///
@@ -129,6 +144,12 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 &fixing_cal_id,
             )?;
 
+            // Compute index maturity based on the index tenor.
+            // This ensures the forward rate is projected for the correct period
+            // (e.g., 3M LIBOR projects from reset_date to reset_date + 3M),
+            // regardless of when the payment actually occurs.
+            let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
+
             // Construct params for detailed projection
             let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
                 spread_bp: spec.rate_spec.spread_bp,
@@ -142,10 +163,12 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
 
             // Compute total rate using centralized projection with floor/cap support
             let total_rate = if let Some(fwd) = *resolved_curve {
-                // Use floating rate projection
+                // Use floating rate projection with correct index maturity
                 match super::super::rate_helpers::project_floating_rate(
-                    reset_date, d, // Use payment date as period end approximation
-                    fwd, &params,
+                    reset_date,
+                    index_maturity, // Use index tenor end, not payment date
+                    fwd,
+                    &params,
                 ) {
                     Ok(rate) => rate,
                     Err(_) => super::super::rate_helpers::project_fallback_rate(&params),

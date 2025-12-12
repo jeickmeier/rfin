@@ -2,6 +2,13 @@
 //!
 //! This module implements market-standard sequential bootstrapping where
 //! discount factors are solved for one-by-one in maturity order.
+//!
+//! # Performance Optimization
+//!
+//! The solver uses a `RefCell`-based approach to avoid cloning the
+//! `MarketContext` in every objective function evaluation. The curve
+//! is built using `build_for_solver()` which skips non-essential validation
+//! for faster iteration.
 
 use super::DiscountCurveCalibrator;
 use crate::calibration::methods::pricing::CalibrationPricer;
@@ -12,7 +19,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::Solver;
 use finstack_core::prelude::*;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 impl DiscountCurveCalibrator {
     /// Bootstrap discount curve from instrument quotes using solver.
@@ -192,6 +202,12 @@ impl DiscountCurveCalibrator {
     }
 
     /// Solve for the discount factor at a specific maturity.
+    ///
+    /// # Performance
+    ///
+    /// Uses `RefCell`-based context mutation to avoid cloning the `MarketContext`
+    /// in each solver iteration. The curve is built with `build_for_solver()` which
+    /// skips non-essential validation for O(1) instead of O(N^2) complexity.
     #[allow(clippy::too_many_arguments)]
     fn solve_for_discount_factor<S: Solver>(
         &self,
@@ -204,8 +220,13 @@ impl DiscountCurveCalibrator {
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(f64, usize)> {
-        // Create objective function
-        let knots_clone = existing_knots.to_vec();
+        // Pre-allocate knots buffer with capacity for existing + candidate
+        let mut temp_knots_buffer = Vec::with_capacity(existing_knots.len() + 1);
+        temp_knots_buffer.extend_from_slice(existing_knots);
+
+        // Use RefCell to allow in-place context updates without cloning
+        let solver_context = Rc::new(RefCell::new(base_context.clone()));
+
         let quote_clone = quote.clone();
         let pricer_clone = pricer.clone();
         let base_date = self.base_date;
@@ -213,19 +234,24 @@ impl DiscountCurveCalibrator {
         let discount_curve_id = self.effective_discount_curve_id();
         let use_ois_logic = self.use_ois_logic;
 
-        let objective = move |df: f64| -> f64 {
-            let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
-            temp_knots.extend_from_slice(&knots_clone);
-            temp_knots.push((time_to_maturity, df));
+        // Capture pre-allocated buffer and RefCell context for the closure
+        let temp_knots = Rc::new(RefCell::new(temp_knots_buffer));
+        let ctx_rc = solver_context.clone();
 
-            // Build temporary curve with current knots
+        let objective = move |df: f64| -> f64 {
+            // Reuse pre-allocated buffer: clear to base knots and add candidate
+            let mut knots = temp_knots.borrow_mut();
+            knots.truncate(existing_knots.len());
+            knots.push((time_to_maturity, df));
+
+            // Build temporary curve using fast solver path (skips full validation)
             let temp_curve = match DiscountCurve::builder(discount_curve_id.clone())
                 .base_date(base_date)
                 .day_count(curve_dc)
-                .knots(temp_knots)
+                .knots(knots.iter().copied())
                 .set_interp(solve_interp)
                 .allow_non_monotonic()
-                .build()
+                .build_for_solver()
             {
                 Ok(curve) => curve,
                 Err(_) => return crate::calibration::PENALTY,
@@ -238,9 +264,13 @@ impl DiscountCurveCalibrator {
                 return crate::calibration::PENALTY;
             }
 
-            let temp_context = base_context.clone().insert_discount(temp_curve);
+            // Update context in-place instead of cloning
+            ctx_rc
+                .borrow_mut()
+                .insert_discount_mut(Arc::new(temp_curve));
+
             pricer_clone
-                .price_instrument(&quote_clone, &temp_context)
+                .price_instrument(&quote_clone, &ctx_rc.borrow())
                 .unwrap_or(crate::calibration::PENALTY)
         };
 

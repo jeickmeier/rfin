@@ -502,13 +502,18 @@ impl CalibrationPricer {
             } else {
                 self.base_date
             }
-        } else {
-            // Fallback to calendar days if no calendar available
+        } else if self.allow_calendar_fallback {
+            // Fallback to calendar days if no calendar available (explicitly enabled).
             if start >= self.base_date + time::Duration::days(reset_lag as i64) {
                 start - time::Duration::days(reset_lag as i64)
             } else {
                 self.base_date
             }
+        } else {
+            return Err(finstack_core::Error::calendar_not_found_with_suggestions(
+                calendar_id.to_string(),
+                registry.available_ids(),
+            ));
         };
 
         if self.verbose {

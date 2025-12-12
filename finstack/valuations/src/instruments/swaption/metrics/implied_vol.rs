@@ -6,6 +6,7 @@
 //! if inversion is not possible.
 
 use crate::instruments::swaption::Swaption;
+use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::prelude::Result;
@@ -55,7 +56,10 @@ impl MetricCalculator for ImpliedVolCalculator {
             context
                 .curves
                 .surface_ref(option.vol_surface_id.as_str())
-                .map(|s| s.value_clamped(t, option.strike_rate))
+                .and_then(|s| match option.pricing_overrides.vol_surface_extrapolation {
+                    VolSurfaceExtrapolation::Clamp => Ok(s.value_clamped(t, option.strike_rate)),
+                    VolSurfaceExtrapolation::Error => s.value_checked(t, option.strike_rate),
+                })
                 .unwrap_or(0.2)
         };
 

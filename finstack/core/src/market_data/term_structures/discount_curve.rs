@@ -1014,6 +1014,55 @@ impl DiscountCurveBuilder {
         self
     }
 
+    /// Build the curve with minimal validation for solver use.
+    ///
+    /// This method skips monotonicity validation and forward rate checks, providing
+    /// faster curve construction for iterative solving where the curve is temporary.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure:
+    /// - At least 2 knot points are provided
+    /// - All discount factors are positive
+    /// - Knots are sorted in ascending order
+    ///
+    /// This is an internal optimization for calibration solvers.
+    /// For general use, prefer [`build`] which includes full validation.
+    #[doc(hidden)]
+    pub fn build_for_solver(self) -> crate::Result<DiscountCurve> {
+        if self.points.len() < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        // Minimal validation: check for positive DFs only
+        if self.points.iter().any(|&(_, df)| df <= 0.0) {
+            return Err(crate::error::InputError::NonPositiveValue.into());
+        }
+
+        let (knots_vec, dfs_vec): (Vec<f64>, Vec<f64>) = split_points(self.points);
+
+        // Skip knot sorting validation - assume caller provides sorted input
+        // Skip monotonicity validation - solver may explore non-monotonic states
+        // Skip forward rate validation - temporary curves during solving
+
+        let knots = knots_vec.into_boxed_slice();
+        let dfs = dfs_vec.into_boxed_slice();
+
+        let interp =
+            build_interp_input_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
+
+        Ok(DiscountCurve {
+            id: self.id,
+            base: self.base,
+            day_count: self.day_count,
+            knots,
+            dfs,
+            interp,
+            style: self.style,
+            extrapolation: self.extrapolation,
+        })
+    }
+
     /// Validate input and create the [`DiscountCurve`].
     pub fn build(self) -> crate::Result<DiscountCurve> {
         if self.points.len() < 2 {

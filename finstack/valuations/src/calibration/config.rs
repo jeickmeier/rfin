@@ -143,19 +143,14 @@ impl RateBounds {
 /// explicit and avoids relying on `RateBounds::default()` as an implicit assumption.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RateBoundsPolicy {
     /// Pick currency-specific bounds via `RateBounds::for_currency(currency)`.
+    #[default]
     AutoCurrency,
     /// Use the explicit `CalibrationConfig.rate_bounds` values.
     Explicit,
-}
-
-impl Default for RateBoundsPolicy {
-    fn default() -> Self {
-        Self::AutoCurrency
-    }
 }
 
 /// Runtime validation behavior for arbitrage/consistency checks.

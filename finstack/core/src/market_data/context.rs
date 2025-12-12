@@ -1177,7 +1177,7 @@ impl MarketContext {
     /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_surface(surface);
     /// let surface = ctx.surface("IR-Swaption").expect("Surface should exist");
-    /// assert!((surface.value(1.5, 95.0) - 0.2).abs() < 1e-12);
+    /// assert!((surface.value_clamped(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
     pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
         let id_str = id.as_ref();
@@ -1204,7 +1204,7 @@ impl MarketContext {
     /// #     .expect("... builder should succeed");
     /// # let ctx = MarketContext::new().insert_surface(surface);
     /// let surface = ctx.surface_ref("IR-Swaption").expect("Surface should exist");
-    /// assert!((surface.value(1.5, 95.0) - 0.2).abs() < 1e-12);
+    /// assert!((surface.value_clamped(1.5, 95.0) - 0.2).abs() < 1e-12);
     /// ```
     pub fn surface_ref(&self, id: impl AsRef<str>) -> Result<&VolSurface> {
         let id_str = id.as_ref();

@@ -81,7 +81,7 @@ impl TrsEngine {
         let disc = context.get_discount_ref(params.discount_curve_id)?;
 
         // Build schedule
-        let period_schedule = params.schedule.period_schedule();
+        let period_schedule = params.schedule.period_schedule()?;
 
         let mut total_pv = 0.0;
         let currency = params.notional.currency();
@@ -151,7 +151,7 @@ impl TrsEngine {
         let fwd = context.get_forward_ref(fwd_curve_id)?;
 
         // Build schedule
-        let period_schedule = schedule.period_schedule();
+        let period_schedule = schedule.period_schedule()?;
 
         let mut total_pv = 0.0;
         let currency = notional.currency();
@@ -210,7 +210,7 @@ impl TrsEngine {
         let disc = context.get_discount_ref(disc_curve_id)?;
 
         // Build schedule
-        let period_schedule = schedule.period_schedule();
+        let period_schedule = schedule.period_schedule()?;
 
         let mut annuity = 0.0;
         let ctx = DayCountCtx::default();

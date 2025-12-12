@@ -27,12 +27,13 @@
 //! let rate_level = 0.05;  // 5%
 //!
 //! // Convert to lognormal: 100bp / 5% = 20% lognormal
-//! let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level);
+//! let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level)?;
 //! assert!((lognormal_vol - 0.20).abs() < 1e-10);
 //!
 //! // Convert back: 20% × 5% = 100 bps normal
-//! let back_to_normal = lognormal_to_normal_vol(lognormal_vol, rate_level);
+//! let back_to_normal = lognormal_to_normal_vol(lognormal_vol, rate_level)?;
 //! assert!((back_to_normal - normal_vol).abs() < 1e-10);
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
 //! ## Calibration Sources
@@ -76,24 +77,24 @@ use super::tree_framework::{
 /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::normal_to_lognormal_vol;
 ///
 /// // 100 bps normal vol at 5% rate → 20% lognormal
-/// let lognormal = normal_to_lognormal_vol(0.01, 0.05);
+/// let lognormal = normal_to_lognormal_vol(0.01, 0.05)?;
 /// assert!((lognormal - 0.20).abs() < 1e-10);
 ///
 /// // 80 bps normal vol at 4% rate → 20% lognormal
-/// let lognormal = normal_to_lognormal_vol(0.008, 0.04);
+/// let lognormal = normal_to_lognormal_vol(0.008, 0.04)?;
 /// assert!((lognormal - 0.20).abs() < 1e-10);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `rate_level` is zero or negative.
+/// Returns an error if `rate_level` is zero or negative.
 #[inline]
-pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> f64 {
-    assert!(
-        rate_level > 0.0,
-        "rate_level must be positive for lognormal conversion"
-    );
-    normal_vol / rate_level
+pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> Result<f64> {
+    if !rate_level.is_finite() || rate_level <= 0.0 {
+        return Err(Error::Input(finstack_core::error::InputError::NonPositiveValue));
+    }
+    Ok(normal_vol / rate_level)
 }
 
 /// Convert lognormal (relative) volatility to normal (absolute) volatility.
@@ -117,16 +118,20 @@ pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> f64 {
 /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::lognormal_to_normal_vol;
 ///
 /// // 20% lognormal at 5% rate → 100 bps normal
-/// let normal = lognormal_to_normal_vol(0.20, 0.05);
+/// let normal = lognormal_to_normal_vol(0.20, 0.05)?;
 /// assert!((normal - 0.01).abs() < 1e-10);
 ///
 /// // 25% lognormal at 4% rate → 100 bps normal
-/// let normal = lognormal_to_normal_vol(0.25, 0.04);
+/// let normal = lognormal_to_normal_vol(0.25, 0.04)?;
 /// assert!((normal - 0.01).abs() < 1e-10);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 #[inline]
-pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> f64 {
-    lognormal_vol * rate_level
+pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> Result<f64> {
+    if !rate_level.is_finite() || rate_level <= 0.0 {
+        return Err(Error::Input(finstack_core::error::InputError::NonPositiveValue));
+    }
+    Ok(lognormal_vol * rate_level)
 }
 
 /// Default normal (absolute) volatility for Ho-Lee model.
@@ -366,23 +371,24 @@ impl ShortRateTreeConfig {
     /// };
     ///
     /// // Low rate environment → Ho-Lee
-    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005);
+    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005)?;
     /// assert_eq!(config.model, ShortRateModel::HoLee);
     ///
     /// // Normal rate environment → BDT with converted vol
-    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05);
+    /// let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05)?;
     /// assert_eq!(config.model, ShortRateModel::BlackDermanToy);
     /// // 100 bps / 5% = 20% lognormal
     /// assert!((config.volatility - 0.20).abs() < 1e-10);
+    /// # Ok::<(), finstack_core::Error>(())
     /// ```
-    pub fn from_normal_vol(steps: usize, normal_vol: f64, rate_level: f64) -> Self {
+    pub fn from_normal_vol(steps: usize, normal_vol: f64, rate_level: f64) -> Result<Self> {
         if rate_level < 0.01 {
             // Low/negative rate environment: use Ho-Lee
-            Self::ho_lee(steps, normal_vol)
+            Ok(Self::ho_lee(steps, normal_vol))
         } else {
             // Positive rate environment: use BDT with converted vol
-            let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level);
-            Self::bdt(steps, lognormal_vol, 0.03)
+            let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level)?;
+            Ok(Self::bdt(steps, lognormal_vol, 0.03))
         }
     }
 }
@@ -978,26 +984,26 @@ mod tests {
     #[test]
     fn test_normal_to_lognormal_vol_conversion() {
         // 100 bps normal vol at 5% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.01, 0.05);
+        let lognormal = normal_to_lognormal_vol(0.01, 0.05).unwrap();
         assert!((lognormal - 0.20).abs() < 1e-10);
 
         // 80 bps normal vol at 4% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.008, 0.04);
+        let lognormal = normal_to_lognormal_vol(0.008, 0.04).unwrap();
         assert!((lognormal - 0.20).abs() < 1e-10);
 
         // 50 bps normal vol at 2.5% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.005, 0.025);
+        let lognormal = normal_to_lognormal_vol(0.005, 0.025).unwrap();
         assert!((lognormal - 0.20).abs() < 1e-10);
     }
 
     #[test]
     fn test_lognormal_to_normal_vol_conversion() {
         // 20% lognormal at 5% rate → 100 bps normal
-        let normal = lognormal_to_normal_vol(0.20, 0.05);
+        let normal = lognormal_to_normal_vol(0.20, 0.05).unwrap();
         assert!((normal - 0.01).abs() < 1e-10);
 
         // 25% lognormal at 4% rate → 100 bps normal
-        let normal = lognormal_to_normal_vol(0.25, 0.04);
+        let normal = lognormal_to_normal_vol(0.25, 0.04).unwrap();
         assert!((normal - 0.01).abs() < 1e-10);
     }
 
@@ -1006,8 +1012,8 @@ mod tests {
         let original_normal = 0.012; // 120 bps
         let rate_level = 0.045; // 4.5%
 
-        let lognormal = normal_to_lognormal_vol(original_normal, rate_level);
-        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level);
+        let lognormal = normal_to_lognormal_vol(original_normal, rate_level).unwrap();
+        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level).unwrap();
 
         assert!(
             (back_to_normal - original_normal).abs() < 1e-15,
@@ -1016,15 +1022,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "rate_level must be positive")]
-    fn test_normal_to_lognormal_panics_on_zero_rate() {
-        normal_to_lognormal_vol(0.01, 0.0);
+    fn test_normal_to_lognormal_errors_on_zero_rate() {
+        let err = normal_to_lognormal_vol(0.01, 0.0).expect_err("should error");
+        assert!(err.to_string().contains("positive"));
     }
 
     #[test]
-    #[should_panic(expected = "rate_level must be positive")]
-    fn test_normal_to_lognormal_panics_on_negative_rate() {
-        normal_to_lognormal_vol(0.01, -0.01);
+    fn test_normal_to_lognormal_errors_on_negative_rate() {
+        let err = normal_to_lognormal_vol(0.01, -0.01).expect_err("should error");
+        assert!(err.to_string().contains("positive"));
     }
 
     // ========================================================================
@@ -1050,6 +1056,16 @@ mod tests {
     }
 
     #[test]
+    fn test_config_from_normal_vol_factory() {
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).unwrap();
+        assert_eq!(config.model, ShortRateModel::HoLee);
+
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).unwrap();
+        assert_eq!(config.model, ShortRateModel::BlackDermanToy);
+        assert!((config.volatility - 0.20).abs() < 1e-10);
+    }
+
+    #[test]
     fn test_config_default_ho_lee() {
         let config = ShortRateTreeConfig::default_ho_lee(50);
         assert_eq!(config.steps, 50);
@@ -1068,7 +1084,7 @@ mod tests {
     #[test]
     fn test_config_from_normal_vol_low_rates() {
         // Low rate environment → should use Ho-Lee
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005);
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).unwrap();
         assert_eq!(config.model, ShortRateModel::HoLee);
         assert_eq!(config.volatility, 0.008); // Unchanged
     }
@@ -1076,7 +1092,7 @@ mod tests {
     #[test]
     fn test_config_from_normal_vol_normal_rates() {
         // Normal rate environment → should use BDT with converted vol
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05);
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).unwrap();
         assert_eq!(config.model, ShortRateModel::BlackDermanToy);
         // 100 bps / 5% = 20% lognormal
         assert!((config.volatility - 0.20).abs() < 1e-10);

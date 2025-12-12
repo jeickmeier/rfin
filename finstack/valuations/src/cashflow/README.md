@@ -498,13 +498,13 @@ use finstack_valuations::cashflow::aggregation::pv_by_period_credit_adjusted_wit
 use finstack_core::market_data::traits::Survival;
 use finstack_core::dates::DayCountCtx;
 
-let hazard: Option<&dyn Survival> = /* hazard curve */;
+let hazard: &dyn Survival = /* hazard curve */;
 
 let pv_map = pv_by_period_credit_adjusted_with_ctx(
     &flows,
     &periods,
     disc,
-    hazard,
+    Some(hazard),
     base,
     DayCount::Act365F,
     DayCountCtx::default(),
@@ -530,7 +530,7 @@ let pv_map = pv_by_period_credit_adjusted_detailed(
     flows,
     &periods,
     disc,
-    hazard,
+    Some(hazard),
     recovery_rate,
     date_ctx,
 )?;

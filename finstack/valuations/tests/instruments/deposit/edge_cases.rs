@@ -6,6 +6,8 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::Deposit;
 use finstack_valuations::metrics::MetricId;
 
 #[test]
@@ -254,13 +256,25 @@ fn test_missing_quote_rate_defaults_to_zero() {
     let base = date(2025, 1, 1);
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
 
-    let dep = DepositBuilder::new(base).end(date(2025, 7, 1)).build();
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-NO-QUOTE"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(base)
+        .end(date(2025, 7, 1))
+        .day_count(DayCount::Act360)
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .build()
+        .unwrap();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let err = dep.npv(&ctx, base).expect_err("npv() should require quote_rate");
 
-    // Validate - should price as if rate = 0
-    assert!(pv.amount() < 0.0); // Negative PV due to time value
+    // Validate
+    let msg = err.to_string();
+    assert!(
+        msg.contains("quote_rate"),
+        "Error should mention quote_rate: {msg}"
+    );
 }
 
 #[test]

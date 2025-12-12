@@ -326,7 +326,7 @@ pub(super) fn compute_coupon_schedules(
     //!     freq: Frequency::semi_annual(),
     //!     dc: DayCount::Thirty360,
     //!     bdc: BusinessDayConvention::Following,
-    //!     calendar_id: Some("USD".to_string()),
+    //!     calendar_id: Some("usny".to_string()),
     //!     stub: StubKind::None,
     //! };
     //! // Note: compute_coupon_schedules would be called here

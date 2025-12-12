@@ -1,0 +1,71 @@
+{
+    "findings": [
+        {
+            "severity": "Major",
+            "area": "Math",
+            "location": {
+                "path": "src/adapters/curves.rs",
+                "symbol": "CurveAdapter::try_generate_effects",
+                "lines": "L202"
+            },
+            "problem": "Hazard curve bumping uses first-order approximation (Spread ~ Lambda * (1-R)) which fails for distressed credits.",
+            "recommendation": "Use exact bootstrap or root-solver to find new hazard rate matching bumped spread.",
+            "tests": {
+                "inputs": "Spread=500bp, 1000bp; Recovery=0.4",
+                "tolerance": 1e-4
+            },
+            "acceptance": {
+                "deterministic": true,
+                "max_ms": 10
+            }
+        },
+        {
+            "severity": "Minor",
+            "area": "Conventions",
+            "location": {
+                "path": "src/adapters/curves.rs",
+                "symbol": "CurveAdapter::try_generate_effects",
+                "lines": "L275"
+            },
+            "problem": "Inflation shocks are multiplicative on CPI levels, ignoring forward inflation rate conventions.",
+            "recommendation": "Implement inflation shocks as additive bumps to forward inflation rates.",
+            "tests": {
+                "inputs": "Shock=+50bp",
+                "tolerance": 1e-4
+            },
+            "acceptance": {
+                "deterministic": true,
+                "max_ms": 5
+            }
+        },
+        {
+            "severity": "Minor",
+            "area": "Conventions",
+            "location": {
+                "path": "src/utils.rs",
+                "symbol": "parse_tenor_to_years",
+                "lines": "L24"
+            },
+            "problem": "Simple tenor parsing approximation (1Y=1.0) ignores day-count conventions.",
+            "recommendation": "Use parse_tenor_to_years_with_context where curve metadata is available.",
+            "tests": {
+                "inputs": "Tenor='1M', Date='2025-01-31'",
+                "tolerance": 1e-4
+            },
+            "acceptance": {
+                "deterministic": true,
+                "max_ms": 1
+            }
+        }
+    ],
+    "scorecard": {
+        "Conventions": 3,
+        "Math": 3,
+        "Algorithms": 4,
+        "Numerical": 4,
+        "Performance": 4,
+        "Safety": 5,
+        "API/Design": 5,
+        "Docs/Tests": 4
+    }
+}

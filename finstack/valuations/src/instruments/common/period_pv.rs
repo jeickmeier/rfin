@@ -181,7 +181,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///
     /// # Errors
     /// Returns an error if the discount curve is not found, or if `hazard_curve_id`
-    /// is provided but the curve is not found in the market context.
+    /// is missing or not found in the market context.
     ///
     /// # Example
     /// ```ignore
@@ -201,13 +201,19 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         base: Date,
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+        let hazard_curve_id = hazard_curve_id.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "hazard curve id".to_string(),
+            })
+        })?;
+
         // Build full schedule (holder perspective, filtered flows) to preserve CFKind
         // This allows applying recovery rates to principal flows only.
         let schedule = self.build_full_schedule(market, base)?;
 
         // Resolve discount and hazard curves once to avoid duplicated logic.
         let disc_curve_id = self.discount_curve_id();
-        let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
+        let curves = resolve_credit_curves(market, disc_curve_id, Some(hazard_curve_id))?;
         let disc: &dyn finstack_core::market_data::traits::Discounting = curves.discounting();
         let hazard = curves.hazard_survival();
         let recovery_rate = curves.recovery_rate();
@@ -500,15 +506,12 @@ mod tests {
         let market = create_test_market(base);
         let periods = create_quarters_2025();
 
-        let pv_plain = bond
-            .periodized_pv(&periods, &market, base, DayCount::Act365F)
-            .expect("Plain PV should succeed");
-
         let pv_credit = bond
             .periodized_pv_credit_adjusted(&periods, &market, None, base, DayCount::Act365F)
-            .expect("Credit-adjusted PV without hazard should succeed");
+            .expect_err("Credit-adjusted PV should require a hazard curve");
 
-        assert_eq!(pv_plain, pv_credit);
+        let msg = pv_credit.to_string();
+        assert!(msg.contains("hazard"), "Error should mention hazard: {msg}");
     }
 
     #[test]

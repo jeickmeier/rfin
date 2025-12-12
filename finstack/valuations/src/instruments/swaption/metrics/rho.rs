@@ -4,6 +4,7 @@
 //! the configured model (SABR or Black) consistently with instrument pricing.
 
 use crate::instruments::swaption::Swaption;
+use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
@@ -25,7 +26,14 @@ impl MetricCalculator for RhoCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
-            vol_surface.value_clamped(time_to_expiry, option.strike_rate)
+            match option.pricing_overrides.vol_surface_extrapolation {
+                VolSurfaceExtrapolation::Clamp => {
+                    vol_surface.value_clamped(time_to_expiry, option.strike_rate)
+                }
+                VolSurfaceExtrapolation::Error => {
+                    vol_surface.value_checked(time_to_expiry, option.strike_rate)?
+                }
+            }
         };
 
         // Create bumped discount curve (+1bp) by modifying knots directly

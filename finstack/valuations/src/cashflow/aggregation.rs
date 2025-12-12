@@ -263,14 +263,14 @@ fn pv_by_period_sorted_checked(
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and explicit context.
 ///
 /// This variant extends [`pv_by_period_with_ctx`] by applying survival
-/// probabilities from an optional hazard curve to each cashflow before
+/// probabilities from a hazard curve to each cashflow before
 /// aggregating by period.
 ///
 /// # Arguments
 /// * `flows` - Dated cashflows to aggregate
 /// * `periods` - Period definitions with start/end boundaries
 /// * `disc` - Discount curve for rates discounting
-/// * `hazard` - Optional hazard curve for credit adjustment
+/// * `hazard` - Hazard curve for credit adjustment (required)
 /// * `base` - Base date for discounting (typically valuation date)
 /// * `dc` - Day count convention for year fraction calculation
 /// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
@@ -279,7 +279,7 @@ fn pv_by_period_sorted_checked(
 /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows are omitted.
 ///
 /// # Errors
-/// Returns error if day-count calculation fails.
+/// Returns error if the hazard curve is missing or day-count calculation fails.
 pub fn pv_by_period_credit_adjusted_with_ctx(
     flows: &[crate::cashflow::DatedFlow],
     periods: &[Period],
@@ -289,7 +289,12 @@ pub fn pv_by_period_credit_adjusted_with_ctx(
     dc: DayCount,
     dc_ctx: DayCountCtx<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    pv_by_period_with_optional_hazard(flows, periods, disc, base, dc, dc_ctx, hazard)
+    let hazard = hazard.ok_or_else(|| {
+        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            id: "hazard curve".to_string(),
+        })
+    })?;
+    pv_by_period_with_optional_hazard(flows, periods, disc, base, dc, dc_ctx, Some(hazard))
 }
 
 /// Parameters for date and day-count calculations.
@@ -355,12 +360,17 @@ pub fn pv_by_period_credit_adjusted_detailed(
     recovery_rate: Option<f64>,
     date_ctx: DateContext<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let hazard = hazard.ok_or_else(|| {
+        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            id: "hazard curve".to_string(),
+        })
+    })?;
     let mut sorted: Vec<CashFlow> = flows.to_vec();
     if sorted.is_empty() || periods.is_empty() {
         return Ok(IndexMap::new());
     }
     sorted.sort_unstable_by_key(|cf| cf.date);
-    pv_by_period_generic(&sorted, periods, disc, hazard, &date_ctx, |cf, df, sp| {
+    pv_by_period_generic(&sorted, periods, disc, Some(hazard), &date_ctx, |cf, df, sp| {
         let recovery_term = if let Some(r) = recovery_rate {
             match cf.kind {
                 CFKind::Amortization | CFKind::Notional => r * (1.0 - sp),
