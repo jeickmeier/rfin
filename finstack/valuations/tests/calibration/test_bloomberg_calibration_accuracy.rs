@@ -58,7 +58,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
-use finstack_valuations::calibration::{Calibrator, RatesQuote};
+use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
 use time::Month;
 
 /// Test calibration accuracy against Bloomberg USD OIS curve data.
@@ -484,7 +484,14 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Note: payment_delay_days is set to 0 for comparison against Bloomberg's published
     // zero rates and DFs at maturity dates. For production OIS pricing, use
     // .with_payment_delay(2) to match Bloomberg's actual swap conventions.
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
+    // Enforce market-standard calibration accuracy (internal consistency).
+    // This is separate from Bloomberg matching tolerances, which also include convention
+    // and interpolation/extrapolation differences.
+    let config = CalibrationConfig::default()
+        .with_tolerance(1e-10)
+        .with_max_iterations(200);
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+        .with_config(config);
     let base_context = MarketContext::new();
 
     let (curve, report) = calibrator
@@ -493,6 +500,12 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 
     // Verify calibration succeeded
     assert!(report.success, "Calibration should report success");
+    assert!(
+        report.max_residual < 1e-8,
+        "Calibration max_residual must be < 1e-8 (market-standard). Got {:.3e}. Reason: {}",
+        report.max_residual,
+        report.convergence_reason
+    );
     assert_eq!(curve.id().as_str(), "USD-OIS");
 
     // Track differences for summary statistics
