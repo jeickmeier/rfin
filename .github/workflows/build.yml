@@ -56,22 +56,3 @@ jobs:
 
       - name: Run tests (release mode for smaller binaries)
         run: cargo test --workspace --exclude finstack-py --features mc --lib --test '*'
-  sonarcloud:
-    name: SonarCloud Scan
-    runs-on: ubuntu-latest
-    needs: rust-ci   # ensure CI runs first
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history improves analysis quality
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
-
-      # Quality Gate enforcement for SonarCloud is done via the GitHub check
-      # (e.g. "SonarCloud Code Analysis") and branch protection rules, so we
-      # do not run the separate SonarQube Quality Gate action here.
