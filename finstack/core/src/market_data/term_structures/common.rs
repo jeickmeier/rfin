@@ -6,10 +6,12 @@
 
 use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
-use crate::{Error, Result};
+use crate::Result;
 
 /// Build an `Interp` with unified error mapping (crate::Result) for callers
 /// whose builders return `crate::Result<T>` (Forward/Inflation).
+///
+/// Preserves the original interpolation error context for better diagnostics.
 #[inline]
 pub(crate) fn build_interp(
     style: InterpStyle,
@@ -17,15 +19,15 @@ pub(crate) fn build_interp(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
-    style
-        .build_enum(knots, values, extrapolation)
-        .map_err(|_| Error::Internal)
+    style.build_enum(knots, values, extrapolation)
 }
 
 /// Build an `Interp` allowing any values (including negative forward rates).
 ///
 /// This is used by forward curves where negative rates are allowed
 /// (e.g., EUR, CHF, JPY markets since 2014).
+///
+/// Preserves the original interpolation error context for better diagnostics.
 #[inline]
 pub(crate) fn build_interp_allow_any_values(
     style: InterpStyle,
@@ -33,9 +35,7 @@ pub(crate) fn build_interp_allow_any_values(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
-    style
-        .build_enum_allow_any_values(knots, values, extrapolation)
-        .map_err(|_| Error::Internal)
+    style.build_enum_allow_any_values(knots, values, extrapolation)
 }
 
 /// Build an `Interp` mapping errors to `InputError` for discount curve builders.

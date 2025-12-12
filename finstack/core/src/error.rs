@@ -302,6 +302,16 @@ pub enum InputError {
         /// The invalid time to expiry value.
         value: f64,
     },
+
+    /// Unsupported bump operation on a market data type.
+    ///
+    /// This error occurs when attempting to apply a bump with an unsupported
+    /// combination of mode, units, or bump type for a given curve/surface.
+    #[error("Unsupported bump operation: {reason}")]
+    UnsupportedBump {
+        /// Description of why the bump is not supported.
+        reason: String,
+    },
 }
 
 /// Unified error type for all high-level APIs.

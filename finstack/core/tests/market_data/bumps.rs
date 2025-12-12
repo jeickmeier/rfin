@@ -76,8 +76,8 @@ fn hazard_curve_requires_additive_fraction() {
         .expect("hazard supports additive bp bumps");
     assert_eq!(additive.id().as_str(), "CDX_spread_50bp");
 
-    let none = curve.apply_bump(BumpSpec::multiplier(1.2));
-    assert!(none.is_none(), "hazard curves only support additive bumps");
+    let err = curve.apply_bump(BumpSpec::multiplier(1.2));
+    assert!(err.is_err(), "hazard curves only support additive bumps");
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn hazard_curve_rejects_invalid_recovery_for_bumps() {
 
     let bumped = curve.apply_bump(BumpSpec::parallel_bp(25.0));
     assert!(
-        bumped.is_none(),
+        bumped.is_err(),
         "curves with recovery >= 100% cannot convert par spread bumps"
     );
 }

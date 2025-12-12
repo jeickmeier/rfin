@@ -364,28 +364,43 @@ impl VolSurface {
 }
 
 impl Bumpable for VolSurface {
-    fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
+    fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
+        use crate::error::InputError;
+
         // Only parallel bumps are supported for now
         if !matches!(
             spec.bump_type,
             crate::market_data::bumps::BumpType::Parallel
         ) {
-            return None;
+            return Err(InputError::UnsupportedBump {
+                reason: "VolSurface only supports Parallel bumps, not key-rate bumps".to_string(),
+            }
+            .into());
         }
 
         let mut bumped_vols = self.vols.clone();
         match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                let delta = spec.additive_fraction()?;
+                let delta = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
+                    reason: "VolSurface additive bump failed to compute fraction".to_string(),
+                })?;
                 bumped_vols.mapv_inplace(|v| (v + delta).max(0.0));
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => {
                 bumped_vols.mapv_inplace(|v| (v * spec.value).max(0.0));
             }
-            _ => return None,
+            _ => {
+                return Err(InputError::UnsupportedBump {
+                    reason: format!(
+                        "VolSurface only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
+                        spec.mode, spec.units
+                    ),
+                }
+                .into());
+            }
         }
 
-        Some(Self {
+        Ok(Self {
             id: self.id.clone(),
             expiries: self.expiries.clone(),
             strikes: self.strikes.clone(),
@@ -559,7 +574,13 @@ impl VolSurface {
         }
         let array =
             Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
-                .map_err(|_| Error::Internal)?;
+                .map_err(|e| {
+                    // This should never happen given the length check above, but provide context if it does
+                    crate::Error::Validation(format!(
+                        "failed to construct volatility grid: expected shape ({}, {}), got {} elements: {}",
+                        expiries.len(), strikes.len(), vols_row_major.len(), e
+                    ))
+                })?;
         Ok(Self {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),

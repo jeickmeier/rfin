@@ -197,28 +197,32 @@ pub enum CurveState {
 
 #[cfg(feature = "serde")]
 impl CurveStorage {
-    /// Convert to serializable state
-    pub fn to_state(&self) -> crate::Result<CurveState> {
-        Ok(match self {
+    /// Convert to serializable state.
+    ///
+    /// This conversion is infallible - all curve types can be converted to their state representation.
+    pub fn to_state(&self) -> CurveState {
+        match self {
             Self::Discount(curve) => CurveState::Discount((**curve).clone()),
             Self::Forward(curve) => CurveState::Forward((**curve).clone()),
             Self::Hazard(curve) => CurveState::Hazard((**curve).clone()),
             Self::Inflation(curve) => CurveState::Inflation((**curve).clone()),
             Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
-        })
+        }
     }
 
-    /// Reconstruct from serializable state
-    pub fn from_state(state: CurveState) -> crate::Result<Self> {
+    /// Reconstruct from serializable state.
+    ///
+    /// This conversion is infallible - all state variants map directly to storage variants.
+    pub fn from_state(state: CurveState) -> Self {
         use std::sync::Arc;
 
-        Ok(match state {
+        match state {
             CurveState::Discount(c) => Self::Discount(Arc::new(c)),
             CurveState::Forward(c) => Self::Forward(Arc::new(c)),
             CurveState::Hazard(c) => Self::Hazard(Arc::new(c)),
             CurveState::Inflation(c) => Self::Inflation(Arc::new(c)),
             CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
-        })
+        }
     }
 }
 
@@ -228,9 +232,7 @@ impl serde::Serialize for CurveStorage {
     where
         S: serde::Serializer,
     {
-        self.to_state()
-            .map_err(serde::ser::Error::custom)?
-            .serialize(serializer)
+        self.to_state().serialize(serializer)
     }
 }
 
@@ -241,7 +243,7 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
         D: serde::Deserializer<'de>,
     {
         let state = CurveState::deserialize(deserializer)?;
-        Self::from_state(state).map_err(serde::de::Error::custom)
+        Ok(Self::from_state(state))
     }
 }
 
@@ -310,7 +312,7 @@ impl From<&MarketContext> for MarketContextState {
         let curves: Vec<CurveState> = ctx
             .curves
             .values()
-            .filter_map(|storage| storage.to_state().ok())
+            .map(|storage| storage.to_state())
             .collect();
 
         // Convert all surfaces
@@ -385,7 +387,7 @@ impl TryFrom<MarketContextState> for MarketContext {
 
         // Reconstruct all curves
         for curve_state in state.curves {
-            let storage = CurveStorage::from_state(curve_state)?;
+            let storage = CurveStorage::from_state(curve_state);
             ctx.curves.insert(storage.id().clone(), storage);
         }
 
@@ -1873,100 +1875,102 @@ impl MarketContext {
             let mut found = false;
 
             if let Ok(original) = self.get_discount_ref(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let final_curve = if bumped.id() != original.id() {
-                        DiscountCurve::builder(original.id().as_str())
-                            .base_date(bumped.base_date())
-                            .day_count(bumped.day_count())
-                            .knots(
-                                bumped
-                                    .knots()
-                                    .iter()
-                                    .copied()
-                                    .zip(bumped.dfs().iter().copied()),
-                            )
-                            .set_interp(bumped.interp_style())
-                            .extrapolation(bumped.extrapolation())
-                            .allow_non_monotonic() // Support negative rate environments
-                            .build()?
-                    } else {
-                        bumped
-                    };
+                let bumped = original.apply_bump(bump_spec)?;
+                let final_curve = if bumped.id() != original.id() {
+                    DiscountCurve::builder(original.id().as_str())
+                        .base_date(bumped.base_date())
+                        .day_count(bumped.day_count())
+                        .knots(
+                            bumped
+                                .knots()
+                                .iter()
+                                .copied()
+                                .zip(bumped.dfs().iter().copied()),
+                        )
+                        .set_interp(bumped.interp_style())
+                        .extrapolation(bumped.extrapolation())
+                        .allow_non_monotonic() // Support negative rate environments
+                        .build()?
+                } else {
+                    bumped
+                };
 
-                    new_context.curves.insert(
-                        curve_id.clone(),
-                        CurveStorage::Discount(Arc::new(final_curve)),
-                    );
-                    found = true;
-                }
+                new_context.curves.insert(
+                    curve_id.clone(),
+                    CurveStorage::Discount(Arc::new(final_curve)),
+                );
+                found = true;
             } else if let Ok(original) = self.get_forward_ref(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let final_curve = if bumped.id() != original.id() {
-                        ForwardCurve::builder(original.id().as_str(), bumped.tenor())
-                            .base_date(bumped.base_date())
-                            .reset_lag(bumped.reset_lag())
-                            .day_count(bumped.day_count())
-                            .knots(
-                                bumped
-                                    .knots()
-                                    .iter()
-                                    .copied()
-                                    .zip(bumped.forwards().iter().copied()),
-                            )
-                            .build()?
-                    } else {
-                        bumped
-                    };
+                let bumped = original.apply_bump(bump_spec)?;
+                let final_curve = if bumped.id() != original.id() {
+                    ForwardCurve::builder(original.id().as_str(), bumped.tenor())
+                        .base_date(bumped.base_date())
+                        .reset_lag(bumped.reset_lag())
+                        .day_count(bumped.day_count())
+                        .knots(
+                            bumped
+                                .knots()
+                                .iter()
+                                .copied()
+                                .zip(bumped.forwards().iter().copied()),
+                        )
+                        .build()?
+                } else {
+                    bumped
+                };
 
-                    new_context.curves.insert(
-                        curve_id.clone(),
-                        CurveStorage::Forward(Arc::new(final_curve)),
-                    );
-                    found = true;
-                }
+                new_context.curves.insert(
+                    curve_id.clone(),
+                    CurveStorage::Forward(Arc::new(final_curve)),
+                );
+                found = true;
             } else if let Ok(original) = self.get_hazard_ref(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let final_curve = if bumped.id() != original.id() {
-                        bumped.to_builder_with_id(original.id().clone()).build()?
-                    } else {
-                        bumped
-                    };
+                let bumped = original.apply_bump(bump_spec)?;
+                let final_curve = if bumped.id() != original.id() {
+                    bumped.to_builder_with_id(original.id().clone()).build()?
+                } else {
+                    bumped
+                };
 
-                    new_context.curves.insert(
-                        curve_id.clone(),
-                        CurveStorage::Hazard(Arc::new(final_curve)),
-                    );
-                    found = true;
-                }
+                new_context.curves.insert(
+                    curve_id.clone(),
+                    CurveStorage::Hazard(Arc::new(final_curve)),
+                );
+                found = true;
             } else if let Ok(original) = self.get_inflation_ref(cid) {
                 if let BumpType::TriangularKeyRate { target_bucket, .. } = bump_spec.bump_type {
                     // Inflation curves don't support key-rate bumps directly; apply a bucketed factor to the closest knot.
-                    if let Some(delta) = bump_spec.additive_fraction() {
-                        let mut points: Vec<(f64, f64)> = original
-                            .knots()
-                            .iter()
-                            .copied()
-                            .zip(original.cpi_levels().iter().copied())
-                            .collect();
-                        if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
-                            let da = (a.1 .0 - target_bucket).abs();
-                            let db = (b.1 .0 - target_bucket).abs();
-                            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-                        }) {
-                            points[idx].1 *= 1.0 + delta;
+                    let delta = bump_spec.additive_fraction().ok_or_else(|| {
+                        crate::error::InputError::UnsupportedBump {
+                            reason: "InflationCurve key-rate bump requires additive fraction"
+                                .to_string(),
                         }
-
-                        let rebuilt = InflationCurve::builder(original.id().as_str())
-                            .base_cpi(original.base_cpi())
-                            .knots(points)
-                            .build()?;
-
-                        new_context
-                            .curves
-                            .insert(curve_id.clone(), CurveStorage::Inflation(Arc::new(rebuilt)));
-                        found = true;
+                    })?;
+                    let mut points: Vec<(f64, f64)> = original
+                        .knots()
+                        .iter()
+                        .copied()
+                        .zip(original.cpi_levels().iter().copied())
+                        .collect();
+                    if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
+                        let da = (a.1 .0 - target_bucket).abs();
+                        let db = (b.1 .0 - target_bucket).abs();
+                        da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                    }) {
+                        points[idx].1 *= 1.0 + delta;
                     }
-                } else if let Some(bumped) = original.apply_bump(bump_spec) {
+
+                    let rebuilt = InflationCurve::builder(original.id().as_str())
+                        .base_cpi(original.base_cpi())
+                        .knots(points)
+                        .build()?;
+
+                    new_context
+                        .curves
+                        .insert(curve_id.clone(), CurveStorage::Inflation(Arc::new(rebuilt)));
+                    found = true;
+                } else {
+                    let bumped = original.apply_bump(bump_spec)?;
                     let final_curve = if bumped.id() != original.id() {
                         InflationCurve::builder(original.id().as_str())
                             .base_cpi(bumped.base_cpi())
@@ -1989,44 +1993,40 @@ impl MarketContext {
                     found = true;
                 }
             } else if let Ok(original) = self.get_base_correlation_ref(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let final_curve = if bumped.id() != original.id() {
-                        BaseCorrelationCurve::builder(original.id().as_str())
-                            .points(
-                                bumped
-                                    .detachment_points()
-                                    .iter()
-                                    .copied()
-                                    .zip(bumped.correlations().iter().copied()),
-                            )
-                            .build()?
-                    } else {
-                        bumped
-                    };
+                let bumped = original.apply_bump(bump_spec)?;
+                let final_curve = if bumped.id() != original.id() {
+                    BaseCorrelationCurve::builder(original.id().as_str())
+                        .points(
+                            bumped
+                                .detachment_points()
+                                .iter()
+                                .copied()
+                                .zip(bumped.correlations().iter().copied()),
+                        )
+                        .build()?
+                } else {
+                    bumped
+                };
 
-                    new_context.curves.insert(
-                        curve_id.clone(),
-                        CurveStorage::BaseCorrelation(Arc::new(final_curve)),
-                    );
-                    found = true;
-                }
+                new_context.curves.insert(
+                    curve_id.clone(),
+                    CurveStorage::BaseCorrelation(Arc::new(final_curve)),
+                );
+                found = true;
             } else if let Some(original) = self.surfaces.get(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    new_context
-                        .surfaces
-                        .insert(curve_id.clone(), Arc::new(bumped));
-                    found = true;
-                }
+                let bumped = original.apply_bump(bump_spec)?;
+                new_context
+                    .surfaces
+                    .insert(curve_id.clone(), Arc::new(bumped));
+                found = true;
             } else if let Some(original) = self.prices.get(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    new_context.prices.insert(curve_id.clone(), bumped);
-                    found = true;
-                }
+                let bumped = original.apply_bump(bump_spec)?;
+                new_context.prices.insert(curve_id.clone(), bumped);
+                found = true;
             } else if let Some(original) = self.series.get(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    new_context.series.insert(curve_id.clone(), bumped);
-                    found = true;
-                }
+                let bumped = original.apply_bump(bump_spec)?;
+                new_context.series.insert(curve_id.clone(), bumped);
+                found = true;
             }
 
             if !found {

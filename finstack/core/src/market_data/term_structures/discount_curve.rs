@@ -1024,8 +1024,7 @@ impl DiscountCurveBuilder {
         }
 
         let (knots_vec, dfs_vec): (Vec<f64>, Vec<f64>) = split_points(self.points);
-        crate::math::interp::utils::validate_knots(&knots_vec)
-            .map_err(|_| crate::error::InputError::NonMonotonicKnots)?;
+        crate::math::interp::utils::validate_knots(&knots_vec)?;
 
         // Enforce monotonicity by default (can be disabled via allow_non_monotonic)
         if !self.allow_non_monotonic {
