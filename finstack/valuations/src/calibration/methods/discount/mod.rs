@@ -446,8 +446,8 @@ impl DiscountCurveCalibrator {
         // Guard against degenerate maturities.
         let t = t.max(1e-12);
 
-        // DF(t) = exp(-z(t) * t). Using configured bounds as a coarse guard.
-        let bounds = &self.config.rate_bounds;
+        // DF(t) = exp(-z(t) * t). Use currency-specific bounds unless explicitly overridden.
+        let bounds = self.config.effective_rate_bounds(self.currency);
         let df_a = (-bounds.max_rate * t).exp();
         let df_b = (-bounds.min_rate * t).exp();
 

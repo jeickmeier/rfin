@@ -5,6 +5,10 @@ use finstack_core::explain::ExplanationTrace;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+fn default_true() -> bool {
+    true
+}
+
 /// Calibration diagnostic report.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationReport {
@@ -20,6 +24,20 @@ pub struct CalibrationReport {
     pub max_residual: f64,
     /// Root mean square error
     pub rmse: f64,
+    /// Whether the calibrated market object passed validation checks (no-arbitrage, bounds, etc).
+    ///
+    /// This flag is independent from the solver residual tolerance checks.
+    /// Market-standard workflows typically require both:
+    /// - fit criteria met, and
+    /// - validation/no-arbitrage checks passed.
+    ///
+    /// When `validation_passed == false`, `success` should generally be `false` even if residuals
+    /// are within tolerance.
+    #[serde(default = "default_true")]
+    pub validation_passed: bool,
+    /// Optional validation failure details (set when `validation_passed == false`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_error: Option<String>,
     /// Convergence reason
     pub convergence_reason: String,
     /// Calibration metadata (key-value pairs for domain-specific info)
@@ -85,6 +103,8 @@ impl CalibrationReport {
             objective_value: rmse,
             max_residual,
             rmse,
+            validation_passed: true,
+            validation_error: None,
             convergence_reason: convergence_reason.into(),
             metadata: BTreeMap::new(),
             solver_config: crate::calibration::SolverConfig::default(),
@@ -124,6 +144,37 @@ impl CalibrationReport {
     /// Set solver configuration (builder pattern).
     pub fn with_solver_config(mut self, config: crate::calibration::SolverConfig) -> Self {
         self.solver_config = config;
+        self
+    }
+
+    /// Attach validation outcome. If validation fails, the report is marked unsuccessful.
+    pub fn with_validation_result(
+        mut self,
+        passed: bool,
+        error: Option<String>,
+    ) -> Self {
+        self.validation_passed = passed;
+        self.validation_error = error;
+
+        if !self.validation_passed {
+            self.success = false;
+            if let Some(err) = &self.validation_error {
+                if self.convergence_reason.contains("converged") {
+                    self.convergence_reason =
+                        format!("Converged to tolerance but failed validation: {err}");
+                } else if !self.convergence_reason.contains("validation failed") {
+                    self.convergence_reason =
+                        format!("{}; validation failed: {err}", self.convergence_reason);
+                }
+            } else if self.convergence_reason.contains("converged") {
+                self.convergence_reason =
+                    "Converged to tolerance but failed validation".to_string();
+            } else if !self.convergence_reason.contains("validation failed") {
+                self.convergence_reason =
+                    format!("{}; validation failed", self.convergence_reason);
+            }
+        }
+
         self
     }
 
@@ -252,6 +303,8 @@ impl Default for CalibrationReport {
             objective_value: f64::INFINITY,
             max_residual: f64::INFINITY,
             rmse: f64::INFINITY,
+            validation_passed: false,
+            validation_error: None,
             convergence_reason: "Not started".to_string(),
             metadata: BTreeMap::new(),
             solver_config: crate::calibration::SolverConfig::default(),

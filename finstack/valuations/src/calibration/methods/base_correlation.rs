@@ -395,14 +395,32 @@ impl BaseCorrelationCalibrator {
             .knots(solved_correlations.clone())
             .build()?;
 
-        // Validate the calibrated base correlation curve
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        final_curve
-            .validate(&ValidationConfig::default())
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("Calibrated base correlation curve failed validation: {}", e),
-                category: "base_correlation_validation".to_string(),
-            })?;
+        // Validate the calibrated base correlation curve (honor config.validation + validation_mode).
+        use crate::calibration::validation::CurveValidator;
+        let mut validation_status = "passed";
+        let mut validation_error: Option<String> = None;
+        if let Err(e) = final_curve.validate(&self.config.validation) {
+            validation_status = "failed";
+            validation_error = Some(e.to_string());
+            match self.config.validation_mode {
+                crate::calibration::ValidationMode::Warn => {
+                    tracing::warn!(
+                        curve_id = %final_curve.id().as_str(),
+                        error = %e,
+                        "Calibrated base correlation curve failed validation (continuing due to Warn mode)"
+                    );
+                }
+                crate::calibration::ValidationMode::Error => {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Calibrated base correlation curve failed validation: {}",
+                            e
+                        ),
+                        category: "base_correlation_validation".to_string(),
+                    });
+                }
+            }
+        }
 
         // Build comprehensive calibration report
         let solver_config = self.build_solver_config();
@@ -421,7 +439,8 @@ impl BaseCorrelationCalibrator {
             "function_evaluations",
             total_function_evaluations.to_string(),
         )
-        .with_metadata("validation", "passed")
+        .with_metadata("validation", validation_status)
+        .with_validation_result(validation_status == "passed", validation_error)
         .with_solver_config(solver_config);
 
         Ok((final_curve, report))

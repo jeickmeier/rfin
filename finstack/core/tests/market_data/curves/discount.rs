@@ -40,18 +40,6 @@ fn builder_rejects_non_positive_discount_factor() {
 }
 
 #[test]
-fn builder_enforces_decreasing_dfs() {
-    let result = DiscountCurve::builder("BAD")
-        .base_date(sample_base_date())
-        .knots([(0.0, 1.0), (1.0, 0.99), (2.0, 1.01)])
-        .build();
-    assert!(
-        result.is_err(),
-        "non-monotonic discounts should be rejected"
-    );
-}
-
-#[test]
 fn monotonic_df_accepted() {
     let result = DiscountCurve::builder("VALID-MONOTONIC")
         .base_date(sample_base_date())

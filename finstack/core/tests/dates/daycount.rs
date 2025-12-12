@@ -501,13 +501,17 @@ fn actact_isma_partial_period() {
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
 
     // ISMA uses actual days in the quasi-coupon period
-    // Jan 15 to Apr 15 = 90 actual days
-    // The coupon period (Jul 15 to Jan 15 or Jan 15 to Jul 15) ≈ 181 days
-    // Coupon fraction = 90/181 ≈ 0.4972
-    // Year fraction = 0.4972 × 0.5 (semi-annual) ≈ 0.249
+    // Jan 15 to Apr 15 = 90 actual days (31 + 28 + 31 for remaining Jan, Feb, Mar)
+    // The quasi-coupon period (Jan 15 to Jul 15) = 181 days in 2025
+    // Year fraction = (90 / 181) × 0.5 (semi-annual) = 0.24861878...
+    let actual_days = 90.0;
+    let quasi_coupon_days = 181.0;
+    let expected = (actual_days / quasi_coupon_days) * 0.5;
+
     assert!(
-        yf > 0.24 && yf < 0.26,
-        "Expected ~0.25 (year fraction), got {}",
+        (yf - expected).abs() < TOL,
+        "Expected {:.10}, got {:.10}",
+        expected,
         yf
     );
 }
@@ -588,7 +592,9 @@ fn bus252_counts_only_business_days() {
 }
 
 #[test]
-fn bus252_full_year_approximately_252() {
+fn bus252_full_year_is_deterministic() {
+    use finstack_core::dates::HolidayCalendar;
+
     let calendar = TARGET2;
     let start = make_date(2025, 1, 2);
     let end = make_date(2026, 1, 2);
@@ -601,14 +607,30 @@ fn bus252_full_year_approximately_252() {
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
 
-    // A full year should have approximately 252 business days
-    // The exact count varies by year due to weekends/holidays
-    // Typical range: 248-256 business days
-    let biz_days = (yf * 252.0).round() as i32;
+    // Compute expected business day count by iterating through dates
+    // The calendar is deterministic, so this should yield an exact count
+    let mut expected_biz_days = 0;
+    let mut current = start;
+    while current < end {
+        if calendar.is_business_day(current) {
+            expected_biz_days += 1;
+        }
+        current += time::Duration::days(1);
+    }
+
+    // Verify the year fraction matches the expected business day count
+    let computed_biz_days = (yf * 252.0).round() as i32;
+    assert_eq!(
+        computed_biz_days, expected_biz_days,
+        "Bus/252 should return exactly {} business days for TARGET2 2025-01-02 to 2026-01-02",
+        expected_biz_days
+    );
+
+    // Sanity check: should be close to 252 (typical trading year)
     assert!(
-        (248..=256).contains(&biz_days),
-        "Expected ~252 business days, got {}",
-        biz_days
+        (expected_biz_days - 252).abs() <= 5,
+        "Business day count {} is unexpectedly far from 252",
+        expected_biz_days
     );
 }
 

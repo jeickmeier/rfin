@@ -107,6 +107,13 @@ impl CalibrationSpec {
         let mut all_residuals = BTreeMap::new();
         let mut total_iterations = 0;
 
+        if self.steps.is_empty() {
+            return Err(finstack_core::Error::Calibration {
+                message: "Calibration pipeline has no steps".to_string(),
+                category: "pipeline_empty".to_string(),
+            });
+        }
+
         // Execute each step in order
         for (idx, step) in self.steps.iter().enumerate() {
             let step_key = format!("step_{:03}_{}", idx, step.step_name());
@@ -133,12 +140,22 @@ impl CalibrationSpec {
         }
 
         // Create merged report with tolerance check
-        let merged_report = CalibrationReport::for_type_with_tolerance(
+        let mut merged_report = CalibrationReport::for_type_with_tolerance(
             "pipeline",
             all_residuals,
             total_iterations,
             self.config.tolerance,
         );
+
+        // Market-standard pipeline semantics: overall success requires every step to succeed.
+        let steps_success = step_reports.values().all(|r| r.success);
+        if !steps_success {
+            merged_report.success = false;
+            if !merged_report.convergence_reason.contains("step") {
+                merged_report.convergence_reason =
+                    "Pipeline calibration failed: one or more steps failed (see step_reports)".to_string();
+            }
+        }
         if !merged_report.success && self.config.validation_mode == ValidationMode::Error {
             return Err(finstack_core::Error::Calibration {
                 message: format!("Calibration pipeline failed: {}", merged_report.convergence_reason),

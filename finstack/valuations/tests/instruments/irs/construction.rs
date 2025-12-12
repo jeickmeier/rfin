@@ -47,7 +47,7 @@ fn test_irs_builder_pattern() {
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("US-NY".to_string()),
+                calendar_id: Some("usny".to_string()),
                 stub: StubKind::None,
                 start: date!(2024 - 01 - 15),
                 end: date!(2034 - 01 - 15),
@@ -64,8 +64,8 @@ fn test_irs_builder_pattern() {
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("US-NY".to_string()),
-                fixing_calendar_id: Some("US-NY".to_string()),
+                calendar_id: Some("usny".to_string()),
+                fixing_calendar_id: Some("usny".to_string()),
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
@@ -307,7 +307,7 @@ fn test_irs_calendar_specification() {
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("US-NY".to_string()),
+                calendar_id: Some("usny".to_string()),
                 stub: StubKind::None,
                 start: date!(2024 - 01 - 01),
                 end: date!(2029 - 01 - 01),
@@ -324,8 +324,8 @@ fn test_irs_calendar_specification() {
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("US-NY".to_string()),
-                fixing_calendar_id: Some("US-NY".to_string()),
+                calendar_id: Some("usny".to_string()),
+                fixing_calendar_id: Some("usny".to_string()),
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 compounding: Default::default(),
@@ -337,8 +337,8 @@ fn test_irs_calendar_specification() {
         .build()
         .unwrap();
 
-    assert_eq!(swap.fixed.calendar_id, Some("US-NY".to_string()));
-    assert_eq!(swap.float.calendar_id, Some("US-NY".to_string()));
+    assert_eq!(swap.fixed.calendar_id, Some("usny".to_string()));
+    assert_eq!(swap.float.calendar_id, Some("usny".to_string()));
 }
 
 #[test]

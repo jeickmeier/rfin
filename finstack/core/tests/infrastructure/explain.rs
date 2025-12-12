@@ -130,32 +130,6 @@ mod property_tests {
     use super::*;
 
     #[test]
-    fn property_explain_enabled_implies_trace_present() {
-        let opts = ExplainOpts::enabled();
-        let trace: Option<ExplanationTrace> = if opts.enabled {
-            Some(ExplanationTrace::new("test"))
-        } else {
-            None
-        };
-
-        // If explain is enabled, trace should be Some
-        assert!(trace.is_some());
-    }
-
-    #[test]
-    fn property_explain_disabled_implies_trace_absent() {
-        let opts = ExplainOpts::disabled();
-        let trace: Option<ExplanationTrace> = if opts.enabled {
-            Some(ExplanationTrace::new("test"))
-        } else {
-            None
-        };
-
-        // If explain is disabled, trace should be None
-        assert!(trace.is_none());
-    }
-
-    #[test]
     fn property_trace_entries_never_exceed_max() {
         let max = 5;
         let opts = ExplainOpts::with_max_entries(max);

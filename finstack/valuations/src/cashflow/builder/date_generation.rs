@@ -88,17 +88,9 @@ fn build_dates_impl(
 
     // Configure calendar adjustment if provided
     if let Some(id) = calendar_id {
-        // In strict mode, verify calendar exists before proceeding
-        if strict {
-            use finstack_core::dates::calendar::calendar_by_id;
-            if calendar_by_id(id).is_none() {
-                return Err(ScheduleError::Core(
-                    finstack_core::error::InputError::NotFound { id: id.to_string() }.into(),
-                ));
-            }
-        } else {
-            // In non-strict mode, fall back to an unadjusted schedule if the calendar is missing.
-            // This preserves historical behavior and matches the CashFlowBuilder contract.
+        // In non-strict mode, fall back to an unadjusted schedule if the calendar is missing.
+        // This preserves historical behavior and matches the CashFlowBuilder contract.
+        if !strict {
             builder = builder.allow_missing_calendar(true);
         }
         builder = builder.adjust_with_id(bdc, id);

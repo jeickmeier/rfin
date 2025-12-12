@@ -530,17 +530,32 @@ impl HazardCurveCalibrator {
             .par_interp(self.par_interp)
             .build()?;
 
-        // Validate the calibrated hazard curve
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        curve.validate(&ValidationConfig::default()).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!(
-                    "Calibrated hazard curve for {} failed validation: {}",
-                    self.entity, e
-                ),
-                category: "hazard_curve_validation".to_string(),
+        // Validate the calibrated hazard curve (honor config.validation + validation_mode).
+        use crate::calibration::validation::CurveValidator;
+        let mut validation_status = "passed";
+        let mut validation_error: Option<String> = None;
+        if let Err(e) = curve.validate(&self.config.validation) {
+            validation_status = "failed";
+            validation_error = Some(e.to_string());
+            match self.config.validation_mode {
+                crate::calibration::ValidationMode::Warn => {
+                    tracing::warn!(
+                        entity = %self.entity,
+                        error = %e,
+                        "Calibrated hazard curve failed validation (continuing due to Warn mode)"
+                    );
+                }
+                crate::calibration::ValidationMode::Error => {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Calibrated hazard curve for {} failed validation: {}",
+                            self.entity, e
+                        ),
+                        category: "hazard_curve_validation".to_string(),
+                    });
+                }
             }
-        })?;
+        }
 
         let report = CalibrationReport::for_type_with_tolerance(
             "hazard_curve",
@@ -552,7 +567,8 @@ impl HazardCurveCalibrator {
         .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
         .with_metadata("convention", format!("{:?}", self.convention))
         .with_metadata("par_interp", format!("{:?}", self.par_interp))
-        .with_metadata("validation", "passed");
+        .with_metadata("validation", validation_status)
+        .with_validation_result(validation_status == "passed", validation_error);
 
         Ok((curve, report))
     }

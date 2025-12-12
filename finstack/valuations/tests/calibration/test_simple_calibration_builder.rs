@@ -27,8 +27,10 @@ fn test_calibration_spec_execute_empty() {
 
     let result = spec.execute(None);
 
-    // Should succeed with empty pipeline
-    assert!(result.is_ok());
+    // Market-standard behavior: an empty pipeline is invalid.
+    // With default `ValidationMode::Error`, the pipeline fails fast.
+    let err = result.expect_err("empty pipeline should fail");
+    assert!(matches!(err, finstack_core::Error::Calibration { .. }));
 }
 
 #[test]

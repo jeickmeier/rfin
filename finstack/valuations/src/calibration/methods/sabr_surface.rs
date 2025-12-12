@@ -310,7 +310,7 @@ impl VolSurfaceCalibrator {
             }
         })?;
 
-        let report = CalibrationReport::for_type_with_tolerance(
+        let mut report = CalibrationReport::for_type_with_tolerance(
             "volatility_surface",
             all_residuals,
             sabr_params_by_expiry.len(), // Use number of calibrated expiries as iteration count
@@ -356,6 +356,19 @@ impl VolSurfaceCalibrator {
         .with_metadata("surface_interp", format!("{:?}", self.surface_interp))
         .with_metadata("time_dc", format!("{:?}", self.time_dc))
         .with_metadata("validation", "passed");
+
+        // Market-standard reporting: a partially calibrated surface is not a "success".
+        // Surface can be returned for diagnostics/use in Warn-mode workflows, but success should be false.
+        if !skipped_insufficient_quotes.is_empty() || !skipped_failed_calibration.is_empty() {
+            report.success = false;
+            report.convergence_reason = format!(
+                "Surface calibration incomplete: calibrated_expiries={}, skipped_insufficient_quotes={}, skipped_failed_calibration={}",
+                sabr_params_by_expiry.len(),
+                skipped_insufficient_quotes.len(),
+                skipped_failed_calibration.len()
+            );
+            report = report.with_metadata("partial_calibration", "true");
+        }
 
         Ok((surface, report))
     }

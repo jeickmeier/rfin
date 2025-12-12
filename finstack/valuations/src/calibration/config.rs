@@ -15,6 +15,11 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
+fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
+    // Backward compatible: older serialized configs only have `rate_bounds`.
+    RateBoundsPolicy::Explicit
+}
+
 /// Configurable bounds for forward/zero rates during calibration.
 ///
 /// Different market regimes require different rate bounds:
@@ -131,6 +136,28 @@ impl RateBounds {
         rate.clamp(self.min_rate, self.max_rate)
     }
 }
+
+/// How `CalibrationConfig` obtains rate bounds.
+///
+/// Market-standard bounds depend on currency/market regime. `AutoCurrency` makes this choice
+/// explicit and avoids relying on `RateBounds::default()` as an implicit assumption.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RateBoundsPolicy {
+    /// Pick currency-specific bounds via `RateBounds::for_currency(currency)`.
+    AutoCurrency,
+    /// Use the explicit `CalibrationConfig.rate_bounds` values.
+    Explicit,
+}
+
+impl Default for RateBoundsPolicy {
+    fn default() -> Self {
+        Self::AutoCurrency
+    }
+}
+
 /// Runtime validation behavior for arbitrage/consistency checks.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -243,6 +270,12 @@ pub struct CalibrationConfig {
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
     pub validation: crate::calibration::validation::ValidationConfig,
+    /// Policy for selecting rate bounds (explicit vs currency-derived).
+    ///
+    /// - `auto_currency` is market-standard: bounds depend on currency/market regime.
+    /// - `explicit` uses `rate_bounds` as provided.
+    #[serde(default = "default_rate_bounds_policy_for_serde")]
+    pub rate_bounds_policy: RateBoundsPolicy,
     /// Rate bounds for forward/zero rate calibration.
     /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.
     #[serde(default)]
@@ -265,8 +298,9 @@ impl Default for CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
-            validation_mode: ValidationMode::Warn,
+            validation_mode: ValidationMode::Error,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds_policy: RateBoundsPolicy::AutoCurrency,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
         }
@@ -274,6 +308,14 @@ impl Default for CalibrationConfig {
 }
 
 impl CalibrationConfig {
+    /// Resolve effective rate bounds for a given currency based on `rate_bounds_policy`.
+    pub fn effective_rate_bounds(&self, currency: Currency) -> RateBounds {
+        match self.rate_bounds_policy {
+            RateBoundsPolicy::AutoCurrency => RateBounds::for_currency(currency),
+            RateBoundsPolicy::Explicit => self.rate_bounds.clone(),
+        }
+    }
+
     /// Set multi-curve framework configuration.
     /// This is a convenience method for backward compatibility.
     #[must_use]
@@ -313,6 +355,7 @@ impl CalibrationConfig {
     /// ```
     #[must_use]
     pub fn with_rate_bounds(mut self, bounds: RateBounds) -> Self {
+        self.rate_bounds_policy = RateBoundsPolicy::Explicit;
         self.rate_bounds = bounds;
         self
     }
@@ -342,6 +385,7 @@ impl CalibrationConfig {
     /// ```
     #[must_use]
     pub fn with_rate_bounds_for_currency(mut self, currency: Currency) -> Self {
+        self.rate_bounds_policy = RateBoundsPolicy::Explicit;
         self.rate_bounds = RateBounds::for_currency(currency);
         self
     }
@@ -400,8 +444,9 @@ impl CalibrationConfig {
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
-            validation_mode: ValidationMode::Warn,
+            validation_mode: ValidationMode::Error,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds {
                 min_rate: -0.05,
                 max_rate: 1.00, // Allow up to 100% for conservative edge cases
@@ -445,6 +490,7 @@ impl CalibrationConfig {
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
         }
@@ -485,6 +531,7 @@ impl CalibrationConfig {
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
+            rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
         }

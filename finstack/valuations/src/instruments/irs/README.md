@@ -366,7 +366,7 @@ let swap = InterestRateSwap::builder()
         freq: Frequency::annual(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: Some("EUR".to_string()),
+        calendar_id: Some("target2".to_string()),
         stub: StubKind::None,
         start: date!(2024-01-01),
         end: date!(2034-01-01),
@@ -380,7 +380,7 @@ let swap = InterestRateSwap::builder()
         freq: Frequency::semi_annual(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: Some("EUR".to_string()),
+        calendar_id: Some("target2".to_string()),
         stub: StubKind::None,
         reset_lag_days: 2,
         compounding: FloatingLegCompounding::Simple,
@@ -615,7 +615,7 @@ impl IRSScheduleConfig {
             float_freq: Frequency::semi_annual(),
             float_dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("EUR".to_string()),
+            calendar_id: Some("target2".to_string()),
             stub: StubKind::None,
         }
     }

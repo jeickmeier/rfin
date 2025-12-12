@@ -429,7 +429,7 @@ fn process_one_date(
 ///
 /// Provides a fluent API for building complex cashflow schedules with
 /// proper validation and business day adjustments.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct CashFlowBuilder {
     notional: Option<Notional>,
     issue: Option<Date>,
@@ -442,8 +442,26 @@ pub struct CashFlowBuilder {
     // Sticky builder error for fluent APIs that cannot return Result.
     pending_error: Option<finstack_core::Error>,
     /// When true, schedule generation errors (e.g., unknown calendar) are propagated
-    /// instead of falling back to unadjusted schedules. Default: false (graceful).
+    /// instead of falling back to unadjusted schedules. Default: true (strict).
     schedule_strict: bool,
+}
+
+impl Default for CashFlowBuilder {
+    fn default() -> Self {
+        Self {
+            notional: None,
+            issue: None,
+            maturity: None,
+            fees: SmallVec::new(),
+            principal_events: Vec::new(),
+            coupon_program: Vec::new(),
+            payment_program: Vec::new(),
+            pending_error: None,
+            // Market-standard for production libraries: fail fast on schedule generation issues
+            // (unknown calendars, bad adjustments) unless explicitly opted out.
+            schedule_strict: true,
+        }
+    }
 }
 
 impl CashFlowBuilder {
@@ -518,14 +536,14 @@ impl CashFlowBuilder {
     /// - A specified calendar is not found
     /// - Schedule building fails for any reason
     ///
-    /// Default is graceful mode (strict = false), which falls back to unadjusted
-    /// schedules when calendar lookup or adjustment fails.
+    /// Default is strict mode (strict = true), which propagates errors on unknown
+    /// calendars or schedule adjustment failures.
     ///
     /// # Example
     /// ```ignore
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-    ///     .strict_schedules(true)  // Error on unknown calendar
+    ///     .strict_schedules(false)  // Allow calendar/schedule fallbacks
     ///     .fixed_cf(spec)
     ///     .build()?;
     /// ```

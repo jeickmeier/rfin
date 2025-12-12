@@ -311,6 +311,8 @@ fn test_calibration_report_serialization() {
         objective_value: 1.5e-15,
         max_residual: 3e-8,
         rmse: 2.1e-8,
+        validation_passed: true,
+        validation_error: None,
         convergence_reason: "Tolerance met".to_string(),
         metadata,
         solver_config: Default::default(),

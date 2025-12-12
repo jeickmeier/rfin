@@ -127,7 +127,9 @@ impl IRSScheduleConfig {
             float_freq: Frequency::quarterly(),
             float_dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USD".to_string()),
+            // Market-standard USD calendar for rates scheduling (ISDA-style business-day adjustments).
+            // Calendar identifiers are lowercase codes in `finstack_core` (see `available_calendars()`).
+            calendar_id: Some("usny".to_string()),
             stub: StubKind::None,
         }
     }

@@ -415,18 +415,33 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 }
             };
 
-            // Validate the calibrated inflation curve
-            use crate::calibration::validation::{CurveValidator, ValidationConfig};
-            curve.validate(&ValidationConfig::default()).map_err(|e| {
-                finstack_core::Error::Calibration {
-                    message: format!(
-                        "Calibrated inflation curve {} failed validation: {}",
-                        self.curve_id.as_str(),
-                        e
-                    ),
-                    category: "inflation_curve_validation".to_string(),
+            // Validate the calibrated inflation curve (honor config.validation + validation_mode).
+            use crate::calibration::validation::CurveValidator;
+            let mut validation_status = "passed";
+            let mut validation_error: Option<String> = None;
+            if let Err(e) = curve.validate(&self.config.validation) {
+                validation_status = "failed";
+                validation_error = Some(e.to_string());
+                match self.config.validation_mode {
+                    ValidationMode::Warn => {
+                        tracing::warn!(
+                            curve_id = %self.curve_id.as_str(),
+                            error = %e,
+                            "Calibrated inflation curve failed validation (continuing due to Warn mode)"
+                        );
+                    }
+                    ValidationMode::Error => {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "Calibrated inflation curve {} failed validation: {}",
+                                self.curve_id.as_str(),
+                                e
+                            ),
+                            category: "inflation_curve_validation".to_string(),
+                        });
+                    }
                 }
-            })?;
+            }
 
             let report = CalibrationReport::for_type_with_tolerance(
                 "inflation_curve",
@@ -446,7 +461,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 "has_seasonality",
                 format!("{}", self.seasonality_adjustments.is_some()),
             )
-            .with_metadata("validation", "passed")
+            .with_metadata("validation", validation_status)
+            .with_validation_result(validation_status == "passed", validation_error)
             .with_metadata("warnings_count", warnings.len().to_string())
             .with_metadata(
                 "warnings",

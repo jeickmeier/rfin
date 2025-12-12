@@ -729,7 +729,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             freq: Frequency::semi_annual(),
             dc: DayCount::Thirty360, // USD fixed leg: 30/360
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USD".to_string()),
+            calendar_id: Some("usny".to_string()),
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
@@ -744,8 +744,8 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             freq: Frequency::quarterly(),
             dc: DayCount::Act360, // USD float leg: ACT/360
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USD".to_string()), // Payment calendar
-            fixing_calendar_id: Some("USD".to_string()), // Fixing calendar for T-2
+            calendar_id: Some("usny".to_string()), // Payment calendar
+            fixing_calendar_id: Some("usny".to_string()), // Fixing calendar for T-2
             stub: StubKind::None,
             reset_lag_days: 2, // T-2 reset lag per ISDA standard
             compounding: Default::default(),
@@ -775,9 +775,11 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .unwrap();
     let elapsed = timer.elapsed();
 
+    let max_ms = if cfg!(debug_assertions) { 200 } else { 10 };
     assert!(
-        elapsed.as_millis() <= 10,
-        "Pricing should complete in <= 10ms, took {}ms",
+        elapsed.as_millis() <= max_ms,
+        "Pricing should complete in <= {}ms, took {}ms",
+        max_ms,
         elapsed.as_millis()
     );
 

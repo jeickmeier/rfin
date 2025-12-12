@@ -628,8 +628,9 @@ impl ForwardCurveCalibrator {
                 });
             }
 
-            // Validate solution against configurable rate bounds
-            let bounds = &self.config.rate_bounds;
+            // Validate solution against configurable rate bounds.
+            // Market-standard bounds depend on currency; honor config policy.
+            let bounds = self.config.effective_rate_bounds(self.currency);
             if !solved_fwd.is_finite() || !bounds.contains(solved_fwd) {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
@@ -754,8 +755,10 @@ impl ForwardCurveCalibrator {
         // Validate the calibrated forward curve (honor config.validation + validation_mode).
         use crate::calibration::validation::CurveValidator;
         let mut validation_status = "passed";
+        let mut validation_error: Option<String> = None;
         if let Err(e) = curve.validate(&self.config.validation) {
             validation_status = "failed";
+            validation_error = Some(e.to_string());
             match self.config.validation_mode {
                 ValidationMode::Warn => {
                     tracing::warn!(
@@ -796,7 +799,8 @@ impl ForwardCurveCalibrator {
         .with_metadata("interp", format!("{:?}", self.solve_interp))
         .with_metadata("discount_curve", self.discount_curve_id.to_string())
         .with_metadata("time_dc", format!("{:?}", self.time_dc))
-        .with_metadata("validation", validation_status);
+        .with_metadata("validation", validation_status)
+        .with_validation_result(validation_status == "passed", validation_error);
 
         let report = if let Some(t) = trace {
             report.with_explanation(t)
@@ -1378,7 +1382,7 @@ impl ForwardCurveCalibrator {
             ));
         }
 
-        let bounds = &self.config.rate_bounds;
+        let bounds = self.config.effective_rate_bounds(self.currency);
 
         // Check for reasonable rates and consistency
         for quote in quotes {
@@ -1485,7 +1489,7 @@ impl ForwardCurveCalibrator {
     ///
     /// The grid is denser near zero and extends to cover the full rate bounds range.
     fn build_scan_grid(&self) -> Vec<f64> {
-        let bounds = &self.config.rate_bounds;
+        let bounds = self.config.effective_rate_bounds(self.currency);
 
         // Core grid: dense near zero, sparser at extremes
         let mut grid = vec![

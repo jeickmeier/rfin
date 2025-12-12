@@ -48,7 +48,8 @@ impl DiscountCurveCalibrator {
         sorted_quotes.sort_by_key(RatesQuote::maturity_date);
 
         // Validate quotes using shared validation
-        CalibrationPricer::validate_quotes(&sorted_quotes, &self.config.rate_bounds)?;
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        CalibrationPricer::validate_quotes(&sorted_quotes, &bounds)?;
         CalibrationPricer::validate_discount_curve_quotes(
             &sorted_quotes,
             self.config.multi_curve.enforce_separation,
@@ -320,13 +321,14 @@ impl DiscountCurveCalibrator {
 
         // Validate against bounds
         if solved_df < df_lo || solved_df > df_hi {
+            let bounds = self.config.effective_rate_bounds(self.currency);
             return Err(finstack_core::Error::Calibration {
                 message: format!(
                     "Solved discount factor out of bounds [{:.6}, {:.6}] implied by rate bounds [{:.4}, {:.4}] for {} at t={:.6}: df={:.6}.",
                     df_lo,
                     df_hi,
-                    self.config.rate_bounds.min_rate,
-                    self.config.rate_bounds.max_rate,
+                    bounds.min_rate,
+                    bounds.max_rate,
                     self.curve_id,
                     time_to_maturity,
                     solved_df
@@ -489,7 +491,8 @@ impl DiscountCurveCalibrator {
         .with_metadata("t_spot", format!("{:.6}", t_spot))
         .with_metadata("spot_knot_included", (t_spot > 1e-6).to_string())
         .with_metadata("allow_non_monotonic", "true")
-        .with_metadata("validation", validation_status);
+        .with_metadata("validation", validation_status)
+        .with_validation_result(validation_status == "passed", validation_error.clone());
 
         if let Some(err) = validation_error {
             report = report.with_metadata("validation_error", err);

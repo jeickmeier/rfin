@@ -61,7 +61,8 @@ impl DiscountCurveCalibrator {
         // Sort quotes by maturity and validate dependencies
         let mut sorted_quotes = quotes.to_vec();
         sorted_quotes.sort_by_key(RatesQuote::maturity_date);
-        CalibrationPricer::validate_quotes(&sorted_quotes, &self.config.rate_bounds)?;
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        CalibrationPricer::validate_quotes(&sorted_quotes, &bounds)?;
         CalibrationPricer::validate_discount_curve_quotes(
             &sorted_quotes,
             self.config.multi_curve.enforce_separation,
@@ -126,7 +127,9 @@ impl DiscountCurveCalibrator {
             residual_evals,
         )?;
 
-        report = report.with_metadata("validation", validation_status);
+        report = report
+            .with_metadata("validation", validation_status)
+            .with_validation_result(validation_status == "passed", validation_error.clone());
         if let Some(err) = validation_error {
             report = report.with_metadata("validation_error", err);
         }
@@ -146,7 +149,7 @@ impl DiscountCurveCalibrator {
         let mut times: Vec<f64> = Vec::new();
         let mut initials: Vec<f64> = Vec::new();
         let mut active_quotes: Vec<RatesQuote> = Vec::new();
-        let bounds = &self.config.rate_bounds;
+        let bounds = self.config.effective_rate_bounds(self.currency);
 
         for quote in sorted_quotes {
             let maturity_date = quote.maturity_date();
@@ -226,7 +229,7 @@ impl DiscountCurveCalibrator {
         active_quotes: &[RatesQuote],
         base_context: &MarketContext,
     ) -> Result<()> {
-        let bounds = &self.config.rate_bounds;
+        let bounds = self.config.effective_rate_bounds(self.currency);
         let bootstrap_solver = crate::calibration::create_simple_solver(&self.config);
         if let Ok((boot_curve, _)) =
             self.bootstrap_curve_with_solver(active_quotes, &bootstrap_solver, base_context)
@@ -261,7 +264,7 @@ impl DiscountCurveCalibrator {
         let times_clone = times.to_vec();
         let active_quotes_clone = active_quotes.to_vec();
         let n_residuals = active_quotes.len();
-        let rate_bounds = self.config.rate_bounds.clone();
+        let rate_bounds = self.config.effective_rate_bounds(self.currency);
 
         // Track residual evaluation count
         let eval_counter = Arc::new(AtomicUsize::new(0));
@@ -370,11 +373,12 @@ impl DiscountCurveCalibrator {
         solved_zero_rates: &[f64],
         curve_dc: finstack_core::dates::DayCount,
     ) -> Result<(DiscountCurve, Vec<(f64, f64)>)> {
+        let bounds = self.config.effective_rate_bounds(self.currency);
         let final_knots = Self::build_knots_from_zero_rates(
             times,
             solved_zero_rates,
             self.solve_interp,
-            &self.config.rate_bounds,
+            &bounds,
         );
 
         let curve = self

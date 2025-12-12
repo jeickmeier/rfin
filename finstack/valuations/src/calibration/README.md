@@ -215,7 +215,8 @@ Each step produces an updated `MarketContext` that feeds into the next step.
 - **Vol bounds**: Positive volatility, cap at 500%
 
 **Validation modes:**
-- `ValidationMode::Warn` - Log warnings (default)
+- `ValidationMode::Warn` - Log warnings
+- `ValidationMode::Error` - Fail on validation issues (default)
 - `ValidationMode::Error` - Hard errors
 - Feature `strict_validation` - Escalate all to errors
 
@@ -1060,7 +1061,7 @@ SABR calibration is O(k × m × n) where:
 
 Validation checks are typically <1ms per curve/surface. To minimize overhead:
 
-1. Use `ValidationMode::Warn` in production (non-fatal)
+1. Use `ValidationMode::Error` in production (fail-fast; market standard)
 2. Sample test points instead of full grid for large surfaces
 3. Skip validation in hot pricing loops (validate once after calibration)
 
@@ -1289,4 +1290,3 @@ The calibration module provides production-ready implementations of market-stand
 All calibrators implement the `Calibrator<Input, Output>` trait, providing a uniform interface for integration with pricing, risk, and scenario analysis workflows.
 
 For questions or contributions, refer to the main Finstack documentation and the `.cursor/rules/rust/` development standards.
-
