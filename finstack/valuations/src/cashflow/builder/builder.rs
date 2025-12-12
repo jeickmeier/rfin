@@ -439,6 +439,8 @@ pub struct CashFlowBuilder {
     // Segmented programs (optional): coupon program and payment/PIK program
     pub(super) coupon_program: Vec<CouponProgramPiece>,
     pub(super) payment_program: Vec<PaymentProgramPiece>,
+    // Sticky builder error for fluent APIs that cannot return Result.
+    pending_error: Option<finstack_core::Error>,
     /// When true, schedule generation errors (e.g., unknown calendar) are propagated
     /// instead of falling back to unadjusted schedules. Default: false (graceful).
     schedule_strict: bool,
@@ -450,39 +452,38 @@ impl CashFlowBuilder {
         Self::default()
     }
 
-    /// Helper: Validate that issue and maturity are set.
-    ///
-    /// Returns an error if either issue or maturity is not set. This is used by
-    /// builder methods that require the instrument horizon to be established.
-    fn ensure_dates_set(&self) -> finstack_core::Result<()> {
-        if self.issue.is_none() || self.maturity.is_none() {
-            return Err(InputError::Invalid.into());
+    fn issue_maturity_error(method_name: &str) -> finstack_core::Error {
+        InputError::NotFound {
+            id: format!(
+                "CashFlowBuilder::{} requires principal() (issue/maturity) to be set first",
+                method_name
+            ),
         }
-        Ok(())
+        .into()
     }
 
-    /// Helper: Get issue and maturity with clear panic message if not set.
-    ///
-    /// Builder methods that add coupon windows require issue/maturity to be set first
-    /// via `principal()`. This helper provides a single validation point with clear
-    /// error messages indicating which method was called.
-    fn get_issue_maturity(&self, method_name: &str) -> (Date, Date) {
-        let issue = self.issue.unwrap_or_else(|| {
-            panic!(
-                "CashFlowBuilder::{}: issue date must be set via principal() before calling this method",
-                method_name
-            )
-        });
-        let maturity = self.maturity.unwrap_or_else(|| {
-            panic!(
-                "CashFlowBuilder::{}: maturity date must be set via principal() before calling this method",
-                method_name
-            )
-        });
-        (issue, maturity)
+    fn issue_maturity_or_error(&self, method_name: &str) -> finstack_core::Result<(Date, Date)> {
+        match (self.issue, self.maturity) {
+            (Some(issue), Some(maturity)) => Ok((issue, maturity)),
+            _ => Err(Self::issue_maturity_error(method_name)),
+        }
+    }
+
+    fn issue_maturity_or_record_error(&mut self, method_name: &str) -> Option<(Date, Date)> {
+        if self.pending_error.is_some() {
+            return None;
+        }
+        match self.issue_maturity_or_error(method_name) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.pending_error = Some(e);
+                None
+            }
+        }
     }
     /// Sets principal details and instrument horizon.
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
+        self.pending_error = None;
         self.notional = Some(Notional {
             initial,
             amort: AmortizationSpec::None,
@@ -535,7 +536,9 @@ impl CashFlowBuilder {
 
     /// Adds a fixed coupon specification.
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("fixed_cf");
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_cf") else {
+            return self;
+        };
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
@@ -564,13 +567,15 @@ impl CashFlowBuilder {
     ///
     /// Preferred for library code to avoid panics in production.
     pub fn try_fixed_cf(&mut self, spec: FixedCouponSpec) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("fixed_cf")?;
         Ok(self.fixed_cf(spec))
     }
 
     /// Adds a floating coupon specification.
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("floating_cf");
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("floating_cf") else {
+            return self;
+        };
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
@@ -607,7 +612,7 @@ impl CashFlowBuilder {
         &mut self,
         spec: FloatingCouponSpec,
     ) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("floating_cf")?;
         Ok(self.floating_cf(spec))
     }
 
@@ -716,7 +721,7 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("fixed_stepup")?;
         Ok(self.fixed_stepup(steps, schedule, default_split))
     }
 
@@ -777,7 +782,9 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("fixed_stepup");
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_stepup") else {
+            return self;
+        };
         let mut prev = issue;
         for &(end, rate) in steps {
             self.add_fixed_coupon_window(prev, end, rate, schedule.clone(), default_split);
@@ -802,7 +809,7 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("float_margin_stepup")?;
         Ok(self.float_margin_stepup(steps, base_params, schedule, default_split))
     }
 
@@ -870,7 +877,11 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("float_margin_stepup");
+        let Some((issue, maturity)) =
+            self.issue_maturity_or_record_error("float_margin_stepup")
+        else {
+            return self;
+        };
         let mut prev = issue;
         for &(end, margin_bp) in steps {
             let mut params = base_params.clone();
@@ -904,7 +915,7 @@ impl CashFlowBuilder {
         float_win: FloatWindow,
         default_split: CouponType,
     ) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("fixed_to_float")?;
         Ok(self.fixed_to_float(switch, fixed_win, float_win, default_split))
     }
 
@@ -971,7 +982,9 @@ impl CashFlowBuilder {
         float_win: FloatWindow,
         default_split: CouponType,
     ) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("fixed_to_float");
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_to_float") else {
+            return self;
+        };
         self.add_fixed_coupon_window(
             issue,
             switch,
@@ -996,7 +1009,7 @@ impl CashFlowBuilder {
         &mut self,
         steps: &[(Date, CouponType)],
     ) -> finstack_core::Result<&mut Self> {
-        self.ensure_dates_set()?;
+        self.issue_maturity_or_error("payment_split_program")?;
         Ok(self.payment_split_program(steps))
     }
 
@@ -1064,7 +1077,11 @@ impl CashFlowBuilder {
     /// - Steps must be ordered by end date
     /// - Works with both fixed and floating coupons
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
-        let (issue, maturity) = self.get_issue_maturity("payment_split_program");
+        let Some((issue, maturity)) =
+            self.issue_maturity_or_record_error("payment_split_program")
+        else {
+            return self;
+        };
         let mut prev = issue;
         for &(end, split) in steps {
             if prev < end {
@@ -1094,6 +1111,9 @@ impl CashFlowBuilder {
         &self,
         curves: Option<&finstack_core::market_data::context::MarketContext>,
     ) -> finstack_core::Result<CashFlowSchedule> {
+        if let Some(err) = &self.pending_error {
+            return Err(err.clone());
+        }
         // 1) Validate core inputs
         let (notional, issue, maturity) = validate_core_inputs(self)?;
 

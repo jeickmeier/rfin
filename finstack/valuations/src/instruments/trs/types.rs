@@ -88,7 +88,10 @@ impl TrsScheduleSpec {
         builder
             .graceful_fallback(true)
             .build()
-            .unwrap_or(Schedule { dates: vec![] })
+            .unwrap_or(Schedule {
+                dates: vec![],
+                warnings: vec![],
+            })
     }
 }
 

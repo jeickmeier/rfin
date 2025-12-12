@@ -298,17 +298,22 @@ impl CalibrationPricer {
     /// For forward curve calibration, determines which curve ID to use
     /// based on the index name and the calibrator's tenor.
     pub fn resolve_forward_curve_id(&self, index_name: &str) -> CurveId {
-        // Check if this index matches our tenor
         if let Some(tenor) = self.tenor_years {
             // Use .round() to avoid float precision issues (e.g., 0.25 * 12 = 2.9999...)
             let tenor_months = (tenor * 12.0).round() as i32;
-            let suffix = format!("{}M", tenor_months);
-            // Check for suffix match (e.g., "SOFR-3M" ends with "3M")
-            // or contains the tenor with a separator (e.g., "-3M" in "USD-SOFR-3M")
-            if index_name.ends_with(&suffix)
-                || index_name.contains(&format!("-{}", suffix))
-                || index_name.contains(&format!("_{}", suffix))
-            {
+            let token = format!("{}M", tenor_months).to_ascii_uppercase();
+
+            // Tokenize on non-alphanumerics to avoid substring traps ("13M" contains "3M")
+            let normalized = index_name.to_ascii_uppercase();
+            let tokens: Vec<&str> = normalized
+                .split(|c: char| !c.is_ascii_alphanumeric())
+                .filter(|t| !t.is_empty())
+                .collect();
+
+            let matches_tenor = tokens.contains(&token.as_str())
+                || (tenor_months == 12 && tokens.contains(&"1Y"));
+
+            if matches_tenor {
                 return self.forward_curve_id.clone();
             }
         }
@@ -731,8 +736,10 @@ impl CalibrationPricer {
         conventions: &InstrumentConventions,
         context: &MarketContext,
     ) -> Result<f64> {
+        let start = self.effective_start_date(conventions)?;
         let reset_lag = self.resolve_reset_lag(conventions);
         let payment_delay = self.resolve_payment_delay(conventions);
+        let calendar_id = self.resolve_calendar_id(conventions);
 
         // Use resolve_forward_curve_id which handles tenor matching for forward curve calibration
         let primary_forward_id = self.resolve_forward_curve_id(primary_index);
@@ -761,12 +768,14 @@ impl CalibrationPricer {
         let basis_swap = BasisSwap::new(
             format!("CALIB_BASIS_{}", maturity),
             Money::new(1_000_000.0, currency),
-            self.base_date,
+            start,
             maturity,
             primary_leg,
             reference_leg,
             self.discount_curve_id.as_str(),
-        );
+        )
+        .with_allow_calendar_fallback(self.allow_calendar_fallback)
+        .with_calendar(calendar_id.to_string());
 
         // For forward curve calibration, one of the curves is being calibrated
         // and may not be in the context yet - that's expected

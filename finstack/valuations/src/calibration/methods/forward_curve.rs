@@ -38,13 +38,13 @@
 //! parameters, use `with_convexity_params()` to override defaults.
 //!
 //! # Examples
-//!
+//! 
 //! ## Basic USD Forward Curve
-//!
+//! 
 //! ```ignore
 //! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
 //! use finstack_valuations::calibration::CalibrationConfig;
-//!
+//! 
 //! let calibrator = ForwardCurveCalibrator::new(
 //!     "USD-SOFR-3M-FWD",
 //!     0.25,
@@ -80,7 +80,10 @@
 
 use crate::calibration::{
     config::{CalibrationConfig, ValidationMode},
-    quote::{default_calendar_for_currency, RatesQuote},
+    quote::{
+        default_calendar_for_currency, settlement_days_for_currency, InstrumentConventions,
+        RatesQuote,
+    },
     report::CalibrationReport,
     traits::Calibrator,
 };
@@ -92,7 +95,10 @@ use crate::instruments::{
 };
 use finstack_core::{
     currency::Currency,
-    dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, StubKind},
+    dates::{
+        adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx,
+        Frequency, StubKind,
+    },
     explain::{ExplanationTrace, TraceEntry},
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
@@ -143,6 +149,17 @@ pub struct ForwardCurveCalibrator {
     /// Optional calendar identifier for schedule generation and business day adjustments.
     /// When set, enables proper T-2 business day fixing date calculation for FRAs.
     pub calendar_id: Option<String>,
+    /// Settlement lag in business days from base date (None = currency default).
+    ///
+    /// Used for spot-starting swap and basis swap construction.
+    #[serde(default)]
+    pub settlement_days: Option<i32>,
+    /// Allow calendar-day fallback when the calendar cannot be resolved.
+    ///
+    /// When `false` (default), missing calendars are treated as an input error to
+    /// avoid silently misaligning spot/settlement conventions.
+    #[serde(default)]
+    pub allow_calendar_fallback: bool,
     /// Reset lag in business days for FRA fixing (default: 2 per ISDA convention).
     /// This determines how many business days before the period start the fixing occurs.
     #[serde(default = "default_reset_lag")]
@@ -212,6 +229,8 @@ impl ForwardCurveCalibrator {
             solve_interp: InterpStyle::Linear,
             config,
             calendar_id: None,
+            settlement_days: None,
+            allow_calendar_fallback: false,
             reset_lag: 2, // ISDA standard T-2
             convexity_params: None,
         }
@@ -249,6 +268,24 @@ impl ForwardCurveCalibrator {
     #[must_use]
     pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
         self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Set explicit settlement days (overrides currency default).
+    ///
+    /// Used to compute the spot/settlement start date for swap and basis swap quotes.
+    #[must_use]
+    pub fn with_settlement_days(mut self, days: i32) -> Self {
+        self.settlement_days = Some(days);
+        self
+    }
+
+    /// Allow (or disallow) calendar-day fallback when a calendar cannot be resolved.
+    ///
+    /// For production calibration, keep this `false` to avoid silent date shifts.
+    #[must_use]
+    pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
+        self.allow_calendar_fallback = allow;
         self
     }
 
@@ -292,6 +329,69 @@ impl ForwardCurveCalibrator {
     pub fn with_convexity_params(mut self, params: super::convexity::ConvexityParameters) -> Self {
         self.convexity_params = Some(params);
         self
+    }
+
+    #[inline]
+    fn resolve_calendar_id<'a>(&'a self, conventions: &'a InstrumentConventions) -> &'a str {
+        conventions
+            .calendar_id
+            .as_deref()
+            .or(self.calendar_id.as_deref())
+            .unwrap_or_else(|| default_calendar_for_currency(self.currency))
+    }
+
+    #[inline]
+    fn resolve_settlement_days(&self, conventions: &InstrumentConventions) -> i32 {
+        conventions
+            .settlement_days
+            .or(self.settlement_days)
+            .unwrap_or_else(|| settlement_days_for_currency(self.currency))
+    }
+
+    #[inline]
+    fn resolve_payment_delay(&self, conventions: &InstrumentConventions) -> i32 {
+        conventions.payment_delay_days.unwrap_or(0)
+    }
+
+    #[inline]
+    fn resolve_reset_lag(&self, conventions: &InstrumentConventions) -> i32 {
+        conventions.reset_lag.unwrap_or(self.reset_lag)
+    }
+
+    fn settlement_date(&self, conventions: &InstrumentConventions) -> Result<Date> {
+        let calendar_id = self.resolve_calendar_id(conventions);
+        let days = self.resolve_settlement_days(conventions);
+
+        let registry = CalendarRegistry::global();
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            // Ensure trade date is a business day, then advance by business days.
+            let trade_date =
+                adjust(self.base_date, BusinessDayConvention::ModifiedFollowing, calendar)?;
+            let spot_unadjusted = if days == 0 {
+                trade_date
+            } else {
+                trade_date.add_business_days(days, calendar)?
+            };
+            adjust(spot_unadjusted, BusinessDayConvention::ModifiedFollowing, calendar)
+        } else if self.allow_calendar_fallback {
+            tracing::warn!(
+                calendar_id = calendar_id,
+                currency = ?self.currency,
+                settlement_days = days,
+                "Calendar not found; falling back to calendar-day settlement"
+            );
+            Ok(if days == 0 {
+                self.base_date
+            } else {
+                self.base_date + time::Duration::days(days as i64)
+            })
+        } else {
+            Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: format!("calendar '{}'", calendar_id),
+                },
+            ))
+        }
     }
 
     fn ensure_anchor(&self, knots: &mut Vec<(f64, f64)>, fallback_rate: f64) {
@@ -346,23 +446,30 @@ impl ForwardCurveCalibrator {
         let mut sorted_quotes: Vec<RatesQuote> = quotes
             .iter()
             .filter(|q| match q {
+                RatesQuote::Deposit { .. } => false, // Not supported for forward curves
                 RatesQuote::Swap {
                     float_freq, index, ..
                 } => self.matches_tenor(index.as_ref(), float_freq),
                 RatesQuote::BasisSwap {
                     primary_index,
                     reference_index,
+                    primary_freq,
+                    reference_freq,
                     ..
                 } => {
-                    primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
-                        || reference_index
-                            .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
+                    self.matches_tenor(primary_index, primary_freq)
+                        || self.matches_tenor(reference_index, reference_freq)
                 }
                 _ => true,
             })
             .cloned()
             .collect();
         sorted_quotes.sort_by_key(|q| q.maturity_date());
+        if sorted_quotes.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
+        }
 
         // Initialize knots vector: (time, forward_rate)
         let mut knots: Vec<(f64, f64)> = Vec::new();
@@ -458,25 +565,67 @@ impl ForwardCurveCalibrator {
             // Initial guess based on quote type
             let initial_fwd = self.get_initial_guess(quote, &knots, base_context);
 
-            // Solve for forward rate
-            let tentative = crate::calibration::bracket_solve_1d(
+            // Solve for forward rate (no silent fallbacks).
+            let (tentative, diag) = crate::calibration::bracket_solve_1d_with_diagnostics(
                 &objective,
                 initial_fwd,
                 &scan_points,
                 self.config.tolerance,
                 self.config.max_iterations,
             )?;
-            let mut solved_fwd = if let Some(root) = tentative {
+            total_iterations += diag.eval_count;
+
+            let solved_fwd = if let Some(root) = tentative {
                 root
             } else {
-                match solver.solve(objective, initial_fwd) {
-                    Ok(root) => root,
-                    Err(_) => initial_fwd,
+                // No bracket found - try direct solve if we have valid evaluations.
+                if diag.valid_eval_count == 0 {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Forward curve bootstrap failed for {} at t={:.6}: all {} objective evaluations returned \
+                             invalid/penalized values. Scan bounds: [{:.4}%, {:.4}%], initial_fwd={:.4}%. \
+                             This usually indicates missing curves, calendar/settlement issues, or unsupported instrument type.",
+                            self.fwd_curve_id.as_str(),
+                            knot_time,
+                            diag.eval_count,
+                            diag.scan_bounds.0 * 100.0,
+                            diag.scan_bounds.1 * 100.0,
+                            initial_fwd * 100.0
+                        ),
+                        category: "forward_curve_bootstrap".to_string(),
+                    });
                 }
+
+                let guess = diag.best_point.unwrap_or(initial_fwd);
+                solver.solve(objective, guess).map_err(|e| finstack_core::Error::Calibration {
+                    message: format!(
+                        "Forward curve bootstrap solver failed for {} at t={:.6}: {}. \
+                         No sign-change bracket found in [{:.4}%, {:.4}%]. Best candidate: fwd={:.4}% with residual={:.2e}. \
+                         Evaluated {} points ({} valid).",
+                        self.fwd_curve_id.as_str(),
+                        knot_time,
+                        e,
+                        diag.scan_bounds.0 * 100.0,
+                        diag.scan_bounds.1 * 100.0,
+                        diag.best_point.unwrap_or(f64::NAN) * 100.0,
+                        diag.best_value.unwrap_or(f64::NAN),
+                        diag.eval_count,
+                        diag.valid_eval_count
+                    ),
+                    category: "forward_curve_bootstrap".to_string(),
+                })?
             };
 
             if !solved_fwd.is_finite() {
-                solved_fwd = initial_fwd;
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Forward curve bootstrap produced non-finite forward rate for {} at t={:.6}: fwd={:?}",
+                        self.fwd_curve_id.as_str(),
+                        knot_time,
+                        solved_fwd
+                    ),
+                    category: "forward_curve_bootstrap".to_string(),
+                });
             }
 
             // Validate solution against configurable rate bounds
@@ -497,14 +646,15 @@ impl ForwardCurveCalibrator {
                 });
             }
 
-            // Compute final residual
-            debug_assert!(knots
+            // Compute final residual on the solved curve; only commit the knot if pricing succeeds.
+            let mut candidate_knots = knots.clone();
+            debug_assert!(candidate_knots
                 .last()
                 .map(|(t, _)| *t <= knot_time + self.config.tolerance)
                 .unwrap_or(true));
-            knots.push((knot_time, solved_fwd));
+            candidate_knots.push((knot_time, solved_fwd));
 
-            let mut final_knots = knots.clone();
+            let mut final_knots = candidate_knots.clone();
             // Derive anchor rate consistently: prefer first knot, fallback to solved rate
             let anchor_rate = final_knots
                 .first()
@@ -520,33 +670,31 @@ impl ForwardCurveCalibrator {
                 .build()?;
 
             let final_context = base_context.clone().insert_forward(final_curve);
-            let final_residual = self
-                .price_instrument(quote, &final_context)
-                .unwrap_or(crate::calibration::PENALTY)
-                .abs();
+            let final_pv = self.price_instrument(quote, &final_context)?;
+            let final_residual = final_pv.abs();
 
-            // Guard against recording placeholder penalties that indicate solver/pricing failures
-            if !(final_residual.is_finite()
-                && final_residual.abs() < crate::calibration::PENALTY * 0.5)
+            if !final_residual.is_finite()
+                || final_residual.abs() >= crate::calibration::PENALTY * 0.5
             {
-                if self.config.verbose {
-                    tracing::debug!(
-                        curve_id = %self.fwd_curve_id.as_str(),
-                        knot_time = knot_time,
-                        solved_fwd = solved_fwd,
-                        final_residual = final_residual,
-                        penalty_threshold = crate::calibration::PENALTY * 0.5,
-                        "Skipping penalty residual (solver near boundary or pricing failure)"
-                    );
-                }
-                continue;
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Forward curve bootstrap produced invalid residual for {} at t={:.6}: pv_norm={} (fwd={:.4}%)",
+                        self.fwd_curve_id.as_str(),
+                        knot_time,
+                        final_pv,
+                        solved_fwd * 100.0
+                    ),
+                    category: "forward_curve_bootstrap".to_string(),
+                });
             }
+
+            // Commit the knot after successful pricing.
+            knots = candidate_knots;
 
             // Store residual with descriptive key
             let key = self.format_quote_key(quote, residual_key_counter);
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
-            total_iterations += 1;
 
             // Record trace entry if enabled
             if let Some(t) = &mut trace {
@@ -560,6 +708,14 @@ impl ForwardCurveCalibrator {
                     self.config.explain.max_entries,
                 );
             }
+        }
+
+        // If all quotes were filtered/skipped (e.g., all maturities <= base_date),
+        // fail explicitly instead of synthesizing an arbitrary anchor.
+        if knots.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
         }
 
         // Build final forward curve with consistent anchor derivation
@@ -595,18 +751,31 @@ impl ForwardCurveCalibrator {
             .day_count(self.time_dc)
             .build()?;
 
-        // Validate the calibrated forward curve
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        curve.validate(&ValidationConfig::default()).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!(
-                    "Calibrated forward curve {} failed validation: {}",
-                    self.fwd_curve_id.as_str(),
-                    e
-                ),
-                category: "forward_curve_validation".to_string(),
+        // Validate the calibrated forward curve (honor config.validation + validation_mode).
+        use crate::calibration::validation::CurveValidator;
+        let mut validation_status = "passed";
+        if let Err(e) = curve.validate(&self.config.validation) {
+            validation_status = "failed";
+            match self.config.validation_mode {
+                ValidationMode::Warn => {
+                    tracing::warn!(
+                        curve_id = %self.fwd_curve_id.as_str(),
+                        error = %e,
+                        "Calibrated forward curve failed validation (continuing due to Warn mode)"
+                    );
+                }
+                ValidationMode::Error => {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Calibrated forward curve {} failed validation: {}",
+                            self.fwd_curve_id.as_str(),
+                            e
+                        ),
+                        category: "forward_curve_validation".to_string(),
+                    });
+                }
             }
-        })?;
+        }
 
         // Calculate Jacobian if explanation is enabled
         if let Some(t) = &mut trace {
@@ -627,7 +796,7 @@ impl ForwardCurveCalibrator {
         .with_metadata("interp", format!("{:?}", self.solve_interp))
         .with_metadata("discount_curve", self.discount_curve_id.to_string())
         .with_metadata("time_dc", format!("{:?}", self.time_dc))
-        .with_metadata("validation", "passed");
+        .with_metadata("validation", validation_status);
 
         let report = if let Some(t) = trace {
             report.with_explanation(t)
@@ -713,29 +882,40 @@ impl ForwardCurveCalibrator {
     /// Returns the normalized PV (PV / notional) which should be zero for par instruments.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
         match quote {
+            RatesQuote::Deposit { .. } => Err(finstack_core::Error::Validation(
+                "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)".into(),
+            )),
             RatesQuote::FRA {
                 start,
                 end,
                 rate,
                 day_count,
-                ..
+                conventions,
             } => {
                 // Calculate fixing date using proper business day convention when calendar is available.
                 // ISDA standard: T-2 business days before period start (configurable via reset_lag).
-                let fixing_date = self.calculate_fixing_date(*start, context);
+                let reset_lag = self.resolve_reset_lag(conventions);
+                let fixing_date = self.calculate_fixing_date(*start, conventions)?;
+                let calendar_id = self.resolve_calendar_id(conventions);
+                let fixing_calendar_id = if CalendarRegistry::global().resolve_str(calendar_id).is_some()
+                {
+                    Some(calendar_id.to_string())
+                } else {
+                    None
+                };
 
                 if self.config.verbose {
                     tracing::debug!(
                         fra_start = %start,
                         fra_end = %end,
                         fixing_date = %fixing_date,
-                        reset_lag = self.reset_lag,
-                        calendar = ?self.calendar_id,
+                        reset_lag = reset_lag,
+                        calendar_id = ?fixing_calendar_id,
                         "FRA fixing date calculation"
                     );
                 }
 
-                let fra = match ForwardRateAgreement::builder()
+                let fra = ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, self.currency))
                     .fixing_date(fixing_date)
@@ -743,14 +923,23 @@ impl ForwardCurveCalibrator {
                     .end_date(*end)
                     .fixed_rate(*rate)
                     .day_count(*day_count)
-                    .reset_lag(self.reset_lag)
+                    .reset_lag(reset_lag)
+                    .fixing_calendar_id_opt(fixing_calendar_id)
                     .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
+                    .pay_fixed(false)
+                    .attributes(Default::default())
                     .build()
-                {
-                    Ok(fra) => fra,
-                    Err(_) => return Ok(crate::calibration::PENALTY),
-                };
+                    .map_err(|e| finstack_core::Error::Calibration {
+                        message: format!(
+                            "FRA builder failed for {} ({} -> {}): {:?}",
+                            self.fwd_curve_id.as_str(),
+                            start,
+                            end,
+                            e
+                        ),
+                        category: "forward_curve_pricing".to_string(),
+                    })?;
 
                 let pv = fra.value(context, self.base_date)?;
                 Ok(pv.amount() / fra.notional.amount())
@@ -759,7 +948,7 @@ impl ForwardCurveCalibrator {
                 expiry,
                 price,
                 specs,
-                ..
+                conventions: _conventions,
             } => {
                 // Calculate period dates from expiry + delivery months
                 let period_start = *expiry;
@@ -805,7 +994,7 @@ impl ForwardCurveCalibrator {
                     Some(adj)
                 };
 
-                let future = match InterestRateFuture::builder()
+                let future = InterestRateFuture::builder()
                     .id(format!("CALIB_FUT_{}", expiry).into())
                     .notional(Money::new(specs.face_value, self.currency))
                     .expiry_date(*expiry)
@@ -824,11 +1013,17 @@ impl ForwardCurveCalibrator {
                     })
                     .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
+                    .attributes(Default::default())
                     .build()
-                {
-                    Ok(future) => future,
-                    Err(_) => return Ok(crate::calibration::PENALTY),
-                };
+                    .map_err(|e| finstack_core::Error::Calibration {
+                        message: format!(
+                            "IRFuture builder failed for {} at expiry {}: {:?}",
+                            self.fwd_curve_id.as_str(),
+                            expiry,
+                            e
+                        ),
+                        category: "forward_curve_pricing".to_string(),
+                    })?;
 
                 let pv = future.value(context, self.base_date)?;
                 Ok(pv.amount() / future.notional.amount())
@@ -840,21 +1035,39 @@ impl ForwardCurveCalibrator {
                 float_freq,
                 fixed_dc,
                 float_dc,
+                conventions,
                 ..
             } => {
+                let start = self.settlement_date(conventions)?;
+                let payment_delay = self.resolve_payment_delay(conventions);
+                let reset_lag = self.resolve_reset_lag(conventions);
+
+                let calendar_id = self.resolve_calendar_id(conventions);
+                let calendar_id_opt = if CalendarRegistry::global().resolve_str(calendar_id).is_some() {
+                    Some(calendar_id.to_string())
+                } else if self.allow_calendar_fallback {
+                    None
+                } else {
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound {
+                            id: format!("calendar '{}'", calendar_id),
+                        },
+                    ));
+                };
+
                 let fixed_spec = crate::instruments::irs::FixedLegSpec {
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
                     discount_curve_id: self.discount_curve_id.to_owned(),
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: self.calendar_id.clone(),
+                    calendar_id: calendar_id_opt.clone(),
                     stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
-                    start: self.base_date,
+                    start,
                     end: *maturity,
-                    payment_delay_days: 0,
+                    payment_delay_days: payment_delay,
                 };
 
                 let float_spec = FloatLegSpec {
@@ -865,13 +1078,13 @@ impl ForwardCurveCalibrator {
                     freq: *float_freq,
                     dc: *float_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: self.calendar_id.clone(),
-                    fixing_calendar_id: self.calendar_id.clone(),
+                    calendar_id: calendar_id_opt.clone(),
+                    fixing_calendar_id: calendar_id_opt.clone(),
                     stub: StubKind::None,
-                    reset_lag_days: self.reset_lag,
-                    start: self.base_date,
+                    reset_lag_days: reset_lag,
+                    start,
                     end: *maturity,
-                    payment_delay_days: 0,
+                    payment_delay_days: payment_delay,
                 };
 
                 let swap = InterestRateSwap {
@@ -897,35 +1110,65 @@ impl ForwardCurveCalibrator {
                 primary_dc,
                 reference_dc,
                 currency,
-                ..
+                conventions,
             } => {
                 // Use basis swaps for forward curve calibration
                 // Create basis swap instrument
                 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 
                 // Determine which leg uses our curve and which uses the reference
-                let (primary_fwd_id, reference_fwd_id): (CurveId, CurveId) =
-                    if primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) {
-                        // Primary leg uses our curve, reference needs to be resolved
-                        (
-                            self.fwd_curve_id.clone(),
-                            self.resolve_forward_curve_id(reference_index),
-                        )
-                    } else {
-                        // Reference leg uses our curve, primary needs to be resolved
-                        (
-                            self.resolve_forward_curve_id(primary_index),
-                            self.fwd_curve_id.clone(),
-                        )
-                    };
+                let primary_is_ours = self.matches_tenor(primary_index, primary_freq);
+                let reference_is_ours = self.matches_tenor(reference_index, reference_freq);
+                let (primary_fwd_id, reference_fwd_id): (CurveId, CurveId) = match (
+                    primary_is_ours,
+                    reference_is_ours,
+                ) {
+                    (true, false) => (
+                        self.fwd_curve_id.clone(),
+                        self.resolve_forward_curve_id(reference_index),
+                    ),
+                    (false, true) => (
+                        self.resolve_forward_curve_id(primary_index),
+                        self.fwd_curve_id.clone(),
+                    ),
+                    (true, true) => {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "BasisSwap quote references calibrator tenor on both legs (ambiguous): primary_index='{}', reference_index='{}'",
+                            primary_index, reference_index
+                        )));
+                    }
+                    (false, false) => {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "BasisSwap quote does not reference calibrator tenor: primary_index='{}', reference_index='{}'",
+                            primary_index, reference_index
+                        )));
+                    }
+                };
+
+                let start = self.settlement_date(conventions)?;
+                let payment_delay = self.resolve_payment_delay(conventions);
+                let reset_lag = self.resolve_reset_lag(conventions);
+
+                let calendar_id = self.resolve_calendar_id(conventions);
+                let calendar_id_opt = if CalendarRegistry::global().resolve_str(calendar_id).is_some() {
+                    Some(calendar_id.to_string())
+                } else if self.allow_calendar_fallback {
+                    None
+                } else {
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound {
+                            id: format!("calendar '{}'", calendar_id),
+                        },
+                    ));
+                };
 
                 let primary_leg = BasisSwapLeg {
                     forward_curve_id: primary_fwd_id,
                     frequency: *primary_freq,
                     day_count: *primary_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    payment_lag_days: 0,
-                    reset_lag_days: 0,
+                    payment_lag_days: payment_delay,
+                    reset_lag_days: reset_lag,
                     spread: *spread_bp / 10_000.0, // Convert bp to decimal
                 };
 
@@ -934,25 +1177,30 @@ impl ForwardCurveCalibrator {
                     frequency: *reference_freq,
                     day_count: *reference_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    payment_lag_days: 0,
-                    reset_lag_days: 0,
+                    payment_lag_days: payment_delay,
+                    reset_lag_days: reset_lag,
                     spread: 0.0,
                 };
 
                 let basis_swap = BasisSwap::new(
                     format!("CALIB_BASIS_{}", maturity),
                     Money::new(1_000_000.0, *currency),
-                    self.base_date,
+                    start,
                     *maturity,
                     primary_leg,
                     reference_leg,
                     self.discount_curve_id.to_owned(),
-                );
+                )
+                .with_allow_calendar_fallback(self.allow_calendar_fallback);
+                let basis_swap = if let Some(cal) = calendar_id_opt {
+                    basis_swap.with_calendar(cal)
+                } else {
+                    basis_swap
+                };
 
                 let pv = basis_swap.value(context, self.base_date)?;
                 Ok(pv.amount() / basis_swap.notional.amount())
             }
-            _ => Ok(0.0), // Skip other quote types
         }
     }
 
@@ -1136,11 +1384,15 @@ impl ForwardCurveCalibrator {
         for quote in quotes {
             // Extract rate and validate bounds
             let rate = match quote {
+                RatesQuote::Deposit { .. } => {
+                    return Err(finstack_core::Error::Validation(
+                        "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)".into(),
+                    ));
+                }
                 RatesQuote::FRA { rate, .. } => *rate,
                 RatesQuote::Future { price, .. } => (100.0 - price) / 100.0,
                 RatesQuote::Swap { rate, .. } => *rate,
                 RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0,
-                _ => continue,
             };
 
             if !rate.is_finite() {
@@ -1272,98 +1524,60 @@ impl ForwardCurveCalibrator {
         (self.config.tolerance * (1.0 + knot_time)).max(self.config.tolerance)
     }
 
-    /// Calculate the fixing date for an FRA given the period start date.
+    /// Calculate the fixing date for a FRA given the period start date.
     ///
-    /// Uses a business-day calendar when available via the global `CalendarRegistry`.
-    ///
-    /// Calendar selection:
-    /// - If `calendar_id` is set: uses that calendar
-    /// - Otherwise: uses a currency-appropriate default calendar
-    ///
-    /// If no calendar can be resolved, falls back to calendar-day approximation.
-    /// In `ValidationMode::Warn` (default), this is treated as a warning; in
-    /// `ValidationMode::Error`, downstream consumers should treat this as a hard failure
-    /// for market-standard builds.
-    ///
-    /// # ISDA Convention
-    ///
-    /// Per ISDA standards, FRA fixing dates are typically T-2 business days before
-    /// the period start date. This can be configured via `reset_lag`.
-    fn calculate_fixing_date(&self, start: Date, _context: &MarketContext) -> Date {
-        use finstack_core::dates::calendar::registry::CalendarRegistry;
+    /// Market standard is `T-reset_lag` **business days** before the start date
+    /// using the applicable fixing calendar. If the calendar cannot be resolved:
+    /// - when `allow_calendar_fallback=true`: falls back to a calendar-day approximation
+    /// - otherwise: returns an error (to avoid silent non-standard behavior)
+    fn calculate_fixing_date(
+        &self,
+        start: Date,
+        conventions: &InstrumentConventions,
+    ) -> Result<Date> {
+        let reset_lag = self.resolve_reset_lag(conventions);
+        let calendar_id = self.resolve_calendar_id(conventions);
 
         let registry = CalendarRegistry::global();
-
-        let effective_calendar_id: &str = self
-            .calendar_id
-            .as_deref()
-            .unwrap_or_else(|| default_calendar_for_currency(self.currency));
-
-        if let Some(calendar) = registry.resolve_str(effective_calendar_id) {
-            // Shift back by reset_lag business days using preceding convention
-            let mut fixing = start;
-            let mut days_shifted = 0;
-
-            while days_shifted < self.reset_lag {
-                fixing -= time::Duration::days(1);
-                // Skip weekends and holidays
-                if !calendar.is_holiday(fixing)
-                    && fixing.weekday() != time::Weekday::Saturday
-                    && fixing.weekday() != time::Weekday::Sunday
-                {
-                    days_shifted += 1;
-                }
-            }
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            let fixing = if reset_lag == 0 {
+                start
+            } else {
+                start.add_business_days(-reset_lag, calendar)?
+            };
 
             if self.config.verbose {
                 tracing::debug!(
                     start = %start,
                     fixing = %fixing,
-                    calendar_id = %effective_calendar_id,
-                    reset_lag = self.reset_lag,
-                    "FRA fixing date calculated using business day convention"
+                    calendar_id = %calendar_id,
+                    reset_lag = reset_lag,
+                    "FRA fixing date calculated using business-day convention"
                 );
             }
 
-            return fixing;
+            return Ok(fixing);
         }
 
-        // Calendar lookup failed, log and fall through to approximation
-        match self.config.validation_mode {
-            ValidationMode::Warn => {
-                tracing::warn!(
-                    calendar_id = %effective_calendar_id,
-                    "Calendar not found in registry; using calendar-day approximation for FRA fixing"
-                );
-            }
-            ValidationMode::Error => {
-                tracing::warn!(
-                    calendar_id = %effective_calendar_id,
-                    "Calendar not found in registry; strict validation requested, falling back to calendar-day approximation (non-market-standard)"
-                );
-            }
-        }
-
-        // Fallback: naive calendar day approximation
-        // This may land on weekends/holidays, which is a limitation without calendar support
-        let approx_fixing = if start >= self.base_date + time::Duration::days(self.reset_lag as i64)
-        {
-            start - time::Duration::days(self.reset_lag as i64)
-        } else {
-            self.base_date
-        };
-
-        // Log warning if no calendar is configured
-        if self.calendar_id.is_none() && self.config.verbose {
-            tracing::debug!(
-                start = %start,
-                fixing = %approx_fixing,
-                reset_lag = self.reset_lag,
-                "Using calendar-day approximation for FRA fixing (no calendar configured)"
+        if self.allow_calendar_fallback {
+            tracing::warn!(
+                calendar_id = %calendar_id,
+                reset_lag = reset_lag,
+                "Calendar not found in registry; using calendar-day approximation for FRA fixing"
             );
+            let approx_fixing = if start >= self.base_date + time::Duration::days(reset_lag as i64) {
+                start - time::Duration::days(reset_lag as i64)
+            } else {
+                self.base_date
+            };
+            return Ok(approx_fixing);
         }
 
-        approx_fixing
+        Err(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound {
+                id: format!("calendar '{}'", calendar_id),
+            },
+        ))
     }
 }
 
@@ -1824,8 +2038,6 @@ mod tests {
     #[test]
     fn test_fixing_date_without_calendar() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let discount_curve = create_test_discount_curve();
-        let context = MarketContext::new().insert_discount(discount_curve);
 
         let calibrator = ForwardCurveCalibrator::new(
             "USD-SOFR-3M-FWD",
@@ -1838,7 +2050,9 @@ mod tests {
         // Monday start -> Thursday fixing (2 business days back, skipping weekend)
         // This verifies that even with no explicit calendar_id, we still use a currency-default calendar.
         let monday = Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date"); // Monday
-        let fixing = calibrator.calculate_fixing_date(monday, &context);
+        let fixing = calibrator
+            .calculate_fixing_date(monday, &InstrumentConventions::default())
+            .expect("fixing date should resolve using currency-default calendar");
         let expected = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date"); // Thursday
         assert_eq!(
             fixing, expected,
@@ -2027,7 +2241,9 @@ mod tests {
         .with_reset_lag(0);
 
         // Verify calculate_fixing_date returns start date when reset_lag=0
-        let fixing_date = calibrator.calculate_fixing_date(fra_start, &context);
+        let fixing_date = calibrator
+            .calculate_fixing_date(fra_start, &InstrumentConventions::default())
+            .expect("fixing date should be computed");
         assert_eq!(
             fixing_date, fra_start,
             "With reset_lag=0, fixing date should equal start date"
@@ -2068,18 +2284,6 @@ mod tests {
     #[test]
     fn test_reset_lag_passed_to_fra_instrument() {
         let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
-        let discount_curve = create_test_discount_curve();
-
-        let fwd_curve = ForwardCurve::builder("USD-SOFR-3M-FWD", 0.25)
-            .base_date(base_date)
-            .knots(vec![(0.0, 0.045), (0.5, 0.0455), (1.0, 0.046)])
-            .set_interp(InterpStyle::Linear)
-            .build()
-            .expect("ForwardCurve builder should succeed");
-
-        let context = MarketContext::new()
-            .insert_discount(discount_curve)
-            .insert_forward(fwd_curve);
 
         // Test with reset_lag=0 (GBP convention)
         let calibrator_t0 = ForwardCurveCalibrator::new(
@@ -2104,8 +2308,12 @@ mod tests {
         let fra_start = base_date + time::Duration::days(90);
 
         // With different reset lags, fixing dates should differ
-        let fixing_t0 = calibrator_t0.calculate_fixing_date(fra_start, &context);
-        let fixing_t2 = calibrator_t2.calculate_fixing_date(fra_start, &context);
+        let fixing_t0 = calibrator_t0
+            .calculate_fixing_date(fra_start, &InstrumentConventions::default())
+            .expect("fixing date should be computed");
+        let fixing_t2 = calibrator_t2
+            .calculate_fixing_date(fra_start, &InstrumentConventions::default())
+            .expect("fixing date should be computed");
 
         assert_eq!(
             fixing_t0, fra_start,

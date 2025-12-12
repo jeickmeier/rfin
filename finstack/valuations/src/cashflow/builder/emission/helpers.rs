@@ -4,7 +4,7 @@ use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::business_days::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::{adjust, Date};
+use finstack_core::dates::{adjust, Date, DateExt};
 use finstack_core::money::Money;
 use time::Duration;
 
@@ -35,20 +35,33 @@ pub(in crate::cashflow::builder) fn add_pik_flow_if_nonzero(
 
 /// Compute reset date with calendar adjustment.
 ///
-/// Applies business day convention and calendar adjustment to the reset date
-/// derived from the payment date minus reset lag days.
+/// Market standard: reset dates are computed as `accrual_start - reset_lag_days`
+/// **business days** using the fixing calendar (or accrual calendar), then adjusted
+/// to a business day using the specified business-day convention.
 #[inline]
 pub(in crate::cashflow::builder) fn compute_reset_date(
-    payment_date: Date,
+    accrual_start: Date,
     reset_lag_days: i32,
     bdc: finstack_core::dates::BusinessDayConvention,
     calendar_id: &Option<String>,
 ) -> finstack_core::Result<Date> {
-    let mut reset_date = payment_date - Duration::days(reset_lag_days as i64);
-    if let Some(cal) = resolve_calendar(calendar_id.as_deref()) {
-        reset_date = adjust(reset_date, bdc, cal)?;
+    if reset_lag_days == 0 {
+        if let Some(cal) = resolve_calendar(calendar_id.as_deref()) {
+            return adjust(accrual_start, bdc, cal);
+        }
+        return Ok(accrual_start);
     }
-    Ok(reset_date)
+
+    match resolve_calendar(calendar_id.as_deref()) {
+        Some(cal) => {
+            // Business-day subtraction avoids weekend/holiday traps where calendar-day subtraction
+            // plus ModifiedFollowing could accidentally roll past the accrual start/end.
+            let mut reset_date = accrual_start.add_business_days(-reset_lag_days, cal)?;
+            reset_date = adjust(reset_date, bdc, cal)?;
+            Ok(reset_date)
+        }
+        None => Ok(accrual_start - Duration::days(reset_lag_days as i64)),
+    }
 }
 
 /// Resolve calendar from optional ID string.

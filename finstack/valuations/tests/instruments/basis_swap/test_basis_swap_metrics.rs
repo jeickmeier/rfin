@@ -14,6 +14,8 @@ fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
 }
 
+const CALENDAR_ID: &str = "usny";
+
 fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
@@ -66,6 +68,7 @@ fn swap() -> BasisSwap {
         },
         CurveId::new("USD-OIS"),
     )
+    .with_calendar(CALENDAR_ID)
 }
 
 #[test]

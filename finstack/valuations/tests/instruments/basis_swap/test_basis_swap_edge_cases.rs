@@ -19,6 +19,8 @@ fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
 }
 
+const CALENDAR_ID: &str = "usny";
+
 fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
@@ -75,7 +77,8 @@ fn zero_notional() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -128,7 +131,8 @@ fn very_small_notional() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
     assert!(npv.amount().is_finite());
@@ -166,7 +170,8 @@ fn very_large_notional() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
@@ -218,7 +223,8 @@ fn very_short_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of);
     assert!(npv.is_ok(), "Short maturity swap should price");
@@ -255,7 +261,8 @@ fn very_long_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
@@ -297,7 +304,8 @@ fn extreme_positive_spread() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
     assert!(npv.amount().is_finite());
@@ -335,7 +343,8 @@ fn extreme_negative_spread() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
     assert!(npv.amount().is_finite());
@@ -396,7 +405,8 @@ fn flat_curves_zero_rates() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, d(2025, 1, 2)).unwrap();
     assert!(npv.amount().abs() < 1.0); // Should be essentially zero
@@ -456,7 +466,8 @@ fn negative_rates() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -502,7 +513,8 @@ fn valuation_at_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, maturity).unwrap();
     // At maturity, NPV should be zero or very small
@@ -541,7 +553,8 @@ fn valuation_after_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, after_maturity).unwrap();
     // After maturity, all cashflows are in the past, NPV should be zero
@@ -579,7 +592,8 @@ fn identical_forward_curves() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -661,7 +675,8 @@ fn steep_curve() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::Dv01])

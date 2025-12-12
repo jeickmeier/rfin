@@ -96,6 +96,10 @@ fn build_dates_impl(
                     finstack_core::error::InputError::NotFound { id: id.to_string() }.into(),
                 ));
             }
+        } else {
+            // In non-strict mode, fall back to an unadjusted schedule if the calendar is missing.
+            // This preserves historical behavior and matches the CashFlowBuilder contract.
+            builder = builder.allow_missing_calendar(true);
         }
         builder = builder.adjust_with_id(bdc, id);
     }

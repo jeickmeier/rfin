@@ -178,6 +178,7 @@ impl BracketDiagnostics {
 
 /// Scan a set of points to bracket a root, then refine with the configured 1D solver.
 /// Returns Ok(Some(root)) when a bracket is found and solved; Ok(None) if no bracket was found.
+#[allow(dead_code)]
 pub(crate) fn bracket_solve_1d(
     objective: &dyn Fn(f64) -> f64,
     initial: f64,

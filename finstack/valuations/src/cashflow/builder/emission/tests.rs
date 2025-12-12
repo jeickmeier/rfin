@@ -15,7 +15,7 @@ mod accrual_context_tests {
 
     #[test]
     fn fixed_accrual_with_actact_isma_full_period() {
-        // Test that Act/Act ISMA with frequency context gives accrual = 1.0 for full coupon
+        // Test that Act/Act ISMA with frequency context gives correct year fraction
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::July, 15).expect("valid date");
 
@@ -52,15 +52,15 @@ mod accrual_context_tests {
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
 
-        // Accrual factor should be 1.0 for full coupon period in ISMA
+        // Accrual factor should be 0.5 for full semi-annual period (6 months / 12 months)
         assert!(
-            (flows[0].accrual_factor - 1.0).abs() < 1e-6,
-            "Expected accrual ~1.0, got {}",
+            (flows[0].accrual_factor - 0.5).abs() < 1e-6,
+            "Expected accrual ~0.5, got {}",
             flows[0].accrual_factor
         );
 
-        // Coupon amount: 1M × 5% × 1.0 = 50K
-        assert!((flows[0].amount.amount() - 50_000.0).abs() < 1.0);
+        // Coupon amount: 1M × 5% × 0.5 = 25K
+        assert!((flows[0].amount.amount() - 25_000.0).abs() < 1.0);
     }
 
     #[test]
@@ -115,10 +115,10 @@ mod accrual_context_tests {
         assert_eq!(pik, 0.0);
         assert_eq!(flows.len(), 1);
 
-        // For full quarterly period, ISMA accrual should be 1.0
+        // For full quarterly period, ISMA accrual should be 0.25 (3 months / 12 months)
         assert!(
-            (flows[0].accrual_factor - 1.0).abs() < 1e-6,
-            "Expected accrual ~1.0 for full ISMA quarter, got {}",
+            (flows[0].accrual_factor - 0.25).abs() < 1e-6,
+            "Expected accrual ~0.25 for full ISMA quarter, got {}",
             flows[0].accrual_factor
         );
     }

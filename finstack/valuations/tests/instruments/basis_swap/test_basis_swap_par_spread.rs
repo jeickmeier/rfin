@@ -19,6 +19,8 @@ fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
 }
 
+const CALENDAR_ID: &str = "usny";
+
 fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
@@ -76,7 +78,8 @@ fn par_spread_zeros_npv() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     // Compute par spread
     let res = swap
@@ -110,7 +113,8 @@ fn par_spread_zeros_npv() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let npv = swap_at_par.value(&ctx, as_of).unwrap();
 
@@ -153,7 +157,8 @@ fn par_spread_formula_validation() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -218,7 +223,8 @@ fn par_spread_with_existing_spread() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -282,7 +288,8 @@ fn par_spread_inverted_curves() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::BasisParSpread])
@@ -325,7 +332,8 @@ fn par_spread_long_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -373,7 +381,8 @@ fn par_spread_different_frequencies() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -416,7 +425,8 @@ fn par_spread_sign_convention() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(

@@ -152,15 +152,19 @@ impl DiscountCurveCalibrator {
                 &pricer,
                 base_context,
             )?;
+            if !final_residual.is_finite()
+                || final_residual.abs() >= crate::calibration::PENALTY * 0.5
+            {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap pricing failed for {} at t={:.6}: residual={:?}",
+                        self.curve_id, time_to_maturity, final_residual
+                    ),
+                    category: "yield_curve_bootstrap".to_string(),
+                });
+            }
 
             knots.push((time_to_maturity, solved_df));
-
-            // Skip recording penalty placeholders; only keep real residuals
-            if !(final_residual.is_finite()
-                && final_residual.abs() < crate::calibration::PENALTY * 0.5)
-            {
-                continue;
-            }
 
             // Store residual with descriptive key
             let key = quote.format_residual_key(residual_key_counter);
@@ -444,8 +448,25 @@ impl DiscountCurveCalibrator {
                 category: "yield_curve_bootstrap".to_string(),
             })?;
 
-        // Validate the calibrated curve
-        self.validate_calibrated_curve(&curve)?;
+        // Validate the calibrated curve (honor config.validation + validation_mode)
+        let mut validation_status = "passed";
+        let mut validation_error: Option<String> = None;
+        if let Err(e) = self.validate_calibrated_curve(&curve) {
+            validation_status = "failed";
+            validation_error = Some(e.to_string());
+            match self.config.validation_mode {
+                crate::calibration::config::ValidationMode::Warn => {
+                    tracing::warn!(
+                        curve_id = %self.curve_id.as_str(),
+                        error = %e,
+                        "Calibrated discount curve failed validation (continuing due to Warn mode)"
+                    );
+                }
+                crate::calibration::config::ValidationMode::Error => {
+                    return Err(e);
+                }
+            }
+        }
 
         // Create calibration report with comprehensive metadata
         let mut report = CalibrationReport::for_type_with_tolerance(
@@ -468,7 +489,11 @@ impl DiscountCurveCalibrator {
         .with_metadata("t_spot", format!("{:.6}", t_spot))
         .with_metadata("spot_knot_included", (t_spot > 1e-6).to_string())
         .with_metadata("allow_non_monotonic", "true")
-        .with_metadata("validation", "passed");
+        .with_metadata("validation", validation_status);
+
+        if let Some(err) = validation_error {
+            report = report.with_metadata("validation_error", err);
+        }
 
         // Attach explanation trace if present
         if let Some(explanation) = trace {

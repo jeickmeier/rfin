@@ -40,7 +40,7 @@ impl MetricCalculator for PvCalculator {
         } else {
             &swap.reference_leg
         };
-        let schedule = swap.leg_schedule(leg);
+        let schedule = swap.leg_schedule(leg)?;
 
         // Use the instrument's own pv_float_leg method
         let pv = swap.pv_float_leg(leg, &schedule, curves.as_ref(), as_of)?;

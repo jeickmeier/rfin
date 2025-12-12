@@ -154,12 +154,19 @@ impl DiscountCurveCalibrator {
     /// - Day count: Currency-specific (ACT/360 for USD/EUR, ACT/365 for GBP)
     /// - Payment delay: 0 (set to 2 for Bloomberg OIS matching)
     pub fn new(curve_id: impl Into<CurveId>, base_date: Date, currency: Currency) -> Self {
+        let mut config = CalibrationConfig::default();
+        // Market standard: allow negative-rate discount factors in common negative-rate regimes.
+        // Validation still auto-detects the regime; this flag only enables the allowance.
+        if matches!(currency, Currency::EUR | Currency::JPY | Currency::CHF) {
+            config.validation.allow_negative_rates = true;
+        }
+
         Self {
             curve_id: curve_id.into(),
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; arbitrage-free
             extrapolation: ExtrapolationPolicy::FlatForward,
-            config: CalibrationConfig::default(), // Defaults to multi-curve mode
+            config, // Defaults to multi-curve mode
             calibration_method: CalibrationMethod::default(),
             currency,
             calendar_id: None,
@@ -412,29 +419,19 @@ impl DiscountCurveCalibrator {
         pricer
     }
 
-    /// Validate a calibrated discount curve using auto-detected rate environment.
+    /// Validate a calibrated discount curve using the configured validation policy.
     ///
-    /// Automatically detects negative rate environments (EUR/CHF/JPY) by checking
-    /// the short-end zero rate, and applies appropriate validation rules.
+    /// Use `config.validation.allow_negative_rates=true` to permit negative-rate regimes
+    /// where short-end discount factors may exceed 1.0.
     pub(crate) fn validate_calibrated_curve(&self, curve: &DiscountCurve) -> Result<()> {
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
+        use crate::calibration::validation::CurveValidator;
 
         if self.config.verbose {
             tracing::debug!("Validating calibrated discount curve {}", self.curve_id);
         }
 
-        // Auto-detect negative rate environment by checking short-end zero rate
-        let short_rate = curve.zero(0.25);
-        let validation_config = if short_rate < 0.0 {
-            // Negative rate environment (EUR/CHF/JPY) - allow non-monotone DFs
-            ValidationConfig::negative_rates()
-        } else {
-            // Positive rate environment - enforce strict monotonicity
-            ValidationConfig::default()
-        };
-
         curve
-            .validate(&validation_config)
+            .validate(&self.config.validation)
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated discount curve {} failed validation: {}",

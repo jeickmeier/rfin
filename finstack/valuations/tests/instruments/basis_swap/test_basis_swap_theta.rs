@@ -18,6 +18,8 @@ fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
 }
 
+const CALENDAR_ID: &str = "usny";
+
 fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
@@ -92,7 +94,8 @@ fn theta_is_finite() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -134,7 +137,8 @@ fn theta_matches_pv_change() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     // Get theta
     let res = swap
@@ -194,7 +198,8 @@ fn theta_sign_convention() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -240,7 +245,8 @@ fn theta_decreases_near_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     // Theta early in life
     let res_early = swap
@@ -296,7 +302,8 @@ fn theta_at_par() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap_zero
         .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
@@ -328,7 +335,8 @@ fn theta_at_par() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res_par = swap_at_par
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -370,7 +378,8 @@ fn theta_with_long_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
@@ -410,7 +419,8 @@ fn theta_consistency_across_dates() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let dates = vec![d(2025, 1, 2), d(2025, 2, 2), d(2025, 3, 2), d(2025, 4, 2)];
 
@@ -463,7 +473,8 @@ fn theta_multi_year() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     // Test theta accuracy at several dates during the swap's life
     // Avoid dates near coupon payments where PV has discontinuities
@@ -534,7 +545,8 @@ fn theta_zero_at_maturity() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, maturity, &[MetricId::Theta])

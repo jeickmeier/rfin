@@ -6,7 +6,10 @@
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::{
-    dates::{Date, DayCountCtx, Schedule, ScheduleBuilder, StubKind},
+    dates::{
+        calendar::registry::CalendarRegistry, Date, DateExt, DayCountCtx, HolidayCalendar,
+        Schedule, ScheduleBuilder, StubKind,
+    },
     market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -79,6 +82,12 @@ pub struct BasisSwap {
     pub discount_curve_id: CurveId,
     /// Optional calendar identifier for business day adjustments.
     pub calendar_id: Option<String>,
+    /// Allow calendar-day fallback when the calendar cannot be resolved.
+    ///
+    /// When `false` (default), missing calendars are treated as an input error to
+    /// avoid silently misaligning schedule and payment-lag conventions.
+    #[serde(default)]
+    pub allow_calendar_fallback: bool,
     /// Stub handling convention for irregular periods.
     pub stub_kind: StubKind,
     /// Attributes for instrument selection and tagging.
@@ -117,6 +126,7 @@ impl BasisSwap {
             reference_leg,
             discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
+            allow_calendar_fallback: false,
             stub_kind: StubKind::None,
             attributes: crate::instruments::common::traits::Attributes::default(),
         }
@@ -134,6 +144,15 @@ impl BasisSwap {
         self
     }
 
+    /// Allow (or disallow) calendar-day fallback when the calendar cannot be resolved.
+    ///
+    /// When enabled, schedule generation skips business-day adjustment and payment lags
+    /// are applied as calendar days. Use this only for exploratory/testing workflows.
+    pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
+        self.allow_calendar_fallback = allow;
+        self
+    }
+
     /// Sets the stub handling convention for irregular periods.
     ///
     /// # Arguments
@@ -146,26 +165,63 @@ impl BasisSwap {
         self
     }
 
+    fn resolve_calendar(&self) -> Result<Option<&'static dyn HolidayCalendar>> {
+        match self.calendar_id.as_deref() {
+            Some(id) => {
+                if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
+                    Ok(Some(cal))
+                } else if self.allow_calendar_fallback {
+                    tracing::warn!(
+                        instrument_id = %self.id.as_str(),
+                        calendar_id = id,
+                        "Calendar not found; falling back to unadjusted schedule and calendar-day lags"
+                    );
+                    Ok(None)
+                } else {
+                    Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound {
+                            id: format!("calendar '{}'", id),
+                        },
+                    ))
+                }
+            }
+            None => {
+                if self.allow_calendar_fallback {
+                    tracing::warn!(
+                        instrument_id = %self.id.as_str(),
+                        "No calendar_id set; falling back to unadjusted schedule and calendar-day lags"
+                    );
+                    Ok(None)
+                } else {
+                    Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound {
+                            id: "BasisSwap calendar_id".to_string(),
+                        },
+                    ))
+                }
+            }
+        }
+    }
+
     /// Builds a period schedule for the specified leg using shared schedule utilities.
     ///
     /// # Arguments
     /// * `leg` — The leg to build a schedule for
     ///
     /// # Returns
-    /// A `Schedule` containing the payment dates for the leg.
-    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Schedule {
-        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)
+    /// A `Schedule` containing the accrual boundary dates for the leg.
+    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Result<Schedule> {
+        let cal = self.resolve_calendar()?;
+
+        let mut builder = ScheduleBuilder::try_new(self.start_date, self.maturity_date)?
             .frequency(leg.frequency)
             .stub_rule(self.stub_kind);
 
-        if let Some(ref cal_id) = self.calendar_id {
-            builder = builder.adjust_with_id(leg.bdc, cal_id);
+        if let Some(cal) = cal {
+            builder = builder.adjust_with(leg.bdc, cal);
         }
 
-        builder
-            .graceful_fallback(true)
-            .build()
-            .unwrap_or(Schedule { dates: vec![] })
+        builder.build()
     }
 
     /// Calculates the present value of a floating rate leg.
@@ -185,9 +241,22 @@ impl BasisSwap {
         context: &MarketContext,
         valuation_date: Date,
     ) -> Result<Money> {
+        if schedule.dates.len() < 2 {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
+            ));
+        }
+
+        if leg.payment_lag_days < 0 || leg.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap leg lags must be non-negative".to_string(),
+            ));
+        }
+
         // Get curves
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
         let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
+        let cal = self.resolve_calendar()?;
 
         let mut pv = 0.0;
         let currency = self.notional.currency();
@@ -195,18 +264,29 @@ impl BasisSwap {
 
         // Pre-compute valuation_date discount factor for correct theta
         let disc_dc = disc.day_count();
-        let t_val = disc_dc
-            .year_fraction(disc.base_date(), valuation_date, dc_ctx)
-            .unwrap_or(0.0);
+        let t_val = disc_dc.year_fraction(disc.base_date(), valuation_date, dc_ctx)?;
         let df_val = disc.df(t_val);
+        if !df_val.is_finite() || df_val <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Non-finite/invalid discount factor at valuation date".to_string(),
+            ));
+        }
 
         // Iterate periods
         for i in 1..schedule.dates.len() {
             let period_start = schedule.dates[i - 1];
             let period_end = schedule.dates[i];
 
+            let payment_date = if leg.payment_lag_days == 0 {
+                period_end
+            } else if let Some(cal) = cal {
+                period_end.add_business_days(leg.payment_lag_days, cal)?
+            } else {
+                period_end + time::Duration::days(leg.payment_lag_days as i64)
+            };
+
             // Skip past periods
-            if period_end <= valuation_date {
+            if payment_date <= valuation_date {
                 continue;
             }
 
@@ -229,9 +309,7 @@ impl BasisSwap {
             let payment = self.notional.amount() * total_rate * year_frac;
 
             // Discount from valuation_date for correct theta
-            let t_pmt = disc_dc
-                .year_fraction(disc.base_date(), period_end, dc_ctx)
-                .unwrap_or(0.0);
+            let t_pmt = disc_dc.year_fraction(disc.base_date(), payment_date, dc_ctx)?;
             let df_pmt_abs = disc.df(t_pmt);
             let df = if df_val != 0.0 {
                 df_pmt_abs / df_val
@@ -264,27 +342,49 @@ impl BasisSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
+        if schedule.dates.len() < 2 {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
+            ));
+        }
+
+        if leg.payment_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap payment lag must be non-negative".to_string(),
+            ));
+        }
+
         let disc = curves.get_discount_ref(&self.discount_curve_id)?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
+        let cal = self.resolve_calendar()?;
 
         // Pre-compute as_of discount factor for correct theta
         let disc_dc = disc.day_count();
-        let t_as_of = disc_dc
-            .year_fraction(disc.base_date(), as_of, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
         let df_as_of = disc.df(t_as_of);
+        if !df_as_of.is_finite() || df_as_of <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Non-finite/invalid discount factor at as_of date".to_string(),
+            ));
+        }
 
         for &d in &schedule.dates[1..] {
+            let payment_date = if leg.payment_lag_days == 0 {
+                d
+            } else if let Some(cal) = cal {
+                d.add_business_days(leg.payment_lag_days, cal)?
+            } else {
+                d + time::Duration::days(leg.payment_lag_days as i64)
+            };
+
             // Calculate year fraction for the period
             let yf = leg
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
 
             // Discount from as_of for correct theta
-            let t_d = disc_dc
-                .year_fraction(disc.base_date(), d, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let t_d = disc_dc.year_fraction(disc.base_date(), payment_date, DayCountCtx::default())?;
             let df_d_abs = disc.df(t_d);
             let df = if df_as_of != 0.0 {
                 df_d_abs / df_as_of
@@ -293,7 +393,7 @@ impl BasisSwap {
             };
 
             // Only include future payments
-            if d > as_of {
+            if payment_date > as_of {
                 annuity += yf * df;
             }
 
@@ -312,8 +412,8 @@ impl BasisSwap {
     /// The NPV as the difference between primary and reference leg PVs.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Build schedules
-        let primary_schedule = self.leg_schedule(&self.primary_leg);
-        let reference_schedule = self.leg_schedule(&self.reference_leg);
+        let primary_schedule = self.leg_schedule(&self.primary_leg)?;
+        let reference_schedule = self.leg_schedule(&self.reference_leg)?;
 
         // Calculate PV for each leg
         let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
@@ -480,7 +580,8 @@ mod tests {
             primary_leg,
             reference_leg,
             CurveId::new("OIS"),
-        );
+        )
+        .with_calendar("usny");
 
         // Price the swap
         let pv = swap.value(&context, base_date).expect("should succeed");
@@ -490,6 +591,155 @@ mod tests {
             pv.amount().abs() < 1000.0,
             "PV should be small: {}",
             pv.amount()
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_requires_calendar_by_default() {
+        let base_date = date(2024, 1, 1);
+        let start_date = date(2024, 1, 3);
+        let maturity = date(2025, 1, 3);
+
+        let discount_curve = DiscountCurve::builder("OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.99)])
+            .build()
+            .expect("should succeed");
+        let forward_3m = ForwardCurve::builder("3M-SOFR", 0.25)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03)])
+            .build()
+            .expect("should succeed");
+        let forward_6m = ForwardCurve::builder("6M-SOFR", 0.5)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03)])
+            .build()
+            .expect("should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_3m)
+            .insert_forward(forward_6m);
+
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            frequency: Frequency::semi_annual(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let swap = BasisSwap::new(
+            "TEST_BASIS_NO_CAL",
+            Money::new(1_000_000.0, Currency::USD),
+            start_date,
+            maturity,
+            primary_leg,
+            reference_leg,
+            CurveId::new("OIS"),
+        );
+
+        let err = swap.value(&context, base_date).expect_err("should fail");
+        assert!(
+            format!("{err}").contains("calendar"),
+            "Expected calendar error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_payment_lag_affects_pv() {
+        let base_date = date(2024, 1, 1);
+        let start_date = date(2024, 1, 3);
+        let maturity = date(2025, 1, 3);
+
+        // Use a steep-ish discount curve so payment timing matters.
+        let discount_curve = DiscountCurve::builder("OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.90), (2.0, 0.82)])
+            .build()
+            .expect("should succeed");
+
+        let forward_3m = ForwardCurve::builder("3M-SOFR", 0.25)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03), (2.0, 0.03)])
+            .build()
+            .expect("should succeed");
+        let forward_6m = ForwardCurve::builder("6M-SOFR", 0.5)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03), (2.0, 0.03)])
+            .build()
+            .expect("should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_3m)
+            .insert_forward(forward_6m);
+
+        let primary_leg_no_lag = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0010,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let primary_leg_with_lag = BasisSwapLeg {
+            payment_lag_days: 10,
+            ..primary_leg_no_lag.clone()
+        };
+
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            frequency: Frequency::semi_annual(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let swap_no_lag = BasisSwap::new(
+            "TEST_BASIS_NO_LAG",
+            Money::new(10_000_000.0, Currency::USD),
+            start_date,
+            maturity,
+            primary_leg_no_lag,
+            reference_leg.clone(),
+            CurveId::new("OIS"),
+        )
+        .with_calendar("usny");
+
+        let swap_with_lag = BasisSwap::new(
+            "TEST_BASIS_WITH_LAG",
+            Money::new(10_000_000.0, Currency::USD),
+            start_date,
+            maturity,
+            primary_leg_with_lag,
+            reference_leg,
+            CurveId::new("OIS"),
+        )
+        .with_calendar("usny");
+
+        let pv_no_lag = swap_no_lag.value(&context, base_date).expect("should succeed");
+        let pv_with_lag = swap_with_lag.value(&context, base_date).expect("should succeed");
+
+        assert!(
+            (pv_no_lag.amount() - pv_with_lag.amount()).abs() > 1e-6,
+            "Expected payment lag to change PV: no_lag={}, with_lag={}",
+            pv_no_lag.amount(),
+            pv_with_lag.amount()
         );
     }
 }

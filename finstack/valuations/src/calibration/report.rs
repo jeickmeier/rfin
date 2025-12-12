@@ -165,6 +165,20 @@ impl CalibrationReport {
         let type_str = calibration_type.into();
         let penalty = crate::calibration::PENALTY;
 
+        if residuals.is_empty() {
+            return Self::new(
+                residuals,
+                iterations,
+                false,
+                format!(
+                    "{} calibration failed: no residuals were produced",
+                    type_str.replace('_', " ")
+                ),
+            )
+            .with_metadata("type", type_str)
+            .with_metadata("tolerance", format!("{:.2e}", tolerance));
+        }
+
         // Check for PENALTY values indicating hard failures
         let has_penalty = residuals
             .values()

@@ -504,7 +504,7 @@ fn test_amortizing_full_redemption() {
 /// Tests Act/Act ISMA day count with semi-annual frequency.
 ///
 /// Market standard: ICMA Rule 251 requires frequency context for Act/Act ISMA.
-/// For a full coupon period, accrual should equal exactly 1.0 (6 months / semi-annual).
+/// For a full semi-annual coupon period, accrual should equal 0.5 (6 months / 12 months).
 #[test]
 fn test_actact_isma_daycount_context() {
     let issue = date!(2025 - 01 - 01);
@@ -552,13 +552,13 @@ fn test_actact_isma_daycount_context() {
         coupon_flows.len()
     );
 
-    // Each full coupon period should have accrual_factor = 1.0
-    // Act/Act ISMA with frequency context returns 1.0 for a full period
+    // Each full coupon period should have accrual_factor = 0.5 year fraction
+    // Act/Act ISMA with semi-annual frequency returns 0.5 for a full 6-month period
     // (This validates that DayCountCtx with frequency is being used correctly)
     for cf in &coupon_flows {
         // For Act/Act ISMA with semi-annual frequency, a full coupon period
-        // should have accrual_factor = 1.0 (one full period relative to frequency)
-        let expected_accrual = 1.0; // Full period
+        // should have accrual_factor = 0.5 (6 months / 12 months = 0.5 year)
+        let expected_accrual = 0.5; // Half year for semi-annual
         let tolerance = 1e-10; // Very tight tolerance for determinism
 
         assert!(
@@ -570,8 +570,7 @@ fn test_actact_isma_daycount_context() {
         );
 
         // Expected coupon = notional * rate * accrual_factor
-        // The accrual_factor of 1.0 from Act/Act ISMA represents the full period
-        // and the cashflow builder applies it to the full annual rate
+        // = 1,000,000 * 0.06 * 0.5 = 30,000 per semi-annual period
         let expected_coupon = 1_000_000.0 * 0.06 * cf.accrual_factor;
         assert!(
             (cf.amount.amount() - expected_coupon).abs() < 0.01,

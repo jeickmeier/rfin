@@ -4,6 +4,7 @@
 //! inflation swaps to build forward CPI level curves.
 
 use crate::calibration::quote::InflationQuote;
+use crate::calibration::config::ValidationMode;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
@@ -134,6 +135,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         instruments: &[InflationQuote],
         base_context: &MarketContext,
     ) -> Result<(InflationCurve, CalibrationReport)> {
+        let mut warnings: Vec<String> = Vec::new();
+
         // Extract relevant inflation swap quotes for this index and sort by maturity
         let mut quotes: Vec<(finstack_core::dates::Date, f64, String)> = instruments
             .iter()
@@ -149,14 +152,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             .collect();
 
         if quotes.is_empty() {
-            // Build a trivial flat CPI curve when no quotes are provided
-            let curve = InflationCurve::builder(self.curve_id.to_owned())
-                .base_cpi(self.base_cpi)
-                .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                .set_interp(InterpStyle::LogLinear)
-                .build()?;
-            let report = CalibrationReport::success_empty("No quotes; returned flat CPI curve");
-            return Ok((curve, report));
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
         }
 
         quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -189,27 +187,57 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
             for (maturity, par_rate, _idx) in quotes {
                 // Consistent time-axis for CPI knot (use original maturity for curve construction)
-                let t = self
-                    .time_dc
-                    .year_fraction(
-                        self.base_date,
-                        maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
+                let t = match self.time_dc.year_fraction(
+                    self.base_date,
+                    maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let msg = format!(
+                            "Inflation quote maturity={maturity}: invalid time_dc year_fraction: {e:?}"
+                        );
+                        warnings.push(msg.clone());
+                        residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
+                        if self.config.validation_mode == ValidationMode::Error {
+                            return Err(finstack_core::Error::Calibration {
+                                message: msg,
+                                category: "inflation_curve_calibration".to_string(),
+                            });
+                        }
+                        continue;
+                    }
+                };
                 if t <= 0.0 {
+                    warnings.push(format!(
+                        "Skipping inflation quote with non-positive time to maturity: maturity={maturity} t={t:.6}"
+                    ));
+                    residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
                     continue;
                 }
 
                 // Initial guess: compound last CPI by par rate over accrual time
-                let tau = self
-                    .accrual_dc
-                    .year_fraction(
-                        self.base_date,
-                        maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
+                let tau = match self.accrual_dc.year_fraction(
+                    self.base_date,
+                    maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let msg = format!(
+                            "Inflation quote maturity={maturity}: invalid accrual_dc year_fraction: {e:?}"
+                        );
+                        warnings.push(msg.clone());
+                        residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
+                        if self.config.validation_mode == ValidationMode::Error {
+                            return Err(finstack_core::Error::Calibration {
+                                message: msg,
+                                category: "inflation_curve_calibration".to_string(),
+                            });
+                        }
+                        continue;
+                    }
+                };
                 // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
                 let mut initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
 
@@ -249,7 +277,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     temp_knots.sort_by(|a, b| a.0.total_cmp(&b.0));
 
                     let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
-                        .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
+                        .base_cpi(self.base_cpi)
                         .knots(temp_knots)
                         .set_interp(self.solve_interp)
                         .build()
@@ -294,10 +322,34 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     initial_guess,
                 ) {
                     Ok(root) => root,
-                    Err(_) => initial_guess, // Fallback to analytical breakeven CPI
+                    Err(e) => {
+                        let msg = format!(
+                            "Inflation solve_1d failed for maturity={maturity}: {e:?}"
+                        );
+                        warnings.push(msg.clone());
+                        residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
+                        if self.config.validation_mode == ValidationMode::Error {
+                            return Err(finstack_core::Error::Calibration {
+                                message: msg,
+                                category: "inflation_curve_calibration".to_string(),
+                            });
+                        }
+                        continue;
+                    }
                 };
                 if !solved_cpi.is_finite() || solved_cpi <= 0.0 {
-                    solved_cpi = initial_guess;
+                    let msg = format!(
+                        "Solved CPI is invalid for maturity={maturity}: {solved_cpi}"
+                    );
+                    warnings.push(msg.clone());
+                    residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
+                    if self.config.validation_mode == ValidationMode::Error {
+                        return Err(finstack_core::Error::Calibration {
+                            message: msg,
+                            category: "inflation_curve_calibration".to_string(),
+                        });
+                    }
+                    continue;
                 }
 
                 // Stamp seasonality before evaluating residuals and committing knot
@@ -305,6 +357,20 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                 // Record residual and commit the knot
                 let res = objective(solved_cpi).abs();
+                if !res.is_finite() || res >= crate::calibration::PENALTY * 0.5 {
+                    let msg = format!(
+                        "Inflation objective returned invalid/penalty residual at maturity={maturity}: {res}"
+                    );
+                    warnings.push(msg.clone());
+                    residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
+                    if self.config.validation_mode == ValidationMode::Error {
+                        return Err(finstack_core::Error::Calibration {
+                            message: msg,
+                            category: "inflation_curve_calibration".to_string(),
+                        });
+                    }
+                    continue;
+                }
                 if self.config.verbose {
                     tracing::debug!(
                         solved_cpi = solved_cpi,
@@ -318,9 +384,10 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
             // Build final curve with requested identifier
             let mut final_knots = knots;
-            // Guard against degenerate single-point case
-            if final_knots.len() == 1 {
-                final_knots.push((1e-9, self.base_cpi));
+            if final_knots.len() < 2 {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::TooFewPoints,
+                ));
             }
             final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -337,14 +404,14 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 .build()
             {
                 Ok(c) => c,
-                Err(_) => {
-                    // Fallback: minimal two-point curve to avoid calibration hard failure in tests
-                    InflationCurve::builder(self.curve_id.to_owned())
-                        .base_cpi(self.base_cpi)
-                        .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                        .set_interp(self.solve_interp)
-                        .build()
-                        .map_err(|_| finstack_core::Error::Internal)?
+                Err(e) => {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Failed to build inflation curve {}: {e}",
+                            self.curve_id.as_str()
+                        ),
+                        category: "inflation_curve_build".to_string(),
+                    });
                 }
             };
 
@@ -379,7 +446,12 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 "has_seasonality",
                 format!("{}", self.seasonality_adjustments.is_some()),
             )
-            .with_metadata("validation", "passed");
+            .with_metadata("validation", "passed")
+            .with_metadata("warnings_count", warnings.len().to_string())
+            .with_metadata(
+                "warnings",
+                warnings.iter().take(50).cloned().collect::<Vec<_>>().join("\n"),
+            );
 
             Ok((curve, report))
         }

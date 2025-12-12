@@ -96,11 +96,28 @@ impl DiscountCurveCalibrator {
         // Build final curve
         let (curve, final_knots) = self.build_global_curve(&times, &solved, curve_dc)?;
 
-        // Validate calibrated curve
-        self.validate_calibrated_curve(&curve)?;
+        // Validate calibrated curve (honor config.validation + validation_mode)
+        let mut validation_status = "passed";
+        let mut validation_error: Option<String> = None;
+        if let Err(e) = self.validate_calibrated_curve(&curve) {
+            validation_status = "failed";
+            validation_error = Some(e.to_string());
+            match self.config.validation_mode {
+                crate::calibration::config::ValidationMode::Warn => {
+                    tracing::warn!(
+                        curve_id = %self.curve_id.as_str(),
+                        error = %e,
+                        "Calibrated discount curve failed validation (continuing due to Warn mode)"
+                    );
+                }
+                crate::calibration::config::ValidationMode::Error => {
+                    return Err(e);
+                }
+            }
+        }
 
         // Build report with residuals
-        let report = self.build_global_report(
+        let mut report = self.build_global_report(
             &active_quotes,
             &final_knots,
             curve_dc,
@@ -108,6 +125,11 @@ impl DiscountCurveCalibrator {
             base_context,
             residual_evals,
         )?;
+
+        report = report.with_metadata("validation", validation_status);
+        if let Some(err) = validation_error {
+            report = report.with_metadata("validation_error", err);
+        }
 
         Ok((curve, report))
     }

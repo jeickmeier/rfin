@@ -35,7 +35,7 @@ impl MetricCalculator for ParSpreadCalculator {
         let as_of = context.as_of;
 
         // PV of reference leg
-        let schedule_ref = swap.leg_schedule(&swap.reference_leg);
+        let schedule_ref = swap.leg_schedule(&swap.reference_leg)?;
         let pv_ref = swap
             .pv_float_leg(&swap.reference_leg, &schedule_ref, curves.as_ref(), as_of)?
             .amount();
@@ -50,7 +50,7 @@ impl MetricCalculator for ParSpreadCalculator {
             reset_lag_days: swap.primary_leg.reset_lag_days,
             spread: 0.0,
         };
-        let schedule = swap.leg_schedule(&primary_leg_no_spread);
+        let schedule = swap.leg_schedule(&primary_leg_no_spread)?;
         let pv_primary_no_spread = swap
             .pv_float_leg(&primary_leg_no_spread, &schedule, curves.as_ref(), as_of)?
             .amount();

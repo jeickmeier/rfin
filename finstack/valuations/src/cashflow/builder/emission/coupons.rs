@@ -121,9 +121,9 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .clone()
                 .or_else(|| spec.rate_spec.calendar_id.clone());
 
-            // Compute reset date
+            // Compute reset date (fixing date) from accrual start.
             let reset_date = compute_reset_date(
-                d,
+                prev,
                 spec.rate_spec.reset_lag_days,
                 spec.rate_spec.bdc,
                 &fixing_cal_id,

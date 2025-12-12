@@ -299,11 +299,23 @@ pub fn project_floating_rate(
     let fwd_base = fwd.base_date();
 
     // Compute time points for the accrual period
-    let t0 = fwd_dc.year_fraction(fwd_base, reset_date, DayCountCtx::default())?;
-    let t1 = fwd_dc.year_fraction(fwd_base, reset_period_end, DayCountCtx::default())?;
+    //
+    // Curves are defined from their base date forward; when pricing instruments whose
+    // reset dates fall on/before the curve base date (e.g., seasoned swaps or T+0
+    // test fixtures), clamp to t=0 rather than erroring on an inverted date range.
+    let t0 = if reset_date <= fwd_base {
+        0.0
+    } else {
+        fwd_dc.year_fraction(fwd_base, reset_date, DayCountCtx::default())?
+    };
+    let t1 = if reset_period_end <= fwd_base {
+        0.0
+    } else {
+        fwd_dc.year_fraction(fwd_base, reset_period_end, DayCountCtx::default())?
+    };
 
-    // Get period forward rate
-    let index_rate = fwd.rate_period(t0, t1);
+    // Get period forward rate (robust to zero-length periods).
+    let index_rate = if t1 > t0 { fwd.rate_period(t0, t1) } else { fwd.rate(t0) };
 
     // Use shared calculation logic
     Ok(calculate_floating_rate(index_rate, params))

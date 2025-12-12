@@ -360,7 +360,10 @@ mod tests {
 
         let bumped = scenario.apply(&base_market)?;
         let bumped_surface = bumped.surface_ref("EQ-VOL")?;
-        assert!((bumped_surface.value(1.0, 100.0) - 0.23).abs() < 1e-9);
+        let vol = bumped_surface
+            .value_checked(1.0, 100.0)
+            .expect("grid point lookup should succeed");
+        assert!((vol - 0.23).abs() < 1e-9);
 
         Ok(())
     }

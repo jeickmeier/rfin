@@ -205,7 +205,9 @@ fn test_swaption_vol_calibration_direct() {
     // Verify ATM volatility matches input exactly (ATM-pinning approach)
     // Input data: 1Y×1Y ATM vol = 0.009 (90bp normal vol)
     // Market-standard: ATM should match within <1bp
-    let vol_1y_1y = surface.value(1.0, 1.0);
+    let vol_1y_1y = surface
+        .value_checked(1.0, 1.0)
+        .expect("grid point lookup should succeed");
     let expected_atm_1y1y = 0.009; // From test input data
     let atm_error_1y1y = (vol_1y_1y - expected_atm_1y1y).abs();
     assert!(
@@ -218,7 +220,9 @@ fn test_swaption_vol_calibration_direct() {
 
     // Input data: 1Y×5Y ATM vol = 0.007 (70bp normal vol)
     // Market-standard: ATM should match within <1bp
-    let vol_1y_5y = surface.value(1.0, 5.0);
+    let vol_1y_5y = surface
+        .value_checked(1.0, 5.0)
+        .expect("grid point lookup should succeed");
     let expected_atm_1y5y = 0.007; // From test input data
     let atm_error_1y5y = (vol_1y_5y - expected_atm_1y5y).abs();
     assert!(
@@ -233,8 +237,8 @@ fn test_swaption_vol_calibration_direct() {
     assert!(vol_1y_1y > 0.0, "Volatility should be positive");
     assert!(vol_1y_5y > 0.0, "Volatility should be positive");
 
-    // Test interpolation for non-grid points
-    let vol_1_5y_3y = surface.value(1.5, 3.0); // 1.5Y expiry, 3Y tenor
+    // Test interpolation for non-grid points - use value_clamped for robustness
+    let vol_1_5y_3y = surface.value_clamped(1.5, 3.0); // 1.5Y expiry, 3Y tenor
     assert!(
         vol_1_5y_3y > 0.0,
         "Interpolated volatility should be positive"
@@ -289,10 +293,10 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
         report.max_residual * 10000.0
     );
 
-    // Interpolation checks at non-grid points
-    let v = surface.value(1.5, 2.5);
+    // Interpolation checks at non-grid points - use value_clamped for robustness
+    let v = surface.value_clamped(1.5, 2.5);
     assert!(v.is_finite() && v > 0.0 && v < 1.0);
-    let v2 = surface.value(0.75, 3.5);
+    let v2 = surface.value_clamped(0.75, 3.5);
     assert!(v2.is_finite() && v2 > 0.0 && v2 < 1.0);
 }
 
@@ -322,7 +326,9 @@ fn test_normal_vs_lognormal_conventions() {
     // Verify SABR beta is set correctly for normal
     // (This is internal but we can verify indirectly through the volatilities)
     let (surface, _) = result.unwrap();
-    let vol = surface.value(1.0, 1.0);
+    let vol = surface
+        .value_checked(1.0, 1.0)
+        .expect("grid point lookup should succeed");
     assert!(vol > 0.0, "Normal vol should be positive");
 }
 

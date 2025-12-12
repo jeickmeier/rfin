@@ -19,6 +19,8 @@ fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
 }
 
+const CALENDAR_ID: &str = "usny";
+
 fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
@@ -93,7 +95,8 @@ fn dv01_per_curve_breakdown() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
@@ -168,7 +171,8 @@ fn dv01_scales_with_notional() {
                 spread: 0.0,
             },
             CurveId::new("USD-OIS"),
-        );
+        )
+        .with_calendar(CALENDAR_ID);
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
@@ -230,7 +234,8 @@ fn dv01_sign_convention() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
@@ -292,7 +297,8 @@ fn dv01_vs_numerical_bump() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     // Calculate DV01 using metric (use primary forward curve sensitivity)
     let res_base = swap
@@ -354,7 +360,8 @@ fn annuity_positive_and_increasing() {
                 spread: 0.0,
             },
             CurveId::new("USD-OIS"),
-        );
+        )
+        .with_calendar(CALENDAR_ID);
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
@@ -403,7 +410,8 @@ fn bucketed_dv01_sums_to_total() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01, MetricId::BucketedDv01])
@@ -448,7 +456,8 @@ fn dv01_leg_components_reasonable() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(
@@ -541,7 +550,8 @@ fn sensitivity_to_spread() {
                 spread: 0.0,
             },
             CurveId::new("USD-OIS"),
-        );
+        )
+        .with_calendar(CALENDAR_ID);
 
         let npv = swap.value(&ctx, as_of).unwrap().amount();
         npvs.push(npv);
@@ -602,7 +612,8 @@ fn test_bucketed_dv01_per_curve() {
             spread: 0.0,
         },
         CurveId::new("USD-OIS"),
-    );
+    )
+    .with_calendar(CALENDAR_ID);
 
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])

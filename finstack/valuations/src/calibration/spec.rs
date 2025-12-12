@@ -12,7 +12,7 @@ use super::{
         swaption_vol::SwaptionVolCalibrator,
     },
     quote::{CreditQuote, InflationQuote, RatesQuote, VolQuote},
-    CalibrationConfig, CalibrationReport, Calibrator,
+    CalibrationConfig, CalibrationReport, Calibrator, ValidationMode,
 };
 use finstack_core::{
     config::ResultsMeta, currency::Currency, dates::Date, market_data::context::MarketContext,
@@ -113,6 +113,16 @@ impl CalibrationSpec {
             let (updated_ctx, report) = step.execute(&context)?;
             context = updated_ctx;
 
+            if !report.success && self.config.validation_mode == ValidationMode::Error {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Calibration pipeline step '{}' failed: {}",
+                        step_key, report.convergence_reason
+                    ),
+                    category: "pipeline".to_string(),
+                });
+            }
+
             // Merge residuals
             for (key, value) in &report.residuals {
                 all_residuals.insert(format!("{}_{}", step_key, key), *value);
@@ -129,6 +139,12 @@ impl CalibrationSpec {
             total_iterations,
             self.config.tolerance,
         );
+        if !merged_report.success && self.config.validation_mode == ValidationMode::Error {
+            return Err(finstack_core::Error::Calibration {
+                message: format!("Calibration pipeline failed: {}", merged_report.convergence_reason),
+                category: "pipeline".to_string(),
+            });
+        }
 
         // Create results metadata
         let results_meta =

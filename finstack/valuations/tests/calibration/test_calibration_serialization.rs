@@ -504,7 +504,8 @@ fn test_swaption_market_convention_serialization() {
 
     for convention in conventions {
         let restored = roundtrip_json(&convention);
-        assert_eq!(convention.day_count, restored.day_count);
+        assert_eq!(convention.fixed_day_count, restored.fixed_day_count);
+        assert_eq!(convention.float_day_count, restored.float_day_count);
         assert_eq!(
             format!("{:?}", convention.payment_estimation),
             format!("{:?}", restored.payment_estimation)

@@ -7,16 +7,16 @@
 //! - Accurate swap annuity calculations
 //!
 use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
-use crate::calibration::quote::VolQuote;
+use crate::calibration::quote::{default_calendar_for_currency, VolQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::DateExt;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
+use finstack_core::dates::{Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::types::CurveId;
-use finstack_core::volatility::{convert_volatility, VolatilityConvention};
+use finstack_core::volatility::{convert_atm_volatility, VolatilityConvention};
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -148,7 +148,8 @@ impl SwaptionVolCalibrator {
             market_conventions: SwaptionMarketConvention::from_currency(currency),
             config: CalibrationConfig::default(),
             sabr_interpolation: SabrInterpolationMethod::Bilinear,
-            calendar_id: None,
+            // Default to the market-standard settlement calendar for the currency.
+            calendar_id: Some(default_calendar_for_currency(currency).to_string()),
         }
     }
 
@@ -204,16 +205,12 @@ impl SwaptionVolCalibrator {
         let swap_start = expiry;
         let swap_end = expiry.add_months((tenor_years * 12.0) as i32);
 
-        let t_start = self.market_conventions.day_count.year_fraction(
-            self.base_date,
-            swap_start,
-            DayCountCtx::default(),
-        )?;
-        let t_end = self.market_conventions.day_count.year_fraction(
-            self.base_date,
-            swap_end,
-            DayCountCtx::default(),
-        )?;
+        let t_start =
+            disc.day_count()
+                .year_fraction(disc.base_date(), swap_start, DayCountCtx::default())?;
+        let t_end =
+            disc.day_count()
+                .year_fraction(disc.base_date(), swap_end, DayCountCtx::default())?;
 
         if t_start < 0.0 || t_end <= t_start {
             // TODO: Add field context - include expiry/tenor info to help debug invalid date ranges
@@ -237,14 +234,14 @@ impl SwaptionVolCalibrator {
             let fwd = context.get_forward_ref(forward_id)?;
 
             // Build floating leg schedule
-            let float_sched = crate::cashflow::builder::build_dates(
+            let float_sched = crate::cashflow::builder::date_generation::build_dates_checked(
                 swap_start,
                 swap_end,
                 self.market_conventions.float_freq,
                 StubKind::None,
-                BusinessDayConvention::Following,
+                self.market_conventions.float_bdc,
                 self.calendar_id.as_deref(),
-            );
+            )?;
 
             if float_sched.dates.len() < 2 {
                 return Err(finstack_core::Error::Input(
@@ -258,31 +255,30 @@ impl SwaptionVolCalibrator {
 
             for &pay_date in &float_sched.dates[1..] {
                 // Accrual fraction for this period
-                let accrual = self.market_conventions.day_count.year_fraction(
+                let accrual = self.market_conventions.float_day_count.year_fraction(
                     prev,
                     pay_date,
                     DayCountCtx::default(),
                 )?;
 
                 // Time to payment
-                let t_pay = self.market_conventions.day_count.year_fraction(
-                    self.base_date,
-                    pay_date,
-                    DayCountCtx::default(),
-                )?;
+                let t_pay_disc =
+                    disc.day_count()
+                        .year_fraction(disc.base_date(), pay_date, DayCountCtx::default())?;
 
                 // Time to period start
-                let t_prev = self.market_conventions.day_count.year_fraction(
-                    self.base_date,
-                    prev,
-                    DayCountCtx::default(),
-                )?;
+                let t_prev_fwd =
+                    fwd.day_count()
+                        .year_fraction(fwd.base_date(), prev, DayCountCtx::default())?;
+                let t_pay_fwd =
+                    fwd.day_count()
+                        .year_fraction(fwd.base_date(), pay_date, DayCountCtx::default())?;
 
                 // Forward rate for this period (using the forward curve)
-                let forward_rate = fwd.rate_period(t_prev, t_pay);
+                let forward_rate = fwd.rate_period(t_prev_fwd, t_pay_fwd);
 
                 // Payment = forward_rate * accrual * discount_factor
-                float_pv += forward_rate * accrual * disc.df(t_pay);
+                float_pv += forward_rate * accrual * disc.df(t_pay_disc);
 
                 prev = pay_date;
             }
@@ -304,32 +300,32 @@ impl SwaptionVolCalibrator {
         end: Date,
         disc: &dyn finstack_core::market_data::traits::Discounting,
     ) -> Result<f64> {
-        // Use shared builder to avoid duplication and ensure consistency
-        let sched = crate::cashflow::builder::build_dates(
+        // Use shared builder to avoid duplication and ensure consistency.
+        let sched = crate::cashflow::builder::date_generation::build_dates_checked(
             start,
             end,
             self.market_conventions.fixed_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            self.market_conventions.fixed_bdc,
             self.calendar_id.as_deref(),
-        );
-        let dates = sched.dates;
+        )?;
+        let dates = &sched.dates;
         if dates.len() < 2 {
-            return Ok(0.0);
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
 
         let mut pv01 = 0.0;
         let mut prev = dates[0];
-        for &d in &dates[1..] {
+        for &d in dates.iter().skip(1) {
             let dcf =
                 self.market_conventions
-                    .day_count
+                    .fixed_day_count
                     .year_fraction(prev, d, DayCountCtx::default())?;
-            let t = self.market_conventions.day_count.year_fraction(
-                self.base_date,
-                d,
-                DayCountCtx::default(),
-            )?;
+            let t =
+                disc.day_count()
+                    .year_fraction(disc.base_date(), d, DayCountCtx::default())?;
             pv01 += disc.df(t) * dcf;
             prev = d;
         }
@@ -337,7 +333,7 @@ impl SwaptionVolCalibrator {
         Ok(pv01)
     }
 
-    /// Convert volatility between conventions.
+    /// Convert ATM volatility between conventions.
     fn convert_volatility(
         &self,
         vol: f64,
@@ -345,14 +341,13 @@ impl SwaptionVolCalibrator {
         to_convention: SwaptionVolConvention,
         forward_rate: f64,
         time_to_expiry: f64,
-    ) -> f64 {
-        convert_volatility(
+    ) -> Result<f64> {
+        convert_atm_volatility(
             vol,
             from_convention.into(),
             to_convention.into(),
             forward_rate,
             time_to_expiry,
-            self.market_conventions.zero_threshold,
         )
     }
 
@@ -378,6 +373,7 @@ impl SwaptionVolCalibrator {
         &self,
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
+        warnings: &mut Vec<String>,
     ) -> Result<Vec<f64>> {
         let target_expiries = &self.market_conventions.standard_expiries;
         let target_tenors = &self.market_conventions.standard_tenors;
@@ -392,36 +388,34 @@ impl SwaptionVolCalibrator {
                     let model = SABRModel::new(params.clone());
                     let expiry = self.base_date.add_months((expiry_years * 12.0) as i32);
 
-                    match self.calculate_forward_swap_rate(expiry, tenor_years, context) {
-                        Ok(forward) => {
-                            match self.determine_atm_strike(forward, expiry, tenor_years, context) {
-                                Ok(strike) => {
-                                    match model.implied_volatility(forward, strike, expiry_years) {
-                                        Ok(vol) => {
-                                            vol_grid.push(vol);
-                                        }
-                                        Err(_) => {
-                                            vol_grid.push(self.market_conventions.default_vol);
-                                        }
-                                    }
-                                }
-                                Err(_) => {
-                                    vol_grid.push(self.market_conventions.default_vol);
-                                }
+                    let vol = (|| -> Result<f64> {
+                        let forward = self.calculate_forward_swap_rate(expiry, tenor_years, context)?;
+                        let strike = self.determine_atm_strike(forward, expiry, tenor_years, context)?;
+                        model.implied_volatility(forward, strike, expiry_years).map_err(|e| {
+                            finstack_core::Error::Calibration {
+                                message: format!("SABR implied volatility failed: {e:?}"),
+                                category: "swaption_vol_surface".to_string(),
                             }
-                        }
-                        Err(_) => {
+                        })
+                    })();
+
+                    match vol {
+                        Ok(v) => vol_grid.push(v),
+                        Err(e) => {
+                            warnings.push(format!(
+                                "vol_grid fallback at expiry={expiry_years:.2}y tenor={tenor_years:.2}y: {e:?}"
+                            ));
                             vol_grid.push(self.market_conventions.default_vol);
                         }
                     }
                 } else {
                     // Interpolate from nearby points
-                    match self.interpolate_sabr_vol(expiry_years, tenor_years, sabr_params, context)
-                    {
-                        Ok(vol) => {
-                            vol_grid.push(vol);
-                        }
-                        Err(_) => {
+                    match self.interpolate_sabr_vol(expiry_years, tenor_years, sabr_params, context) {
+                        Ok(vol) => vol_grid.push(vol),
+                        Err(e) => {
+                            warnings.push(format!(
+                                "vol_grid fallback at expiry={expiry_years:.2}y tenor={tenor_years:.2}y: {e:?}"
+                            ));
                             vol_grid.push(self.market_conventions.default_vol);
                         }
                     }
@@ -651,6 +645,8 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
         instruments: &[VolQuote],
         base_context: &MarketContext,
     ) -> Result<(VolSurface, CalibrationReport)> {
+        let mut warnings: Vec<String> = Vec::new();
+
         // 1. Filter for SwaptionVol quotes only
         let swaption_quotes: Vec<_> = instruments
             .iter()
@@ -675,30 +671,57 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                 ..
             } = quote
             {
-                let expiry_years = self
-                    .market_conventions
-                    .day_count
-                    .year_fraction(self.base_date, *expiry, DayCountCtx::default())
-                    .unwrap_or(0.0);
-                let tenor_years = self
-                    .market_conventions
-                    .day_count
-                    .year_fraction(*expiry, *tenor, DayCountCtx::default())
-                    .unwrap_or(0.0);
+                let expiry_years = match self.market_conventions.fixed_day_count.year_fraction(
+                    self.base_date,
+                    *expiry,
+                    DayCountCtx::default(),
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        warnings.push(format!(
+                            "Skipping swaption vol quote with invalid expiry year fraction: expiry={expiry:?} strike={strike:.6}: {e:?}"
+                        ));
+                        continue;
+                    }
+                };
+                let tenor_years = match self.market_conventions.fixed_day_count.year_fraction(
+                    *expiry,
+                    *tenor,
+                    DayCountCtx::default(),
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        warnings.push(format!(
+                            "Skipping swaption vol quote with invalid tenor year fraction: expiry={expiry:?} tenor={tenor:?} strike={strike:.6}: {e:?}"
+                        ));
+                        continue;
+                    }
+                };
 
                 if expiry_years > 0.0 && tenor_years > 0.0 {
                     grouped_quotes
                         .entry((to_basis_points(expiry_years), to_basis_points(tenor_years)))
                         .or_default()
                         .push((*strike, *vol));
+                } else {
+                    warnings.push(format!(
+                        "Skipping swaption vol quote with non-positive expiry/tenor: expiry={expiry:?} tenor={tenor:?} strike={strike:.6} (expiry_years={expiry_years:.6}, tenor_years={tenor_years:.6})"
+                    ));
                 }
             }
+        }
+
+        if grouped_quotes.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
         }
 
         // 3. Calibrate SABR parameters for each expiry-tenor combination
         let mut sabr_params: SABRParamsByExpiryTenor = BTreeMap::new();
         let mut all_residuals = BTreeMap::new();
         let mut residual_counter = 0;
+        let mut skipped_pairs: Vec<String> = Vec::new();
 
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
@@ -707,7 +730,14 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
 
         for ((expiry_bp, tenor_bp), strikes_vols) in &grouped_quotes {
             if strikes_vols.len() < self.market_conventions.min_sabr_points {
-                continue; // Need minimum points for SABR
+                skipped_pairs.push(format!(
+                    "exp={:.2}y tenor={:.2}y: insufficient points for SABR (have {}, need {})",
+                    *expiry_bp as f64 / 10000.0,
+                    *tenor_bp as f64 / 10000.0,
+                    strikes_vols.len(),
+                    self.market_conventions.min_sabr_points
+                ));
+                continue;
             }
 
             let expiry_years = *expiry_bp as f64 / 10000.0;
@@ -715,32 +745,50 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
             let expiry_date = self.base_date.add_months((expiry_years * 12.0) as i32);
 
             // Calculate forward swap rate
-            let forward =
-                match self.calculate_forward_swap_rate(expiry_date, tenor_years, base_context) {
-                    Ok(f) => {
-                        if f <= 0.0 || !f.is_finite() {
-                            continue;
-                        }
-                        f
-                    }
-                    Err(_) => continue,
-                };
+            let forward = match self.calculate_forward_swap_rate(expiry_date, tenor_years, base_context) {
+                Ok(f) if f.is_finite() && f > 0.0 => f,
+                Ok(f) => {
+                    skipped_pairs.push(format!(
+                        "exp={expiry_years:.2}y tenor={tenor_years:.2}y: invalid forward rate {f}"
+                    ));
+                    continue;
+                }
+                Err(e) => {
+                    skipped_pairs.push(format!(
+                        "exp={expiry_years:.2}y tenor={tenor_years:.2}y: forward swap rate failed: {e:?}"
+                    ));
+                    continue;
+                }
+            };
 
             // Extract strikes and vols
             let mut strikes: Vec<f64> = Vec::new();
             let mut vols: Vec<f64> = Vec::new();
+            let mut conversion_failed = false;
 
             for &(strike, vol) in strikes_vols {
                 strikes.push(strike);
                 // Convert quoted vol to calibration convention if needed
-                let converted_vol = self.convert_volatility(
+                let converted_vol = match self.convert_volatility(
                     vol,
                     self.vol_convention, // Assume quotes are in our convention
                     self.vol_convention,
                     forward,
                     expiry_years,
-                );
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        skipped_pairs.push(format!(
+                            "exp={expiry_years:.2}y tenor={tenor_years:.2}y strike={strike:.6}: invalid volatility quote {vol:.6}: {e:?}"
+                        ));
+                        conversion_failed = true;
+                        break;
+                    }
+                };
                 vols.push(converted_vol);
+            }
+            if conversion_failed {
+                continue;
             }
 
             // Handle negative rates with shift if needed
@@ -751,17 +799,19 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                     let shifted_strikes: Vec<f64> = strikes.iter().map(|&s| s + shift).collect();
 
                     // Calibrate with shifted values
-                    let mut calibrated_params = sabr_calibrator.calibrate(
+                    let calibrated_params = sabr_calibrator.calibrate(
                         shifted_forward,
                         &shifted_strikes,
                         &vols,
                         expiry_years,
                         self.sabr_beta,
-                    )?;
+                    );
 
                     // Store the shift in the parameters
-                    calibrated_params.shift = Some(shift);
-                    Ok(calibrated_params)
+                    calibrated_params.map(|mut p| {
+                        p.shift = Some(shift);
+                        p
+                    })
                 }
                 _ => {
                     // Standard SABR calibration with ATM pinning (market-standard approach)
@@ -809,7 +859,12 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                         all_residuals.insert(key, residual);
                     }
                 }
-                Err(_) => continue,
+                Err(e) => {
+                    skipped_pairs.push(format!(
+                        "exp={expiry_years:.2}y tenor={tenor_years:.2}y: SABR calibration failed: {e:?}"
+                    ));
+                    continue;
+                }
             }
         }
 
@@ -821,7 +876,7 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
         }
 
         // 4. Build volatility surface on target grid
-        let vol_grid = self.build_vol_grid(&sabr_params, base_context)?;
+        let vol_grid = self.build_vol_grid(&sabr_params, base_context, &mut warnings)?;
 
         // 5. Create 2D surface (expiry x tenor)
         let target_expiries = &self.market_conventions.standard_expiries;
@@ -831,16 +886,43 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
             VolSurface::from_grid(&self.surface_id, target_expiries, target_tenors, &vol_grid)?;
 
         // 6. Create calibration report
-        let report = CalibrationReport::new(
+        let mut report = CalibrationReport::for_type_with_tolerance(
+            "swaption_vol",
             all_residuals,
             sabr_params.len(),
-            true,
-            "Swaption vol calibration completed",
+            self.market_conventions.vol_tolerance,
         )
         .with_metadata("calibrator", "SwaptionVolCalibrator")
         .with_metadata("vol_convention", format!("{:?}", self.vol_convention))
         .with_metadata("atm_convention", format!("{:?}", self.atm_convention))
-        .with_metadata("num_expiry_tenor_pairs", sabr_params.len().to_string());
+        .with_metadata("num_expiry_tenor_pairs", sabr_params.len().to_string())
+        .with_metadata("fixed_day_count", format!("{:?}", self.market_conventions.fixed_day_count))
+        .with_metadata("float_day_count", format!("{:?}", self.market_conventions.float_day_count))
+        .with_metadata("fixed_bdc", format!("{:?}", self.market_conventions.fixed_bdc))
+        .with_metadata("float_bdc", format!("{:?}", self.market_conventions.float_bdc))
+        .with_metadata("warnings_count", warnings.len().to_string())
+        .with_metadata("skipped_pairs_count", skipped_pairs.len().to_string());
+
+        if let Some(id) = self.calendar_id.as_deref() {
+            report.update_metadata("calendar_id", id);
+        }
+        if !skipped_pairs.is_empty() {
+            report.update_metadata(
+                "skipped_pairs",
+                skipped_pairs
+                    .iter()
+                    .take(50)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+        }
+        if !warnings.is_empty() {
+            report.update_metadata(
+                "warnings",
+                warnings.iter().take(50).cloned().collect::<Vec<_>>().join("\n"),
+            );
+        }
 
         Ok((surface, report))
     }
@@ -973,7 +1055,8 @@ mod tests {
             SwaptionVolConvention::Lognormal,
             forward,
             1.0,
-        );
+        )
+        .expect("vol conversion should succeed");
 
         assert!((lognormal_vol - 0.2).abs() < 1e-6); // Should be 20% lognormal vol
 
@@ -984,7 +1067,8 @@ mod tests {
             SwaptionVolConvention::Normal,
             forward,
             1.0,
-        );
+        )
+        .expect("vol conversion should succeed");
 
         assert!((recovered_normal - normal_vol).abs() < 1e-10);
     }
