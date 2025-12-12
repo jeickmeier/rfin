@@ -225,6 +225,91 @@ impl RatesQuote {
             },
         }
     }
+
+    /// Format a descriptive residual key for calibration reports.
+    ///
+    /// Generates a unique, human-readable key that identifies the instrument
+    /// and its parameters for use in calibration residual tracking.
+    ///
+    /// # Arguments
+    ///
+    /// * `counter` - A unique counter value to ensure key uniqueness when
+    ///   multiple quotes of the same type exist
+    ///
+    /// # Returns
+    ///
+    /// A formatted string key like "DEP-2025-03-15-Act360-000001" or
+    /// "SWAP-USD-SOFR-3M-2027-01-15-fix6M-flt3M-000002"
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let key = quote.format_residual_key(0);
+    /// residuals.insert(key, residual_value);
+    /// ```
+    pub fn format_residual_key(&self, counter: usize) -> String {
+        match self {
+            RatesQuote::Deposit {
+                maturity,
+                day_count,
+                ..
+            } => {
+                format!("DEP-{}-{:?}-{:06}", maturity, day_count, counter)
+            }
+            RatesQuote::FRA {
+                start,
+                end,
+                day_count,
+                ..
+            } => {
+                format!("FRA-{}-{}-{:?}-{:06}", start, end, day_count, counter)
+            }
+            RatesQuote::Future { expiry, specs, .. } => {
+                format!(
+                    "FUT-{}-{}m-{:?}-{:06}",
+                    expiry, specs.delivery_months, specs.day_count, counter
+                )
+            }
+            RatesQuote::Swap {
+                maturity,
+                index,
+                fixed_freq,
+                float_freq,
+                ..
+            } => {
+                format!(
+                    "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
+                    index.as_str(),
+                    maturity,
+                    fixed_freq,
+                    float_freq,
+                    counter
+                )
+            }
+            RatesQuote::BasisSwap {
+                maturity,
+                primary_index,
+                reference_index,
+                ..
+            } => {
+                format!(
+                    "BASIS-{}-{}vs{}-{:06}",
+                    maturity, primary_index, reference_index, counter
+                )
+            }
+        }
+    }
+
+    /// Get the quote type as a string.
+    pub fn get_type(&self) -> &'static str {
+        match self {
+            RatesQuote::Deposit { .. } => "Deposit",
+            RatesQuote::FRA { .. } => "FRA",
+            RatesQuote::Future { .. } => "Future",
+            RatesQuote::Swap { .. } => "Swap",
+            RatesQuote::BasisSwap { .. } => "BasisSwap",
+        }
+    }
 }
 
 /// Credit instrument quotes for hazard curve and correlation calibration.

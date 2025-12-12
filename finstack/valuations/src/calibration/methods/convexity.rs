@@ -202,6 +202,90 @@ impl ConvexityParameters {
         }
     }
 
+    /// Get convexity parameters for a specific currency.
+    ///
+    /// Returns market-standard parameters based on currency conventions:
+    /// - USD: SOFR parameters (75bp vol, Hull-White)
+    /// - EUR: EURIBOR parameters (70bp vol, Hull-White)
+    /// - GBP: SONIA parameters (80bp vol, Hull-White)
+    /// - JPY: TONAR parameters (40bp vol, Ho-Lee for low rates)
+    /// - CHF: SARON parameters (50bp vol, Ho-Lee for negative rates)
+    /// - Other: USD defaults
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::methods::convexity::ConvexityParameters;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let params = ConvexityParameters::for_currency(Currency::EUR);
+    /// assert!((params.base_volatility - 0.0070).abs() < 1e-10);
+    /// ```
+    pub fn for_currency(currency: finstack_core::currency::Currency) -> Self {
+        use finstack_core::currency::Currency;
+        match currency {
+            Currency::USD => Self::usd_sofr(),
+            Currency::EUR => Self::eur_euribor(),
+            Currency::GBP => Self::gbp_sonia(),
+            Currency::JPY => Self::jpy_tonar(),
+            Currency::CHF => Self::chf_saron(),
+            _ => Self::usd_sofr(), // Default to USD parameters
+        }
+    }
+
+    /// Calculate convexity adjustment for an interest rate future.
+    ///
+    /// Convenience method that handles the year fraction calculations internally.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_date` - Valuation date
+    /// * `expiry` - Futures expiry date
+    /// * `period_end` - End of the underlying rate period
+    /// * `day_count` - Day count convention for year fraction calculation
+    ///
+    /// # Returns
+    ///
+    /// Convexity adjustment in rate terms (add to futures rate to get forward rate)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use finstack_valuations::calibration::methods::convexity::ConvexityParameters;
+    /// use finstack_core::dates::{Date, DayCount};
+    ///
+    /// let params = ConvexityParameters::usd_sofr();
+    /// let adj = params.calculate_for_future(
+    ///     base_date,
+    ///     expiry_date,
+    ///     period_end_date,
+    ///     DayCount::Act360,
+    /// );
+    /// ```
+    pub fn calculate_for_future(
+        &self,
+        base_date: finstack_core::dates::Date,
+        expiry: finstack_core::dates::Date,
+        period_end: finstack_core::dates::Date,
+        day_count: finstack_core::dates::DayCount,
+    ) -> f64 {
+        let dc_ctx = finstack_core::dates::DayCountCtx::default();
+        let time_to_expiry = day_count
+            .year_fraction(base_date, expiry, dc_ctx)
+            .unwrap_or(0.0);
+        let time_to_maturity = day_count
+            .year_fraction(base_date, period_end, dc_ctx)
+            .unwrap_or(0.0);
+        self.calculate_adjustment(time_to_expiry, time_to_maturity)
+    }
+
+    /// Set the mean reversion parameter.
+    #[must_use]
+    pub fn with_mean_reversion(mut self, mean_reversion: f64) -> Self {
+        self.mean_reversion = mean_reversion;
+        self
+    }
+
     /// Set an explicit volatility value (overrides default)
     pub fn with_volatility(mut self, vol: f64) -> Self {
         self.vol_source = VolatilitySource::Explicit(vol);
@@ -306,18 +390,13 @@ impl ConvexityParameters {
 /// Get default convexity parameters for a currency.
 ///
 /// Returns market-standard parameters based on currency conventions.
+///
+/// Note: Prefer using [`ConvexityParameters::for_currency`] directly.
+#[inline]
 pub fn default_convexity_params(
     currency: finstack_core::currency::Currency,
 ) -> ConvexityParameters {
-    use finstack_core::currency::Currency;
-    match currency {
-        Currency::USD => ConvexityParameters::usd_sofr(),
-        Currency::EUR => ConvexityParameters::eur_euribor(),
-        Currency::GBP => ConvexityParameters::gbp_sonia(),
-        Currency::JPY => ConvexityParameters::jpy_tonar(),
-        Currency::CHF => ConvexityParameters::chf_saron(),
-        _ => ConvexityParameters::usd_sofr(), // Default to USD parameters
-    }
+    ConvexityParameters::for_currency(currency)
 }
 
 #[cfg(test)]
@@ -416,5 +495,53 @@ mod tests {
         // Should work for potentially negative rate environment
         assert!(adj.is_finite());
         assert!(adj >= 0.0); // Convexity adjustment is always positive
+    }
+
+    #[test]
+    fn test_for_currency_constructor() {
+        use finstack_core::currency::Currency;
+
+        // Test that for_currency returns same params as currency-specific constructors
+        let usd_direct = ConvexityParameters::usd_sofr();
+        let usd_for_ccy = ConvexityParameters::for_currency(Currency::USD);
+        assert!((usd_direct.base_volatility - usd_for_ccy.base_volatility).abs() < 1e-10);
+        assert!((usd_direct.mean_reversion - usd_for_ccy.mean_reversion).abs() < 1e-10);
+
+        let eur_direct = ConvexityParameters::eur_euribor();
+        let eur_for_ccy = ConvexityParameters::for_currency(Currency::EUR);
+        assert!((eur_direct.base_volatility - eur_for_ccy.base_volatility).abs() < 1e-10);
+
+        // Test Ho-Lee flag for JPY
+        let jpy = ConvexityParameters::for_currency(Currency::JPY);
+        assert!(jpy.use_ho_lee);
+
+        // Test unknown currency defaults to USD
+        let unknown = ConvexityParameters::for_currency(Currency::AUD);
+        assert!((unknown.base_volatility - usd_direct.base_volatility).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_calculate_for_future() {
+        use finstack_core::dates::{Date, DayCount};
+        use time::Month;
+
+        let params = ConvexityParameters::usd_sofr();
+        let base_date =
+            Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
+        let expiry = Date::from_calendar_date(2026, Month::January, 15).expect("Valid test date");
+        let period_end =
+            Date::from_calendar_date(2026, Month::April, 15).expect("Valid test date");
+
+        let adj = params.calculate_for_future(base_date, expiry, period_end, DayCount::Act360);
+
+        // Should match manual calculation
+        let manual_adj = params.calculate_adjustment(1.0, 1.25);
+        assert!((adj - manual_adj).abs() < 0.0001); // Allow for day count differences
+    }
+
+    #[test]
+    fn test_with_mean_reversion() {
+        let params = ConvexityParameters::usd_sofr().with_mean_reversion(0.10);
+        assert!((params.mean_reversion - 0.10).abs() < 1e-10);
     }
 }

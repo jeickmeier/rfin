@@ -771,33 +771,26 @@ impl ForwardCurveCalibrator {
                 let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
                     Some(adj)
                 } else {
-                    // Auto-calculate convexity adjustment based on time to expiry
-                    let dc_ctx = finstack_core::dates::DayCountCtx::default();
-                    let time_to_expiry = specs
-                        .day_count
-                        .year_fraction(self.base_date, *expiry, dc_ctx)
-                        .unwrap_or(0.0);
-
-                    let time_to_maturity = specs
-                        .day_count
-                        .year_fraction(self.base_date, period_end, dc_ctx)
-                        .unwrap_or(0.0);
-
                     // Use calibrator's custom params if set, otherwise currency defaults
                     use super::convexity::ConvexityParameters;
-                    let params = self.convexity_params.clone().unwrap_or_else(|| {
-                        match self.currency {
-                            Currency::USD => ConvexityParameters::usd_sofr(),
-                            Currency::EUR => ConvexityParameters::eur_euribor(),
-                            Currency::GBP => ConvexityParameters::gbp_sonia(),
-                            Currency::JPY => ConvexityParameters::jpy_tonar(),
-                            _ => ConvexityParameters::usd_sofr(), // Default to USD
-                        }
-                    });
+                    let params = self
+                        .convexity_params
+                        .clone()
+                        .unwrap_or_else(|| ConvexityParameters::for_currency(self.currency));
 
-                    let adj = params.calculate_adjustment(time_to_expiry, time_to_maturity);
+                    let adj =
+                        params.calculate_for_future(self.base_date, *expiry, period_end, specs.day_count);
 
                     if self.config.verbose {
+                        let dc_ctx = finstack_core::dates::DayCountCtx::default();
+                        let time_to_expiry = specs
+                            .day_count
+                            .year_fraction(self.base_date, *expiry, dc_ctx)
+                            .unwrap_or(0.0);
+                        let time_to_maturity = specs
+                            .day_count
+                            .year_fraction(self.base_date, period_end, dc_ctx)
+                            .unwrap_or(0.0);
                         tracing::debug!(
                             future_expiry = %expiry,
                             time_to_expiry = time_to_expiry,

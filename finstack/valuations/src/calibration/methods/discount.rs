@@ -226,6 +226,38 @@ impl DiscountCurveCalibrator {
         })
     }
 
+    /// Validate a calibrated discount curve using auto-detected rate environment.
+    ///
+    /// Automatically detects negative rate environments (EUR/CHF/JPY) by checking
+    /// the short-end zero rate, and applies appropriate validation rules.
+    fn validate_calibrated_curve(&self, curve: &DiscountCurve) -> Result<()> {
+        use crate::calibration::validation::{CurveValidator, ValidationConfig};
+
+        if self.config.verbose {
+            tracing::debug!("Validating calibrated discount curve {}", self.curve_id);
+        }
+
+        // Auto-detect negative rate environment by checking short-end zero rate
+        let short_rate = curve.zero(0.25);
+        let validation_config = if short_rate < 0.0 {
+            // Negative rate environment (EUR/CHF/JPY) - allow non-monotone DFs
+            ValidationConfig::negative_rates()
+        } else {
+            // Positive rate environment - enforce strict monotonicity
+            ValidationConfig::default()
+        };
+
+        curve
+            .validate(&validation_config)
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated discount curve {} failed validation: {}",
+                    self.curve_id, e
+                ),
+                category: "yield_curve_validation".to_string(),
+            })
+    }
+
     /// Calculate settlement date from base date using business-day calendar.
     ///
     /// Uses the configured calendar (or currency default) to properly compute
@@ -708,65 +740,10 @@ impl DiscountCurveCalibrator {
                 continue;
             }
 
-            // Store residual with descriptive key when possible
-            let key = match quote {
-                RatesQuote::Deposit {
-                    maturity,
-                    day_count,
-                    ..
-                } => {
-                    format!(
-                        "DEP-{}-{:?}-{:06}",
-                        maturity, day_count, residual_key_counter
-                    )
-                }
-                RatesQuote::FRA {
-                    start,
-                    end,
-                    day_count,
-                    ..
-                } => {
-                    format!(
-                        "FRA-{}-{}-{:?}-{:06}",
-                        start, end, day_count, residual_key_counter
-                    )
-                }
-                RatesQuote::Future { expiry, specs, .. } => {
-                    format!(
-                        "FUT-{}-{}m-{:?}-{:06}",
-                        expiry, specs.delivery_months, specs.day_count, residual_key_counter
-                    )
-                }
-                RatesQuote::Swap {
-                    maturity,
-                    index,
-                    fixed_freq,
-                    float_freq,
-                    ..
-                } => {
-                    format!(
-                        "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
-                        index.as_str(),
-                        maturity,
-                        fixed_freq,
-                        float_freq,
-                        residual_key_counter
-                    )
-                }
-                RatesQuote::BasisSwap {
-                    maturity,
-                    primary_index,
-                    reference_index,
-                    ..
-                } => {
-                    format!(
-                        "BASIS-{}-{}vs{}-{:06}",
-                        maturity, primary_index, reference_index, residual_key_counter
-                    )
-                }
-            };
+            // Store residual with descriptive key
+            let key = quote.format_residual_key(residual_key_counter);
             residual_key_counter += 1;
-            residuals.insert(key.clone(), final_residual);
+            residuals.insert(key, final_residual);
             total_iterations += 1;
 
             // Add trace entry if explanation is enabled
@@ -805,30 +782,7 @@ impl DiscountCurveCalibrator {
             })?;
 
         // Validate the calibrated curve
-        if self.config.verbose {
-            tracing::debug!("Validating calibrated discount curve {}", self.curve_id);
-        }
-
-        // Use the CurveValidator trait to validate the curve
-        // Auto-detect negative rate environment by checking if short-end zero rate is negative
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        let short_rate = curve.zero(0.25);
-        let validation_config = if short_rate < 0.0 {
-            // Negative rate environment (EUR/CHF/JPY) - allow non-monotone DFs
-            ValidationConfig::negative_rates()
-        } else {
-            // Positive rate environment - enforce strict monotonicity
-            ValidationConfig::default()
-        };
-        curve
-            .validate(&validation_config)
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!(
-                    "Calibrated discount curve {} failed validation: {}",
-                    self.curve_id, e
-                ),
-                category: "yield_curve_validation".to_string(),
-            })?;
+        self.validate_calibrated_curve(&curve)?;
 
         // Create calibration report with comprehensive metadata
         let mut report = CalibrationReport::for_type_with_tolerance(
@@ -1033,23 +987,8 @@ impl DiscountCurveCalibrator {
                 category: "yield_curve_global_solve".to_string(),
             })?;
 
-        // Validate calibrated curve (reuse monotonicity rules)
-        use crate::calibration::validation::{CurveValidator, ValidationConfig};
-        let short_rate = curve.zero(0.25);
-        let validation_config = if short_rate < 0.0 {
-            ValidationConfig::negative_rates()
-        } else {
-            ValidationConfig::default()
-        };
-        curve
-            .validate(&validation_config)
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!(
-                    "Calibrated discount curve {} failed validation: {}",
-                    self.curve_id, e
-                ),
-                category: "yield_curve_validation".to_string(),
-            })?;
+        // Validate calibrated curve
+        self.validate_calibrated_curve(&curve)?;
 
         // Compute residuals for report
         let mut residuals_map = BTreeMap::new();
@@ -1190,35 +1129,15 @@ impl DiscountCurveCalibrator {
                 let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
                     Some(adj)
                 } else {
-                    // Auto-calculate convexity adjustment based on time to expiry
-                    let time_to_expiry = specs
-                        .day_count
-                        .year_fraction(
-                            self.base_date,
-                            *expiry,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-
-                    let time_to_maturity = specs
-                        .day_count
-                        .year_fraction(
-                            self.base_date,
-                            period_end,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-
-                    // Always apply convexity adjustment per market practice
+                    // Auto-calculate convexity adjustment using currency-specific parameters
                     use super::convexity::ConvexityParameters;
-                    let params = match self.currency {
-                        Currency::USD => ConvexityParameters::usd_sofr(),
-                        Currency::EUR => ConvexityParameters::eur_euribor(),
-                        Currency::GBP => ConvexityParameters::gbp_sonia(),
-                        Currency::JPY => ConvexityParameters::jpy_tonar(),
-                        _ => ConvexityParameters::usd_sofr(), // Default to USD
-                    };
-                    Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
+                    let params = ConvexityParameters::for_currency(self.currency);
+                    Some(params.calculate_for_future(
+                        self.base_date,
+                        *expiry,
+                        period_end,
+                        specs.day_count,
+                    ))
                 };
 
                 let mut future = InterestRateFuture::builder()
@@ -1235,7 +1154,10 @@ impl DiscountCurveCalibrator {
                     .discount_curve_id(finstack_core::types::CurveId::from("CALIB_CURVE"))
                     .forward_id(finstack_core::types::CurveId::from("CALIB_FWD"))
                     .build()
-                    .expect("IRFuture builder should succeed with valid calibration data");
+                    .map_err(|e| finstack_core::Error::Calibration {
+                        message: format!("IRFuture builder failed for expiry {}: {}", expiry, e),
+                        category: "yield_curve_bootstrap".to_string(),
+                    })?;
 
                 // Set contract specs from the quote with calculated convexity
                 future = future.with_contract_specs(
@@ -1525,19 +1447,6 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
             CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian,
             } => self.calibrate_global(instruments, base_context, use_analytical_jacobian),
-        }
-    }
-}
-
-impl RatesQuote {
-    /// Get the quote type as a string.
-    pub fn get_type(&self) -> &'static str {
-        match self {
-            RatesQuote::Deposit { .. } => "Deposit",
-            RatesQuote::FRA { .. } => "FRA",
-            RatesQuote::Future { .. } => "Future",
-            RatesQuote::Swap { .. } => "Swap",
-            RatesQuote::BasisSwap { .. } => "BasisSwap",
         }
     }
 }
