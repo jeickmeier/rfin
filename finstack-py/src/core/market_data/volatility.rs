@@ -3,9 +3,9 @@
 //! This module provides access to:
 //! - `VolatilityConvention`: enum for Normal, Lognormal, and ShiftedLognormal conventions
 //! - Pricing functions: `bachelier_price`, `black_price`, `black_shifted_price`
-//! - `convert_volatility`: utility to convert between conventions preserving option prices
+//! - `convert_atm_volatility`: utility to convert ATM volatility between conventions
 use finstack_core::volatility::{
-    bachelier_price, black_price, black_shifted_price, convert_volatility, VolatilityConvention,
+    bachelier_price, black_price, black_shifted_price, convert_atm_volatility, VolatilityConvention,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -165,7 +165,60 @@ pub fn py_black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shi
     black_shifted_price(forward, strike, sigma, t, shift)
 }
 
+/// Convert ATM volatility between conventions by equating option prices.
+///
+/// This function performs ATM (at-the-money, strike = forward) volatility conversion.
+/// For surface-aware or strike-specific conversions, use a volatility surface.
+///
+/// Parameters
+/// ----------
+/// vol : float
+///     Input volatility (must be positive and finite).
+/// from_convention : VolatilityConvention
+///     Source convention.
+/// to_convention : VolatilityConvention
+///     Target convention.
+/// forward_rate : float
+///     Forward rate for the underlying.
+/// time_to_expiry : float
+///     Time to expiry in years (must be non-negative).
+///
+/// Returns
+/// -------
+/// float
+///     Converted volatility in the target convention.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If vol is not positive/finite, time_to_expiry is negative,
+///     or forward_rate is non-positive for lognormal conventions.
+#[pyfunction(
+    name = "convert_atm_volatility",
+    signature = (vol, from_convention, to_convention, forward_rate, time_to_expiry),
+    text_signature = "(vol, from_convention, to_convention, forward_rate, time_to_expiry)"
+)]
+pub fn py_convert_atm_volatility(
+    vol: f64,
+    from_convention: PyRef<PyVolatilityConvention>,
+    to_convention: PyRef<PyVolatilityConvention>,
+    forward_rate: f64,
+    time_to_expiry: f64,
+) -> PyResult<f64> {
+    convert_atm_volatility(
+        vol,
+        from_convention.inner,
+        to_convention.inner,
+        forward_rate,
+        time_to_expiry,
+    )
+    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// Convert volatility between conventions by equating option prices.
+///
+/// .. deprecated:: 0.2.0
+///     Use :func:`convert_atm_volatility` instead, which provides explicit error handling.
 ///
 /// Parameters
 /// ----------
@@ -180,15 +233,15 @@ pub fn py_black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shi
 /// time_to_expiry : float
 ///     Time to expiry in years.
 /// zero_threshold : float, optional
-///     Threshold below which rates are considered zero (default 1e-8).
+///     Threshold below which rates are considered zero (default 1e-8). **Ignored**.
 ///
 /// Returns
 /// -------
 /// float
-///     Converted volatility in the target convention.
+///     Converted volatility in the target convention. Returns input volatility on error.
 #[pyfunction(
     name = "convert_volatility",
-    signature = (vol, from_convention, to_convention, forward_rate, time_to_expiry, zero_threshold=1e-8),
+    signature = (vol, from_convention, to_convention, forward_rate, time_to_expiry, _zero_threshold=1e-8),
     text_signature = "(vol, from_convention, to_convention, forward_rate, time_to_expiry, zero_threshold=1e-8)"
 )]
 pub fn py_convert_volatility(
@@ -197,16 +250,16 @@ pub fn py_convert_volatility(
     to_convention: PyRef<PyVolatilityConvention>,
     forward_rate: f64,
     time_to_expiry: f64,
-    zero_threshold: f64,
+    _zero_threshold: f64,
 ) -> f64 {
-    convert_volatility(
+    convert_atm_volatility(
         vol,
         from_convention.inner,
         to_convention.inner,
         forward_rate,
         time_to_expiry,
-        zero_threshold,
     )
+    .unwrap_or(vol)
 }
 
 pub(crate) fn register<'py>(
@@ -223,6 +276,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(py_bachelier_price, &module)?)?;
     module.add_function(wrap_pyfunction!(py_black_price, &module)?)?;
     module.add_function(wrap_pyfunction!(py_black_shifted_price, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_convert_atm_volatility, &module)?)?;
     module.add_function(wrap_pyfunction!(py_convert_volatility, &module)?)?;
 
     let exports = [
@@ -230,6 +284,7 @@ pub(crate) fn register<'py>(
         "bachelier_price",
         "black_price",
         "black_shifted_price",
+        "convert_atm_volatility",
         "convert_volatility",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;

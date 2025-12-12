@@ -29,7 +29,8 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use super::rounding::{
-    amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64, AmountRepr,
+    amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64,
+    try_amount_from_repr, AmountRepr,
 };
 
 /// Helper function to format integers with thousands separators.
@@ -160,6 +161,11 @@ impl Money {
     /// - `amount`: monetary amount expressed as an `f64`
     /// - `currency`: target [`Currency`]
     ///
+    /// # Panics
+    ///
+    /// Panics if `amount` is not finite (NaN or infinity). Use [`Money::try_new`]
+    /// for a fallible alternative that returns `Result` instead of panicking.
+    ///
     /// # Examples
     /// ```rust
     /// use finstack_core::money::Money;
@@ -186,12 +192,66 @@ impl Money {
         }
     }
 
+    /// Fallible constructor for [`Money`] using ISO 4217 minor units.
+    ///
+    /// Returns an error instead of panicking when the amount is non-finite.
+    /// Use this at API boundaries or when processing untrusted input.
+    ///
+    /// # Parameters
+    /// - `amount`: monetary amount expressed as an `f64`
+    /// - `currency`: target [`Currency`]
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Input(InputError::NonFiniteValue)`](crate::error::InputError::NonFiniteValue)
+    /// if `amount` is NaN or infinity.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// // Valid input succeeds
+    /// let amt = Money::try_new(10.005, Currency::USD).unwrap();
+    /// assert_eq!(format!("{}", amt), "USD 10.01");
+    ///
+    /// // Invalid input returns error
+    /// let err = Money::try_new(f64::NAN, Currency::USD);
+    /// assert!(err.is_err());
+    /// ```
+    #[inline]
+    pub fn try_new(amount: f64, currency: Currency) -> Result<Self, Error> {
+        if !amount.is_finite() {
+            return Err(Error::Input(crate::error::InputError::NonFiniteValue {
+                kind: if amount.is_nan() {
+                    "NaN".to_string()
+                } else if amount.is_sign_positive() {
+                    "infinity".to_string()
+                } else {
+                    "-infinity".to_string()
+                },
+            }));
+        }
+        let dp = currency.decimals();
+        let mode = RoundingMode::Bankers;
+        let rounded = round_f64(amount, dp as i32, mode);
+        Ok(Self {
+            amount: rounded,
+            currency,
+        })
+    }
+
     /// Create a new [`Money`] value using an explicit configuration.
     ///
     /// # Parameters
     /// - `amount`: monetary amount expressed as an `f64`
     /// - `currency`: target [`Currency`]
     /// - `cfg`: rounding configuration to apply during ingestion
+    ///
+    /// # Panics
+    ///
+    /// Panics if `amount` is not finite (NaN or infinity). Use [`Money::try_new_with_config`]
+    /// for a fallible alternative that returns `Result` instead of panicking.
     ///
     /// # Examples
     /// ```rust
@@ -224,6 +284,67 @@ impl Money {
         }
     }
 
+    /// Fallible constructor for [`Money`] using an explicit configuration.
+    ///
+    /// Returns an error instead of panicking when the amount is non-finite.
+    /// Use this at API boundaries or when processing untrusted input.
+    ///
+    /// # Parameters
+    /// - `amount`: monetary amount expressed as an `f64`
+    /// - `currency`: target [`Currency`]
+    /// - `cfg`: rounding configuration to apply during ingestion
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Input(InputError::NonFiniteValue)`](crate::error::InputError::NonFiniteValue)
+    /// if `amount` is NaN or infinity.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::config::FinstackConfig;
+    ///
+    /// let mut cfg = FinstackConfig::default();
+    /// cfg.rounding
+    ///     .ingest_scale
+    ///     .overrides
+    ///     .insert(Currency::USD, 3);
+    ///
+    /// // Valid input succeeds
+    /// let amt = Money::try_new_with_config(1.2345, Currency::USD, &cfg).unwrap();
+    /// assert!((amt.amount() - 1.234).abs() < 1e-9);
+    ///
+    /// // Invalid input returns error
+    /// let err = Money::try_new_with_config(f64::INFINITY, Currency::USD, &cfg);
+    /// assert!(err.is_err());
+    /// ```
+    #[inline]
+    pub fn try_new_with_config(
+        amount: f64,
+        currency: Currency,
+        cfg: &FinstackConfig,
+    ) -> Result<Self, Error> {
+        if !amount.is_finite() {
+            return Err(Error::Input(crate::error::InputError::NonFiniteValue {
+                kind: if amount.is_nan() {
+                    "NaN".to_string()
+                } else if amount.is_sign_positive() {
+                    "infinity".to_string()
+                } else {
+                    "-infinity".to_string()
+                },
+            }));
+        }
+        let dp = cfg.ingest_scale(currency);
+        let mode = cfg.rounding.mode;
+        let rounded = round_f64(amount, dp as i32, mode);
+        Ok(Self {
+            amount: rounded,
+            currency,
+        })
+    }
+
     /// Amount accessor (by value).
     #[inline]
     pub fn amount(&self) -> f64 {
@@ -246,6 +367,67 @@ impl Money {
     #[inline]
     pub fn into_parts(self) -> (f64, Currency) {
         (amount_from_repr(self.amount), self.currency)
+    }
+
+    // ---------------------------------------------------------------------
+    // Fallible accessors
+    // ---------------------------------------------------------------------
+
+    /// Fallible amount accessor.
+    ///
+    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
+    /// cannot be converted to f64. Use this at API boundaries when explicit
+    /// error handling is preferred over panics.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amt = Money::new(1_000_000.0, Currency::USD);
+    /// assert_eq!(amt.try_amount().unwrap(), 1_000_000.0);
+    /// ```
+    #[inline]
+    pub fn try_amount(&self) -> Result<f64, Error> {
+        try_amount_from_repr(self.amount)
+    }
+
+    /// Fallible consuming amount accessor.
+    ///
+    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
+    /// cannot be converted to f64.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amt = Money::new(1_000_000.0, Currency::USD);
+    /// assert_eq!(amt.try_into_amount().unwrap(), 1_000_000.0);
+    /// ```
+    #[inline]
+    pub fn try_into_amount(self) -> Result<f64, Error> {
+        try_amount_from_repr(self.amount)
+    }
+
+    /// Fallible consuming parts accessor.
+    ///
+    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
+    /// cannot be converted to f64.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amt = Money::new(1_000_000.0, Currency::USD);
+    /// let (value, ccy) = amt.try_into_parts().unwrap();
+    /// assert_eq!(value, 1_000_000.0);
+    /// assert_eq!(ccy, Currency::USD);
+    /// ```
+    #[inline]
+    pub fn try_into_parts(self) -> Result<(f64, Currency), Error> {
+        Ok((try_amount_from_repr(self.amount)?, self.currency))
     }
 
     // ---------------------------------------------------------------------
@@ -483,10 +665,30 @@ macro_rules! money {
 }
 
 // -------------------------------------------------------------------------
-// Unchecked arithmetic (default) – currency must match (debug_assert)
+// Unchecked arithmetic – currency must match or panic
 // -------------------------------------------------------------------------
+// NOTE: AddAssign and SubAssign panic on currency mismatch because the standard
+// library traits do not support fallible operations. For fallible arithmetic,
+// use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
 
 impl AddAssign for Money {
+    /// Adds another [`Money`] value to this one in place.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `rhs` has a different currency than `self`. For fallible
+    /// addition that returns `Result` instead of panicking, use [`Money::checked_add`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let mut total = Money::new(100.0, Currency::USD);
+    /// total += Money::new(50.0, Currency::USD);
+    /// assert_eq!(total.amount(), 150.0);
+    /// ```
     fn add_assign(&mut self, rhs: Self) {
         ensure_same_currency(self, &rhs)
             .expect("Currency mismatch in AddAssign - currencies must match");
@@ -495,6 +697,23 @@ impl AddAssign for Money {
 }
 
 impl SubAssign for Money {
+    /// Subtracts another [`Money`] value from this one in place.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `rhs` has a different currency than `self`. For fallible
+    /// subtraction that returns `Result` instead of panicking, use [`Money::checked_sub`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let mut total = Money::new(100.0, Currency::USD);
+    /// total -= Money::new(30.0, Currency::USD);
+    /// assert_eq!(total.amount(), 70.0);
+    /// ```
     fn sub_assign(&mut self, rhs: Self) {
         ensure_same_currency(self, &rhs)
             .expect("Currency mismatch in SubAssign - currencies must match");
@@ -625,5 +844,178 @@ mod tests {
             crate::money::fx::FxConversionPolicy::CashflowDate,
         );
         assert!(res.is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // Fallible accessor tests (try_amount, try_into_amount, try_into_parts)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn try_amount_returns_ok_for_normal_values() {
+        let m = Money::new(12345.67, Currency::USD);
+        let result = m.try_amount().expect("Conversion should succeed");
+        assert!((result - 12345.67).abs() < 1e-10);
+    }
+
+    #[test]
+    fn try_into_amount_returns_ok_for_normal_values() {
+        let m = Money::new(999.99, Currency::EUR);
+        let result = m.try_into_amount().expect("Conversion should succeed");
+        assert!((result - 999.99).abs() < 1e-10);
+    }
+
+    #[test]
+    fn try_into_parts_returns_ok_for_normal_values() {
+        let m = Money::new(500.0, Currency::GBP);
+        let (amount, currency) = m.try_into_parts().expect("Conversion should succeed");
+        assert!((amount - 500.0).abs() < 1e-10);
+        assert_eq!(currency, Currency::GBP);
+    }
+
+    #[test]
+    fn amount_does_not_silently_return_zero_for_large_values() {
+        // This test documents the fix: large values must NOT silently become 0.
+        // Prior to the fix, conversion failure would return 0.0 silently.
+        let large_amount = Money::new(1_000_000_000_000.0, Currency::USD);
+        let amount = large_amount.amount();
+        assert!(
+            amount > 0.0,
+            "Large monetary amount must not silently become zero"
+        );
+        assert!(
+            (amount - 1_000_000_000_000.0).abs() < 1e3,
+            "Amount should preserve the large value"
+        );
+    }
+
+    #[test]
+    fn try_amount_preserves_negative_values() {
+        let m = Money::new(-1_000_000.0, Currency::JPY);
+        let amount = m.try_amount().expect("Conversion should succeed");
+        assert!(amount < 0.0, "Negative values must remain negative");
+    }
+
+    // -------------------------------------------------------------------------
+    // Fallible constructor tests (try_new, try_new_with_config)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn try_new_succeeds_for_finite_values() {
+        let m = Money::try_new(123.45, Currency::USD).expect("Finite value should succeed");
+        assert!((m.amount() - 123.45).abs() < 1e-10);
+        assert_eq!(m.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn try_new_returns_error_for_nan() {
+        let result = Money::try_new(f64::NAN, Currency::USD);
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(crate::error::Error::Input(
+                crate::error::InputError::NonFiniteValue { kind }
+            )) if kind == "NaN"
+        ));
+    }
+
+    #[test]
+    fn try_new_returns_error_for_positive_infinity() {
+        let result = Money::try_new(f64::INFINITY, Currency::EUR);
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(crate::error::Error::Input(
+                crate::error::InputError::NonFiniteValue { kind }
+            )) if kind == "infinity"
+        ));
+    }
+
+    #[test]
+    fn try_new_returns_error_for_negative_infinity() {
+        let result = Money::try_new(f64::NEG_INFINITY, Currency::GBP);
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(crate::error::Error::Input(
+                crate::error::InputError::NonFiniteValue { kind }
+            )) if kind == "-infinity"
+        ));
+    }
+
+    #[test]
+    fn try_new_with_config_succeeds_for_finite_values() {
+        let mut cfg = FinstackConfig::default();
+        cfg.rounding
+            .ingest_scale
+            .overrides
+            .insert(Currency::USD, 3);
+        let m =
+            Money::try_new_with_config(1.2345, Currency::USD, &cfg).expect("Finite should succeed");
+        assert!((m.amount() - 1.234).abs() < 1e-9);
+    }
+
+    #[test]
+    fn try_new_with_config_returns_error_for_non_finite() {
+        let cfg = FinstackConfig::default();
+        let result = Money::try_new_with_config(f64::NAN, Currency::USD, &cfg);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_new_handles_zero() {
+        let m = Money::try_new(0.0, Currency::USD).expect("Zero should succeed");
+        assert_eq!(m.amount(), 0.0);
+    }
+
+    #[test]
+    fn try_new_handles_negative_zero() {
+        let m = Money::try_new(-0.0, Currency::USD).expect("Negative zero should succeed");
+        // -0.0 == 0.0 in floating point
+        assert_eq!(m.amount(), 0.0);
+    }
+
+    #[test]
+    fn try_new_handles_very_small_values() {
+        let small = 1e-15;
+        let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
+        // Value will be rounded to currency decimals (2 for USD), so it becomes 0
+        assert_eq!(m.amount(), 0.0);
+    }
+
+    #[test]
+    fn try_new_handles_large_finite_values() {
+        let large = 1e15;
+        let m = Money::try_new(large, Currency::USD).expect("Large finite value should succeed");
+        assert!(m.amount() > 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Currency mismatch")]
+    fn add_assign_panics_on_currency_mismatch() {
+        let mut usd = Money::new(100.0, Currency::USD);
+        let eur = Money::new(50.0, Currency::EUR);
+        usd += eur;
+    }
+
+    #[test]
+    #[should_panic(expected = "Currency mismatch")]
+    fn sub_assign_panics_on_currency_mismatch() {
+        let mut usd = Money::new(100.0, Currency::USD);
+        let eur = Money::new(50.0, Currency::EUR);
+        usd -= eur;
+    }
+
+    #[test]
+    fn add_assign_succeeds_for_matching_currencies() {
+        let mut total = Money::new(100.0, Currency::USD);
+        total += Money::new(50.0, Currency::USD);
+        assert_eq!(total.amount(), 150.0);
+    }
+
+    #[test]
+    fn sub_assign_succeeds_for_matching_currencies() {
+        let mut total = Money::new(100.0, Currency::USD);
+        total -= Money::new(30.0, Currency::USD);
+        assert_eq!(total.amount(), 70.0);
     }
 }

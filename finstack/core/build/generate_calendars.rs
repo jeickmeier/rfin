@@ -92,19 +92,19 @@ impl<'de> Deserialize<'de> for MonthName {
     {
         let s = String::deserialize(deserializer)?.to_lowercase();
         match s.as_str() {
-            "january" => Ok(MonthName::January),
-            "february" => Ok(MonthName::February),
-            "march" => Ok(MonthName::March),
-            "april" => Ok(MonthName::April),
-            "may" => Ok(MonthName::May),
-            "june" => Ok(MonthName::June),
-            "july" => Ok(MonthName::July),
-            "august" => Ok(MonthName::August),
-            "september" => Ok(MonthName::September),
-            "october" => Ok(MonthName::October),
-            "november" => Ok(MonthName::November),
-            "december" => Ok(MonthName::December),
-            _ => Err(serde::de::Error::custom(format!("Unknown month: {}", s))),
+            "january" => Ok(Self::January),
+            "february" => Ok(Self::February),
+            "march" => Ok(Self::March),
+            "april" => Ok(Self::April),
+            "may" => Ok(Self::May),
+            "june" => Ok(Self::June),
+            "july" => Ok(Self::July),
+            "august" => Ok(Self::August),
+            "september" => Ok(Self::September),
+            "october" => Ok(Self::October),
+            "november" => Ok(Self::November),
+            "december" => Ok(Self::December),
+            _ => Err(serde::de::Error::custom(format!("Unknown month: {s}"))),
         }
     }
 }
@@ -116,14 +116,14 @@ impl<'de> Deserialize<'de> for WeekdayName {
     {
         let s = String::deserialize(deserializer)?.to_lowercase();
         match s.as_str() {
-            "monday" => Ok(WeekdayName::Monday),
-            "tuesday" => Ok(WeekdayName::Tuesday),
-            "wednesday" => Ok(WeekdayName::Wednesday),
-            "thursday" => Ok(WeekdayName::Thursday),
-            "friday" => Ok(WeekdayName::Friday),
-            "saturday" => Ok(WeekdayName::Saturday),
-            "sunday" => Ok(WeekdayName::Sunday),
-            _ => Err(serde::de::Error::custom(format!("Unknown weekday: {}", s))),
+            "monday" => Ok(Self::Monday),
+            "tuesday" => Ok(Self::Tuesday),
+            "wednesday" => Ok(Self::Wednesday),
+            "thursday" => Ok(Self::Thursday),
+            "friday" => Ok(Self::Friday),
+            "saturday" => Ok(Self::Saturday),
+            "sunday" => Ok(Self::Sunday),
+            _ => Err(serde::de::Error::custom(format!("Unknown weekday: {s}"))),
         }
     }
 }
@@ -135,12 +135,9 @@ impl<'de> Deserialize<'de> for DirectionName {
     {
         let s = String::deserialize(deserializer)?.to_lowercase();
         match s.as_str() {
-            "after" => Ok(DirectionName::After),
-            "before" => Ok(DirectionName::Before),
-            _ => Err(serde::de::Error::custom(format!(
-                "Unknown direction: {}",
-                s
-            ))),
+            "after" => Ok(Self::After),
+            "before" => Ok(Self::Before),
+            _ => Err(serde::de::Error::custom(format!("Unknown direction: {s}"))),
         }
     }
 }
@@ -152,9 +149,9 @@ impl<'de> Deserialize<'de> for ObservedName {
     {
         let s = String::deserialize(deserializer)?.to_lowercase();
         match s.as_str() {
-            "next_monday" => Ok(ObservedName::NextMonday),
-            "fri_if_sat_mon_if_sun" => Ok(ObservedName::FriIfSatMonIfSun),
-            _ => Err(serde::de::Error::custom(format!("Unknown observed: {}", s))),
+            "next_monday" => Ok(Self::NextMonday),
+            "fri_if_sat_mon_if_sun" => Ok(Self::FriIfSatMonIfSun),
+            _ => Err(serde::de::Error::custom(format!("Unknown observed: {s}"))),
         }
     }
 }
@@ -162,18 +159,18 @@ impl<'de> Deserialize<'de> for ObservedName {
 impl MonthName {
     fn to_rust_code(self) -> &'static str {
         match self {
-            MonthName::January => "Month::January",
-            MonthName::February => "Month::February",
-            MonthName::March => "Month::March",
-            MonthName::April => "Month::April",
-            MonthName::May => "Month::May",
-            MonthName::June => "Month::June",
-            MonthName::July => "Month::July",
-            MonthName::August => "Month::August",
-            MonthName::September => "Month::September",
-            MonthName::October => "Month::October",
-            MonthName::November => "Month::November",
-            MonthName::December => "Month::December",
+            Self::January => "Month::January",
+            Self::February => "Month::February",
+            Self::March => "Month::March",
+            Self::April => "Month::April",
+            Self::May => "Month::May",
+            Self::June => "Month::June",
+            Self::July => "Month::July",
+            Self::August => "Month::August",
+            Self::September => "Month::September",
+            Self::October => "Month::October",
+            Self::November => "Month::November",
+            Self::December => "Month::December",
         }
     }
 }
@@ -181,13 +178,13 @@ impl MonthName {
 impl WeekdayName {
     fn to_rust_code(self) -> &'static str {
         match self {
-            WeekdayName::Monday => "Weekday::Monday",
-            WeekdayName::Tuesday => "Weekday::Tuesday",
-            WeekdayName::Wednesday => "Weekday::Wednesday",
-            WeekdayName::Thursday => "Weekday::Thursday",
-            WeekdayName::Friday => "Weekday::Friday",
-            WeekdayName::Saturday => "Weekday::Saturday",
-            WeekdayName::Sunday => "Weekday::Sunday",
+            Self::Monday => "Weekday::Monday",
+            Self::Tuesday => "Weekday::Tuesday",
+            Self::Wednesday => "Weekday::Wednesday",
+            Self::Thursday => "Weekday::Thursday",
+            Self::Friday => "Weekday::Friday",
+            Self::Saturday => "Weekday::Saturday",
+            Self::Sunday => "Weekday::Sunday",
         }
     }
 }
@@ -195,8 +192,8 @@ impl WeekdayName {
 impl DirectionName {
     fn to_rust_code(self) -> &'static str {
         match self {
-            DirectionName::After => "Direction::After",
-            DirectionName::Before => "Direction::Before",
+            Self::After => "Direction::After",
+            Self::Before => "Direction::Before",
         }
     }
 }
@@ -204,8 +201,8 @@ impl DirectionName {
 impl ObservedName {
     fn to_rust_code(self) -> &'static str {
         match self {
-            ObservedName::NextMonday => "Observed::NextMonday",
-            ObservedName::FriIfSatMonIfSun => "Observed::FriIfSatMonIfSun",
+            Self::NextMonday => "Observed::NextMonday",
+            Self::FriIfSatMonIfSun => "Observed::FriIfSatMonIfSun",
         }
     }
 }

@@ -19,6 +19,18 @@
 //! - Fast evaluation for pricing and Greeks
 //! - No spurious oscillations (unlike higher-order methods)
 //!
+//! # Evaluation Methods
+//!
+//! Surface queries are often data-driven, so this type provides multiple
+//! evaluation methods with different out-of-bounds handling:
+//!
+//! - [`value_checked`](VolSurface::value_checked) — **Recommended primary API**.
+//!   Returns `Result<f64>` with explicit error for out-of-bounds coordinates.
+//! - [`value_clamped`](VolSurface::value_clamped) — Flat extrapolation: clamps
+//!   coordinates to grid bounds before interpolation. Safe, never panics.
+//! - [`value_unchecked`](VolSurface::value_unchecked) — **Panics** if coordinates
+//!   are out of bounds. Use only when bounds are guaranteed by caller.
+//!
 //! # Examples
 //! ```rust
 //! use finstack_core::market_data::surfaces::vol_surface::VolSurface;
@@ -32,8 +44,14 @@
 //!     .build()
 //!     .expect("VolSurface builder should succeed");
 //! assert_eq!(surface.id(), &CurveId::from("EQ-FLAT"));
+//!
+//! // Recommended: use value_checked for explicit error handling
 //! let v = surface.value_checked(1.5, 100.0).expect("Value lookup should succeed");
 //! assert!(v > 0.2);
+//!
+//! // Or use value_clamped for flat extrapolation (safe, never panics)
+//! let v_clamped = surface.value_clamped(0.5, 80.0); // clamped to grid bounds
+//! assert!(v_clamped > 0.0);
 //! ```
 
 // Box and Vec are available from the standard prelude; no explicit alloc import needed.
@@ -120,7 +138,8 @@ impl VolSurface {
     ///     .row(&[0.23, 0.22])
     ///     .build()
     ///     .expect("VolSurface builder should succeed");
-    /// assert!(surface.value(1.5, 0.015) > 0.22);
+    /// // Use value_checked for safe evaluation with explicit error handling
+    /// assert!(surface.value_checked(1.5, 0.015).unwrap() > 0.22);
     /// ```
     pub fn builder(id: impl Into<CurveId>) -> VolSurfaceBuilder {
         VolSurfaceBuilder {
@@ -137,8 +156,16 @@ impl VolSurface {
     }
 
     /// Bilinear interpolation of vol for given expiry and strike.
-    /// Panics if coordinates are out of bounds - prefer value_checked for safety.
-    pub fn value(&self, expiry: f64, strike: f64) -> f64 {
+    ///
+    /// # Panics
+    ///
+    /// Panics if `expiry` or `strike` is outside the grid bounds.
+    ///
+    /// # Alternatives
+    ///
+    /// - Use [`value_checked`](Self::value_checked) for explicit error handling (recommended).
+    /// - Use [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
+    pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
         self.value_checked(expiry, strike)
             .expect("expiry or strike out of bounds")
     }
@@ -174,6 +201,10 @@ impl VolSurface {
     }
 
     /// Clamped evaluation: clamps to edge values when outside the grid.
+    ///
+    /// Provides flat extrapolation by clamping coordinates to the grid bounds
+    /// before interpolation. This method never panics and is suitable for
+    /// pricing scenarios where out-of-bounds coordinates should use edge values.
     pub fn value_clamped(&self, mut expiry: f64, mut strike: f64) -> f64 {
         if expiry < self.expiries[0] {
             expiry = self.expiries[0];
@@ -201,7 +232,8 @@ impl VolSurface {
                 .last()
                 .expect("VolSurface should have at least one strike");
         }
-        self.value(expiry, strike)
+        // After clamping, coordinates are guaranteed in bounds
+        self.value_unchecked(expiry, strike)
     }
 
     #[inline]
@@ -263,7 +295,7 @@ impl VolSurface {
     ///
     /// // Bump vol at (1.5 years, 100.0 strike) by 1%
     /// let bumped = surface.bump_point(1.5, 100.0, 0.01)?;
-    /// assert!(bumped.value(1.5, 100.0) > surface.value(1.5, 100.0));
+    /// assert!(bumped.value_checked(1.5, 100.0)? > surface.value_checked(1.5, 100.0)?);
     /// # Ok(())
     /// # }
     /// ```
@@ -557,8 +589,7 @@ mod tests {
     #[test]
     fn flat_returns_constant() {
         let vs = flat_surface();
-        assert!((vs.value(1.5, 95.0) - 0.2).abs() < 1e-12);
-        // checked path
+        // Use value_checked (recommended primary API)
         assert!(
             (vs.value_checked(1.5, 95.0)
                 .expect("Value lookup should succeed in test")
@@ -566,7 +597,9 @@ mod tests {
                 .abs()
                 < 1e-12
         );
-        // clamped path (below min strike/expiry)
+        // unchecked path (same behavior, but panics on OOB)
+        assert!((vs.value_unchecked(1.5, 95.0) - 0.2).abs() < 1e-12);
+        // clamped path (below min strike/expiry uses flat extrapolation)
         assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
     }
 

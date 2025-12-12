@@ -62,11 +62,20 @@ impl JsVolSurface {
         )
     }
 
+    /// Interpolated volatility at `(expiry, strike)` with flat extrapolation.
+    ///
+    /// This method clamps coordinates to grid bounds, providing safe evaluation
+    /// that never fails. Use `valueChecked` for explicit error handling or
+    /// `valueUnchecked` when bounds are guaranteed.
     #[wasm_bindgen(js_name = value)]
     pub fn value(&self, expiry: f64, strike: f64) -> f64 {
-        self.inner.value(expiry, strike)
+        self.inner.value_clamped(expiry, strike)
     }
 
+    /// Volatility at `(expiry, strike)`, returning an error if out of bounds.
+    ///
+    /// Use this method when you need explicit error handling for out-of-bounds
+    /// coordinates rather than flat extrapolation.
     #[wasm_bindgen(js_name = valueChecked)]
     pub fn value_checked(&self, expiry: f64, strike: f64) -> Result<f64, JsValue> {
         self.inner
@@ -74,8 +83,22 @@ impl JsVolSurface {
             .map_err(|e| js_error(e.to_string()))
     }
 
+    /// Volatility at `(expiry, strike)`, clamping to the surface domain.
+    ///
+    /// Alias for `value()` - both use flat extrapolation (clamping to edge values).
     #[wasm_bindgen(js_name = valueClamped)]
     pub fn value_clamped(&self, expiry: f64, strike: f64) -> f64 {
         self.inner.value_clamped(expiry, strike)
+    }
+
+    /// Volatility at `(expiry, strike)` without bounds checking.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `expiry` or `strike` is outside the grid bounds.
+    /// Use only when bounds are guaranteed by the caller.
+    #[wasm_bindgen(js_name = valueUnchecked)]
+    pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
+        self.inner.value_unchecked(expiry, strike)
     }
 }

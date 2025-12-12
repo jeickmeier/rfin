@@ -86,6 +86,7 @@ fn schedule_spec_builds_expected_dates() {
         end_of_month: false,
         cds_imm_mode: false,
         graceful: false,
+        allow_missing_calendar: false,
     };
 
     let json = serde_json::to_string(&spec).unwrap();

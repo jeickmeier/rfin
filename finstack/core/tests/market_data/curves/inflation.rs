@@ -4,6 +4,7 @@
 //! - Builder validation and construction
 //! - CPI interpolation
 //! - Inflation rate calculations
+//! - Clone safety (panic-free)
 //! - Serialization roundtrips
 
 use finstack_core::market_data::term_structures::InflationCurve;
@@ -12,6 +13,114 @@ use time::{Date, Month};
 
 fn _test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 1).unwrap()
+}
+
+// =============================================================================
+// Clone Safety Tests
+// =============================================================================
+
+/// Verifies that cloning an InflationCurve is infallible and produces identical results.
+#[test]
+fn clone_is_panic_free_and_equivalent() {
+    let original = InflationCurve::builder("US-CPI")
+        .base_cpi(300.0)
+        .knots([
+            (0.0, 300.0),
+            (1.0, 306.0),
+            (2.0, 312.5),
+            (5.0, 330.0),
+            (10.0, 360.0),
+        ])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Clone should not panic
+    let cloned = original.clone();
+
+    // Verify structural equality
+    assert_eq!(original.id(), cloned.id());
+    assert_eq!(original.base_cpi(), cloned.base_cpi());
+    assert_eq!(original.knots(), cloned.knots());
+    assert_eq!(original.cpi_levels(), cloned.cpi_levels());
+
+    // Verify interpolation produces identical results
+    for t in [0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0] {
+        let orig_cpi = original.cpi(t);
+        let cloned_cpi = cloned.cpi(t);
+        assert!(
+            (orig_cpi - cloned_cpi).abs() < 1e-14,
+            "CPI mismatch after clone at t={}: {} vs {}",
+            t,
+            orig_cpi,
+            cloned_cpi
+        );
+    }
+}
+
+/// Verifies clone works correctly for all interpolation styles.
+#[test]
+fn clone_works_for_all_interp_styles() {
+    let interp_styles = [
+        InterpStyle::Linear,
+        InterpStyle::LogLinear,
+        InterpStyle::CubicHermite,
+    ];
+
+    for style in interp_styles {
+        let curve = InflationCurve::builder("TEST-CPI")
+            .base_cpi(100.0)
+            .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
+            .set_interp(style)
+            .build()
+            .unwrap();
+
+        // Clone should not panic for any interpolation style
+        let cloned = curve.clone();
+
+        // Verify CPI values match
+        for t in [0.0, 0.5, 1.0, 3.0, 5.0] {
+            let orig_cpi = curve.cpi(t);
+            let cloned_cpi = cloned.cpi(t);
+            assert!(
+                (orig_cpi - cloned_cpi).abs() < 1e-14,
+                "Clone CPI mismatch for {:?} at t={}: {} vs {}",
+                style,
+                t,
+                orig_cpi,
+                cloned_cpi
+            );
+        }
+    }
+}
+
+/// Verifies clone works correctly with extrapolated values.
+/// 
+/// Note: InflationCurveBuilder uses default extrapolation policy.
+/// This test verifies cloning preserves extrapolation behavior.
+#[test]
+fn clone_works_with_extrapolation() {
+    let curve = InflationCurve::builder("TEST-CPI")
+        .base_cpi(100.0)
+        .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
+        .build()
+        .unwrap();
+
+    // Clone should not panic
+    let cloned = curve.clone();
+
+    // Verify extrapolated CPI values match beyond the knot range
+    for t in [0.0, 2.5, 5.0, 10.0, 20.0] {
+        let orig_cpi = curve.cpi(t);
+        let cloned_cpi = cloned.cpi(t);
+        assert!(
+            (orig_cpi - cloned_cpi).abs() < 1e-14,
+            "Clone CPI mismatch at t={}: {} vs {}",
+            t,
+            orig_cpi,
+            cloned_cpi
+        );
+    }
 }
 
 // =============================================================================

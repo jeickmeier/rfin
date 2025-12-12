@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "  SPX Vol (1Y, 100 strike): {:.2}%",
-        market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0
+        market.surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
     );
     println!();
 
@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "  SPX Vol (1Y, 100 strike): {:.2}%",
-        market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0
+        market.surface("SPX_VOL")?.value_clamped(1.0, 100.0) * 100.0
     );
     println!();
 

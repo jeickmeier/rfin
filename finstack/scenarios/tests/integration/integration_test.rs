@@ -208,7 +208,9 @@ fn test_vol_surface_parallel_shock() {
 
     // Verify shocked surface
     let shocked_surface = market.surface_ref("SPX").unwrap();
-    let val = shocked_surface.value(1.0, 100.0);
+    let val = shocked_surface
+        .value_checked(1.0, 100.0)
+        .expect("grid point lookup should succeed");
     let expected = 0.20 * 1.15;
     assert!((val - expected).abs() < 1e-6, "Vol should be shocked");
 }

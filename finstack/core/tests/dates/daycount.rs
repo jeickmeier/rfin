@@ -443,8 +443,8 @@ fn actact_isma_full_coupon_period() {
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
 
-    // Full semi-annual period should be 1.0 under ISMA
-    assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
+    // Full semi-annual period = 0.5 year fraction (6 months / 12 months)
+    assert!((yf - 0.5).abs() < TOL, "Expected 0.5, got {}", yf);
 }
 
 #[test]
@@ -472,17 +472,17 @@ fn actact_isma_multiple_frequencies() {
         .year_fraction(start, end, ctx_m)
         .unwrap();
 
-    // Different frequencies give different results for ISMA
-    // Quarterly: 1 full period = 1.0
+    // Different frequencies should give the SAME year fraction for the same period
+    // Quarterly: 1 full period × 0.25 (quarterly) = 0.25 year fraction
     assert!(
-        (yf_q - 1.0).abs() < TOL,
-        "Quarterly expected 1.0, got {}",
+        (yf_q - 0.25).abs() < TOL,
+        "Quarterly expected 0.25, got {}",
         yf_q
     );
-    // Monthly: 3 full periods = 3.0
+    // Monthly: 3 full periods × (1/12) = 0.25 year fraction
     assert!(
-        (yf_m - 3.0).abs() < TOL,
-        "Monthly expected 3.0, got {}",
+        (yf_m - 0.25).abs() < TOL,
+        "Monthly expected 0.25, got {}",
         yf_m
     );
 }
@@ -502,12 +502,12 @@ fn actact_isma_partial_period() {
 
     // ISMA uses actual days in the quasi-coupon period
     // Jan 15 to Apr 15 = 90 actual days
-    // The coupon period (Jan 15 to Jul 15 in 2025) = 181 actual days
-    // Year fraction = 90/181 ≈ 0.4972
-    // Allow small tolerance for ISMA's period-based calculation
+    // The coupon period (Jul 15 to Jan 15 or Jan 15 to Jul 15) ≈ 181 days
+    // Coupon fraction = 90/181 ≈ 0.4972
+    // Year fraction = 0.4972 × 0.5 (semi-annual) ≈ 0.249
     assert!(
-        yf > 0.49 && yf < 0.51,
-        "Expected ~0.5 (actual days ratio), got {}",
+        yf > 0.24 && yf < 0.26,
+        "Expected ~0.25 (year fraction), got {}",
         yf
     );
 }

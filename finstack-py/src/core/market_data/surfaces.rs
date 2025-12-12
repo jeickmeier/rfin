@@ -112,21 +112,39 @@ impl PyVolSurface {
     }
 
     #[pyo3(text_signature = "(self, expiry, strike)")]
-    /// Interpolated volatility at `(expiry, strike)`.
+    /// Interpolated volatility at `(expiry, strike)` with flat extrapolation.
+    ///
+    /// This method clamps coordinates to grid bounds, providing safe evaluation
+    /// that never raises. Use `value_checked` for explicit error handling or
+    /// `value_unchecked` when bounds are guaranteed.
     fn value(&self, expiry: f64, strike: f64) -> f64 {
-        self.inner.value(expiry, strike)
+        self.inner.value_clamped(expiry, strike)
     }
 
     #[pyo3(text_signature = "(self, expiry, strike)")]
-    /// Volatility at `(expiry, strike)`, returning an error if out of bounds.
+    /// Volatility at `(expiry, strike)`, raising an error if out of bounds.
+    ///
+    /// Use this method when you need explicit error handling for out-of-bounds
+    /// coordinates rather than flat extrapolation.
     fn value_checked(&self, expiry: f64, strike: f64) -> PyResult<f64> {
         self.inner.value_checked(expiry, strike).map_err(core_to_py)
     }
 
     #[pyo3(text_signature = "(self, expiry, strike)")]
     /// Volatility at `(expiry, strike)`, clamping to the surface domain.
+    ///
+    /// Alias for `value()` - both use flat extrapolation (clamping to edge values).
     fn value_clamped(&self, expiry: f64, strike: f64) -> f64 {
         self.inner.value_clamped(expiry, strike)
+    }
+
+    #[pyo3(text_signature = "(self, expiry, strike)")]
+    /// Volatility at `(expiry, strike)` without bounds checking.
+    ///
+    /// Panics if `expiry` or `strike` is outside the grid bounds.
+    /// Use only when bounds are guaranteed by the caller.
+    fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
+        self.inner.value_unchecked(expiry, strike)
     }
 
     #[pyo3(text_signature = "(self, expiry, strike, bump_pct)")]

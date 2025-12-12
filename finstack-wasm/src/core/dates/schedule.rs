@@ -211,6 +211,7 @@ impl JsScheduleSpec {
             end_of_month,
             cds_imm_mode,
             graceful,
+            allow_missing_calendar: false,
         };
         JsScheduleSpec { inner }
     }

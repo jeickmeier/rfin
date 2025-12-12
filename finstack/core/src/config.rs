@@ -112,23 +112,15 @@ pub struct FinstackConfig {
 ///
 /// assert_eq!(cfg.output_scale(Currency::KWD), 3);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CurrencyScalePolicy {
     /// Explicit currency overrides for scale.
     pub overrides: HashMap<crate::currency::Currency, u32>,
 }
 
-impl Default for CurrencyScalePolicy {
-    fn default() -> Self {
-        Self {
-            overrides: HashMap::new(),
-        }
-    }
-}
-
 /// Full rounding policy used at IO boundaries and normalization steps.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RoundingPolicy {
     /// Rounding behaviour to apply when mapping fractional values to a scale.
@@ -137,16 +129,6 @@ pub struct RoundingPolicy {
     pub ingest_scale: CurrencyScalePolicy,
     /// Decimal places used at output/serialization for each currency.
     pub output_scale: CurrencyScalePolicy,
-}
-
-impl Default for RoundingPolicy {
-    fn default() -> Self {
-        Self {
-            mode: RoundingMode::Bankers,
-            ingest_scale: CurrencyScalePolicy::default(),
-            output_scale: CurrencyScalePolicy::default(),
-        }
-    }
 }
 
 /// Snapshot of active rounding settings used for result stamping.

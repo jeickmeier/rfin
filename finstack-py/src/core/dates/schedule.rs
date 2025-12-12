@@ -232,7 +232,7 @@ impl fmt::Display for PyStubKind {
     module = "finstack.core.dates.schedule",
     unsendable
 )]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct PyScheduleBuilder {
     inner: ScheduleBuilder<'static>,
     start: Date,
@@ -297,7 +297,7 @@ impl PyScheduleBuilder {
     /// ScheduleBuilder
     ///     Updated builder for chaining.
     fn frequency(&self, frequency: &PyFrequency) -> Self {
-        Self::new_with_builder(self.inner.frequency(frequency.inner), self.start, self.end)
+        Self::new_with_builder(self.inner.clone().frequency(frequency.inner), self.start, self.end)
     }
 
     #[pyo3(text_signature = "(self, stub)")]
@@ -313,7 +313,7 @@ impl PyScheduleBuilder {
     /// ScheduleBuilder
     ///     Updated builder.
     fn stub_rule(&self, stub: &PyStubKind) -> Self {
-        Self::new_with_builder(self.inner.stub_rule(stub.inner), self.start, self.end)
+        Self::new_with_builder(self.inner.clone().stub_rule(stub.inner), self.start, self.end)
     }
 
     #[pyo3(text_signature = "(self, convention, calendar)")]
@@ -336,7 +336,7 @@ impl PyScheduleBuilder {
         calendar: PyRef<PyCalendar>,
     ) -> Self {
         Self::new_with_builder(
-            self.inner.adjust_with(convention.inner, calendar.inner),
+            self.inner.clone().adjust_with(convention.inner, calendar.inner),
             self.start,
             self.end,
         )
@@ -355,7 +355,7 @@ impl PyScheduleBuilder {
     /// ScheduleBuilder
     ///     Updated builder.
     fn end_of_month(&self, enabled: bool) -> Self {
-        Self::new_with_builder(self.inner.end_of_month(enabled), self.start, self.end)
+        Self::new_with_builder(self.inner.clone().end_of_month(enabled), self.start, self.end)
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -366,7 +366,7 @@ impl PyScheduleBuilder {
     /// ScheduleBuilder
     ///     Updated builder configured for CDS IMM alignment.
     fn cds_imm(&self) -> Self {
-        Self::new_with_builder(self.inner.cds_imm(), self.start, self.end)
+        Self::new_with_builder(self.inner.clone().cds_imm(), self.start, self.end)
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -378,6 +378,7 @@ impl PyScheduleBuilder {
     ///     Immutable schedule of generated dates.
     fn build(&self) -> PyResult<PySchedule> {
         self.inner
+            .clone()
             .build()
             .map(|schedule| PySchedule::new(schedule.dates))
             .map_err(core_to_py)
@@ -481,6 +482,7 @@ impl PyScheduleSpec {
                 end_of_month,
                 cds_imm_mode,
                 graceful,
+                allow_missing_calendar: false,
             },
         })
     }

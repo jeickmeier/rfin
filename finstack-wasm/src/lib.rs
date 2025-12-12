@@ -62,6 +62,7 @@ pub use core::types::{
     JsRatingNotch as RatingNotch, PriceId, UnderlyingId,
 };
 pub use core::volatility::{
+    convert_atm_volatility_js as convertAtmVolatility,
     convert_volatility_js as convertVolatility, JsVolatilityConvention as VolatilityConvention,
 };
 pub use valuations::calibration::{

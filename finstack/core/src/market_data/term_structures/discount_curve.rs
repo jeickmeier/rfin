@@ -72,7 +72,7 @@
 //!   - OpenGamma (2013). "Interest Rate Instruments and Market Conventions Guide."
 //!   - ISDA (2006). "2006 ISDA Definitions." Sections on discount factors and rates.
 
-use super::common::{build_interp_input_error, split_points};
+use super::common::{build_interp_input_error, roll_knots, split_points, triangular_weight};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -382,24 +382,6 @@ impl DiscountCurve {
         }
     }
 
-    /// Convenience: discount factor on a specific date `date` given a curve and
-    /// the curve base `base` and `day_count`.
-    /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
-    #[inline]
-    #[deprecated(note = "Use try_df_on_date(...) to avoid silently masking errors.")]
-    pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> f64 {
-        self.try_df_on_date(date, dc)
-            .expect("df_on_date failed; use try_df_on_date for error handling")
-    }
-
-    /// Convenience: discount factor on a specific date using the curve's own day-count.
-    #[inline]
-    #[deprecated(note = "Use try_df_on_date_curve(...) to avoid silently masking errors.")]
-    pub fn df_on_date_curve(&self, date: Date) -> f64 {
-        self.try_df_on_date_curve(date)
-            .expect("df_on_date_curve failed; use try_df_on_date_curve for error handling")
-    }
-
     /// Fallible: discount factor on a specific date `date` using explicit day-count `dc`.
     #[inline]
     pub fn try_df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> crate::Result<f64> {
@@ -699,20 +681,7 @@ impl DiscountCurve {
             .day_count
             .year_fraction(self.base, new_base, DayCountCtx::default())?;
 
-        // Shift knots and filter expired points
-        let rolled_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.dfs.iter())
-            .filter_map(|(&t, &df)| {
-                let new_t = t - dt_years;
-                if new_t > 0.0 {
-                    Some((new_t, df))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let rolled_points = roll_knots(&self.knots, &self.dfs, dt_years);
 
         if rolled_points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
@@ -1162,40 +1131,6 @@ fn validate_forward_rates(knots: &[f64], dfs: &[f64], min_rate: f64) -> crate::R
         }
     }
     Ok(())
-}
-
-/// Calculate triangular weight for key-rate DV01.
-///
-/// Returns a weight in [0, 1] that peaks at `target` and linearly decays to 0
-/// at `prev` and `next`. This function defines the weight based on the **bucket grid**,
-/// ensuring that the sum of all bucket weights at any time t equals 1.0.
-///
-/// # Arguments
-/// * `t` - The time at which to calculate the weight
-/// * `prev` - Previous bucket time (0.0 for first bucket)
-/// * `target` - Target bucket time (peak of the triangle)
-/// * `next` - Next bucket time (f64::INFINITY for last bucket)
-///
-/// # Returns
-/// Weight in [0, 1] representing the contribution of this bucket to the rate at time t.
-#[inline]
-fn triangular_weight(t: f64, prev: f64, target: f64, next: f64) -> f64 {
-    if t <= prev {
-        0.0
-    } else if t <= target {
-        // Rising edge: 0 at prev, 1 at target
-        let denom = (target - prev).max(1e-10);
-        (t - prev) / denom
-    } else if next.is_infinite() {
-        // Last bucket: flat weight of 1.0 beyond target
-        1.0
-    } else if t < next {
-        // Falling edge: 1 at target, 0 at next
-        let denom = (next - target).max(1e-10);
-        (next - t) / denom
-    } else {
-        0.0
-    }
 }
 
 // -----------------------------------------------------------------------------

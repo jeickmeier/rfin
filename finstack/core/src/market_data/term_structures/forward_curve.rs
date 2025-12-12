@@ -67,10 +67,10 @@
 //!   Know About Multiple Interest Rate Curve Bootstrapping but Were Afraid to Ask."
 //!   SSRN Working Paper.
 
-use super::common::{build_interp_allow_any_values, split_points};
+use super::common::{build_interp_allow_any_values, roll_knots, split_points, triangular_weight};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::{Date, DayCount},
+    dates::{Date, DayCount, DayCountCtx},
     error::InputError,
     market_data::traits::{Forward, TermStructure},
     math::interp::types::Interp,
@@ -116,14 +116,6 @@ pub struct ForwardCurve {
 
 impl Clone for ForwardCurve {
     fn clone(&self) -> Self {
-        let interp = super::common::build_interp(
-            self.interp.style(),
-            self.knots.clone(),
-            self.forwards.clone(),
-            self.interp.extrapolation(),
-        )
-        .expect("Clone should not fail for valid curve");
-
         Self {
             id: self.id.clone(),
             base: self.base,
@@ -132,7 +124,7 @@ impl Clone for ForwardCurve {
             tenor: self.tenor,
             knots: self.knots.clone(),
             forwards: self.forwards.clone(),
-            interp,
+            interp: self.interp.clone(),
         }
     }
 }
@@ -427,23 +419,12 @@ impl ForwardCurve {
     /// assert!(rolled.knots().len() < curve.knots().len());
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
-        let dt_years = days as f64 / 365.0;
         let new_base = self.base + time::Duration::days(days);
+        let dt_years = self
+            .day_count
+            .year_fraction(self.base, new_base, DayCountCtx::default())?;
 
-        // Shift knots and filter expired points
-        let rolled_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.forwards.iter())
-            .filter_map(|(&t, &rate)| {
-                let new_t = t - dt_years;
-                if new_t > 0.0 {
-                    Some((new_t, rate))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let rolled_points = roll_knots(&self.knots, &self.forwards, dt_years);
 
         if rolled_points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
@@ -579,51 +560,6 @@ impl TermStructure for ForwardCurve {
 }
 
 // -----------------------------------------------------------------------------
-// Private helper functions
-// -----------------------------------------------------------------------------
-
-/// Find bracket indices for triangular key-rate bumps.
-///
-/// Returns (i_prev, i_next) where:
-/// Calculate triangular weight for key-rate DV01.
-///
-/// Returns a weight in [0, 1] that peaks at `target` and linearly decays to 0
-/// at `prev` and `next`. This function defines the weight based on the **bucket grid**,
-/// ensuring that the sum of all bucket weights at any time t equals 1.0.
-///
-/// # Arguments
-/// * `t` - The time at which to calculate the weight
-/// * `prev` - Previous bucket time (0.0 for first bucket)
-/// * `target` - Target bucket time (peak of the triangle)
-/// * `next` - Next bucket time (f64::INFINITY for last bucket)
-///
-/// # Returns
-/// Weight in [0, 1] representing the contribution of this bucket to the rate at time t.
-#[inline]
-fn triangular_weight(t: f64, prev: f64, target: f64, next: f64) -> f64 {
-    if t <= prev {
-        0.0
-    } else if t <= target {
-        // Rising edge: 0 at prev, 1 at target
-        let denom = (target - prev).max(1e-10);
-        (t - prev) / denom
-    } else if next.is_infinite() {
-        // Last bucket: flat weight of 1.0 beyond target
-        1.0
-    } else if t < next {
-        // Falling edge: 1 at target, 0 at next
-        let denom = (next - target).max(1e-10);
-        (next - t) / denom
-    } else {
-        0.0
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Serialization support
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
@@ -687,6 +623,36 @@ mod tests {
             rate_tail > 0.02,
             "Tail forward should remain positive with FlatForward: {:.6}",
             rate_tail
+        );
+    }
+
+    #[test]
+    fn roll_forward_uses_curve_day_count() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base)
+            .day_count(DayCount::Act360)
+            .knots([(0.05, 0.03), (0.15, 0.035), (0.30, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("ForwardCurve builder should succeed with valid test data");
+
+        // Roll 36 days => Act/360 year fraction = 36/360 = 0.1
+        let rolled = curve.roll_forward(36).expect("roll_forward should succeed");
+        let ks = rolled.knots();
+        assert_eq!(ks.len(), 2, "First knot should expire after rolling");
+        // Original knots were at 0.05, 0.15, 0.30
+        // After rolling 0.1 years: -0.05 (expired), 0.05, 0.20
+        assert!(
+            (ks[0] - 0.05).abs() < 1e-12,
+            "Expected 0.15 - 0.10 = 0.05, got {}",
+            ks[0]
+        );
+        assert!(
+            (ks[1] - 0.20).abs() < 1e-12,
+            "Expected 0.30 - 0.10 = 0.20, got {}",
+            ks[1]
         );
     }
 }

@@ -456,8 +456,8 @@ pub fn measure_vol_surface_shift(
 
     // If specific point requested, measure there
     if let (Some(expiry), Some(strike)) = (reference_expiry, reference_strike) {
-        let vol_t0 = surface_t0.value(expiry, strike);
-        let vol_t1 = surface_t1.value(expiry, strike);
+        let vol_t0 = surface_t0.value_checked(expiry, strike)?;
+        let vol_t1 = surface_t1.value_checked(expiry, strike)?;
 
         // Shift in percentage points
         return Ok((vol_t1 - vol_t0) * 100.0);
@@ -483,8 +483,9 @@ pub fn measure_vol_surface_shift(
         let mid_idx = strikes.len() / 2;
         let strike = strikes[mid_idx];
 
-        let vol_t0 = surface_t0.value(expiry, strike);
-        let vol_t1 = surface_t1.value(expiry, strike);
+        // Grid points are guaranteed in bounds, use unchecked
+        let vol_t0 = surface_t0.value_unchecked(expiry, strike);
+        let vol_t1 = surface_t1.value_unchecked(expiry, strike);
 
         let shift_pct = (vol_t1 - vol_t0) * 100.0;
 

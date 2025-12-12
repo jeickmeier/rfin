@@ -110,6 +110,44 @@ def black_shifted_price(forward: float, strike: float, sigma: float, t: float, s
     """
     ...
 
+def convert_atm_volatility(
+    vol: float,
+    from_convention: VolatilityConvention,
+    to_convention: VolatilityConvention,
+    forward_rate: float,
+    time_to_expiry: float,
+) -> float:
+    """Convert ATM volatility between conventions by equating option prices.
+
+    This function performs ATM (at-the-money, strike = forward) volatility conversion.
+    For surface-aware or strike-specific conversions, use a volatility surface.
+
+    Parameters
+    ----------
+    vol : float
+        Input volatility (must be positive and finite).
+    from_convention : VolatilityConvention
+        Source convention.
+    to_convention : VolatilityConvention
+        Target convention.
+    forward_rate : float
+        Forward rate for the underlying.
+    time_to_expiry : float
+        Time to expiry in years (must be non-negative).
+
+    Returns
+    -------
+    float
+        Converted volatility in the target convention.
+
+    Raises
+    ------
+    ValueError
+        If vol is not positive/finite, time_to_expiry is negative,
+        or forward_rate is non-positive for lognormal conventions.
+    """
+    ...
+
 def convert_volatility(
     vol: float,
     from_convention: VolatilityConvention,
@@ -119,6 +157,9 @@ def convert_volatility(
     zero_threshold: float = 1e-8,
 ) -> float:
     """Convert volatility between conventions by equating option prices.
+
+    .. deprecated:: 0.2.0
+        Use :func:`convert_atm_volatility` instead, which provides explicit error handling.
 
     Parameters
     ----------
@@ -133,12 +174,12 @@ def convert_volatility(
     time_to_expiry : float
         Time to expiry in years.
     zero_threshold : float, optional
-        Threshold below which rates are considered zero (default 1e-8).
+        Threshold below which rates are considered zero (default 1e-8). **Ignored**.
 
     Returns
     -------
     float
-        Converted volatility in the target convention.
+        Converted volatility in the target convention. Returns input volatility on error.
     """
     ...
 
@@ -147,5 +188,6 @@ __all__ = [
     "bachelier_price",
     "black_price",
     "black_shifted_price",
+    "convert_atm_volatility",
     "convert_volatility",
 ]

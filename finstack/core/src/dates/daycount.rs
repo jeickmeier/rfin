@@ -87,10 +87,12 @@
 //! let yf_isda = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
 //!
 //! // ACT/ACT (ISMA): requires frequency for coupon period context
+//! // Returns year fractions: a full 6-month period = 0.5 years
 //! let freq = Frequency::Months(6); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
 //!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None })
 //!     .expect("Year fraction calculation should succeed");
+//! // yf_isma ≈ 0.5 (one full semi-annual period in years)
 //! ```
 
 #![allow(clippy::many_single_char_names)]
@@ -478,8 +480,8 @@ pub enum DayCount {
     ///     DayCountCtx { frequency: Some(freq), ..Default::default() }
     /// ).expect("Year fraction calculation should succeed");
     ///
-    /// // Full semi-annual period = 1.0 in ICMA
-    /// assert!((yf - 1.0).abs() < 1e-6);
+    /// // Full semi-annual period = 0.5 year fraction (6 months / 12 months)
+    /// assert!((yf - 0.5).abs() < 1e-6);
     /// ```
     ///
     /// # References
@@ -707,15 +709,15 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 // -------------------------------------------------------------------------------------------------
 // ACT/ACT (ISMA/ICMA) helper
 // -------------------------------------------------------------------------------------------------
-/// Calculate year fraction for ACT/ACT (ISMA) convention with coupon-period awareness.
+/// Calculate year fraction for ACT/ACT (ISMA/ICMA) convention with coupon-period awareness.
 ///
 /// Unlike ISDA which splits by calendar years, ISMA divides the period into quasi-coupon
-/// periods that match the instrument's payment frequency. This ensures equal valuation
-/// of days within each coupon period.
+/// periods that match the instrument's payment frequency. The year fraction represents
+/// actual time in years, so a full 6-month semi-annual period = 0.5 years.
 ///
 /// The algorithm:
 /// 1. Generate quasi-coupon periods based on the payment frequency
-/// 2. For each period, calculate: (actual days in period) / (actual days in year)
+/// 2. For each period, calculate: (actual days in slice) / (actual days in coupon period) × (coupon period in years)
 /// 3. Sum the fractions from all periods
 ///
 /// This approach ensures that all coupon payments are valued consistently,
@@ -724,6 +726,12 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
     if start == end {
         return Ok(0.0);
     }
+
+    // Coupon length in years based on frequency (e.g., 0.5 for semi-annual, 0.25 for quarterly)
+    let coupon_length_years = match freq {
+        Frequency::Months(m) => m as f64 / 12.0,
+        Frequency::Days(d) => d as f64 / 365.0,
+    };
 
     // For ISMA, we need to work with quasi-coupon periods
     // We'll generate a schedule that encompasses the period and then
@@ -775,7 +783,8 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
                 return Err(InputError::Invalid.into());
             }
 
-            total_fraction += days_in_overlap / coupon_days;
+            // Year fraction = (days in slice / days in coupon period) × coupon period in years
+            total_fraction += (days_in_overlap / coupon_days) * coupon_length_years;
         }
     }
 
@@ -1145,8 +1154,8 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // Under ISMA with coupon-period denominator, a full coupon period is 1.0
-        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
+        // Under ISMA, a full semi-annual period = 0.5 year fraction
+        assert!((yf - 0.5).abs() < 1e-6, "Expected 0.5, got {}", yf);
     }
 
     #[test]
@@ -1168,8 +1177,8 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // Under ISMA with coupon-period denominator, a full coupon period is 1.0
-        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
+        // Under ISMA, a full quarterly period = 0.25 year fraction
+        assert!((yf - 0.25).abs() < 1e-6, "Expected 0.25, got {}", yf);
     }
 
     #[test]
@@ -1214,8 +1223,8 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // Two full semi-annual coupon periods → 2.0
-        assert!((yf - 2.0).abs() < 1e-6, "Expected 2.0, got {}", yf);
+        // Two full semi-annual coupon periods = 2 × 0.5 = 1.0 year fraction
+        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
     }
 
     #[test]
@@ -1237,8 +1246,9 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // Two months out of a 6-month coupon → roughly ~0.33 depending on month lengths
-        assert!(yf > 0.30 && yf < 0.35, "Expected ~0.33, got {}", yf);
+        // Two months out of a 6-month coupon, as year fraction:
+        // ~0.33 coupon fraction × 0.5 (semi-annual) = ~0.167 year fraction
+        assert!(yf > 0.15 && yf < 0.18, "Expected ~0.167, got {}", yf);
     }
 
     #[test]
@@ -1260,8 +1270,9 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // For a one-month coupon with monthly frequency, a full coupon period is 1.0
-        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
+        // For a full monthly period = 1/12 year fraction ≈ 0.0833
+        let expected = 1.0 / 12.0;
+        assert!((yf - expected).abs() < 1e-6, "Expected {}, got {}", expected, yf);
     }
 
     #[test]
@@ -1326,18 +1337,20 @@ mod tests {
             )
             .expect("Year fraction calculation should succeed in test");
 
-        // ISDA splits by calendar year → ~1.0; ISMA (coupon-period denominator) sums full coupons → ~2.0
+        // Both ISDA and ISMA should return ~1.0 for a full year
+        // ISDA splits by calendar year → ~1.0
+        // ISMA sums 2 semi-annual periods × 0.5 each → ~1.0
         assert!(
             yf_isda > 0.99 && yf_isda < 1.01,
             "ISDA: Expected ~1.0, got {}",
             yf_isda
         );
         assert!(
-            yf_isma > 1.99 && yf_isma < 2.01,
-            "ISMA: Expected ~2.0, got {}",
+            yf_isma > 0.99 && yf_isma < 1.01,
+            "ISMA: Expected ~1.0, got {}",
             yf_isma
         );
-        // Expect a difference of roughly 1.0 between methods
-        assert!((yf_isma - yf_isda - 1.0).abs() < 0.05);
+        // Both methods should give approximately the same result for a full year
+        assert!((yf_isma - yf_isda).abs() < 0.02);
     }
 }

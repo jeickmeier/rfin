@@ -60,7 +60,9 @@ fn test_vol_bucket_filtering_by_tenor() {
     let shocked_surface = market.surface_ref("SPX").unwrap();
 
     // 1Y expiry should be shocked (+10%)
-    let shocked_1y_100k = shocked_surface.value(1.0, 100.0);
+    let shocked_1y_100k = shocked_surface
+        .value_checked(1.0, 100.0)
+        .expect("grid point lookup should succeed");
     let expected_1y = 0.20 * 1.10;
     assert!(
         (shocked_1y_100k - expected_1y).abs() < 1e-6,
@@ -70,7 +72,9 @@ fn test_vol_bucket_filtering_by_tenor() {
     );
 
     // Other expiries should be unchanged
-    let unchanged_3m_100k = shocked_surface.value(0.25, 100.0);
+    let unchanged_3m_100k = shocked_surface
+        .value_checked(0.25, 100.0)
+        .expect("grid point lookup should succeed");
     assert!(
         (unchanged_3m_100k - 0.18).abs() < 1e-6,
         "3M should be unchanged: expected 0.18, got {}",
@@ -123,12 +127,16 @@ fn test_vol_bucket_filtering_by_strike() {
 
     // Verify 100 strike is shocked
     let shocked_surface = market.surface_ref("SPX").unwrap();
-    let shocked_100 = shocked_surface.value(1.0, 100.0);
+    let shocked_100 = shocked_surface
+        .value_checked(1.0, 100.0)
+        .expect("grid point lookup should succeed");
     let expected = 0.20 * 1.20;
     assert!((shocked_100 - expected).abs() < 1e-6);
 
     // 90 and 110 should be unchanged
-    let unchanged_90 = shocked_surface.value(1.0, 90.0);
+    let unchanged_90 = shocked_surface
+        .value_checked(1.0, 90.0)
+        .expect("grid point lookup should succeed");
     assert!((unchanged_90 - 0.22).abs() < 1e-6);
 }
 

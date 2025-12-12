@@ -113,20 +113,12 @@ pub struct InflationCurve {
 
 impl Clone for InflationCurve {
     fn clone(&self) -> Self {
-        let interp = super::common::build_interp(
-            self.interp.style(),
-            self.knots.clone(),
-            self.cpi_levels.clone(),
-            self.interp.extrapolation(),
-        )
-        .expect("Clone should not fail for valid curve");
-
         Self {
             id: self.id.clone(),
             base_cpi: self.base_cpi,
             knots: self.knots.clone(),
             cpi_levels: self.cpi_levels.clone(),
-            interp,
+            interp: self.interp.clone(),
         }
     }
 }
